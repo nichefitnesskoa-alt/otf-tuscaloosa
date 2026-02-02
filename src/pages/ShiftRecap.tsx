@@ -15,6 +15,9 @@ import {
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import ManualIntroEntry, { ManualIntroData } from '@/components/ManualIntroEntry';
+import IntroRunEntry, { IntroRunData } from '@/components/IntroRunEntry';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
 const COACHES = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya'] as const;
@@ -80,18 +83,6 @@ interface IntroBooked {
   leadSource?: LeadSource;
 }
 
-interface IntroRun {
-  id: string;
-  memberName?: string;
-  classTime?: string;
-  bookingSource?: BookingSource;
-  processChecklist: string[];
-  leadMeasures: string[];
-  result?: MembershipType;
-  notes?: string;
-  isSelfGen: boolean;
-}
-
 interface SaleOutsideIntro {
   id: string;
   memberName?: string;
@@ -129,7 +120,7 @@ export default function ShiftRecap() {
   const [introsBooked, setIntrosBooked] = useState<IntroBooked[]>([]);
 
   // Intros Run
-  const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
+  const [introsRun, setIntrosRun] = useState<IntroRunData[]>([]);
   
   // Manual Intro Entries
   const [manualIntros, setManualIntros] = useState<ManualIntroData[]>([]);
@@ -177,7 +168,7 @@ export default function ShiftRecap() {
     setIntrosRun(introsRun.filter((_, i) => i !== index));
   };
 
-  const updateIntroRun = (index: number, updates: Partial<IntroRun>) => {
+  const updateIntroRun = (index: number, updates: Partial<IntroRunData>) => {
     setIntrosRun(introsRun.map((intro, i) => 
       i === index ? { ...intro, ...updates } : intro
     ));
@@ -221,6 +212,12 @@ export default function ShiftRecap() {
     ));
   };
 
+  // Commission lookup helper
+  const getCommissionAmount = (membershipType: string): number => {
+    const membership = MEMBERSHIP_TYPES.find(m => m.label === membershipType);
+    return membership?.commission || 0;
+  };
+
   const handleSubmit = async () => {
     // Celebrate!
     confetti({
@@ -254,6 +251,74 @@ export default function ShiftRecap() {
     });
 
     if (result) {
+      // Save intros_booked to database
+      for (const intro of introsBooked) {
+        if (intro.memberName && intro.classDate && intro.coachName) {
+          await supabase.from('intros_booked').insert({
+            member_name: intro.memberName,
+            class_date: intro.classDate,
+            coach_name: intro.coachName,
+            sa_working_shift: intro.saWorkingShift || user?.name || '',
+            fitness_goal: intro.fitnessGoal || null,
+            lead_source: intro.leadSource || 'Source Not Found',
+            shift_recap_id: result.id,
+          });
+        }
+      }
+
+      // Save intros_run to database
+      for (const intro of introsRun) {
+        if (intro.memberName && intro.classTime && intro.result) {
+          const commission = intro.isSelfGen ? getCommissionAmount(intro.result) : 0;
+          await supabase.from('intros_run').insert({
+            member_name: intro.memberName,
+            class_time: intro.classTime,
+            booking_source: intro.bookingSource || null,
+            process_checklist: intro.processChecklist,
+            lead_measures: intro.leadMeasures,
+            result: intro.result,
+            notes: intro.notes || null,
+            is_self_gen: intro.isSelfGen,
+            commission_amount: commission,
+            shift_recap_id: result.id,
+            linked_intro_booked_id: intro.linkedIntroBookedId || null,
+            buy_date: intro.buyDate ? format(intro.buyDate, 'yyyy-MM-dd') : null,
+            sa_name: user?.name || null,
+          });
+        }
+      }
+
+      // Save manual intros as intros_run as well
+      for (const intro of manualIntros) {
+        if (intro.memberName && intro.classTime) {
+          await supabase.from('intros_run').insert({
+            member_name: intro.memberName,
+            class_time: intro.classTime,
+            booking_source: intro.bookingSource || null,
+            result: 'Follow-up needed (no sale yet)',
+            is_self_gen: intro.isSelfGen,
+            commission_amount: 0,
+            shift_recap_id: result.id,
+            claimed_by_ig_lead_id: intro.claimedIGLeadId || null,
+            sa_name: user?.name || null,
+          });
+        }
+      }
+
+      // Save sales outside intro
+      for (const sale of salesOutsideIntro) {
+        if (sale.memberName && sale.membershipType) {
+          const commission = getCommissionAmount(sale.membershipType);
+          await supabase.from('sales_outside_intro').insert({
+            member_name: sale.memberName,
+            lead_source: sale.leadSource || 'Source Not Found',
+            membership_type: sale.membershipType,
+            commission_amount: commission,
+            shift_recap_id: result.id,
+          });
+        }
+      }
+
       toast.success('Shift recap submitted! 🎉', {
         description: 'Great work today! Keep crushing it.',
       });
@@ -629,136 +694,19 @@ export default function ShiftRecap() {
             <Users className="w-4 h-4 text-primary" />
             Intros Run
           </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Select from booked intros or add manually
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {introsRun.map((intro, index) => (
-            <div key={intro.id} className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2 h-6 w-6"
-                onClick={() => removeIntroRun(index)}
-              >
-                <Trash2 className="w-3.5 h-3.5 text-destructive" />
-              </Button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Member Name *</Label>
-                  <Input
-                    value={intro.memberName || ''}
-                    onChange={(e) => updateIntroRun(index, { memberName: e.target.value })}
-                    className="mt-1"
-                    placeholder="Full name"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Class Time *</Label>
-                  <Input
-                    type="time"
-                    value={intro.classTime || ''}
-                    onChange={(e) => updateIntroRun(index, { classTime: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Booking Source</Label>
-                <Select
-                  value={intro.bookingSource || ''}
-                  onValueChange={(v) => updateIntroRun(index, { bookingSource: v as BookingSource })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select source..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BOOKING_SOURCES.map((source) => (
-                      <SelectItem key={source} value={source}>{source}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs mb-2 block">Process Checklist</Label>
-                <div className="space-y-2">
-                  {PROCESS_CHECKLIST.map((item) => (
-                    <div key={item} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`process-${index}-${item}`}
-                        checked={intro.processChecklist?.includes(item)}
-                        onCheckedChange={(checked) => {
-                          const current = intro.processChecklist || [];
-                          updateIntroRun(index, {
-                            processChecklist: checked
-                              ? [...current, item]
-                              : current.filter(i => i !== item)
-                          });
-                        }}
-                      />
-                      <Label htmlFor={`process-${index}-${item}`} className="text-xs font-normal">
-                        {item}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs mb-2 block">Lead Measures</Label>
-                <div className="space-y-2">
-                  {LEAD_MEASURES.map((item) => (
-                    <div key={item} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`lead-${index}-${item}`}
-                        checked={intro.leadMeasures?.includes(item)}
-                        onCheckedChange={(checked) => {
-                          const current = intro.leadMeasures || [];
-                          updateIntroRun(index, {
-                            leadMeasures: checked
-                              ? [...current, item]
-                              : current.filter(i => i !== item)
-                          });
-                        }}
-                      />
-                      <Label htmlFor={`lead-${index}-${item}`} className="text-xs font-normal">
-                        {item}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Result *</Label>
-                <Select
-                  value={intro.result || ''}
-                  onValueChange={(v) => updateIntroRun(index, { result: v as MembershipType })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select result..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MEMBERSHIP_TYPES.map((type) => (
-                      <SelectItem key={type.label} value={type.label}>
-                        {type.label} {type.commission > 0 && `($${type.commission.toFixed(2)})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs">Additional Notes</Label>
-                <Textarea
-                  value={intro.notes || ''}
-                  onChange={(e) => updateIntroRun(index, { notes: e.target.value })}
-                  className="mt-1 min-h-[60px]"
-                  placeholder="Any notes..."
-                />
-              </div>
-            </div>
+            <IntroRunEntry
+              key={intro.id}
+              intro={intro}
+              index={index}
+              onUpdate={updateIntroRun}
+              onRemove={removeIntroRun}
+            />
           ))}
 
           {introsRun.length < 5 && (
