@@ -122,6 +122,7 @@ export type Database = {
       intros_run: {
         Row: {
           booking_source: string | null
+          buy_date: string | null
           claimed_by_ig_lead_id: string | null
           class_time: string
           commission_amount: number | null
@@ -129,14 +130,17 @@ export type Database = {
           id: string
           is_self_gen: boolean | null
           lead_measures: string[] | null
+          linked_intro_booked_id: string | null
           member_name: string
           notes: string | null
           process_checklist: string[] | null
           result: string
+          sa_name: string | null
           shift_recap_id: string | null
         }
         Insert: {
           booking_source?: string | null
+          buy_date?: string | null
           claimed_by_ig_lead_id?: string | null
           class_time: string
           commission_amount?: number | null
@@ -144,14 +148,17 @@ export type Database = {
           id?: string
           is_self_gen?: boolean | null
           lead_measures?: string[] | null
+          linked_intro_booked_id?: string | null
           member_name: string
           notes?: string | null
           process_checklist?: string[] | null
           result: string
+          sa_name?: string | null
           shift_recap_id?: string | null
         }
         Update: {
           booking_source?: string | null
+          buy_date?: string | null
           claimed_by_ig_lead_id?: string | null
           class_time?: string
           commission_amount?: number | null
@@ -159,10 +166,12 @@ export type Database = {
           id?: string
           is_self_gen?: boolean | null
           lead_measures?: string[] | null
+          linked_intro_booked_id?: string | null
           member_name?: string
           notes?: string | null
           process_checklist?: string[] | null
           result?: string
+          sa_name?: string | null
           shift_recap_id?: string | null
         }
         Relationships: [
@@ -171,6 +180,13 @@ export type Database = {
             columns: ["claimed_by_ig_lead_id"]
             isOneToOne: false
             referencedRelation: "ig_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intros_run_linked_intro_booked_id_fkey"
+            columns: ["linked_intro_booked_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
             referencedColumns: ["id"]
           },
           {

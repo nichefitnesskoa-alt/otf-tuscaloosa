@@ -12,6 +12,7 @@ import { getSpreadsheetId, setSpreadsheetId, syncAllUnsynced } from '@/lib/sheet
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import HistoricalDataImport from '@/components/HistoricalDataImport';
+import PayPeriodCommission from '@/components/PayPeriodCommission';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
 
@@ -189,6 +190,9 @@ export default function Admin() {
           onImportComplete={refreshData}
         />
       )}
+
+      {/* Pay Period Commission Dashboard */}
+      <PayPeriodCommission />
 
       {/* Team Overview */}
       <Card>
