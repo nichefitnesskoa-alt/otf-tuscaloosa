@@ -2,79 +2,59 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MEMBERSHIP_TYPES } from '@/types';
-import { DollarSign, TrendingUp, Users, Target, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, Users, Target, Calendar, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { shiftRecaps, igLeads } = useData();
+  const { shiftRecaps, igLeads, isLoading } = useData();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Calculate stats
   const userRecaps = user?.role === 'Admin' 
     ? shiftRecaps 
-    : shiftRecaps.filter(r => r.staffName === user?.name);
+    : shiftRecaps.filter(r => r.staff_name === user?.name);
 
   const userLeads = user?.role === 'Admin'
     ? igLeads
-    : igLeads.filter(l => l.saName === user?.name);
+    : igLeads.filter(l => l.sa_name === user?.name);
 
-  // Commission calculation
-  const calculateCommission = () => {
-    let total = 0;
-    userRecaps.forEach(recap => {
-      recap.introsRun.forEach(intro => {
-        if (intro.isSelfGen) {
-          const membershipType = MEMBERSHIP_TYPES.find(m => m.label === intro.result);
-          if (membershipType) {
-            total += membershipType.commission;
-          }
-        }
-      });
-      recap.salesOutsideIntro.forEach(sale => {
-        const membershipType = MEMBERSHIP_TYPES.find(m => m.label === sale.membershipType);
-        if (membershipType) {
-          total += membershipType.commission;
-        }
-      });
-    });
-    return total;
-  };
-
-  const totalCommission = calculateCommission();
-  const totalIntrosBooked = userRecaps.reduce((sum, r) => sum + r.introsBooked.length, 0);
-  const totalIntrosRun = userRecaps.reduce((sum, r) => sum + r.introsRun.length, 0);
-  const closedIntros = userRecaps.reduce((sum, r) => 
-    sum + r.introsRun.filter(i => 
-      MEMBERSHIP_TYPES.find(m => m.label === i.result)?.commission! > 0
-    ).length, 0
+  // Basic stats from available data
+  const totalActivity = userRecaps.reduce((sum, r) => 
+    sum + (r.calls_made || 0) + (r.texts_sent || 0) + (r.emails_sent || 0) + (r.dms_sent || 0), 0
   );
-  const closingRate = totalIntrosRun > 0 ? Math.round((closedIntros / totalIntrosRun) * 100) : 0;
 
   const stats = [
     {
       label: 'Total Commission',
-      value: `$${totalCommission.toFixed(2)}`,
+      value: '$0.00', // Will be calculated from intros_run table
       icon: DollarSign,
       color: 'text-success',
       bg: 'bg-success/10',
     },
     {
-      label: 'Intros Booked',
-      value: totalIntrosBooked,
+      label: 'Shift Recaps',
+      value: userRecaps.length,
       icon: Calendar,
       color: 'text-info',
       bg: 'bg-info/10',
     },
     {
-      label: 'Intros Run',
-      value: totalIntrosRun,
+      label: 'Total Outreach',
+      value: totalActivity,
       icon: Users,
       color: 'text-primary',
       bg: 'bg-primary/10',
     },
     {
-      label: 'Closing Rate',
-      value: `${closingRate}%`,
+      label: 'IG Leads',
+      value: userLeads.length,
       icon: Target,
       color: 'text-warning',
       bg: 'bg-warning/10',
@@ -104,7 +84,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm opacity-70">Total Earned</p>
               <p className="text-4xl font-black text-success">
-                ${totalCommission.toFixed(2)}
+                $0.00
               </p>
               <p className="text-xs opacity-50 mt-1">Current pay period</p>
             </div>
@@ -170,23 +150,21 @@ export default function Dashboard() {
             </p>
           ) : (
             <div className="space-y-3">
-              {userRecaps.slice(-5).reverse().map((recap) => (
+              {userRecaps.slice(0, 5).map((recap) => (
                 <div 
                   key={recap.id} 
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                 >
                   <div>
-                    <p className="font-medium text-sm">{recap.staffName}</p>
+                    <p className="font-medium text-sm">{recap.staff_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(recap.date).toLocaleDateString()} · {recap.shiftType}
+                      {new Date(recap.shift_date).toLocaleDateString()} · {recap.shift_type}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {recap.introsRun.length > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {recap.introsRun.length} intros
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-xs">
+                      {(recap.calls_made || 0) + (recap.texts_sent || 0)} contacts
+                    </Badge>
                   </div>
                 </div>
               ))}
