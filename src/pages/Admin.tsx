@@ -11,6 +11,7 @@ import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId, syncAllUnsynced } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import HistoricalDataImport from '@/components/HistoricalDataImport';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
 
@@ -180,6 +181,14 @@ export default function Admin() {
           )}
         </CardContent>
       </Card>
+
+      {/* Historical Data Import - Show when spreadsheet is configured */}
+      {spreadsheetIdInput && (
+        <HistoricalDataImport 
+          spreadsheetId={spreadsheetIdInput}
+          onImportComplete={refreshData}
+        />
+      )}
 
       {/* Team Overview */}
       <Card>

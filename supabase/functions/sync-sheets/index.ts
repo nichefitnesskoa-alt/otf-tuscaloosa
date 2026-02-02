@@ -104,6 +104,30 @@ async function getAccessToken(): Promise<string> {
   return cachedAuth.access_token;
 }
 
+async function readFromSheet(
+  spreadsheetId: string,
+  sheetName: string,
+  accessToken: string
+): Promise<string[][]> {
+  const range = `${sheetName}!A:ZZ`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to read from sheet "${sheetName}": ${error}`);
+  }
+
+  const data = await response.json();
+  return data.values || [];
+}
+
 async function appendToSheet(
   spreadsheetId: string,
   sheetName: string,
@@ -146,9 +170,238 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let result = { success: false, message: '', recordsSynced: 0 };
+    let result: Record<string, unknown> = { success: false, message: '', recordsSynced: 0 };
 
     switch (action) {
+      case 'read_sheets_preview': {
+        // Read preview data from all tabs for import
+        const tabs = ['Form Responses 1', 'IG Leads Master'];
+        const preview: Record<string, { headers: string[]; rowCount: number; sampleRows: string[][] }> = {};
+        
+        for (const tab of tabs) {
+          try {
+            const rows = await readFromSheet(spreadsheetId, tab, accessToken);
+            if (rows.length > 0) {
+              preview[tab] = {
+                headers: rows[0] || [],
+                rowCount: rows.length - 1, // Exclude header
+                sampleRows: rows.slice(1, 4), // First 3 data rows
+              };
+            }
+          } catch (err) {
+            console.log(`Tab "${tab}" not found or empty`);
+          }
+        }
+        
+        result = { success: true, preview };
+        break;
+      }
+
+      case 'import_historical_data': {
+        // Full import from Google Sheets
+        const importResults = {
+          shiftRecaps: { imported: 0, skipped: 0, errors: 0 },
+          igLeads: { imported: 0, skipped: 0, errors: 0 },
+          errorLog: [] as string[],
+        };
+
+        // Import Shift Recaps from "Form Responses 1"
+        try {
+          const recapRows = await readFromSheet(spreadsheetId, 'Form Responses 1', accessToken);
+          if (recapRows.length > 1) {
+            const headers = recapRows[0];
+            
+            // Column mapping for Form Responses
+            const colMap: Record<string, number> = {};
+            headers.forEach((h, i) => {
+              const normalized = h.toLowerCase().trim();
+              if (normalized.includes('timestamp') || normalized.includes('submitted')) colMap['timestamp'] = i;
+              if (normalized.includes('your name') || normalized.includes('staff') || normalized.includes('name')) colMap['staff_name'] = i;
+              if (normalized.includes('today') || normalized.includes('date')) colMap['shift_date'] = i;
+              if (normalized.includes('shift type')) colMap['shift_type'] = i;
+              if (normalized.includes('calls')) colMap['calls_made'] = i;
+              if (normalized.includes('texts')) colMap['texts_sent'] = i;
+              if (normalized.includes('emails')) colMap['emails_sent'] = i;
+              if (normalized.includes('dms') || normalized.includes('dm')) colMap['dms_sent'] = i;
+              if (normalized.includes('otbeat') && normalized.includes('sale')) colMap['otbeat_sales'] = i;
+              if (normalized.includes('otbeat') && normalized.includes('buyer')) colMap['otbeat_buyer_names'] = i;
+              if (normalized.includes('upgrade') && !normalized.includes('detail')) colMap['upgrades'] = i;
+              if (normalized.includes('upgrade') && normalized.includes('detail')) colMap['upgrade_details'] = i;
+              if (normalized.includes('downgrade') && !normalized.includes('detail')) colMap['downgrades'] = i;
+              if (normalized.includes('downgrade') && normalized.includes('detail')) colMap['downgrade_details'] = i;
+              if (normalized.includes('cancel') && !normalized.includes('detail')) colMap['cancellations'] = i;
+              if (normalized.includes('cancel') && normalized.includes('detail')) colMap['cancellation_details'] = i;
+              if (normalized.includes('freeze') && !normalized.includes('detail')) colMap['freezes'] = i;
+              if (normalized.includes('freeze') && normalized.includes('detail')) colMap['freeze_details'] = i;
+              if (normalized.includes('milestone')) colMap['milestones_celebrated'] = i;
+              if (normalized.includes('equipment')) colMap['equipment_issues'] = i;
+              if (normalized.includes('other') || normalized.includes('additional')) colMap['other_info'] = i;
+            });
+
+            for (let i = 1; i < recapRows.length; i++) {
+              const row = recapRows[i];
+              try {
+                const staffName = row[colMap['staff_name']] || '';
+                const shiftDate = row[colMap['shift_date']] || '';
+                const timestamp = row[colMap['timestamp']] || '';
+
+                if (!staffName || !shiftDate) {
+                  importResults.shiftRecaps.skipped++;
+                  continue;
+                }
+
+                // Check for duplicates
+                const { data: existing } = await supabase
+                  .from('shift_recaps')
+                  .select('id')
+                  .eq('staff_name', staffName)
+                  .eq('shift_date', shiftDate)
+                  .maybeSingle();
+
+                if (existing) {
+                  importResults.shiftRecaps.skipped++;
+                  continue;
+                }
+
+                // Parse date - try various formats
+                let parsedDate = shiftDate;
+                if (shiftDate.includes('/')) {
+                  const parts = shiftDate.split('/');
+                  if (parts.length === 3) {
+                    const [m, d, y] = parts;
+                    parsedDate = `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                  }
+                }
+
+                await supabase.from('shift_recaps').insert({
+                  staff_name: staffName,
+                  shift_date: parsedDate,
+                  shift_type: row[colMap['shift_type']] || 'AM Shift',
+                  calls_made: parseInt(row[colMap['calls_made']]) || 0,
+                  texts_sent: parseInt(row[colMap['texts_sent']]) || 0,
+                  emails_sent: parseInt(row[colMap['emails_sent']]) || 0,
+                  dms_sent: parseInt(row[colMap['dms_sent']]) || 0,
+                  otbeat_sales: parseInt(row[colMap['otbeat_sales']]) || null,
+                  otbeat_buyer_names: row[colMap['otbeat_buyer_names']] || null,
+                  upgrades: parseInt(row[colMap['upgrades']]) || null,
+                  upgrade_details: row[colMap['upgrade_details']] || null,
+                  downgrades: parseInt(row[colMap['downgrades']]) || null,
+                  downgrade_details: row[colMap['downgrade_details']] || null,
+                  cancellations: parseInt(row[colMap['cancellations']]) || null,
+                  cancellation_details: row[colMap['cancellation_details']] || null,
+                  freezes: parseInt(row[colMap['freezes']]) || null,
+                  freeze_details: row[colMap['freeze_details']] || null,
+                  milestones_celebrated: row[colMap['milestones_celebrated']] || null,
+                  equipment_issues: row[colMap['equipment_issues']] || null,
+                  other_info: row[colMap['other_info']] || null,
+                  submitted_at: timestamp || null,
+                  synced_to_sheets: true, // Already in sheets
+                });
+
+                importResults.shiftRecaps.imported++;
+              } catch (err) {
+                importResults.shiftRecaps.errors++;
+                importResults.errorLog.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.log('Form Responses 1 not found or error:', err);
+        }
+
+        // Import IG Leads from "IG Leads Master"
+        try {
+          const leadRows = await readFromSheet(spreadsheetId, 'IG Leads Master', accessToken);
+          if (leadRows.length > 1) {
+            const headers = leadRows[0];
+            
+            // Column mapping for IG Leads
+            const colMap: Record<string, number> = {};
+            headers.forEach((h, i) => {
+              const normalized = h.toLowerCase().trim();
+              if (normalized.includes('timestamp') || normalized.includes('created')) colMap['created_at'] = i;
+              if (normalized.includes('sa') || (normalized.includes('name') && !normalized.includes('first') && !normalized.includes('last') && !normalized.includes('member'))) colMap['sa_name'] = i;
+              if (normalized.includes('date') && normalized.includes('added')) colMap['date_added'] = i;
+              if (normalized.includes('instagram') || normalized.includes('handle') || normalized.includes('ig')) colMap['instagram_handle'] = i;
+              if (normalized.includes('first') && normalized.includes('name')) colMap['first_name'] = i;
+              if (normalized.includes('last') && normalized.includes('name')) colMap['last_name'] = i;
+              if (normalized.includes('phone')) colMap['phone_number'] = i;
+              if (normalized.includes('email')) colMap['email'] = i;
+              if (normalized.includes('interest')) colMap['interest_level'] = i;
+              if (normalized.includes('note')) colMap['notes'] = i;
+              if (normalized.includes('status')) colMap['status'] = i;
+            });
+
+            for (let i = 1; i < leadRows.length; i++) {
+              const row = leadRows[i];
+              try {
+                const instagramHandle = row[colMap['instagram_handle']] || '';
+                const firstName = row[colMap['first_name']] || '';
+
+                if (!instagramHandle && !firstName) {
+                  importResults.igLeads.skipped++;
+                  continue;
+                }
+
+                // Check for duplicates by instagram handle
+                if (instagramHandle) {
+                  const { data: existing } = await supabase
+                    .from('ig_leads')
+                    .select('id')
+                    .eq('instagram_handle', instagramHandle.replace('@', ''))
+                    .maybeSingle();
+
+                  if (existing) {
+                    importResults.igLeads.skipped++;
+                    continue;
+                  }
+                }
+
+                // Parse date
+                let parsedDate = row[colMap['date_added']] || new Date().toISOString().split('T')[0];
+                if (parsedDate.includes('/')) {
+                  const parts = parsedDate.split('/');
+                  if (parts.length === 3) {
+                    const [m, d, y] = parts;
+                    parsedDate = `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                  }
+                }
+
+                await supabase.from('ig_leads').insert({
+                  sa_name: row[colMap['sa_name']] || 'Unknown',
+                  date_added: parsedDate,
+                  instagram_handle: (instagramHandle || 'unknown').replace('@', ''),
+                  first_name: firstName || 'Unknown',
+                  last_name: row[colMap['last_name']] || null,
+                  phone_number: row[colMap['phone_number']] || null,
+                  email: row[colMap['email']] || null,
+                  interest_level: row[colMap['interest_level']] || 'Interested - Forgot to answer, reach out later',
+                  notes: row[colMap['notes']] || null,
+                  status: (row[colMap['status']] || 'not_booked').toLowerCase().replace(' ', '_'),
+                  synced_to_sheets: true, // Already in sheets
+                });
+
+                importResults.igLeads.imported++;
+              } catch (err) {
+                importResults.igLeads.errors++;
+                importResults.errorLog.push(`IG Lead Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.log('IG Leads Master not found or error:', err);
+        }
+
+        // Log the import
+        await supabase.from('sheets_sync_log').insert({
+          sync_type: 'historical_import',
+          records_synced: importResults.shiftRecaps.imported + importResults.igLeads.imported,
+          status: 'success',
+        });
+
+        result = { success: true, importResults };
+        break;
+      }
       case 'sync_shift_recap': {
         // Sync a single shift recap
         const recap = data;
