@@ -37,15 +37,28 @@ async function getAccessToken(): Promise<string> {
   if (serviceAccountJson.includes('\\"')) {
     serviceAccountJson = serviceAccountJson.replace(/\\"/g, '"');
   }
-  if (serviceAccountJson.includes('\\n')) {
-    serviceAccountJson = serviceAccountJson.replace(/\\n/g, '\n');
-  }
+  
+  // Handle literal newlines/tabs/carriage returns that break JSON parsing
+  // These can appear when the JSON is copy-pasted with formatting
+  // We need to escape them properly ONLY outside of already-escaped sequences
+  // Replace literal control characters with escaped versions
+  serviceAccountJson = serviceAccountJson
+    .replace(/\r\n/g, '\\n')  // Windows line endings
+    .replace(/\r/g, '\\n')     // Old Mac line endings
+    .replace(/\n/g, '\\n')     // Unix line endings
+    .replace(/\t/g, '\\t');    // Tabs
+  
+  // Now unescape \\n back to \n for the JSON parser (it expects \n in strings)
+  // But we need the actual \n character sequence, not a literal newline
+  // Actually, the JSON should have \\n which represents \n in the parsed string
+  // So we should NOT do the second replacement - the JSON parser handles \n
 
   let serviceAccount;
   try {
     serviceAccount = JSON.parse(serviceAccountJson);
   } catch (parseError) {
     console.error('Failed to parse service account JSON. First 100 chars:', serviceAccountJson.substring(0, 100));
+    console.error('Parse error:', parseError);
     throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_JSON format: ${parseError instanceof Error ? parseError.message : 'Parse error'}`);
   }
   
