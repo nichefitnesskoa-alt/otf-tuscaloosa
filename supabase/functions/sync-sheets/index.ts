@@ -215,7 +215,7 @@ serve(async (req) => {
     switch (action) {
       case 'read_sheets_preview': {
         // Read preview data from all tabs for import
-        const tabs = ['Form Responses 1', 'IG Leads Master'];
+        const tabs = ['Form Responses 1', 'IG Leads Master', 'Master Intros Booked', 'Master Intros Run'];
         const preview: Record<string, { headers: string[]; rowCount: number; sampleRows: string[][] }> = {};
         
         for (const tab of tabs) {
@@ -613,6 +613,175 @@ serve(async (req) => {
           }
         } catch (err) {
           console.log('IG Leads Master not found or error:', err);
+        }
+
+        // Import Intros Booked from "Master Intros Booked" tab
+        try {
+          const introBookedRows = await readFromSheet(spreadsheetId, 'Master Intros Booked', accessToken);
+          if (introBookedRows.length > 1) {
+            const headers = introBookedRows[0];
+            
+            // Column mapping for Master Intros Booked
+            const colMap: Record<string, number> = {};
+            headers.forEach((h, i) => {
+              const normalized = h.toLowerCase().trim();
+              if (normalized.includes('member') && normalized.includes('name')) colMap['member_name'] = i;
+              if (normalized.includes('class') && normalized.includes('date')) colMap['class_date'] = i;
+              if (normalized.includes('coach')) colMap['coach_name'] = i;
+              if (normalized.includes('sa') && normalized.includes('working')) colMap['sa_working_shift'] = i;
+              if (normalized.includes('fitness') && normalized.includes('goal')) colMap['fitness_goal'] = i;
+              if (normalized.includes('lead') && normalized.includes('source')) colMap['lead_source'] = i;
+              if (normalized.includes('created') || normalized.includes('timestamp')) colMap['created_at'] = i;
+            });
+
+            console.log('Master Intros Booked column mapping:', colMap);
+
+            for (let i = 1; i < introBookedRows.length; i++) {
+              const row = introBookedRows[i];
+              try {
+                const memberName = row[colMap['member_name']]?.trim();
+                if (!memberName) {
+                  importResults.introsBooked.skipped++;
+                  continue;
+                }
+
+                const classDateRaw = row[colMap['class_date']] || '';
+                const classDate = parseDate(classDateRaw);
+                const coachName = row[colMap['coach_name']] || 'Unknown';
+                const saWorking = row[colMap['sa_working_shift']] || 'Unknown';
+                const fitnessGoal = row[colMap['fitness_goal']] || null;
+                const leadSource = row[colMap['lead_source']] || 'Unknown';
+
+                // Check for duplicates
+                const { data: existingIntro } = await supabase
+                  .from('intros_booked')
+                  .select('id')
+                  .eq('member_name', memberName)
+                  .eq('class_date', classDate)
+                  .maybeSingle();
+
+                if (existingIntro) {
+                  importResults.introsBooked.skipped++;
+                  continue;
+                }
+
+                await supabase.from('intros_booked').insert({
+                  member_name: memberName,
+                  class_date: classDate,
+                  coach_name: coachName,
+                  sa_working_shift: saWorking,
+                  fitness_goal: fitnessGoal,
+                  lead_source: leadSource,
+                });
+                importResults.introsBooked.imported++;
+              } catch (err) {
+                importResults.introsBooked.errors++;
+                importResults.errorLog.push(`Master Intros Booked Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.log('Master Intros Booked not found or error:', err);
+        }
+
+        // Import Intros Run from "Master Intros Run" tab
+        try {
+          const introRunRows = await readFromSheet(spreadsheetId, 'Master Intros Run', accessToken);
+          if (introRunRows.length > 1) {
+            const headers = introRunRows[0];
+            
+            // Column mapping for Master Intros Run
+            const colMap: Record<string, number> = {};
+            headers.forEach((h, i) => {
+              const normalized = h.toLowerCase().trim();
+              if (normalized.includes('member') && normalized.includes('name')) colMap['member_name'] = i;
+              if (normalized.includes('class') && normalized.includes('time')) colMap['class_time'] = i;
+              if (normalized.includes('booking') && normalized.includes('source')) colMap['booking_source'] = i;
+              if (normalized.includes('how') && normalized.includes('booked')) colMap['booking_source'] = i;
+              if (normalized.includes('process') && normalized.includes('checklist')) colMap['process_checklist'] = i;
+              if (normalized.includes('lead') && normalized.includes('measures')) colMap['lead_measures'] = i;
+              if (normalized === 'result' || normalized.includes('result')) colMap['result'] = i;
+              if (normalized.includes('note')) colMap['notes'] = i;
+              if (normalized.includes('sa') && normalized.includes('name')) colMap['sa_name'] = i;
+              if (normalized.includes('created') || normalized.includes('timestamp')) colMap['created_at'] = i;
+              if (normalized.includes('buy') && normalized.includes('date')) colMap['buy_date'] = i;
+            });
+
+            console.log('Master Intros Run column mapping:', colMap);
+
+            for (let i = 1; i < introRunRows.length; i++) {
+              const row = introRunRows[i];
+              try {
+                const memberName = row[colMap['member_name']]?.trim();
+                if (!memberName) {
+                  importResults.introsRun.skipped++;
+                  continue;
+                }
+
+                const classTime = parseTime(row[colMap['class_time']] || '');
+                const bookingSource = row[colMap['booking_source']] || null;
+                const processChecklistRaw = row[colMap['process_checklist']] || '';
+                const leadMeasuresRaw = row[colMap['lead_measures']] || '';
+                const result = row[colMap['result']] || 'Follow-up needed (no sale yet)';
+                const notes = row[colMap['notes']] || null;
+                const saName = row[colMap['sa_name']] || 'Unknown';
+                const buyDateRaw = row[colMap['buy_date']] || '';
+                const buyDate = buyDateRaw ? parseDate(buyDateRaw) : null;
+
+                // Parse checklist/measures (comma or semicolon separated)
+                const processChecklist = processChecklistRaw ? processChecklistRaw.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+                const leadMeasures = leadMeasuresRaw ? leadMeasuresRaw.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+
+                // Check for duplicates by member name + class time
+                const { data: existingRun } = await supabase
+                  .from('intros_run')
+                  .select('id')
+                  .eq('member_name', memberName)
+                  .eq('class_time', classTime)
+                  .maybeSingle();
+
+                if (existingRun) {
+                  importResults.introsRun.skipped++;
+                  continue;
+                }
+
+                // Calculate commission based on result
+                let commissionAmount = 0;
+                const resultLower = result.toLowerCase();
+                if (resultLower.includes('premier') && resultLower.includes('otbeat')) commissionAmount = 15;
+                else if (resultLower.includes('premier')) commissionAmount = 7.5;
+                else if (resultLower.includes('elite') && resultLower.includes('otbeat')) commissionAmount = 12;
+                else if (resultLower.includes('elite')) commissionAmount = 6;
+                else if (resultLower.includes('basic') && resultLower.includes('otbeat')) commissionAmount = 9;
+                else if (resultLower.includes('basic')) commissionAmount = 3;
+
+                // Determine if self-gen based on booking source
+                const isSelfGen = bookingSource?.toLowerCase().includes('instagram') || 
+                                 bookingSource?.toLowerCase().includes('self') ||
+                                 bookingSource?.toLowerCase().includes('online intro offer');
+
+                await supabase.from('intros_run').insert({
+                  member_name: memberName,
+                  class_time: classTime,
+                  booking_source: bookingSource,
+                  process_checklist: processChecklist,
+                  lead_measures: leadMeasures,
+                  result: result,
+                  notes: notes,
+                  sa_name: saName,
+                  is_self_gen: isSelfGen,
+                  commission_amount: isSelfGen ? commissionAmount : 0,
+                  buy_date: buyDate,
+                });
+                importResults.introsRun.imported++;
+              } catch (err) {
+                importResults.introsRun.errors++;
+                importResults.errorLog.push(`Master Intros Run Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.log('Master Intros Run not found or error:', err);
         }
 
         // Log the import
