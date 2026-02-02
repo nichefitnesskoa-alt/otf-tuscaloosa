@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ClipboardList, Phone, MessageSquare, Mail, Instagram,
-  Users, Calendar, Plus, Trash2, Sparkles, CheckCircle
+  Users, Calendar, Plus, Trash2, Sparkles, CheckCircle, PenLine
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+import ManualIntroEntry, { ManualIntroData } from '@/components/ManualIntroEntry';
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
 const COACHES = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya'] as const;
@@ -129,6 +130,9 @@ export default function ShiftRecap() {
 
   // Intros Run
   const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
+  
+  // Manual Intro Entries
+  const [manualIntros, setManualIntros] = useState<ManualIntroData[]>([]);
 
   // Sales Outside Intro
   const [hasSalesOutside, setHasSalesOutside] = useState(false);
@@ -175,6 +179,28 @@ export default function ShiftRecap() {
 
   const updateIntroRun = (index: number, updates: Partial<IntroRun>) => {
     setIntrosRun(introsRun.map((intro, i) => 
+      i === index ? { ...intro, ...updates } : intro
+    ));
+  };
+
+  const addManualIntro = () => {
+    if (manualIntros.length < 5) {
+      setManualIntros([...manualIntros, { 
+        id: crypto.randomUUID(),
+        memberName: '',
+        classTime: '',
+        bookingSource: '',
+        isSelfGen: false
+      }]);
+    }
+  };
+
+  const removeManualIntro = (index: number) => {
+    setManualIntros(manualIntros.filter((_, i) => i !== index));
+  };
+
+  const updateManualIntro = (index: number, updates: Partial<ManualIntroData>) => {
+    setManualIntros(manualIntros.map((intro, i) => 
       i === index ? { ...intro, ...updates } : intro
     ));
   };
@@ -239,6 +265,7 @@ export default function ShiftRecap() {
       setDmsSent(0);
       setIntrosBooked([]);
       setIntrosRun([]);
+      setManualIntros([]);
       setSalesOutsideIntro([]);
       setHasSalesOutside(false);
       setMilestones('');
@@ -746,6 +773,44 @@ export default function ShiftRecap() {
           )}
         </CardContent>
       </Card>
+
+      {/* Manual Intro Entry (for online bookings or missed entries) */}
+      {isSA && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <PenLine className="w-4 h-4 text-primary" />
+              Manual Entry (Online Bookings)
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              For online bookings or missed entries that weren't booked through the system
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {manualIntros.map((intro, index) => (
+              <ManualIntroEntry
+                key={intro.id}
+                intro={intro}
+                index={index}
+                saName={user?.name || ''}
+                onUpdate={updateManualIntro}
+                onRemove={removeManualIntro}
+              />
+            ))}
+
+            {manualIntros.length < 5 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addManualIntro}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Manual Entry ({manualIntros.length}/5)
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sales Outside Intro (SA Feature) */}
       {isSA && (
