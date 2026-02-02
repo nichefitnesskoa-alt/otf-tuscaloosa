@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useData } from '@/context/DataContext';
+import { useData, IGLead, LeadStatus } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { IGLeadForm } from '@/components/IGLeadForm';
-import { LeadStatus } from '@/types';
 import { Plus, Instagram, Phone, Mail, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +31,7 @@ export default function IGLeads() {
   // Filter leads for current SA (Admin sees all)
   const userLeads = user?.role === 'Admin' 
     ? igLeads 
-    : igLeads.filter(lead => lead.saName === user?.name);
+    : igLeads.filter(lead => lead.sa_name === user?.name);
 
   const filteredLeads = filter === 'all' 
     ? userLeads 
@@ -96,7 +95,7 @@ export default function IGLeads() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold truncate">
-                        {lead.firstName} {lead.lastName}
+                        {lead.first_name} {lead.last_name}
                       </span>
                       <Badge variant="outline" className={cn('text-xs', status.className)}>
                         {status.icon} {status.label}
@@ -105,14 +104,14 @@ export default function IGLeads() {
                     
                     <div className="flex items-center gap-1 text-primary text-sm mb-2">
                       <Instagram className="w-3.5 h-3.5" />
-                      @{lead.instagramHandle}
+                      @{lead.instagram_handle}
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {lead.phoneNumber && (
+                      {lead.phone_number && (
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3" />
-                          {lead.phoneNumber}
+                          {lead.phone_number}
                         </span>
                       )}
                       {lead.email && (
@@ -131,7 +130,7 @@ export default function IGLeads() {
                   </div>
 
                   <div className="text-right text-xs text-muted-foreground flex-shrink-0">
-                    {new Date(lead.dateAdded).toLocaleDateString()}
+                    {new Date(lead.date_added).toLocaleDateString()}
                   </div>
                 </div>
               </Card>

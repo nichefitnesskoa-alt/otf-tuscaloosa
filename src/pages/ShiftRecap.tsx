@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,94 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
-  SHIFT_TYPES, COACHES, ALL_STAFF, LEAD_SOURCES, BOOKING_SOURCES,
-  PROCESS_CHECKLIST, LEAD_MEASURES, MEMBERSHIP_TYPES,
-  ShiftType, LeadSource, BookingSource, MembershipType,
-  IntroBooked, IntroRun, SaleOutsideIntro
-} from '@/types';
-import { 
   ClipboardList, Phone, MessageSquare, Mail, Instagram,
   Users, Calendar, Plus, Trash2, Sparkles, CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
+
+const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
+const COACHES = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya'] as const;
+const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
+
+const LEAD_SOURCES = [
+  'Self-generated (my outreach)',
+  'Instagram DMs',
+  'Referral',
+  'Lead Management Call / Text',
+  'Lead Management Web Lead Call',
+  'B2B Partnership',
+  'B2C Event',
+  'Member brought friend',
+  'Online Intro Offer (self-booked)',
+  'Source Not Found',
+] as const;
+
+const BOOKING_SOURCES = [
+  '1st Class Intro (staff booked)',
+  '2nd Class Intro (staff booked)',
+  'Comp Session (staff booked)',
+  'Online Intro Offer (self-booked)',
+  'Source Not Found',
+] as const;
+
+const PROCESS_CHECKLIST = [
+  'FVC (First Visit Card) completed',
+  'RFG (Risk Free Guaranteed) presented',
+  'Choice Architecture used',
+] as const;
+
+const LEAD_MEASURES = [
+  'Half way transition encouragement',
+  'Pre Mobility Matrix congratulations',
+  'Stay for stretching and summary',
+  'Be at entire coach summary breakdown',
+] as const;
+
+const MEMBERSHIP_TYPES = [
+  { label: 'Premier + OTBeat', commission: 15.00 },
+  { label: 'Premier w/o OTBeat', commission: 7.50 },
+  { label: 'Elite + OTBeat', commission: 12.00 },
+  { label: 'Elite w/o OTBeat', commission: 6.00 },
+  { label: 'Basic + OTBeat', commission: 9.00 },
+  { label: 'Basic w/o OTBeat', commission: 3.00 },
+  { label: 'Follow-up needed (no sale yet)', commission: 0 },
+  { label: 'No-show (didn\'t attend)', commission: 0 },
+] as const;
+
+type ShiftType = typeof SHIFT_TYPES[number];
+type LeadSource = typeof LEAD_SOURCES[number];
+type BookingSource = typeof BOOKING_SOURCES[number];
+type MembershipType = typeof MEMBERSHIP_TYPES[number]['label'];
+
+interface IntroBooked {
+  id: string;
+  memberName?: string;
+  classDate?: string;
+  coachName?: string;
+  saWorkingShift?: string;
+  fitnessGoal?: string;
+  leadSource?: LeadSource;
+}
+
+interface IntroRun {
+  id: string;
+  memberName?: string;
+  classTime?: string;
+  bookingSource?: BookingSource;
+  processChecklist: string[];
+  leadMeasures: string[];
+  result?: MembershipType;
+  notes?: string;
+  isSelfGen: boolean;
+}
+
+interface SaleOutsideIntro {
+  id: string;
+  memberName?: string;
+  leadSource?: LeadSource;
+  membershipType?: MembershipType;
+}
 
 export default function ShiftRecap() {
   const { user } = useAuth();
@@ -48,14 +125,14 @@ export default function ShiftRecap() {
   const [freezeDetails, setFreezeDetails] = useState('');
 
   // Intros Booked
-  const [introsBooked, setIntrosBooked] = useState<Partial<IntroBooked>[]>([]);
+  const [introsBooked, setIntrosBooked] = useState<IntroBooked[]>([]);
 
   // Intros Run
-  const [introsRun, setIntrosRun] = useState<Partial<IntroRun>[]>([]);
+  const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
 
   // Sales Outside Intro
   const [hasSalesOutside, setHasSalesOutside] = useState(false);
-  const [salesOutsideIntro, setSalesOutsideIntro] = useState<Partial<SaleOutsideIntro>[]>([]);
+  const [salesOutsideIntro, setSalesOutsideIntro] = useState<SaleOutsideIntro[]>([]);
 
   // Misc
   const [milestones, setMilestones] = useState('');
@@ -118,7 +195,7 @@ export default function ShiftRecap() {
     ));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Celebrate!
     confetti({
       particleCount: 100,
@@ -126,49 +203,50 @@ export default function ShiftRecap() {
       origin: { y: 0.6 }
     });
 
-    addShiftRecap({
-      staffName: user?.name || '',
-      date,
-      shiftType,
-      callsMade,
-      textsSent,
-      emailsSent,
-      dmsSent,
-      otbeatSales: isCoach ? otbeatSales : undefined,
-      otbeatBuyerNames: isCoach ? otbeatBuyerNames : undefined,
-      upgrades: isCoach ? upgrades : undefined,
-      upgradeDetails: isCoach ? upgradeDetails : undefined,
-      downgrades: isCoach ? downgrades : undefined,
-      downgradeDetails: isCoach ? downgradeDetails : undefined,
-      cancellations: isCoach ? cancellations : undefined,
-      cancellationDetails: isCoach ? cancellationDetails : undefined,
-      freezes: isCoach ? freezes : undefined,
-      freezeDetails: isCoach ? freezeDetails : undefined,
-      introsBooked: introsBooked as IntroBooked[],
-      introsRun: introsRun as IntroRun[],
-      salesOutsideIntro: hasSalesOutside ? salesOutsideIntro as SaleOutsideIntro[] : [],
-      milestonesCelebrated: milestones || undefined,
-      equipmentIssues: equipmentIssues || undefined,
-      otherInfo: otherInfo || undefined,
-      submittedAt: new Date().toISOString(),
+    const result = await addShiftRecap({
+      staff_name: user?.name || '',
+      shift_date: date,
+      shift_type: shiftType,
+      calls_made: callsMade,
+      texts_sent: textsSent,
+      emails_sent: emailsSent,
+      dms_sent: dmsSent,
+      otbeat_sales: isCoach ? otbeatSales : null,
+      otbeat_buyer_names: isCoach ? otbeatBuyerNames : null,
+      upgrades: isCoach ? upgrades : null,
+      upgrade_details: isCoach ? upgradeDetails : null,
+      downgrades: isCoach ? downgrades : null,
+      downgrade_details: isCoach ? downgradeDetails : null,
+      cancellations: isCoach ? cancellations : null,
+      cancellation_details: isCoach ? cancellationDetails : null,
+      freezes: isCoach ? freezes : null,
+      freeze_details: isCoach ? freezeDetails : null,
+      milestones_celebrated: milestones || null,
+      equipment_issues: equipmentIssues || null,
+      other_info: otherInfo || null,
+      submitted_at: new Date().toISOString(),
     });
 
-    toast.success('Shift recap submitted! 🎉', {
-      description: 'Great work today! Keep crushing it.',
-    });
+    if (result) {
+      toast.success('Shift recap submitted! 🎉', {
+        description: 'Great work today! Keep crushing it.',
+      });
 
-    // Reset form
-    setCallsMade(0);
-    setTextsSent(0);
-    setEmailsSent(0);
-    setDmsSent(0);
-    setIntrosBooked([]);
-    setIntrosRun([]);
-    setSalesOutsideIntro([]);
-    setHasSalesOutside(false);
-    setMilestones('');
-    setEquipmentIssues('');
-    setOtherInfo('');
+      // Reset form
+      setCallsMade(0);
+      setTextsSent(0);
+      setEmailsSent(0);
+      setDmsSent(0);
+      setIntrosBooked([]);
+      setIntrosRun([]);
+      setSalesOutsideIntro([]);
+      setHasSalesOutside(false);
+      setMilestones('');
+      setEquipmentIssues('');
+      setOtherInfo('');
+    } else {
+      toast.error('Failed to submit recap');
+    }
   };
 
   return (

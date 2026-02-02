@@ -7,9 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { INTEREST_LEVELS, InterestLevel } from '@/types';
 import { Instagram, Plus, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+
+const INTEREST_LEVELS = [
+  'Very interested - Reach back out after break',
+  'Interested - Forgot to answer, reach out later',
+  'Booked intro',
+  'Not interested',
+] as const;
+
+type InterestLevel = typeof INTEREST_LEVELS[number];
 
 interface IGLeadFormProps {
   onClose: () => void;
@@ -20,39 +28,45 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
   const { addIGLead } = useData();
   
   const [formData, setFormData] = useState({
-    instagramHandle: '',
-    firstName: '',
-    lastName: '',
-    phoneNumber: '',
+    instagram_handle: '',
+    first_name: '',
+    last_name: '',
+    phone_number: '',
     email: '',
-    interestLevel: '' as InterestLevel,
+    interest_level: '' as InterestLevel,
     notes: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.instagramHandle || !formData.firstName || !formData.interestLevel) {
+    if (!formData.instagram_handle || !formData.first_name || !formData.interest_level) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    addIGLead({
-      saName: user?.name || '',
-      dateAdded: new Date().toISOString().split('T')[0],
-      instagramHandle: formData.instagramHandle.replace('@', ''),
-      firstName: formData.firstName,
-      lastName: formData.lastName || undefined,
-      phoneNumber: formData.phoneNumber || undefined,
-      email: formData.email || undefined,
-      interestLevel: formData.interestLevel,
-      notes: formData.notes || undefined,
-      status: formData.interestLevel === 'Booked intro' ? 'booked' : 
-              formData.interestLevel === 'Not interested' ? 'not_booked' : 'not_booked',
+    const status = formData.interest_level === 'Booked intro' ? 'booked' : 
+                   formData.interest_level === 'Not interested' ? 'not_booked' : 'not_booked';
+
+    const result = await addIGLead({
+      sa_name: user?.name || '',
+      date_added: new Date().toISOString().split('T')[0],
+      instagram_handle: formData.instagram_handle.replace('@', ''),
+      first_name: formData.first_name,
+      last_name: formData.last_name || null,
+      phone_number: formData.phone_number || null,
+      email: formData.email || null,
+      interest_level: formData.interest_level,
+      notes: formData.notes || null,
+      status,
     });
 
-    toast.success('Lead added successfully! 🎉');
-    onClose();
+    if (result) {
+      toast.success('Lead added successfully! 🎉');
+      onClose();
+    } else {
+      toast.error('Failed to add lead');
+    }
   };
 
   return (
@@ -86,8 +100,8 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
                   id="instagram"
                   placeholder="username"
                   className="pl-8"
-                  value={formData.instagramHandle}
-                  onChange={(e) => setFormData({ ...formData, instagramHandle: e.target.value })}
+                  value={formData.instagram_handle}
+                  onChange={(e) => setFormData({ ...formData, instagram_handle: e.target.value })}
                 />
               </div>
             </div>
@@ -101,8 +115,8 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
                   id="firstName"
                   placeholder="First name"
                   className="mt-1"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 />
               </div>
               <div>
@@ -111,8 +125,8 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
                   id="lastName"
                   placeholder="Last name"
                   className="mt-1"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 />
               </div>
             </div>
@@ -124,8 +138,8 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
                 type="tel"
                 placeholder="(555) 123-4567"
                 className="mt-1"
-                value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               />
             </div>
 
@@ -153,8 +167,8 @@ export function IGLeadForm({ onClose }: IGLeadFormProps) {
                 Interest Level <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={formData.interestLevel}
-                onValueChange={(value) => setFormData({ ...formData, interestLevel: value as InterestLevel })}
+                value={formData.interest_level}
+                onValueChange={(value) => setFormData({ ...formData, interest_level: value as InterestLevel })}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select interest level..." />
