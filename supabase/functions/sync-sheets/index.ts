@@ -19,12 +19,39 @@ async function getAccessToken(): Promise<string> {
     return cachedAuth.access_token;
   }
 
-  const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  let serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
   if (!serviceAccountJson) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
   }
 
-  const serviceAccount = JSON.parse(serviceAccountJson);
+  // Clean up the JSON string - handle common formatting issues
+  serviceAccountJson = serviceAccountJson.trim();
+  
+  // If wrapped in extra quotes, remove them
+  if ((serviceAccountJson.startsWith('"') && serviceAccountJson.endsWith('"')) ||
+      (serviceAccountJson.startsWith("'") && serviceAccountJson.endsWith("'"))) {
+    serviceAccountJson = serviceAccountJson.slice(1, -1);
+  }
+  
+  // Unescape if double-escaped
+  if (serviceAccountJson.includes('\\"')) {
+    serviceAccountJson = serviceAccountJson.replace(/\\"/g, '"');
+  }
+  if (serviceAccountJson.includes('\\n')) {
+    serviceAccountJson = serviceAccountJson.replace(/\\n/g, '\n');
+  }
+
+  let serviceAccount;
+  try {
+    serviceAccount = JSON.parse(serviceAccountJson);
+  } catch (parseError) {
+    console.error('Failed to parse service account JSON. First 100 chars:', serviceAccountJson.substring(0, 100));
+    throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_JSON format: ${parseError instanceof Error ? parseError.message : 'Parse error'}`);
+  }
+  
+  if (!serviceAccount.client_email || !serviceAccount.private_key) {
+    throw new Error('Service account JSON missing required fields (client_email or private_key)');
+  }
   
   // Create JWT for Google OAuth
   const header = { alg: 'RS256', typ: 'JWT' };
