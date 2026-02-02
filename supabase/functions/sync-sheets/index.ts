@@ -242,7 +242,41 @@ serve(async (req) => {
         const importResults = {
           shiftRecaps: { imported: 0, skipped: 0, errors: 0 },
           igLeads: { imported: 0, skipped: 0, errors: 0 },
+          introsBooked: { imported: 0, skipped: 0, errors: 0 },
+          introsRun: { imported: 0, skipped: 0, errors: 0 },
           errorLog: [] as string[],
+        };
+
+        // Helper to parse dates
+        const parseDate = (dateStr: string): string => {
+          if (!dateStr) return new Date().toISOString().split('T')[0];
+          let parsed = dateStr;
+          if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+              const [m, d, y] = parts;
+              parsed = `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            }
+          }
+          return parsed;
+        };
+
+        // Helper to parse time from datetime string
+        const parseTime = (timeStr: string): string => {
+          if (!timeStr) return '09:00';
+          // Handle formats like "1/15/2026 9:00 AM" or "9:00 AM" or "09:00"
+          const timePart = timeStr.includes(' ') ? timeStr.split(' ').slice(-2).join(' ') : timeStr;
+          // Try to extract time
+          const match = timePart.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (match) {
+            let hours = parseInt(match[1]);
+            const minutes = match[2];
+            const period = match[3];
+            if (period?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+            if (period?.toUpperCase() === 'AM' && hours === 12) hours = 0;
+            return `${hours.toString().padStart(2, '0')}:${minutes}`;
+          }
+          return '09:00';
         };
 
         // Import Shift Recaps from "Form Responses 1"
@@ -251,32 +285,85 @@ serve(async (req) => {
           if (recapRows.length > 1) {
             const headers = recapRows[0];
             
-            // Column mapping for Form Responses
+            // Build column index map
+            const colIndex: Record<string, number> = {};
+            headers.forEach((h, i) => {
+              colIndex[h] = i;
+            });
+            
+            // Column mapping for Form Responses (basic fields)
             const colMap: Record<string, number> = {};
             headers.forEach((h, i) => {
               const normalized = h.toLowerCase().trim();
               if (normalized.includes('timestamp') || normalized.includes('submitted')) colMap['timestamp'] = i;
-              if (normalized.includes('your name') || normalized.includes('staff') || normalized.includes('name')) colMap['staff_name'] = i;
-              if (normalized.includes('today') || normalized.includes('date')) colMap['shift_date'] = i;
+              if (normalized === 'your name' || (normalized.includes('your') && normalized.includes('name'))) colMap['staff_name'] = i;
+              if (normalized.includes('today') && normalized.includes('date')) colMap['shift_date'] = i;
               if (normalized.includes('shift type')) colMap['shift_type'] = i;
               if (normalized.includes('calls')) colMap['calls_made'] = i;
               if (normalized.includes('texts')) colMap['texts_sent'] = i;
-              if (normalized.includes('emails')) colMap['emails_sent'] = i;
-              if (normalized.includes('dms') || normalized.includes('dm')) colMap['dms_sent'] = i;
+              if (normalized === 'emails sent' || (normalized.includes('emails') && normalized.includes('sent'))) colMap['emails_sent'] = i;
+              if (normalized === 'dms sent' || normalized.includes('dms sent')) colMap['dms_sent'] = i;
               if (normalized.includes('otbeat') && normalized.includes('sale')) colMap['otbeat_sales'] = i;
               if (normalized.includes('otbeat') && normalized.includes('buyer')) colMap['otbeat_buyer_names'] = i;
-              if (normalized.includes('upgrade') && !normalized.includes('detail')) colMap['upgrades'] = i;
+              if (normalized === 'upgrades') colMap['upgrades'] = i;
               if (normalized.includes('upgrade') && normalized.includes('detail')) colMap['upgrade_details'] = i;
-              if (normalized.includes('downgrade') && !normalized.includes('detail')) colMap['downgrades'] = i;
+              if (normalized === 'downgrades') colMap['downgrades'] = i;
               if (normalized.includes('downgrade') && normalized.includes('detail')) colMap['downgrade_details'] = i;
-              if (normalized.includes('cancel') && !normalized.includes('detail')) colMap['cancellations'] = i;
-              if (normalized.includes('cancel') && normalized.includes('detail')) colMap['cancellation_details'] = i;
-              if (normalized.includes('freeze') && !normalized.includes('detail')) colMap['freezes'] = i;
+              if (normalized === 'cancellations') colMap['cancellations'] = i;
+              if (normalized.includes('cancellation') && normalized.includes('detail')) colMap['cancellation_details'] = i;
+              if (normalized === 'freezes') colMap['freezes'] = i;
               if (normalized.includes('freeze') && normalized.includes('detail')) colMap['freeze_details'] = i;
               if (normalized.includes('milestone')) colMap['milestones_celebrated'] = i;
               if (normalized.includes('equipment')) colMap['equipment_issues'] = i;
-              if (normalized.includes('other') || normalized.includes('additional')) colMap['other_info'] = i;
             });
+
+            // Find Intro Booked columns (Intro #1 through #5)
+            const introBookedCols: { memberName: number; classDate: number; coach: number; saWorking: number; fitnessGoal: number; leadSource: number; }[] = [];
+            for (let n = 1; n <= 5; n++) {
+              const prefix = `Intro #${n} - `;
+              const memberNameIdx = colIndex[`${prefix}Member Name`];
+              const classDateIdx = colIndex[`${prefix}Class Date`] ?? colIndex[`${prefix}Class Date and Time`];
+              const coachIdx = colIndex[`${prefix}Coach for This Class`];
+              const saWorkingIdx = colIndex[`${prefix}SA Working That Shift`];
+              const fitnessGoalIdx = colIndex[`${prefix}Member's Fitness Goal`];
+              const leadSourceIdx = colIndex[`${prefix}Lead Source`];
+              if (memberNameIdx !== undefined) {
+                introBookedCols.push({
+                  memberName: memberNameIdx,
+                  classDate: classDateIdx,
+                  coach: coachIdx,
+                  saWorking: saWorkingIdx,
+                  fitnessGoal: fitnessGoalIdx,
+                  leadSource: leadSourceIdx,
+                });
+              }
+            }
+
+            // Find Intro Run columns (Intro Run #1 through #5)
+            const introRunCols: { memberName: number; classTime: number; bookingSource: number; processChecklist: number; leadMeasures: number; result: number; notes: number; }[] = [];
+            for (let n = 1; n <= 5; n++) {
+              const prefix = `Intro Run #${n} - `;
+              const memberNameIdx = colIndex[`${prefix}Member Name`];
+              const classTimeIdx = colIndex[`${prefix}Class Time`];
+              const bookingSourceIdx = colIndex[`${prefix}How did they get booked?`];
+              const processChecklistIdx = colIndex[`${prefix}Process Checklist`];
+              const leadMeasuresIdx = colIndex[`${prefix}Lead Measures`];
+              const resultIdx = colIndex[`${prefix}Result`];
+              const notesIdx = colIndex[`${prefix}Additional Notes`];
+              if (memberNameIdx !== undefined) {
+                introRunCols.push({
+                  memberName: memberNameIdx,
+                  classTime: classTimeIdx,
+                  bookingSource: bookingSourceIdx,
+                  processChecklist: processChecklistIdx,
+                  leadMeasures: leadMeasuresIdx,
+                  result: resultIdx,
+                  notes: notesIdx,
+                });
+              }
+            }
+
+            console.log(`Found ${introBookedCols.length} intro booked column sets, ${introRunCols.length} intro run column sets`);
 
             for (let i = 1; i < recapRows.length; i++) {
               const row = recapRows[i];
@@ -290,55 +377,159 @@ serve(async (req) => {
                   continue;
                 }
 
+                const parsedShiftDate = parseDate(shiftDate);
+
                 // Check for duplicates
                 const { data: existing } = await supabase
                   .from('shift_recaps')
                   .select('id')
                   .eq('staff_name', staffName)
-                  .eq('shift_date', shiftDate)
+                  .eq('shift_date', parsedShiftDate)
                   .maybeSingle();
 
+                let shiftRecapId: string;
                 if (existing) {
+                  shiftRecapId = existing.id;
                   importResults.shiftRecaps.skipped++;
-                  continue;
+                } else {
+                  const { data: newRecap, error: recapError } = await supabase.from('shift_recaps').insert({
+                    staff_name: staffName,
+                    shift_date: parsedShiftDate,
+                    shift_type: row[colMap['shift_type']] || 'AM Shift',
+                    calls_made: parseInt(row[colMap['calls_made']]) || 0,
+                    texts_sent: parseInt(row[colMap['texts_sent']]) || 0,
+                    emails_sent: parseInt(row[colMap['emails_sent']]) || 0,
+                    dms_sent: parseInt(row[colMap['dms_sent']]) || 0,
+                    otbeat_sales: parseInt(row[colMap['otbeat_sales']]) || null,
+                    otbeat_buyer_names: row[colMap['otbeat_buyer_names']] || null,
+                    upgrades: parseInt(row[colMap['upgrades']]) || null,
+                    upgrade_details: row[colMap['upgrade_details']] || null,
+                    downgrades: parseInt(row[colMap['downgrades']]) || null,
+                    downgrade_details: row[colMap['downgrade_details']] || null,
+                    cancellations: parseInt(row[colMap['cancellations']]) || null,
+                    cancellation_details: row[colMap['cancellation_details']] || null,
+                    freezes: parseInt(row[colMap['freezes']]) || null,
+                    freeze_details: row[colMap['freeze_details']] || null,
+                    milestones_celebrated: row[colMap['milestones_celebrated']] || null,
+                    equipment_issues: row[colMap['equipment_issues']] || null,
+                    submitted_at: timestamp || null,
+                    synced_to_sheets: true,
+                  }).select('id').single();
+
+                  if (recapError || !newRecap) {
+                    throw new Error(`Failed to insert shift recap: ${recapError?.message}`);
+                  }
+                  shiftRecapId = newRecap.id;
+                  importResults.shiftRecaps.imported++;
                 }
 
-                // Parse date - try various formats
-                let parsedDate = shiftDate;
-                if (shiftDate.includes('/')) {
-                  const parts = shiftDate.split('/');
-                  if (parts.length === 3) {
-                    const [m, d, y] = parts;
-                    parsedDate = `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                // Import Intros Booked from this row
+                for (const cols of introBookedCols) {
+                  const memberName = row[cols.memberName]?.trim();
+                  if (!memberName) continue;
+
+                  const classDateRaw = row[cols.classDate] || '';
+                  const classDate = parseDate(classDateRaw);
+                  const coachName = row[cols.coach] || 'Unknown';
+                  const saWorking = row[cols.saWorking] || staffName;
+                  const fitnessGoal = row[cols.fitnessGoal] || null;
+                  const leadSource = row[cols.leadSource] || 'Unknown';
+
+                  // Check for duplicates
+                  const { data: existingIntro } = await supabase
+                    .from('intros_booked')
+                    .select('id')
+                    .eq('member_name', memberName)
+                    .eq('class_date', classDate)
+                    .maybeSingle();
+
+                  if (existingIntro) {
+                    importResults.introsBooked.skipped++;
+                    continue;
+                  }
+
+                  try {
+                    await supabase.from('intros_booked').insert({
+                      member_name: memberName,
+                      class_date: classDate,
+                      coach_name: coachName,
+                      sa_working_shift: saWorking,
+                      fitness_goal: fitnessGoal,
+                      lead_source: leadSource,
+                      shift_recap_id: shiftRecapId,
+                    });
+                    importResults.introsBooked.imported++;
+                  } catch (err) {
+                    importResults.introsBooked.errors++;
+                    importResults.errorLog.push(`Intro Booked Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
                   }
                 }
 
-                await supabase.from('shift_recaps').insert({
-                  staff_name: staffName,
-                  shift_date: parsedDate,
-                  shift_type: row[colMap['shift_type']] || 'AM Shift',
-                  calls_made: parseInt(row[colMap['calls_made']]) || 0,
-                  texts_sent: parseInt(row[colMap['texts_sent']]) || 0,
-                  emails_sent: parseInt(row[colMap['emails_sent']]) || 0,
-                  dms_sent: parseInt(row[colMap['dms_sent']]) || 0,
-                  otbeat_sales: parseInt(row[colMap['otbeat_sales']]) || null,
-                  otbeat_buyer_names: row[colMap['otbeat_buyer_names']] || null,
-                  upgrades: parseInt(row[colMap['upgrades']]) || null,
-                  upgrade_details: row[colMap['upgrade_details']] || null,
-                  downgrades: parseInt(row[colMap['downgrades']]) || null,
-                  downgrade_details: row[colMap['downgrade_details']] || null,
-                  cancellations: parseInt(row[colMap['cancellations']]) || null,
-                  cancellation_details: row[colMap['cancellation_details']] || null,
-                  freezes: parseInt(row[colMap['freezes']]) || null,
-                  freeze_details: row[colMap['freeze_details']] || null,
-                  milestones_celebrated: row[colMap['milestones_celebrated']] || null,
-                  equipment_issues: row[colMap['equipment_issues']] || null,
-                  other_info: row[colMap['other_info']] || null,
-                  submitted_at: timestamp || null,
-                  synced_to_sheets: true, // Already in sheets
-                });
+                // Import Intros Run from this row
+                for (const cols of introRunCols) {
+                  const memberName = row[cols.memberName]?.trim();
+                  if (!memberName) continue;
 
-                importResults.shiftRecaps.imported++;
+                  const classTime = parseTime(row[cols.classTime] || '');
+                  const bookingSource = row[cols.bookingSource] || null;
+                  const processChecklistRaw = row[cols.processChecklist] || '';
+                  const leadMeasuresRaw = row[cols.leadMeasures] || '';
+                  const result = row[cols.result] || 'Follow-up needed (no sale yet)';
+                  const notes = row[cols.notes] || null;
+
+                  // Parse checklist/measures (comma or semicolon separated)
+                  const processChecklist = processChecklistRaw ? processChecklistRaw.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+                  const leadMeasures = leadMeasuresRaw ? leadMeasuresRaw.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+
+                  // Check for duplicates
+                  const { data: existingRun } = await supabase
+                    .from('intros_run')
+                    .select('id')
+                    .eq('member_name', memberName)
+                    .eq('class_time', classTime)
+                    .eq('shift_recap_id', shiftRecapId)
+                    .maybeSingle();
+
+                  if (existingRun) {
+                    importResults.introsRun.skipped++;
+                    continue;
+                  }
+
+                  // Calculate commission based on result
+                  let commissionAmount = 0;
+                  const resultLower = result.toLowerCase();
+                  if (resultLower.includes('premier') && resultLower.includes('otbeat')) commissionAmount = 15;
+                  else if (resultLower.includes('premier')) commissionAmount = 7.5;
+                  else if (resultLower.includes('elite') && resultLower.includes('otbeat')) commissionAmount = 12;
+                  else if (resultLower.includes('elite')) commissionAmount = 6;
+                  else if (resultLower.includes('basic') && resultLower.includes('otbeat')) commissionAmount = 9;
+                  else if (resultLower.includes('basic')) commissionAmount = 3;
+
+                  // Determine if self-gen based on booking source
+                  const isSelfGen = bookingSource?.toLowerCase().includes('instagram') || 
+                                   bookingSource?.toLowerCase().includes('self') ||
+                                   bookingSource?.toLowerCase().includes('online intro offer');
+
+                  try {
+                    await supabase.from('intros_run').insert({
+                      member_name: memberName,
+                      class_time: classTime,
+                      booking_source: bookingSource,
+                      process_checklist: processChecklist,
+                      lead_measures: leadMeasures,
+                      result: result,
+                      notes: notes,
+                      sa_name: staffName,
+                      shift_recap_id: shiftRecapId,
+                      is_self_gen: isSelfGen,
+                      commission_amount: isSelfGen ? commissionAmount : 0,
+                    });
+                    importResults.introsRun.imported++;
+                  } catch (err) {
+                    importResults.introsRun.errors++;
+                    importResults.errorLog.push(`Intro Run Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                  }
+                }
               } catch (err) {
                 importResults.shiftRecaps.errors++;
                 importResults.errorLog.push(`Row ${i + 1}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -397,15 +588,7 @@ serve(async (req) => {
                   }
                 }
 
-                // Parse date
-                let parsedDate = row[colMap['date_added']] || new Date().toISOString().split('T')[0];
-                if (parsedDate.includes('/')) {
-                  const parts = parsedDate.split('/');
-                  if (parts.length === 3) {
-                    const [m, d, y] = parts;
-                    parsedDate = `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                  }
-                }
+                const parsedDate = parseDate(row[colMap['date_added']] || '');
 
                 await supabase.from('ig_leads').insert({
                   sa_name: row[colMap['sa_name']] || 'Unknown',
@@ -418,7 +601,7 @@ serve(async (req) => {
                   interest_level: row[colMap['interest_level']] || 'Interested - Forgot to answer, reach out later',
                   notes: row[colMap['notes']] || null,
                   status: (row[colMap['status']] || 'not_booked').toLowerCase().replace(' ', '_'),
-                  synced_to_sheets: true, // Already in sheets
+                  synced_to_sheets: true,
                 });
 
                 importResults.igLeads.imported++;
@@ -435,7 +618,7 @@ serve(async (req) => {
         // Log the import
         await supabase.from('sheets_sync_log').insert({
           sync_type: 'historical_import',
-          records_synced: importResults.shiftRecaps.imported + importResults.igLeads.imported,
+          records_synced: importResults.shiftRecaps.imported + importResults.igLeads.imported + importResults.introsBooked.imported + importResults.introsRun.imported,
           status: 'success',
         });
 

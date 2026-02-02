@@ -24,6 +24,8 @@ interface PreviewData {
 interface ImportResults {
   shiftRecaps: { imported: number; skipped: number; errors: number };
   igLeads: { imported: number; skipped: number; errors: number };
+  introsBooked?: { imported: number; skipped: number; errors: number };
+  introsRun?: { imported: number; skipped: number; errors: number };
   errorLog: string[];
 }
 
@@ -92,7 +94,10 @@ export default function HistoricalDataImport({ spreadsheetId, onImportComplete }
 
   const totalToImport = Object.values(preview).reduce((sum, p) => sum + p.rowCount, 0);
   const totalImported = importResults 
-    ? importResults.shiftRecaps.imported + importResults.igLeads.imported 
+    ? importResults.shiftRecaps.imported + importResults.igLeads.imported + (importResults.introsBooked?.imported || 0) + (importResults.introsRun?.imported || 0)
+    : 0;
+  const totalErrors = importResults
+    ? importResults.shiftRecaps.errors + importResults.igLeads.errors + (importResults.introsBooked?.errors || 0) + (importResults.introsRun?.errors || 0)
     : 0;
 
   return (
@@ -203,9 +208,31 @@ export default function HistoricalDataImport({ spreadsheetId, onImportComplete }
                   </p>
                 )}
               </div>
+              {importResults.introsBooked && (
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-primary">{importResults.introsBooked.imported}</p>
+                  <p className="text-xs text-muted-foreground">Intros Booked</p>
+                  {importResults.introsBooked.skipped > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ({importResults.introsBooked.skipped} skipped)
+                    </p>
+                  )}
+                </div>
+              )}
+              {importResults.introsRun && (
+                <div className="p-3 bg-muted/50 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-primary">{importResults.introsRun.imported}</p>
+                  <p className="text-xs text-muted-foreground">Intros Run</p>
+                  {importResults.introsRun.skipped > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ({importResults.introsRun.skipped} skipped)
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
-            {(importResults.shiftRecaps.errors > 0 || importResults.igLeads.errors > 0) && (
+            {totalErrors > 0 && (
               <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/30">
                 <button
                   className="flex items-center justify-between w-full"
@@ -214,7 +241,7 @@ export default function HistoricalDataImport({ spreadsheetId, onImportComplete }
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-destructive" />
                     <span className="text-sm font-medium">
-                      {importResults.shiftRecaps.errors + importResults.igLeads.errors} errors
+                      {totalErrors} errors
                     </span>
                   </div>
                   {showErrorLog ? (
