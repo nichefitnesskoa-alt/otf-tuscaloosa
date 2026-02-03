@@ -707,6 +707,11 @@ serve(async (req) => {
 
       case 'sync_shift': {
         // Sync a single shift to Google Sheets (append or update)
+        // Column order per spec (12 columns):
+        // [0] shift_id, [1] staff_name, [2] shift_date, [3] shift_time,
+        // [4] calls, [5] texts, [6] dms, [7] emails,
+        // [8] submitted_at, [9] last_edited_at, [10] last_edited_by, [11] edit_reason
+        
         const shift = data;
         const shiftId = shift.shift_id || `shift_${shift.id}`;
         
@@ -717,20 +722,21 @@ serve(async (req) => {
         };
         
         const rowData = [
-          shiftId,
-          shift.staff_name || '',
-          shift.shift_date || '',
-          shift.shift_type || '',
-          cleanNumeric(shift.calls_made),
-          cleanNumeric(shift.texts_sent),
-          cleanNumeric(shift.emails_sent),
-          cleanNumeric(shift.dms_sent),
-          shift.created_at || new Date().toISOString(),
-          shift.submitted_at || '',
-          editedBy ? new Date().toISOString() : '',
-          editedBy || '',
-          editReason || '',
+          shiftId,                                                    // [0] shift_id
+          shift.staff_name || '',                                     // [1] staff_name
+          shift.shift_date || '',                                     // [2] shift_date
+          shift.shift_type || '',                                     // [3] shift_time
+          cleanNumeric(shift.calls_made),                             // [4] calls
+          cleanNumeric(shift.texts_sent),                             // [5] texts
+          cleanNumeric(shift.dms_sent),                               // [6] dms
+          cleanNumeric(shift.emails_sent),                            // [7] emails
+          shift.submitted_at || new Date().toISOString(),             // [8] submitted_at
+          editedBy ? new Date().toISOString() : '',                   // [9] last_edited_at
+          editedBy || '',                                             // [10] last_edited_by
+          editReason || '',                                           // [11] edit_reason
         ];
+
+        console.log('Writing to app_shifts:', { shiftId, arrayLength: rowData.length });
 
         // Check if row exists
         const existingRow = await findRowByStableId(spreadsheetId, 'app_shifts', 0, shiftId, accessToken);
@@ -757,6 +763,16 @@ serve(async (req) => {
       }
 
       case 'sync_booking': {
+        // Sync a single booking to Google Sheets
+        // Column order per spec (27 columns):
+        // [0] booking_id, [1] member_name, [2] intro_date, [3] intro_time,
+        // [4] lead_source, [5] notes, [6] intro_owner, [7] originating_booking_id,
+        // [8] created_at, [9] intro_datetime_key, [10] last_edited_at, [11] last_edited_by,
+        // [12] edit_reason, [13] intro_date_valid, [14] intro_time_valid, [15] intro_date_normalized,
+        // [16] intro_time_normalized, [17] intro_datetime_key.1, [18] needs_fix_reason,
+        // [19] booking_status, [20] status_reason, [21] status_changed_at, [22] status_changed_by,
+        // [23] archived_at, [24] member_key, [25] closed_at, [26] booked_by
+        
         const booking = data;
         const bookingId = booking.booking_id || `booking_${booking.id}`;
         
@@ -765,29 +781,41 @@ serve(async (req) => {
           return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
         };
         const memberKey = booking.member_key || normalizeName(booking.member_name || '');
+        const introDate = booking.class_date || booking.intro_date || '';
+        const introTime = booking.intro_time || '';
+        const introDatetimeKey = introDate && introTime ? `${introDate}_${introTime}` : '';
         
         const rowData = [
-          bookingId,
-          booking.member_name || '',
-          booking.class_date || '',
-          booking.intro_time || '',
-          booking.lead_source || '',
-          booking.fitness_goal || booking.notes || '',
-          memberKey,
-          booking.booking_status || 'ACTIVE',
-          booking.status_reason || '',
-          booking.status_changed_at || '',
-          booking.status_changed_by || '',
-          booking.originating_booking_id || '',
-          booking.closed_at || '',
-          booking.closed_sale_id || '',
-          booking.booked_by || '',  // Who booked it (booking credit)
-          booking.intro_owner || '', // Who runs first intro (commission owner)
-          booking.created_at || new Date().toISOString(),
-          editedBy ? new Date().toISOString() : '',
-          editedBy || '',
-          editReason || '',
+          bookingId,                                                  // [0] booking_id
+          booking.member_name || '',                                  // [1] member_name
+          introDate,                                                  // [2] intro_date
+          introTime,                                                  // [3] intro_time
+          booking.lead_source || '',                                  // [4] lead_source
+          booking.fitness_goal || booking.notes || '',                // [5] notes
+          booking.intro_owner || booking.booked_by || '',             // [6] intro_owner - CRITICAL: Must be staff name
+          booking.originating_booking_id || '',                       // [7] originating_booking_id
+          booking.created_at || new Date().toISOString(),             // [8] created_at
+          introDatetimeKey,                                           // [9] intro_datetime_key
+          editedBy ? new Date().toISOString() : '',                   // [10] last_edited_at
+          editedBy || '',                                             // [11] last_edited_by
+          editReason || '',                                           // [12] edit_reason
+          introDate ? 'TRUE' : 'FALSE',                               // [13] intro_date_valid
+          introTime ? 'TRUE' : 'FALSE',                               // [14] intro_time_valid
+          introDate,                                                  // [15] intro_date_normalized
+          introTime,                                                  // [16] intro_time_normalized
+          '',                                                         // [17] intro_datetime_key.1 (computed)
+          '',                                                         // [18] needs_fix_reason
+          booking.booking_status || 'ACTIVE',                         // [19] booking_status
+          booking.status_reason || '',                                // [20] status_reason
+          booking.status_changed_at || '',                            // [21] status_changed_at
+          booking.status_changed_by || '',                            // [22] status_changed_by
+          '',                                                         // [23] archived_at
+          memberKey,                                                  // [24] member_key
+          booking.closed_at || '',                                    // [25] closed_at
+          booking.booked_by || booking.intro_owner || '',             // [26] booked_by
         ];
+
+        console.log('Writing to app_intro_bookings:', { bookingId, intro_owner: rowData[6], booked_by: rowData[26], arrayLength: rowData.length });
 
         const existingRow = await findRowByStableId(spreadsheetId, 'app_intro_bookings', 0, bookingId, accessToken);
         
@@ -800,6 +828,7 @@ serve(async (req) => {
         await supabase.from('intros_booked')
           .update({ 
             booking_id: bookingId,
+            intro_owner: booking.intro_owner || booking.booked_by || undefined,
             last_edited_at: editedBy ? new Date().toISOString() : undefined,
             last_edited_by: editedBy || undefined,
             edit_reason: editReason || undefined,
@@ -811,32 +840,55 @@ serve(async (req) => {
       }
 
       case 'sync_run': {
+        // Sync a single intro run to Google Sheets
+        // Column order per spec (21 columns):
+        // [0] run_id, [1] booking_id, [2] run_date, [3] run_time,
+        // [4] outcome, [5] goal_quality, [6] pricing_engagement,
+        // [7] lead_measure_fvc, [8] lead_measure_rfg, [9] lead_measure_choice_arch,
+        // [10] lead_measure_halfway, [11] lead_measure_premob, [12] lead_measure_summary,
+        // [13] notes, [14] intro_owner, [15] created_at,
+        // [16] last_edited_at, [17] last_edited_by, [18] edit_reason,
+        // [19] member_key, [20] close_flag
+        
         const run = data;
         const runId = run.run_id || `run_${run.id}`;
         
+        // Normalize member name to key
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+        const memberKey = run.member_key || normalizeName(run.member_name || '');
+        
+        // Determine close flag - TRUE if outcome includes commission amount
+        const outcome = run.result || run.outcome || '';
+        const isClose = outcome.includes('$') || outcome.toLowerCase().includes('premier') || 
+                       outcome.toLowerCase().includes('elite') || outcome.toLowerCase().includes('basic');
+        
         const rowData = [
-          runId,
-          run.linked_booking_id || '',
-          run.member_name || '',
-          run.run_date || run.buy_date || '',
-          run.class_time || '',
-          run.lead_source || '',
-          run.intro_owner || run.sa_name || '',
-          run.result || '',
-          run.goal_quality || '',
-          run.pricing_engagement || '',
-          String(run.fvc_completed || false),
-          String(run.rfg_presented || false),
-          String(run.choice_architecture || false),
-          String(run.halfway_encouragement || false),
-          String(run.premobility_encouragement || false),
-          String(run.coaching_summary_presence || false),
-          run.notes || '',
-          run.created_at || new Date().toISOString(),
-          editedBy ? new Date().toISOString() : '',
-          editedBy || '',
-          editReason || '',
+          runId,                                                      // [0] run_id
+          run.linked_booking_id || run.booking_id || '',              // [1] booking_id
+          run.run_date || run.buy_date || '',                         // [2] run_date
+          run.class_time || run.run_time || '',                       // [3] run_time
+          outcome,                                                    // [4] outcome
+          run.goal_quality || '',                                     // [5] goal_quality
+          run.pricing_engagement || '',                               // [6] pricing_engagement
+          run.fvc_completed ? 'TRUE' : 'FALSE',                       // [7] lead_measure_fvc
+          run.rfg_presented ? 'TRUE' : 'FALSE',                       // [8] lead_measure_rfg
+          run.choice_architecture ? 'TRUE' : 'FALSE',                 // [9] lead_measure_choice_arch
+          run.halfway_encouragement ? 'TRUE' : 'FALSE',               // [10] lead_measure_halfway
+          run.premobility_encouragement ? 'TRUE' : 'FALSE',           // [11] lead_measure_premob
+          run.coaching_summary_presence ? 'TRUE' : 'FALSE',           // [12] lead_measure_summary
+          run.notes || '',                                            // [13] notes
+          run.intro_owner || run.sa_name || '',                       // [14] intro_owner
+          run.created_at || new Date().toISOString(),                 // [15] created_at
+          editedBy ? new Date().toISOString() : '',                   // [16] last_edited_at
+          editedBy || '',                                             // [17] last_edited_by
+          editReason || '',                                           // [18] edit_reason
+          memberKey,                                                  // [19] member_key
+          isClose ? 'TRUE' : 'FALSE',                                 // [20] close_flag
         ];
+
+        console.log('Writing to app_intro_runs:', { runId, intro_owner: rowData[14], arrayLength: rowData.length });
 
         const existingRow = await findRowByStableId(spreadsheetId, 'app_intro_runs', 0, runId, accessToken);
         
@@ -860,29 +912,55 @@ serve(async (req) => {
       }
 
       case 'sync_sale': {
+        // Sync a single sale to Google Sheets
+        // Column order per spec (17 columns):
+        // [0] sale_id, [1] member_name, [2] date_closed, [3] sale_type,
+        // [4] intro_owner, [5] membership_type, [6] commission_amount,
+        // [7] sa_logged, [8] created_at, [9] pay_period_start, [10] pay_period_end,
+        // [11] last_edited_at, [12] last_edited_by, [13] edit_reason,
+        // [14] related_booking_id, [15] related_originating_booking_id, [16] member_key
+        
         const sale = data;
         const saleId = sale.sale_id || `sale_${sale.id}`;
         
-        // Calculate pay period
-        const saleDate = new Date(sale.created_at || new Date());
+        // Calculate pay period from date_closed
+        const dateClosed = sale.date_closed || sale.created_at || new Date().toISOString();
+        const saleDate = new Date(dateClosed);
         const payPeriod = getPayPeriod(saleDate);
         
+        // Normalize member name to key
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+        const memberKey = sale.member_key || normalizeName(sale.member_name || '');
+        
+        // Extract commission amount from membership type if not provided
+        let commissionAmount = sale.commission_amount;
+        if (!commissionAmount && sale.membership_type) {
+          commissionAmount = calculateCommission(sale.membership_type);
+        }
+        
         const rowData = [
-          saleId,
-          sale.run_id || '',
-          sale.sale_type || 'outside_intro',
-          sale.member_name || '',
-          sale.lead_source || '',
-          sale.membership_type || '',
-          String(sale.commission_amount || 0),
-          sale.intro_owner || '',
-          formatDate(payPeriod.start),
-          formatDate(payPeriod.end),
-          sale.created_at || new Date().toISOString(),
-          editedBy ? new Date().toISOString() : '',
-          editedBy || '',
-          editReason || '',
+          saleId,                                                     // [0] sale_id
+          sale.member_name || '',                                     // [1] member_name
+          dateClosed.split('T')[0],                                   // [2] date_closed
+          sale.sale_type || 'Intro',                                  // [3] sale_type
+          sale.intro_owner || '',                                     // [4] intro_owner
+          sale.membership_type || '',                                 // [5] membership_type
+          String(commissionAmount || 0),                              // [6] commission_amount
+          sale.sa_logged || sale.intro_owner || '',                   // [7] sa_logged
+          sale.created_at || new Date().toISOString(),                // [8] created_at
+          formatDate(payPeriod.start),                                // [9] pay_period_start
+          formatDate(payPeriod.end),                                  // [10] pay_period_end
+          editedBy ? new Date().toISOString() : '',                   // [11] last_edited_at
+          editedBy || '',                                             // [12] last_edited_by
+          editReason || '',                                           // [13] edit_reason
+          sale.related_booking_id || '',                              // [14] related_booking_id
+          sale.related_originating_booking_id || '',                  // [15] related_originating_booking_id
+          memberKey,                                                  // [16] member_key
         ];
+
+        console.log('Writing to app_sales:', { saleId, intro_owner: rowData[4], arrayLength: rowData.length });
 
         const existingRow = await findRowByStableId(spreadsheetId, 'app_sales', 0, saleId, accessToken);
         
@@ -895,6 +973,7 @@ serve(async (req) => {
         await supabase.from('sales_outside_intro')
           .update({ 
             sale_id: saleId,
+            commission_amount: commissionAmount,
             pay_period_start: formatDate(payPeriod.start),
             pay_period_end: formatDate(payPeriod.end),
             last_edited_at: editedBy ? new Date().toISOString() : undefined,

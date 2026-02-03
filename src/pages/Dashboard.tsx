@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { BookingCreditTable } from '@/components/dashboard/BookingCreditTable';
 import { ConversionCreditTable } from '@/components/dashboard/ConversionCreditTable';
@@ -11,10 +12,12 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
+import { format } from 'date-fns';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales, shiftRecaps, isLoading } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, isLoading, lastUpdated, refreshData } = useData();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Date filter state - default to pay period
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
@@ -24,6 +27,12 @@ export default function Dashboard() {
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   
   const isAdmin = user?.role === 'Admin';
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    setIsRefreshing(false);
+  };
 
   // Calculate the current date range based on preset
   const dateRange = useMemo(() => {
@@ -63,13 +72,29 @@ export default function Dashboard() {
   return (
     <div className="p-4 space-y-4">
       <div className="mb-6">
-        <h1 className="text-xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-bold">Dashboard</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="h-8 px-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-1">
           {effectiveEmployee ? `${effectiveEmployee}'s performance` : 'Studio performance metrics'}
         </p>
+        {lastUpdated && (
+          <p className="text-xs text-muted-foreground/70">
+            Last updated: {format(lastUpdated, 'h:mm:ss a')}
+          </p>
+        )}
         
         {/* Filters Row */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           {/* Admin View-as Employee Filter */}
           <EmployeeFilter 
             selectedEmployee={selectedEmployee}

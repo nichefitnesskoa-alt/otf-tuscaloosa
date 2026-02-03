@@ -78,6 +78,7 @@ interface DataContextType {
   introsRun: IntroRun[];
   sales: Sale[];
   isLoading: boolean;
+  lastUpdated: Date | null;
   refreshData: () => Promise<void>;
 }
 
@@ -89,6 +90,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -104,6 +106,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (bookingsResult.data) setIntrosBooked(bookingsResult.data as IntroBooked[]);
       if (runsResult.data) setIntrosRun(runsResult.data as IntroRun[]);
       if (salesResult.data) setSales(salesResult.data as Sale[]);
+      
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -126,6 +130,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       introsRun,
       sales,
       isLoading,
+      lastUpdated,
       refreshData,
     }}>
       {children}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ type ShiftType = typeof SHIFT_TYPES[number];
 
 export default function ShiftRecap() {
   const { user } = useAuth();
+  const { refreshData } = useData();
   const spreadsheetId = getSpreadsheetId();
   const { 
     isClosing, 
@@ -177,23 +179,26 @@ export default function ShiftRecap() {
 
       if (shiftError) throw shiftError;
 
-      // 2. Save intro bookings (with booked_by for booking credit)
+      // 2. Save intro bookings (with booked_by AND intro_owner set to logged-in staff)
       for (const booking of introsBooked) {
         if (booking.memberName && booking.introDate) {
           const bookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+          const staffName = user?.name || '';
+          
           await supabase.from('intros_booked').insert({
             booking_id: bookingId,
             member_name: booking.memberName,
             class_date: booking.introDate,
             intro_time: booking.introTime || null,
             coach_name: 'TBD',
-            sa_working_shift: user?.name || '',
+            sa_working_shift: staffName, // Who was working the shift
             lead_source: booking.leadSource || 'Source Not Found',
             fitness_goal: booking.notes || null,
             shift_recap_id: shiftData.id,
+            intro_owner: staffName, // CRITICAL: Set to staff name, NOT member name
           });
 
-          // Sync to Google Sheets if configured (with booked_by)
+          // Sync to Google Sheets if configured
           if (spreadsheetId) {
             await supabase.functions.invoke('sync-sheets', {
               body: {
@@ -206,7 +211,8 @@ export default function ShiftRecap() {
                   intro_time: booking.introTime,
                   lead_source: booking.leadSource,
                   notes: booking.notes,
-                  booked_by: user?.name || '', // Booking credit goes here
+                  booked_by: staffName, // Booking credit goes here
+                  intro_owner: staffName, // CRITICAL: Staff name who booked, NOT member name
                   booking_status: 'ACTIVE',
                 },
               },
@@ -446,6 +452,9 @@ export default function ShiftRecap() {
       toast.success('Shift recap submitted! 🎉', {
         description: 'Great work today!',
       });
+
+      // Refresh dashboard data immediately
+      await refreshData();
 
       // Reset form
       setCallsMade(0);
