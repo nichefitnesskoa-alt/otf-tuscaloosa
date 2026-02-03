@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { BookingCreditTable } from '@/components/dashboard/BookingCreditTable';
 import { ConversionCreditTable } from '@/components/dashboard/ConversionCreditTable';
+import { IndividualActivityTable } from '@/components/dashboard/IndividualActivityTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
@@ -13,7 +14,7 @@ import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales, isLoading } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, isLoading } = useData();
 
   // Date filter state - default to pay period
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
@@ -29,8 +30,8 @@ export default function Dashboard() {
     return getDateRangeForPreset(datePreset, customRange);
   }, [datePreset, customRange]);
 
-  // Pass date range to metrics hook
-  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange);
+  // Pass date range and shift recaps to metrics hook
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps);
 
   // For non-admin users, filter to show only their data
   const effectiveEmployee = isAdmin ? selectedEmployee : user?.name || null;
@@ -45,6 +46,11 @@ export default function Dashboard() {
     if (!effectiveEmployee) return metrics.conversionCredit;
     return metrics.conversionCredit.filter(m => m.saName === effectiveEmployee);
   }, [metrics.conversionCredit, effectiveEmployee]);
+
+  const filteredIndividualActivity = useMemo(() => {
+    if (!effectiveEmployee) return metrics.individualActivity;
+    return metrics.individualActivity.filter(m => m.saName === effectiveEmployee);
+  }, [metrics.individualActivity, effectiveEmployee]);
 
   if (isLoading) {
     return (
@@ -92,6 +98,9 @@ export default function Dashboard() {
         totalCommission={metrics.studio.totalCommission}
       />
 
+      {/* Individual Activity Table - NEW */}
+      <IndividualActivityTable data={filteredIndividualActivity} />
+
       {/* Booking Credit Table - filtered */}
       <BookingCreditTable data={filteredBookingCredit} />
 
@@ -102,6 +111,8 @@ export default function Dashboard() {
       <Card className="bg-muted/30">
         <CardContent className="p-3">
           <p className="text-xs text-muted-foreground">
+            <strong>Individual Activity</strong> = outreach efforts (calls, texts, DMs, emails) from shift recaps
+            <br />
             <strong>Booking Credit</strong> = credited to "Booked by" (who scheduled the intro) — filtered by <em>booking date</em>
             <br />
             <strong>Conversion Credit</strong> = credited to "Commission owner" (who ran the first intro) — sales filtered by <em>date closed</em>

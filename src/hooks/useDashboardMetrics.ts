@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { IntroBooked, IntroRun, Sale } from '@/context/DataContext';
+import { IntroBooked, IntroRun, Sale, ShiftRecap } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { isWithinInterval, parseISO } from 'date-fns';
 
 interface StudioMetrics {
   introsBooked: number;
@@ -30,10 +30,22 @@ interface ConversionCreditMetrics {
   commissionEarned: number;
 }
 
+interface IndividualActivityMetrics {
+  saName: string;
+  calls: number;
+  texts: number;
+  dms: number;
+  emails: number;
+  totalContacts: number;
+  shiftsWorked: number;
+  showRate: number | null;
+}
+
 export interface DashboardMetrics {
   studio: StudioMetrics;
   bookingCredit: BookingCreditMetrics[];
   conversionCredit: ConversionCreditMetrics[];
+  individualActivity: IndividualActivityMetrics[];
 }
 
 /**
@@ -54,7 +66,8 @@ export function useDashboardMetrics(
   introsBooked: IntroBooked[],
   introsRun: IntroRun[],
   sales: Sale[],
-  dateRange: DateRange | null
+  dateRange: DateRange | null,
+  shiftRecaps: ShiftRecap[] = []
 ): DashboardMetrics {
   return useMemo(() => {
     // Status values that should be excluded from metrics
@@ -136,24 +149,29 @@ export function useDashboardMetrics(
       ? (studioIntroSales / studioIntrosShowed) * 100 
       : 0;
 
-    // Get all unique SA names from bookings and runs
+    // Get all unique SA names from bookings and runs (excluding TBD/Unknown)
+    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A'];
     const allSAs = new Set<string>();
     firstIntroBookings.forEach(b => {
-      const bookedBy = (b as any).booked_by || b.sa_working_shift;
-      if (bookedBy) allSAs.add(bookedBy);
+      // Use sa_working_shift as the "booked by" field
+      const bookedBy = b.sa_working_shift;
+      if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) allSAs.add(bookedBy);
     });
     activeRuns.forEach(r => {
-      if (r.intro_owner) allSAs.add(r.intro_owner);
-      if (r.sa_name) allSAs.add(r.sa_name);
+      if (r.intro_owner && !EXCLUDED_NAMES.includes(r.intro_owner)) allSAs.add(r.intro_owner);
+      if (r.sa_name && !EXCLUDED_NAMES.includes(r.sa_name)) allSAs.add(r.sa_name);
+    });
+    // Add SAs from shift recaps
+    shiftRecaps.forEach(s => {
+      if (s.staff_name && !EXCLUDED_NAMES.includes(s.staff_name)) allSAs.add(s.staff_name);
     });
 
-    // BOOKING CREDIT TABLE (per SA, credited to booked_by)
+    // BOOKING CREDIT TABLE (per SA, credited to sa_working_shift / booked_by)
     // Filter by booking_date (class_date)
     const bookingCredit: BookingCreditMetrics[] = Array.from(allSAs).map(saName => {
-      // SA's first intro bookings (where booked_by = SA) - already filtered by date
+      // SA's first intro bookings (where sa_working_shift = SA) - already filtered by date
       const saBookings = firstIntroBookings.filter(b => {
-        const bookedBy = (b as any).booked_by || b.sa_working_shift;
-        return bookedBy === saName;
+        return b.sa_working_shift === saName;
       });
 
       const introsBookedCount = saBookings.length;
@@ -290,6 +308,43 @@ export function useDashboardMetrics(
     }).filter(m => m.introsRan > 0 || m.sales > 0 || m.commissionEarned > 0)
       .sort((a, b) => b.commissionEarned - a.commissionEarned);
 
+    // INDIVIDUAL ACTIVITY TABLE
+    // Filter shift recaps by date range
+    const filteredShifts = shiftRecaps.filter(s => isDateInRange(s.shift_date, dateRange));
+    
+    const individualActivity: IndividualActivityMetrics[] = Array.from(allSAs).map(saName => {
+      // Get shifts for this SA
+      const saShifts = filteredShifts.filter(s => s.staff_name === saName);
+      
+      const calls = saShifts.reduce((sum, s) => sum + (s.calls_made || 0), 0);
+      const texts = saShifts.reduce((sum, s) => sum + (s.texts_sent || 0), 0);
+      const dms = saShifts.reduce((sum, s) => sum + (s.dms_sent || 0), 0);
+      const emails = saShifts.reduce((sum, s) => sum + (s.emails_sent || 0), 0);
+      const totalContacts = calls + texts + dms + emails;
+      const shiftsWorked = saShifts.length;
+      
+      // Calculate show rate for this SA from their bookings
+      const saBookings = firstIntroBookings.filter(b => b.sa_working_shift === saName);
+      const saBooked = saBookings.length;
+      const saShowed = saBookings.filter(booking => {
+        const runs = bookingToRuns.get(booking.id) || [];
+        return runs.some(run => run.result !== 'No-show');
+      }).length;
+      const showRate = saBooked > 0 ? (saShowed / saBooked) * 100 : null;
+      
+      return {
+        saName,
+        calls,
+        texts,
+        dms,
+        emails,
+        totalContacts,
+        shiftsWorked,
+        showRate,
+      };
+    }).filter(m => m.totalContacts > 0 || m.shiftsWorked > 0)
+      .sort((a, b) => b.totalContacts - a.totalContacts);
+
     // Calculate total studio commission from all sources
     // Intro-based commission from intros_run (filter by buy_date)
     const totalIntroCommission = activeRuns
@@ -317,6 +372,7 @@ export function useDashboardMetrics(
       },
       bookingCredit,
       conversionCredit,
+      individualActivity,
     };
-  }, [introsBooked, introsRun, sales, dateRange]);
+  }, [introsBooked, introsRun, sales, dateRange, shiftRecaps]);
 }

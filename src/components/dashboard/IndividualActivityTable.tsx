@@ -13,42 +13,43 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Calendar, HelpCircle } from 'lucide-react';
+import { Activity, HelpCircle } from 'lucide-react';
 
-interface BookingCreditRow {
+interface IndividualActivityRow {
   saName: string;
-  introsBooked: number;
-  introsShowed: number;
-  showRate: number;
-  leadMeasureRate: number;
-  qualityGoalRate: number;
-  pricingEngagementRate: number;
+  calls: number;
+  texts: number;
+  dms: number;
+  emails: number;
+  totalContacts: number;
+  shiftsWorked: number;
+  showRate: number | null;
 }
 
-interface BookingCreditTableProps {
-  data: BookingCreditRow[];
+interface IndividualActivityTableProps {
+  data: IndividualActivityRow[];
 }
 
-function getShowRateColor(rate: number, booked: number): string {
-  if (booked === 0) return '';
+function getShowRateColor(rate: number | null): string {
+  if (rate === null) return '';
   if (rate >= 75) return 'text-green-600 dark:text-green-400 font-medium';
   if (rate >= 50) return 'text-yellow-600 dark:text-yellow-400 font-medium';
   return 'text-red-600 dark:text-red-400 font-medium';
 }
 
-export function BookingCreditTable({ data }: BookingCreditTableProps) {
+export function IndividualActivityTable({ data }: IndividualActivityTableProps) {
   if (data.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Booking Credit (Booked by)
+            <Activity className="w-4 h-4" />
+            Individual Activity
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-4">
-            No booking data available
+            No activity data available
           </p>
         </CardContent>
       </Card>
@@ -60,8 +61,8 @@ export function BookingCreditTable({ data }: BookingCreditTableProps) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Booking Credit (Booked by)
+            <Activity className="w-4 h-4" />
+            Individual Activity
           </CardTitle>
           <TooltipProvider>
             <Tooltip>
@@ -69,7 +70,7 @@ export function BookingCreditTable({ data }: BookingCreditTableProps) {
                 <HelpCircle className="w-4 h-4 text-muted-foreground" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                <p>Pipeline effort metrics. Credited to who booked the intro, regardless of who ran it.</p>
+                <p>Outreach activity metrics per SA. Sorted by total contacts.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -81,12 +82,13 @@ export function BookingCreditTable({ data }: BookingCreditTableProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs">SA</TableHead>
-                <TableHead className="text-xs text-center">Booked</TableHead>
-                <TableHead className="text-xs text-center">Showed</TableHead>
+                <TableHead className="text-xs text-center">Calls</TableHead>
+                <TableHead className="text-xs text-center">Texts</TableHead>
+                <TableHead className="text-xs text-center">DMs</TableHead>
+                <TableHead className="text-xs text-center">Emails</TableHead>
+                <TableHead className="text-xs text-center">Total</TableHead>
+                <TableHead className="text-xs text-center">Shifts</TableHead>
                 <TableHead className="text-xs text-center">Show %</TableHead>
-                <TableHead className="text-xs text-center">Lead M.</TableHead>
-                <TableHead className="text-xs text-center">Goal Q.</TableHead>
-                <TableHead className="text-xs text-center">Pricing</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,22 +98,25 @@ export function BookingCreditTable({ data }: BookingCreditTableProps) {
                     {row.saName}
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
-                    {row.introsBooked}
+                    {row.calls}
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
-                    {row.introsShowed}
-                  </TableCell>
-                  <TableCell className={`text-center text-sm py-2 ${getShowRateColor(row.showRate, row.introsBooked)}`}>
-                    {row.introsBooked > 0 ? `${row.showRate.toFixed(1)}%` : '—'}
+                    {row.texts}
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
-                    {row.leadMeasureRate.toFixed(0)}%
+                    {row.dms}
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
-                    {row.qualityGoalRate.toFixed(0)}%
+                    {row.emails}
+                  </TableCell>
+                  <TableCell className="text-center text-sm py-2 font-medium">
+                    {row.totalContacts}
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
-                    {row.pricingEngagementRate.toFixed(0)}%
+                    {row.shiftsWorked}
+                  </TableCell>
+                  <TableCell className={`text-center text-sm py-2 ${getShowRateColor(row.showRate)}`}>
+                    {row.showRate !== null ? `${row.showRate.toFixed(1)}%` : '—'}
                   </TableCell>
                 </TableRow>
               ))}
