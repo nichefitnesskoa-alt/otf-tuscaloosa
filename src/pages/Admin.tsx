@@ -12,6 +12,7 @@ import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import DataSyncPanel from '@/components/admin/DataSyncPanel';
+import PayrollExport from '@/components/admin/PayrollExport';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -208,6 +209,9 @@ export default function Admin() {
           onSyncComplete={handleSyncComplete}
         />
       )}
+
+      {/* Payroll Export */}
+      <PayrollExport />
 
       {/* Pay Period Commission */}
       <PayPeriodCommission />

@@ -271,6 +271,7 @@ export type Database = {
         Row: {
           commission_amount: number | null
           created_at: string
+          date_closed: string | null
           edit_reason: string | null
           id: string
           intro_owner: string | null
@@ -289,6 +290,7 @@ export type Database = {
         Insert: {
           commission_amount?: number | null
           created_at?: string
+          date_closed?: string | null
           edit_reason?: string | null
           id?: string
           intro_owner?: string | null
@@ -307,6 +309,7 @@ export type Database = {
         Update: {
           commission_amount?: number | null
           created_at?: string
+          date_closed?: string | null
           edit_reason?: string | null
           id?: string
           intro_owner?: string | null

@@ -66,6 +66,7 @@ export interface Sale {
   membership_type: string;
   commission_amount?: number | null;
   intro_owner?: string | null;
+  date_closed?: string | null;
   pay_period_start?: string | null;
   pay_period_end?: string | null;
   created_at: string;

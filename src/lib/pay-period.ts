@@ -46,6 +46,20 @@ export function getPayPeriodForDate(date: Date): DateRange {
 }
 
 /**
+ * Get the current pay period
+ */
+export function getCurrentPayPeriod(): DateRange {
+  return getPayPeriodForDate(new Date());
+}
+
+/**
+ * Format date as YYYY-MM-DD
+ */
+export function formatDate(date: Date): string {
+  return format(date, 'yyyy-MM-dd');
+}
+
+/**
  * Get the previous pay period (before the current one)
  */
 export function getLastPayPeriod(): DateRange {

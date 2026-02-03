@@ -9,6 +9,7 @@ interface StudioMetrics {
   showRate: number;
   introSales: number;
   closingRate: number;
+  totalCommission: number;
 }
 
 interface BookingCreditMetrics {
@@ -240,14 +241,17 @@ export function useDashboardMetrics(
         ? (salesCount / introsRanCount) * 100 
         : 0;
 
-      // Commission Earned - filter by date_closed (buy_date) in range
+      // Commission Earned - filter by date_closed (buy_date) in range for intro sales
       const introCommission = introsRun
         .filter(r => r.intro_owner === saName && isDateInRange(r.buy_date, dateRange))
         .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
       
-      // Outside sales - filter by created_at (as proxy for date_closed) in range
+      // Outside sales - use date_closed if available, fallback to created_at
       const outsideCommission = sales
-        .filter(s => s.intro_owner === saName && isDateInRange(s.created_at, dateRange))
+        .filter(s => {
+          const dateClosed = (s as any).date_closed || s.created_at;
+          return s.intro_owner === saName && isDateInRange(dateClosed, dateRange);
+        })
         .reduce((sum, s) => sum + (s.commission_amount || 0), 0);
 
       const commissionEarned = introCommission + outsideCommission;
@@ -262,6 +266,22 @@ export function useDashboardMetrics(
     }).filter(m => m.introsRan > 0 || m.sales > 0 || m.commissionEarned > 0)
       .sort((a, b) => b.commissionEarned - a.commissionEarned);
 
+    // Calculate total studio commission from all sources
+    // Intro-based commission from intros_run (filter by buy_date)
+    const totalIntroCommission = introsRun
+      .filter(r => isDateInRange(r.buy_date, dateRange) && r.commission_amount && r.commission_amount > 0)
+      .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
+    
+    // Outside-intro commission from sales (filter by date_closed)
+    const totalOutsideCommission = sales
+      .filter(s => {
+        const dateClosed = (s as any).date_closed || s.created_at;
+        return isDateInRange(dateClosed, dateRange) && s.commission_amount && s.commission_amount > 0;
+      })
+      .reduce((sum, s) => sum + (s.commission_amount || 0), 0);
+    
+    const totalStudioCommission = totalIntroCommission + totalOutsideCommission;
+
     return {
       studio: {
         introsBooked: studioIntrosBooked,
@@ -269,6 +289,7 @@ export function useDashboardMetrics(
         showRate: studioShowRate,
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
+        totalCommission: totalStudioCommission,
       },
       bookingCredit,
       conversionCredit,
