@@ -712,6 +712,144 @@ serve(async (req) => {
         break;
       }
 
+      case 'read_intro_bookings': {
+        // Read intro bookings directly from Google Sheets with normalized fields
+        const rows = await readFromSheet(spreadsheetId, 'app_intro_bookings', accessToken);
+        const bookings: Array<{
+          booking_id: string;
+          member_name: string;
+          intro_date: string;
+          intro_time: string;
+          intro_date_normalized: string;
+          intro_time_normalized: string;
+          intro_datetime_key: string;
+          intro_date_valid: boolean;
+          lead_source: string;
+          notes: string;
+          row_number: number;
+        }> = [];
+
+        if (rows.length > 1) {
+          const headers = rows[0].map(h => h.toLowerCase().trim());
+          const colMap: Record<string, number> = {};
+          headers.forEach((h, i) => { colMap[h] = i; });
+
+          // Helper to normalize dates
+          const normalizeDate = (dateStr: string): { normalized: string; valid: boolean; sortKey: string } => {
+            if (!dateStr || dateStr.trim() === '') {
+              return { normalized: '', valid: false, sortKey: '' };
+            }
+            
+            const trimmed = dateStr.trim();
+            
+            // Check if it looks like just a time (no date)
+            if (/^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(trimmed)) {
+              return { normalized: trimmed, valid: false, sortKey: '' };
+            }
+            
+            // Check for relative date words
+            if (/^(today|tomorrow|yesterday|next|this|last)/i.test(trimmed)) {
+              return { normalized: trimmed, valid: false, sortKey: '' };
+            }
+
+            // Try to parse MM/DD/YYYY or M/D/YY
+            if (trimmed.includes('/')) {
+              const parts = trimmed.split('/');
+              if (parts.length === 3) {
+                const [m, d, y] = parts;
+                const year = y.length === 2 ? '20' + y : y;
+                const month = m.padStart(2, '0');
+                const day = d.padStart(2, '0');
+                const isoDate = `${year}-${month}-${day}`;
+                
+                // Validate the date is reasonable (year 2020-2030)
+                const yearNum = parseInt(year);
+                if (yearNum >= 2020 && yearNum <= 2030) {
+                  return { normalized: isoDate, valid: true, sortKey: isoDate };
+                }
+              }
+            }
+            
+            // Try ISO format YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+              return { normalized: trimmed, valid: true, sortKey: trimmed };
+            }
+
+            // Can't parse - mark as invalid
+            return { normalized: trimmed, valid: false, sortKey: '' };
+          };
+
+          const normalizeTime = (timeStr: string): string => {
+            if (!timeStr || timeStr.trim() === '') return '';
+            const trimmed = timeStr.trim();
+            
+            // Match various time formats
+            const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(\s*(AM|PM))?$/i);
+            if (match) {
+              let hours = parseInt(match[1]);
+              const minutes = match[2];
+              const period = match[5];
+              
+              if (period?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+              if (period?.toUpperCase() === 'AM' && hours === 12) hours = 0;
+              
+              return `${hours.toString().padStart(2, '0')}:${minutes}`;
+            }
+            return trimmed;
+          };
+
+          const seenBookingIds = new Set<string>();
+
+          for (let i = 1; i < rows.length && bookings.length < 500; i++) {
+            const row = rows[i];
+            const bookingId = row[colMap['booking_id']] || '';
+            
+            if (!bookingId || seenBookingIds.has(bookingId)) continue;
+            seenBookingIds.add(bookingId);
+
+            const rawDate = row[colMap['intro_date']] || row[colMap['class_date']] || '';
+            const rawTime = row[colMap['intro_time']] || '';
+            
+            const dateResult = normalizeDate(rawDate);
+            const timeNormalized = normalizeTime(rawTime);
+            
+            // Build datetime key for sorting
+            let datetimeKey = '';
+            if (dateResult.valid && dateResult.sortKey) {
+              datetimeKey = dateResult.sortKey;
+              if (timeNormalized) {
+                datetimeKey += 'T' + timeNormalized;
+              }
+            }
+
+            bookings.push({
+              booking_id: bookingId,
+              member_name: row[colMap['member_name']] || 'Unknown',
+              intro_date: rawDate,
+              intro_time: rawTime,
+              intro_date_normalized: dateResult.normalized,
+              intro_time_normalized: timeNormalized,
+              intro_datetime_key: datetimeKey,
+              intro_date_valid: dateResult.valid,
+              lead_source: row[colMap['lead_source']] || 'Unknown',
+              notes: row[colMap['notes']] || '',
+              row_number: i + 1,
+            });
+          }
+
+          // Sort by datetime key descending (empty keys at end)
+          bookings.sort((a, b) => {
+            if (!a.intro_datetime_key && !b.intro_datetime_key) return 0;
+            if (!a.intro_datetime_key) return 1;
+            if (!b.intro_datetime_key) return -1;
+            return b.intro_datetime_key.localeCompare(a.intro_datetime_key);
+          });
+        }
+
+        result = { success: true, bookings, total: bookings.length };
+        break;
+      }
+
       case 'get_pay_periods': {
         // Get list of pay periods for payroll export
         const periods: { start: string; end: string; label: string }[] = [];
