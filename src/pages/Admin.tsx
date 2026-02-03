@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import HistoricalDataImport from '@/components/HistoricalDataImport';
+import DataSyncPanel from '@/components/admin/DataSyncPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -34,6 +35,7 @@ interface StaffStats {
 
 export default function Admin() {
   const { user } = useAuth();
+  const { refreshData } = useData();
   const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(getSpreadsheetId() || '');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [staffStats, setStaffStats] = useState<StaffStats[]>([]);
@@ -100,8 +102,13 @@ export default function Admin() {
     toast.success('Spreadsheet ID saved!');
   };
 
-  const handleRefresh = () => {
-    window.location.reload();
+  const handleRefresh = async () => {
+    await refreshData();
+    toast.success('Data refreshed!');
+  };
+
+  const handleSyncComplete = async () => {
+    await refreshData();
   };
 
   return (
@@ -194,11 +201,11 @@ export default function Admin() {
         </CardContent>
       </Card>
 
-      {/* Historical Data Import */}
+      {/* Data Sync Panel */}
       {spreadsheetIdInput && (
-        <HistoricalDataImport 
+        <DataSyncPanel 
           spreadsheetId={spreadsheetIdInput}
-          onImportComplete={handleRefresh}
+          onSyncComplete={handleSyncComplete}
         />
       )}
 

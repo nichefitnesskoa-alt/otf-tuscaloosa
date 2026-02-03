@@ -280,19 +280,28 @@ serve(async (req) => {
     let result: Record<string, unknown> = { success: false };
 
     switch (action) {
-      case 'import_from_sheets': {
-        // Import all data from Google Sheets tabs into database
+      case 'import_from_sheets':
+      case 'resync_from_sheets':
+      case 'force_reimport': {
+        // Shared import logic with different behaviors:
+        // - import_from_sheets: Insert new records only (skip existing)
+        // - resync_from_sheets: Upsert - update existing, insert new
+        // - force_reimport: Clear all tables first, then import fresh
+        
+        const isResync = action === 'resync_from_sheets';
+        const isForceReimport = action === 'force_reimport';
+        
         const importResults = {
-          shifts: { imported: 0, skipped: 0, errors: 0 },
-          bookings: { imported: 0, skipped: 0, errors: 0 },
-          runs: { imported: 0, skipped: 0, errors: 0 },
-          sales: { imported: 0, skipped: 0, errors: 0 },
+          shifts: { imported: 0, skipped: 0, updated: 0, errors: 0 },
+          bookings: { imported: 0, skipped: 0, updated: 0, errors: 0 },
+          runs: { imported: 0, skipped: 0, updated: 0, errors: 0 },
+          sales: { imported: 0, skipped: 0, updated: 0, errors: 0 },
           errorLog: [] as string[],
         };
 
         // Helper to parse dates
-        const parseDate = (dateStr: string): string => {
-          if (!dateStr) return new Date().toISOString().split('T')[0];
+        const parseDate = (dateStr: string): string | null => {
+          if (!dateStr) return null;
           if (dateStr.includes('/')) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
@@ -300,7 +309,11 @@ serve(async (req) => {
               return `${y.length === 2 ? '20' + y : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
             }
           }
-          return dateStr;
+          // Check if already in ISO format
+          if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            return dateStr.split('T')[0];
+          }
+          return null;
         };
 
         const parseTime = (timeStr: string): string => {
@@ -317,6 +330,21 @@ serve(async (req) => {
           return '09:00';
         };
 
+        // Force reimport: Clear all tables first
+        if (isForceReimport) {
+          try {
+            // Delete in correct order for foreign key constraints
+            await supabase.from('sales_outside_intro').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from('intros_run').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from('intros_booked').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from('shift_recaps').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            console.log('Cleared all tables for force reimport');
+          } catch (err) {
+            console.error('Error clearing tables:', err);
+            importResults.errorLog.push(`Error clearing tables: ${err}`);
+          }
+        }
+
         // Import app_shifts
         try {
           const rows = await readFromSheet(spreadsheetId, 'app_shifts', accessToken);
@@ -330,18 +358,10 @@ serve(async (req) => {
               const shiftId = row[colMap['shift_id']];
               if (!shiftId) { importResults.shifts.skipped++; continue; }
 
-              const { data: existing } = await supabase
-                .from('shift_recaps')
-                .select('id')
-                .eq('shift_id', shiftId)
-                .maybeSingle();
-
-              if (existing) { importResults.shifts.skipped++; continue; }
-
-              const { error } = await supabase.from('shift_recaps').insert({
+              const shiftData = {
                 shift_id: shiftId,
                 staff_name: row[colMap['staff_name']] || 'Unknown',
-                shift_date: parseDate(row[colMap['shift_date']] || ''),
+                shift_date: parseDate(row[colMap['shift_date']] || '') || new Date().toISOString().split('T')[0],
                 shift_type: row[colMap['shift_type']] || 'AM Shift',
                 calls_made: parseInt(row[colMap['calls_made']]) || 0,
                 texts_sent: parseInt(row[colMap['texts_sent']]) || 0,
@@ -349,18 +369,40 @@ serve(async (req) => {
                 dms_sent: parseInt(row[colMap['dms_sent']]) || 0,
                 synced_to_sheets: true,
                 sheets_row_number: i + 1,
-              });
+              };
 
-              if (error) {
-                importResults.shifts.errors++;
-                importResults.errorLog.push(`Shift row ${i}: ${error.message}`);
+              const { data: existing } = await supabase
+                .from('shift_recaps')
+                .select('id')
+                .eq('shift_id', shiftId)
+                .maybeSingle();
+
+              if (existing) {
+                if (isResync || isForceReimport) {
+                  const { error } = await supabase.from('shift_recaps').update(shiftData).eq('id', existing.id);
+                  if (error) {
+                    importResults.shifts.errors++;
+                    importResults.errorLog.push(`Shift row ${i} update: ${error.message}`);
+                  } else {
+                    importResults.shifts.updated++;
+                  }
+                } else {
+                  importResults.shifts.skipped++;
+                }
               } else {
-                importResults.shifts.imported++;
+                const { error } = await supabase.from('shift_recaps').insert(shiftData);
+                if (error) {
+                  importResults.shifts.errors++;
+                  importResults.errorLog.push(`Shift row ${i}: ${error.message}`);
+                } else {
+                  importResults.shifts.imported++;
+                }
               }
             }
           }
         } catch (err) {
           console.log('app_shifts import error:', err);
+          importResults.errorLog.push(`app_shifts error: ${err}`);
         }
 
         // Import app_intro_bookings
@@ -376,37 +418,51 @@ serve(async (req) => {
               const bookingId = row[colMap['booking_id']];
               if (!bookingId) { importResults.bookings.skipped++; continue; }
 
+              const classDate = parseDate(row[colMap['intro_date']] || row[colMap['class_date']] || '');
+              const bookingData = {
+                booking_id: bookingId,
+                member_name: row[colMap['member_name']] || 'Unknown',
+                class_date: classDate || new Date().toISOString().split('T')[0],
+                intro_time: parseTime(row[colMap['intro_time']] || ''),
+                coach_name: row[colMap['coach_name']] || 'TBD',
+                sa_working_shift: row[colMap['booked_by']] || row[colMap['sa_working_shift']] || 'TBD',
+                lead_source: row[colMap['lead_source']] || 'Source Not Found',
+                fitness_goal: row[colMap['notes']] || row[colMap['fitness_goal']] || null,
+                sheets_row_number: i + 1,
+              };
+
               const { data: existing } = await supabase
                 .from('intros_booked')
                 .select('id')
                 .eq('booking_id', bookingId)
                 .maybeSingle();
 
-              if (existing) { importResults.bookings.skipped++; continue; }
-
-              const { error } = await supabase.from('intros_booked').insert({
-                booking_id: bookingId,
-                member_name: row[colMap['member_name']] || 'Unknown',
-                class_date: parseDate(row[colMap['intro_date']] || ''),
-                intro_time: parseTime(row[colMap['intro_time']] || ''),
-                coach_name: 'TBD',
-                sa_working_shift: 'TBD',
-                lead_source: row[colMap['lead_source']] || 'Source Not Found',
-                fitness_goal: row[colMap['notes']] || null,
-                synced_to_sheets: true,
-                sheets_row_number: i + 1,
-              });
-
-              if (error) {
-                importResults.bookings.errors++;
-                importResults.errorLog.push(`Booking row ${i}: ${error.message}`);
+              if (existing) {
+                if (isResync || isForceReimport) {
+                  const { error } = await supabase.from('intros_booked').update(bookingData).eq('id', existing.id);
+                  if (error) {
+                    importResults.bookings.errors++;
+                    importResults.errorLog.push(`Booking row ${i} update: ${error.message}`);
+                  } else {
+                    importResults.bookings.updated++;
+                  }
+                } else {
+                  importResults.bookings.skipped++;
+                }
               } else {
-                importResults.bookings.imported++;
+                const { error } = await supabase.from('intros_booked').insert(bookingData);
+                if (error) {
+                  importResults.bookings.errors++;
+                  importResults.errorLog.push(`Booking row ${i}: ${error.message}`);
+                } else {
+                  importResults.bookings.imported++;
+                }
               }
             }
           }
         } catch (err) {
           console.log('app_intro_bookings import error:', err);
+          importResults.errorLog.push(`app_intro_bookings error: ${err}`);
         }
 
         // Import app_intro_runs
@@ -422,16 +478,8 @@ serve(async (req) => {
               const runId = row[colMap['run_id']];
               if (!runId) { importResults.runs.skipped++; continue; }
 
-              const { data: existing } = await supabase
-                .from('intros_run')
-                .select('id')
-                .eq('run_id', runId)
-                .maybeSingle();
-
-              if (existing) { importResults.runs.skipped++; continue; }
-
               // Calculate commission from outcome/membership
-              const outcome = row[colMap['outcome']] || '';
+              const outcome = row[colMap['outcome']] || row[colMap['result']] || '';
               let commission = 0;
               const outcomeLower = outcome.toLowerCase();
               if (outcomeLower.includes('premier') && outcomeLower.includes('otbeat')) commission = 15;
@@ -441,12 +489,16 @@ serve(async (req) => {
               else if (outcomeLower.includes('basic') && outcomeLower.includes('otbeat')) commission = 9;
               else if (outcomeLower.includes('basic')) commission = 3;
 
-              const { error } = await supabase.from('intros_run').insert({
+              // Parse buy_date for sales filtering
+              const buyDate = parseDate(row[colMap['buy_date']] || row[colMap['date_closed']] || '');
+              const runDate = parseDate(row[colMap['run_date']] || '');
+
+              const runData = {
                 run_id: runId,
-                linked_intro_booked_id: null, // Will link by booking_id later
+                linked_intro_booked_id: null,
                 member_name: row[colMap['member_name']] || 'Unknown',
-                run_date: parseDate(row[colMap['run_date']] || ''),
-                class_time: parseTime(row[colMap['run_time']] || ''),
+                run_date: runDate,
+                class_time: parseTime(row[colMap['run_time']] || row[colMap['class_time']] || ''),
                 lead_source: row[colMap['lead_source']] || null,
                 intro_owner: row[colMap['intro_owner']] || null,
                 intro_owner_locked: !!row[colMap['intro_owner']],
@@ -461,19 +513,42 @@ serve(async (req) => {
                 coaching_summary_presence: row[colMap['coaching_summary_presence']]?.toLowerCase() === 'true',
                 notes: row[colMap['notes']] || null,
                 commission_amount: commission,
+                buy_date: buyDate,
                 sheets_row_number: i + 1,
-              });
+              };
 
-              if (error) {
-                importResults.runs.errors++;
-                importResults.errorLog.push(`Run row ${i}: ${error.message}`);
+              const { data: existing } = await supabase
+                .from('intros_run')
+                .select('id')
+                .eq('run_id', runId)
+                .maybeSingle();
+
+              if (existing) {
+                if (isResync || isForceReimport) {
+                  const { error } = await supabase.from('intros_run').update(runData).eq('id', existing.id);
+                  if (error) {
+                    importResults.runs.errors++;
+                    importResults.errorLog.push(`Run row ${i} update: ${error.message}`);
+                  } else {
+                    importResults.runs.updated++;
+                  }
+                } else {
+                  importResults.runs.skipped++;
+                }
               } else {
-                importResults.runs.imported++;
+                const { error } = await supabase.from('intros_run').insert(runData);
+                if (error) {
+                  importResults.runs.errors++;
+                  importResults.errorLog.push(`Run row ${i}: ${error.message}`);
+                } else {
+                  importResults.runs.imported++;
+                }
               }
             }
           }
         } catch (err) {
           console.log('app_intro_runs import error:', err);
+          importResults.errorLog.push(`app_intro_runs error: ${err}`);
         }
 
         // Import app_sales
@@ -489,15 +564,10 @@ serve(async (req) => {
               const saleId = row[colMap['sale_id']];
               if (!saleId) { importResults.sales.skipped++; continue; }
 
-              const { data: existing } = await supabase
-                .from('sales_outside_intro')
-                .select('id')
-                .eq('sale_id', saleId)
-                .maybeSingle();
+              const payPeriodStart = parseDate(row[colMap['pay_period_start']] || '');
+              const payPeriodEnd = parseDate(row[colMap['pay_period_end']] || '');
 
-              if (existing) { importResults.sales.skipped++; continue; }
-
-              const { error } = await supabase.from('sales_outside_intro').insert({
+              const saleData = {
                 sale_id: saleId,
                 sale_type: row[colMap['sale_type']] || 'outside_intro',
                 member_name: row[colMap['member_name']] || 'Unknown',
@@ -505,29 +575,55 @@ serve(async (req) => {
                 membership_type: row[colMap['membership_type']] || 'Unknown',
                 commission_amount: parseFloat(row[colMap['commission_amount']]) || 0,
                 intro_owner: row[colMap['intro_owner']] || null,
-                pay_period_start: parseDate(row[colMap['pay_period_start']] || ''),
-                pay_period_end: parseDate(row[colMap['pay_period_end']] || ''),
+                pay_period_start: payPeriodStart,
+                pay_period_end: payPeriodEnd,
                 sheets_row_number: i + 1,
-              });
+              };
 
-              if (error) {
-                importResults.sales.errors++;
-                importResults.errorLog.push(`Sale row ${i}: ${error.message}`);
+              const { data: existing } = await supabase
+                .from('sales_outside_intro')
+                .select('id')
+                .eq('sale_id', saleId)
+                .maybeSingle();
+
+              if (existing) {
+                if (isResync || isForceReimport) {
+                  const { error } = await supabase.from('sales_outside_intro').update(saleData).eq('id', existing.id);
+                  if (error) {
+                    importResults.sales.errors++;
+                    importResults.errorLog.push(`Sale row ${i} update: ${error.message}`);
+                  } else {
+                    importResults.sales.updated++;
+                  }
+                } else {
+                  importResults.sales.skipped++;
+                }
               } else {
-                importResults.sales.imported++;
+                const { error } = await supabase.from('sales_outside_intro').insert(saleData);
+                if (error) {
+                  importResults.sales.errors++;
+                  importResults.errorLog.push(`Sale row ${i}: ${error.message}`);
+                } else {
+                  importResults.sales.imported++;
+                }
               }
             }
           }
         } catch (err) {
           console.log('app_sales import error:', err);
+          importResults.errorLog.push(`app_sales error: ${err}`);
         }
 
         // Log import
+        const totalImported = importResults.shifts.imported + importResults.bookings.imported + 
+                             importResults.runs.imported + importResults.sales.imported;
+        const totalUpdated = importResults.shifts.updated + importResults.bookings.updated + 
+                            importResults.runs.updated + importResults.sales.updated;
+        
         await supabase.from('sheets_sync_log').insert({
-          sync_type: 'import_from_sheets',
+          sync_type: action,
           status: 'success',
-          records_synced: importResults.shifts.imported + importResults.bookings.imported + 
-                         importResults.runs.imported + importResults.sales.imported,
+          records_synced: totalImported + totalUpdated,
         });
 
         result = { success: true, ...importResults };

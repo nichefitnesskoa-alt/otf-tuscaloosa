@@ -48,7 +48,7 @@ export default function Dashboard() {
           customRange={customRange}
           onPresetChange={setDatePreset}
           onCustomRangeChange={setCustomRange}
-          dateRange={dateRange}
+          dateRange={dateRange || { start: new Date(2020, 0, 1), end: new Date() }}
         />
       </div>
 

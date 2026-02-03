@@ -68,6 +68,7 @@ export function DateRangeFilter({
   };
 
   const presets: { preset: DatePreset; group: 'quick' | 'period' | 'year' | 'custom' }[] = [
+    { preset: 'all_time', group: 'quick' },
     { preset: 'today', group: 'quick' },
     { preset: 'this_week', group: 'quick' },
     { preset: 'last_week', group: 'quick' },
@@ -138,7 +139,9 @@ export function DateRangeFilter({
       </DropdownMenu>
 
       <div className="text-sm text-muted-foreground">
-        Viewing: <span className="font-medium text-foreground">{formatDateRange(dateRange)}</span>
+        Viewing: <span className="font-medium text-foreground">
+          {preset === 'all_time' ? 'All Time' : formatDateRange(dateRange)}
+        </span>
       </div>
 
       {/* Custom Range Dialog - Using Dialog instead of nested Popovers to fix disappearing issue */}

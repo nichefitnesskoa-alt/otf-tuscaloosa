@@ -10,6 +10,7 @@ export interface DateRange {
 }
 
 export type DatePreset = 
+  | 'all_time'
   | 'today' 
   | 'this_week' 
   | 'last_week'
@@ -61,10 +62,13 @@ export function getLastPayPeriod(): DateRange {
 /**
  * Get date range for a preset
  */
-export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRange): DateRange {
+export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRange): DateRange | null {
   const today = new Date();
   
   switch (preset) {
+    case 'all_time':
+      return null; // No date filtering
+    
     case 'today':
       return {
         start: startOfDay(today),
@@ -142,8 +146,10 @@ export function formatDateRange(range: DateRange): string {
 /**
  * Get preset label
  */
-export function getPresetLabel(preset: DatePreset): string {
+export function getPresetLabel(preset: DatePreset, dateRange?: DateRange | null): string {
   switch (preset) {
+    case 'all_time':
+      return 'All Time';
     case 'today':
       return 'Today';
     case 'this_week':
