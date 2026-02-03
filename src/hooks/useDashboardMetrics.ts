@@ -57,9 +57,33 @@ export function useDashboardMetrics(
   dateRange: DateRange | null
 ): DashboardMetrics {
   return useMemo(() => {
+    // Status values that should be excluded from metrics
+    const EXCLUDED_STATUSES = [
+      'Closed (Purchased)',
+      'Not interested', 
+      'Duplicate',
+      'Deleted (soft)',
+      'DEAD',
+      'CLOSED',
+    ];
+    
+    // Filter out bookings with excluded status or ignored from metrics
+    const activeBookings = introsBooked.filter(b => {
+      const status = ((b as any).booking_status || '').toUpperCase();
+      const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
+      const isIgnored = (b as any).ignore_from_metrics === true;
+      return !isExcludedStatus && !isIgnored;
+    });
+    
+    // Filter out runs that are ignored from metrics
+    const activeRuns = introsRun.filter(r => {
+      const isIgnored = (r as any).ignore_from_metrics === true;
+      return !isIgnored;
+    });
+    
     // FIRST INTRO BOOKINGS ONLY (originating_booking_id IS NULL)
     // Filter by booking date (class_date) within range
-    const firstIntroBookings = introsBooked.filter(b => {
+    const firstIntroBookings = activeBookings.filter(b => {
       const originatingId = (b as any).originating_booking_id;
       const isFirstIntro = originatingId === null || originatingId === undefined;
       const isInDateRange = isDateInRange(b.class_date, dateRange);
@@ -69,7 +93,7 @@ export function useDashboardMetrics(
     // Create a map of booking_id to intro runs (for linking)
     // Note: We don't filter runs by date here - we look at ALL runs linked to filtered bookings
     const bookingToRuns = new Map<string, IntroRun[]>();
-    introsRun.forEach(run => {
+    activeRuns.forEach(run => {
       const bookingId = run.linked_intro_booked_id;
       if (bookingId) {
         const existing = bookingToRuns.get(bookingId) || [];
@@ -96,9 +120,9 @@ export function useDashboardMetrics(
 
     // Studio Intro Sales = count of intro-based sales where date_closed (buy_date) is in range
     // Only count sales from intros_run where commission > 0 and buy_date is in range
-    const studioIntroSales = introsRun.filter(run => {
+    const studioIntroSales = activeRuns.filter(run => {
       // Must be linked to a first intro booking (any, not just filtered)
-      const booking = introsBooked.find(b => {
+      const booking = activeBookings.find(b => {
         const originatingId = (b as any).originating_booking_id;
         return b.id === run.linked_intro_booked_id && (originatingId === null || originatingId === undefined);
       });
@@ -118,7 +142,7 @@ export function useDashboardMetrics(
       const bookedBy = (b as any).booked_by || b.sa_working_shift;
       if (bookedBy) allSAs.add(bookedBy);
     });
-    introsRun.forEach(r => {
+    activeRuns.forEach(r => {
       if (r.intro_owner) allSAs.add(r.intro_owner);
       if (r.sa_name) allSAs.add(r.sa_name);
     });
@@ -201,7 +225,7 @@ export function useDashboardMetrics(
       
       // Group runs by linked booking (only for first intros in date range)
       const runsByBooking = new Map<string, IntroRun[]>();
-      introsRun.forEach(run => {
+      activeRuns.forEach(run => {
         if (run.linked_intro_booked_id && firstIntroBookingIds.has(run.linked_intro_booked_id)) {
           const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
           existing.push(run);
@@ -224,9 +248,9 @@ export function useDashboardMetrics(
       });
 
       // Sales = intro-based sales where intro_owner = SA AND buy_date (date_closed) is in range
-      const saSales = introsRun.filter(run => {
+      const saSales = activeRuns.filter(run => {
         // Must be linked to a first intro booking (any, not just filtered)
-        const booking = introsBooked.find(b => {
+        const booking = activeBookings.find(b => {
           const originatingId = (b as any).originating_booking_id;
           return b.id === run.linked_intro_booked_id && (originatingId === null || originatingId === undefined);
         });
@@ -242,7 +266,7 @@ export function useDashboardMetrics(
         : 0;
 
       // Commission Earned - filter by date_closed (buy_date) in range for intro sales
-      const introCommission = introsRun
+      const introCommission = activeRuns
         .filter(r => r.intro_owner === saName && isDateInRange(r.buy_date, dateRange))
         .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
       
@@ -268,7 +292,7 @@ export function useDashboardMetrics(
 
     // Calculate total studio commission from all sources
     // Intro-based commission from intros_run (filter by buy_date)
-    const totalIntroCommission = introsRun
+    const totalIntroCommission = activeRuns
       .filter(r => isDateInRange(r.buy_date, dateRange) && r.commission_amount && r.commission_amount > 0)
       .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
     

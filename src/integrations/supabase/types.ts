@@ -68,12 +68,21 @@ export type Database = {
       intros_booked: {
         Row: {
           booking_id: string | null
+          booking_status: string | null
           class_date: string
+          closed_at: string | null
+          closed_by: string | null
           coach_name: string
           created_at: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           edit_reason: string | null
           fitness_goal: string | null
           id: string
+          ignore_from_metrics: boolean | null
+          intro_owner: string | null
+          intro_owner_locked: boolean | null
           intro_time: string | null
           last_edited_at: string | null
           last_edited_by: string | null
@@ -86,12 +95,21 @@ export type Database = {
         }
         Insert: {
           booking_id?: string | null
+          booking_status?: string | null
           class_date: string
+          closed_at?: string | null
+          closed_by?: string | null
           coach_name: string
           created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           edit_reason?: string | null
           fitness_goal?: string | null
           id?: string
+          ignore_from_metrics?: boolean | null
+          intro_owner?: string | null
+          intro_owner_locked?: boolean | null
           intro_time?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -104,12 +122,21 @@ export type Database = {
         }
         Update: {
           booking_id?: string | null
+          booking_status?: string | null
           class_date?: string
+          closed_at?: string | null
+          closed_by?: string | null
           coach_name?: string
           created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           edit_reason?: string | null
           fitness_goal?: string | null
           id?: string
+          ignore_from_metrics?: boolean | null
+          intro_owner?: string | null
+          intro_owner_locked?: boolean | null
           intro_time?: string | null
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -152,6 +179,7 @@ export type Database = {
           goal_quality: string | null
           halfway_encouragement: boolean | null
           id: string
+          ignore_from_metrics: boolean | null
           intro_owner: string | null
           intro_owner_locked: boolean | null
           is_self_gen: boolean | null
@@ -165,6 +193,7 @@ export type Database = {
           premobility_encouragement: boolean | null
           pricing_engagement: string | null
           process_checklist: string[] | null
+          ran_by: string | null
           result: string
           rfg_presented: boolean | null
           run_date: string | null
@@ -187,6 +216,7 @@ export type Database = {
           goal_quality?: string | null
           halfway_encouragement?: boolean | null
           id?: string
+          ignore_from_metrics?: boolean | null
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
@@ -200,6 +230,7 @@ export type Database = {
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
           process_checklist?: string[] | null
+          ran_by?: string | null
           result: string
           rfg_presented?: boolean | null
           run_date?: string | null
@@ -222,6 +253,7 @@ export type Database = {
           goal_quality?: string | null
           halfway_encouragement?: boolean | null
           id?: string
+          ignore_from_metrics?: boolean | null
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
@@ -235,6 +267,7 @@ export type Database = {
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
           process_checklist?: string[] | null
+          ran_by?: string | null
           result?: string
           rfg_presented?: boolean | null
           run_date?: string | null

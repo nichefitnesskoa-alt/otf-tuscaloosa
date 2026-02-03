@@ -39,6 +39,16 @@ interface SheetBooking {
   row_number: number;
 }
 
+// Status values that should be excluded from the booking pool
+const EXCLUDED_STATUSES = [
+  'Closed (Purchased)',
+  'Not interested', 
+  'Duplicate',
+  'Deleted (soft)',
+  'DEAD',
+  'CLOSED',
+];
+
 interface BookedIntroSelectorProps {
   selectedBookingId: string | undefined;
   onSelect: (booking: SheetBooking) => void;
@@ -108,10 +118,16 @@ export default function BookedIntroSelector({
   }, []);
 
   const filteredBookings = useMemo(() => {
-    if (!searchQuery.trim()) return bookings;
+    // First filter out closed/deleted bookings
+    const activeBookings = bookings.filter(b => {
+      const status = (b.booking_status || '').toUpperCase();
+      return !EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
+    });
+    
+    if (!searchQuery.trim()) return activeBookings;
     
     const query = searchQuery.toLowerCase();
-    return bookings.filter(b => 
+    return activeBookings.filter(b => 
       b.member_name.toLowerCase().includes(query)
     );
   }, [bookings, searchQuery]);
