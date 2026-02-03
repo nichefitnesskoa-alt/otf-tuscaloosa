@@ -67,39 +67,57 @@ export type Database = {
       }
       intros_booked: {
         Row: {
+          booking_id: string | null
           class_date: string
           coach_name: string
           created_at: string
+          edit_reason: string | null
           fitness_goal: string | null
           id: string
+          intro_time: string | null
+          last_edited_at: string | null
+          last_edited_by: string | null
           lead_source: string
           linked_ig_lead_id: string | null
           member_name: string
           sa_working_shift: string
+          sheets_row_number: number | null
           shift_recap_id: string | null
         }
         Insert: {
+          booking_id?: string | null
           class_date: string
           coach_name: string
           created_at?: string
+          edit_reason?: string | null
           fitness_goal?: string | null
           id?: string
+          intro_time?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_source: string
           linked_ig_lead_id?: string | null
           member_name: string
           sa_working_shift: string
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Update: {
+          booking_id?: string | null
           class_date?: string
           coach_name?: string
           created_at?: string
+          edit_reason?: string | null
           fitness_goal?: string | null
           id?: string
+          intro_time?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_source?: string
           linked_ig_lead_id?: string | null
           member_name?: string
           sa_working_shift?: string
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Relationships: [
@@ -123,55 +141,106 @@ export type Database = {
         Row: {
           booking_source: string | null
           buy_date: string | null
+          choice_architecture: boolean | null
           claimed_by_ig_lead_id: string | null
           class_time: string
+          coaching_summary_presence: boolean | null
           commission_amount: number | null
           created_at: string
+          edit_reason: string | null
+          fvc_completed: boolean | null
+          goal_quality: string | null
+          halfway_encouragement: boolean | null
           id: string
+          intro_owner: string | null
+          intro_owner_locked: boolean | null
           is_self_gen: boolean | null
+          last_edited_at: string | null
+          last_edited_by: string | null
           lead_measures: string[] | null
+          lead_source: string | null
           linked_intro_booked_id: string | null
           member_name: string
           notes: string | null
+          premobility_encouragement: boolean | null
+          pricing_engagement: string | null
           process_checklist: string[] | null
           result: string
+          rfg_presented: boolean | null
+          run_date: string | null
+          run_id: string | null
           sa_name: string | null
+          sheets_row_number: number | null
           shift_recap_id: string | null
         }
         Insert: {
           booking_source?: string | null
           buy_date?: string | null
+          choice_architecture?: boolean | null
           claimed_by_ig_lead_id?: string | null
           class_time: string
+          coaching_summary_presence?: boolean | null
           commission_amount?: number | null
           created_at?: string
+          edit_reason?: string | null
+          fvc_completed?: boolean | null
+          goal_quality?: string | null
+          halfway_encouragement?: boolean | null
           id?: string
+          intro_owner?: string | null
+          intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_measures?: string[] | null
+          lead_source?: string | null
           linked_intro_booked_id?: string | null
           member_name: string
           notes?: string | null
+          premobility_encouragement?: boolean | null
+          pricing_engagement?: string | null
           process_checklist?: string[] | null
           result: string
+          rfg_presented?: boolean | null
+          run_date?: string | null
+          run_id?: string | null
           sa_name?: string | null
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Update: {
           booking_source?: string | null
           buy_date?: string | null
+          choice_architecture?: boolean | null
           claimed_by_ig_lead_id?: string | null
           class_time?: string
+          coaching_summary_presence?: boolean | null
           commission_amount?: number | null
           created_at?: string
+          edit_reason?: string | null
+          fvc_completed?: boolean | null
+          goal_quality?: string | null
+          halfway_encouragement?: boolean | null
           id?: string
+          intro_owner?: string | null
+          intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_measures?: string[] | null
+          lead_source?: string | null
           linked_intro_booked_id?: string | null
           member_name?: string
           notes?: string | null
+          premobility_encouragement?: boolean | null
+          pricing_engagement?: string | null
           process_checklist?: string[] | null
           result?: string
+          rfg_presented?: boolean | null
+          run_date?: string | null
+          run_id?: string | null
           sa_name?: string | null
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Relationships: [
@@ -202,28 +271,55 @@ export type Database = {
         Row: {
           commission_amount: number | null
           created_at: string
+          edit_reason: string | null
           id: string
+          intro_owner: string | null
+          last_edited_at: string | null
+          last_edited_by: string | null
           lead_source: string
           member_name: string
           membership_type: string
+          pay_period_end: string | null
+          pay_period_start: string | null
+          sale_id: string | null
+          sale_type: string | null
+          sheets_row_number: number | null
           shift_recap_id: string | null
         }
         Insert: {
           commission_amount?: number | null
           created_at?: string
+          edit_reason?: string | null
           id?: string
+          intro_owner?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_source: string
           member_name: string
           membership_type: string
+          pay_period_end?: string | null
+          pay_period_start?: string | null
+          sale_id?: string | null
+          sale_type?: string | null
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Update: {
           commission_amount?: number | null
           created_at?: string
+          edit_reason?: string | null
           id?: string
+          intro_owner?: string | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           lead_source?: string
           member_name?: string
           membership_type?: string
+          pay_period_end?: string | null
+          pay_period_start?: string | null
+          sale_id?: string | null
+          sale_type?: string | null
+          sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Relationships: [
@@ -272,16 +368,21 @@ export type Database = {
           dms_sent: number | null
           downgrade_details: string | null
           downgrades: number | null
+          edit_reason: string | null
           emails_sent: number | null
           equipment_issues: string | null
           freeze_details: string | null
           freezes: number | null
           id: string
+          last_edited_at: string | null
+          last_edited_by: string | null
           milestones_celebrated: string | null
           otbeat_buyer_names: string | null
           otbeat_sales: number | null
           other_info: string | null
+          sheets_row_number: number | null
           shift_date: string
+          shift_id: string | null
           shift_type: string
           staff_name: string
           submitted_at: string | null
@@ -298,16 +399,21 @@ export type Database = {
           dms_sent?: number | null
           downgrade_details?: string | null
           downgrades?: number | null
+          edit_reason?: string | null
           emails_sent?: number | null
           equipment_issues?: string | null
           freeze_details?: string | null
           freezes?: number | null
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           milestones_celebrated?: string | null
           otbeat_buyer_names?: string | null
           otbeat_sales?: number | null
           other_info?: string | null
+          sheets_row_number?: number | null
           shift_date: string
+          shift_id?: string | null
           shift_type: string
           staff_name: string
           submitted_at?: string | null
@@ -324,16 +430,21 @@ export type Database = {
           dms_sent?: number | null
           downgrade_details?: string | null
           downgrades?: number | null
+          edit_reason?: string | null
           emails_sent?: number | null
           equipment_issues?: string | null
           freeze_details?: string | null
           freezes?: number | null
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           milestones_celebrated?: string | null
           otbeat_buyer_names?: string | null
           otbeat_sales?: number | null
           other_info?: string | null
+          sheets_row_number?: number | null
           shift_date?: string
+          shift_id?: string | null
           shift_type?: string
           staff_name?: string
           submitted_at?: string | null

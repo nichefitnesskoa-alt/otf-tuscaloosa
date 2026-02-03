@@ -4,11 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import { DataProvider } from "@/context/DataContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import ShiftRecap from "./pages/ShiftRecap";
-import IGLeads from "./pages/IGLeads";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -43,14 +41,6 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/ig-leads"
-        element={
-          <ProtectedRoute>
-            <IGLeads />
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
@@ -75,15 +65,13 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <DataProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
-      </DataProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

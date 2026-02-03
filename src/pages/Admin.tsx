@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Users, CheckCircle, Clock, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Settings, Users, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
-import { getSpreadsheetId, setSpreadsheetId, syncAllUnsynced } from '@/lib/sheets-sync';
+import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import HistoricalDataImport from '@/components/HistoricalDataImport';
@@ -25,24 +24,70 @@ interface SyncLog {
   created_at: string;
 }
 
+interface StaffStats {
+  name: string;
+  totalShifts: number;
+  totalIntros: number;
+  totalSales: number;
+  commission: number;
+}
+
 export default function Admin() {
   const { user } = useAuth();
-  const { shiftRecaps, igLeads, refreshData } = useData();
   const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(getSpreadsheetId() || '');
-  const [isSyncing, setIsSyncing] = useState(false);
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
+  const [staffStats, setStaffStats] = useState<StaffStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch sync logs
-    const fetchLogs = async () => {
-      const { data } = await supabase
-        .from('sheets_sync_log')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (data) setSyncLogs(data as SyncLog[]);
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch sync logs
+        const { data: logs } = await supabase
+          .from('sheets_sync_log')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (logs) setSyncLogs(logs as SyncLog[]);
+
+        // Fetch staff stats
+        const stats: StaffStats[] = [];
+        for (const name of ALL_STAFF) {
+          const [shiftsResult, introsResult, salesResult] = await Promise.all([
+            supabase.from('shift_recaps').select('id', { count: 'exact' }).eq('staff_name', name),
+            supabase.from('intros_run').select('commission_amount').eq('intro_owner', name),
+            supabase.from('sales_outside_intro').select('commission_amount').eq('intro_owner', name),
+          ]);
+
+          const totalShifts = shiftsResult.count || 0;
+          const totalIntros = introsResult.data?.length || 0;
+          const totalSales = salesResult.data?.length || 0;
+          const introCommission = introsResult.data?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+          const saleCommission = salesResult.data?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+
+          if (totalShifts > 0 || totalIntros > 0 || totalSales > 0) {
+            stats.push({
+              name,
+              totalShifts,
+              totalIntros,
+              totalSales,
+              commission: introCommission + saleCommission,
+            });
+          }
+        }
+        
+        // Sort by commission
+        stats.sort((a, b) => b.commission - a.commission);
+        setStaffStats(stats);
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    fetchLogs();
+
+    fetchData();
   }, []);
 
   // Only admin can access
@@ -55,38 +100,9 @@ export default function Admin() {
     toast.success('Spreadsheet ID saved!');
   };
 
-  const handleSyncAll = async () => {
-    setIsSyncing(true);
-    try {
-      const result = await syncAllUnsynced();
-      if (result.success) {
-        toast.success(`Synced ${result.recordsSynced} records to Google Sheets!`);
-        await refreshData();
-      } else {
-        toast.error('Sync failed. Check the logs for details.');
-      }
-    } catch (error) {
-      toast.error('Sync failed');
-    } finally {
-      setIsSyncing(false);
-    }
+  const handleRefresh = () => {
+    window.location.reload();
   };
-
-  // Calculate stats per staff member
-  const staffStats = ALL_STAFF.map(name => {
-    const recaps = shiftRecaps.filter(r => r.staff_name === name);
-    const leads = igLeads.filter(l => l.sa_name === name);
-    
-    return {
-      name,
-      totalRecaps: recaps.length,
-      totalLeads: leads.length,
-      commission: 0, // Would need intros_run data for actual commission
-    };
-  }).filter(s => s.totalRecaps > 0 || s.totalLeads > 0);
-
-  const unsyncedCount = shiftRecaps.filter(r => !r.synced_to_sheets).length + 
-                        igLeads.filter(l => !l.synced_to_sheets).length;
 
   return (
     <div className="p-4 space-y-4">
@@ -96,7 +112,7 @@ export default function Admin() {
           Admin Panel
         </h1>
         <p className="text-sm text-muted-foreground">
-          Manage integrations and view team stats
+          Manage data sync and view team stats
         </p>
       </div>
 
@@ -105,7 +121,7 @@ export default function Admin() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-success" />
-            Google Sheets Sync
+            Google Sheets Connection
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -139,23 +155,18 @@ export default function Admin() {
             </Badge>
           </div>
 
-          {spreadsheetIdInput && (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">{unsyncedCount} unsynced records</p>
-                <p className="text-xs text-muted-foreground">
-                  Click sync to push to Google Sheets
-                </p>
-              </div>
-              <Button onClick={handleSyncAll} disabled={isSyncing || unsyncedCount === 0}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Sync Now'}
-              </Button>
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <p className="text-sm font-medium mb-1">Required Sheet Tabs:</p>
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="outline">app_shifts</Badge>
+              <Badge variant="outline">app_intro_bookings</Badge>
+              <Badge variant="outline">app_intro_runs</Badge>
+              <Badge variant="outline">app_sales</Badge>
             </div>
-          )}
+          </div>
 
           {syncLogs.length > 0 && (
-            <div className="mt-4">
+            <div>
               <p className="text-sm font-medium mb-2">Recent Sync Activity</p>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {syncLogs.map((log) => (
@@ -183,27 +194,36 @@ export default function Admin() {
         </CardContent>
       </Card>
 
-      {/* Historical Data Import - Show when spreadsheet is configured */}
+      {/* Historical Data Import */}
       {spreadsheetIdInput && (
         <HistoricalDataImport 
           spreadsheetId={spreadsheetIdInput}
-          onImportComplete={refreshData}
+          onImportComplete={handleRefresh}
         />
       )}
 
-      {/* Pay Period Commission Dashboard */}
+      {/* Pay Period Commission */}
       <PayPeriodCommission />
 
       {/* Team Overview */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Team Performance
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Team Performance (All Time)
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={handleRefresh}>
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {staffStats.length === 0 ? (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Loading...
+            </p>
+          ) : staffStats.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No activity yet
             </p>
@@ -217,8 +237,9 @@ export default function Admin() {
                   <div>
                     <p className="font-medium">{staff.name}</p>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                      <span>{staff.totalRecaps} recaps</span>
-                      <span>{staff.totalLeads} leads</span>
+                      <span>{staff.totalShifts} shifts</span>
+                      <span>{staff.totalIntros} intros</span>
+                      <span>{staff.totalSales} sales</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -230,24 +251,6 @@ export default function Admin() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Pending Claims Placeholder */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="w-4 h-4 text-warning" />
-            Pending Claims
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-6">
-            <CheckCircle className="w-12 h-12 text-success mx-auto mb-2 opacity-50" />
-            <p className="text-sm text-muted-foreground">
-              No pending claims
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
