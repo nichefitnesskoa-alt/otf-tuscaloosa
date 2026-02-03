@@ -97,20 +97,19 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
   }, [intro.outcome]);
 
   const handleSelectBookedIntro = (booking: {
-    booking_id: string;
+    id: string;
+    booking_id: string | null;
     member_name: string;
-    member_key: string;
     lead_source: string;
-    notes: string;
-    booked_by?: string;
-    originating_booking_id?: string;
+    sa_working_shift: string;
+    intro_owner: string | null;
   }) => {
     onUpdate(index, {
-      linkedBookingId: booking.booking_id,
+      linkedBookingId: booking.id, // Use the database ID
       memberName: booking.member_name,
       leadSource: booking.lead_source,
-      bookedBy: booking.booked_by,
-      originatingBookingId: booking.originating_booking_id,
+      bookedBy: booking.sa_working_shift,
+      originatingBookingId: booking.booking_id || undefined,
     });
   };
 
