@@ -12,13 +12,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { 
   DatePreset, 
   DateRange, 
-  getDateRangeForPreset, 
   getPresetLabel,
   formatDateRange 
 } from '@/lib/pay-period';
@@ -44,9 +51,9 @@ export function DateRangeFilter({
 
   const handlePresetSelect = (newPreset: DatePreset) => {
     if (newPreset === 'custom') {
-      setIsCustomOpen(true);
       setTempStartDate(dateRange.start);
       setTempEndDate(dateRange.end);
+      setIsCustomOpen(true);
     } else {
       onPresetChange(newPreset);
     }
@@ -60,7 +67,18 @@ export function DateRangeFilter({
     }
   };
 
-  const presets: DatePreset[] = ['today', 'this_week', 'pay_period', 'custom'];
+  const presets: { preset: DatePreset; group: 'quick' | 'period' | 'year' | 'custom' }[] = [
+    { preset: 'today', group: 'quick' },
+    { preset: 'this_week', group: 'quick' },
+    { preset: 'last_week', group: 'quick' },
+    { preset: 'this_month', group: 'period' },
+    { preset: 'last_month', group: 'period' },
+    { preset: 'pay_period', group: 'period' },
+    { preset: 'last_pay_period', group: 'period' },
+    { preset: 'this_year', group: 'year' },
+    { preset: 'last_year', group: 'year' },
+    { preset: 'custom', group: 'custom' },
+  ];
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -72,14 +90,48 @@ export function DateRangeFilter({
             <ChevronDown className="w-4 h-4 ml-2" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {presets.map((p) => (
+        <DropdownMenuContent align="start" className="w-48">
+          {/* Quick */}
+          {presets.filter(p => p.group === 'quick').map((p) => (
             <DropdownMenuItem
-              key={p}
-              onClick={() => handlePresetSelect(p)}
-              className={cn(preset === p && 'bg-accent')}
+              key={p.preset}
+              onClick={() => handlePresetSelect(p.preset)}
+              className={cn(preset === p.preset && 'bg-accent')}
             >
-              {getPresetLabel(p)}
+              {getPresetLabel(p.preset)}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          {/* Period */}
+          {presets.filter(p => p.group === 'period').map((p) => (
+            <DropdownMenuItem
+              key={p.preset}
+              onClick={() => handlePresetSelect(p.preset)}
+              className={cn(preset === p.preset && 'bg-accent')}
+            >
+              {getPresetLabel(p.preset)}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          {/* Year */}
+          {presets.filter(p => p.group === 'year').map((p) => (
+            <DropdownMenuItem
+              key={p.preset}
+              onClick={() => handlePresetSelect(p.preset)}
+              className={cn(preset === p.preset && 'bg-accent')}
+            >
+              {getPresetLabel(p.preset)}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          {/* Custom */}
+          {presets.filter(p => p.group === 'custom').map((p) => (
+            <DropdownMenuItem
+              key={p.preset}
+              onClick={() => handlePresetSelect(p.preset)}
+              className={cn(preset === p.preset && 'bg-accent')}
+            >
+              {getPresetLabel(p.preset)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -89,95 +141,88 @@ export function DateRangeFilter({
         Viewing: <span className="font-medium text-foreground">{formatDateRange(dateRange)}</span>
       </div>
 
-      {/* Custom Range Popover */}
-      <Popover open={isCustomOpen} onOpenChange={setIsCustomOpen}>
-        <PopoverTrigger asChild>
-          <span className="hidden" />
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-4" align="start">
-          <div className="space-y-4">
-            <div className="text-sm font-medium">Select Date Range</div>
-            
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Start Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !tempStartDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {tempStartDate ? format(tempStartDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={tempStartDate}
-                      onSelect={setTempStartDate}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">End Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !tempEndDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {tempEndDate ? format(tempEndDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={tempEndDate}
-                      onSelect={setTempEndDate}
-                      disabled={(date) => tempStartDate ? date < tempStartDate : false}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+      {/* Custom Range Dialog - Using Dialog instead of nested Popovers to fix disappearing issue */}
+      <Dialog open={isCustomOpen} onOpenChange={setIsCustomOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Date Range</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col sm:flex-row gap-4 py-4">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-2 block">Start Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !tempStartDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {tempStartDate ? format(tempStartDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={tempStartDate}
+                    onSelect={setTempStartDate}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsCustomOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={handleApplyCustomRange}
-                disabled={!tempStartDate || !tempEndDate}
-                className="flex-1"
-              >
-                Apply
-              </Button>
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-2 block">End Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !tempEndDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {tempEndDate ? format(tempEndDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={tempEndDate}
+                    onSelect={setTempEndDate}
+                    disabled={(date) => tempStartDate ? date < tempStartDate : false}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
-        </PopoverContent>
-      </Popover>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCustomOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleApplyCustomRange}
+              disabled={!tempStartDate || !tempEndDate}
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
