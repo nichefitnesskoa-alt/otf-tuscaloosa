@@ -36,9 +36,10 @@ export interface DashboardMetrics {
 }
 
 /**
- * Check if a date string falls within a date range
+ * Check if a date string falls within a date range (or always true if range is null)
  */
-function isDateInRange(dateStr: string | null | undefined, range: DateRange): boolean {
+function isDateInRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
+  if (!range) return true; // All time - no filtering
   if (!dateStr) return false;
   try {
     const date = parseISO(dateStr);
@@ -52,7 +53,7 @@ export function useDashboardMetrics(
   introsBooked: IntroBooked[],
   introsRun: IntroRun[],
   sales: Sale[],
-  dateRange: DateRange
+  dateRange: DateRange | null
 ): DashboardMetrics {
   return useMemo(() => {
     // FIRST INTRO BOOKINGS ONLY (originating_booking_id IS NULL)
