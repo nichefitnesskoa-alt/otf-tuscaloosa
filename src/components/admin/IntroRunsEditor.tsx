@@ -54,6 +54,7 @@ interface IntroRun {
   class_time: string;
   lead_source: string | null;
   intro_owner: string | null;
+  ran_by: string | null;
   result: string;
   goal_quality: string | null;
   pricing_engagement: string | null;
@@ -71,6 +72,9 @@ interface IntroBooking {
   class_date: string;
   intro_time: string | null;
   sa_working_shift: string;
+  intro_owner: string | null;
+  intro_owner_locked: boolean | null;
+  booking_status: string | null;
 }
 
 // Valid outcomes
@@ -122,14 +126,14 @@ export default function IntroRunsEditor() {
     try {
       const [runsRes, bookingsRes] = await Promise.all([
         supabase.from('intros_run').select('*').order('run_date', { ascending: false }).limit(500),
-        supabase.from('intros_booked').select('id, booking_id, member_name, class_date, intro_time, sa_working_shift'),
+        supabase.from('intros_booked').select('id, booking_id, member_name, class_date, intro_time, sa_working_shift, intro_owner, intro_owner_locked, booking_status'),
       ]);
 
       if (runsRes.error) throw runsRes.error;
       if (bookingsRes.error) throw bookingsRes.error;
       
-      setRuns(runsRes.data || []);
-      setBookings(bookingsRes.data || []);
+      setRuns((runsRes.data || []) as IntroRun[]);
+      setBookings((bookingsRes.data || []) as IntroBooking[]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
@@ -200,6 +204,7 @@ export default function IntroRunsEditor() {
         class_time: editingRun.class_time,
         lead_source: editingRun.lead_source,
         intro_owner: editingRun.intro_owner,
+        ran_by: editingRun.ran_by,
         result: normalizedResult,
         goal_quality: editingRun.goal_quality,
         pricing_engagement: editingRun.pricing_engagement,
@@ -216,6 +221,13 @@ export default function IntroRunsEditor() {
 
       if (error) throw error;
       
+      // Auto-set intro_owner on linked booking if this is first non-no-show run
+      if (editingRun.linked_intro_booked_id && 
+          normalizedResult !== 'No-show' && 
+          editingRun.ran_by) {
+        await autoSetIntroOwnerOnBooking(editingRun.linked_intro_booked_id, editingRun.ran_by);
+      }
+      
       toast.success('Run updated successfully');
       setEditingRun(null);
       await fetchData();
@@ -227,11 +239,70 @@ export default function IntroRunsEditor() {
     }
   };
 
+  // Auto-set intro_owner on booking when first non-no-show run is recorded
+  const autoSetIntroOwnerOnBooking = async (bookingId: string, ranBy: string) => {
+    try {
+      // Get the booking
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) return;
+      
+      // If booking already has an intro_owner locked, don't change it
+      if (booking.intro_owner_locked && booking.intro_owner) {
+        return;
+      }
+      
+      // Check if there are any other non-no-show runs for this booking that came first
+      const { data: existingRuns } = await supabase
+        .from('intros_run')
+        .select('id, created_at, result, ran_by')
+        .eq('linked_intro_booked_id', bookingId)
+        .neq('result', 'No-show')
+        .order('created_at', { ascending: true })
+        .limit(1);
+      
+      // If there's already a prior non-no-show run with a ran_by, use that
+      if (existingRuns && existingRuns.length > 0) {
+        const firstRun = existingRuns[0];
+        if ((firstRun as any).ran_by) {
+          // Only update if booking doesn't have intro_owner set
+          if (!booking.intro_owner) {
+            await supabase
+              .from('intros_booked')
+              .update({
+                intro_owner: (firstRun as any).ran_by,
+                intro_owner_locked: true,
+              })
+              .eq('id', bookingId);
+          }
+          return;
+        }
+      }
+      
+      // This is the first non-no-show run, set intro_owner
+      const { error } = await supabase
+        .from('intros_booked')
+        .update({
+          intro_owner: ranBy,
+          intro_owner_locked: true,
+        })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+      toast.success(`Intro owner set to ${ranBy} on booking`);
+    } catch (error) {
+      console.error('Error auto-setting intro owner:', error);
+    }
+  };
+
   const handleOpenLinkDialog = (run: IntroRun) => {
     setLinkingRun(run);
     
-    // Find matching bookings by member name
+    // Find matching bookings by member name - only Active bookings
     const matches = bookings.filter(b => {
+      if (b.booking_status && !['Active', 'No-show'].includes(b.booking_status)) {
+        return false; // Skip closed/deleted bookings
+      }
+      
       const nameMatch = b.member_name.toLowerCase() === run.member_name.toLowerCase();
       if (!nameMatch) return false;
       
@@ -248,7 +319,8 @@ export default function IntroRunsEditor() {
     // If no close matches, show all for this member
     if (matches.length === 0) {
       setMatchingBookings(bookings.filter(b => 
-        b.member_name.toLowerCase() === run.member_name.toLowerCase()
+        b.member_name.toLowerCase() === run.member_name.toLowerCase() &&
+        (!b.booking_status || ['Active', 'No-show'].includes(b.booking_status))
       ));
     } else {
       setMatchingBookings(matches);
@@ -274,6 +346,11 @@ export default function IntroRunsEditor() {
 
       if (error) throw error;
       
+      // Auto-set intro_owner if this is first non-no-show run
+      if (linkingRun.result !== 'No-show' && linkingRun.ran_by) {
+        await autoSetIntroOwnerOnBooking(bookingId, linkingRun.ran_by);
+      }
+      
       toast.success('Run linked to booking');
       setShowLinkDialog(false);
       setLinkingRun(null);
@@ -289,8 +366,12 @@ export default function IntroRunsEditor() {
   const handleAutoLink = async (run: IntroRun) => {
     setIsSaving(true);
     try {
-      // Find best matching booking
-      const exactMatch = bookings.find(b => 
+      // Find best matching booking - only Active bookings
+      const activeBookings = bookings.filter(b => 
+        !b.booking_status || ['Active', 'No-show'].includes(b.booking_status)
+      );
+      
+      const exactMatch = activeBookings.find(b => 
         b.member_name.toLowerCase() === run.member_name.toLowerCase() &&
         b.class_date === run.run_date
       );
@@ -307,6 +388,12 @@ export default function IntroRunsEditor() {
           .eq('id', run.id);
 
         if (error) throw error;
+        
+        // Auto-set intro_owner if this is first non-no-show run
+        if (run.result !== 'No-show' && run.ran_by) {
+          await autoSetIntroOwnerOnBooking(exactMatch.id, run.ran_by);
+        }
+        
         toast.success(`Linked to booking for ${run.member_name}`);
         await fetchData();
       } else {
@@ -382,6 +469,7 @@ export default function IntroRunsEditor() {
               <TableRow>
                 <TableHead className="text-xs">Member</TableHead>
                 <TableHead className="text-xs">Run Date</TableHead>
+                <TableHead className="text-xs">Ran By</TableHead>
                 <TableHead className="text-xs">Outcome</TableHead>
                 <TableHead className="text-xs">Linked</TableHead>
                 <TableHead className="text-xs">Actions</TableHead>
@@ -398,6 +486,9 @@ export default function IntroRunsEditor() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {run.run_date || '-'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {run.ran_by || run.intro_owner || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell>
                     {!isValidOutcome(run.result) ? (
@@ -486,6 +577,22 @@ export default function IntroRunsEditor() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Ran By (SA who ran this intro)</Label>
+                  <Select 
+                    value={editingRun.ran_by || ''} 
+                    onValueChange={(v) => setEditingRun({...editingRun, ran_by: v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SA..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_STAFF.map(sa => (
+                        <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Outcome</Label>
                   <Select 
                     value={editingRun.result || ''} 
@@ -502,7 +609,7 @@ export default function IntroRunsEditor() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Intro Owner (SA)</Label>
+                  <Label>Intro Owner (Commission - auto-set from first run)</Label>
                   <Select 
                     value={editingRun.intro_owner || ''} 
                     onValueChange={(v) => setEditingRun({...editingRun, intro_owner: v})}
@@ -586,7 +693,7 @@ export default function IntroRunsEditor() {
             <ScrollArea className="h-[300px]">
               {matchingBookings.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
-                  No matching bookings found for this member
+                  No matching active bookings found for this member
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -602,6 +709,7 @@ export default function IntroRunsEditor() {
                         <div className="font-medium">{booking.member_name}</div>
                         <div className="text-xs text-muted-foreground">
                           {booking.class_date} {booking.intro_time} • Booked by: {booking.sa_working_shift}
+                          {booking.intro_owner && ` • Owner: ${booking.intro_owner}`}
                         </div>
                       </div>
                     </Button>

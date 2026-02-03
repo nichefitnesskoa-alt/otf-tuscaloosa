@@ -19,16 +19,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -37,12 +43,17 @@ import {
   HeartPulse,
   Link,
   User,
-  FileWarning
+  FileWarning,
+  MoreVertical,
+  Archive,
+  EyeOff,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ALL_STAFF } from '@/types';
 import { DateRange } from '@/lib/pay-period';
+import { useAuth } from '@/context/AuthContext';
 
 interface DataHealthIssue {
   id: string;
@@ -52,6 +63,7 @@ interface DataHealthIssue {
   date: string;
   description: string;
   current_value?: string;
+  ignore_from_metrics?: boolean;
 }
 
 interface DataHealthStats {
@@ -61,6 +73,8 @@ interface DataHealthStats {
   runsMissingBookingId: number;
   bookingsMissingBookedBy: number;
   runsWithInvalidOutcome: number;
+  closedBookings: number;
+  archivedBookings: number;
 }
 
 interface DataHealthPanelProps {
@@ -90,12 +104,18 @@ const OUTCOME_NORMALIZATION: Record<string, string> = {
 };
 
 export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealthPanelProps) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [issues, setIssues] = useState<DataHealthIssue[]>([]);
   const [selectedSaForBulk, setSelectedSaForBulk] = useState<string>('');
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
   const [isFixing, setIsFixing] = useState(false);
+  
+  // Hard delete dialog
+  const [showHardDeleteDialog, setShowHardDeleteDialog] = useState(false);
+  const [deletingIssue, setDeletingIssue] = useState<DataHealthIssue | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const fetchHealthData = async () => {
     setIsLoading(true);
@@ -120,15 +140,30 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
       // First intro bookings (no originating_booking_id)
       const firstIntroBookings = bookings.filter(b => {
         const originatingId = (b as any).originating_booking_id;
+        const status = (b as any).booking_status;
         const isFirst = !originatingId || originatingId === null;
-        return isFirst && filterByDate(b.class_date);
+        const isActive = !status || status === 'Active' || status === 'No-show';
+        return isFirst && isActive && filterByDate(b.class_date);
       });
 
       // Second intro bookings (has originating_booking_id)
       const secondIntroBookings = bookings.filter(b => {
         const originatingId = (b as any).originating_booking_id;
-        return originatingId && filterByDate(b.class_date);
+        const status = (b as any).booking_status;
+        const isActive = !status || status === 'Active' || status === 'No-show';
+        return originatingId && isActive && filterByDate(b.class_date);
       });
+
+      // Closed bookings
+      const closedBookings = bookings.filter(b => 
+        (b as any).booking_status === 'Closed (Purchased)' ||
+        (b as any).booking_status === 'Not interested'
+      ).length;
+
+      // Archived bookings
+      const archivedBookings = bookings.filter(b => 
+        (b as any).booking_status === 'Deleted (soft)'
+      ).length;
 
       // Runs in range
       const runsInRange = runs.filter(r => filterByDate(r.run_date || r.created_at.split('T')[0]));
@@ -136,8 +171,10 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
       // Issues detection
       const detectedIssues: DataHealthIssue[] = [];
 
-      // Runs missing booking_id link
-      const runsMissingLink = runsInRange.filter(r => !r.linked_intro_booked_id);
+      // Runs missing booking_id link (excluding ignored ones)
+      const runsMissingLink = runsInRange.filter(r => 
+        !r.linked_intro_booked_id && !(r as any).ignore_from_metrics
+      );
       runsMissingLink.forEach(r => {
         detectedIssues.push({
           id: r.id,
@@ -147,6 +184,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
           date: r.run_date || r.created_at.split('T')[0],
           description: 'Run not linked to booking',
           current_value: r.linked_intro_booked_id || 'none',
+          ignore_from_metrics: (r as any).ignore_from_metrics,
         });
       });
 
@@ -198,6 +236,8 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
         runsMissingBookingId: runsMissingLink.length,
         bookingsMissingBookedBy: bookingsMissingBookedBy.length,
         runsWithInvalidOutcome: runsWithInvalidOutcome.length,
+        closedBookings,
+        archivedBookings,
       });
 
       setIssues(detectedIssues.slice(0, 25));
@@ -218,7 +258,12 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     try {
       const { error } = await supabase
         .from('intros_booked')
-        .update({ sa_working_shift: saName })
+        .update({ 
+          sa_working_shift: saName,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Fixed missing booked_by',
+        })
         .eq('id', issueId);
 
       if (error) throw error;
@@ -251,7 +296,12 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
 
       const { error } = await supabase
         .from('intros_booked')
-        .update({ sa_working_shift: selectedSaForBulk })
+        .update({ 
+          sa_working_shift: selectedSaForBulk,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Bulk fixed missing booked_by',
+        })
         .in('id', issueIds);
 
       if (error) throw error;
@@ -275,7 +325,12 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
       
       const { error } = await supabase
         .from('intros_run')
-        .update({ result: normalized })
+        .update({ 
+          result: normalized,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Normalized invalid outcome',
+        })
         .eq('id', issueId);
 
       if (error) throw error;
@@ -303,37 +358,48 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
 
       if (!run) throw new Error('Run not found');
 
-      // Find matching booking by member name and date
+      // Find matching booking by member name and date (only Active bookings)
       const { data: bookings } = await supabase
         .from('intros_booked')
         .select('*')
         .eq('member_name', run.member_name);
 
-      if (!bookings || bookings.length === 0) {
-        toast.error('No matching booking found for this member');
+      // Filter to active bookings only
+      const activeBookings = (bookings || []).filter(b => {
+        const status = (b as any).booking_status;
+        return !status || status === 'Active' || status === 'No-show';
+      });
+
+      if (activeBookings.length === 0) {
+        toast.error('No matching active booking found for this member');
         return;
       }
 
       // Try to find exact date match
-      let bestMatch = bookings.find(b => b.class_date === run.run_date);
+      let bestMatch = activeBookings.find(b => b.class_date === run.run_date);
       
       // If no exact match, find closest date
       if (!bestMatch && run.run_date) {
         const runDate = new Date(run.run_date).getTime();
-        bestMatch = bookings.reduce((closest, b) => {
+        bestMatch = activeBookings.reduce((closest, b) => {
           const bDate = new Date(b.class_date).getTime();
           const closestDate = closest ? new Date(closest.class_date).getTime() : Infinity;
           return Math.abs(bDate - runDate) < Math.abs(closestDate - runDate) ? b : closest;
-        }, null as typeof bookings[0] | null);
+        }, null as typeof activeBookings[0] | null);
       }
 
       if (!bestMatch) {
-        bestMatch = bookings[0]; // Just use first booking if nothing else matches
+        bestMatch = activeBookings[0]; // Just use first booking if nothing else matches
       }
 
       const { error } = await supabase
         .from('intros_run')
-        .update({ linked_intro_booked_id: bestMatch.id })
+        .update({ 
+          linked_intro_booked_id: bestMatch.id,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Auto-linked to booking',
+        })
         .eq('id', issueId);
 
       if (error) throw error;
@@ -344,6 +410,104 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     } catch (error) {
       console.error('Error auto-linking run:', error);
       toast.error('Failed to auto-link run');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
+  // Ignore from metrics toggle
+  const handleIgnoreFromMetrics = async (issue: DataHealthIssue) => {
+    setIsFixing(true);
+    try {
+      const table = issue.table === 'intros_run' ? 'intros_run' : 'intros_booked';
+      const { error } = await supabase
+        .from(table)
+        .update({ 
+          ignore_from_metrics: true,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Ignored from metrics by admin',
+        })
+        .eq('id', issue.id);
+
+      if (error) throw error;
+      
+      toast.success('Ignored from metrics');
+      await fetchHealthData();
+    } catch (error) {
+      console.error('Error ignoring from metrics:', error);
+      toast.error('Failed to ignore');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
+  // Soft delete
+  const handleSoftDelete = async (issue: DataHealthIssue) => {
+    setIsFixing(true);
+    try {
+      if (issue.table === 'intros_booked') {
+        const { error } = await supabase
+          .from('intros_booked')
+          .update({ 
+            booking_status: 'Deleted (soft)',
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Soft deleted by admin',
+          })
+          .eq('id', issue.id);
+        if (error) throw error;
+      } else {
+        // For runs, we'll just ignore from metrics (no soft delete status)
+        const { error } = await supabase
+          .from('intros_run')
+          .update({ 
+            ignore_from_metrics: true,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Soft deleted (ignored) by admin',
+          })
+          .eq('id', issue.id);
+        if (error) throw error;
+      }
+      
+      toast.success('Archived successfully');
+      await fetchHealthData();
+    } catch (error) {
+      console.error('Error soft deleting:', error);
+      toast.error('Failed to archive');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
+  // Hard delete
+  const handleOpenHardDelete = (issue: DataHealthIssue) => {
+    setDeletingIssue(issue);
+    setDeleteConfirmText('');
+    setShowHardDeleteDialog(true);
+  };
+
+  const handleConfirmHardDelete = async () => {
+    if (!deletingIssue || deleteConfirmText !== 'DELETE') return;
+    
+    setIsFixing(true);
+    try {
+      const table = deletingIssue.table === 'intros_run' ? 'intros_run' : 'intros_booked';
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', deletingIssue.id);
+
+      if (error) throw error;
+      
+      toast.success('Permanently deleted');
+      setShowHardDeleteDialog(false);
+      setDeletingIssue(null);
+      await fetchHealthData();
+    } catch (error) {
+      console.error('Error hard deleting:', error);
+      toast.error('Failed to delete');
     } finally {
       setIsFixing(false);
     }
@@ -387,18 +551,22 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
       <CardContent className="space-y-4">
         {/* Stats Summary */}
         {stats && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <p className="text-2xl font-bold text-primary">{stats.firstIntroBookings}</p>
-              <p className="text-xs text-muted-foreground">First Intro Bookings</p>
+              <p className="text-xs text-muted-foreground">Active 1st Intros</p>
             </div>
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <p className="text-2xl font-bold text-primary">{stats.secondIntroBookings}</p>
-              <p className="text-xs text-muted-foreground">Second Intros</p>
+              <p className="text-xs text-muted-foreground">2nd Intros</p>
             </div>
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <p className="text-2xl font-bold text-primary">{stats.runsInRange}</p>
-              <p className="text-xs text-muted-foreground">Runs in Range</p>
+              <p className="text-xs text-muted-foreground">Runs</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-muted-foreground">{stats.closedBookings}</p>
+              <p className="text-xs text-muted-foreground">Closed</p>
             </div>
           </div>
         )}
@@ -438,7 +606,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
 
         {/* Overall Status */}
         {stats && (
-          <div className={`flex items-center gap-2 p-3 rounded-lg ${hasHealthIssues ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'}`}>
+          <div className={`flex items-center gap-2 p-3 rounded-lg ${hasHealthIssues ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
             {hasHealthIssues ? (
               <>
                 <AlertCircle className="w-5 h-5" />
@@ -506,7 +674,8 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
                     <TableHead className="text-xs">Type</TableHead>
                     <TableHead className="text-xs">Member</TableHead>
                     <TableHead className="text-xs">Date</TableHead>
-                    <TableHead className="text-xs">Action</TableHead>
+                    <TableHead className="text-xs">Fix</TableHead>
+                    <TableHead className="text-xs w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -569,6 +738,33 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
                           </Select>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleIgnoreFromMetrics(issue)}>
+                              <EyeOff className="w-4 h-4 mr-2" />
+                              Ignore from metrics
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSoftDelete(issue)}>
+                              <Archive className="w-4 h-4 mr-2" />
+                              Archive (soft delete)
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleOpenHardDelete(issue)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete permanently
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -576,6 +772,42 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
             </ScrollArea>
           </div>
         )}
+
+        {/* Hard Delete Confirm Dialog */}
+        <Dialog open={showHardDeleteDialog} onOpenChange={setShowHardDeleteDialog}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Permanently Delete</DialogTitle>
+              <DialogDescription>
+                This will permanently delete {deletingIssue?.member_name}'s record. 
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Type DELETE to confirm</Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowHardDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleConfirmHardDelete} 
+                disabled={deleteConfirmText !== 'DELETE' || isFixing}
+              >
+                {isFixing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                Delete Forever
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
