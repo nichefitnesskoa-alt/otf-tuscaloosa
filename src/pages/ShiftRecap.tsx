@@ -111,7 +111,11 @@ export default function ShiftRecap() {
         premobilityEncouragement: false,
         coachingSummaryPresence: false,
         notes: '',
-        linkedBookingId: undefined
+        linkedBookingId: undefined,
+        secondIntroDate: undefined,
+        secondIntroTime: undefined,
+        bookedBy: undefined,
+        originatingBookingId: undefined
       }]);
     }
   };
@@ -173,7 +177,7 @@ export default function ShiftRecap() {
 
       if (shiftError) throw shiftError;
 
-      // 2. Save intro bookings
+      // 2. Save intro bookings (with booked_by for booking credit)
       for (const booking of introsBooked) {
         if (booking.memberName && booking.introDate) {
           const bookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
@@ -189,7 +193,7 @@ export default function ShiftRecap() {
             shift_recap_id: shiftData.id,
           });
 
-          // Sync to Google Sheets if configured
+          // Sync to Google Sheets if configured (with booked_by)
           if (spreadsheetId) {
             await supabase.functions.invoke('sync-sheets', {
               body: {
@@ -202,6 +206,8 @@ export default function ShiftRecap() {
                   intro_time: booking.introTime,
                   lead_source: booking.leadSource,
                   notes: booking.notes,
+                  booked_by: user?.name || '', // Booking credit goes here
+                  booking_status: 'ACTIVE',
                 },
               },
             });
@@ -289,20 +295,27 @@ export default function ShiftRecap() {
             );
           }
 
-          // Handle "Booked 2nd intro" outcome - create a new booking
+          // Handle "Booked 2nd intro" outcome - create a new booking with proper date/time
           if (run.outcome === 'Booked 2nd intro') {
             const secondBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+            const secondIntroDate = run.secondIntroDate || new Date().toISOString().split('T')[0];
+            const secondIntroTime = run.secondIntroTime || null;
+            
+            // Determine originating booking ID for chain tracking
+            const originatingId = run.originatingBookingId || run.linkedBookingId || null;
+            
             await supabase.from('intros_booked').insert({
               booking_id: secondBookingId,
               member_name: run.memberName,
-              class_date: new Date().toISOString().split('T')[0], // TBD date
+              class_date: secondIntroDate,
+              intro_time: secondIntroTime,
               coach_name: 'TBD',
               sa_working_shift: user?.name || '',
-              lead_source: run.leadSource || '2nd Class Intro (staff booked)',
-              fitness_goal: `2nd intro - Original owner: ${introOwner}`,
+              lead_source: '2nd Class Intro (staff booked)',
+              fitness_goal: `2nd intro - Intro owner: ${introOwner}`,
             });
 
-            // Sync the 2nd booking to Google Sheets
+            // Sync the 2nd booking to Google Sheets with proper tracking
             if (spreadsheetId) {
               await supabase.functions.invoke('sync-sheets', {
                 body: {
@@ -311,15 +324,22 @@ export default function ShiftRecap() {
                   data: {
                     booking_id: secondBookingId,
                     member_name: run.memberName,
-                    class_date: new Date().toISOString().split('T')[0],
+                    class_date: secondIntroDate,
+                    intro_time: secondIntroTime,
                     lead_source: '2nd Class Intro (staff booked)',
-                    notes: `2nd intro - Original owner: ${introOwner}`,
-                    originating_booking_id: run.linkedBookingId,
+                    notes: `2nd intro - Intro owner: ${introOwner}`,
+                    originating_booking_id: originatingId,
                     booking_status: 'ACTIVE',
+                    booked_by: user?.name || '', // SA who scheduled the 2nd intro
+                    intro_owner: introOwner, // Carry forward from first intro
                   },
                 },
               });
             }
+            
+            toast.info('2nd intro booked', {
+              description: `Scheduled for ${secondIntroDate}`,
+            });
           }
 
           // Sync to Google Sheets if configured
@@ -555,6 +575,9 @@ export default function ShiftRecap() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Intros Booked</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Booking credit goes to you (who books it)
+          </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {introsBooked.map((booking, index) => (

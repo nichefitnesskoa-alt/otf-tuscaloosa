@@ -242,6 +242,7 @@ const SHEET_COLUMNS = {
     'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes',
     'member_key', 'booking_status', 'status_reason', 'status_changed_at', 'status_changed_by',
     'originating_booking_id', 'closed_at', 'closed_sale_id',
+    'booked_by', 'intro_owner',  // New: booking credit vs commission owner
     'created_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ],
   app_intro_runs: [
@@ -603,6 +604,8 @@ serve(async (req) => {
           booking.originating_booking_id || '',
           booking.closed_at || '',
           booking.closed_sale_id || '',
+          booking.booked_by || '',  // Who booked it (booking credit)
+          booking.intro_owner || '', // Who runs first intro (commission owner)
           booking.created_at || new Date().toISOString(),
           editedBy ? new Date().toISOString() : '',
           editedBy || '',
@@ -740,6 +743,8 @@ serve(async (req) => {
           notes: string;
           booking_status: string;
           originating_booking_id: string;
+          booked_by: string;
+          intro_owner: string;
           row_number: number;
         }> = [];
 
@@ -783,6 +788,8 @@ serve(async (req) => {
               notes: row[colMap['notes']] || '',
               booking_status: status,
               originating_booking_id: row[colMap['originating_booking_id']] || '',
+              booked_by: row[colMap['booked_by']] || '',
+              intro_owner: row[colMap['intro_owner']] || '',
               row_number: i + 1,
             });
           }
