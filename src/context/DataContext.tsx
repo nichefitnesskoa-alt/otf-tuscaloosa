@@ -53,6 +53,7 @@ export interface IntroRun {
   sa_name?: string | null;
   commission_amount?: number | null;
   linked_intro_booked_id?: string | null;
+  buy_date?: string | null;
   created_at: string;
 }
 
