@@ -62,15 +62,18 @@ interface IntroRunEntryProps {
   index: number;
   onUpdate: (index: number, updates: Partial<IntroRunData>) => void;
   onRemove: (index: number) => void;
+  currentUserName?: string;
 }
 
-export default function IntroRunEntry({ intro, index, onUpdate, onRemove }: IntroRunEntryProps) {
+export default function IntroRunEntry({ intro, index, onUpdate, onRemove, currentUserName = 'SA' }: IntroRunEntryProps) {
   const [entryMode, setEntryMode] = useState<'select' | 'manual'>('select');
 
   const handleSelectBookedIntro = (booking: {
     booking_id: string;
     member_name: string;
+    member_key: string;
     lead_source: string;
+    notes: string;
   }) => {
     onUpdate(index, {
       linkedBookingId: booking.booking_id,
@@ -119,6 +122,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove }: Intr
         <BookedIntroSelector
           selectedBookingId={intro.linkedBookingId}
           onSelect={handleSelectBookedIntro}
+          currentUserName={currentUserName}
         />
       ) : (
         <div>

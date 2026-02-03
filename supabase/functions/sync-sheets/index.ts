@@ -240,6 +240,8 @@ const SHEET_COLUMNS = {
   ],
   app_intro_bookings: [
     'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes',
+    'member_key', 'booking_status', 'status_reason', 'status_changed_at', 'status_changed_by',
+    'originating_booking_id', 'closed_at', 'closed_sale_id',
     'created_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ],
   app_intro_runs: [
@@ -251,7 +253,7 @@ const SHEET_COLUMNS = {
   ],
   app_sales: [
     'sale_id', 'run_id', 'sale_type', 'member_name', 'lead_source', 
-    'membership_type', 'commission_amount', 'intro_owner',
+    'membership_type', 'commission_amount', 'intro_owner', 'related_booking_id',
     'pay_period_start', 'pay_period_end',
     'created_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ]
@@ -580,6 +582,12 @@ serve(async (req) => {
         const booking = data;
         const bookingId = booking.booking_id || `booking_${booking.id}`;
         
+        // Normalize member name to key
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+        const memberKey = booking.member_key || normalizeName(booking.member_name || '');
+        
         const rowData = [
           bookingId,
           booking.member_name || '',
@@ -587,6 +595,14 @@ serve(async (req) => {
           booking.intro_time || '',
           booking.lead_source || '',
           booking.fitness_goal || booking.notes || '',
+          memberKey,
+          booking.booking_status || 'ACTIVE',
+          booking.status_reason || '',
+          booking.status_changed_at || '',
+          booking.status_changed_by || '',
+          booking.originating_booking_id || '',
+          booking.closed_at || '',
+          booking.closed_sale_id || '',
           booking.created_at || new Date().toISOString(),
           editedBy ? new Date().toISOString() : '',
           editedBy || '',
@@ -604,7 +620,6 @@ serve(async (req) => {
         await supabase.from('intros_booked')
           .update({ 
             booking_id: bookingId,
-            synced_to_sheets: true,
             last_edited_at: editedBy ? new Date().toISOString() : undefined,
             last_edited_by: editedBy || undefined,
             edit_reason: editReason || undefined,
@@ -713,19 +728,18 @@ serve(async (req) => {
       }
 
       case 'read_intro_bookings': {
-        // Read intro bookings directly from Google Sheets with normalized fields
+        // Read intro bookings directly from Google Sheets - filter to ACTIVE only
         const rows = await readFromSheet(spreadsheetId, 'app_intro_bookings', accessToken);
         const bookings: Array<{
           booking_id: string;
           member_name: string;
+          member_key: string;
           intro_date: string;
           intro_time: string;
-          intro_date_normalized: string;
-          intro_time_normalized: string;
-          intro_datetime_key: string;
-          intro_date_valid: boolean;
           lead_source: string;
           notes: string;
+          booking_status: string;
+          originating_booking_id: string;
           row_number: number;
         }> = [];
 
@@ -734,119 +748,213 @@ serve(async (req) => {
           const colMap: Record<string, number> = {};
           headers.forEach((h, i) => { colMap[h] = i; });
 
-          // Helper to normalize dates
-          const normalizeDate = (dateStr: string): { normalized: string; valid: boolean; sortKey: string } => {
-            if (!dateStr || dateStr.trim() === '') {
-              return { normalized: '', valid: false, sortKey: '' };
-            }
-            
-            const trimmed = dateStr.trim();
-            
-            // Check if it looks like just a time (no date)
-            if (/^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(trimmed)) {
-              return { normalized: trimmed, valid: false, sortKey: '' };
-            }
-            
-            // Check for relative date words
-            if (/^(today|tomorrow|yesterday|next|this|last)/i.test(trimmed)) {
-              return { normalized: trimmed, valid: false, sortKey: '' };
-            }
-
-            // Try to parse MM/DD/YYYY or M/D/YY
-            if (trimmed.includes('/')) {
-              const parts = trimmed.split('/');
-              if (parts.length === 3) {
-                const [m, d, y] = parts;
-                const year = y.length === 2 ? '20' + y : y;
-                const month = m.padStart(2, '0');
-                const day = d.padStart(2, '0');
-                const isoDate = `${year}-${month}-${day}`;
-                
-                // Validate the date is reasonable (year 2020-2030)
-                const yearNum = parseInt(year);
-                if (yearNum >= 2020 && yearNum <= 2030) {
-                  return { normalized: isoDate, valid: true, sortKey: isoDate };
-                }
-              }
-            }
-            
-            // Try ISO format YYYY-MM-DD
-            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-              return { normalized: trimmed, valid: true, sortKey: trimmed };
-            }
-
-            // Can't parse - mark as invalid
-            return { normalized: trimmed, valid: false, sortKey: '' };
-          };
-
-          const normalizeTime = (timeStr: string): string => {
-            if (!timeStr || timeStr.trim() === '') return '';
-            const trimmed = timeStr.trim();
-            
-            // Match various time formats
-            const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(\s*(AM|PM))?$/i);
-            if (match) {
-              let hours = parseInt(match[1]);
-              const minutes = match[2];
-              const period = match[5];
-              
-              if (period?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
-              if (period?.toUpperCase() === 'AM' && hours === 12) hours = 0;
-              
-              return `${hours.toString().padStart(2, '0')}:${minutes}`;
-            }
-            return trimmed;
+          // Normalize member name to key for matching
+          const normalizeName = (name: string): string => {
+            return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
           };
 
           const seenBookingIds = new Set<string>();
+          const seenMemberKeys = new Set<string>();
 
           for (let i = 1; i < rows.length && bookings.length < 500; i++) {
             const row = rows[i];
             const bookingId = row[colMap['booking_id']] || '';
+            const memberName = row[colMap['member_name']] || 'Unknown';
+            const memberKey = row[colMap['member_key']] || normalizeName(memberName);
+            const status = (row[colMap['booking_status']] || 'ACTIVE').toUpperCase();
             
-            if (!bookingId || seenBookingIds.has(bookingId)) continue;
-            seenBookingIds.add(bookingId);
-
-            const rawDate = row[colMap['intro_date']] || row[colMap['class_date']] || '';
-            const rawTime = row[colMap['intro_time']] || '';
+            // Only show ACTIVE bookings
+            if (status !== 'ACTIVE') continue;
             
-            const dateResult = normalizeDate(rawDate);
-            const timeNormalized = normalizeTime(rawTime);
+            // De-duplicate by booking_id first, then by member_key
+            if (bookingId && seenBookingIds.has(bookingId)) continue;
+            if (bookingId) seenBookingIds.add(bookingId);
             
-            // Build datetime key for sorting
-            let datetimeKey = '';
-            if (dateResult.valid && dateResult.sortKey) {
-              datetimeKey = dateResult.sortKey;
-              if (timeNormalized) {
-                datetimeKey += 'T' + timeNormalized;
-              }
-            }
+            if (!bookingId && memberKey && seenMemberKeys.has(memberKey)) continue;
+            if (memberKey) seenMemberKeys.add(memberKey);
 
             bookings.push({
-              booking_id: bookingId,
-              member_name: row[colMap['member_name']] || 'Unknown',
-              intro_date: rawDate,
-              intro_time: rawTime,
-              intro_date_normalized: dateResult.normalized,
-              intro_time_normalized: timeNormalized,
-              intro_datetime_key: datetimeKey,
-              intro_date_valid: dateResult.valid,
+              booking_id: bookingId || `temp_${i}`,
+              member_name: memberName,
+              member_key: memberKey,
+              intro_date: row[colMap['intro_date']] || row[colMap['class_date']] || '',
+              intro_time: row[colMap['intro_time']] || '',
               lead_source: row[colMap['lead_source']] || 'Unknown',
               notes: row[colMap['notes']] || '',
+              booking_status: status,
+              originating_booking_id: row[colMap['originating_booking_id']] || '',
               row_number: i + 1,
             });
           }
 
-          // Sort by datetime key descending (empty keys at end)
-          bookings.sort((a, b) => {
-            if (!a.intro_datetime_key && !b.intro_datetime_key) return 0;
-            if (!a.intro_datetime_key) return 1;
-            if (!b.intro_datetime_key) return -1;
-            return b.intro_datetime_key.localeCompare(a.intro_datetime_key);
-          });
+          // Sort alphabetically by member name for easy searching
+          bookings.sort((a, b) => a.member_name.localeCompare(b.member_name));
         }
 
         result = { success: true, bookings, total: bookings.length };
+        break;
+      }
+
+      case 'update_booking_status': {
+        // Update a booking's status in Google Sheets (DEAD or CLOSED)
+        const { bookingId, memberKey, newStatus, statusReason, changedBy, closedSaleId } = data;
+        
+        const rows = await readFromSheet(spreadsheetId, 'app_intro_bookings', accessToken);
+        if (rows.length < 2) {
+          throw new Error('No bookings found in sheet');
+        }
+
+        const headers = rows[0].map(h => h.toLowerCase().trim());
+        const colMap: Record<string, number> = {};
+        headers.forEach((h, i) => { colMap[h] = i; });
+
+        // Normalize name for matching
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+
+        // Find the row to update
+        let targetRowIndex = -1;
+        let originatingChainId = '';
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          const rowBookingId = row[colMap['booking_id']] || '';
+          const rowMemberKey = row[colMap['member_key']] || normalizeName(row[colMap['member_name']] || '');
+          
+          if (bookingId && rowBookingId === bookingId) {
+            targetRowIndex = i;
+            originatingChainId = row[colMap['originating_booking_id']] || rowBookingId;
+            break;
+          }
+          if (!bookingId && memberKey && rowMemberKey === memberKey) {
+            targetRowIndex = i;
+            originatingChainId = row[colMap['originating_booking_id']] || row[colMap['booking_id']] || '';
+            break;
+          }
+        }
+
+        if (targetRowIndex === -1) {
+          throw new Error('Booking not found');
+        }
+
+        const now = new Date().toISOString();
+        const rowsToUpdate: { rowNumber: number; values: string[] }[] = [];
+
+        // If closing, also close the chain
+        if (newStatus === 'CLOSED' && originatingChainId) {
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const rowBookingId = row[colMap['booking_id']] || '';
+            const rowOriginating = row[colMap['originating_booking_id']] || '';
+            const rowStatus = (row[colMap['booking_status']] || 'ACTIVE').toUpperCase();
+            
+            // Skip non-ACTIVE rows
+            if (rowStatus !== 'ACTIVE') continue;
+            
+            // Match if: this is the originating booking OR this references the originating booking
+            const isInChain = (rowBookingId === originatingChainId) || (rowOriginating === originatingChainId);
+            
+            if (isInChain) {
+              const updatedRow = [...row];
+              // Ensure row has enough columns
+              while (updatedRow.length < 18) updatedRow.push('');
+              
+              const statusColIdx = colMap['booking_status'] ?? 7;
+              const reasonColIdx = colMap['status_reason'] ?? 8;
+              const changedAtColIdx = colMap['status_changed_at'] ?? 9;
+              const changedByColIdx = colMap['status_changed_by'] ?? 10;
+              const closedAtColIdx = colMap['closed_at'] ?? 12;
+              const closedSaleColIdx = colMap['closed_sale_id'] ?? 13;
+              
+              updatedRow[statusColIdx] = newStatus;
+              updatedRow[reasonColIdx] = statusReason || 'Purchased membership';
+              updatedRow[changedAtColIdx] = now;
+              updatedRow[changedByColIdx] = changedBy || '';
+              updatedRow[closedAtColIdx] = now.split('T')[0];
+              updatedRow[closedSaleColIdx] = closedSaleId || '';
+              
+              rowsToUpdate.push({ rowNumber: i + 1, values: updatedRow });
+            }
+          }
+        } else {
+          // Just update the single row (DEAD status)
+          const row = rows[targetRowIndex];
+          const updatedRow = [...row];
+          while (updatedRow.length < 18) updatedRow.push('');
+          
+          const statusColIdx = colMap['booking_status'] ?? 7;
+          const reasonColIdx = colMap['status_reason'] ?? 8;
+          const changedAtColIdx = colMap['status_changed_at'] ?? 9;
+          const changedByColIdx = colMap['status_changed_by'] ?? 10;
+          
+          updatedRow[statusColIdx] = newStatus;
+          updatedRow[reasonColIdx] = statusReason || '';
+          updatedRow[changedAtColIdx] = now;
+          updatedRow[changedByColIdx] = changedBy || '';
+          
+          rowsToUpdate.push({ rowNumber: targetRowIndex + 1, values: updatedRow });
+        }
+
+        // Perform updates
+        for (const update of rowsToUpdate) {
+          await updateSheetRow(spreadsheetId, 'app_intro_bookings', update.rowNumber, update.values, accessToken);
+        }
+
+        result = { success: true, updatedRows: rowsToUpdate.length };
+        break;
+      }
+
+      case 'find_active_bookings_by_member': {
+        // Find all ACTIVE bookings for a member (for auto-close matching)
+        const { memberKey } = data;
+        
+        const rows = await readFromSheet(spreadsheetId, 'app_intro_bookings', accessToken);
+        const matches: Array<{
+          booking_id: string;
+          member_name: string;
+          member_key: string;
+          intro_date: string;
+          intro_time: string;
+          lead_source: string;
+          notes: string;
+          originating_booking_id: string;
+          row_number: number;
+        }> = [];
+
+        if (rows.length > 1) {
+          const headers = rows[0].map(h => h.toLowerCase().trim());
+          const colMap: Record<string, number> = {};
+          headers.forEach((h, i) => { colMap[h] = i; });
+
+          const normalizeName = (name: string): string => {
+            return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+          };
+
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const status = (row[colMap['booking_status']] || 'ACTIVE').toUpperCase();
+            if (status !== 'ACTIVE') continue;
+            
+            const rowMemberKey = row[colMap['member_key']] || normalizeName(row[colMap['member_name']] || '');
+            
+            if (rowMemberKey === memberKey) {
+              matches.push({
+                booking_id: row[colMap['booking_id']] || '',
+                member_name: row[colMap['member_name']] || 'Unknown',
+                member_key: rowMemberKey,
+                intro_date: row[colMap['intro_date']] || '',
+                intro_time: row[colMap['intro_time']] || '',
+                lead_source: row[colMap['lead_source']] || '',
+                notes: row[colMap['notes']] || '',
+                originating_booking_id: row[colMap['originating_booking_id']] || '',
+                row_number: i + 1,
+              });
+            }
+          }
+        }
+
+        result = { success: true, matches, count: matches.length };
         break;
       }
 
