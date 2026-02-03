@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { IntroBooked, IntroRun, Sale } from '@/context/DataContext';
+import { DateRange } from '@/lib/pay-period';
+import { isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 interface StudioMetrics {
   introsBooked: number;
@@ -33,20 +35,37 @@ export interface DashboardMetrics {
   conversionCredit: ConversionCreditMetrics[];
 }
 
+/**
+ * Check if a date string falls within a date range
+ */
+function isDateInRange(dateStr: string | null | undefined, range: DateRange): boolean {
+  if (!dateStr) return false;
+  try {
+    const date = parseISO(dateStr);
+    return isWithinInterval(date, { start: range.start, end: range.end });
+  } catch {
+    return false;
+  }
+}
+
 export function useDashboardMetrics(
   introsBooked: IntroBooked[],
   introsRun: IntroRun[],
-  sales: Sale[]
+  sales: Sale[],
+  dateRange: DateRange
 ): DashboardMetrics {
   return useMemo(() => {
     // FIRST INTRO BOOKINGS ONLY (originating_booking_id IS NULL)
-    // Note: We check for both null and undefined, and also check if the field doesn't exist
+    // Filter by booking date (class_date) within range
     const firstIntroBookings = introsBooked.filter(b => {
       const originatingId = (b as any).originating_booking_id;
-      return originatingId === null || originatingId === undefined;
+      const isFirstIntro = originatingId === null || originatingId === undefined;
+      const isInDateRange = isDateInRange(b.class_date, dateRange);
+      return isFirstIntro && isInDateRange;
     });
 
     // Create a map of booking_id to intro runs (for linking)
+    // Note: We don't filter runs by date here - we look at ALL runs linked to filtered bookings
     const bookingToRuns = new Map<string, IntroRun[]>();
     introsRun.forEach(run => {
       const bookingId = run.linked_intro_booked_id;
@@ -58,7 +77,7 @@ export function useDashboardMetrics(
     });
 
     // STUDIO METRICS
-    // Studio Intros Booked = count of first intro bookings
+    // Studio Intros Booked = count of first intro bookings in date range
     const studioIntrosBooked = firstIntroBookings.length;
 
     // Studio Intros Showed = count of first bookings that have a linked run with outcome ≠ "No-show"
@@ -73,11 +92,17 @@ export function useDashboardMetrics(
       ? (studioIntrosShowed / studioIntrosBooked) * 100 
       : 0;
 
-    // Studio Intro Sales = count of intro-based sales (from intros_run with commission > 0)
+    // Studio Intro Sales = count of intro-based sales where date_closed (buy_date) is in range
+    // Only count sales from intros_run where commission > 0 and buy_date is in range
     const studioIntroSales = introsRun.filter(run => {
-      // Must be linked to a first intro booking
-      const booking = firstIntroBookings.find(b => b.id === run.linked_intro_booked_id);
-      return booking && run.commission_amount && run.commission_amount > 0;
+      // Must be linked to a first intro booking (any, not just filtered)
+      const booking = introsBooked.find(b => {
+        const originatingId = (b as any).originating_booking_id;
+        return b.id === run.linked_intro_booked_id && (originatingId === null || originatingId === undefined);
+      });
+      // Filter by buy_date (date_closed) in range
+      const buyDateInRange = isDateInRange(run.buy_date, dateRange);
+      return booking && run.commission_amount && run.commission_amount > 0 && buyDateInRange;
     }).length;
 
     // Studio Closing % = Intro Sales / Intros Showed
@@ -97,8 +122,9 @@ export function useDashboardMetrics(
     });
 
     // BOOKING CREDIT TABLE (per SA, credited to booked_by)
+    // Filter by booking_date (class_date)
     const bookingCredit: BookingCreditMetrics[] = Array.from(allSAs).map(saName => {
-      // SA's first intro bookings (where booked_by = SA)
+      // SA's first intro bookings (where booked_by = SA) - already filtered by date
       const saBookings = firstIntroBookings.filter(b => {
         const bookedBy = (b as any).booked_by || b.sa_working_shift;
         return bookedBy === saName;
@@ -165,13 +191,13 @@ export function useDashboardMetrics(
       .sort((a, b) => b.introsBooked - a.introsBooked);
 
     // CONVERSION CREDIT TABLE (per SA, credited to intro_owner)
+    // Intros Ran: filter by booking_date (from linked first intro bookings in range)
+    // Sales/Commission: filter by date_closed (buy_date) in range
     const conversionCredit: ConversionCreditMetrics[] = Array.from(allSAs).map(saName => {
-      // Intros Ran = first intro runs where intro_owner = SA and outcome ≠ "No-show"
-      // Only count runs linked to FIRST intro bookings
-      // If multiple runs for same booking, use earliest non-no-show run only
+      // Get first intro booking IDs that are in the date range
       const firstIntroBookingIds = new Set(firstIntroBookings.map(b => b.id));
       
-      // Group runs by linked booking
+      // Group runs by linked booking (only for first intros in date range)
       const runsByBooking = new Map<string, IntroRun[]>();
       introsRun.forEach(run => {
         if (run.linked_intro_booked_id && firstIntroBookingIds.has(run.linked_intro_booked_id)) {
@@ -195,11 +221,16 @@ export function useDashboardMetrics(
         }
       });
 
-      // Sales = intro-based sales where intro_owner = SA
+      // Sales = intro-based sales where intro_owner = SA AND buy_date (date_closed) is in range
       const saSales = introsRun.filter(run => {
-        // Must be linked to a first intro booking
-        const booking = firstIntroBookings.find(b => b.id === run.linked_intro_booked_id);
-        return booking && run.intro_owner === saName && run.commission_amount && run.commission_amount > 0;
+        // Must be linked to a first intro booking (any, not just filtered)
+        const booking = introsBooked.find(b => {
+          const originatingId = (b as any).originating_booking_id;
+          return b.id === run.linked_intro_booked_id && (originatingId === null || originatingId === undefined);
+        });
+        // Filter by buy_date (date_closed) in range
+        const buyDateInRange = isDateInRange(run.buy_date, dateRange);
+        return booking && run.intro_owner === saName && run.commission_amount && run.commission_amount > 0 && buyDateInRange;
       });
       const salesCount = saSales.length;
 
@@ -208,13 +239,14 @@ export function useDashboardMetrics(
         ? (salesCount / introsRanCount) * 100 
         : 0;
 
-      // Commission Earned (from intro runs + outside sales)
+      // Commission Earned - filter by date_closed (buy_date) in range
       const introCommission = introsRun
-        .filter(r => r.intro_owner === saName)
+        .filter(r => r.intro_owner === saName && isDateInRange(r.buy_date, dateRange))
         .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
       
+      // Outside sales - filter by created_at (as proxy for date_closed) in range
       const outsideCommission = sales
-        .filter(s => s.intro_owner === saName)
+        .filter(s => s.intro_owner === saName && isDateInRange(s.created_at, dateRange))
         .reduce((sum, s) => sum + (s.commission_amount || 0), 0);
 
       const commissionEarned = introCommission + outsideCommission;
@@ -240,5 +272,5 @@ export function useDashboardMetrics(
       bookingCredit,
       conversionCredit,
     };
-  }, [introsBooked, introsRun, sales]);
+  }, [introsBooked, introsRun, sales, dateRange]);
 }

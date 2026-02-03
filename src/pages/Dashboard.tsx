@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -5,13 +6,25 @@ import { Loader2 } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { BookingCreditTable } from '@/components/dashboard/BookingCreditTable';
 import { ConversionCreditTable } from '@/components/dashboard/ConversionCreditTable';
+import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, isLoading } = useData();
 
-  const metrics = useDashboardMetrics(introsBooked, introsRun, sales);
+  // Date filter state - default to pay period
+  const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+
+  // Calculate the current date range based on preset
+  const dateRange = useMemo(() => {
+    return getDateRangeForPreset(datePreset, customRange);
+  }, [datePreset, customRange]);
+
+  // Pass date range to metrics hook
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange);
 
   if (isLoading) {
     return (
@@ -25,9 +38,18 @@ export default function Dashboard() {
     <div className="p-4 space-y-4">
       <div className="mb-6">
         <h1 className="text-xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground mb-3">
           Studio performance metrics
         </p>
+        
+        {/* Global Date Filter */}
+        <DateRangeFilter
+          preset={datePreset}
+          customRange={customRange}
+          onPresetChange={setDatePreset}
+          onCustomRangeChange={setCustomRange}
+          dateRange={dateRange}
+        />
       </div>
 
       {/* Studio Scoreboard - visible to all */}
@@ -49,9 +71,9 @@ export default function Dashboard() {
       <Card className="bg-muted/30">
         <CardContent className="p-3">
           <p className="text-xs text-muted-foreground">
-            <strong>Booking Credit</strong> = credited to "Booked by" (who scheduled the intro)
+            <strong>Booking Credit</strong> = credited to "Booked by" (who scheduled the intro) — filtered by <em>booking date</em>
             <br />
-            <strong>Conversion Credit</strong> = credited to "Commission owner" (who ran the first intro)
+            <strong>Conversion Credit</strong> = credited to "Commission owner" (who ran the first intro) — sales filtered by <em>date closed</em>
             <br />
             <strong>Note:</strong> Second intros are excluded from Booked/Showed/Show Rate metrics.
           </p>
