@@ -24,7 +24,9 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  Database
+  Database,
+  DollarSign,
+  FileSpreadsheet
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,6 +37,13 @@ interface ImportStats {
   runs: { imported: number; skipped: number; updated: number; errors: number };
   sales: { imported: number; skipped: number; updated: number; errors: number };
   errorLog: string[];
+  commissionSummary?: {
+    totalSales: number;
+    withCommissionPresent: number;
+    commissionComputed: number;
+    earliestDateClosed: string | null;
+    latestDateClosed: string | null;
+  };
 }
 
 interface SyncLogEntry {
@@ -120,6 +129,7 @@ export default function DataSyncPanel({ spreadsheetId, onSyncComplete }: DataSyn
           runs: data.runs || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           sales: data.sales || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           errorLog: data.errorLog || [],
+          commissionSummary: data.commissionSummary || null,
         });
         toast.success('Historical import complete!');
         await fetchDbCounts();
@@ -157,6 +167,7 @@ export default function DataSyncPanel({ spreadsheetId, onSyncComplete }: DataSyn
           runs: data.runs || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           sales: data.sales || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           errorLog: data.errorLog || [],
+          commissionSummary: data.commissionSummary || null,
         });
         toast.success('Re-sync complete!');
         await fetchDbCounts();
@@ -194,6 +205,7 @@ export default function DataSyncPanel({ spreadsheetId, onSyncComplete }: DataSyn
           runs: data.runs || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           sales: data.sales || { imported: 0, skipped: 0, updated: 0, errors: 0 },
           errorLog: data.errorLog || [],
+          commissionSummary: data.commissionSummary || null,
         });
         toast.success('Force re-import complete!');
         await fetchDbCounts();
@@ -379,6 +391,36 @@ export default function DataSyncPanel({ spreadsheetId, onSyncComplete }: DataSyn
                 );
               })}
             </div>
+
+            {/* Commission Summary */}
+            {importStats.commissionSummary && (
+              <div className="p-3 bg-success/10 rounded-lg border border-success/30">
+                <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-success" />
+                  Commission Summary
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Total Sales:</span>
+                    <span className="ml-1 font-medium">{importStats.commissionSummary.totalSales}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">With Commission:</span>
+                    <span className="ml-1 font-medium">{importStats.commissionSummary.withCommissionPresent}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Computed:</span>
+                    <span className="ml-1 font-medium text-success">{importStats.commissionSummary.commissionComputed}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date Range:</span>
+                    <span className="ml-1 font-medium">
+                      {importStats.commissionSummary.earliestDateClosed || 'N/A'} - {importStats.commissionSummary.latestDateClosed || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Error Log */}
             {totalErrors > 0 && (

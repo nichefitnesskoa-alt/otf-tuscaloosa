@@ -255,10 +255,36 @@ const SHEET_COLUMNS = {
   app_sales: [
     'sale_id', 'run_id', 'sale_type', 'member_name', 'lead_source', 
     'membership_type', 'commission_amount', 'intro_owner', 'related_booking_id',
-    'pay_period_start', 'pay_period_end',
+    'date_closed', 'pay_period_start', 'pay_period_end',
     'created_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ]
 };
+
+// Commission rates by membership type
+const COMMISSION_RATES: Record<string, number> = {
+  'premier + otbeat': 15.00,
+  'premier w/o otbeat': 7.50,
+  'elite + otbeat': 12.00,
+  'elite w/o otbeat': 6.00,
+  'basic + otbeat': 9.00,
+  'basic w/o otbeat': 3.00,
+};
+
+function calculateCommission(membershipType: string): number {
+  const normalized = membershipType.toLowerCase().trim();
+  // Exact match first
+  if (COMMISSION_RATES[normalized] !== undefined) {
+    return COMMISSION_RATES[normalized];
+  }
+  // Partial matching for flexibility
+  if (normalized.includes('premier') && normalized.includes('otbeat')) return 15.00;
+  if (normalized.includes('premier')) return 7.50;
+  if (normalized.includes('elite') && normalized.includes('otbeat')) return 12.00;
+  if (normalized.includes('elite')) return 6.00;
+  if (normalized.includes('basic') && normalized.includes('otbeat')) return 9.00;
+  if (normalized.includes('basic')) return 3.00;
+  return 0;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -552,6 +578,12 @@ serve(async (req) => {
         }
 
         // Import app_sales
+        // Track commission stats for summary
+        let salesWithCommission = 0;
+        let salesCommissionComputed = 0;
+        let earliestDateClosed: string | null = null;
+        let latestDateClosed: string | null = null;
+
         try {
           const rows = await readFromSheet(spreadsheetId, 'app_sales', accessToken);
           if (rows.length > 1) {
@@ -564,17 +596,51 @@ serve(async (req) => {
               const saleId = row[colMap['sale_id']];
               if (!saleId) { importResults.sales.skipped++; continue; }
 
-              const payPeriodStart = parseDate(row[colMap['pay_period_start']] || '');
-              const payPeriodEnd = parseDate(row[colMap['pay_period_end']] || '');
+              // Parse date_closed (required for pay period calculation)
+              const dateClosed = parseDate(row[colMap['date_closed']] || row[colMap['buy_date']] || row[colMap['created_at']] || '');
+              
+              // Track date range
+              if (dateClosed) {
+                if (!earliestDateClosed || dateClosed < earliestDateClosed) earliestDateClosed = dateClosed;
+                if (!latestDateClosed || dateClosed > latestDateClosed) latestDateClosed = dateClosed;
+              }
+
+              // Get membership type for commission calculation
+              const membershipType = row[colMap['membership_type']] || '';
+              
+              // Parse commission_amount - calculate from membership_type if missing/blank
+              let rawCommission = row[colMap['commission_amount']];
+              let commissionAmount = parseFloat(rawCommission);
+              let wasComputed = false;
+              
+              if (isNaN(commissionAmount) || !rawCommission || rawCommission.trim() === '') {
+                commissionAmount = calculateCommission(membershipType);
+                wasComputed = true;
+                if (commissionAmount > 0) salesCommissionComputed++;
+              } else {
+                salesWithCommission++;
+              }
+
+              // Calculate pay period from date_closed
+              let payPeriodStart: string | null = null;
+              let payPeriodEnd: string | null = null;
+              
+              if (dateClosed) {
+                const dateObj = new Date(dateClosed);
+                const payPeriod = getPayPeriod(dateObj);
+                payPeriodStart = formatDate(payPeriod.start);
+                payPeriodEnd = formatDate(payPeriod.end);
+              }
 
               const saleData = {
                 sale_id: saleId,
                 sale_type: row[colMap['sale_type']] || 'outside_intro',
                 member_name: row[colMap['member_name']] || 'Unknown',
                 lead_source: row[colMap['lead_source']] || 'Source Not Found',
-                membership_type: row[colMap['membership_type']] || 'Unknown',
-                commission_amount: parseFloat(row[colMap['commission_amount']]) || 0,
+                membership_type: membershipType || 'Unknown',
+                commission_amount: commissionAmount,
                 intro_owner: row[colMap['intro_owner']] || null,
+                date_closed: dateClosed,
                 pay_period_start: payPeriodStart,
                 pay_period_end: payPeriodEnd,
                 sheets_row_number: i + 1,
@@ -614,6 +680,15 @@ serve(async (req) => {
           importResults.errorLog.push(`app_sales error: ${err}`);
         }
 
+        // Add commission summary to results
+        const commissionSummary = {
+          totalSales: importResults.sales.imported + importResults.sales.updated,
+          withCommissionPresent: salesWithCommission,
+          commissionComputed: salesCommissionComputed,
+          earliestDateClosed,
+          latestDateClosed,
+        };
+
         // Log import
         const totalImported = importResults.shifts.imported + importResults.bookings.imported + 
                              importResults.runs.imported + importResults.sales.imported;
@@ -626,7 +701,7 @@ serve(async (req) => {
           records_synced: totalImported + totalUpdated,
         });
 
-        result = { success: true, ...importResults };
+        result = { success: true, ...importResults, commissionSummary };
         break;
       }
 

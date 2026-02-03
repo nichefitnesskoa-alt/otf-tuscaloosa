@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Calendar, UserCheck, Percent, Target, TrendingUp 
+  Calendar, UserCheck, Percent, Target, TrendingUp, DollarSign 
 } from 'lucide-react';
 import {
   Tooltip,
@@ -15,6 +15,7 @@ interface StudioScoreboardProps {
   showRate: number;
   introSales: number;
   closingRate: number;
+  totalCommission: number;
 }
 
 export function StudioScoreboard({
@@ -23,6 +24,7 @@ export function StudioScoreboard({
   showRate,
   introSales,
   closingRate,
+  totalCommission,
 }: StudioScoreboardProps) {
   return (
     <Card className="bg-foreground text-background">
@@ -32,7 +34,7 @@ export function StudioScoreboard({
           Studio Scoreboard
         </h2>
         
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -104,6 +106,21 @@ export function StudioScoreboard({
               </TooltipTrigger>
               <TooltipContent>
                 <p>Sales ÷ Showed (conversion performance)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-center">
+                  <DollarSign className="w-4 h-4 mx-auto mb-1 text-success" />
+                  <p className="text-2xl font-bold text-success">${totalCommission.toFixed(2)}</p>
+                  <p className="text-xs opacity-70">Commission</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Total commission earned (intro + outside sales, based on date_closed)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

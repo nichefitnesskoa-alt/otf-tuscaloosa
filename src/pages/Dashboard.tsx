@@ -59,6 +59,7 @@ export default function Dashboard() {
         showRate={metrics.studio.showRate}
         introSales={metrics.studio.introSales}
         closingRate={metrics.studio.closingRate}
+        totalCommission={metrics.studio.totalCommission}
       />
 
       {/* Booking Credit Table */}
