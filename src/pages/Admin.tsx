@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,11 @@ import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import DataSyncPanel from '@/components/admin/DataSyncPanel';
+import DataHealthPanel from '@/components/admin/DataHealthPanel';
+import SheetsSyncTest from '@/components/admin/SheetsSyncTest';
 import PayrollExport from '@/components/admin/PayrollExport';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
+import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
 
@@ -41,6 +44,9 @@ export default function Admin() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [staffStats, setStaffStats] = useState<StaffStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Date range for data health (default to all time)
+  const dateRange = useMemo(() => getDateRangeForPreset('all_time'), []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -209,6 +215,17 @@ export default function Admin() {
           onSyncComplete={handleSyncComplete}
         />
       )}
+
+      {/* Sheets Sync Test */}
+      {spreadsheetIdInput && (
+        <SheetsSyncTest spreadsheetId={spreadsheetIdInput} />
+      )}
+
+      {/* Data Health Panel */}
+      <DataHealthPanel 
+        dateRange={dateRange}
+        onFixComplete={handleSyncComplete}
+      />
 
       {/* Payroll Export */}
       <PayrollExport />

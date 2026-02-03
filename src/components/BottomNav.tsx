@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, LayoutDashboard, Settings } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { path: '/shift-recap', label: 'Recap', icon: FileText },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/recaps', label: 'Reports', icon: TrendingUp },
 ];
 
 const adminItem = { path: '/admin', label: 'Admin', icon: Settings };
