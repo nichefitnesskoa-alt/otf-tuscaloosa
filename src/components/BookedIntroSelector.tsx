@@ -7,7 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, ChevronDown, ChevronUp, X, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
 import {
   Dialog,
   DialogContent,
@@ -23,20 +22,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { toast } from 'sonner';
 
-interface SheetBooking {
-  booking_id: string;
+interface BookedIntro {
+  id: string;
+  booking_id: string | null;
   member_name: string;
-  member_key: string;
-  intro_date: string;
-  intro_time: string;
+  class_date: string;
+  intro_time: string | null;
   lead_source: string;
-  notes: string;
-  booking_status: string;
-  originating_booking_id: string;
-  booked_by: string;
-  intro_owner: string;
-  row_number: number;
+  sa_working_shift: string;
+  coach_name: string;
+  fitness_goal: string | null;
+  booking_status: string | null;
+  intro_owner: string | null;
 }
 
 // Status values that should be excluded from the booking pool
@@ -45,13 +44,11 @@ const EXCLUDED_STATUSES = [
   'Not interested', 
   'Duplicate',
   'Deleted (soft)',
-  'DEAD',
-  'CLOSED',
 ];
 
 interface BookedIntroSelectorProps {
   selectedBookingId: string | undefined;
-  onSelect: (booking: SheetBooking) => void;
+  onSelect: (booking: BookedIntro) => void;
   currentUserName?: string;
 }
 
@@ -68,7 +65,7 @@ export default function BookedIntroSelector({
   onSelect,
   currentUserName = 'SA'
 }: BookedIntroSelectorProps) {
-  const [bookings, setBookings] = useState<SheetBooking[]>([]);
+  const [bookings, setBookings] = useState<BookedIntro[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,37 +73,45 @@ export default function BookedIntroSelector({
   
   // Remove dialog state
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [bookingToRemove, setBookingToRemove] = useState<SheetBooking | null>(null);
+  const [bookingToRemove, setBookingToRemove] = useState<BookedIntro | null>(null);
   const [removeReason, setRemoveReason] = useState<string>('');
   const [isRemoving, setIsRemoving] = useState(false);
   
   // Details dialog state
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const [selectedBookingDetails, setSelectedBookingDetails] = useState<SheetBooking | null>(null);
+  const [selectedBookingDetails, setSelectedBookingDetails] = useState<BookedIntro | null>(null);
 
   const fetchBookings = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const spreadsheetId = getSpreadsheetId();
-      if (!spreadsheetId) {
-        throw new Error('No spreadsheet configured');
-      }
+      // Fetch directly from Supabase database instead of Google Sheets
+      const { data, error: dbError } = await supabase
+        .from('intros_booked')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const { data, error: fnError } = await supabase.functions.invoke('sync-sheets', {
-        body: {
-          action: 'read_intro_bookings',
-          spreadsheetId,
-        },
-      });
+      if (dbError) throw dbError;
 
-      if (fnError) throw fnError;
-      if (!data.success) throw new Error(data.error || 'Failed to fetch bookings');
+      // Map to BookedIntro interface
+      const mappedBookings: BookedIntro[] = (data || []).map((row) => ({
+        id: row.id,
+        booking_id: row.booking_id,
+        member_name: row.member_name,
+        class_date: row.class_date,
+        intro_time: row.intro_time,
+        lead_source: row.lead_source,
+        sa_working_shift: row.sa_working_shift,
+        coach_name: row.coach_name,
+        fitness_goal: row.fitness_goal,
+        booking_status: row.booking_status,
+        intro_owner: row.intro_owner,
+      }));
 
-      setBookings(data.bookings || []);
+      setBookings(mappedBookings);
     } catch (err) {
-      console.error('Error fetching bookings from sheets:', err);
+      console.error('Error fetching bookings:', err);
       setError(err instanceof Error ? err.message : 'Failed to load bookings');
     } finally {
       setIsLoading(false);
@@ -132,9 +137,9 @@ export default function BookedIntroSelector({
     );
   }, [bookings, searchQuery]);
 
-  const selectedBooking = bookings.find(b => b.booking_id === selectedBookingId);
+  const selectedBooking = bookings.find(b => b.id === selectedBookingId || b.booking_id === selectedBookingId);
 
-  const handleRemoveClick = (e: React.MouseEvent, booking: SheetBooking) => {
+  const handleRemoveClick = (e: React.MouseEvent, booking: BookedIntro) => {
     e.stopPropagation();
     setBookingToRemove(booking);
     setRemoveReason('');
@@ -146,39 +151,33 @@ export default function BookedIntroSelector({
     
     setIsRemoving(true);
     try {
-      const spreadsheetId = getSpreadsheetId();
-      if (!spreadsheetId) throw new Error('No spreadsheet configured');
+      // Update in database directly
+      const { error: updateError } = await supabase
+        .from('intros_booked')
+        .update({
+          booking_status: 'Not interested',
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: currentUserName,
+          edit_reason: removeReason,
+        })
+        .eq('id', bookingToRemove.id);
 
-      const { data, error: fnError } = await supabase.functions.invoke('sync-sheets', {
-        body: {
-          action: 'update_booking_status',
-          spreadsheetId,
-          data: {
-            bookingId: bookingToRemove.booking_id,
-            memberKey: bookingToRemove.member_key,
-            newStatus: 'DEAD',
-            statusReason: removeReason,
-            changedBy: currentUserName,
-          },
-        },
-      });
+      if (updateError) throw updateError;
 
-      if (fnError) throw fnError;
-      if (!data.success) throw new Error(data.error || 'Failed to update status');
-
+      toast.success('Booking removed from queue');
       // Refresh the list
       await fetchBookings();
       setRemoveDialogOpen(false);
       setBookingToRemove(null);
     } catch (err) {
       console.error('Error removing booking:', err);
-      setError(err instanceof Error ? err.message : 'Failed to remove booking');
+      toast.error(err instanceof Error ? err.message : 'Failed to remove booking');
     } finally {
       setIsRemoving(false);
     }
   };
 
-  const handleShowDetails = (e: React.MouseEvent, booking: SheetBooking) => {
+  const handleShowDetails = (e: React.MouseEvent, booking: BookedIntro) => {
     e.stopPropagation();
     setSelectedBookingDetails(booking);
     setDetailsDialogOpen(true);
@@ -201,13 +200,18 @@ export default function BookedIntroSelector({
         <div className="p-3 bg-destructive/10 rounded-lg text-sm text-destructive">
           {error}
         </div>
+        <Button variant="outline" size="sm" onClick={fetchBookings}>
+          Retry
+        </Button>
       </div>
     );
   }
 
+  const activeCount = filteredBookings.length;
+
   return (
     <div className="space-y-2">
-      <Label className="text-xs">Select from Booked Intros ({bookings.length} active)</Label>
+      <Label className="text-xs">Select from Booked Intros ({activeCount} active)</Label>
       
       {/* Selected booking display or expand button */}
       <Button
@@ -253,9 +257,9 @@ export default function BookedIntroSelector({
               <div className="divide-y">
                 {filteredBookings.map((booking) => (
                   <div
-                    key={booking.booking_id}
+                    key={booking.id}
                     className={`w-full p-3 text-left hover:bg-muted/50 transition-colors ${
-                      booking.booking_id === selectedBookingId ? 'bg-primary/10' : ''
+                      (booking.id === selectedBookingId || booking.booking_id === selectedBookingId) ? 'bg-primary/10' : ''
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -271,8 +275,8 @@ export default function BookedIntroSelector({
                           <Badge variant="secondary" className="text-xs">
                             {booking.lead_source}
                           </Badge>
-                          {booking.notes && (
-                            <span className="truncate max-w-[150px]">{booking.notes}</span>
+                          {booking.class_date && (
+                            <span>{booking.class_date}</span>
                           )}
                         </div>
                       </button>
@@ -310,10 +314,10 @@ export default function BookedIntroSelector({
             <span className="text-muted-foreground">Source:</span>
             <span>{selectedBooking.lead_source}</span>
           </div>
-          {selectedBooking.notes && (
+          {selectedBooking.class_date && (
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Notes:</span>
-              <span className="truncate max-w-[180px]">{selectedBooking.notes}</span>
+              <span className="text-muted-foreground">Date:</span>
+              <span>{selectedBooking.class_date}</span>
             </div>
           )}
         </div>
@@ -326,7 +330,7 @@ export default function BookedIntroSelector({
             <DialogTitle>Remove from Queue</DialogTitle>
             <DialogDescription>
               Remove <strong>{bookingToRemove?.member_name}</strong> from the active bookings queue.
-              This action will mark the booking as DEAD.
+              This will mark the booking as not interested.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -373,10 +377,10 @@ export default function BookedIntroSelector({
                 <span className="text-muted-foreground">Lead Source:</span>
                 <span>{selectedBookingDetails.lead_source}</span>
               </div>
-              {selectedBookingDetails.intro_date && (
+              {selectedBookingDetails.class_date && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Intro Date:</span>
-                  <span>{selectedBookingDetails.intro_date}</span>
+                  <span className="text-muted-foreground">Class Date:</span>
+                  <span>{selectedBookingDetails.class_date}</span>
                 </div>
               )}
               {selectedBookingDetails.intro_time && (
@@ -385,15 +389,21 @@ export default function BookedIntroSelector({
                   <span>{selectedBookingDetails.intro_time}</span>
                 </div>
               )}
-              {selectedBookingDetails.notes && (
+              {selectedBookingDetails.sa_working_shift && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Booked By:</span>
+                  <span>{selectedBookingDetails.sa_working_shift}</span>
+                </div>
+              )}
+              {selectedBookingDetails.fitness_goal && (
                 <div>
-                  <span className="text-muted-foreground">Notes:</span>
-                  <p className="mt-1 text-sm">{selectedBookingDetails.notes}</p>
+                  <span className="text-muted-foreground">Fitness Goal:</span>
+                  <p className="mt-1 text-sm">{selectedBookingDetails.fitness_goal}</p>
                 </div>
               )}
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Booking ID:</span>
-                <span className="font-mono">{selectedBookingDetails.booking_id}</span>
+                <span>ID:</span>
+                <span className="font-mono truncate max-w-[200px]">{selectedBookingDetails.booking_id || selectedBookingDetails.id}</span>
               </div>
             </div>
           )}
