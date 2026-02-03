@@ -23,16 +23,16 @@ const LEAD_SOURCES = [
 ] as const;
 
 const OUTCOMES = [
-  'Premier + OTBeat',
-  'Premier w/o OTBeat',
-  'Elite + OTBeat',
-  'Elite w/o OTBeat',
-  'Basic + OTBeat',
-  'Basic w/o OTBeat',
-  'Booked 2nd intro',
-  'Follow-up needed',
-  'No-show',
-  'Not interested',
+  { label: 'Premier + OTBeat', commission: 15.00 },
+  { label: 'Premier w/o OTBeat', commission: 7.50 },
+  { label: 'Elite + OTBeat', commission: 12.00 },
+  { label: 'Elite w/o OTBeat', commission: 6.00 },
+  { label: 'Basic + OTBeat', commission: 9.00 },
+  { label: 'Basic w/o OTBeat', commission: 3.00 },
+  { label: 'Booked 2nd intro', commission: 0 },
+  { label: 'Follow-up needed', commission: 0 },
+  { label: 'No-show', commission: 0 },
+  { label: 'Not interested', commission: 0 },
 ] as const;
 
 const GOAL_QUALITY_OPTIONS = ['Clear', 'Partial', 'None'] as const;
@@ -300,7 +300,9 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
           </SelectTrigger>
           <SelectContent>
             {OUTCOMES.map((outcome) => (
-              <SelectItem key={outcome} value={outcome}>{outcome}</SelectItem>
+              <SelectItem key={outcome.label} value={outcome.label}>
+                {outcome.label}{outcome.commission > 0 ? ` ($${outcome.commission.toFixed(2)})` : ''}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
