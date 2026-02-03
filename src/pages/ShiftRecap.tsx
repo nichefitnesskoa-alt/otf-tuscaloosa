@@ -18,6 +18,15 @@ import SaleEntry, { SaleData } from '@/components/SaleEntry';
 import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { format } from 'date-fns';
+import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
 type ShiftType = typeof SHIFT_TYPES[number];
@@ -25,11 +34,21 @@ type ShiftType = typeof SHIFT_TYPES[number];
 export default function ShiftRecap() {
   const { user } = useAuth();
   const spreadsheetId = getSpreadsheetId();
+  const { 
+    isClosing, 
+    pendingMatches, 
+    closeBookingOnSale, 
+    confirmCloseBooking, 
+    clearPendingMatches 
+  } = useAutoCloseBooking();
 
   // Basic Info
   const [shiftType, setShiftType] = useState<ShiftType>('AM Shift');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Confirmation dialog for multiple matching bookings
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   // Activity Tracking
   const [callsMade, setCallsMade] = useState(0);
@@ -258,6 +277,18 @@ export default function ShiftRecap() {
 
           if (runError) throw runError;
 
+          // If sale outcome, close the linked booking
+          if (commissionAmount > 0 && run.linkedBookingId) {
+            await closeBookingOnSale(
+              run.memberName,
+              commissionAmount,
+              run.outcome,
+              runId,
+              run.linkedBookingId,
+              user?.name || 'System'
+            );
+          }
+
           // Handle "Booked 2nd intro" outcome - create a new booking
           if (run.outcome === 'Booked 2nd intro') {
             const secondBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
@@ -270,6 +301,25 @@ export default function ShiftRecap() {
               lead_source: run.leadSource || '2nd Class Intro (staff booked)',
               fitness_goal: `2nd intro - Original owner: ${introOwner}`,
             });
+
+            // Sync the 2nd booking to Google Sheets
+            if (spreadsheetId) {
+              await supabase.functions.invoke('sync-sheets', {
+                body: {
+                  action: 'sync_booking',
+                  spreadsheetId,
+                  data: {
+                    booking_id: secondBookingId,
+                    member_name: run.memberName,
+                    class_date: new Date().toISOString().split('T')[0],
+                    lead_source: '2nd Class Intro (staff booked)',
+                    notes: `2nd intro - Original owner: ${introOwner}`,
+                    originating_booking_id: run.linkedBookingId,
+                    booking_status: 'ACTIVE',
+                  },
+                },
+              });
+            }
           }
 
           // Sync to Google Sheets if configured
@@ -302,7 +352,7 @@ export default function ShiftRecap() {
         }
       }
 
-      // 4. Save sales outside intro
+      // 4. Save sales outside intro with auto-close
       for (const sale of sales) {
         if (sale.memberName && sale.membershipType) {
           const saleId = `sale_${crypto.randomUUID().substring(0, 8)}`;
@@ -317,6 +367,23 @@ export default function ShiftRecap() {
             intro_owner: user?.name || null,
             shift_recap_id: shiftData.id,
           });
+
+          // Auto-close any matching active bookings
+          if (sale.commissionAmount > 0 || sale.membershipType) {
+            const closeResult = await closeBookingOnSale(
+              sale.memberName,
+              sale.commissionAmount,
+              sale.membershipType,
+              saleId,
+              undefined, // no specific booking ID
+              user?.name || 'System'
+            );
+
+            // If multiple matches, show confirmation dialog
+            if (closeResult.requiresConfirmation && closeResult.matches) {
+              setShowConfirmDialog(true);
+            }
+          }
 
           // Sync to Google Sheets if configured
           if (spreadsheetId) {
@@ -608,6 +675,55 @@ export default function ShiftRecap() {
           </>
         )}
       </Button>
+
+      {/* Multiple Matching Bookings Dialog */}
+      <Dialog open={showConfirmDialog && pendingMatches !== null} onOpenChange={(open) => {
+        if (!open) {
+          setShowConfirmDialog(false);
+          clearPendingMatches();
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Multiple Bookings Found</DialogTitle>
+            <DialogDescription>
+              Multiple active bookings match this member. Select which booking chain to close:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 max-h-[300px] overflow-y-auto">
+            {pendingMatches?.map((match) => (
+              <button
+                key={match.booking_id}
+                className="w-full p-3 text-left border rounded-lg hover:bg-muted/50 transition-colors"
+                onClick={async () => {
+                  await confirmCloseBooking(match.booking_id);
+                  setShowConfirmDialog(false);
+                }}
+              >
+                <div className="font-medium text-sm">{match.member_name}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {match.intro_date && <span className="mr-2">{match.intro_date}</span>}
+                  {match.intro_time && <span className="mr-2">{match.intro_time}</span>}
+                  <span>{match.lead_source}</span>
+                </div>
+                {match.notes && (
+                  <div className="text-xs text-muted-foreground mt-1 truncate">
+                    {match.notes}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowConfirmDialog(false);
+              clearPendingMatches();
+            }}>
+              Skip (Don't Close)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

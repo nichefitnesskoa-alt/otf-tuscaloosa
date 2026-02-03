@@ -5,169 +5,166 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Calendar, AlertTriangle, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, X, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
-import { format, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface SheetBooking {
   booking_id: string;
   member_name: string;
+  member_key: string;
   intro_date: string;
   intro_time: string;
-  intro_date_normalized: string;
-  intro_time_normalized: string;
-  intro_datetime_key: string;
-  intro_date_valid: boolean;
   lead_source: string;
   notes: string;
+  booking_status: string;
+  originating_booking_id: string;
   row_number: number;
 }
 
 interface BookedIntroSelectorProps {
   selectedBookingId: string | undefined;
   onSelect: (booking: SheetBooking) => void;
+  currentUserName?: string;
 }
 
-type FilterType = 'all' | 'upcoming' | 'past' | 'needs_fix';
+const REMOVE_REASONS = [
+  'Not interested',
+  'Could not reach',
+  'No-show multiple times',
+  'Duplicate/bad info',
+  'Other',
+] as const;
 
-export default function BookedIntroSelector({ selectedBookingId, onSelect }: BookedIntroSelectorProps) {
+export default function BookedIntroSelector({ 
+  selectedBookingId, 
+  onSelect,
+  currentUserName = 'SA'
+}: BookedIntroSelectorProps) {
   const [bookings, setBookings] = useState<SheetBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<FilterType>('all');
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Remove dialog state
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [bookingToRemove, setBookingToRemove] = useState<SheetBooking | null>(null);
+  const [removeReason, setRemoveReason] = useState<string>('');
+  const [isRemoving, setIsRemoving] = useState(false);
+  
+  // Details dialog state
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedBookingDetails, setSelectedBookingDetails] = useState<SheetBooking | null>(null);
+
+  const fetchBookings = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const spreadsheetId = getSpreadsheetId();
+      if (!spreadsheetId) {
+        throw new Error('No spreadsheet configured');
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke('sync-sheets', {
+        body: {
+          action: 'read_intro_bookings',
+          spreadsheetId,
+        },
+      });
+
+      if (fnError) throw fnError;
+      if (!data.success) throw new Error(data.error || 'Failed to fetch bookings');
+
+      setBookings(data.bookings || []);
+    } catch (err) {
+      console.error('Error fetching bookings from sheets:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load bookings');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const spreadsheetId = getSpreadsheetId();
-        if (!spreadsheetId) {
-          throw new Error('No spreadsheet configured');
-        }
-
-        const { data, error: fnError } = await supabase.functions.invoke('sync-sheets', {
-          body: {
-            action: 'read_intro_bookings',
-            spreadsheetId,
-          },
-        });
-
-        if (fnError) throw fnError;
-        if (!data.success) throw new Error(data.error || 'Failed to fetch bookings');
-
-        setBookings(data.bookings || []);
-      } catch (err) {
-        console.error('Error fetching bookings from sheets:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load bookings');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchBookings();
   }, []);
 
-  const today = startOfDay(new Date());
-
   const filteredBookings = useMemo(() => {
-    let filtered = bookings;
-
-    // Apply filter
-    switch (filter) {
-      case 'upcoming':
-        filtered = filtered.filter(b => {
-          if (!b.intro_date_valid) return false;
-          try {
-            const bookingDate = parseISO(b.intro_date_normalized);
-            return isAfter(bookingDate, today) || format(bookingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
-          } catch {
-            return false;
-          }
-        });
-        break;
-      case 'past':
-        filtered = filtered.filter(b => {
-          if (!b.intro_date_valid) return false;
-          try {
-            const bookingDate = parseISO(b.intro_date_normalized);
-            return isBefore(bookingDate, today);
-          } catch {
-            return false;
-          }
-        });
-        break;
-      case 'needs_fix':
-        filtered = filtered.filter(b => !b.intro_date_valid || !b.intro_datetime_key);
-        break;
-    }
-
-    // Apply search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(b => 
-        b.member_name.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [bookings, filter, searchQuery, today]);
+    if (!searchQuery.trim()) return bookings;
+    
+    const query = searchQuery.toLowerCase();
+    return bookings.filter(b => 
+      b.member_name.toLowerCase().includes(query)
+    );
+  }, [bookings, searchQuery]);
 
   const selectedBooking = bookings.find(b => b.booking_id === selectedBookingId);
 
-  const formatDisplayDate = (booking: SheetBooking): string => {
-    if (!booking.intro_date_valid) {
-      return booking.intro_date || 'No date';
-    }
+  const handleRemoveClick = (e: React.MouseEvent, booking: SheetBooking) => {
+    e.stopPropagation();
+    setBookingToRemove(booking);
+    setRemoveReason('');
+    setRemoveDialogOpen(true);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!bookingToRemove || !removeReason) return;
+    
+    setIsRemoving(true);
     try {
-      return format(parseISO(booking.intro_date_normalized), 'MMM d, yyyy');
-    } catch {
-      return booking.intro_date || 'Invalid date';
+      const spreadsheetId = getSpreadsheetId();
+      if (!spreadsheetId) throw new Error('No spreadsheet configured');
+
+      const { data, error: fnError } = await supabase.functions.invoke('sync-sheets', {
+        body: {
+          action: 'update_booking_status',
+          spreadsheetId,
+          data: {
+            bookingId: bookingToRemove.booking_id,
+            memberKey: bookingToRemove.member_key,
+            newStatus: 'DEAD',
+            statusReason: removeReason,
+            changedBy: currentUserName,
+          },
+        },
+      });
+
+      if (fnError) throw fnError;
+      if (!data.success) throw new Error(data.error || 'Failed to update status');
+
+      // Refresh the list
+      await fetchBookings();
+      setRemoveDialogOpen(false);
+      setBookingToRemove(null);
+    } catch (err) {
+      console.error('Error removing booking:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove booking');
+    } finally {
+      setIsRemoving(false);
     }
   };
 
-  const formatDisplayTime = (booking: SheetBooking): string => {
-    if (!booking.intro_time_normalized) return '';
-    try {
-      const [hours, minutes] = booking.intro_time_normalized.split(':');
-      const h = parseInt(hours);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const displayHour = h > 12 ? h - 12 : h === 0 ? 12 : h;
-      return `${displayHour}:${minutes} ${ampm}`;
-    } catch {
-      return booking.intro_time || '';
-    }
+  const handleShowDetails = (e: React.MouseEvent, booking: SheetBooking) => {
+    e.stopPropagation();
+    setSelectedBookingDetails(booking);
+    setDetailsDialogOpen(true);
   };
-
-  const getCounts = useMemo(() => {
-    const upcomingCount = bookings.filter(b => {
-      if (!b.intro_date_valid) return false;
-      try {
-        const bookingDate = parseISO(b.intro_date_normalized);
-        return isAfter(bookingDate, today) || format(bookingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
-      } catch {
-        return false;
-      }
-    }).length;
-
-    const pastCount = bookings.filter(b => {
-      if (!b.intro_date_valid) return false;
-      try {
-        const bookingDate = parseISO(b.intro_date_normalized);
-        return isBefore(bookingDate, today);
-      } catch {
-        return false;
-      }
-    }).length;
-
-    const needsFixCount = bookings.filter(b => !b.intro_date_valid || !b.intro_datetime_key).length;
-
-    return { all: bookings.length, upcoming: upcomingCount, past: pastCount, needs_fix: needsFixCount };
-  }, [bookings, today]);
 
   if (isLoading) {
     return (
@@ -192,7 +189,7 @@ export default function BookedIntroSelector({ selectedBookingId, onSelect }: Boo
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs">Select from Booked Intros</Label>
+      <Label className="text-xs">Select from Booked Intros ({bookings.length} active)</Label>
       
       {/* Selected booking display or expand button */}
       <Button
@@ -203,9 +200,9 @@ export default function BookedIntroSelector({ selectedBookingId, onSelect }: Boo
         {selectedBooking ? (
           <div className="flex items-center gap-2 truncate">
             <span className="font-medium truncate">{selectedBooking.member_name}</span>
-            <span className="text-xs text-muted-foreground">
-              ({formatDisplayDate(selectedBooking)})
-            </span>
+            <Badge variant="secondary" className="text-xs">
+              {selectedBooking.lead_source}
+            </Badge>
           </div>
         ) : (
           <span className="text-muted-foreground">Select an intro...</span>
@@ -228,95 +225,59 @@ export default function BookedIntroSelector({ selectedBookingId, onSelect }: Boo
             </div>
           </div>
 
-          {/* Filter tabs */}
-          <div className="flex gap-1 p-2 border-b overflow-x-auto">
-            <Button
-              variant={filter === 'all' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 text-xs whitespace-nowrap"
-              onClick={() => setFilter('all')}
-            >
-              All ({getCounts.all})
-            </Button>
-            <Button
-              variant={filter === 'upcoming' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 text-xs whitespace-nowrap"
-              onClick={() => setFilter('upcoming')}
-            >
-              <Calendar className="h-3 w-3 mr-1" />
-              Upcoming ({getCounts.upcoming})
-            </Button>
-            <Button
-              variant={filter === 'past' ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 text-xs whitespace-nowrap"
-              onClick={() => setFilter('past')}
-            >
-              Past ({getCounts.past})
-            </Button>
-            {getCounts.needs_fix > 0 && (
-              <Button
-                variant={filter === 'needs_fix' ? 'destructive' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs whitespace-nowrap"
-                onClick={() => setFilter('needs_fix')}
-              >
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                Needs Fix ({getCounts.needs_fix})
-              </Button>
-            )}
-          </div>
-
           {/* Bookings list */}
           <ScrollArea className="h-[300px]">
             {filteredBookings.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                {searchQuery ? 'No matching bookings found' : 'No bookings in this category'}
+                {searchQuery ? 'No matching bookings found' : 'No active bookings'}
               </div>
             ) : (
               <div className="divide-y">
                 {filteredBookings.map((booking) => (
-                  <button
+                  <div
                     key={booking.booking_id}
                     className={`w-full p-3 text-left hover:bg-muted/50 transition-colors ${
                       booking.booking_id === selectedBookingId ? 'bg-primary/10' : ''
                     }`}
-                    onClick={() => {
-                      onSelect(booking);
-                      setIsExpanded(false);
-                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{booking.member_name}</div>
+                      <button
+                        className="flex-1 text-left"
+                        onClick={() => {
+                          onSelect(booking);
+                          setIsExpanded(false);
+                        }}
+                      >
+                        <div className="font-medium text-sm">{booking.member_name}</div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                          {!booking.intro_date_valid ? (
-                            <span className="text-destructive flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              {booking.intro_date || 'No date'}
-                            </span>
-                          ) : (
-                            <>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {formatDisplayDate(booking)}
-                              </span>
-                              {booking.intro_time_normalized && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {formatDisplayTime(booking)}
-                                </span>
-                              )}
-                            </>
+                          <Badge variant="secondary" className="text-xs">
+                            {booking.lead_source}
+                          </Badge>
+                          {booking.notes && (
+                            <span className="truncate max-w-[150px]">{booking.notes}</span>
                           )}
                         </div>
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => handleShowDetails(e, booking)}
+                        >
+                          <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={(e) => handleRemoveClick(e, booking)}
+                        >
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
                       </div>
-                      <Badge variant="secondary" className="text-xs shrink-0">
-                        {booking.lead_source}
-                      </Badge>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -324,25 +285,107 @@ export default function BookedIntroSelector({ selectedBookingId, onSelect }: Boo
         </div>
       )}
 
-      {/* Show selected booking details */}
+      {/* Show selected booking details below */}
       {selectedBooking && !isExpanded && (
         <div className="p-2 bg-primary/10 rounded text-xs space-y-1">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Date:</span>
-            <span>{formatDisplayDate(selectedBooking)}</span>
-          </div>
-          {selectedBooking.intro_time_normalized && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Time:</span>
-              <span>{formatDisplayTime(selectedBooking)}</span>
-            </div>
-          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">Source:</span>
             <span>{selectedBooking.lead_source}</span>
           </div>
+          {selectedBooking.notes && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Notes:</span>
+              <span className="truncate max-w-[180px]">{selectedBooking.notes}</span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Remove Confirmation Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove from Queue</DialogTitle>
+            <DialogDescription>
+              Remove <strong>{bookingToRemove?.member_name}</strong> from the active bookings queue.
+              This action will mark the booking as DEAD.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-sm">Reason for removal *</Label>
+            <Select value={removeReason} onValueChange={setRemoveReason}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select a reason..." />
+              </SelectTrigger>
+              <SelectContent>
+                {REMOVE_REASONS.map((reason) => (
+                  <SelectItem key={reason} value={reason}>{reason}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmRemove}
+              disabled={!removeReason || isRemoving}
+            >
+              {isRemoving ? 'Removing...' : 'Remove'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Details Dialog */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Booking Details</DialogTitle>
+          </DialogHeader>
+          {selectedBookingDetails && (
+            <div className="space-y-3 py-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Member Name:</span>
+                <span className="font-medium">{selectedBookingDetails.member_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Lead Source:</span>
+                <span>{selectedBookingDetails.lead_source}</span>
+              </div>
+              {selectedBookingDetails.intro_date && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Intro Date:</span>
+                  <span>{selectedBookingDetails.intro_date}</span>
+                </div>
+              )}
+              {selectedBookingDetails.intro_time && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Intro Time:</span>
+                  <span>{selectedBookingDetails.intro_time}</span>
+                </div>
+              )}
+              {selectedBookingDetails.notes && (
+                <div>
+                  <span className="text-muted-foreground">Notes:</span>
+                  <p className="mt-1 text-sm">{selectedBookingDetails.notes}</p>
+                </div>
+              )}
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Booking ID:</span>
+                <span className="font-mono">{selectedBookingDetails.booking_id}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
