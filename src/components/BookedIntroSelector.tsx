@@ -34,6 +34,8 @@ interface SheetBooking {
   notes: string;
   booking_status: string;
   originating_booking_id: string;
+  booked_by: string;
+  intro_owner: string;
   row_number: number;
 }
 

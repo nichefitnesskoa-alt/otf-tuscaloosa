@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,8 +6,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, UserCheck } from 'lucide-react';
+import { Trash2, UserCheck, Calendar, Info } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const LEAD_SOURCES = [
   'Self-generated (my outreach)',
@@ -55,6 +63,12 @@ export interface IntroRunData {
   coachingSummaryPresence: boolean;
   notes: string;
   linkedBookingId?: string;
+  // 2nd intro scheduling
+  secondIntroDate?: string;
+  secondIntroTime?: string;
+  // Booking info (carry forward)
+  bookedBy?: string;
+  originatingBookingId?: string;
 }
 
 interface IntroRunEntryProps {
@@ -67,6 +81,20 @@ interface IntroRunEntryProps {
 
 export default function IntroRunEntry({ intro, index, onUpdate, onRemove, currentUserName = 'SA' }: IntroRunEntryProps) {
   const [entryMode, setEntryMode] = useState<'select' | 'manual'>('select');
+  const [show2ndIntroPrompt, setShow2ndIntroPrompt] = useState(false);
+
+  // Watch for "Booked 2nd intro" outcome
+  useEffect(() => {
+    if (intro.outcome === 'Booked 2nd intro') {
+      setShow2ndIntroPrompt(true);
+    } else {
+      setShow2ndIntroPrompt(false);
+      // Clear 2nd intro fields if outcome changes
+      if (intro.secondIntroDate || intro.secondIntroTime) {
+        onUpdate(index, { secondIntroDate: undefined, secondIntroTime: undefined });
+      }
+    }
+  }, [intro.outcome]);
 
   const handleSelectBookedIntro = (booking: {
     booking_id: string;
@@ -74,14 +102,17 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     member_key: string;
     lead_source: string;
     notes: string;
+    booked_by?: string;
+    originating_booking_id?: string;
   }) => {
     onUpdate(index, {
       linkedBookingId: booking.booking_id,
       memberName: booking.member_name,
       leadSource: booking.lead_source,
+      bookedBy: booking.booked_by,
+      originatingBookingId: booking.originating_booking_id,
     });
   };
-
 
   return (
     <div className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
@@ -93,6 +124,14 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
       >
         <Trash2 className="w-3.5 h-3.5 text-destructive" />
       </Button>
+
+      {/* Info box about booking credit vs commission */}
+      <div className="p-2 bg-primary/5 border border-primary/20 rounded-md text-xs text-muted-foreground flex items-start gap-2">
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
+        <span>
+          <strong>Booking credit</strong> goes to who booked it. <strong>Commission</strong> goes to who runs the intro first.
+        </span>
+      </div>
 
       {/* Entry Mode Toggle */}
       <div className="flex gap-2 mb-3">
@@ -307,6 +346,39 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
           </SelectContent>
         </Select>
       </div>
+
+      {/* 2nd Intro Date/Time Prompt */}
+      {show2ndIntroPrompt && (
+        <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg space-y-3">
+          <div className="flex items-center gap-2 text-warning">
+            <Calendar className="w-4 h-4" />
+            <span className="text-sm font-medium">Schedule 2nd Intro</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">2nd Intro Date *</Label>
+              <Input
+                type="date"
+                value={intro.secondIntroDate || ''}
+                onChange={(e) => onUpdate(index, { secondIntroDate: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">2nd Intro Time</Label>
+              <Input
+                type="time"
+                value={intro.secondIntroTime || ''}
+                onChange={(e) => onUpdate(index, { secondIntroTime: e.target.value })}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This will create a new booking linked to the original intro owner.
+          </p>
+        </div>
+      )}
 
       {/* Show commission badge for sale outcomes */}
       {intro.outcome && ['Premier', 'Elite', 'Basic'].some(t => intro.outcome.includes(t)) && (
