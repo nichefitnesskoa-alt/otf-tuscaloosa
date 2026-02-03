@@ -312,14 +312,22 @@ export function useDashboardMetrics(
     // Filter shift recaps by date range
     const filteredShifts = shiftRecaps.filter(s => isDateInRange(s.shift_date, dateRange));
     
+    // Helper to safely parse numeric values (handles NaN, null, undefined, strings like "NaN")
+    const safeNum = (val: unknown): number => {
+      if (val === null || val === undefined) return 0;
+      if (typeof val === 'string' && val.toLowerCase() === 'nan') return 0;
+      const num = Number(val);
+      return isNaN(num) ? 0 : num;
+    };
+    
     const individualActivity: IndividualActivityMetrics[] = Array.from(allSAs).map(saName => {
       // Get shifts for this SA
       const saShifts = filteredShifts.filter(s => s.staff_name === saName);
       
-      const calls = saShifts.reduce((sum, s) => sum + (s.calls_made || 0), 0);
-      const texts = saShifts.reduce((sum, s) => sum + (s.texts_sent || 0), 0);
-      const dms = saShifts.reduce((sum, s) => sum + (s.dms_sent || 0), 0);
-      const emails = saShifts.reduce((sum, s) => sum + (s.emails_sent || 0), 0);
+      const calls = saShifts.reduce((sum, s) => sum + safeNum(s.calls_made), 0);
+      const texts = saShifts.reduce((sum, s) => sum + safeNum(s.texts_sent), 0);
+      const dms = saShifts.reduce((sum, s) => sum + safeNum(s.dms_sent), 0);
+      const emails = saShifts.reduce((sum, s) => sum + safeNum(s.emails_sent), 0);
       const totalContacts = calls + texts + dms + emails;
       const shiftsWorked = saShifts.length;
       
