@@ -359,11 +359,11 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove }: Intr
           onCheckedChange={(checked) => onUpdate(index, { isSelfGen: !!checked })}
         />
         <Label htmlFor={`selfgen-${index}`} className="text-xs font-normal">
-          Self-generated lead (earns commission)
+          Self-generated lead
         </Label>
         {intro.isSelfGen && (
           <Badge variant="default" className="ml-auto text-xs">
-            Commission Eligible
+            Self-Gen
           </Badge>
         )}
       </div>
