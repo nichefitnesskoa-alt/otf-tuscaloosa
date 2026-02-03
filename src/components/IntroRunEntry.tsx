@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,8 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, UserCheck } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import BookedIntroSelector from './BookedIntroSelector';
 
 const LEAD_SOURCES = [
   'Self-generated (my outreach)',
@@ -39,14 +38,6 @@ const OUTCOMES = [
 const GOAL_QUALITY_OPTIONS = ['Clear', 'Partial', 'None'] as const;
 const PRICING_ENGAGEMENT_OPTIONS = ['Yes', 'Partial', 'No'] as const;
 
-interface IntroBookedRecord {
-  id: string;
-  booking_id: string | null;
-  member_name: string;
-  class_date: string;
-  lead_source: string;
-}
-
 export interface IntroRunData {
   id: string;
   memberName: string;
@@ -74,43 +65,20 @@ interface IntroRunEntryProps {
 }
 
 export default function IntroRunEntry({ intro, index, onUpdate, onRemove }: IntroRunEntryProps) {
-  const [pendingIntros, setPendingIntros] = useState<IntroBookedRecord[]>([]);
-  const [isLoadingIntros, setIsLoadingIntros] = useState(false);
   const [entryMode, setEntryMode] = useState<'select' | 'manual'>('select');
 
-  useEffect(() => {
-    const fetchPendingIntros = async () => {
-      setIsLoadingIntros(true);
-      try {
-        const { data, error } = await supabase
-          .from('intros_booked')
-          .select('id, booking_id, member_name, class_date, lead_source')
-          .order('class_date', { ascending: false });
-
-        if (error) throw error;
-        setPendingIntros(data || []);
-      } catch (error) {
-        console.error('Error fetching pending intros:', error);
-      } finally {
-        setIsLoadingIntros(false);
-      }
-    };
-
-    fetchPendingIntros();
-  }, []);
-
-  const handleSelectBookedIntro = (introId: string) => {
-    const selected = pendingIntros.find(i => i.id === introId);
-    if (selected) {
-      onUpdate(index, {
-        linkedBookingId: introId,
-        memberName: selected.member_name,
-        leadSource: selected.lead_source,
-      });
-    }
+  const handleSelectBookedIntro = (booking: {
+    booking_id: string;
+    member_name: string;
+    lead_source: string;
+  }) => {
+    onUpdate(index, {
+      linkedBookingId: booking.booking_id,
+      memberName: booking.member_name,
+      leadSource: booking.lead_source,
+    });
   };
 
-  const selectedIntro = pendingIntros.find(i => i.id === intro.linkedBookingId);
 
   return (
     <div className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
@@ -148,44 +116,10 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove }: Intr
       </div>
 
       {entryMode === 'select' ? (
-        <div>
-          <Label className="text-xs">Select from Booked Intros</Label>
-          <Select
-            value={intro.linkedBookingId || ''}
-            onValueChange={handleSelectBookedIntro}
-          >
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder={isLoadingIntros ? 'Loading...' : 'Select an intro...'} />
-            </SelectTrigger>
-            <SelectContent>
-              {pendingIntros.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground text-center">
-                  No pending intros found
-                </div>
-              ) : (
-                pendingIntros.map((bookedIntro) => (
-                  <SelectItem key={bookedIntro.id} value={bookedIntro.id}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{bookedIntro.member_name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({format(new Date(bookedIntro.class_date), 'MMM d')})
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-
-          {selectedIntro && (
-            <div className="mt-2 p-2 bg-primary/10 rounded text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Source:</span>
-                <span>{selectedIntro.lead_source}</span>
-              </div>
-            </div>
-          )}
-        </div>
+        <BookedIntroSelector
+          selectedBookingId={intro.linkedBookingId}
+          onSelect={handleSelectBookedIntro}
+        />
       ) : (
         <div>
           <Label className="text-xs">Member Name *</Label>
