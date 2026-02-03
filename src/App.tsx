@@ -9,6 +9,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import ShiftRecap from "./pages/ShiftRecap";
 import Dashboard from "./pages/Dashboard";
+import Recaps from "./pages/Recaps";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -46,6 +47,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/recaps"
+        element={
+          <ProtectedRoute>
+            <Recaps />
           </ProtectedRoute>
         }
       />

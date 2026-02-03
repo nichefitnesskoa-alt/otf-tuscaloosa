@@ -1210,6 +1210,117 @@ serve(async (req) => {
         break;
       }
 
+      case 'test_write': {
+        // Test write to verify sheet connection
+        const testRowData = [
+          `test_${Date.now()}`,
+          'TEST',
+          new Date().toISOString().split('T')[0],
+          'Test Row',
+          '0', '0', '0', '0',
+          new Date().toISOString(),
+          '', '', '', ''
+        ];
+
+        try {
+          await appendToSheet(spreadsheetId, 'app_shifts', [testRowData], accessToken);
+          
+          // Log the test
+          await supabase.from('sheets_sync_log').insert({
+            sync_type: 'test_write',
+            status: 'success',
+            records_synced: 1,
+          });
+
+          result = { success: true, message: 'Test write successful' };
+        } catch (writeError) {
+          result = { success: false, error: `Test write failed: ${writeError}` };
+        }
+        break;
+      }
+
+      case 'normalize_outcomes': {
+        // Normalize all outcome values in the database
+        const OUTCOME_MAP: Record<string, string> = {
+          'no show': 'No-show',
+          'noshow': 'No-show',
+          'no-show': 'No-show',
+          'follow-up needed': 'Follow-up needed',
+          'follow up needed': 'Follow-up needed',
+          'followup needed': 'Follow-up needed',
+          'booked 2nd intro': 'Booked 2nd intro',
+          'booked second intro': 'Booked 2nd intro',
+          'closed': 'Closed',
+        };
+
+        const { data: runs } = await supabase.from('intros_run').select('id, result');
+        let normalized = 0;
+
+        for (const run of (runs || [])) {
+          if (!run.result) continue;
+          const lower = run.result.toLowerCase().trim();
+          if (OUTCOME_MAP[lower] && OUTCOME_MAP[lower] !== run.result) {
+            await supabase.from('intros_run').update({ result: OUTCOME_MAP[lower] }).eq('id', run.id);
+            normalized++;
+          }
+        }
+
+        result = { success: true, normalized };
+        break;
+      }
+
+      case 'auto_link_runs': {
+        // Auto-link runs to bookings by member name and date
+        const { data: unlinkedRuns } = await supabase
+          .from('intros_run')
+          .select('*')
+          .is('linked_intro_booked_id', null);
+
+        let linked = 0;
+        let failed = 0;
+
+        for (const run of (unlinkedRuns || [])) {
+          // Find matching booking
+          const { data: bookings } = await supabase
+            .from('intros_booked')
+            .select('id, class_date, intro_time')
+            .eq('member_name', run.member_name);
+
+          if (bookings && bookings.length > 0) {
+            // Try exact date match first
+            let match: typeof bookings[0] | undefined = bookings.find(b => b.class_date === run.run_date);
+            
+            // If no exact match, find closest
+            if (!match && run.run_date) {
+              const runDate = new Date(run.run_date).getTime();
+              match = bookings.reduce<typeof bookings[0] | undefined>((closest, b) => {
+                const bDate = new Date(b.class_date).getTime();
+                const closestDate = closest ? new Date(closest.class_date).getTime() : Infinity;
+                return Math.abs(bDate - runDate) < Math.abs(closestDate - runDate) ? b : closest;
+              }, undefined);
+            }
+
+            if (!match) match = bookings[0];
+
+            const { error } = await supabase
+              .from('intros_run')
+              .update({ linked_intro_booked_id: match.id })
+              .eq('id', run.id);
+
+            if (!error) {
+              linked++;
+            } else {
+              failed++;
+            }
+          } else {
+            failed++;
+          }
+        }
+
+        result = { success: true, linked, failed, total: (unlinkedRuns || []).length };
+        break;
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }

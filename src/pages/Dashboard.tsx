@@ -7,6 +7,7 @@ import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { BookingCreditTable } from '@/components/dashboard/BookingCreditTable';
 import { ConversionCreditTable } from '@/components/dashboard/ConversionCreditTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
+import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 
@@ -17,6 +18,11 @@ export default function Dashboard() {
   // Date filter state - default to pay period
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  
+  // Employee filter state (admin only)
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  
+  const isAdmin = user?.role === 'Admin';
 
   // Calculate the current date range based on preset
   const dateRange = useMemo(() => {
@@ -25,6 +31,20 @@ export default function Dashboard() {
 
   // Pass date range to metrics hook
   const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange);
+
+  // For non-admin users, filter to show only their data
+  const effectiveEmployee = isAdmin ? selectedEmployee : user?.name || null;
+
+  // Filter booking credit and conversion credit based on selected employee
+  const filteredBookingCredit = useMemo(() => {
+    if (!effectiveEmployee) return metrics.bookingCredit;
+    return metrics.bookingCredit.filter(m => m.saName === effectiveEmployee);
+  }, [metrics.bookingCredit, effectiveEmployee]);
+
+  const filteredConversionCredit = useMemo(() => {
+    if (!effectiveEmployee) return metrics.conversionCredit;
+    return metrics.conversionCredit.filter(m => m.saName === effectiveEmployee);
+  }, [metrics.conversionCredit, effectiveEmployee]);
 
   if (isLoading) {
     return (
@@ -39,20 +59,30 @@ export default function Dashboard() {
       <div className="mb-6">
         <h1 className="text-xl font-bold">Dashboard</h1>
         <p className="text-sm text-muted-foreground mb-3">
-          Studio performance metrics
+          {effectiveEmployee ? `${effectiveEmployee}'s performance` : 'Studio performance metrics'}
         </p>
         
-        {/* Global Date Filter */}
-        <DateRangeFilter
-          preset={datePreset}
-          customRange={customRange}
-          onPresetChange={setDatePreset}
-          onCustomRangeChange={setCustomRange}
-          dateRange={dateRange || { start: new Date(2020, 0, 1), end: new Date() }}
-        />
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          {/* Admin View-as Employee Filter */}
+          <EmployeeFilter 
+            selectedEmployee={selectedEmployee}
+            onEmployeeChange={setSelectedEmployee}
+            isAdmin={isAdmin}
+          />
+          
+          {/* Global Date Filter */}
+          <DateRangeFilter
+            preset={datePreset}
+            customRange={customRange}
+            onPresetChange={setDatePreset}
+            onCustomRangeChange={setCustomRange}
+            dateRange={dateRange || { start: new Date(2020, 0, 1), end: new Date() }}
+          />
+        </div>
       </div>
 
-      {/* Studio Scoreboard - visible to all */}
+      {/* Studio Scoreboard - visible to all (always shows studio totals) */}
       <StudioScoreboard
         introsBooked={metrics.studio.introsBooked}
         introsShowed={metrics.studio.introsShowed}
@@ -62,11 +92,11 @@ export default function Dashboard() {
         totalCommission={metrics.studio.totalCommission}
       />
 
-      {/* Booking Credit Table */}
-      <BookingCreditTable data={metrics.bookingCredit} />
+      {/* Booking Credit Table - filtered */}
+      <BookingCreditTable data={filteredBookingCredit} />
 
-      {/* Conversion Credit Table */}
-      <ConversionCreditTable data={metrics.conversionCredit} />
+      {/* Conversion Credit Table - filtered */}
+      <ConversionCreditTable data={filteredConversionCredit} />
 
       {/* Legend Card */}
       <Card className="bg-muted/30">
