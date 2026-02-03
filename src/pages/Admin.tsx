@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Users, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings, Users, RefreshCw, FileSpreadsheet, Database, HeartPulse } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,9 @@ import DataHealthPanel from '@/components/admin/DataHealthPanel';
 import SheetsSyncTest from '@/components/admin/SheetsSyncTest';
 import PayrollExport from '@/components/admin/PayrollExport';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
-import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
+import IntroBookingsEditor from '@/components/admin/IntroBookingsEditor';
+import IntroRunsEditor from '@/components/admin/IntroRunsEditor';
+import { getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
 
@@ -44,6 +47,7 @@ export default function Admin() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [staffStats, setStaffStats] = useState<StaffStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
   
   // Date range for data health (default to all time)
   const dateRange = useMemo(() => getDateRangeForPreset('all_time'), []);
@@ -126,161 +130,189 @@ export default function Admin() {
           Admin Panel
         </h1>
         <p className="text-sm text-muted-foreground">
-          Manage data sync and view team stats
+          Manage data sync, edit records, and view team stats
         </p>
       </div>
 
-      {/* Google Sheets Integration */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-success" />
-            Google Sheets Connection
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="text-sm">Spreadsheet ID</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Find this in your Google Sheets URL: docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={spreadsheetIdInput}
-                onChange={(e) => setSpreadsheetIdInput(e.target.value)}
-                placeholder="Enter spreadsheet ID..."
-                className="flex-1"
-              />
-              <Button onClick={handleSaveSpreadsheetId} variant="outline">
-                Save
-              </Button>
-            </div>
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview" className="gap-1">
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="data" className="gap-1">
+            <Database className="w-4 h-4" />
+            <span className="hidden sm:inline">Data Mgmt</span>
+          </TabsTrigger>
+          <TabsTrigger value="health" className="gap-1">
+            <HeartPulse className="w-4 h-4" />
+            <span className="hidden sm:inline">Health</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div>
-              <p className="font-medium">Connection Status</p>
-              <p className="text-xs text-muted-foreground">
-                {spreadsheetIdInput ? 'Spreadsheet ID configured' : 'Not configured'}
-              </p>
-            </div>
-            <Badge variant={spreadsheetIdInput ? 'default' : 'secondary'}>
-              {spreadsheetIdInput ? 'Connected' : 'Not Connected'}
-            </Badge>
-          </div>
-
-          <div className="p-3 bg-primary/10 rounded-lg">
-            <p className="text-sm font-medium mb-1">Required Sheet Tabs:</p>
-            <div className="flex flex-wrap gap-1">
-              <Badge variant="outline">app_shifts</Badge>
-              <Badge variant="outline">app_intro_bookings</Badge>
-              <Badge variant="outline">app_intro_runs</Badge>
-              <Badge variant="outline">app_sales</Badge>
-            </div>
-          </div>
-
-          {syncLogs.length > 0 && (
-            <div>
-              <p className="text-sm font-medium mb-2">Recent Sync Activity</p>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {syncLogs.map((log) => (
-                  <div 
-                    key={log.id}
-                    className={`text-xs p-2 rounded ${
-                      log.status === 'success' ? 'bg-success/10' : 'bg-destructive/10'
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <span>{log.sync_type}</span>
-                      <span>{log.records_synced} records</span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      {new Date(log.created_at).toLocaleString()}
-                    </div>
-                    {log.error_message && (
-                      <div className="text-destructive mt-1">{log.error_message}</div>
-                    )}
-                  </div>
-                ))}
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
+          {/* Google Sheets Integration */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-success" />
+                Google Sheets Connection
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-sm">Spreadsheet ID</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Find this in your Google Sheets URL: docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={spreadsheetIdInput}
+                    onChange={(e) => setSpreadsheetIdInput(e.target.value)}
+                    placeholder="Enter spreadsheet ID..."
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSaveSpreadsheetId} variant="outline">
+                    Save
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Data Sync Panel */}
-      {spreadsheetIdInput && (
-        <DataSyncPanel 
-          spreadsheetId={spreadsheetIdInput}
-          onSyncComplete={handleSyncComplete}
-        />
-      )}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="font-medium">Connection Status</p>
+                  <p className="text-xs text-muted-foreground">
+                    {spreadsheetIdInput ? 'Spreadsheet ID configured' : 'Not configured'}
+                  </p>
+                </div>
+                <Badge variant={spreadsheetIdInput ? 'default' : 'secondary'}>
+                  {spreadsheetIdInput ? 'Connected' : 'Not Connected'}
+                </Badge>
+              </div>
 
-      {/* Sheets Sync Test */}
-      {spreadsheetIdInput && (
-        <SheetsSyncTest spreadsheetId={spreadsheetIdInput} />
-      )}
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm font-medium mb-1">Required Sheet Tabs:</p>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline">app_shifts</Badge>
+                  <Badge variant="outline">app_intro_bookings</Badge>
+                  <Badge variant="outline">app_intro_runs</Badge>
+                  <Badge variant="outline">app_sales</Badge>
+                </div>
+              </div>
 
-      {/* Data Health Panel */}
-      <DataHealthPanel 
-        dateRange={dateRange}
-        onFixComplete={handleSyncComplete}
-      />
-
-      {/* Payroll Export */}
-      <PayrollExport />
-
-      {/* Pay Period Commission */}
-      <PayPeriodCommission />
-
-      {/* Team Overview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Team Performance (All Time)
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Loading...
-            </p>
-          ) : staffStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No activity yet
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {staffStats.map((staff) => (
-                <div 
-                  key={staff.name}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{staff.name}</p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                      <span>{staff.totalShifts} shifts</span>
-                      <span>{staff.totalIntros} intros</span>
-                      <span>{staff.totalSales} sales</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-success">
-                      ${staff.commission.toFixed(2)}
-                    </p>
+              {syncLogs.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Recent Sync Activity</p>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {syncLogs.map((log) => (
+                      <div 
+                        key={log.id}
+                        className={`text-xs p-2 rounded ${
+                          log.status === 'success' ? 'bg-success/10' : 'bg-destructive/10'
+                        }`}
+                      >
+                        <div className="flex justify-between">
+                          <span>{log.sync_type}</span>
+                          <span>{log.records_synced} records</span>
+                        </div>
+                        <div className="text-muted-foreground">
+                          {new Date(log.created_at).toLocaleString()}
+                        </div>
+                        {log.error_message && (
+                          <div className="text-destructive mt-1">{log.error_message}</div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Data Sync Panel */}
+          {spreadsheetIdInput && (
+            <DataSyncPanel 
+              spreadsheetId={spreadsheetIdInput}
+              onSyncComplete={handleSyncComplete}
+            />
           )}
-        </CardContent>
-      </Card>
+
+          {/* Sheets Sync Test */}
+          {spreadsheetIdInput && (
+            <SheetsSyncTest spreadsheetId={spreadsheetIdInput} />
+          )}
+
+          {/* Payroll Export */}
+          <PayrollExport />
+
+          {/* Pay Period Commission */}
+          <PayPeriodCommission />
+
+          {/* Team Overview */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Team Performance (All Time)
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={handleRefresh}>
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Loading...
+                </p>
+              ) : staffStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No activity yet
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {staffStats.map((staff) => (
+                    <div 
+                      key={staff.name}
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{staff.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <span>{staff.totalShifts} shifts</span>
+                          <span>{staff.totalIntros} intros</span>
+                          <span>{staff.totalSales} sales</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-success">
+                          ${staff.commission.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Data Management Tab */}
+        <TabsContent value="data" className="space-y-4">
+          <IntroBookingsEditor />
+          <IntroRunsEditor />
+        </TabsContent>
+
+        {/* Health Tab */}
+        <TabsContent value="health" className="space-y-4">
+          <DataHealthPanel 
+            dateRange={dateRange}
+            onFixComplete={handleSyncComplete}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

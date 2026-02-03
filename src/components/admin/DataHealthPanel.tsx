@@ -56,6 +56,7 @@ interface DataHealthIssue {
 
 interface DataHealthStats {
   firstIntroBookings: number;
+  secondIntroBookings: number;
   runsInRange: number;
   runsMissingBookingId: number;
   bookingsMissingBookedBy: number;
@@ -123,6 +124,12 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
         return isFirst && filterByDate(b.class_date);
       });
 
+      // Second intro bookings (has originating_booking_id)
+      const secondIntroBookings = bookings.filter(b => {
+        const originatingId = (b as any).originating_booking_id;
+        return originatingId && filterByDate(b.class_date);
+      });
+
       // Runs in range
       const runsInRange = runs.filter(r => filterByDate(r.run_date || r.created_at.split('T')[0]));
 
@@ -186,6 +193,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
 
       setStats({
         firstIntroBookings: firstIntroBookings.length,
+        secondIntroBookings: secondIntroBookings.length,
         runsInRange: runsInRange.length,
         runsMissingBookingId: runsMissingLink.length,
         bookingsMissingBookedBy: bookingsMissingBookedBy.length,
@@ -379,10 +387,14 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
       <CardContent className="space-y-4">
         {/* Stats Summary */}
         {stats && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <p className="text-2xl font-bold text-primary">{stats.firstIntroBookings}</p>
               <p className="text-xs text-muted-foreground">First Intro Bookings</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg text-center">
+              <p className="text-2xl font-bold text-primary">{stats.secondIntroBookings}</p>
+              <p className="text-xs text-muted-foreground">Second Intros</p>
             </div>
             <div className="p-3 bg-muted/50 rounded-lg text-center">
               <p className="text-2xl font-bold text-primary">{stats.runsInRange}</p>
