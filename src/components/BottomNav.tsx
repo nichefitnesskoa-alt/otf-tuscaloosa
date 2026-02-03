@@ -1,11 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Instagram, LayoutDashboard, Settings } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
-  { path: '/shift-recap', label: 'Shift Recap', icon: FileText },
-  { path: '/ig-leads', label: 'IG Leads', icon: Instagram },
+  { path: '/shift-recap', label: 'Recap', icon: FileText },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 ];
 

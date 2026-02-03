@@ -3,156 +3,151 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { DollarSign, CalendarIcon, Users, TrendingUp, Loader2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, addDays, subDays, isWithinInterval, parseISO } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { DollarSign, Users, Download, Loader2 } from 'lucide-react';
+import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { getSpreadsheetId } from '@/lib/sheets-sync';
 
-interface IntroRun {
-  id: string;
-  member_name: string;
-  result: string;
-  commission_amount: number | null;
-  is_self_gen: boolean | null;
-  buy_date: string | null;
-  created_at: string;
-  sa_name: string | null;
-  shift_recap_id: string | null;
-}
+// Pay period anchor: January 26, 2026 (biweekly)
+const PAY_PERIOD_ANCHOR = new Date('2026-01-26');
 
-interface StaffCommission {
-  name: string;
-  totalCommission: number;
-  introCount: number;
-  closedCount: number;
-}
-
-// Generate pay periods for the year (every 2 weeks starting Jan 1)
-function generatePayPeriods(year: number): { label: string; start: Date; end: Date }[] {
+function generatePayPeriods(): { label: string; start: Date; end: Date }[] {
   const periods: { label: string; start: Date; end: Date }[] = [];
-  let currentStart = new Date(year, 0, 1); // Jan 1
-  let periodNum = 1;
-
-  while (currentStart.getFullYear() === year) {
-    const end = addDays(currentStart, 13); // 14 days total
+  const anchor = PAY_PERIOD_ANCHOR.getTime();
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const periodMs = 14 * dayMs;
+  
+  // Generate periods from anchor going forward and backward
+  for (let i = -10; i <= 10; i++) {
+    const start = new Date(anchor + (i * periodMs));
+    const end = addDays(start, 13);
     periods.push({
-      label: `Period ${periodNum}: ${format(currentStart, 'MMM d')} - ${format(end, 'MMM d')}`,
-      start: currentStart,
-      end: end,
+      label: `${format(start, 'MMM d')} - ${format(end, 'MMM d, yyyy')}`,
+      start,
+      end,
     });
-    currentStart = addDays(currentStart, 14);
-    periodNum++;
   }
+  
+  // Sort by date descending
+  return periods.sort((a, b) => b.start.getTime() - a.start.getTime());
+}
 
-  return periods;
+interface PayrollEntry {
+  name: string;
+  total: number;
+  sales: number;
 }
 
 export default function PayPeriodCommission() {
-  const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [periodType, setPeriodType] = useState<'preset' | 'custom'>('preset');
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
-  const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
-  const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
+  const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
+  const [totalCommission, setTotalCommission] = useState(0);
 
-  const currentYear = new Date().getFullYear();
-  const payPeriods = useMemo(() => generatePayPeriods(currentYear), [currentYear]);
+  const payPeriods = useMemo(() => generatePayPeriods(), []);
+  const spreadsheetId = getSpreadsheetId();
 
   // Auto-select current period on mount
   useEffect(() => {
-    const today = new Date();
-    const currentPeriod = payPeriods.find(p => 
-      isWithinInterval(today, { start: p.start, end: p.end })
-    );
-    if (currentPeriod) {
-      setSelectedPeriod(currentPeriod.label);
+    const now = new Date();
+    const current = payPeriods.find(p => now >= p.start && now <= p.end);
+    if (current) {
+      setSelectedPeriod(current.label);
+    } else if (payPeriods.length > 0) {
+      setSelectedPeriod(payPeriods[0].label);
     }
   }, [payPeriods]);
 
+  // Fetch payroll data when period changes
   useEffect(() => {
-    const fetchIntros = async () => {
+    if (!selectedPeriod) return;
+
+    const period = payPeriods.find(p => p.label === selectedPeriod);
+    if (!period) return;
+
+    const fetchPayroll = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('intros_run')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const startDate = format(period.start, 'yyyy-MM-dd');
+        const endDate = format(period.end, 'yyyy-MM-dd');
 
-        if (error) throw error;
-        setIntrosRun(data || []);
+        // Fetch intro runs with commission in this period
+        const { data: runs, error: runsError } = await supabase
+          .from('intros_run')
+          .select('intro_owner, sa_name, commission_amount, run_date, buy_date')
+          .or(`run_date.gte.${startDate},buy_date.gte.${startDate}`)
+          .or(`run_date.lte.${endDate},buy_date.lte.${endDate}`)
+          .gt('commission_amount', 0);
+
+        if (runsError) throw runsError;
+
+        // Fetch sales outside intro in this period
+        const { data: sales, error: salesError } = await supabase
+          .from('sales_outside_intro')
+          .select('intro_owner, commission_amount, pay_period_start, pay_period_end')
+          .gte('pay_period_start', startDate)
+          .lte('pay_period_end', endDate);
+
+        if (salesError) throw salesError;
+
+        // Aggregate by intro_owner
+        const payrollMap: Record<string, PayrollEntry> = {};
+
+        // Process runs - use intro_owner, fallback to sa_name
+        for (const run of (runs || [])) {
+          const owner = run.intro_owner || run.sa_name || 'Unassigned';
+          if (!payrollMap[owner]) {
+            payrollMap[owner] = { name: owner, total: 0, sales: 0 };
+          }
+          payrollMap[owner].total += run.commission_amount || 0;
+          payrollMap[owner].sales++;
+        }
+
+        // Process sales
+        for (const sale of (sales || [])) {
+          const owner = sale.intro_owner || 'Unassigned';
+          if (!payrollMap[owner]) {
+            payrollMap[owner] = { name: owner, total: 0, sales: 0 };
+          }
+          payrollMap[owner].total += sale.commission_amount || 0;
+          payrollMap[owner].sales++;
+        }
+
+        const payrollList = Object.values(payrollMap).sort((a, b) => b.total - a.total);
+        setPayroll(payrollList);
+        setTotalCommission(payrollList.reduce((sum, p) => sum + p.total, 0));
       } catch (error) {
-        console.error('Error fetching intros:', error);
+        console.error('Error fetching payroll:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchIntros();
-  }, []);
+    fetchPayroll();
+  }, [selectedPeriod, payPeriods]);
 
-  // Get the active date range
-  const dateRange = useMemo(() => {
-    if (periodType === 'custom' && customStartDate && customEndDate) {
-      return { start: customStartDate, end: customEndDate };
-    }
+  const handleExport = async () => {
+    // Export payroll data
     const period = payPeriods.find(p => p.label === selectedPeriod);
-    return period ? { start: period.start, end: period.end } : null;
-  }, [periodType, selectedPeriod, customStartDate, customEndDate, payPeriods]);
+    if (!period) return;
 
-  // Filter intros by date range and calculate commissions
-  const { filteredIntros, staffCommissions, totalCommission } = useMemo(() => {
-    if (!dateRange) {
-      return { filteredIntros: [], staffCommissions: [], totalCommission: 0 };
+    // Create CSV content
+    let csv = 'Name,Commission,Sales Count\n';
+    for (const entry of payroll) {
+      csv += `"${entry.name}",${entry.total.toFixed(2)},${entry.sales}\n`;
     }
+    csv += `\nTotal,${totalCommission.toFixed(2)},${payroll.reduce((sum, p) => sum + p.sales, 0)}\n`;
 
-    const filtered = introsRun.filter(intro => {
-      const introDate = intro.buy_date 
-        ? parseISO(intro.buy_date) 
-        : parseISO(intro.created_at);
-      return isWithinInterval(introDate, { start: dateRange.start, end: dateRange.end });
-    });
-
-    // Group by staff
-    const staffMap = new Map<string, StaffCommission>();
-    
-    filtered.forEach(intro => {
-      const staffName = intro.sa_name || 'Unknown';
-      const current = staffMap.get(staffName) || {
-        name: staffName,
-        totalCommission: 0,
-        introCount: 0,
-        closedCount: 0,
-      };
-
-      current.introCount++;
-      
-      if (intro.is_self_gen && intro.commission_amount) {
-        current.totalCommission += intro.commission_amount;
-        current.closedCount++;
-      }
-
-      staffMap.set(staffName, current);
-    });
-
-    const commissions = Array.from(staffMap.values())
-      .sort((a, b) => b.totalCommission - a.totalCommission);
-
-    const total = commissions.reduce((sum, s) => sum + s.totalCommission, 0);
-
-    return { filteredIntros: filtered, staffCommissions: commissions, totalCommission: total };
-  }, [introsRun, dateRange]);
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payroll_${format(period.start, 'yyyy-MM-dd')}_to_${format(period.end, 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Card>
@@ -164,203 +159,78 @@ export default function PayPeriodCommission() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Period Selection */}
-        <div className="flex gap-2 mb-4">
-          <Button
-            variant={periodType === 'preset' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setPeriodType('preset')}
-          >
-            Preset Periods
-          </Button>
-          <Button
-            variant={periodType === 'custom' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setPeriodType('custom')}
-          >
-            Custom Range
-          </Button>
+        <div>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select pay period..." />
+            </SelectTrigger>
+            <SelectContent>
+              {payPeriods.map((period) => (
+                <SelectItem key={period.label} value={period.label}>
+                  {period.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Biweekly periods anchored to Jan 26, 2026
+          </p>
         </div>
 
-        {periodType === 'preset' ? (
-          <div>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select pay period..." />
-              </SelectTrigger>
-              <SelectContent>
-                {payPeriods.map((period) => (
-                  <SelectItem key={period.label} value={period.label}>
-                    {period.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Start Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !customStartDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customStartDate ? format(customStartDate, 'MMM d, yyyy') : 'Start'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customStartDate}
-                    onSelect={setCustomStartDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">End Date</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !customEndDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customEndDate ? format(customEndDate, 'MMM d, yyyy') : 'End'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customEndDate}
-                    onSelect={setCustomEndDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        )}
-
-        {/* Summary Stats */}
-        {dateRange && (
           <>
+            {/* Summary Stats */}
             <div className="p-4 bg-success/10 rounded-lg border border-success/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Team Commission</p>
+                  <p className="text-xs text-muted-foreground">Total Commission</p>
                   <p className="text-3xl font-black text-success">
                     ${totalCommission.toFixed(2)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Period Intros</p>
-                  <p className="text-2xl font-bold">{filteredIntros.length}</p>
-                </div>
+                <Button onClick={handleExport} variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-1" />
+                  Export CSV
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {format(dateRange.start, 'MMM d')} - {format(dateRange.end, 'MMM d, yyyy')}
-              </p>
             </div>
 
             {/* Staff Breakdown */}
             <div>
               <p className="text-sm font-medium mb-2 flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Staff Breakdown
+                By Intro Owner
               </p>
               
-              {staffCommissions.length === 0 ? (
+              {payroll.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No commission data for this period
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {staffCommissions.map((staff) => (
+                  {payroll.map((entry) => (
                     <div 
-                      key={staff.name}
+                      key={entry.name}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
                       <div>
-                        <p className="font-medium">{staff.name}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                          <span>{staff.introCount} intros</span>
-                          <span>•</span>
-                          <span>{staff.closedCount} self-gen closed</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-success text-lg">
-                          ${staff.totalCommission.toFixed(2)}
+                        <p className="font-medium">{entry.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.sales} sale{entry.sales !== 1 ? 's' : ''}
                         </p>
-                        {staff.closedCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {Math.round((staff.closedCount / staff.introCount) * 100)}% close rate
-                          </Badge>
-                        )}
                       </div>
+                      <p className="font-bold text-success text-lg">
+                        ${entry.total.toFixed(2)}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* Recent Intros in Period */}
-            {filteredIntros.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Intros This Period
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {filteredIntros.slice(0, 10).map((intro) => (
-                    <div 
-                      key={intro.id}
-                      className="flex items-center justify-between p-2 bg-muted/30 rounded text-sm"
-                    >
-                      <div>
-                        <p className="font-medium">{intro.member_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {intro.buy_date 
-                            ? format(parseISO(intro.buy_date), 'MMM d') 
-                            : format(parseISO(intro.created_at), 'MMM d')}
-                          {intro.sa_name && ` • ${intro.sa_name}`}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={cn(
-                          "font-medium",
-                          intro.is_self_gen && intro.commission_amount ? "text-success" : ""
-                        )}>
-                          {intro.result}
-                        </p>
-                        {intro.is_self_gen && intro.commission_amount ? (
-                          <Badge className="text-xs bg-success">
-                            +${intro.commission_amount.toFixed(2)}
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                  {filteredIntros.length > 10 && (
-                    <p className="text-xs text-center text-muted-foreground py-2">
-                      +{filteredIntros.length - 10} more intros
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
       </CardContent>
