@@ -710,15 +710,21 @@ serve(async (req) => {
         const shift = data;
         const shiftId = shift.shift_id || `shift_${shift.id}`;
         
+        // Helper to clean numeric values - converts NaN/null/undefined to 0
+        const cleanNumeric = (val: unknown): string => {
+          const num = Number(val);
+          return isNaN(num) || val === null || val === undefined ? '0' : String(num);
+        };
+        
         const rowData = [
           shiftId,
           shift.staff_name || '',
           shift.shift_date || '',
           shift.shift_type || '',
-          String(shift.calls_made || 0),
-          String(shift.texts_sent || 0),
-          String(shift.emails_sent || 0),
-          String(shift.dms_sent || 0),
+          cleanNumeric(shift.calls_made),
+          cleanNumeric(shift.texts_sent),
+          cleanNumeric(shift.emails_sent),
+          cleanNumeric(shift.dms_sent),
           shift.created_at || new Date().toISOString(),
           shift.submitted_at || '',
           editedBy ? new Date().toISOString() : '',
