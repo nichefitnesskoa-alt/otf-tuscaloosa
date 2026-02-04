@@ -536,28 +536,40 @@ export default function ShiftRecap() {
         });
       }
 
-      // 6. Post to GroupMe (non-blocking)
-      postShiftRecapToGroupMe({
-        staffName: user?.name || '',
-        shiftDate: date,
-        shiftType,
-        callsMade,
-        textsSent,
-        dmsSent,
-        emailsSent,
-        introsBooked: introsBooked.map(b => ({ memberName: b.memberName, leadSource: b.leadSource })),
-        introsRun: introsRun.map(r => ({
-          memberName: r.memberName,
-          outcome: r.outcome,
-          goalWhyCaptured: r.goalWhyCaptured,
-          relationshipExperience: r.relationshipExperience,
-          madeAFriend: r.madeAFriend,
-        })),
-        sales: sales.map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
-        notes,
-      }, shiftData.id).catch(err => {
-        console.error('GroupMe post failed (non-blocking):', err);
-      });
+      // 6. Post to GroupMe - await to ensure it completes
+      try {
+        const groupMeResult = await postShiftRecapToGroupMe({
+          staffName: user?.name || '',
+          shiftDate: date,
+          shiftType,
+          callsMade,
+          textsSent,
+          dmsSent,
+          emailsSent,
+          introsBooked: introsBooked.map(b => ({ memberName: b.memberName, leadSource: b.leadSource })),
+          introsRun: introsRun.map(r => ({
+            memberName: r.memberName,
+            outcome: r.outcome,
+            goalWhyCaptured: r.goalWhyCaptured,
+            relationshipExperience: r.relationshipExperience,
+            madeAFriend: r.madeAFriend,
+          })),
+          sales: sales.map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
+          notes,
+        }, shiftData.id);
+        
+        if (!groupMeResult.success) {
+          console.error('GroupMe post failed:', groupMeResult.error);
+          toast.error('GroupMe post failed', {
+            description: groupMeResult.error || 'Check admin settings',
+          });
+        }
+      } catch (err) {
+        console.error('GroupMe post error:', err);
+        toast.error('GroupMe post failed', {
+          description: 'Could not post to GroupMe',
+        });
+      }
 
       // Success!
       confetti({
