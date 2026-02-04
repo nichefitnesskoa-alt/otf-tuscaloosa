@@ -5,16 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2 } from 'lucide-react';
 
 const LEAD_SOURCES = [
-  'Self-generated (my outreach)',
-  'Instagram DMs',
+  'Winback',
+  'Upgrade',
+  'Walk in',
   'Referral',
-  'Lead Management Call / Text',
-  'Lead Management Web Lead Call',
-  'B2B Partnership',
-  'B2C Event',
-  'Member brought friend',
-  'Online Intro Offer (self-booked)',
-  'Source Not Found',
 ] as const;
 
 const MEMBERSHIP_TYPES = [
