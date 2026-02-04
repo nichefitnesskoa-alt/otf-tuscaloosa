@@ -19,6 +19,7 @@ import PayrollExport from '@/components/admin/PayrollExport';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import IntroBookingsEditor from '@/components/admin/IntroBookingsEditor';
 import IntroRunsEditor from '@/components/admin/IntroRunsEditor';
+import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 import FixBookingAttribution from '@/components/admin/FixBookingAttribution';
 import EmergencySyncBookings from '@/components/admin/EmergencySyncBookings';
 import EmergencySyncRuns from '@/components/admin/EmergencySyncRuns';
@@ -327,6 +328,7 @@ export default function Admin() {
             </>
           )}
           <FixBookingAttribution onFixComplete={handleSyncComplete} />
+          <ShiftRecapsEditor />
           <IntroBookingsEditor />
           <IntroRunsEditor />
         </TabsContent>
