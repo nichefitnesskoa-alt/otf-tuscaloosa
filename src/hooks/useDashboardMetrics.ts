@@ -115,7 +115,8 @@ export function useDashboardMetrics(
       if (r.intro_owner && !EXCLUDED_NAMES.includes(r.intro_owner)) allSAs.add(r.intro_owner);
     });
     activeBookings.forEach(b => {
-      if (b.sa_working_shift && !EXCLUDED_NAMES.includes(b.sa_working_shift)) allSAs.add(b.sa_working_shift);
+      const bookedBy = (b as any).booked_by || b.sa_working_shift;
+      if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) allSAs.add(bookedBy);
     });
     shiftRecaps.forEach(s => {
       if (s.staff_name && !EXCLUDED_NAMES.includes(s.staff_name)) allSAs.add(s.staff_name);
@@ -267,10 +268,10 @@ export function useDashboardMetrics(
     // LEADERBOARDS
     // =========================================
     
-    // Top Bookers (by booking count, credited to booked_by/sa_working_shift)
+    // Top Bookers (by booking count, credited to booked_by first, fallback to sa_working_shift)
     const bookerCounts = new Map<string, number>();
     firstIntroBookings.forEach(b => {
-      const bookedBy = b.sa_working_shift;
+      const bookedBy = (b as any).booked_by || b.sa_working_shift;
       if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
         bookerCounts.set(bookedBy, (bookerCounts.get(bookedBy) || 0) + 1);
       }
@@ -304,7 +305,10 @@ export function useDashboardMetrics(
     const MIN_BOOKINGS_FOR_SHOWRATE = 3;
     bookerCounts.forEach((booked, saName) => {
       if (booked >= MIN_BOOKINGS_FOR_SHOWRATE) {
-        const saBookings = firstIntroBookings.filter(b => b.sa_working_shift === saName);
+        const saBookings = firstIntroBookings.filter(b => {
+          const bookedBy = (b as any).booked_by || b.sa_working_shift;
+          return bookedBy === saName;
+        });
         const showed = saBookings.filter(booking => {
           const runs = bookingToRuns.get(booking.id) || [];
           return runs.some(run => run.result !== 'No-show');

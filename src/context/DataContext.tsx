@@ -26,8 +26,12 @@ export interface IntroBooked {
   intro_time?: string | null;
   coach_name: string;
   sa_working_shift: string;
+  booked_by?: string | null;
   lead_source: string;
   fitness_goal?: string | null;
+  intro_owner?: string | null;
+  intro_owner_locked?: boolean | null;
+  originating_booking_id?: string | null;
   created_at: string;
 }
 

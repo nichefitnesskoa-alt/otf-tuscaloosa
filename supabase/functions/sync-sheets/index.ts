@@ -609,15 +609,22 @@ serve(async (req) => {
               if (!bookingId) { importResults.bookings.skipped++; continue; }
 
               const classDate = parseDate(row[colMap['intro_date']] || row[colMap['class_date']] || '');
+              const bookedBy = row[colMap['booked_by']] || row[colMap['sa_working_shift']] || 'TBD';
+              const introOwner = row[colMap['intro_owner']] || null;
+              const originatingBookingId = row[colMap['originating_booking_id']] || null;
+              
               const bookingData = {
                 booking_id: bookingId,
                 member_name: row[colMap['member_name']] || 'Unknown',
                 class_date: classDate || new Date().toISOString().split('T')[0],
                 intro_time: parseTime(row[colMap['intro_time']] || ''),
                 coach_name: row[colMap['coach_name']] || 'TBD',
-                sa_working_shift: row[colMap['booked_by']] || row[colMap['sa_working_shift']] || 'TBD',
+                sa_working_shift: bookedBy, // Legacy field, keep populated
+                booked_by: bookedBy,        // NEW: booked_by column
                 lead_source: row[colMap['lead_source']] || 'Source Not Found',
                 fitness_goal: row[colMap['notes']] || row[colMap['fitness_goal']] || null,
+                intro_owner: introOwner,
+                intro_owner_locked: !!introOwner,
                 sheets_row_number: i + 1,
               };
 

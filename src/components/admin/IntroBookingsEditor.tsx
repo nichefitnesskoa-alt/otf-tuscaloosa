@@ -79,6 +79,7 @@ interface IntroBooking {
   intro_time: string | null;
   coach_name: string;
   sa_working_shift: string;
+  booked_by: string | null;
   lead_source: string;
   fitness_goal: string | null;
   sheets_row_number: number | null;
@@ -90,6 +91,7 @@ interface IntroBooking {
   closed_by: string | null;
   intro_owner: string | null;
   intro_owner_locked: boolean | null;
+  originating_booking_id: string | null;
 }
 
 interface EditingBooking extends IntroBooking {
