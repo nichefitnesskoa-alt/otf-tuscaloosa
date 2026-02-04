@@ -162,6 +162,12 @@ export default function ShiftRecapsEditor() {
         .update({ shift_recap_id: null })
         .eq('shift_recap_id', recapToDelete.id);
 
+      // Unlink any daily_recaps that reference this shift
+      await supabase
+        .from('daily_recaps')
+        .update({ shift_recap_id: null })
+        .eq('shift_recap_id', recapToDelete.id);
+
       // Now delete the shift recap
       const { error } = await supabase
         .from('shift_recaps')
