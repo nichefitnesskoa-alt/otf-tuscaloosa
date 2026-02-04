@@ -18,6 +18,7 @@ import IntroRunEntry, { IntroRunData } from '@/components/IntroRunEntry';
 import SaleEntry, { SaleData } from '@/components/SaleEntry';
 import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
+import { postShiftRecapToGroupMe } from '@/lib/groupme';
 import { format } from 'date-fns';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
 import {
@@ -104,14 +105,9 @@ export default function ShiftRecap() {
         runTime: '',
         leadSource: '',
         outcome: '',
-        goalQuality: '',
-        pricingEngagement: '',
-        fvcCompleted: false,
-        rfgPresented: false,
-        choiceArchitecture: false,
-        halfwayEncouragement: false,
-        premobilityEncouragement: false,
-        coachingSummaryPresence: false,
+        goalWhyCaptured: '',
+        relationshipExperience: '',
+        madeAFriend: false,
         notes: '',
         linkedBookingId: undefined,
         secondIntroDate: undefined,
@@ -262,7 +258,7 @@ export default function ShiftRecap() {
           else if (outcomeLower.includes('basic') && outcomeLower.includes('otbeat')) commissionAmount = 9;
           else if (outcomeLower.includes('basic')) commissionAmount = 3;
 
-          // Insert the intro run
+          // Insert the intro run with new lead measures
           const { error: runError } = await supabase.from('intros_run').insert({
             run_id: runId,
             member_name: run.memberName,
@@ -272,14 +268,10 @@ export default function ShiftRecap() {
             result: run.outcome,
             intro_owner: introOwner,
             intro_owner_locked: introOwnerLocked,
-            goal_quality: run.goalQuality || null,
-            pricing_engagement: run.pricingEngagement || null,
-            fvc_completed: run.fvcCompleted,
-            rfg_presented: run.rfgPresented,
-            choice_architecture: run.choiceArchitecture,
-            halfway_encouragement: run.halfwayEncouragement,
-            premobility_encouragement: run.premobilityEncouragement,
-            coaching_summary_presence: run.coachingSummaryPresence,
+            // New lead measures (spec-compliant)
+            goal_why_captured: run.goalWhyCaptured || null,
+            relationship_experience: run.relationshipExperience || null,
+            made_a_friend: run.madeAFriend,
             notes: run.notes || null,
             sa_name: user?.name || null,
             commission_amount: commissionAmount,
@@ -362,14 +354,10 @@ export default function ShiftRecap() {
                   lead_source: run.leadSource,
                   intro_owner: introOwner,
                   result: run.outcome,
-                  goal_quality: run.goalQuality,
-                  pricing_engagement: run.pricingEngagement,
-                  fvc_completed: run.fvcCompleted,
-                  rfg_presented: run.rfgPresented,
-                  choice_architecture: run.choiceArchitecture,
-                  halfway_encouragement: run.halfwayEncouragement,
-                  premobility_encouragement: run.premobilityEncouragement,
-                  coaching_summary_presence: run.coachingSummaryPresence,
+                  // New lead measures (spec-compliant)
+                  goal_why_captured: run.goalWhyCaptured,
+                  relationship_experience: run.relationshipExperience,
+                  made_a_friend: run.madeAFriend,
                   notes: run.notes,
                 },
               },
@@ -441,6 +429,29 @@ export default function ShiftRecap() {
           },
         });
       }
+
+      // 6. Post to GroupMe (non-blocking)
+      postShiftRecapToGroupMe({
+        staffName: user?.name || '',
+        shiftDate: date,
+        shiftType,
+        callsMade,
+        textsSent,
+        dmsSent,
+        emailsSent,
+        introsBooked: introsBooked.map(b => ({ memberName: b.memberName, leadSource: b.leadSource })),
+        introsRun: introsRun.map(r => ({
+          memberName: r.memberName,
+          outcome: r.outcome,
+          goalWhyCaptured: r.goalWhyCaptured,
+          relationshipExperience: r.relationshipExperience,
+          madeAFriend: r.madeAFriend,
+        })),
+        sales: sales.map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
+        notes,
+      }, shiftData.id).catch(err => {
+        console.error('GroupMe post failed (non-blocking):', err);
+      });
 
       // Success!
       confetti({

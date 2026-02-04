@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_recaps: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          recap_text: string
+          shift_date: string
+          shift_recap_id: string | null
+          staff_name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          recap_text: string
+          shift_date: string
+          shift_recap_id?: string | null
+          staff_name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          recap_text?: string
+          shift_date?: string
+          shift_recap_id?: string | null
+          staff_name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_recaps_shift_recap_id_fkey"
+            columns: ["shift_recap_id"]
+            isOneToOne: false
+            referencedRelation: "shift_recaps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ig_leads: {
         Row: {
           created_at: string
@@ -177,6 +218,7 @@ export type Database = {
           edit_reason: string | null
           fvc_completed: boolean | null
           goal_quality: string | null
+          goal_why_captured: string | null
           halfway_encouragement: boolean | null
           id: string
           ignore_from_metrics: boolean | null
@@ -188,12 +230,14 @@ export type Database = {
           lead_measures: string[] | null
           lead_source: string | null
           linked_intro_booked_id: string | null
+          made_a_friend: boolean | null
           member_name: string
           notes: string | null
           premobility_encouragement: boolean | null
           pricing_engagement: string | null
           process_checklist: string[] | null
           ran_by: string | null
+          relationship_experience: string | null
           result: string
           rfg_presented: boolean | null
           run_date: string | null
@@ -214,6 +258,7 @@ export type Database = {
           edit_reason?: string | null
           fvc_completed?: boolean | null
           goal_quality?: string | null
+          goal_why_captured?: string | null
           halfway_encouragement?: boolean | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -225,12 +270,14 @@ export type Database = {
           lead_measures?: string[] | null
           lead_source?: string | null
           linked_intro_booked_id?: string | null
+          made_a_friend?: boolean | null
           member_name: string
           notes?: string | null
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
+          relationship_experience?: string | null
           result: string
           rfg_presented?: boolean | null
           run_date?: string | null
@@ -251,6 +298,7 @@ export type Database = {
           edit_reason?: string | null
           fvc_completed?: boolean | null
           goal_quality?: string | null
+          goal_why_captured?: string | null
           halfway_encouragement?: boolean | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -262,12 +310,14 @@ export type Database = {
           lead_measures?: string[] | null
           lead_source?: string | null
           linked_intro_booked_id?: string | null
+          made_a_friend?: boolean | null
           member_name?: string
           notes?: string | null
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
+          relationship_experience?: string | null
           result?: string
           rfg_presented?: boolean | null
           run_date?: string | null

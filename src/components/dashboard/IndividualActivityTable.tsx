@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Activity, HelpCircle } from 'lucide-react';
 
-interface IndividualActivityRow {
+export interface IndividualActivityRow {
   saName: string;
   calls: number;
   texts: number;
@@ -23,18 +23,10 @@ interface IndividualActivityRow {
   emails: number;
   totalContacts: number;
   shiftsWorked: number;
-  showRate: number | null;
 }
 
 interface IndividualActivityTableProps {
   data: IndividualActivityRow[];
-}
-
-function getShowRateColor(rate: number | null): string {
-  if (rate === null) return '';
-  if (rate >= 75) return 'text-green-600 dark:text-green-400 font-medium';
-  if (rate >= 50) return 'text-yellow-600 dark:text-yellow-400 font-medium';
-  return 'text-red-600 dark:text-red-400 font-medium';
 }
 
 export function IndividualActivityTable({ data }: IndividualActivityTableProps) {
@@ -88,7 +80,6 @@ export function IndividualActivityTable({ data }: IndividualActivityTableProps) 
                 <TableHead className="text-xs text-center">Emails</TableHead>
                 <TableHead className="text-xs text-center">Total</TableHead>
                 <TableHead className="text-xs text-center">Shifts</TableHead>
-                <TableHead className="text-xs text-center">Show %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -114,9 +105,6 @@ export function IndividualActivityTable({ data }: IndividualActivityTableProps) 
                   </TableCell>
                   <TableCell className="text-center text-sm py-2">
                     {row.shiftsWorked}
-                  </TableCell>
-                  <TableCell className={`text-center text-sm py-2 ${getShowRateColor(row.showRate)}`}>
-                    {row.showRate !== null ? `${row.showRate.toFixed(1)}%` : '—'}
                   </TableCell>
                 </TableRow>
               ))}
