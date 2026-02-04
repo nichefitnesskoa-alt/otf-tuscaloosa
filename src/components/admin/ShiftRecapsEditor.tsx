@@ -20,10 +20,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ClipboardList, Trash2, Edit, RefreshCw, Search, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Trash2, Edit, RefreshCw, Search, AlertTriangle, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import ShiftRecapDetails from './ShiftRecapDetails';
 
 interface ShiftRecap {
   id: string;
@@ -34,6 +35,7 @@ interface ShiftRecap {
   texts_sent: number | null;
   emails_sent: number | null;
   dms_sent: number | null;
+  other_info: string | null;
   created_at: string;
 }
 
@@ -41,6 +43,10 @@ export default function ShiftRecapsEditor() {
   const [recaps, setRecaps] = useState<ShiftRecap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // View details dialog state
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedViewRecap, setSelectedViewRecap] = useState<ShiftRecap | null>(null);
   
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -63,7 +69,7 @@ export default function ShiftRecapsEditor() {
     try {
       const { data, error } = await supabase
         .from('shift_recaps')
-        .select('id, staff_name, shift_date, shift_type, calls_made, texts_sent, emails_sent, dms_sent, created_at')
+        .select('id, staff_name, shift_date, shift_type, calls_made, texts_sent, emails_sent, dms_sent, other_info, created_at')
         .order('shift_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(100);
@@ -90,6 +96,11 @@ export default function ShiftRecapsEditor() {
       recap.shift_type.toLowerCase().includes(searchLower)
     );
   });
+
+  const handleOpenView = (recap: ShiftRecap) => {
+    setSelectedViewRecap(recap);
+    setViewDialogOpen(true);
+  };
 
   const handleOpenEdit = (recap: ShiftRecap) => {
     setSelectedRecap(recap);
@@ -241,7 +252,7 @@ export default function ShiftRecapsEditor() {
                 </TableHeader>
                 <TableBody>
                   {filteredRecaps.map((recap) => (
-                    <TableRow key={recap.id}>
+                    <TableRow key={recap.id} className="cursor-pointer" onClick={() => handleOpenView(recap)}>
                       <TableCell className="font-medium text-sm py-2">
                         {recap.staff_name}
                       </TableCell>
@@ -269,7 +280,15 @@ export default function ShiftRecapsEditor() {
                         {getTotalContacts(recap)}
                       </TableCell>
                       <TableCell className="text-right py-2">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => handleOpenView(recap)}
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -300,6 +319,28 @@ export default function ShiftRecapsEditor() {
           </p>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Shift Recap Details</DialogTitle>
+          </DialogHeader>
+          {selectedViewRecap && (
+            <ShiftRecapDetails
+              shiftRecapId={selectedViewRecap.id}
+              staffName={selectedViewRecap.staff_name}
+              shiftDate={selectedViewRecap.shift_date}
+              shiftType={selectedViewRecap.shift_type}
+              callsMade={selectedViewRecap.calls_made || 0}
+              textsSent={selectedViewRecap.texts_sent || 0}
+              emailsSent={selectedViewRecap.emails_sent || 0}
+              dmsSent={selectedViewRecap.dms_sent || 0}
+              otherInfo={selectedViewRecap.other_info}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
