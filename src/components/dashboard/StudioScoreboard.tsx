@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Calendar, UserCheck, Percent, Target, TrendingUp, DollarSign 
+  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart
 } from 'lucide-react';
 import {
   Tooltip,
@@ -10,21 +10,23 @@ import {
 } from '@/components/ui/tooltip';
 
 interface StudioScoreboardProps {
-  introsBooked: number;
-  introsShowed: number;
-  showRate: number;
+  introsRun: number;
   introSales: number;
   closingRate: number;
   totalCommission: number;
+  goalWhyRate: number;
+  relationshipRate: number;
+  madeAFriendRate: number;
 }
 
 export function StudioScoreboard({
-  introsBooked,
-  introsShowed,
-  showRate,
+  introsRun,
   introSales,
   closingRate,
   totalCommission,
+  goalWhyRate,
+  relationshipRate,
+  madeAFriendRate,
 }: StudioScoreboardProps) {
   return (
     <Card className="bg-foreground text-background">
@@ -34,48 +36,19 @@ export function StudioScoreboard({
           Studio Scoreboard
         </h2>
         
-        <div className="grid grid-cols-6 gap-3">
+        {/* Main Metrics Row */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="text-center">
-                  <Calendar className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                  <p className="text-2xl font-bold">{introsBooked}</p>
-                  <p className="text-xs opacity-70">Booked</p>
+                  <Users className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                  <p className="text-2xl font-bold">{introsRun}</p>
+                  <p className="text-xs opacity-70">Intros Run</p>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>First intro bookings (excludes 2nd intros)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-center">
-                  <UserCheck className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                  <p className="text-2xl font-bold">{introsShowed}</p>
-                  <p className="text-xs opacity-70">Showed</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Booked intros that actually attended, regardless of who ran them</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-center">
-                  <Percent className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                  <p className="text-2xl font-bold">{showRate.toFixed(0)}%</p>
-                  <p className="text-xs opacity-70">Show Rate</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Showed ÷ Booked (booking performance)</p>
+                <p>Total first intros run (not 2nd intros)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -105,7 +78,7 @@ export function StudioScoreboard({
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Sales ÷ Showed (conversion performance)</p>
+                <p>Sales ÷ Intros Run</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -115,15 +88,66 @@ export function StudioScoreboard({
               <TooltipTrigger asChild>
                 <div className="text-center">
                   <DollarSign className="w-4 h-4 mx-auto mb-1 text-success" />
-                  <p className="text-2xl font-bold text-success">${totalCommission.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-success">${totalCommission.toFixed(0)}</p>
                   <p className="text-xs opacity-70">Commission</p>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Total commission earned (intro + outside sales, based on date_closed)</p>
+                <p>Total commission earned (all sources)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        </div>
+
+        {/* Lead Measures Row */}
+        <div className="border-t border-background/20 pt-3">
+          <p className="text-xs opacity-60 mb-2 uppercase tracking-wider">Lead Measures</p>
+          <div className="grid grid-cols-3 gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center p-2 bg-background/10 rounded-lg">
+                    <Target className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{goalWhyRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Goal + Why</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Main fitness goal + why captured (Yes/Partial)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center p-2 bg-background/10 rounded-lg">
+                    <Heart className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{relationshipRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Relationship</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>High relationship experience executed (Yes/Partial)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-center p-2 bg-background/10 rounded-lg">
+                    <MessageSquareHeart className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{madeAFriendRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Made Friend</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Did you make a friend?</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </CardContent>
     </Card>

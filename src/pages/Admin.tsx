@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Users, RefreshCw, FileSpreadsheet, Database, HeartPulse } from 'lucide-react';
+import { Settings, Users, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,7 @@ import IntroRunsEditor from '@/components/admin/IntroRunsEditor';
 import FixBookingAttribution from '@/components/admin/FixBookingAttribution';
 import EmergencySyncBookings from '@/components/admin/EmergencySyncBookings';
 import EmergencySyncRuns from '@/components/admin/EmergencySyncRuns';
+import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import { getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -138,20 +139,29 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
-            <span className="hidden sm:inline">Data Mgmt</span>
+            <span className="hidden sm:inline">Data</span>
+          </TabsTrigger>
+          <TabsTrigger value="groupme" className="gap-1">
+            <MessageSquare className="w-4 h-4" />
+            <span className="hidden sm:inline">GroupMe</span>
           </TabsTrigger>
           <TabsTrigger value="health" className="gap-1">
             <HeartPulse className="w-4 h-4" />
             <span className="hidden sm:inline">Health</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* GroupMe Tab */}
+        <TabsContent value="groupme">
+          <GroupMeSettings />
+        </TabsContent>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">

@@ -5,9 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
-import { BookingCreditTable } from '@/components/dashboard/BookingCreditTable';
-import { ConversionCreditTable } from '@/components/dashboard/ConversionCreditTable';
+import { PerSATable } from '@/components/dashboard/PerSATable';
 import { IndividualActivityTable } from '@/components/dashboard/IndividualActivityTable';
+import { Leaderboards } from '@/components/dashboard/Leaderboards';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
@@ -45,16 +45,11 @@ export default function Dashboard() {
   // For non-admin users, filter to show only their data
   const effectiveEmployee = isAdmin ? selectedEmployee : user?.name || null;
 
-  // Filter booking credit and conversion credit based on selected employee
-  const filteredBookingCredit = useMemo(() => {
-    if (!effectiveEmployee) return metrics.bookingCredit;
-    return metrics.bookingCredit.filter(m => m.saName === effectiveEmployee);
-  }, [metrics.bookingCredit, effectiveEmployee]);
-
-  const filteredConversionCredit = useMemo(() => {
-    if (!effectiveEmployee) return metrics.conversionCredit;
-    return metrics.conversionCredit.filter(m => m.saName === effectiveEmployee);
-  }, [metrics.conversionCredit, effectiveEmployee]);
+  // Filter per-SA table based on selected employee
+  const filteredPerSA = useMemo(() => {
+    if (!effectiveEmployee) return metrics.perSA;
+    return metrics.perSA.filter(m => m.saName === effectiveEmployee);
+  }, [metrics.perSA, effectiveEmployee]);
 
   const filteredIndividualActivity = useMemo(() => {
     if (!effectiveEmployee) return metrics.individualActivity;
@@ -113,36 +108,40 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Studio Scoreboard - visible to all (always shows studio totals) */}
+      {/* Studio Scoreboard - main metrics */}
       <StudioScoreboard
-        introsBooked={metrics.studio.introsBooked}
-        introsShowed={metrics.studio.introsShowed}
-        showRate={metrics.studio.showRate}
+        introsRun={metrics.studio.introsRun}
         introSales={metrics.studio.introSales}
         closingRate={metrics.studio.closingRate}
         totalCommission={metrics.studio.totalCommission}
+        goalWhyRate={metrics.studio.goalWhyRate}
+        relationshipRate={metrics.studio.relationshipRate}
+        madeAFriendRate={metrics.studio.madeAFriendRate}
       />
 
-      {/* Individual Activity Table - NEW */}
+      {/* Leaderboards */}
+      <Leaderboards 
+        topBookers={metrics.leaderboards.topBookers}
+        topCommission={metrics.leaderboards.topCommission}
+        topClosing={metrics.leaderboards.topClosing}
+        topShowRate={metrics.leaderboards.topShowRate}
+      />
+
+      {/* Per-SA Performance Table */}
+      <PerSATable data={filteredPerSA} />
+
+      {/* Individual Activity Table */}
       <IndividualActivityTable data={filteredIndividualActivity} />
-
-      {/* Booking Credit Table - filtered */}
-      <BookingCreditTable data={filteredBookingCredit} />
-
-      {/* Conversion Credit Table - filtered */}
-      <ConversionCreditTable data={filteredConversionCredit} />
 
       {/* Legend Card */}
       <Card className="bg-muted/30">
         <CardContent className="p-3">
           <p className="text-xs text-muted-foreground">
+            <strong>Per-SA Performance</strong> = all metrics credited to intro_owner (who ran first intro)
+            <br />
+            <strong>Lead Measures</strong> = Goal+Why capture, Relationship experience, Made a Friend
+            <br />
             <strong>Individual Activity</strong> = outreach efforts (calls, texts, DMs, emails) from shift recaps
-            <br />
-            <strong>Booking Credit</strong> = credited to "Booked by" (who scheduled the intro) — filtered by <em>booking date</em>
-            <br />
-            <strong>Conversion Credit</strong> = credited to "Commission owner" (who ran the first intro) — sales filtered by <em>date closed</em>
-            <br />
-            <strong>Note:</strong> Second intros are excluded from Booked/Showed/Show Rate metrics.
           </p>
         </CardContent>
       </Card>

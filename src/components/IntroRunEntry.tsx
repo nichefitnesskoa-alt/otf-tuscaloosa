@@ -3,19 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, UserCheck, Calendar, Info } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 const LEAD_SOURCES = [
   'Self-generated (my outreach)',
@@ -43,8 +34,9 @@ const OUTCOMES = [
   { label: 'Not interested', commission: 0 },
 ] as const;
 
-const GOAL_QUALITY_OPTIONS = ['Clear', 'Partial', 'None'] as const;
-const PRICING_ENGAGEMENT_OPTIONS = ['Yes', 'Partial', 'No'] as const;
+const GOAL_WHY_OPTIONS = ['Yes', 'Partial', 'No'] as const;
+const RELATIONSHIP_OPTIONS = ['Yes', 'Partial', 'No'] as const;
+const MADE_FRIEND_OPTIONS = ['Yes', 'No'] as const;
 
 export interface IntroRunData {
   id: string;
@@ -53,14 +45,10 @@ export interface IntroRunData {
   runTime: string;
   leadSource: string;
   outcome: string;
-  goalQuality: string;
-  pricingEngagement: string;
-  fvcCompleted: boolean;
-  rfgPresented: boolean;
-  choiceArchitecture: boolean;
-  halfwayEncouragement: boolean;
-  premobilityEncouragement: boolean;
-  coachingSummaryPresence: boolean;
+  // New lead measures (spec-compliant)
+  goalWhyCaptured: string;
+  relationshipExperience: string;
+  madeAFriend: boolean;
   notes: string;
   linkedBookingId?: string;
   // 2nd intro scheduling
@@ -105,7 +93,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     intro_owner: string | null;
   }) => {
     onUpdate(index, {
-      linkedBookingId: booking.id, // Use the database ID
+      linkedBookingId: booking.id,
       memberName: booking.member_name,
       leadSource: booking.lead_source,
       bookedBy: booking.sa_working_shift,
@@ -216,114 +204,66 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
         </div>
       )}
 
-      {/* Process Checklist Group 1 */}
-      <div>
-        <Label className="text-xs mb-2 block">Process Checklist</Label>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`fvc-${index}`}
-              checked={intro.fvcCompleted}
-              onCheckedChange={(checked) => onUpdate(index, { fvcCompleted: !!checked })}
-            />
-            <Label htmlFor={`fvc-${index}`} className="text-xs font-normal">
-              FVC (First Visit Card) completed
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`rfg-${index}`}
-              checked={intro.rfgPresented}
-              onCheckedChange={(checked) => onUpdate(index, { rfgPresented: !!checked })}
-            />
-            <Label htmlFor={`rfg-${index}`} className="text-xs font-normal">
-              RFG (Risk Free Guaranteed) presented
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`choice-${index}`}
-              checked={intro.choiceArchitecture}
-              onCheckedChange={(checked) => onUpdate(index, { choiceArchitecture: !!checked })}
-            />
-            <Label htmlFor={`choice-${index}`} className="text-xs font-normal">
-              Choice Architecture used
-            </Label>
-          </div>
+      {/* NEW LEAD MEASURES (per spec) */}
+      <div className="border-t border-border pt-3">
+        <Label className="text-xs font-semibold mb-2 block">Lead Measures</Label>
+        
+        {/* 1. Goal + Why Captured */}
+        <div className="mb-3">
+          <Label className="text-xs">Main fitness goal + why captured?</Label>
+          <Select
+            value={intro.goalWhyCaptured || ''}
+            onValueChange={(v) => onUpdate(index, { goalWhyCaptured: v })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {GOAL_WHY_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
 
-      {/* Lead Measures Group 2 */}
-      <div>
-        <Label className="text-xs mb-2 block">Lead Measures</Label>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`halfway-${index}`}
-              checked={intro.halfwayEncouragement}
-              onCheckedChange={(checked) => onUpdate(index, { halfwayEncouragement: !!checked })}
-            />
-            <Label htmlFor={`halfway-${index}`} className="text-xs font-normal">
-              Halfway encouragement
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`premobility-${index}`}
-              checked={intro.premobilityEncouragement}
-              onCheckedChange={(checked) => onUpdate(index, { premobilityEncouragement: !!checked })}
-            />
-            <Label htmlFor={`premobility-${index}`} className="text-xs font-normal">
-              Pre-mobility encouragement
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id={`coaching-${index}`}
-              checked={intro.coachingSummaryPresence}
-              onCheckedChange={(checked) => onUpdate(index, { coachingSummaryPresence: !!checked })}
-            />
-            <Label htmlFor={`coaching-${index}`} className="text-xs font-normal">
-              Coaching summary presence
-            </Label>
-          </div>
+        {/* 2. Relationship Experience */}
+        <div className="mb-3">
+          <Label className="text-xs">High relationship experience executed?</Label>
+          <p className="text-xs text-muted-foreground mb-1">
+            (halfway encouragement, pre-mobility, coaching summary)
+          </p>
+          <Select
+            value={intro.relationshipExperience || ''}
+            onValueChange={(v) => onUpdate(index, { relationshipExperience: v })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {RELATIONSHIP_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      </div>
 
-      {/* Goal Quality */}
-      <div>
-        <Label className="text-xs">Goal Quality</Label>
-        <Select
-          value={intro.goalQuality || ''}
-          onValueChange={(v) => onUpdate(index, { goalQuality: v })}
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Select..." />
-          </SelectTrigger>
-          <SelectContent>
-            {GOAL_QUALITY_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>{option}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Pricing Engagement */}
-      <div>
-        <Label className="text-xs">Pricing Engagement</Label>
-        <Select
-          value={intro.pricingEngagement || ''}
-          onValueChange={(v) => onUpdate(index, { pricingEngagement: v })}
-        >
-          <SelectTrigger className="mt-1">
-            <SelectValue placeholder="Select..." />
-          </SelectTrigger>
-          <SelectContent>
-            {PRICING_ENGAGEMENT_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>{option}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 3. Made a Friend */}
+        <div className="mb-3">
+          <Label className="text-xs">Did you make a friend?</Label>
+          <Select
+            value={intro.madeAFriend ? 'Yes' : intro.madeAFriend === false ? 'No' : ''}
+            onValueChange={(v) => onUpdate(index, { madeAFriend: v === 'Yes' })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {MADE_FRIEND_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>{option}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Outcome */}
