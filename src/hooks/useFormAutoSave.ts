@@ -14,7 +14,7 @@ interface FormData {
 }
 
 const STORAGE_KEY = 'otf_shift_recap_draft';
-const AUTO_SAVE_INTERVAL = 3000; // 3 seconds
+const AUTO_SAVE_INTERVAL = 1000; // 1 second
 
 export function useFormAutoSave(userName: string | undefined) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);

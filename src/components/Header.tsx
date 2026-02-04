@@ -23,7 +23,7 @@ export function Header() {
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight">OrangeTheory</h1>
-            <p className="text-xs opacity-70">Shift Manager</p>
+            <p className="text-xs opacity-70">Shift Recap</p>
           </div>
         </div>
         
