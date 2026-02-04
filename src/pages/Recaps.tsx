@@ -4,84 +4,83 @@ import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2, Download, Copy, Calendar, TrendingUp, Trophy } from 'lucide-react';
+import { Loader2, Download, Copy, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { PerSATable } from '@/components/dashboard/PerSATable';
+import { Leaderboards } from '@/components/dashboard/Leaderboards';
+import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
+import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
+import { IndividualActivityTable } from '@/components/dashboard/IndividualActivityTable';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
-import { 
-  DateRange, 
-  getCurrentPayPeriod,
-} from '@/lib/pay-period';
+import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-
-type RecapPreset = 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
-
-function getRecapDateRange(preset: RecapPreset): DateRange {
-  const today = new Date();
-  
-  switch (preset) {
-    case 'this_week':
-      return {
-        start: startOfWeek(today, { weekStartsOn: 1 }),
-        end: endOfWeek(today, { weekStartsOn: 1 }),
-      };
-    case 'last_week':
-      const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
-      return {
-        start: lastWeekStart,
-        end: endOfWeek(lastWeekStart, { weekStartsOn: 1 }),
-      };
-    case 'this_month':
-      return {
-        start: startOfMonth(today),
-        end: endOfMonth(today),
-      };
-    case 'last_month':
-      const lastMonth = subMonths(today, 1);
-      return {
-        start: startOfMonth(lastMonth),
-        end: endOfMonth(lastMonth),
-      };
-    default:
-      return getCurrentPayPeriod();
-  }
-}
-
-function getRecapLabel(preset: RecapPreset): string {
-  switch (preset) {
-    case 'this_week': return 'This Week';
-    case 'last_week': return 'Last Week';
-    case 'this_month': return 'This Month';
-    case 'last_month': return 'Last Month';
-    case 'custom': return 'Custom Range';
-    default: return preset;
-  }
-}
+import { format } from 'date-fns';
 
 export default function Recaps() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales, isLoading } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, isLoading, lastUpdated, refreshData } = useData();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [recapPreset, setRecapPreset] = useState<RecapPreset>('this_week');
+  // Date filter state - same as Personal Dashboard
+  const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
   
-  const dateRange = useMemo(() => getRecapDateRange(recapPreset), [recapPreset]);
-  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange);
+  // Employee filter state (admin only)
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  
+  const isAdmin = user?.role === 'Admin';
+  
+  const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps);
 
   // Use leaderboard data from metrics
   const { topBookers, topCommission, topClosing, topShowRate } = metrics.leaderboards;
 
-  const generateSummaryText = () => {
+  // Filter per-SA table based on selected employee (admin only)
+  const filteredPerSA = useMemo(() => {
+    if (!selectedEmployee) return metrics.perSA;
+    return metrics.perSA.filter(m => m.saName === selectedEmployee);
+  }, [metrics.perSA, selectedEmployee]);
+
+  const filteredIndividualActivity = useMemo(() => {
+    if (!selectedEmployee) return metrics.individualActivity;
+    return metrics.individualActivity.filter(m => m.saName === selectedEmployee);
+  }, [metrics.individualActivity, selectedEmployee]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    setIsRefreshing(false);
+  };
+
+  const generatePersonalSummaryText = () => {
+    const rangeText = `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
+    const userName = user?.name || 'User';
+    
+    // Find this user's metrics
+    const userMetrics = metrics.perSA.find(m => m.saName === userName);
+    
+    let text = `📊 ${userName}'s Recap (${rangeText})\n\n`;
+    
+    if (userMetrics) {
+      text += `🎯 My Stats:\n`;
+      text += `• Intros Run: ${userMetrics.introsRun}\n`;
+      text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate)\n`;
+      text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
+      text += `• Goal+Why: ${userMetrics.goalWhyRate.toFixed(0)}%\n`;
+      text += `• Relationship: ${userMetrics.relationshipRate.toFixed(0)}%\n`;
+      text += `• Made Friend: ${userMetrics.madeAFriendRate.toFixed(0)}%\n`;
+    } else {
+      text += `No intros recorded for this period yet.\n`;
+    }
+
+    return text;
+  };
+
+  const generateStudioSummaryText = () => {
     const rangeText = `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
     
-    let text = `📊 Studio Recap: ${getRecapLabel(recapPreset)} (${rangeText})\n\n`;
+    let text = `📊 Studio Scoreboard (${rangeText})\n\n`;
     
     text += `🎯 Studio Totals:\n`;
     text += `• Intros Run: ${metrics.studio.introsRun}\n`;
@@ -117,10 +116,16 @@ export default function Recaps() {
     return text;
   };
 
-  const handleCopySummary = () => {
-    const text = generateSummaryText();
+  const handleCopyPersonalSummary = () => {
+    const text = generatePersonalSummaryText();
     navigator.clipboard.writeText(text);
-    toast.success('Summary copied to clipboard!');
+    toast.success('Personal summary copied to clipboard!');
+  };
+
+  const handleCopyStudioSummary = () => {
+    const text = generateStudioSummaryText();
+    navigator.clipboard.writeText(text);
+    toast.success('Studio summary copied to clipboard!');
   };
 
   const handleDownloadCSV = () => {
@@ -153,7 +158,7 @@ export default function Recaps() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `studio_recap_${rangeText}.csv`;
+    a.download = `studio_scoreboard_${rangeText}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     
@@ -171,32 +176,47 @@ export default function Recaps() {
   return (
     <div className="p-4 space-y-4">
       <div className="mb-6">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <TrendingUp className="w-5 h-5" />
-          Recaps
-        </h1>
-        <p className="text-sm text-muted-foreground mb-3">
-          Weekly and monthly performance summaries
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Studio Scoreboard
+          </h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="h-8 px-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-1">
+          Studio-wide performance metrics and leaderboards
         </p>
+        {lastUpdated && (
+          <p className="text-xs text-muted-foreground/70">
+            Last updated: {format(lastUpdated, 'h:mm:ss a')}
+          </p>
+        )}
         
-        {/* Preset Selector */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={recapPreset} onValueChange={(v) => setRecapPreset(v as RecapPreset)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="this_week">This Week</SelectItem>
-              <SelectItem value="last_week">Last Week</SelectItem>
-              <SelectItem value="this_month">This Month</SelectItem>
-              <SelectItem value="last_month">Last Month</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {/* Admin View-as Employee Filter */}
+          <EmployeeFilter 
+            selectedEmployee={selectedEmployee}
+            onEmployeeChange={setSelectedEmployee}
+            isAdmin={isAdmin}
+          />
           
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {format(dateRange.start, 'MMM d')} - {format(dateRange.end, 'MMM d, yyyy')}
-          </Badge>
+          {/* Global Date Filter - same as Personal Dashboard */}
+          <DateRangeFilter
+            preset={datePreset}
+            customRange={customRange}
+            onPresetChange={setDatePreset}
+            onCustomRangeChange={setCustomRange}
+            dateRange={dateRange || { start: new Date(2020, 0, 1), end: new Date() }}
+          />
         </div>
       </div>
 
@@ -209,6 +229,14 @@ export default function Recaps() {
         goalWhyRate={metrics.studio.goalWhyRate}
         relationshipRate={metrics.studio.relationshipRate}
         madeAFriendRate={metrics.studio.madeAFriendRate}
+      />
+
+      {/* Leaderboards */}
+      <Leaderboards 
+        topBookers={topBookers}
+        topCommission={topCommission}
+        topClosing={topClosing}
+        topShowRate={topShowRate}
       />
 
       {/* Top Performers */}
@@ -305,21 +333,44 @@ export default function Recaps() {
       </Card>
 
       {/* Per-SA Performance */}
-      <PerSATable data={metrics.perSA} />
+      <PerSATable data={filteredPerSA} />
+
+      {/* Individual Activity Table */}
+      <IndividualActivityTable data={filteredIndividualActivity} />
 
       {/* Export Actions */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-2">
-            <Button onClick={handleCopySummary} variant="outline" className="flex-1">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Share to GroupMe</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="flex flex-col gap-2">
+            <Button onClick={handleCopyPersonalSummary} variant="outline" className="w-full">
               <Copy className="w-4 h-4 mr-2" />
-              Copy for GroupMe
+              Copy My Personal Recap
             </Button>
-            <Button onClick={handleDownloadCSV} variant="outline" className="flex-1">
+            <Button onClick={handleCopyStudioSummary} variant="outline" className="w-full">
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Studio Recap
+            </Button>
+            <Button onClick={handleDownloadCSV} variant="outline" className="w-full">
               <Download className="w-4 h-4 mr-2" />
-              Download CSV
+              Download Full CSV
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Legend Card */}
+      <Card className="bg-muted/30">
+        <CardContent className="p-3">
+          <p className="text-xs text-muted-foreground">
+            <strong>Studio Scoreboard</strong> = all metrics across all staff
+            <br />
+            <strong>Per-SA Performance</strong> = metrics credited to intro_owner (who ran first intro)
+            <br />
+            <strong>Lead Measures</strong> = Goal+Why capture, Relationship experience, Made a Friend
+          </p>
         </CardContent>
       </Card>
     </div>
