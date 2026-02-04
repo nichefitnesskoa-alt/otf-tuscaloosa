@@ -136,16 +136,14 @@ export default function ShiftRecap() {
 
   // CRUD helpers for Intro Bookings
   const addIntroBooking = () => {
-    if (introsBooked.length < 5) {
-      setIntrosBooked([...introsBooked, { 
-        id: crypto.randomUUID(),
-        memberName: '',
-        introDate: date,
-        introTime: '',
-        leadSource: '',
-        notes: ''
-      }]);
-    }
+    setIntrosBooked([...introsBooked, { 
+      id: crypto.randomUUID(),
+      memberName: '',
+      introDate: date,
+      introTime: '',
+      leadSource: '',
+      notes: ''
+    }]);
   };
 
   const updateIntroBooking = (index: number, updates: Partial<IntroBookingData>) => {
@@ -160,25 +158,23 @@ export default function ShiftRecap() {
 
   // CRUD helpers for Intro Runs
   const addIntroRun = () => {
-    if (introsRun.length < 5) {
-      setIntrosRun([...introsRun, { 
-        id: crypto.randomUUID(),
-        memberName: '',
-        runDate: date,
-        runTime: '',
-        leadSource: '',
-        outcome: '',
-        goalWhyCaptured: '',
-        relationshipExperience: '',
-        madeAFriend: false,
-        notes: '',
-        linkedBookingId: undefined,
-        secondIntroDate: undefined,
-        secondIntroTime: undefined,
-        bookedBy: undefined,
-        originatingBookingId: undefined
-      }]);
-    }
+    setIntrosRun([...introsRun, { 
+      id: crypto.randomUUID(),
+      memberName: '',
+      runDate: date,
+      runTime: '',
+      leadSource: '',
+      outcome: '',
+      goalWhyCaptured: '',
+      relationshipExperience: '',
+      madeAFriend: false,
+      notes: '',
+      linkedBookingId: undefined,
+      secondIntroDate: undefined,
+      secondIntroTime: undefined,
+      bookedBy: undefined,
+      originatingBookingId: undefined
+    }]);
   };
 
   const updateIntroRun = (index: number, updates: Partial<IntroRunData>) => {
@@ -193,15 +189,13 @@ export default function ShiftRecap() {
 
   // CRUD helpers for Sales
   const addSale = () => {
-    if (sales.length < 5) {
-      setSales([...sales, { 
-        id: crypto.randomUUID(),
-        memberName: '',
-        leadSource: '',
-        membershipType: '',
-        commissionAmount: 0
-      }]);
-    }
+    setSales([...sales, { 
+      id: crypto.randomUUID(),
+      memberName: '',
+      leadSource: '',
+      membershipType: '',
+      commissionAmount: 0
+    }]);
   };
 
   const updateSale = (index: number, updates: Partial<SaleData>) => {
