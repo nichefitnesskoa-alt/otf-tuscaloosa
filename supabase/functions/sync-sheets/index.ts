@@ -144,11 +144,140 @@ async function getAccessToken(): Promise<string> {
   return cachedAuth.access_token;
 }
 
+// Sheet tab definitions with proper headers
+const SHEET_DEFINITIONS: Record<string, string[]> = {
+  'app_shifts': [
+    'shift_id', 'staff_name', 'shift_date', 'shift_time', 'calls', 'texts', 'dms', 'emails',
+    'submitted_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
+  ],
+  'app_intro_bookings': [
+    'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes', 'intro_owner',
+    'originating_booking_id', 'created_at', 'intro_datetime_key', 'last_edited_at', 'last_edited_by',
+    'edit_reason', 'intro_date_valid', 'intro_time_valid', 'intro_date_normalized', 'intro_time_normalized',
+    'intro_datetime_key.1', 'needs_fix_reason', 'booking_status', 'status_reason', 'status_changed_at',
+    'status_changed_by', 'archived_at', 'member_key', 'closed_at', 'booked_by'
+  ],
+  'app_intro_runs': [
+    'run_id', 'booking_id', 'run_date', 'run_time', 'outcome', 'goal_quality', 'pricing_engagement',
+    'lead_measure_fvc', 'lead_measure_rfg', 'lead_measure_choice_arch', 'lead_measure_halfway',
+    'lead_measure_premob', 'lead_measure_summary', 'notes', 'intro_owner', 'created_at',
+    'last_edited_at', 'last_edited_by', 'edit_reason', 'member_key', 'close_flag'
+  ],
+  'app_sales': [
+    'sale_id', 'member_name', 'date_closed', 'sale_type', 'intro_owner', 'membership_type',
+    'commission_amount', 'sa_logged', 'created_at', 'pay_period_start', 'pay_period_end',
+    'last_edited_at', 'last_edited_by', 'edit_reason', 'related_booking_id',
+    'related_originating_booking_id', 'member_key'
+  ]
+};
+
+async function createSheetTab(
+  spreadsheetId: string,
+  sheetName: string,
+  accessToken: string
+): Promise<void> {
+  // First, try to add a new sheet
+  const addSheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
+  
+  const response = await fetch(addSheetUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      requests: [{
+        addSheet: {
+          properties: {
+            title: sheetName
+          }
+        }
+      }]
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    // If it already exists, that's fine
+    if (!error.includes('already exists')) {
+      throw new Error(`Failed to create sheet tab "${sheetName}": ${error}`);
+    }
+    return; // Sheet already exists
+  }
+
+  // Add headers to the new sheet
+  const headers = SHEET_DEFINITIONS[sheetName];
+  if (headers) {
+    await appendToSheetRaw(spreadsheetId, sheetName, [headers], accessToken);
+    console.log(`Created sheet tab "${sheetName}" with ${headers.length} header columns`);
+  }
+}
+
+async function ensureSheetExists(
+  spreadsheetId: string,
+  sheetName: string,
+  accessToken: string
+): Promise<void> {
+  try {
+    // Try to read from the sheet to check if it exists
+    const range = `${sheetName}!A1:A1`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+
+    if (response.ok) {
+      return; // Sheet exists
+    }
+
+    const errorText = await response.text();
+    if (errorText.includes('Unable to parse range') || errorText.includes('not found') || errorText.includes('404')) {
+      // Sheet doesn't exist, create it
+      console.log(`Sheet "${sheetName}" not found, creating...`);
+      await createSheetTab(spreadsheetId, sheetName, accessToken);
+    } else {
+      throw new Error(`Failed to check sheet "${sheetName}": ${errorText}`);
+    }
+  } catch (error) {
+    console.error(`Error ensuring sheet exists:`, error);
+    throw error;
+  }
+}
+
+async function appendToSheetRaw(
+  spreadsheetId: string,
+  sheetName: string,
+  values: string[][],
+  accessToken: string
+): Promise<void> {
+  const range = `${sheetName}!A:Z`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ values }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to append to sheet: ${error}`);
+  }
+}
+
 async function readFromSheet(
   spreadsheetId: string,
   sheetName: string,
   accessToken: string
 ): Promise<string[][]> {
+  // Ensure sheet exists before reading
+  await ensureSheetExists(spreadsheetId, sheetName, accessToken);
+  
   const range = `${sheetName}!A:ZZ`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
 
@@ -1479,6 +1608,99 @@ serve(async (req) => {
           errors,
           total: bookings.length,
           message: `Synced ${synced} new, updated ${skipped}, ${errors} errors`
+        };
+        break;
+      }
+
+      case 'sync_all_runs': {
+        // Bulk sync all intro runs from database to Google Sheets
+        // This is for backfilling runs that weren't synced properly
+        const { data: runs } = await supabase
+          .from('intros_run')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (!runs || runs.length === 0) {
+          result = { success: true, message: 'No runs to sync', synced: 0 };
+          break;
+        }
+
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+
+        let synced = 0;
+        let updated = 0;
+        let errors = 0;
+
+        for (const run of runs) {
+          try {
+            const runId = run.run_id || `run_${run.id.substring(0, 8)}`;
+            const memberKey = normalizeName(run.member_name || '');
+            
+            // Determine close flag - TRUE if outcome includes commission amount
+            const outcome = run.result || '';
+            const isClose = outcome.includes('$') || outcome.toLowerCase().includes('premier') || 
+                           outcome.toLowerCase().includes('elite') || outcome.toLowerCase().includes('basic');
+
+            const rowData = [
+              runId,                                                      // [0] run_id
+              run.linked_intro_booked_id || '',                           // [1] booking_id
+              run.run_date || '',                                         // [2] run_date
+              run.class_time || '',                                       // [3] run_time
+              outcome,                                                    // [4] outcome
+              run.goal_quality || '',                                     // [5] goal_quality
+              run.pricing_engagement || '',                               // [6] pricing_engagement
+              run.fvc_completed ? 'TRUE' : 'FALSE',                       // [7] lead_measure_fvc
+              run.rfg_presented ? 'TRUE' : 'FALSE',                       // [8] lead_measure_rfg
+              run.choice_architecture ? 'TRUE' : 'FALSE',                 // [9] lead_measure_choice_arch
+              run.halfway_encouragement ? 'TRUE' : 'FALSE',               // [10] lead_measure_halfway
+              run.premobility_encouragement ? 'TRUE' : 'FALSE',           // [11] lead_measure_premob
+              run.coaching_summary_presence ? 'TRUE' : 'FALSE',           // [12] lead_measure_summary
+              run.notes || '',                                            // [13] notes
+              run.intro_owner || run.sa_name || '',                       // [14] intro_owner
+              run.created_at || new Date().toISOString(),                 // [15] created_at
+              run.last_edited_at || '',                                   // [16] last_edited_at
+              run.last_edited_by || '',                                   // [17] last_edited_by
+              run.edit_reason || '',                                      // [18] edit_reason
+              memberKey,                                                  // [19] member_key
+              isClose ? 'TRUE' : 'FALSE',                                 // [20] close_flag
+            ];
+
+            // Check if run already exists in sheet
+            const existingRow = await findRowByStableId(spreadsheetId, 'app_intro_runs', 0, runId, accessToken);
+            
+            if (existingRow) {
+              // Update existing row
+              await updateSheetRow(spreadsheetId, 'app_intro_runs', existingRow, rowData, accessToken);
+              updated++;
+            } else {
+              // Append new row
+              await appendToSheet(spreadsheetId, 'app_intro_runs', [rowData], accessToken);
+              synced++;
+            }
+
+            // Update database with run_id if needed
+            if (!run.run_id) {
+              await supabase.from('intros_run')
+                .update({ run_id: runId })
+                .eq('id', run.id);
+            }
+          } catch (err) {
+            console.error(`Error syncing run ${run.id}:`, err);
+            errors++;
+          }
+        }
+
+        console.log(`sync_all_runs complete: ${synced} synced, ${updated} updated, ${errors} errors`);
+
+        result = { 
+          success: true, 
+          synced, 
+          updated,
+          errors,
+          total: runs.length,
+          message: `Synced ${synced} new, updated ${updated}, ${errors} errors`
         };
         break;
       }
