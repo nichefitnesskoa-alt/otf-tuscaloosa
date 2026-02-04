@@ -50,12 +50,14 @@ import {
   UserX,
   UserCheck,
   Archive,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ALL_STAFF, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { getSpreadsheetId } from '@/lib/sheets-sync';
 
 // Booking status types
 const BOOKING_STATUSES = [
@@ -377,29 +379,51 @@ export default function IntroBookingsEditor() {
   };
 
   const handleConfirmSetOwner = async () => {
-    if (!ownerBooking || !newIntroOwner) return;
+    if (!ownerBooking) return;
     
-    if (ownerBooking.intro_owner_locked && !ownerOverrideReason) {
+    // If clearing (empty value), allow it without override reason
+    const isClearing = !newIntroOwner || newIntroOwner === '__CLEAR__';
+    
+    // If locked and NOT clearing, require override reason
+    if (ownerBooking.intro_owner_locked && !isClearing && !ownerOverrideReason) {
       toast.error('Override reason is required to change a locked intro owner');
       return;
     }
     
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('intros_booked')
-        .update({
-          intro_owner: newIntroOwner,
-          intro_owner_locked: true,
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: user?.name || 'Admin',
-          edit_reason: ownerOverrideReason || 'Set intro owner',
-        })
-        .eq('id', ownerBooking.id);
+      if (isClearing) {
+        // Clear intro_owner and UNLOCK so next first-run can set it
+        const { error } = await supabase
+          .from('intros_booked')
+          .update({
+            intro_owner: null,
+            intro_owner_locked: false, // Unlock so next run can set it
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: ownerOverrideReason || 'Cleared intro owner (unlocked)',
+          })
+          .eq('id', ownerBooking.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Intro owner cleared and unlocked');
+      } else {
+        // Set to a specific SA and lock
+        const { error } = await supabase
+          .from('intros_booked')
+          .update({
+            intro_owner: newIntroOwner,
+            intro_owner_locked: true,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: ownerOverrideReason || 'Set intro owner',
+          })
+          .eq('id', ownerBooking.id);
+
+        if (error) throw error;
+        toast.success(`Intro owner set to ${newIntroOwner}`);
+      }
       
-      toast.success(`Intro owner set to ${newIntroOwner}`);
       setShowSetOwnerDialog(false);
       setOwnerBooking(null);
       await fetchBookings();
@@ -463,6 +487,48 @@ export default function IntroBookingsEditor() {
     } catch (error) {
       console.error('Error deleting booking:', error);
       toast.error('Failed to delete booking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Sync a single booking to Google Sheets
+  const handleSyncToSheets = async (booking: IntroBooking) => {
+    const spreadsheetId = getSpreadsheetId();
+    if (!spreadsheetId) {
+      toast.error('No Google Sheet configured. Go to Admin → Settings to set up.');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.functions.invoke('sync-sheets', {
+        body: {
+          action: 'sync_booking',
+          spreadsheetId,
+          data: {
+            id: booking.id,
+            booking_id: booking.booking_id,
+            member_name: booking.member_name,
+            class_date: booking.class_date,
+            intro_time: booking.intro_time,
+            lead_source: booking.lead_source,
+            notes: booking.fitness_goal,
+            booked_by: booking.sa_working_shift,
+            intro_owner: booking.intro_owner || '',
+            booking_status: booking.booking_status || 'ACTIVE',
+            closed_at: booking.closed_at,
+          },
+          editedBy: user?.name || 'Admin',
+          editReason: 'Manual sync from Admin',
+        },
+      });
+
+      if (error) throw error;
+      toast.success('Booking synced to Google Sheets');
+    } catch (error) {
+      console.error('Error syncing to sheets:', error);
+      toast.error('Failed to sync to sheets');
     } finally {
       setIsSaving(false);
     }
@@ -655,6 +721,10 @@ export default function IntroBookingsEditor() {
                         <DropdownMenuItem onClick={() => handleOpenSetOwnerDialog(booking)}>
                           <UserCheck className="w-4 h-4 mr-2" />
                           Set Intro Owner
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleSyncToSheets(booking)}>
+                          <Upload className="w-4 h-4 mr-2" />
+                          Sync to Sheets
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
@@ -915,20 +985,34 @@ export default function IntroBookingsEditor() {
                 <Label>Intro Owner (SA)</Label>
                 <Select value={newIntroOwner} onValueChange={setNewIntroOwner}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select SA..." />
+                    <SelectValue placeholder="Select SA or clear..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__CLEAR__" className="text-muted-foreground italic">
+                      ⊘ Clear (leave blank + unlock)
+                    </SelectItem>
                     {ALL_STAFF.map(sa => (
                       <SelectItem key={sa} value={sa}>{sa}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              {ownerBooking?.intro_owner_locked && (
+              {(ownerBooking?.intro_owner_locked && newIntroOwner && newIntroOwner !== '__CLEAR__') && (
                 <div className="space-y-2">
                   <Label>Override Reason *</Label>
                   <Textarea
                     placeholder="Why are you changing the locked intro owner?"
+                    value={ownerOverrideReason}
+                    onChange={(e) => setOwnerOverrideReason(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              )}
+              {newIntroOwner === '__CLEAR__' && (
+                <div className="space-y-2">
+                  <Label>Reason for clearing (optional)</Label>
+                  <Textarea
+                    placeholder="Why are you clearing the intro owner?"
                     value={ownerOverrideReason}
                     onChange={(e) => setOwnerOverrideReason(e.target.value)}
                     rows={2}
@@ -942,10 +1026,11 @@ export default function IntroBookingsEditor() {
               </Button>
               <Button 
                 onClick={handleConfirmSetOwner} 
-                disabled={!newIntroOwner || isSaving || (ownerBooking?.intro_owner_locked && !ownerOverrideReason)}
+                disabled={isSaving || (ownerBooking?.intro_owner_locked && newIntroOwner && newIntroOwner !== '__CLEAR__' && !ownerOverrideReason)}
+                variant={newIntroOwner === '__CLEAR__' ? 'secondary' : 'default'}
               >
                 {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <UserCheck className="w-4 h-4 mr-1" />}
-                Set Owner
+                {newIntroOwner === '__CLEAR__' ? 'Clear Owner' : 'Set Owner'}
               </Button>
             </DialogFooter>
           </DialogContent>
