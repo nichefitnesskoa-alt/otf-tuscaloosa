@@ -746,16 +746,14 @@ export default function ShiftRecap() {
                 />
               ))}
               
-              {introsBooked.length < 5 && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={addIntroBooking}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another ({introsBooked.length}/5)
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addIntroBooking}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Another
+              </Button>
             </>
           )}
         </CardContent>
@@ -795,16 +793,14 @@ export default function ShiftRecap() {
                 />
               ))}
               
-              {introsRun.length < 5 && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={addIntroRun}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another ({introsRun.length}/5)
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addIntroRun}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Another
+              </Button>
             </>
           )}
         </CardContent>
@@ -844,16 +840,14 @@ export default function ShiftRecap() {
                 />
               ))}
               
-              {sales.length < 5 && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={addSale}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another ({sales.length}/5)
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addSale}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Another
+              </Button>
             </>
           )}
         </CardContent>
