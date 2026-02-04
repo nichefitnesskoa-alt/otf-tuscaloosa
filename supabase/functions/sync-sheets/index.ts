@@ -1386,6 +1386,103 @@ serve(async (req) => {
         break;
       }
 
+      case 'sync_all_bookings': {
+        // Bulk sync all bookings from database to Google Sheets
+        // This is for backfilling bookings that weren't synced properly
+        const { data: bookings } = await supabase
+          .from('intros_booked')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (!bookings || bookings.length === 0) {
+          result = { success: true, message: 'No bookings to sync', synced: 0 };
+          break;
+        }
+
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        };
+
+        let synced = 0;
+        let skipped = 0;
+        let errors = 0;
+
+        for (const booking of bookings) {
+          try {
+            const bookingId = booking.booking_id || `booking_${booking.id.substring(0, 8)}`;
+            const introDate = booking.class_date || '';
+            const introTime = booking.intro_time || '';
+            const introDatetimeKey = introDate && introTime ? `${introDate}_${introTime}` : '';
+            const memberKey = normalizeName(booking.member_name || '');
+
+            const rowData = [
+              bookingId,                                                  // [0] booking_id
+              booking.member_name || '',                                  // [1] member_name
+              introDate,                                                  // [2] intro_date
+              introTime,                                                  // [3] intro_time
+              booking.lead_source || '',                                  // [4] lead_source
+              booking.fitness_goal || '',                                 // [5] notes
+              booking.intro_owner || booking.sa_working_shift || '',      // [6] intro_owner
+              '',                                                         // [7] originating_booking_id
+              booking.created_at || new Date().toISOString(),             // [8] created_at
+              introDatetimeKey,                                           // [9] intro_datetime_key
+              booking.last_edited_at || '',                               // [10] last_edited_at
+              booking.last_edited_by || '',                               // [11] last_edited_by
+              booking.edit_reason || '',                                  // [12] edit_reason
+              introDate ? 'TRUE' : 'FALSE',                               // [13] intro_date_valid
+              introTime ? 'TRUE' : 'FALSE',                               // [14] intro_time_valid
+              introDate,                                                  // [15] intro_date_normalized
+              introTime,                                                  // [16] intro_time_normalized
+              '',                                                         // [17] intro_datetime_key.1 (computed)
+              '',                                                         // [18] needs_fix_reason
+              booking.booking_status || 'ACTIVE',                         // [19] booking_status
+              '',                                                         // [20] status_reason
+              '',                                                         // [21] status_changed_at
+              '',                                                         // [22] status_changed_by
+              '',                                                         // [23] archived_at
+              memberKey,                                                  // [24] member_key
+              booking.closed_at || '',                                    // [25] closed_at
+              booking.sa_working_shift || booking.intro_owner || '',      // [26] booked_by
+            ];
+
+            // Check if booking already exists in sheet
+            const existingRow = await findRowByStableId(spreadsheetId, 'app_intro_bookings', 0, bookingId, accessToken);
+            
+            if (existingRow) {
+              // Update existing row
+              await updateSheetRow(spreadsheetId, 'app_intro_bookings', existingRow, rowData, accessToken);
+              skipped++;
+            } else {
+              // Append new row
+              await appendToSheet(spreadsheetId, 'app_intro_bookings', [rowData], accessToken);
+              synced++;
+            }
+
+            // Update database with booking_id if needed
+            if (!booking.booking_id) {
+              await supabase.from('intros_booked')
+                .update({ booking_id: bookingId })
+                .eq('id', booking.id);
+            }
+          } catch (err) {
+            console.error(`Error syncing booking ${booking.id}:`, err);
+            errors++;
+          }
+        }
+
+        console.log(`sync_all_bookings complete: ${synced} synced, ${skipped} updated, ${errors} errors`);
+
+        result = { 
+          success: true, 
+          synced, 
+          updated: skipped,
+          errors,
+          total: bookings.length,
+          message: `Synced ${synced} new, updated ${skipped}, ${errors} errors`
+        };
+        break;
+      }
+
       case 'auto_link_runs': {
         // Auto-link runs to bookings by member name and date
         const { data: unlinkedRuns } = await supabase
