@@ -29,7 +29,7 @@ export default function Login() {
         <h1 className="text-3xl font-black text-background tracking-tight">
           ORANGETHEORY
         </h1>
-        <p className="text-background/60 text-sm mt-1">Shift Manager</p>
+        <p className="text-background/60 text-sm mt-1">Shift Recap</p>
       </div>
 
       <Card className="w-full max-w-sm border-0 shadow-2xl">
