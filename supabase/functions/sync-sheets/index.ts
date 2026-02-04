@@ -145,17 +145,19 @@ async function getAccessToken(): Promise<string> {
 }
 
 // Sheet tab definitions with proper headers
+// IMPORTANT: booked_by moved near front (after notes); intro_owner separate
 const SHEET_DEFINITIONS: Record<string, string[]> = {
   'app_shifts': [
     'shift_id', 'staff_name', 'shift_date', 'shift_time', 'calls', 'texts', 'dms', 'emails',
     'submitted_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ],
   'app_intro_bookings': [
-    'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes', 'intro_owner',
-    'originating_booking_id', 'created_at', 'intro_datetime_key', 'last_edited_at', 'last_edited_by',
-    'edit_reason', 'intro_date_valid', 'intro_time_valid', 'intro_date_normalized', 'intro_time_normalized',
-    'intro_datetime_key.1', 'needs_fix_reason', 'booking_status', 'status_reason', 'status_changed_at',
-    'status_changed_by', 'archived_at', 'member_key', 'closed_at', 'booked_by'
+    // booked_by at position 6 (near front after notes), intro_owner at position 7
+    'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes',
+    'booked_by', 'intro_owner', 'originating_booking_id', 'created_at', 'intro_datetime_key',
+    'last_edited_at', 'last_edited_by', 'edit_reason', 'intro_date_valid', 'intro_time_valid',
+    'intro_date_normalized', 'intro_time_normalized', 'needs_fix_reason', 'booking_status',
+    'status_reason', 'status_changed_at', 'status_changed_by', 'archived_at', 'member_key', 'closed_at'
   ],
   'app_intro_runs': [
     'run_id', 'booking_id', 'run_date', 'run_time', 'outcome', 'goal_quality', 'pricing_engagement',
@@ -360,7 +362,7 @@ async function findRowByStableId(
   return null;
 }
 
-// Column definitions for each sheet tab
+// Column definitions for each sheet tab (must match SHEET_DEFINITIONS order)
 const SHEET_COLUMNS = {
   app_shifts: [
     'shift_id', 'staff_name', 'shift_date', 'shift_type', 
@@ -368,11 +370,12 @@ const SHEET_COLUMNS = {
     'created_at', 'submitted_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
   ],
   app_intro_bookings: [
+    // booked_by at position 6, intro_owner at position 7
     'booking_id', 'member_name', 'intro_date', 'intro_time', 'lead_source', 'notes',
-    'member_key', 'booking_status', 'status_reason', 'status_changed_at', 'status_changed_by',
-    'originating_booking_id', 'closed_at', 'closed_sale_id',
-    'booked_by', 'intro_owner',  // New: booking credit vs commission owner
-    'created_at', 'last_edited_at', 'last_edited_by', 'edit_reason'
+    'booked_by', 'intro_owner', 'originating_booking_id', 'created_at', 'intro_datetime_key',
+    'last_edited_at', 'last_edited_by', 'edit_reason', 'intro_date_valid', 'intro_time_valid',
+    'intro_date_normalized', 'intro_time_normalized', 'needs_fix_reason', 'booking_status',
+    'status_reason', 'status_changed_at', 'status_changed_by', 'archived_at', 'member_key', 'closed_at'
   ],
   app_intro_runs: [
     'run_id', 'booking_id', 'member_name', 'run_date', 'run_time', 'lead_source', 
@@ -925,14 +928,15 @@ serve(async (req) => {
 
       case 'sync_booking': {
         // Sync a single booking to Google Sheets
-        // Column order per spec (27 columns):
+        // UPDATED column order (26 columns) matching SHEET_DEFINITIONS:
         // [0] booking_id, [1] member_name, [2] intro_date, [3] intro_time,
-        // [4] lead_source, [5] notes, [6] intro_owner, [7] originating_booking_id,
-        // [8] created_at, [9] intro_datetime_key, [10] last_edited_at, [11] last_edited_by,
-        // [12] edit_reason, [13] intro_date_valid, [14] intro_time_valid, [15] intro_date_normalized,
-        // [16] intro_time_normalized, [17] intro_datetime_key.1, [18] needs_fix_reason,
-        // [19] booking_status, [20] status_reason, [21] status_changed_at, [22] status_changed_by,
-        // [23] archived_at, [24] member_key, [25] closed_at, [26] booked_by
+        // [4] lead_source, [5] notes, [6] booked_by, [7] intro_owner,
+        // [8] originating_booking_id, [9] created_at, [10] intro_datetime_key,
+        // [11] last_edited_at, [12] last_edited_by, [13] edit_reason,
+        // [14] intro_date_valid, [15] intro_time_valid, [16] intro_date_normalized,
+        // [17] intro_time_normalized, [18] needs_fix_reason, [19] booking_status,
+        // [20] status_reason, [21] status_changed_at, [22] status_changed_by,
+        // [23] archived_at, [24] member_key, [25] closed_at
         
         const booking = data;
         const bookingId = booking.booking_id || `booking_${booking.id}`;
@@ -946,6 +950,11 @@ serve(async (req) => {
         const introTime = booking.intro_time || '';
         const introDatetimeKey = introDate && introTime ? `${introDate}_${introTime}` : '';
         
+        // booked_by = who booked (sa_working_shift from DB or explicit booked_by)
+        // intro_owner = only set when intro is RUN the first time
+        const bookedBy = booking.booked_by || booking.sa_working_shift || '';
+        const introOwner = booking.intro_owner || ''; // Empty at booking time, set on run
+        
         const rowData = [
           bookingId,                                                  // [0] booking_id
           booking.member_name || '',                                  // [1] member_name
@@ -953,18 +962,18 @@ serve(async (req) => {
           introTime,                                                  // [3] intro_time
           booking.lead_source || '',                                  // [4] lead_source
           booking.fitness_goal || booking.notes || '',                // [5] notes
-          booking.intro_owner || booking.booked_by || '',             // [6] intro_owner - CRITICAL: Must be staff name
-          booking.originating_booking_id || '',                       // [7] originating_booking_id
-          booking.created_at || new Date().toISOString(),             // [8] created_at
-          introDatetimeKey,                                           // [9] intro_datetime_key
-          editedBy ? new Date().toISOString() : '',                   // [10] last_edited_at
-          editedBy || '',                                             // [11] last_edited_by
-          editReason || '',                                           // [12] edit_reason
-          introDate ? 'TRUE' : 'FALSE',                               // [13] intro_date_valid
-          introTime ? 'TRUE' : 'FALSE',                               // [14] intro_time_valid
-          introDate,                                                  // [15] intro_date_normalized
-          introTime,                                                  // [16] intro_time_normalized
-          '',                                                         // [17] intro_datetime_key.1 (computed)
+          bookedBy,                                                   // [6] booked_by (booking credit)
+          introOwner,                                                 // [7] intro_owner (commission owner - empty at booking time)
+          booking.originating_booking_id || '',                       // [8] originating_booking_id
+          booking.created_at || new Date().toISOString(),             // [9] created_at
+          introDatetimeKey,                                           // [10] intro_datetime_key
+          editedBy ? new Date().toISOString() : '',                   // [11] last_edited_at
+          editedBy || '',                                             // [12] last_edited_by
+          editReason || '',                                           // [13] edit_reason
+          introDate ? 'TRUE' : 'FALSE',                               // [14] intro_date_valid
+          introTime ? 'TRUE' : 'FALSE',                               // [15] intro_time_valid
+          introDate,                                                  // [16] intro_date_normalized
+          introTime,                                                  // [17] intro_time_normalized
           '',                                                         // [18] needs_fix_reason
           booking.booking_status || 'ACTIVE',                         // [19] booking_status
           booking.status_reason || '',                                // [20] status_reason
@@ -973,10 +982,9 @@ serve(async (req) => {
           '',                                                         // [23] archived_at
           memberKey,                                                  // [24] member_key
           booking.closed_at || '',                                    // [25] closed_at
-          booking.booked_by || booking.intro_owner || '',             // [26] booked_by
         ];
 
-        console.log('Writing to app_intro_bookings:', { bookingId, intro_owner: rowData[6], booked_by: rowData[26], arrayLength: rowData.length });
+        console.log('Writing to app_intro_bookings:', { bookingId, booked_by: rowData[6], intro_owner: rowData[7], arrayLength: rowData.length });
 
         const existingRow = await findRowByStableId(spreadsheetId, 'app_intro_bookings', 0, bookingId, accessToken);
         
@@ -986,14 +994,20 @@ serve(async (req) => {
           await appendToSheet(spreadsheetId, 'app_intro_bookings', [rowData], accessToken);
         }
 
+        // Update database - don't overwrite intro_owner if it's already set
+        const dbUpdate: Record<string, unknown> = { 
+          booking_id: bookingId,
+          last_edited_at: editedBy ? new Date().toISOString() : undefined,
+          last_edited_by: editedBy || undefined,
+          edit_reason: editReason || undefined,
+        };
+        // Only update intro_owner if explicitly provided and not empty
+        if (booking.intro_owner) {
+          dbUpdate.intro_owner = booking.intro_owner;
+        }
+        
         await supabase.from('intros_booked')
-          .update({ 
-            booking_id: bookingId,
-            intro_owner: booking.intro_owner || booking.booked_by || undefined,
-            last_edited_at: editedBy ? new Date().toISOString() : undefined,
-            last_edited_by: editedBy || undefined,
-            edit_reason: editReason || undefined,
-          })
+          .update(dbUpdate)
           .eq('id', booking.id);
 
         result = { success: true, bookingId };
@@ -1544,6 +1558,10 @@ serve(async (req) => {
             const introDatetimeKey = introDate && introTime ? `${introDate}_${introTime}` : '';
             const memberKey = normalizeName(booking.member_name || '');
 
+            // booked_by = sa_working_shift, intro_owner only if set
+            const bookedBy = booking.sa_working_shift || '';
+            const introOwner = booking.intro_owner || '';
+            
             const rowData = [
               bookingId,                                                  // [0] booking_id
               booking.member_name || '',                                  // [1] member_name
@@ -1551,18 +1569,18 @@ serve(async (req) => {
               introTime,                                                  // [3] intro_time
               booking.lead_source || '',                                  // [4] lead_source
               booking.fitness_goal || '',                                 // [5] notes
-              booking.intro_owner || booking.sa_working_shift || '',      // [6] intro_owner
-              '',                                                         // [7] originating_booking_id
-              booking.created_at || new Date().toISOString(),             // [8] created_at
-              introDatetimeKey,                                           // [9] intro_datetime_key
-              booking.last_edited_at || '',                               // [10] last_edited_at
-              booking.last_edited_by || '',                               // [11] last_edited_by
-              booking.edit_reason || '',                                  // [12] edit_reason
-              introDate ? 'TRUE' : 'FALSE',                               // [13] intro_date_valid
-              introTime ? 'TRUE' : 'FALSE',                               // [14] intro_time_valid
-              introDate,                                                  // [15] intro_date_normalized
-              introTime,                                                  // [16] intro_time_normalized
-              '',                                                         // [17] intro_datetime_key.1 (computed)
+              bookedBy,                                                   // [6] booked_by (booking credit)
+              introOwner,                                                 // [7] intro_owner (commission - empty if not run yet)
+              '',                                                         // [8] originating_booking_id
+              booking.created_at || new Date().toISOString(),             // [9] created_at
+              introDatetimeKey,                                           // [10] intro_datetime_key
+              booking.last_edited_at || '',                               // [11] last_edited_at
+              booking.last_edited_by || '',                               // [12] last_edited_by
+              booking.edit_reason || '',                                  // [13] edit_reason
+              introDate ? 'TRUE' : 'FALSE',                               // [14] intro_date_valid
+              introTime ? 'TRUE' : 'FALSE',                               // [15] intro_time_valid
+              introDate,                                                  // [16] intro_date_normalized
+              introTime,                                                  // [17] intro_time_normalized
               '',                                                         // [18] needs_fix_reason
               booking.booking_status || 'ACTIVE',                         // [19] booking_status
               '',                                                         // [20] status_reason
@@ -1571,7 +1589,6 @@ serve(async (req) => {
               '',                                                         // [23] archived_at
               memberKey,                                                  // [24] member_key
               booking.closed_at || '',                                    // [25] closed_at
-              booking.sa_working_shift || booking.intro_owner || '',      // [26] booked_by
             ];
 
             // Check if booking already exists in sheet
