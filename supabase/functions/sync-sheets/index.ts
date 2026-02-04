@@ -371,31 +371,63 @@ serve(async (req) => {
           }
         }
 
+        // Helper to get value from column with fallback names
+        const getColValue = (row: string[], colMap: Record<string, number>, ...names: string[]): string => {
+          for (const name of names) {
+            const idx = colMap[name.toLowerCase().trim()];
+            if (idx !== undefined && row[idx] !== undefined) {
+              return row[idx];
+            }
+          }
+          return '';
+        };
+
+        // Helper to safely parse int with NaN handling
+        const safeParseInt = (val: string): number => {
+          if (!val || val === '' || val.toLowerCase() === 'nan') return 0;
+          const num = parseInt(val);
+          return isNaN(num) ? 0 : num;
+        };
+
         // Import app_shifts
         try {
           const rows = await readFromSheet(spreadsheetId, 'app_shifts', accessToken);
+          console.log(`app_shifts: Found ${rows.length} rows, headers:`, rows[0]);
+          
           if (rows.length > 1) {
             const headers = rows[0];
             const colMap: Record<string, number> = {};
             headers.forEach((h, i) => { colMap[h.toLowerCase().trim()] = i; });
+            console.log('app_shifts colMap:', colMap);
 
             for (let i = 1; i < rows.length; i++) {
               const row = rows[i];
-              const shiftId = row[colMap['shift_id']];
+              const shiftId = getColValue(row, colMap, 'shift_id');
               if (!shiftId) { importResults.shifts.skipped++; continue; }
+
+              // Support both naming conventions: calls/calls_made, texts/texts_sent, etc.
+              const callsVal = getColValue(row, colMap, 'calls', 'calls_made');
+              const textsVal = getColValue(row, colMap, 'texts', 'texts_sent');
+              const dmsVal = getColValue(row, colMap, 'dms', 'dms_sent');
+              const emailsVal = getColValue(row, colMap, 'emails', 'emails_sent');
 
               const shiftData = {
                 shift_id: shiftId,
-                staff_name: row[colMap['staff_name']] || 'Unknown',
-                shift_date: parseDate(row[colMap['shift_date']] || '') || new Date().toISOString().split('T')[0],
-                shift_type: row[colMap['shift_type']] || 'AM Shift',
-                calls_made: parseInt(row[colMap['calls_made']]) || 0,
-                texts_sent: parseInt(row[colMap['texts_sent']]) || 0,
-                emails_sent: parseInt(row[colMap['emails_sent']]) || 0,
-                dms_sent: parseInt(row[colMap['dms_sent']]) || 0,
+                staff_name: getColValue(row, colMap, 'staff_name') || 'Unknown',
+                shift_date: parseDate(getColValue(row, colMap, 'shift_date')) || new Date().toISOString().split('T')[0],
+                shift_type: getColValue(row, colMap, 'shift_type', 'shift_time') || 'AM Shift',
+                calls_made: safeParseInt(callsVal),
+                texts_sent: safeParseInt(textsVal),
+                emails_sent: safeParseInt(emailsVal),
+                dms_sent: safeParseInt(dmsVal),
                 synced_to_sheets: true,
                 sheets_row_number: i + 1,
               };
+
+              // Log first few rows for debugging
+              if (i <= 3) {
+                console.log(`app_shifts row ${i}:`, { raw: { callsVal, textsVal, dmsVal, emailsVal }, parsed: shiftData });
+              }
 
               const { data: existing } = await supabase
                 .from('shift_recaps')
