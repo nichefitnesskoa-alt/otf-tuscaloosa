@@ -20,6 +20,7 @@ import PayPeriodCommission from '@/components/PayPeriodCommission';
 import IntroBookingsEditor from '@/components/admin/IntroBookingsEditor';
 import IntroRunsEditor from '@/components/admin/IntroRunsEditor';
 import FixBookingAttribution from '@/components/admin/FixBookingAttribution';
+import EmergencySyncBookings from '@/components/admin/EmergencySyncBookings';
 import { getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -302,6 +303,12 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
+          {spreadsheetIdInput && (
+            <EmergencySyncBookings 
+              spreadsheetId={spreadsheetIdInput}
+              onSyncComplete={handleSyncComplete}
+            />
+          )}
           <FixBookingAttribution onFixComplete={handleSyncComplete} />
           <IntroBookingsEditor />
           <IntroRunsEditor />
