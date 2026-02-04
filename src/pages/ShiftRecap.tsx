@@ -189,7 +189,8 @@ export default function ShiftRecap() {
             class_date: booking.introDate,
             intro_time: booking.introTime || null,
             coach_name: 'TBD',
-            sa_working_shift: staffName, // booked_by = who booked it
+            sa_working_shift: staffName, // Legacy field (still populated for backwards compatibility)
+            booked_by: staffName,        // NEW: booked_by = who booked it
             lead_source: booking.leadSource || 'Source Not Found',
             fitness_goal: booking.notes || null,
             shift_recap_id: shiftData.id,
@@ -346,11 +347,13 @@ export default function ShiftRecap() {
               class_date: secondIntroDate,
               intro_time: secondIntroTime,
               coach_name: 'TBD',
-              sa_working_shift: user?.name || '', // booked_by = SA scheduling the 2nd
+              sa_working_shift: user?.name || '', // Legacy field
+              booked_by: user?.name || '',        // booked_by = SA scheduling the 2nd
               lead_source: '2nd Class Intro (staff booked)',
               fitness_goal: `2nd intro - Intro owner: ${introOwner}`,
-              intro_owner: introOwner,        // carry forward from first
-              intro_owner_locked: true,       // already locked
+              intro_owner: introOwner,            // carry forward from first
+              intro_owner_locked: true,           // already locked
+              originating_booking_id: originatingId, // Link to original for chain tracking
             });
 
             // Sync the 2nd booking to Google Sheets with proper tracking

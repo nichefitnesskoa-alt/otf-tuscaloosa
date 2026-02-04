@@ -108,6 +108,7 @@ export type Database = {
       }
       intros_booked: {
         Row: {
+          booked_by: string | null
           booking_id: string | null
           booking_status: string | null
           class_date: string
@@ -130,11 +131,13 @@ export type Database = {
           lead_source: string
           linked_ig_lead_id: string | null
           member_name: string
+          originating_booking_id: string | null
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
         }
         Insert: {
+          booked_by?: string | null
           booking_id?: string | null
           booking_status?: string | null
           class_date: string
@@ -157,11 +160,13 @@ export type Database = {
           lead_source: string
           linked_ig_lead_id?: string | null
           member_name: string
+          originating_booking_id?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
         }
         Update: {
+          booked_by?: string | null
           booking_id?: string | null
           booking_status?: string | null
           class_date?: string
@@ -184,6 +189,7 @@ export type Database = {
           lead_source?: string
           linked_ig_lead_id?: string | null
           member_name?: string
+          originating_booking_id?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
@@ -194,6 +200,13 @@ export type Database = {
             columns: ["linked_ig_lead_id"]
             isOneToOne: false
             referencedRelation: "ig_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intros_booked_originating_booking_id_fkey"
+            columns: ["originating_booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
             referencedColumns: ["id"]
           },
           {
