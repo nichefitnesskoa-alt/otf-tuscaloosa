@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   ClipboardList, Phone, MessageSquare, Mail, Instagram,
-  Plus, CheckCircle, Loader2
+  Plus, CheckCircle, Loader2, Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -21,6 +21,7 @@ import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { postShiftRecapToGroupMe } from '@/lib/groupme';
 import { format } from 'date-fns';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
+import { useFormAutoSave } from '@/hooks/useFormAutoSave';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
 
 const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
 type ShiftType = typeof SHIFT_TYPES[number];
@@ -44,6 +46,11 @@ export default function ShiftRecap() {
     confirmCloseBooking, 
     clearPendingMatches 
   } = useAutoCloseBooking();
+  
+  // Auto-save hook
+  const { loadDraft, saveDraft, clearDraft, lastSaved } = useFormAutoSave(user?.name);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
   // Basic Info
   const [shiftType, setShiftType] = useState<ShiftType>('AM Shift');
@@ -70,6 +77,62 @@ export default function ShiftRecap() {
 
   // Misc
   const [notes, setNotes] = useState('');
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!isDraftLoaded && user?.name) {
+      const draft = loadDraft();
+      if (draft) {
+        setShiftType(draft.shiftType as ShiftType || 'AM Shift');
+        setDate(draft.date || new Date().toISOString().split('T')[0]);
+        setCallsMade(draft.callsMade || 0);
+        setTextsSent(draft.textsSent || 0);
+        setEmailsSent(draft.emailsSent || 0);
+        setDmsSent(draft.dmsSent || 0);
+        setIntrosBooked(draft.introsBooked || []);
+        setIntrosRun(draft.introsRun || []);
+        setSales(draft.sales || []);
+        setNotes(draft.notes || '');
+        toast.info('Draft restored', {
+          description: 'Your unsaved work has been loaded.',
+        });
+      }
+      setIsDraftLoaded(true);
+    }
+  }, [user?.name, loadDraft, isDraftLoaded]);
+
+  // Auto-save on changes (debounced)
+  useEffect(() => {
+    if (!isDraftLoaded) return;
+    
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Set new timer
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraft({
+        shiftType,
+        date,
+        callsMade,
+        textsSent,
+        emailsSent,
+        dmsSent,
+        introsBooked,
+        introsRun,
+        sales,
+        notes,
+      });
+    }, 3000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [shiftType, date, callsMade, textsSent, emailsSent, dmsSent, introsBooked, introsRun, sales, notes, saveDraft, isDraftLoaded]);
+
 
   // CRUD helpers for Intro Bookings
   const addIntroBooking = () => {
@@ -510,7 +573,8 @@ export default function ShiftRecap() {
       // Refresh dashboard data immediately
       await refreshData();
 
-      // Reset form
+      // Reset form and clear draft
+      clearDraft();
       setCallsMade(0);
       setTextsSent(0);
       setEmailsSent(0);
@@ -530,7 +594,15 @@ export default function ShiftRecap() {
   return (
     <div className="p-4 pb-8 space-y-4">
       <div className="mb-6">
-        <h1 className="text-xl font-bold">Shift Recap</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">Shift Recap</h1>
+          {lastSaved && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Save className="w-3 h-3" />
+              Draft saved {format(lastSaved, 'h:mm a')}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">
           Log your shift in under 3 minutes
         </p>

@@ -108,16 +108,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Studio Scoreboard - main metrics */}
-      <StudioScoreboard
-        introsRun={metrics.studio.introsRun}
-        introSales={metrics.studio.introSales}
-        closingRate={metrics.studio.closingRate}
-        totalCommission={metrics.studio.totalCommission}
-        goalWhyRate={metrics.studio.goalWhyRate}
-        relationshipRate={metrics.studio.relationshipRate}
-        madeAFriendRate={metrics.studio.madeAFriendRate}
-      />
+      {/* Studio Scoreboard - main metrics (or personal metrics for non-admin) */}
+      {effectiveEmployee && filteredPerSA.length > 0 ? (
+        <StudioScoreboard
+          introsRun={filteredPerSA[0].introsRun}
+          introSales={filteredPerSA[0].sales}
+          closingRate={filteredPerSA[0].closingRate}
+          totalCommission={filteredPerSA[0].commission}
+          goalWhyRate={filteredPerSA[0].goalWhyRate}
+          relationshipRate={filteredPerSA[0].relationshipRate}
+          madeAFriendRate={filteredPerSA[0].madeAFriendRate}
+        />
+      ) : (
+        <StudioScoreboard
+          introsRun={metrics.studio.introsRun}
+          introSales={metrics.studio.introSales}
+          closingRate={metrics.studio.closingRate}
+          totalCommission={metrics.studio.totalCommission}
+          goalWhyRate={metrics.studio.goalWhyRate}
+          relationshipRate={metrics.studio.relationshipRate}
+          madeAFriendRate={metrics.studio.madeAFriendRate}
+        />
+      )}
 
       {/* Leaderboards */}
       <Leaderboards 
