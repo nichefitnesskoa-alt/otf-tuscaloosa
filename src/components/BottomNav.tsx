@@ -5,8 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { path: '/shift-recap', label: 'Recap', icon: FileText },
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/recaps', label: 'Reports', icon: TrendingUp },
+  { path: '/dashboard', label: 'My Stats', icon: LayoutDashboard },
+  { path: '/recaps', label: 'Studio', icon: TrendingUp },
 ];
 
 const adminItem = { path: '/admin', label: 'Admin', icon: Settings };
