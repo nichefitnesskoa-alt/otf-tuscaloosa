@@ -715,25 +715,42 @@ export default function ShiftRecap() {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {introsBooked.map((booking, index) => (
-            <IntroBookingEntry
-              key={booking.id}
-              booking={booking}
-              index={index}
-              onUpdate={updateIntroBooking}
-              onRemove={removeIntroBooking}
-            />
-          ))}
-          
-          {introsBooked.length < 5 && (
-            <Button
-              variant="outline"
-              className="w-full"
+          {introsBooked.length === 0 ? (
+            <button
               onClick={addIntroBooking}
+              className="w-full p-6 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-colors"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Booking ({introsBooked.length}/5)
-            </Button>
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <span className="font-medium">Book an intro?</span>
+                <span className="text-xs text-muted-foreground">Tap here to add one</span>
+              </div>
+            </button>
+          ) : (
+            <>
+              {introsBooked.map((booking, index) => (
+                <IntroBookingEntry
+                  key={booking.id}
+                  booking={booking}
+                  index={index}
+                  onUpdate={updateIntroBooking}
+                  onRemove={removeIntroBooking}
+                />
+              ))}
+              
+              {introsBooked.length < 5 && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addIntroBooking}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another ({introsBooked.length}/5)
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -747,25 +764,42 @@ export default function ShiftRecap() {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {introsRun.map((run, index) => (
-            <IntroRunEntry
-              key={run.id}
-              intro={run}
-              index={index}
-              onUpdate={updateIntroRun}
-              onRemove={removeIntroRun}
-            />
-          ))}
-          
-          {introsRun.length < 5 && (
-            <Button
-              variant="outline"
-              className="w-full"
+          {introsRun.length === 0 ? (
+            <button
               onClick={addIntroRun}
+              className="w-full p-6 border-2 border-dashed border-primary/30 rounded-lg bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-colors"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Intro Run ({introsRun.length}/5)
-            </Button>
+              <div className="flex flex-col items-center gap-2 text-primary">
+                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <span className="font-medium">Run an intro today?</span>
+                <span className="text-xs text-muted-foreground">Tap here to log it</span>
+              </div>
+            </button>
+          ) : (
+            <>
+              {introsRun.map((run, index) => (
+                <IntroRunEntry
+                  key={run.id}
+                  intro={run}
+                  index={index}
+                  onUpdate={updateIntroRun}
+                  onRemove={removeIntroRun}
+                />
+              ))}
+              
+              {introsRun.length < 5 && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addIntroRun}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another ({introsRun.length}/5)
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -774,27 +808,47 @@ export default function ShiftRecap() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Sales (Outside Intro)</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            For sales not tied to an intro run
+          </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {sales.map((sale, index) => (
-            <SaleEntry
-              key={sale.id}
-              sale={sale}
-              index={index}
-              onUpdate={updateSale}
-              onRemove={removeSale}
-            />
-          ))}
-          
-          {sales.length < 5 && (
-            <Button
-              variant="outline"
-              className="w-full"
+          {sales.length === 0 ? (
+            <button
               onClick={addSale}
+              className="w-full p-6 border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/30 hover:bg-muted/50 hover:border-muted-foreground/50 transition-colors"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Sale ({sales.length}/5)
-            </Button>
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <span className="font-medium">Any other sales?</span>
+                <span className="text-xs">Tap here if you made a sale outside of an intro</span>
+              </div>
+            </button>
+          ) : (
+            <>
+              {sales.map((sale, index) => (
+                <SaleEntry
+                  key={sale.id}
+                  sale={sale}
+                  index={index}
+                  onUpdate={updateSale}
+                  onRemove={removeSale}
+                />
+              ))}
+              
+              {sales.length < 5 && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addSale}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Another ({sales.length}/5)
+                </Button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
