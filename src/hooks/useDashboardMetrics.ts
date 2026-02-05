@@ -214,17 +214,28 @@ export function useDashboardMetrics(
       introsRunCount += unlinkedRuns.length;
       saFirstRuns.push(...unlinkedRuns);
 
-      // Sales = runs by this SA with commission > 0 and buy_date in range
-      const saSales = activeRuns.filter(run => {
-        const buyDateInRange = isDateInRange(run.buy_date, dateRange);
-        return run.intro_owner === saName && run.commission_amount && run.commission_amount > 0 && buyDateInRange;
+      // Sales = runs with membership result (Premier/Elite/Basic) within date range
+      // Use buy_date if available, otherwise fall back to run_date
+      const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
+      const isMembershipSale = (result: string) => {
+        const lower = (result || '').toLowerCase();
+        return MEMBERSHIP_RESULTS.some(m => lower.includes(m));
+      };
+      
+      const saSales = saFirstRuns.filter(run => {
+        const saleDate = run.buy_date || run.run_date;
+        const saleDateInRange = isDateInRange(saleDate, dateRange);
+        return isMembershipSale(run.result) && saleDateInRange;
       });
       const salesCount = saSales.length;
       const closingRate = introsRunCount > 0 ? (salesCount / introsRunCount) * 100 : 0;
 
-      // Commission from intros
-      const introCommission = activeRuns
-        .filter(r => r.intro_owner === saName && isDateInRange(r.buy_date, dateRange))
+      // Commission from intros (use buy_date if available, otherwise run_date)
+      const introCommission = saFirstRuns
+        .filter(r => {
+          const saleDate = r.buy_date || r.run_date;
+          return isDateInRange(saleDate, dateRange) && isMembershipSale(r.result);
+        })
         .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
       
       // Commission from outside sales
@@ -300,6 +311,12 @@ export function useDashboardMetrics(
     // =========================================
     // LEAD SOURCE METRICS
     // =========================================
+    const MEMBERSHIP_RESULTS_GLOBAL = ['premier', 'elite', 'basic'];
+    const isMembershipSaleGlobal = (result: string) => {
+      const lower = (result || '').toLowerCase();
+      return MEMBERSHIP_RESULTS_GLOBAL.some(m => lower.includes(m));
+    };
+
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
@@ -310,9 +327,9 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         existing.showed++;
-        if (nonNoShowRun.commission_amount && nonNoShowRun.commission_amount > 0) {
+        if (isMembershipSaleGlobal(nonNoShowRun.result)) {
           existing.sold++;
-          existing.revenue += nonNoShowRun.commission_amount;
+          existing.revenue += nonNoShowRun.commission_amount || 0;
         }
       }
       
@@ -335,9 +352,9 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         pipelineShowed++;
-        if (nonNoShowRun.commission_amount && nonNoShowRun.commission_amount > 0) {
+        if (isMembershipSaleGlobal(nonNoShowRun.result)) {
           pipelineSold++;
-          pipelineRevenue += nonNoShowRun.commission_amount;
+          pipelineRevenue += nonNoShowRun.commission_amount || 0;
         }
       }
     });
