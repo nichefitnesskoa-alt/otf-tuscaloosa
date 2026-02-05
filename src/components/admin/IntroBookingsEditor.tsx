@@ -51,7 +51,8 @@ import {
   UserCheck,
   Archive,
   Trash2,
-  Upload
+  Upload,
+  Plus
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -135,6 +136,18 @@ export default function IntroBookingsEditor() {
   const [showHardDeleteDialog, setShowHardDeleteDialog] = useState(false);
   const [deletingBooking, setDeletingBooking] = useState<IntroBooking | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  // Create Booking dialog
+  const [showCreateBookingDialog, setShowCreateBookingDialog] = useState(false);
+  const [newBooking, setNewBooking] = useState({
+    member_name: '',
+    class_date: new Date().toISOString().split('T')[0],
+    intro_time: '',
+    coach_name: '',
+    sa_working_shift: '',
+    lead_source: '',
+    fitness_goal: '',
+  });
 
   const fetchBookings = async () => {
     setIsLoading(true);
@@ -494,6 +507,54 @@ export default function IntroBookingsEditor() {
     }
   };
 
+  // Create new booking
+  const handleCreateBooking = async () => {
+    if (!newBooking.member_name || !newBooking.sa_working_shift || !newBooking.class_date) {
+      toast.error('Member name, booked by (SA), and class date are required');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { error } = await supabase
+        .from('intros_booked')
+        .insert({
+          booking_id: bookingId,
+          member_name: newBooking.member_name,
+          class_date: newBooking.class_date,
+          intro_time: newBooking.intro_time || null,
+          coach_name: newBooking.coach_name || 'TBD',
+          sa_working_shift: newBooking.sa_working_shift,
+          booked_by: newBooking.sa_working_shift,
+          lead_source: newBooking.lead_source || 'Source Not Found',
+          fitness_goal: newBooking.fitness_goal || null,
+          booking_status: 'Active',
+        });
+
+      if (error) throw error;
+      
+      toast.success('Booking created successfully');
+      setShowCreateBookingDialog(false);
+      setNewBooking({
+        member_name: '',
+        class_date: new Date().toISOString().split('T')[0],
+        intro_time: '',
+        coach_name: '',
+        sa_working_shift: '',
+        lead_source: '',
+        fitness_goal: '',
+      });
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to create booking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Sync a single booking to Google Sheets
   const handleSyncToSheets = async (booking: IntroBooking) => {
     const spreadsheetId = getSpreadsheetId();
@@ -584,14 +645,23 @@ export default function IntroBookingsEditor() {
             Intro Bookings Editor
             <Badge variant="outline" className="ml-2">{bookings.length} total</Badge>
           </CardTitle>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={fetchBookings}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              onClick={() => setShowCreateBookingDialog(true)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Create Booking
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={fetchBookings}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -1069,6 +1139,112 @@ export default function IntroBookingsEditor() {
               >
                 {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
                 Delete Forever
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Booking Dialog */}
+        <Dialog open={showCreateBookingDialog} onOpenChange={setShowCreateBookingDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Booking</DialogTitle>
+              <DialogDescription>
+                Manually create a booking record (e.g., for linking to an unlinked intro run).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Member Name *</Label>
+                <Input
+                  value={newBooking.member_name}
+                  onChange={(e) => setNewBooking({...newBooking, member_name: e.target.value})}
+                  placeholder="Full name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Class Date *</Label>
+                  <Input
+                    type="date"
+                    value={newBooking.class_date}
+                    onChange={(e) => setNewBooking({...newBooking, class_date: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Intro Time</Label>
+                  <Input
+                    type="time"
+                    value={newBooking.intro_time}
+                    onChange={(e) => setNewBooking({...newBooking, intro_time: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Booked By (SA) *</Label>
+                <Select 
+                  value={newBooking.sa_working_shift} 
+                  onValueChange={(v) => setNewBooking({...newBooking, sa_working_shift: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select SA..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALL_STAFF.map(sa => (
+                      <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Coach</Label>
+                <Select 
+                  value={newBooking.coach_name} 
+                  onValueChange={(v) => setNewBooking({...newBooking, coach_name: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select coach..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALL_STAFF.map(sa => (
+                      <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Lead Source</Label>
+                <Select 
+                  value={newBooking.lead_source} 
+                  onValueChange={(v) => setNewBooking({...newBooking, lead_source: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SOURCES.map(source => (
+                      <SelectItem key={source} value={source}>{source}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Fitness Goal / Notes</Label>
+                <Textarea
+                  value={newBooking.fitness_goal}
+                  onChange={(e) => setNewBooking({...newBooking, fitness_goal: e.target.value})}
+                  placeholder="Optional notes about the member..."
+                  rows={2}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateBookingDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateBooking} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                Create Booking
               </Button>
             </DialogFooter>
           </DialogContent>

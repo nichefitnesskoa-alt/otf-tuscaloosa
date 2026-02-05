@@ -39,11 +39,12 @@ import {
   Search,
   Filter,
   Link,
-  LinkIcon
+  LinkIcon,
+  Plus
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ALL_STAFF } from '@/types';
+import { ALL_STAFF, LEAD_SOURCES } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 interface IntroRun {
@@ -120,6 +121,15 @@ export default function IntroRunsEditor() {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [linkingRun, setLinkingRun] = useState<IntroRun | null>(null);
   const [matchingBookings, setMatchingBookings] = useState<IntroBooking[]>([]);
+  const [showAllBookings, setShowAllBookings] = useState(false);
+  
+  // Create booking inline state
+  const [showCreateBookingInline, setShowCreateBookingInline] = useState(false);
+  const [newBookingData, setNewBookingData] = useState({
+    sa_working_shift: '',
+    lead_source: '',
+    coach_name: '',
+  });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -296,8 +306,11 @@ export default function IntroRunsEditor() {
 
   const handleOpenLinkDialog = (run: IntroRun) => {
     setLinkingRun(run);
+    setShowAllBookings(false);
+    setShowCreateBookingInline(false);
+    setNewBookingData({ sa_working_shift: '', lead_source: '', coach_name: '' });
     
-    // Find matching bookings by member name - only Active bookings
+    // Find matching bookings by member name - only Active bookings by default
     const matches = bookings.filter(b => {
       if (b.booking_status && !['Active', 'No-show'].includes(b.booking_status)) {
         return false; // Skip closed/deleted bookings
@@ -327,6 +340,76 @@ export default function IntroRunsEditor() {
     }
     
     setShowLinkDialog(true);
+  };
+
+  // Get all bookings for this member (including closed ones)
+  const getAllMatchingBookings = () => {
+    if (!linkingRun) return [];
+    return bookings.filter(b => 
+      b.member_name.toLowerCase() === linkingRun.member_name.toLowerCase()
+    );
+  };
+
+  // Create a new booking and link to this run
+  const handleCreateBookingAndLink = async () => {
+    if (!linkingRun) return;
+    
+    if (!newBookingData.sa_working_shift) {
+      toast.error('Booked By (SA) is required');
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { data: newBooking, error: bookingError } = await supabase
+        .from('intros_booked')
+        .insert({
+          booking_id: bookingId,
+          member_name: linkingRun.member_name,
+          class_date: linkingRun.run_date || new Date().toISOString().split('T')[0],
+          intro_time: linkingRun.class_time || null,
+          coach_name: newBookingData.coach_name || 'TBD',
+          sa_working_shift: newBookingData.sa_working_shift,
+          booked_by: newBookingData.sa_working_shift,
+          lead_source: newBookingData.lead_source || linkingRun.lead_source || 'Source Not Found',
+          booking_status: 'Active',
+        })
+        .select()
+        .single();
+
+      if (bookingError) throw bookingError;
+      
+      // Now link the run to this booking
+      const { error: linkError } = await supabase
+        .from('intros_run')
+        .update({
+          linked_intro_booked_id: newBooking.id,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: 'Created booking and linked',
+        })
+        .eq('id', linkingRun.id);
+
+      if (linkError) throw linkError;
+      
+      // Auto-set intro_owner if this is first non-no-show run
+      if (linkingRun.result !== 'No-show' && linkingRun.ran_by) {
+        await autoSetIntroOwnerOnBooking(newBooking.id, linkingRun.ran_by);
+      }
+      
+      toast.success('Created booking and linked run');
+      setShowLinkDialog(false);
+      setLinkingRun(null);
+      setShowCreateBookingInline(false);
+      await fetchData();
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to create booking');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleLinkToBooking = async (bookingId: string) => {
@@ -690,38 +773,159 @@ export default function IntroRunsEditor() {
                 Select a booking to link this run to: {linkingRun?.member_name}
               </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="h-[300px]">
-              {matchingBookings.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                  No matching active bookings found for this member
+            
+            {!showCreateBookingInline ? (
+              <>
+                {/* Toggle to show all bookings */}
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant={showAllBookings ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowAllBookings(!showAllBookings)}
+                  >
+                    {showAllBookings ? 'Show Active Only' : 'Show All (incl. Closed)'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCreateBookingInline(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Create New Booking
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {matchingBookings.map((booking) => (
-                    <Button
-                      key={booking.id}
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => handleLinkToBooking(booking.id)}
-                      disabled={isSaving}
-                    >
-                      <div className="text-left">
-                        <div className="font-medium">{booking.member_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {booking.class_date} {booking.intro_time} • Booked by: {booking.sa_working_shift}
-                          {booking.intro_owner && ` • Owner: ${booking.intro_owner}`}
+                
+                <ScrollArea className="h-[250px]">
+                  {(() => {
+                    const displayBookings = showAllBookings 
+                      ? getAllMatchingBookings() 
+                      : matchingBookings;
+                    
+                    if (displayBookings.length === 0) {
+                      return (
+                        <div className="text-center text-muted-foreground py-8">
+                          No matching bookings found for this member.
+                          <br />
+                          <span className="text-xs">Try "Show All" or create a new booking.</span>
                         </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="space-y-2">
+                        {displayBookings.map((booking) => (
+                          <Button
+                            key={booking.id}
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={() => handleLinkToBooking(booking.id)}
+                            disabled={isSaving}
+                          >
+                            <div className="text-left">
+                              <div className="font-medium">{booking.member_name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {booking.class_date} {booking.intro_time} • Booked by: {booking.sa_working_shift}
+                                {booking.intro_owner && ` • Owner: ${booking.intro_owner}`}
+                                {booking.booking_status && booking.booking_status !== 'Active' && (
+                                  <span className="ml-1 text-warning">({booking.booking_status})</span>
+                                )}
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
                       </div>
-                    </Button>
-                  ))}
+                    );
+                  })()}
+                </ScrollArea>
+              </>
+            ) : (
+              /* Create new booking form */
+              <div className="space-y-4">
+                <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                  <p className="text-sm font-medium">Create a new booking for {linkingRun?.member_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Date: {linkingRun?.run_date || 'N/A'} • Time: {linkingRun?.class_time || 'N/A'}
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Booked By (SA) *</Label>
+                    <Select 
+                      value={newBookingData.sa_working_shift} 
+                      onValueChange={(v) => setNewBookingData({...newBookingData, sa_working_shift: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Who booked this intro?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_STAFF.map(sa => (
+                          <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Lead Source</Label>
+                    <Select 
+                      value={newBookingData.lead_source} 
+                      onValueChange={(v) => setNewBookingData({...newBookingData, lead_source: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select source..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEAD_SOURCES.map(source => (
+                          <SelectItem key={source} value={source}>{source}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-xs">Coach</Label>
+                    <Select 
+                      value={newBookingData.coach_name} 
+                      onValueChange={(v) => setNewBookingData({...newBookingData, coach_name: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select coach..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_STAFF.map(sa => (
+                          <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              )}
-            </ScrollArea>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowLinkDialog(false)}>
-                Cancel
-              </Button>
-            </DialogFooter>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => setShowCreateBookingInline(false)}
+                  >
+                    Back
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={handleCreateBookingAndLink}
+                    disabled={isSaving || !newBookingData.sa_working_shift}
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
+                    Create & Link
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {!showCreateBookingInline && (
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowLinkDialog(false)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            )}
           </DialogContent>
         </Dialog>
       </CardContent>
