@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { 
   Edit, 
   Save, 
@@ -125,6 +126,7 @@ export default function IntroRunsEditor() {
   
   // Create booking inline state
   const [showCreateBookingInline, setShowCreateBookingInline] = useState(false);
+  const [isSelfBookedInline, setIsSelfBookedInline] = useState(false);
   const [newBookingData, setNewBookingData] = useState({
     sa_working_shift: '',
     lead_source: '',
@@ -354,14 +356,20 @@ export default function IntroRunsEditor() {
   const handleCreateBookingAndLink = async () => {
     if (!linkingRun) return;
     
-    if (!newBookingData.sa_working_shift) {
-      toast.error('Booked By (SA) is required');
+    // If not self-booked, require an SA
+    if (!isSelfBookedInline && !newBookingData.sa_working_shift) {
+      toast.error('Booked By (SA) is required when not self-booked');
       return;
     }
     
     setIsSaving(true);
     try {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const bookedBy = isSelfBookedInline ? 'Self-booked' : newBookingData.sa_working_shift;
+      const leadSource = isSelfBookedInline 
+        ? 'Online Intro Offer (self-booked)' 
+        : (newBookingData.lead_source || linkingRun.lead_source || 'Source Not Found');
       
       const { data: newBooking, error: bookingError } = await supabase
         .from('intros_booked')
@@ -371,9 +379,9 @@ export default function IntroRunsEditor() {
           class_date: linkingRun.run_date || new Date().toISOString().split('T')[0],
           intro_time: linkingRun.class_time || null,
           coach_name: newBookingData.coach_name || 'TBD',
-          sa_working_shift: newBookingData.sa_working_shift,
-          booked_by: newBookingData.sa_working_shift,
-          lead_source: newBookingData.lead_source || linkingRun.lead_source || 'Source Not Found',
+          sa_working_shift: bookedBy,
+          booked_by: bookedBy,
+          lead_source: leadSource,
           booking_status: 'Active',
         })
         .select()
@@ -403,6 +411,7 @@ export default function IntroRunsEditor() {
       setShowLinkDialog(false);
       setLinkingRun(null);
       setShowCreateBookingInline(false);
+      setIsSelfBookedInline(false);
       await fetchData();
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -847,39 +856,60 @@ export default function IntroRunsEditor() {
                     Date: {linkingRun?.run_date || 'N/A'} • Time: {linkingRun?.class_time || 'N/A'}
                   </p>
                   
-                  <div className="space-y-2">
-                    <Label className="text-xs">Booked By (SA) *</Label>
-                    <Select 
-                      value={newBookingData.sa_working_shift} 
-                      onValueChange={(v) => setNewBookingData({...newBookingData, sa_working_shift: v})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Who booked this intro?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ALL_STAFF.map(sa => (
-                          <SelectItem key={sa} value={sa}>{sa}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {/* Self-booked toggle */}
+                  <div className="flex items-center justify-between p-2 bg-background rounded border">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs">Self-booked</Label>
+                      <p className="text-xs text-muted-foreground">Member booked themselves</p>
+                    </div>
+                    <Switch
+                      checked={isSelfBookedInline}
+                      onCheckedChange={(checked) => {
+                        setIsSelfBookedInline(checked);
+                        if (checked) {
+                          setNewBookingData({...newBookingData, sa_working_shift: '', lead_source: 'Online Intro Offer (self-booked)'});
+                        }
+                      }}
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label className="text-xs">Lead Source</Label>
-                    <Select 
-                      value={newBookingData.lead_source} 
-                      onValueChange={(v) => setNewBookingData({...newBookingData, lead_source: v})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select source..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {LEAD_SOURCES.map(source => (
-                          <SelectItem key={source} value={source}>{source}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {!isSelfBookedInline && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Booked By (SA) *</Label>
+                      <Select 
+                        value={newBookingData.sa_working_shift} 
+                        onValueChange={(v) => setNewBookingData({...newBookingData, sa_working_shift: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Who booked this intro?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALL_STAFF.map(sa => (
+                            <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {!isSelfBookedInline && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Lead Source</Label>
+                      <Select 
+                        value={newBookingData.lead_source} 
+                        onValueChange={(v) => setNewBookingData({...newBookingData, lead_source: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select source..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LEAD_SOURCES.map(source => (
+                            <SelectItem key={source} value={source}>{source}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label className="text-xs">Coach</Label>
@@ -910,7 +940,7 @@ export default function IntroRunsEditor() {
                   <Button 
                     className="flex-1"
                     onClick={handleCreateBookingAndLink}
-                    disabled={isSaving || !newBookingData.sa_working_shift}
+                    disabled={isSaving || (!isSelfBookedInline && !newBookingData.sa_working_shift)}
                   >
                     {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Plus className="w-4 h-4 mr-1" />}
                     Create & Link

@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { 
   Edit, 
   Save, 
@@ -139,6 +140,7 @@ export default function IntroBookingsEditor() {
   
   // Create Booking dialog
   const [showCreateBookingDialog, setShowCreateBookingDialog] = useState(false);
+  const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [newBooking, setNewBooking] = useState({
     member_name: '',
     class_date: new Date().toISOString().split('T')[0],
@@ -509,14 +511,25 @@ export default function IntroBookingsEditor() {
 
   // Create new booking
   const handleCreateBooking = async () => {
-    if (!newBooking.member_name || !newBooking.sa_working_shift || !newBooking.class_date) {
-      toast.error('Member name, booked by (SA), and class date are required');
+    if (!newBooking.member_name || !newBooking.class_date) {
+      toast.error('Member name and class date are required');
+      return;
+    }
+    
+    // If not self-booked, require an SA
+    if (!isSelfBooked && !newBooking.sa_working_shift) {
+      toast.error('Booked By (SA) is required when not self-booked');
       return;
     }
     
     setIsSaving(true);
     try {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
+      const leadSource = isSelfBooked 
+        ? 'Online Intro Offer (self-booked)' 
+        : (newBooking.lead_source || 'Source Not Found');
       
       const { error } = await supabase
         .from('intros_booked')
@@ -526,9 +539,9 @@ export default function IntroBookingsEditor() {
           class_date: newBooking.class_date,
           intro_time: newBooking.intro_time || null,
           coach_name: newBooking.coach_name || 'TBD',
-          sa_working_shift: newBooking.sa_working_shift,
-          booked_by: newBooking.sa_working_shift,
-          lead_source: newBooking.lead_source || 'Source Not Found',
+          sa_working_shift: bookedBy,
+          booked_by: bookedBy,
+          lead_source: leadSource,
           fitness_goal: newBooking.fitness_goal || null,
           booking_status: 'Active',
         });
@@ -537,6 +550,7 @@ export default function IntroBookingsEditor() {
       
       toast.success('Booking created successfully');
       setShowCreateBookingDialog(false);
+      setIsSelfBooked(false);
       setNewBooking({
         member_name: '',
         class_date: new Date().toISOString().split('T')[0],
@@ -1180,22 +1194,42 @@ export default function IntroBookingsEditor() {
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Booked By (SA) *</Label>
-                <Select 
-                  value={newBooking.sa_working_shift} 
-                  onValueChange={(v) => setNewBooking({...newBooking, sa_working_shift: v})}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select SA..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_STAFF.map(sa => (
-                      <SelectItem key={sa} value={sa}>{sa}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              
+              {/* Self-booked toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="space-y-0.5">
+                  <Label>Self-booked</Label>
+                  <p className="text-xs text-muted-foreground">Member booked themselves online</p>
+                </div>
+                <Switch
+                  checked={isSelfBooked}
+                  onCheckedChange={(checked) => {
+                    setIsSelfBooked(checked);
+                    if (checked) {
+                      setNewBooking({...newBooking, sa_working_shift: '', lead_source: 'Online Intro Offer (self-booked)'});
+                    }
+                  }}
+                />
               </div>
+              
+              {!isSelfBooked && (
+                <div className="space-y-2">
+                  <Label>Booked By (SA) *</Label>
+                  <Select 
+                    value={newBooking.sa_working_shift} 
+                    onValueChange={(v) => setNewBooking({...newBooking, sa_working_shift: v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SA..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_STAFF.map(sa => (
+                        <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Coach</Label>
                 <Select 
