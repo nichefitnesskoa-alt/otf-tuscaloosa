@@ -210,12 +210,15 @@ export default function IntroRunsEditor() {
       // Normalize outcome on save
       const normalizedResult = normalizeOutcome(editingRun.result);
       
+      // Determine intro_owner: use ran_by if not already set
+      const effectiveIntroOwner = editingRun.intro_owner || editingRun.ran_by || null;
+      
       const updateData = {
         member_name: editingRun.member_name,
         run_date: editingRun.run_date,
         class_time: editingRun.class_time,
         lead_source: editingRun.lead_source,
-        intro_owner: editingRun.intro_owner,
+        intro_owner: effectiveIntroOwner,
         ran_by: editingRun.ran_by,
         result: normalizedResult,
         goal_quality: editingRun.goal_quality,
@@ -233,11 +236,11 @@ export default function IntroRunsEditor() {
 
       if (error) throw error;
       
-      // Auto-set intro_owner on linked booking if this is first non-no-show run
+      // REAL-TIME SYNC: Always sync intro_owner to linked booking on save
       if (editingRun.linked_intro_booked_id && 
           normalizedResult !== 'No-show' && 
-          editingRun.ran_by) {
-        await autoSetIntroOwnerOnBooking(editingRun.linked_intro_booked_id, editingRun.ran_by);
+          effectiveIntroOwner) {
+        await autoSetIntroOwnerOnBooking(editingRun.linked_intro_booked_id, effectiveIntroOwner);
       }
       
       toast.success('Run updated successfully');
