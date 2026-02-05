@@ -512,6 +512,7 @@ export default function ShiftRecap() {
             commission_amount: sale.commissionAmount,
             intro_owner: user?.name || null,
             shift_recap_id: shiftData.id,
+            date_closed: date, // Use shift date as date_closed for pay period filtering
           });
 
           // Auto-close any matching active bookings

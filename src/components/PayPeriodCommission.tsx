@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DollarSign, Users, Download, Loader2 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
+import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 
 // Pay period anchor: January 26, 2026 (biweekly)
 const PAY_PERIOD_ANCHOR = new Date('2026-01-26');
@@ -14,7 +14,6 @@ const PAY_PERIOD_ANCHOR = new Date('2026-01-26');
 function generatePayPeriods(): { label: string; start: Date; end: Date }[] {
   const periods: { label: string; start: Date; end: Date }[] = [];
   const anchor = PAY_PERIOD_ANCHOR.getTime();
-  const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   const periodMs = 14 * dayMs;
   
@@ -46,7 +45,6 @@ export default function PayPeriodCommission() {
   const [totalCommission, setTotalCommission] = useState(0);
 
   const payPeriods = useMemo(() => generatePayPeriods(), []);
-  const spreadsheetId = getSpreadsheetId();
 
   // Auto-select current period on mount
   useEffect(() => {
@@ -72,30 +70,39 @@ export default function PayPeriodCommission() {
         const startDate = format(period.start, 'yyyy-MM-dd');
         const endDate = format(period.end, 'yyyy-MM-dd');
 
-        // Fetch intro runs with commission in this period
+        // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
-          .select('intro_owner, sa_name, commission_amount, run_date, buy_date')
-          .or(`run_date.gte.${startDate},buy_date.gte.${startDate}`)
-          .or(`run_date.lte.${endDate},buy_date.lte.${endDate}`)
+          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at')
           .gt('commission_amount', 0);
 
         if (runsError) throw runsError;
 
-        // Fetch sales outside intro in this period
+        // Fetch sales outside intro - fetch all with commission, filter in JS
         const { data: sales, error: salesError } = await supabase
           .from('sales_outside_intro')
-          .select('intro_owner, commission_amount, pay_period_start, pay_period_end')
-          .gte('pay_period_start', startDate)
-          .lte('pay_period_end', endDate);
+          .select('intro_owner, commission_amount, date_closed, created_at')
+          .gt('commission_amount', 0);
 
         if (salesError) throw salesError;
+
+        // Filter runs by date range using proper date logic (buy_date || run_date)
+        const filteredRuns = (runs || []).filter(run => {
+          const saleDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
+          return isDateInRange(saleDate, startDate, endDate);
+        });
+
+        // Filter sales by date range using proper date logic (date_closed || created_at)
+        const filteredSales = (sales || []).filter(sale => {
+          const saleDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
+          return isDateInRange(saleDate, startDate, endDate);
+        });
 
         // Aggregate by intro_owner
         const payrollMap: Record<string, PayrollEntry> = {};
 
         // Process runs - use intro_owner, fallback to sa_name
-        for (const run of (runs || [])) {
+        for (const run of filteredRuns) {
           const owner = run.intro_owner || run.sa_name || 'Unassigned';
           if (!payrollMap[owner]) {
             payrollMap[owner] = { name: owner, total: 0, sales: 0 };
@@ -105,7 +112,7 @@ export default function PayPeriodCommission() {
         }
 
         // Process sales
-        for (const sale of (sales || [])) {
+        for (const sale of filteredSales) {
           const owner = sale.intro_owner || 'Unassigned';
           if (!payrollMap[owner]) {
             payrollMap[owner] = { name: owner, total: 0, sales: 0 };
