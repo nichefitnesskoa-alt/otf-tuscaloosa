@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
 import { isMembershipSale, getSaleDate } from '@/lib/sales-detection';
+import { capitalizeName } from '@/lib/utils';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
@@ -40,6 +41,7 @@ interface MembershipPurchase {
   commission_amount: number;
   intro_owner: string | null;
   booked_by: string | null;
+  lead_source: string | null;
   source: 'intro_run' | 'outside_intro';
 }
 
@@ -76,6 +78,7 @@ export default function MembershipPurchasesPanel() {
           intro_owner,
           ran_by,
           sa_name,
+          lead_source,
           linked_intro_booked_id
         `)
         .gt('commission_amount', 0);
@@ -90,16 +93,20 @@ export default function MembershipPurchasesPanel() {
           created_at,
           membership_type,
           commission_amount,
-          intro_owner
+          intro_owner,
+          lead_source
         `);
 
-      // Fetch bookings for booked_by info
+      // Fetch bookings for booked_by and lead_source info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by');
+        .select('id, sa_working_shift, booked_by, lead_source');
 
       const bookingMap = new Map(
-        (bookings || []).map(b => [b.id, b.sa_working_shift || b.booked_by || null])
+        (bookings || []).map(b => [b.id, { 
+          bookedBy: b.sa_working_shift || b.booked_by || null,
+          leadSource: b.lead_source || null
+        }])
       );
 
       const allPurchases: MembershipPurchase[] = [];
@@ -111,14 +118,17 @@ export default function MembershipPurchasesPanel() {
         const purchaseDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
         if (purchaseDate < startDate || purchaseDate > endDate) return;
 
+        const bookingInfo = run.linked_intro_booked_id ? bookingMap.get(run.linked_intro_booked_id) : null;
+
         allPurchases.push({
           id: run.id,
-          member_name: run.member_name,
+          member_name: capitalizeName(run.member_name) || run.member_name,
           purchase_date: purchaseDate,
           membership_type: run.result,
           commission_amount: run.commission_amount || 0,
-          intro_owner: run.intro_owner || run.ran_by || run.sa_name || null,
-          booked_by: run.linked_intro_booked_id ? bookingMap.get(run.linked_intro_booked_id) || null : null,
+          intro_owner: capitalizeName(run.intro_owner || run.ran_by || run.sa_name),
+          booked_by: capitalizeName(bookingInfo?.bookedBy || null),
+          lead_source: run.lead_source || bookingInfo?.leadSource || null,
           source: 'intro_run',
         });
       });
@@ -130,12 +140,13 @@ export default function MembershipPurchasesPanel() {
 
         allPurchases.push({
           id: sale.id,
-          member_name: sale.member_name,
+          member_name: capitalizeName(sale.member_name) || sale.member_name,
           purchase_date: purchaseDate,
           membership_type: sale.membership_type,
           commission_amount: sale.commission_amount || 0,
-          intro_owner: sale.intro_owner,
+          intro_owner: capitalizeName(sale.intro_owner),
           booked_by: null,
+          lead_source: sale.lead_source,
           source: 'outside_intro',
         });
       });
@@ -253,6 +264,7 @@ export default function MembershipPurchasesPanel() {
                   <TableHead>Type</TableHead>
                   <TableHead>Commission</TableHead>
                   <TableHead>Ran By</TableHead>
+                  <TableHead>Lead Source</TableHead>
                   <TableHead>Booked By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -278,6 +290,9 @@ export default function MembershipPurchasesPanel() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {purchase.intro_owner || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {purchase.lead_source || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-sm">
                       {purchase.booked_by || <span className="text-muted-foreground">—</span>}
