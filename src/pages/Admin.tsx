@@ -25,6 +25,7 @@ import EmergencySyncBookings from '@/components/admin/EmergencySyncBookings';
 import EmergencySyncRuns from '@/components/admin/EmergencySyncRuns';
 import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
+import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 import { getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -316,6 +317,9 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
+          {/* Unified Client Journey View - Primary data management */}
+          <ClientJourneyPanel />
+          
           <MembershipPurchasesPanel />
           {spreadsheetIdInput && (
             <>
@@ -331,6 +335,7 @@ export default function Admin() {
           )}
           <FixBookingAttribution onFixComplete={handleSyncComplete} />
           <ShiftRecapsEditor />
+          {/* Legacy editors - kept for detailed individual record editing */}
           <IntroBookingsEditor />
           <IntroRunsEditor />
         </TabsContent>
