@@ -17,8 +17,6 @@ import DataHealthPanel from '@/components/admin/DataHealthPanel';
 import SheetsSyncTest from '@/components/admin/SheetsSyncTest';
 import PayrollExport from '@/components/admin/PayrollExport';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
-import IntroBookingsEditor from '@/components/admin/IntroBookingsEditor';
-import IntroRunsEditor from '@/components/admin/IntroRunsEditor';
 import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 import FixBookingAttribution from '@/components/admin/FixBookingAttribution';
 import EmergencySyncBookings from '@/components/admin/EmergencySyncBookings';
@@ -335,9 +333,6 @@ export default function Admin() {
           )}
           <FixBookingAttribution onFixComplete={handleSyncComplete} />
           <ShiftRecapsEditor />
-          {/* Legacy editors - kept for detailed individual record editing */}
-          <IntroBookingsEditor />
-          <IntroRunsEditor />
         </TabsContent>
 
         {/* Health Tab */}
