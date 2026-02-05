@@ -121,6 +121,11 @@ interface ClientRun {
   notes: string | null;
   commission_amount: number | null;
   linked_intro_booked_id: string | null;
+  // Lead measures fields
+  goal_why_captured: string | null;
+  relationship_experience: string | null;
+  made_a_friend: boolean | null;
+  buy_date: string | null;
 }
 
 interface ClientJourney {
@@ -233,7 +238,7 @@ export default function ClientJourneyPanel() {
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
-          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id')
+          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date')
           .order('run_date', { ascending: false }),
       ]);
 
@@ -733,6 +738,13 @@ export default function ClientJourneyPanel() {
           pricing_engagement: editingRun.pricing_engagement,
           notes: editingRun.notes,
           linked_intro_booked_id: editingRun.linked_intro_booked_id,
+          // Lead measures
+          goal_why_captured: editingRun.goal_why_captured,
+          relationship_experience: editingRun.relationship_experience,
+          made_a_friend: editingRun.made_a_friend,
+          // Sale fields
+          commission_amount: editingRun.commission_amount,
+          buy_date: editingRun.buy_date,
           last_edited_at: new Date().toISOString(),
           last_edited_by: user?.name || 'Admin',
           edit_reason: editRunReason || 'Admin edit',
@@ -1343,7 +1355,7 @@ export default function ClientJourneyPanel() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">Date</Label>
+                    <Label className="text-xs">Run Date</Label>
                     <Input
                       type="date"
                       value={editingRun.run_date || ''}
@@ -1401,6 +1413,56 @@ export default function ClientJourneyPanel() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Lead Measures Section */}
+                <div className="border-t pt-3">
+                  <Label className="text-xs font-semibold mb-2 block">Lead Measures</Label>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Goal + Why Captured</Label>
+                      <Select
+                        value={editingRun.goal_why_captured || ''}
+                        onValueChange={(v) => setEditingRun({...editingRun, goal_why_captured: v})}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="Partial">Partial</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">High Relationship Experience</Label>
+                      <Select
+                        value={editingRun.relationship_experience || ''}
+                        onValueChange={(v) => setEditingRun({...editingRun, relationship_experience: v})}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="Partial">Partial</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Made a Friend</Label>
+                      <Select
+                        value={editingRun.made_a_friend === true ? 'Yes' : editingRun.made_a_friend === false ? 'No' : ''}
+                        onValueChange={(v) => setEditingRun({...editingRun, made_a_friend: v === 'Yes'})}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quality Metrics */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Goal Quality</Label>
@@ -1431,6 +1493,31 @@ export default function ClientJourneyPanel() {
                     </Select>
                   </div>
                 </div>
+
+                {/* Commission/Sale Info */}
+                <div className="border-t pt-3">
+                  <Label className="text-xs font-semibold mb-2 block">Sale Info</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Buy Date</Label>
+                      <Input
+                        type="date"
+                        value={editingRun.buy_date || ''}
+                        onChange={(e) => setEditingRun({...editingRun, buy_date: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Commission $</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editingRun.commission_amount || ''}
+                        onChange={(e) => setEditingRun({...editingRun, commission_amount: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <Label className="text-xs">Notes</Label>
                   <Textarea
