@@ -283,6 +283,7 @@ export default function ShiftRecap() {
       for (const run of introsRun) {
         if (run.memberName && run.outcome) {
           const runId = `run_${crypto.randomUUID().substring(0, 8)}`;
+          let linkedBookingId = run.linkedBookingId;
           
           // Determine intro_owner:
           // - If linked booking already has a locked intro_owner, carry forward
@@ -291,12 +292,12 @@ export default function ShiftRecap() {
           let introOwnerLocked = false;
           let isFirstRun = true;
 
-          if (run.linkedBookingId) {
+          if (linkedBookingId) {
             // First check if the booking itself has a locked intro_owner
             const { data: linkedBooking } = await supabase
               .from('intros_booked')
               .select('intro_owner, intro_owner_locked')
-              .eq('id', run.linkedBookingId)
+              .eq('id', linkedBookingId)
               .maybeSingle();
 
             if (linkedBooking?.intro_owner_locked && linkedBooking.intro_owner) {
@@ -309,7 +310,7 @@ export default function ShiftRecap() {
               const { data: existingRuns } = await supabase
                 .from('intros_run')
                 .select('intro_owner, intro_owner_locked, result')
-                .eq('linked_intro_booked_id', run.linkedBookingId)
+                .eq('linked_intro_booked_id', linkedBookingId)
                 .neq('result', 'No-show')
                 .eq('intro_owner_locked', true)
                 .limit(1);
@@ -325,7 +326,38 @@ export default function ShiftRecap() {
               }
             }
           } else {
-            // Manual entry → this SA owns it
+            // P0 FIX: Manual entry → AUTO-CREATE BOOKING for data integrity
+            const autoBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+            const staffName = user?.name || '';
+            
+            // Create a corresponding booking record
+            const { data: newBooking, error: bookingError } = await supabase
+              .from('intros_booked')
+              .insert({
+                booking_id: autoBookingId,
+                member_name: run.memberName,
+                class_date: run.runDate,
+                intro_time: run.runTime || null,
+                coach_name: 'TBD',
+                sa_working_shift: staffName,
+                booked_by: 'Run-first entry', // Mark as auto-created
+                lead_source: run.leadSource || 'Source Not Found',
+                fitness_goal: `Auto-created from manual intro run by ${staffName}`,
+                shift_recap_id: shiftData.id,
+                intro_owner: staffName, // Runner becomes owner
+                intro_owner_locked: true,
+                booking_status: 'Active',
+              })
+              .select()
+              .single();
+
+            if (bookingError) {
+              console.error('Error auto-creating booking:', bookingError);
+            } else if (newBooking) {
+              // Link the run to the new booking
+              linkedBookingId = newBooking.id;
+            }
+
             introOwnerLocked = true;
             isFirstRun = true;
           }
@@ -356,14 +388,14 @@ export default function ShiftRecap() {
             notes: run.notes || null,
             sa_name: user?.name || null,
             commission_amount: commissionAmount,
-            linked_intro_booked_id: run.linkedBookingId || null,
+            linked_intro_booked_id: linkedBookingId || null, // Use the potentially updated linkedBookingId
             shift_recap_id: shiftData.id,
           });
 
           if (runError) throw runError;
 
           // If this is the first non-no-show run, lock intro_owner on the booking too
-          if (isFirstRun && run.linkedBookingId && run.outcome !== 'No-show') {
+          if (isFirstRun && linkedBookingId && run.outcome !== 'No-show') {
             await supabase
               .from('intros_booked')
               .update({
@@ -373,17 +405,17 @@ export default function ShiftRecap() {
                 last_edited_by: 'System (first run)',
                 edit_reason: `Intro owner set to ${introOwner} on first run`,
               })
-              .eq('id', run.linkedBookingId);
+              .eq('id', linkedBookingId);
           }
 
           // If sale outcome, close the linked booking
-          if (commissionAmount > 0 && run.linkedBookingId) {
+          if (commissionAmount > 0 && linkedBookingId) {
             await closeBookingOnSale(
               run.memberName,
               commissionAmount,
               run.outcome,
               runId,
-              run.linkedBookingId,
+              linkedBookingId,
               user?.name || 'System'
             );
           }
@@ -395,7 +427,7 @@ export default function ShiftRecap() {
             const secondIntroTime = run.secondIntroTime || null;
             
             // Determine originating booking ID for chain tracking
-            const originatingId = run.originatingBookingId || run.linkedBookingId || null;
+            const originatingId = run.originatingBookingId || linkedBookingId || null;
             
             // 2nd intro booking: booked_by = current SA, intro_owner carries forward from first run
             await supabase.from('intros_booked').insert({

@@ -255,52 +255,80 @@ export default function BookedIntroSelector({
               </div>
             ) : (
               <div className="divide-y">
-                {filteredBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className={`w-full p-3 text-left hover:bg-muted/50 transition-colors ${
-                      (booking.id === selectedBookingId || booking.booking_id === selectedBookingId) ? 'bg-primary/10' : ''
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        className="flex-1 text-left"
-                        onClick={() => {
-                          onSelect(booking);
-                          setIsExpanded(false);
-                        }}
-                      >
-                        <div className="font-medium text-sm">{booking.member_name}</div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                          <Badge variant="secondary" className="text-xs">
-                            {booking.lead_source}
-                          </Badge>
-                          {booking.class_date && (
-                            <span>{booking.class_date}</span>
-                          )}
+                {filteredBookings.map((booking) => {
+                  const daysSinceBooked = booking.class_date 
+                    ? Math.floor((Date.now() - new Date(booking.class_date).getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+                  const bookedBy = booking.sa_working_shift;
+                  
+                  return (
+                    <div
+                      key={booking.id}
+                      className={`w-full p-3 text-left hover:bg-muted/50 transition-colors ${
+                        (booking.id === selectedBookingId || booking.booking_id === selectedBookingId) ? 'bg-primary/10' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <button
+                          className="flex-1 text-left"
+                          onClick={() => {
+                            onSelect(booking);
+                            setIsExpanded(false);
+                          }}
+                        >
+                          <div className="font-medium text-sm">{booking.member_name}</div>
+                          
+                          {/* PROMINENT: Booked By display */}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${bookedBy === currentUserName ? 'bg-primary/10 text-primary border-primary/30' : 'bg-muted'}`}
+                            >
+                              📅 Booked by: {bookedBy}
+                            </Badge>
+                            {booking.intro_owner && (
+                              <Badge variant="secondary" className="text-xs">
+                                🎯 Owner: {booking.intro_owner}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {booking.lead_source}
+                            </Badge>
+                            {booking.class_date && (
+                              <span>{booking.class_date}</span>
+                            )}
+                            {daysSinceBooked !== null && daysSinceBooked > 0 && (
+                              <span className={daysSinceBooked > 7 ? 'text-warning' : ''}>
+                                ({daysSinceBooked}d ago)
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={(e) => handleShowDetails(e, booking)}
+                          >
+                            <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={(e) => handleRemoveClick(e, booking)}
+                          >
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
                         </div>
-                      </button>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => handleShowDetails(e, booking)}
-                        >
-                          <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={(e) => handleRemoveClick(e, booking)}
-                        >
-                          <X className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
