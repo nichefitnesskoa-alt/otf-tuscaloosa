@@ -181,7 +181,7 @@ export default function MembershipPurchasesPanel() {
       p.membership_type.toLowerCase().includes('basic')
     ).length;
     const withOtbeat = purchases.filter(p => 
-      p.membership_type.toLowerCase().includes('otbeat')
+      p.membership_type.toLowerCase().includes('+ otbeat')
     ).length;
 
     return { total, premierCount, eliteCount, basicCount, withOtbeat };
