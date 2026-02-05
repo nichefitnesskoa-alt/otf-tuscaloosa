@@ -47,7 +47,8 @@ import {
   MoreVertical,
   Archive,
   EyeOff,
-  Trash2
+  Trash2,
+  Wand2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -75,6 +76,8 @@ interface DataHealthStats {
   runsWithInvalidOutcome: number;
   closedBookings: number;
   archivedBookings: number;
+  corruptedIntroOwner: number;
+  missingIntroOwner: number;
 }
 
 interface DataHealthPanelProps {
@@ -165,6 +168,21 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
         (b as any).booking_status === 'Deleted (soft)'
       ).length;
 
+      // Corrupted intro_owner (timestamp instead of staff name)
+      const corruptedIntroOwner = bookings.filter(b => {
+        const owner = b.intro_owner || '';
+        return owner.includes('T') && owner.includes(':') && owner.includes('-');
+      }).length;
+
+      // Missing intro_owner on completed runs
+      const completedRuns = runs.filter(r => 
+        r.result && 
+        r.result.toLowerCase() !== 'no-show' &&
+        (r.ran_by || r.sa_name) &&
+        !r.intro_owner
+      );
+      const missingIntroOwner = completedRuns.length;
+
       // Runs in range
       const runsInRange = runs.filter(r => filterByDate(r.run_date || r.created_at.split('T')[0]));
 
@@ -238,6 +256,8 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
         runsWithInvalidOutcome: runsWithInvalidOutcome.length,
         closedBookings,
         archivedBookings,
+        corruptedIntroOwner,
+        missingIntroOwner,
       });
 
       setIssues(detectedIssues.slice(0, 25));
@@ -523,11 +543,146 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     setSelectedIssues(newSelection);
   };
 
+  // Auto-fix attribution for runs and bookings
+  const handleAutoFixAttribution = async () => {
+    setIsFixing(true);
+    let fixedCount = 0;
+    
+    try {
+      // 1. Clear corrupted intro_owner on bookings (timestamps instead of names)
+      const { data: corruptedBookings } = await supabase
+        .from('intros_booked')
+        .select('id, intro_owner')
+        .not('intro_owner', 'is', null);
+      
+      const bookingsToFix = (corruptedBookings || []).filter(b => {
+        const owner = b.intro_owner || '';
+        return owner.includes('T') && owner.includes(':') && owner.includes('-');
+      });
+
+      for (const booking of bookingsToFix) {
+        await supabase
+          .from('intros_booked')
+          .update({ 
+            intro_owner: null, 
+            intro_owner_locked: false,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Auto-fix: cleared corrupted intro_owner',
+          })
+          .eq('id', booking.id);
+        fixedCount++;
+      }
+
+      // 2. Set intro_owner on runs that have ran_by/sa_name but no intro_owner
+      const { data: runsWithoutOwner } = await supabase
+        .from('intros_run')
+        .select('id, ran_by, sa_name, intro_owner, linked_intro_booked_id, result');
+      
+      const runsToFix = (runsWithoutOwner || []).filter(r => 
+        !r.intro_owner && 
+        (r.ran_by || r.sa_name) &&
+        r.result && r.result.toLowerCase() !== 'no-show'
+      );
+
+      for (const run of runsToFix) {
+        const newOwner = run.ran_by || run.sa_name;
+        
+        // Update the run
+        await supabase
+          .from('intros_run')
+          .update({ 
+            intro_owner: newOwner,
+            intro_owner_locked: true,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Auto-fix: set intro_owner from ran_by/sa_name',
+          })
+          .eq('id', run.id);
+        
+        // If linked to a booking, update the booking too
+        if (run.linked_intro_booked_id) {
+          const { data: booking } = await supabase
+            .from('intros_booked')
+            .select('id, intro_owner, intro_owner_locked')
+            .eq('id', run.linked_intro_booked_id)
+            .single();
+          
+          if (booking && (!booking.intro_owner || !booking.intro_owner_locked)) {
+            await supabase
+              .from('intros_booked')
+              .update({ 
+                intro_owner: newOwner,
+                intro_owner_locked: true,
+                last_edited_at: new Date().toISOString(),
+                last_edited_by: user?.name || 'Admin',
+                edit_reason: 'Auto-fix: set intro_owner from linked run',
+              })
+              .eq('id', run.linked_intro_booked_id);
+          }
+        }
+        
+        fixedCount++;
+      }
+
+      // 3. Set intro_owner on bookings from their first non-no-show run
+      const { data: bookingsWithoutOwner } = await supabase
+        .from('intros_booked')
+        .select('id, intro_owner, intro_owner_locked');
+      
+      const bookingsNeedingOwner = (bookingsWithoutOwner || []).filter(b => 
+        !b.intro_owner && !b.intro_owner_locked
+      );
+
+      for (const booking of bookingsNeedingOwner) {
+        // Find linked runs
+        const { data: linkedRuns } = await supabase
+          .from('intros_run')
+          .select('id, ran_by, sa_name, result, created_at')
+          .eq('linked_intro_booked_id', booking.id)
+          .order('created_at', { ascending: true });
+        
+        // Find first non-no-show run with a ran_by
+        const firstValidRun = (linkedRuns || []).find(r => 
+          r.result && r.result.toLowerCase() !== 'no-show' && (r.ran_by || r.sa_name)
+        );
+        
+        if (firstValidRun) {
+          const newOwner = firstValidRun.ran_by || firstValidRun.sa_name;
+          await supabase
+            .from('intros_booked')
+            .update({ 
+              intro_owner: newOwner,
+              intro_owner_locked: true,
+              last_edited_at: new Date().toISOString(),
+              last_edited_by: user?.name || 'Admin',
+              edit_reason: 'Auto-fix: set intro_owner from first valid run',
+            })
+            .eq('id', booking.id);
+          fixedCount++;
+        }
+      }
+
+      toast.success(`Fixed ${fixedCount} attribution issues`);
+      await fetchHealthData();
+      onFixComplete();
+    } catch (error) {
+      console.error('Error auto-fixing attribution:', error);
+      toast.error('Failed to auto-fix attribution');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   const bookedByIssues = issues.filter(i => i.type === 'missing_booked_by');
   const hasHealthIssues = stats && (
     stats.runsMissingBookingId > 0 || 
     stats.bookingsMissingBookedBy > 0 || 
     stats.runsWithInvalidOutcome > 0
+  );
+  const hasAttributionIssues = stats && (
+    stats.corruptedIntroOwner > 0 || 
+    stats.missingIntroOwner > 0
   );
 
   return (
@@ -600,6 +755,47 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
               <Badge variant={stats.runsWithInvalidOutcome > 0 ? 'destructive' : 'default'}>
                 {stats.runsWithInvalidOutcome}
               </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4" />
+                <span className="text-sm">Corrupted intro_owner (timestamps)</span>
+              </div>
+              <Badge variant={stats.corruptedIntroOwner > 0 ? 'destructive' : 'default'}>
+                {stats.corruptedIntroOwner}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                <span className="text-sm">Runs missing intro_owner</span>
+              </div>
+              <Badge variant={stats.missingIntroOwner > 0 ? 'destructive' : 'default'}>
+                {stats.missingIntroOwner}
+              </Badge>
+            </div>
+          </div>
+        )}
+
+        {/* Auto-Fix Attribution Button */}
+        {hasAttributionIssues && (
+          <div className="p-3 border border-primary/20 rounded-lg bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Auto-Fix Attribution</p>
+                <p className="text-xs text-muted-foreground">
+                  Automatically fixes {(stats?.corruptedIntroOwner || 0) + (stats?.missingIntroOwner || 0)} issues
+                </p>
+              </div>
+              <Button 
+                onClick={handleAutoFixAttribution}
+                disabled={isFixing}
+                size="sm"
+                className="gap-1"
+              >
+                {isFixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                Fix All
+              </Button>
             </div>
           </div>
         )}
