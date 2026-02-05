@@ -108,7 +108,7 @@ export function useDashboardMetrics(
       'CLOSED',
     ];
     
-    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A'];
+    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked'];
     
     // Filter out bookings with excluded status or ignored from metrics
     const activeBookings = introsBooked.filter(b => {
@@ -444,7 +444,7 @@ export function useDashboardMetrics(
     const topCommission = allCommissionEntries.slice(0, 3);
 
     // Best Closing % (minimum 3 intros to qualify)
-    const MIN_INTROS_FOR_CLOSING = 3;
+    const MIN_INTROS_FOR_CLOSING = 1;
     const allClosingEntries: LeaderEntry[] = perSAData
       .filter(m => m.introsRun >= MIN_INTROS_FOR_CLOSING)
       .map(m => ({ 
