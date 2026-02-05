@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { IntroBooked, IntroRun, Sale, ShiftRecap } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval, parseISO } from 'date-fns';
+import { isWithinInterval, parseISO, isToday } from 'date-fns';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
+import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 
 interface StudioMetrics {
   introsRun: number;
@@ -30,15 +31,47 @@ interface IndividualActivityMetrics {
   shiftsWorked: number;
 }
 
+interface LeadSourceMetrics {
+  source: string;
+  booked: number;
+  showed: number;
+  sold: number;
+  revenue: number;
+}
+
+interface PipelineMetrics {
+  booked: number;
+  showed: number;
+  sold: number;
+  revenue: number;
+}
+
+interface TodaysRaceEntry {
+  name: string;
+  introsRun: number;
+  sales: number;
+  isCurrentUser: boolean;
+}
+
 export interface DashboardMetrics {
   studio: StudioMetrics;
   perSA: PerSAMetrics[];
+  bookerStats: BookerMetrics[];
   individualActivity: IndividualActivityMetrics[];
+  leadSourceMetrics: LeadSourceMetrics[];
+  pipeline: PipelineMetrics;
+  todaysRace: TodaysRaceEntry[];
   leaderboards: {
     topBookers: LeaderEntry[];
     topCommission: LeaderEntry[];
     topClosing: LeaderEntry[];
     topShowRate: LeaderEntry[];
+  };
+  participantCounts: {
+    bookers: number;
+    commission: number;
+    closing: number;
+    showRate: number;
   };
 }
 
@@ -61,7 +94,8 @@ export function useDashboardMetrics(
   introsRun: IntroRun[],
   sales: Sale[],
   dateRange: DateRange | null,
-  shiftRecaps: ShiftRecap[] = []
+  shiftRecaps: ShiftRecap[] = [],
+  currentUserName?: string
 ): DashboardMetrics {
   return useMemo(() => {
     // Status values that should be excluded from metrics
@@ -235,6 +269,118 @@ export function useDashboardMetrics(
       .sort((a, b) => b.commission - a.commission);
 
     // =========================================
+    // BOOKER STATS (attributed to booked_by)
+    // =========================================
+    const bookerCounts = new Map<string, { booked: number; showed: number }>();
+    firstIntroBookings.forEach(b => {
+      const bookedBy = (b as any).booked_by || b.sa_working_shift;
+      if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
+        const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0 };
+        existing.booked++;
+        
+        // Check if this booking has a non-no-show run
+        const runs = bookingToRuns.get(b.id) || [];
+        if (runs.some(run => run.result !== 'No-show')) {
+          existing.showed++;
+        }
+        
+        bookerCounts.set(bookedBy, existing);
+      }
+    });
+
+    const bookerStats: BookerMetrics[] = Array.from(bookerCounts.entries())
+      .map(([saName, counts]) => ({
+        saName,
+        introsBooked: counts.booked,
+        introsShowed: counts.showed,
+        showRate: counts.booked > 0 ? (counts.showed / counts.booked) * 100 : 0,
+        pipelineValue: counts.booked * 10, // Estimate ~$10 avg commission per booking
+      }))
+      .filter(m => m.introsBooked > 0)
+      .sort((a, b) => b.introsBooked - a.introsBooked);
+
+    // =========================================
+    // LEAD SOURCE METRICS
+    // =========================================
+    const leadSourceMap = new Map<string, LeadSourceMetrics>();
+    firstIntroBookings.forEach(b => {
+      const source = b.lead_source || 'Unknown';
+      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      existing.booked++;
+      
+      const runs = bookingToRuns.get(b.id) || [];
+      const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+      if (nonNoShowRun) {
+        existing.showed++;
+        if (nonNoShowRun.commission_amount && nonNoShowRun.commission_amount > 0) {
+          existing.sold++;
+          existing.revenue += nonNoShowRun.commission_amount;
+        }
+      }
+      
+      leadSourceMap.set(source, existing);
+    });
+
+    const leadSourceMetrics = Array.from(leadSourceMap.values())
+      .sort((a, b) => b.booked - a.booked);
+
+    // =========================================
+    // PIPELINE METRICS
+    // =========================================
+    const pipelineBooked = firstIntroBookings.length;
+    let pipelineShowed = 0;
+    let pipelineSold = 0;
+    let pipelineRevenue = 0;
+
+    firstIntroBookings.forEach(b => {
+      const runs = bookingToRuns.get(b.id) || [];
+      const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+      if (nonNoShowRun) {
+        pipelineShowed++;
+        if (nonNoShowRun.commission_amount && nonNoShowRun.commission_amount > 0) {
+          pipelineSold++;
+          pipelineRevenue += nonNoShowRun.commission_amount;
+        }
+      }
+    });
+
+    const pipeline: PipelineMetrics = {
+      booked: pipelineBooked,
+      showed: pipelineShowed,
+      sold: pipelineSold,
+      revenue: pipelineRevenue,
+    };
+
+    // =========================================
+    // TODAY'S RACE
+    // =========================================
+    const todaysRuns = activeRuns.filter(r => r.run_date && isToday(parseISO(r.run_date)));
+    const todaysRaceMap = new Map<string, { introsRun: number; sales: number }>();
+    
+    todaysRuns.forEach(run => {
+      const name = run.intro_owner || run.sa_name;
+      if (name && !EXCLUDED_NAMES.includes(name)) {
+        const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
+        if (run.result !== 'No-show') {
+          existing.introsRun++;
+          if (run.commission_amount && run.commission_amount > 0) {
+            existing.sales++;
+          }
+        }
+        todaysRaceMap.set(name, existing);
+      }
+    });
+
+    const todaysRace: TodaysRaceEntry[] = Array.from(todaysRaceMap.entries())
+      .map(([name, data]) => ({
+        name,
+        introsRun: data.introsRun,
+        sales: data.sales,
+        isCurrentUser: name === currentUserName,
+      }))
+      .sort((a, b) => b.introsRun - a.introsRun);
+
+    // =========================================
     // STUDIO METRICS (aggregated)
     // =========================================
     const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsRun, 0);
@@ -286,59 +432,54 @@ export function useDashboardMetrics(
     // =========================================
     
     // Top Bookers (by booking count, credited to booked_by first, fallback to sa_working_shift)
-    const bookerCounts = new Map<string, number>();
-    firstIntroBookings.forEach(b => {
-      const bookedBy = (b as any).booked_by || b.sa_working_shift;
-      if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
-        bookerCounts.set(bookedBy, (bookerCounts.get(bookedBy) || 0) + 1);
-      }
-    });
     const topBookers: LeaderEntry[] = Array.from(bookerCounts.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 3);
+      .map(([name, counts]) => ({ name, value: counts.booked }))
+      .sort((a, b) => b.value - a.value);
 
-    // Top Commission
-    const topCommission: LeaderEntry[] = perSAData
-      .filter(m => m.commission > 0)
+    // Top Commission (include all participants for ranking)
+    const allCommissionEntries: LeaderEntry[] = perSAData
       .map(m => ({ name: m.saName, value: m.commission }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 3);
+      .sort((a, b) => b.value - a.value);
+
+    const topCommission = allCommissionEntries.slice(0, 3);
 
     // Best Closing % (minimum 3 intros to qualify)
     const MIN_INTROS_FOR_CLOSING = 3;
-    const topClosing: LeaderEntry[] = perSAData
+    const allClosingEntries: LeaderEntry[] = perSAData
       .filter(m => m.introsRun >= MIN_INTROS_FOR_CLOSING)
       .map(m => ({ 
         name: m.saName, 
         value: m.closingRate, 
         subValue: `${m.sales}/${m.introsRun}` 
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 3);
+      .sort((a, b) => b.value - a.value);
+
+    const topClosing = allClosingEntries.slice(0, 3);
 
     // Best Show Rate (booking-based, credited to booked_by)
-    const showRateData: LeaderEntry[] = [];
     const MIN_BOOKINGS_FOR_SHOWRATE = 3;
-    bookerCounts.forEach((booked, saName) => {
-      if (booked >= MIN_BOOKINGS_FOR_SHOWRATE) {
-        const saBookings = firstIntroBookings.filter(b => {
-          const bookedBy = (b as any).booked_by || b.sa_working_shift;
-          return bookedBy === saName;
-        });
-        const showed = saBookings.filter(booking => {
-          const runs = bookingToRuns.get(booking.id) || [];
-          return runs.some(run => run.result !== 'No-show');
-        }).length;
-        const showRate = booked > 0 ? (showed / booked) * 100 : 0;
-        showRateData.push({ 
+    const allShowRateEntries: LeaderEntry[] = [];
+    bookerCounts.forEach((counts, saName) => {
+      if (counts.booked >= MIN_BOOKINGS_FOR_SHOWRATE) {
+        const showRate = counts.booked > 0 ? (counts.showed / counts.booked) * 100 : 0;
+        allShowRateEntries.push({ 
           name: saName, 
           value: showRate, 
-          subValue: `${showed}/${booked}` 
+          subValue: `${counts.showed}/${counts.booked}` 
         });
       }
     });
-    const topShowRate = showRateData.sort((a, b) => b.value - a.value).slice(0, 3);
+    allShowRateEntries.sort((a, b) => b.value - a.value);
+
+    const topShowRate = allShowRateEntries.slice(0, 3);
+
+    // Participant counts for My Rank
+    const participantCounts = {
+      bookers: bookerCounts.size,
+      commission: allCommissionEntries.length,
+      closing: allClosingEntries.length,
+      showRate: allShowRateEntries.length,
+    };
 
     return {
       studio: {
@@ -351,13 +492,18 @@ export function useDashboardMetrics(
         madeAFriendRate: studioMadeAFriendRate,
       },
       perSA: perSAData,
+      bookerStats,
       individualActivity,
+      leadSourceMetrics,
+      pipeline,
+      todaysRace,
       leaderboards: {
         topBookers,
         topCommission,
         topClosing,
         topShowRate,
       },
+      participantCounts,
     };
-  }, [introsBooked, introsRun, sales, dateRange, shiftRecaps]);
+  }, [introsBooked, introsRun, sales, dateRange, shiftRecaps, currentUserName]);
 }
