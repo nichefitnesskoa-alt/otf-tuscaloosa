@@ -137,38 +137,55 @@ export function useDashboardMetrics(
     // PER-SA METRICS (attributed to intro_owner)
     // =========================================
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
-      // Group runs by linked booking for this SA
+      // Get all runs by this SA within date range (using run_date for booking-based metrics)
+      const saRuns = activeRuns.filter(run => {
+        const runDateInRange = isDateInRange(run.run_date, dateRange);
+        return run.intro_owner === saName && runDateInRange && run.result !== 'No-show';
+      });
+
+      // For linked runs, group by booking to get first runs only
+      // For unlinked runs, count each one as a unique intro
       const runsByBooking = new Map<string, IntroRun[]>();
-      activeRuns.forEach(run => {
-        if (run.linked_intro_booked_id && firstIntroBookingIds.has(run.linked_intro_booked_id)) {
-          const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
-          existing.push(run);
-          runsByBooking.set(run.linked_intro_booked_id, existing);
+      const unlinkedRuns: IntroRun[] = [];
+      
+      saRuns.forEach(run => {
+        if (run.linked_intro_booked_id) {
+          // Check if it's linked to a first intro booking
+          if (firstIntroBookingIds.has(run.linked_intro_booked_id)) {
+            const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
+            existing.push(run);
+            runsByBooking.set(run.linked_intro_booked_id, existing);
+          }
+        } else {
+          // Unlinked runs count directly
+          unlinkedRuns.push(run);
         }
       });
 
-      // Count intros run: unique bookings where SA ran the first non-no-show intro
+      // Count intros run: unique bookings where SA ran the first non-no-show intro + unlinked runs
       let introsRunCount = 0;
       const saFirstRuns: IntroRun[] = [];
+      
+      // Count linked runs (first per booking)
       runsByBooking.forEach((runs) => {
         const sortedRuns = [...runs].sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
-        const firstValidRun = sortedRuns.find(r => r.result !== 'No-show');
-        if (firstValidRun && firstValidRun.intro_owner === saName) {
+        const firstValidRun = sortedRuns[0]; // Already filtered to non-no-show
+        if (firstValidRun) {
           introsRunCount++;
           saFirstRuns.push(firstValidRun);
         }
       });
+      
+      // Add unlinked runs
+      introsRunCount += unlinkedRuns.length;
+      saFirstRuns.push(...unlinkedRuns);
 
       // Sales = runs by this SA with commission > 0 and buy_date in range
       const saSales = activeRuns.filter(run => {
-        const booking = activeBookings.find(b => {
-          const originatingId = (b as any).originating_booking_id;
-          return b.id === run.linked_intro_booked_id && (originatingId === null || originatingId === undefined);
-        });
         const buyDateInRange = isDateInRange(run.buy_date, dateRange);
-        return booking && run.intro_owner === saName && run.commission_amount && run.commission_amount > 0 && buyDateInRange;
+        return run.intro_owner === saName && run.commission_amount && run.commission_amount > 0 && buyDateInRange;
       });
       const salesCount = saSales.length;
       const closingRate = introsRunCount > 0 ? (salesCount / introsRunCount) * 100 : 0;
