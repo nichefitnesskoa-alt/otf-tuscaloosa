@@ -238,6 +238,20 @@ export default function ClientJourneyPanel() {
     fitness_goal: '',
   });
 
+  // Create new run dialog
+  const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
+  const [creatingRunForJourney, setCreatingRunForJourney] = useState<ClientJourney | null>(null);
+  const [newRun, setNewRun] = useState({
+    member_name: '',
+    run_date: new Date().toISOString().split('T')[0],
+    class_time: '',
+    ran_by: '',
+    lead_source: '',
+    result: '',
+    notes: '',
+    linked_intro_booked_id: '',
+  });
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -877,6 +891,79 @@ export default function ClientJourneyPanel() {
   };
 
   // === RUN ACTIONS ===
+
+  // Open create run dialog for a specific client journey
+  const handleOpenCreateRunDialog = (journey: ClientJourney) => {
+    setCreatingRunForJourney(journey);
+    const latestBooking = journey.bookings.find(b => !b.booking_status || b.booking_status === 'Active');
+    setNewRun({
+      member_name: journey.memberName,
+      run_date: new Date().toISOString().split('T')[0],
+      class_time: latestBooking?.intro_time || '',
+      ran_by: '',
+      lead_source: latestBooking?.lead_source || '',
+      result: '',
+      notes: '',
+      linked_intro_booked_id: latestBooking?.id || '',
+    });
+    setShowCreateRunDialog(true);
+  };
+
+  const handleCreateRun = async () => {
+    if (!newRun.member_name) {
+      toast.error('Member name is required');
+      return;
+    }
+    if (!newRun.ran_by) {
+      toast.error('Ran By is required');
+      return;
+    }
+    if (!newRun.result) {
+      toast.error('Result/Outcome is required');
+      return;
+    }
+    if (!newRun.class_time) {
+      toast.error('Class time is required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const runId = `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { error } = await supabase
+        .from('intros_run')
+        .insert({
+          run_id: runId,
+          member_name: newRun.member_name,
+          run_date: newRun.run_date,
+          class_time: newRun.class_time,
+          ran_by: newRun.ran_by,
+          intro_owner: newRun.ran_by, // Set intro_owner to ran_by
+          lead_source: newRun.lead_source || 'Source Not Found',
+          result: newRun.result,
+          notes: newRun.notes || null,
+          linked_intro_booked_id: newRun.linked_intro_booked_id || null,
+        });
+
+      if (error) throw error;
+
+      // Sync intro_owner to linked booking if applicable
+      if (newRun.linked_intro_booked_id && newRun.result !== 'No-show') {
+        await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, user?.name || 'Admin');
+      }
+
+      toast.success('Intro run logged');
+      setShowCreateRunDialog(false);
+      setCreatingRunForJourney(null);
+      await fetchData();
+    } catch (error) {
+      console.error('Error creating run:', error);
+      toast.error('Failed to create run');
+    } finally {
+      setIsSaving(false);
+    }
+  };
   
   const handleEditRun = (run: ClientRun) => {
     setEditingRun({ ...run });
@@ -1408,6 +1495,19 @@ export default function ClientJourneyPanel() {
                           </div>
                         </div>
                       )}
+
+                      {/* Add Run Button - always show */}
+                      <div className="pt-2 border-t border-dashed">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => handleOpenCreateRunDialog(journey)}
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          Add Intro Run
+                        </Button>
+                      </div>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -2036,6 +2136,123 @@ export default function ClientJourneyPanel() {
               <Button onClick={handleCreateBooking} disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
                 Create Booking
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Create Run Dialog */}
+        <Dialog open={showCreateRunDialog} onOpenChange={setShowCreateRunDialog}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add Intro Run</DialogTitle>
+              <DialogDescription>
+                Log that an intro was run for {creatingRunForJourney?.memberName || 'this client'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Member Name</Label>
+                <Input
+                  value={newRun.member_name}
+                  onChange={(e) => setNewRun({...newRun, member_name: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Run Date *</Label>
+                  <Input
+                    type="date"
+                    value={newRun.run_date}
+                    onChange={(e) => setNewRun({...newRun, run_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Time *</Label>
+                  <Input
+                    type="time"
+                    value={newRun.class_time}
+                    onChange={(e) => setNewRun({...newRun, class_time: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Ran By *</Label>
+                <Select
+                  value={newRun.ran_by}
+                  onValueChange={(v) => setNewRun({...newRun, ran_by: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select SA..." /></SelectTrigger>
+                  <SelectContent>
+                    {SALES_ASSOCIATES.map(sa => (
+                      <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Lead Source</Label>
+                <Select
+                  value={newRun.lead_source}
+                  onValueChange={(v) => setNewRun({...newRun, lead_source: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SOURCES.map(src => (
+                      <SelectItem key={src} value={src}>{src}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Result/Outcome *</Label>
+                <Select
+                  value={newRun.result}
+                  onValueChange={(v) => setNewRun({...newRun, result: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select outcome..." /></SelectTrigger>
+                  <SelectContent>
+                    {VALID_OUTCOMES.map(o => (
+                      <SelectItem key={o} value={o}>{o}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {creatingRunForJourney && creatingRunForJourney.bookings.length > 0 && (
+                <div>
+                  <Label className="text-xs">Link to Booking</Label>
+                  <Select
+                    value={newRun.linked_intro_booked_id}
+                    onValueChange={(v) => setNewRun({...newRun, linked_intro_booked_id: v})}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select booking to link..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">— No link —</SelectItem>
+                      {creatingRunForJourney.bookings
+                        .filter(b => !b.booking_status || b.booking_status === 'Active')
+                        .map(b => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.class_date} {b.intro_time ? `@ ${b.intro_time}` : ''} ({b.booking_status || 'Active'})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label className="text-xs">Notes</Label>
+                <Textarea
+                  value={newRun.notes}
+                  onChange={(e) => setNewRun({...newRun, notes: e.target.value})}
+                  placeholder="Any additional notes..."
+                  className="min-h-[60px]"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateRunDialog(false)}>Cancel</Button>
+              <Button onClick={handleCreateRun} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                Add Run
               </Button>
             </DialogFooter>
           </DialogContent>
