@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -57,6 +58,11 @@ import {
   Plus,
   Save,
   X,
+  Clock,
+  CalendarCheck,
+  UserMinus,
+  Users,
+  CalendarPlus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -64,6 +70,9 @@ import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/t
 import { useAuth } from '@/context/AuthContext';
 import { capitalizeName } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
+
+// Tab types
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro';
 
 // Booking status types
 const BOOKING_STATUSES = [
@@ -173,6 +182,7 @@ export default function ClientJourneyPanel() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterInconsistencies, setFilterInconsistencies] = useState(false);
+  const [activeTab, setActiveTab] = useState<JourneyTab>('all');
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   
@@ -357,9 +367,161 @@ export default function ClientJourneyPanel() {
     fetchData();
   }, []);
 
+  // Helper to check if a booking's scheduled time has passed
+  const isBookingPast = (booking: ClientBooking): boolean => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    if (booking.class_date < today) return true;
+    if (booking.class_date > today) return false;
+    
+    // Same day - check time
+    if (!booking.intro_time) {
+      // No time set, treat as end of day (so it's not past until tomorrow)
+      return false;
+    }
+    
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    return booking.intro_time <= currentTime;
+  };
+
+  // Helper to check if a booking is today
+  const isBookingToday = (booking: ClientBooking): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    return booking.class_date === today;
+  };
+
+  // Helper to check if a booking is in the future
+  const isBookingUpcoming = (booking: ClientBooking): boolean => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    if (booking.class_date > today) return true;
+    if (booking.class_date < today) return false;
+    
+    // Same day - check time
+    if (!booking.intro_time) return true; // No time = still upcoming
+    
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+    return booking.intro_time > currentTime;
+  };
+
+  // Calculate tab counts
+  const tabCounts = useMemo(() => {
+    const counts = {
+      all: 0,
+      upcoming: 0,
+      today: 0,
+      completed: 0,
+      no_show: 0,
+      missed_guest: 0,
+      second_intro: 0,
+    };
+
+    journeys.forEach(journey => {
+      counts.all++;
+
+      const latestActiveBooking = journey.bookings.find(b => 
+        !b.booking_status || b.booking_status === 'Active'
+      );
+
+      // Has run records = completed
+      if (journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show')) {
+        counts.completed++;
+      }
+
+      // Check for upcoming bookings
+      if (latestActiveBooking && isBookingUpcoming(latestActiveBooking)) {
+        counts.upcoming++;
+      }
+
+      // Check for today's bookings
+      if (latestActiveBooking && isBookingToday(latestActiveBooking)) {
+        counts.today++;
+      }
+
+      // No-show detection: booking is past AND no run exists (or only no-show runs)
+      const hasActiveBooking = journey.bookings.some(b => 
+        (!b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
+      );
+      const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
+      
+      if (hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
+        counts.no_show++;
+      }
+
+      // Missed guest: showed up but didn't buy (Follow-up needed or Booked 2nd intro)
+      const hasMissedResult = journey.runs.some(r => 
+        r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
+      );
+      if (hasMissedResult) {
+        counts.missed_guest++;
+      }
+
+      // 2nd intro: has originating_booking_id OR result = 'Booked 2nd intro' OR multiple bookings for same member
+      const has2ndIntro = journey.bookings.some(b => b.originating_booking_id) ||
+        journey.runs.some(r => r.result === 'Booked 2nd intro') ||
+        (journey.bookings.length > 1 && journey.bookings.some(b => 
+          (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
+        ) && journey.runs.length > 0);
+      
+      if (has2ndIntro) {
+        counts.second_intro++;
+      }
+    });
+
+    return counts;
+  }, [journeys]);
+
+  // Filter by tab
+  const filterJourneysByTab = (journeyList: ClientJourney[], tab: JourneyTab): ClientJourney[] => {
+    if (tab === 'all') return journeyList;
+
+    return journeyList.filter(journey => {
+      const latestActiveBooking = journey.bookings.find(b => 
+        !b.booking_status || b.booking_status === 'Active'
+      );
+
+      switch (tab) {
+        case 'upcoming':
+          return latestActiveBooking && isBookingUpcoming(latestActiveBooking);
+
+        case 'today':
+          return latestActiveBooking && isBookingToday(latestActiveBooking);
+
+        case 'completed':
+          return journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show');
+
+        case 'no_show': {
+          const hasActiveBooking = journey.bookings.some(b => 
+            (!b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
+          );
+          const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
+          return hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show');
+        }
+
+        case 'missed_guest':
+          return journey.runs.some(r => 
+            r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
+          );
+
+        case 'second_intro':
+          return journey.bookings.some(b => b.originating_booking_id) ||
+            journey.runs.some(r => r.result === 'Booked 2nd intro') ||
+            (journey.bookings.length > 1 && journey.bookings.some(b => 
+              (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
+            ) && journey.runs.length > 0);
+
+        default:
+          return true;
+      }
+    });
+  };
+
   const filteredJourneys = useMemo(() => {
     let filtered = journeys;
 
+    // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(j => 
@@ -368,12 +530,16 @@ export default function ClientJourneyPanel() {
       );
     }
 
+    // Apply inconsistency filter
     if (filterInconsistencies) {
       filtered = filtered.filter(j => j.hasInconsistency);
     }
 
+    // Apply tab filter
+    filtered = filterJourneysByTab(filtered, activeTab);
+
     return filtered;
-  }, [journeys, searchTerm, filterInconsistencies]);
+  }, [journeys, searchTerm, filterInconsistencies, activeTab]);
 
   const inconsistencyCount = useMemo(() => 
     journeys.filter(j => j.hasInconsistency).length,
@@ -993,11 +1159,52 @@ export default function ClientJourneyPanel() {
           </Button>
         </div>
 
+        {/* Status-based tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as JourneyTab)} className="w-full">
+          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="all" className="flex-1 min-w-[70px] text-xs gap-1">
+              <Users className="w-3 h-3" />
+              All
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.all}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex-1 min-w-[80px] text-xs gap-1">
+              <Clock className="w-3 h-3" />
+              Upcoming
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.upcoming}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="today" className="flex-1 min-w-[70px] text-xs gap-1">
+              <Calendar className="w-3 h-3" />
+              Today
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.today}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1 min-w-[85px] text-xs gap-1">
+              <CalendarCheck className="w-3 h-3" />
+              Completed
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.completed}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="no_show" className="flex-1 min-w-[80px] text-xs gap-1 text-destructive data-[state=active]:text-destructive">
+              <UserX className="w-3 h-3" />
+              No-shows
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.no_show}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="missed_guest" className="flex-1 min-w-[80px] text-xs gap-1 text-warning data-[state=active]:text-warning">
+              <UserMinus className="w-3 h-3" />
+              Missed
+              <Badge className="ml-1 h-5 px-1.5 text-[10px] bg-warning text-warning-foreground">{tabCounts.missed_guest}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="second_intro" className="flex-1 min-w-[70px] text-xs gap-1">
+              <CalendarPlus className="w-3 h-3" />
+              2nd
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.second_intro}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Summary stats */}
         <div className="grid grid-cols-4 gap-2 text-center text-xs">
           <div className="p-2 bg-muted/50 rounded">
-            <div className="font-bold">{journeys.length}</div>
-            <div className="text-muted-foreground">Clients</div>
+            <div className="font-bold">{filteredJourneys.length}</div>
+            <div className="text-muted-foreground">Showing</div>
           </div>
           <div className="p-2 bg-muted/50 rounded">
             <div className="font-bold text-success">{journeys.filter(j => j.hasSale).length}</div>
