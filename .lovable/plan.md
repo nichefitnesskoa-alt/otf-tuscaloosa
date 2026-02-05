@@ -1,239 +1,94 @@
 
+# Data Attribution & Membership Tracking Improvements
 
-# Comprehensive Data Consistency Audit & Fix Plan
+## Problems Identified
 
-## ✅ COMPLETED - All Fixes Applied
+### 1. Corrupted intro_owner Data (Critical Bug)
+Found 8 booking records where `intro_owner` contains timestamps instead of staff names (e.g., "2026-02-04T03:49:24.615841+00:00" instead of "Katie"). This happened during data import/sync - the `created_at` value was accidentally written to `intro_owner`.
 
-### Summary of Changes Made:
-1. ✅ **Backfilled database** - Updated all `sales_outside_intro` records with NULL `date_closed` to use `created_at` date
-2. ✅ **Created `src/lib/sales-detection.ts`** - Shared utility for consistent date/sale logic
-3. ✅ **Fixed `PayPeriodCommission.tsx`** - Rewrote query to fetch all data then filter in JS with proper date logic
-4. ✅ **Fixed `ShiftRecap.tsx`** - Now sets `date_closed: date` when inserting sales
-5. ✅ **Fixed `PayrollExport.tsx`** - Uses shared utility and falls back to `created_at` if `date_closed` is null
+**Affected members:** Mary Waller, Carsyn Gleichowski, Brinley Frieberger, Alivia Ponzio, Kennedy Brezenski, Sophia Wilbeck, Calli Minor, Amaya Grant
 
----
+### 2. Missing Auto-Attribution on Manual Entry
+When SAs create intro runs via the Admin IntroRunsEditor with manual entry, the `intro_owner` should automatically be set to the person who ran the intro (from `ran_by` or `sa_name`), but this isn't happening for several records.
 
-## Original Issue Analysis (Reference)
+### 3. No Consolidated "Members Who Bought" View
+The user wants a section showing all membership purchases in one place for easy reference.
 
-### Root Cause
-**PayPeriodCommission.tsx uses a completely broken query logic.**
-
-Looking at lines 76-91 of `PayPeriodCommission.tsx`:
-
-```typescript
-// The query has TWO major problems:
-
-// Problem A: .or() chaining doesn't work as intended
-.or(`run_date.gte.${startDate},buy_date.gte.${startDate}`)  
-.or(`run_date.lte.${endDate},buy_date.lte.${endDate}`)
-
-// Problem B: For sales_outside_intro, it queries by pay_period_start/end
-.gte('pay_period_start', startDate)
-.lte('pay_period_end', endDate)
-```
-
-**Why Bri is missing:**
-1. Bri's 3 sales in `sales_outside_intro` have `date_closed = NULL` and `pay_period_start/end = NULL`
-2. The query filters by `pay_period_start >= startDate` which excludes NULL values
-3. Even Lauren's runs would fail the broken .or() query logic
-
-### Database Evidence
-```
-Bri's sales:
-- date_closed: NULL (not set when sale created!)
-- pay_period_start: NULL
-- pay_period_end: NULL
-- commission_amount: $7.50 each (3 sales = $22.50)
-```
+### 4. No Bulk Inconsistency Finder/Fixer
+The user wants a button that scans for attribution problems and fixes them automatically.
 
 ---
 
-## Issue #2: Sales Not Setting date_closed (CRITICAL)
+## Solution Overview
 
-### Root Cause
-When sales are logged via `ShiftRecap.tsx` (lines 502-515), **`date_closed` is never set**:
+### Part A: Fix Corrupted Data (Database Update)
+Run a one-time update to fix the 8 corrupted booking records where `intro_owner` contains timestamps.
 
-```typescript
-await supabase.from('sales_outside_intro').insert({
-  sale_id: saleId,
-  sale_type: 'outside_intro',
-  member_name: sale.memberName,
-  lead_source: sale.leadSource || 'Source Not Found',
-  membership_type: sale.membershipType,
-  commission_amount: sale.commissionAmount,
-  intro_owner: user?.name || null,
-  shift_recap_id: shiftData.id,
-  // MISSING: date_closed: date  <-- Should use the shift date!
-});
-```
+### Part B: Add "Auto-Fix Attribution" Button
+Add a new tool to the DataHealthPanel that:
+1. Finds bookings with corrupted `intro_owner` (timestamp values)
+2. Finds runs that have been completed but the linked booking has no proper `intro_owner`
+3. Automatically sets `intro_owner` based on who ran the intro (`ran_by` or `sa_name`)
 
-This breaks:
-- PayrollExport.tsx (queries by date_closed)
-- Any pay period filtering logic
-
----
-
-## Issue #3: PayrollExport vs PayPeriodCommission Inconsistency (HIGH)
-
-### Two Different Query Strategies
-| Component | intros_run Query | sales_outside_intro Query |
-|-----------|------------------|---------------------------|
-| PayrollExport.tsx | `buy_date` in range + commission > 0 | `date_closed` in range |
-| PayPeriodCommission.tsx | Broken .or() on run_date/buy_date | `pay_period_start/end` in range |
-
-Neither matches the dashboard metrics logic in `useDashboardMetrics.ts`, causing different totals everywhere.
-
----
-
-## Issue #4: Dashboard Commission vs Admin Commission Mismatch (HIGH)
-
-### Dashboard Logic (useDashboardMetrics.ts)
-```typescript
-// Uses membership result detection + run_date OR buy_date fallback
-const saleDate = run.buy_date || run.run_date;
-const isMembershipSale = result includes 'premier', 'elite', 'basic';
-```
-
-### PayPeriodCommission Logic
-```typescript
-// Uses commission_amount > 0 check only
-.gt('commission_amount', 0)
-```
-
-These will produce different results for edge cases.
-
----
-
-## Issue #5: Today's Race Uses commission_amount, Not Membership Detection (MEDIUM)
-
-In `useDashboardMetrics.ts` lines 380-382:
-```typescript
-if (run.commission_amount && run.commission_amount > 0) {
-  existing.sales++;
-}
-```
-
-But elsewhere, sales detection uses `isMembershipSale()`. This inconsistency can cause discrepancies in "Today's Race" vs Leaderboards.
-
----
-
-## Issue #6: Unlinked Manual Entry Creates Duplicate Data Sources (MEDIUM)
-
-When an intro run is manually entered without linking:
-1. A booking is auto-created (good for data integrity)
-2. But if the SA also enters a "Sales Outside Intro" for the same member, you get duplicates
-
-This is exactly what happened with Lauren's double-counted commission earlier.
-
----
-
-## Issue #7: Pay Period Fields Never Populated (LOW-MEDIUM)
-
-`sales_outside_intro` has `pay_period_start` and `pay_period_end` columns, but they're never set:
-- ShiftRecap.tsx doesn't calculate/set them
-- No background job populates them
-- PayPeriodCommission tries to query by these empty fields
-
----
-
-## Recommended Fixes
-
-### Fix 1: Update ShiftRecap.tsx to Set date_closed
-```typescript
-await supabase.from('sales_outside_intro').insert({
-  ...existingFields,
-  date_closed: date,  // ADD: Use the shift date as date_closed
-});
-```
-
-### Fix 2: Rewrite PayPeriodCommission.tsx Query Logic
-Replace the broken .or() chains with proper date range logic:
-```typescript
-// For intros_run: Use COALESCE logic (buy_date or run_date)
-const { data: runs } = await supabase
-  .from('intros_run')
-  .select('intro_owner, sa_name, commission_amount, run_date, buy_date')
-  .gt('commission_amount', 0);
-
-// Filter in JS for proper date range logic
-const filteredRuns = (runs || []).filter(run => {
-  const saleDate = run.buy_date || run.run_date;
-  if (!saleDate) return false;
-  return saleDate >= startDate && saleDate <= endDate;
-});
-
-// For sales_outside_intro: Use date_closed OR created_at fallback
-const { data: sales } = await supabase
-  .from('sales_outside_intro')
-  .select('intro_owner, commission_amount, date_closed, created_at');
-
-const filteredSales = (sales || []).filter(sale => {
-  const saleDate = sale.date_closed || sale.created_at?.split('T')[0];
-  if (!saleDate) return false;
-  return saleDate >= startDate && saleDate <= endDate;
-});
-```
-
-### Fix 3: Backfill Existing Data
-Run a one-time SQL update to populate date_closed from created_at for existing records:
-```sql
-UPDATE sales_outside_intro 
-SET date_closed = DATE(created_at)
-WHERE date_closed IS NULL;
-```
-
-### Fix 4: Unify Sales Detection Logic
-Create a shared utility function used everywhere:
-```typescript
-// In src/lib/sales-detection.ts
-export const isMembershipSale = (result: string): boolean => {
-  const lower = (result || '').toLowerCase();
-  return ['premier', 'elite', 'basic'].some(m => lower.includes(m));
-};
-
-export const getSaleDate = (
-  buyDate: string | null, 
-  runDate: string | null, 
-  dateClosed: string | null,
-  createdAt: string
-): string => {
-  return buyDate || dateClosed || runDate || createdAt.split('T')[0];
-};
-```
-
-### Fix 5: Align All Components
-Update these files to use the shared utility:
-- `src/hooks/useDashboardMetrics.ts`
-- `src/components/PayPeriodCommission.tsx`
-- `src/components/admin/PayrollExport.tsx`
+### Part C: Add "Members Who Bought" Section
+Create a new admin panel component showing:
+- All membership purchases (Premier/Elite/Basic from intros_run)
+- Who bought, when, membership type, commission
+- Who ran the intro and who booked it
+- Filterable by date range
 
 ---
 
 ## Technical Implementation
 
+### Files to Create
+| File | Purpose |
+|------|---------|
+| `src/components/admin/MembershipPurchasesPanel.tsx` | New panel showing all people who bought memberships |
+
 ### Files to Modify
 | File | Changes |
 |------|---------|
-| `src/pages/ShiftRecap.tsx` | Add `date_closed: date` when inserting sales |
-| `src/components/PayPeriodCommission.tsx` | Rewrite query logic with proper date filtering |
-| `src/components/admin/PayrollExport.tsx` | Add fallback to created_at if date_closed is null |
-| `src/lib/sales-detection.ts` (NEW) | Create shared utility for date/sale detection |
-| `src/hooks/useDashboardMetrics.ts` | Import and use shared utility |
+| `src/components/admin/DataHealthPanel.tsx` | Add "Auto-Fix Attribution" button and corrupted `intro_owner` detection |
+| `src/components/admin/IntroRunsEditor.tsx` | Ensure `ran_by` is properly set when creating/editing runs |
+| `src/pages/Admin.tsx` | Add the new MembershipPurchasesPanel component |
 
 ### Database Update Required
-Backfill existing sales with date_closed values.
+Fix the 8 corrupted records:
+```sql
+-- Clear corrupted intro_owner values (timestamps instead of names)
+UPDATE intros_booked 
+SET intro_owner = NULL, intro_owner_locked = false
+WHERE intro_owner LIKE '202%-%' OR intro_owner LIKE '%T%:%';
+
+-- Then run auto-attribution to set correct intro_owner from linked runs
+```
+
+### Auto-Fix Attribution Logic
+```
+For each booking with NULL or corrupted intro_owner:
+  1. Find linked runs (via linked_intro_booked_id)
+  2. Find the first non-no-show run
+  3. Get the ran_by or sa_name from that run
+  4. Set intro_owner to that SA and lock it
+```
+
+For each run that has no `intro_owner` but has `ran_by` or `sa_name`:
+  1. Set `intro_owner` = `ran_by` || `sa_name`
+  2. If linked to a booking, update the booking's `intro_owner` too
+
+### MembershipPurchasesPanel Features
+- Table with columns: Member Name, Purchase Date, Membership Type, Commission, Intro Owner (who ran), Booked By
+- Filter by date range (current pay period by default)
+- Sort by date descending
+- Highlight high-value sales (Premier + OTBeat)
+- Shows totals at bottom
 
 ---
 
-## Impact Summary
+## Expected Outcomes
 
-| Issue | Severity | User Impact |
-|-------|----------|-------------|
-| Bri's missing $22.50 | CRITICAL | Commission not counted in pay period |
-| date_closed never set | CRITICAL | All future outside-intro sales invisible |
-| Query logic inconsistency | HIGH | Different totals across Admin vs Dashboard |
-| Membership detection mismatch | MEDIUM | Edge cases show wrong numbers |
-| Duplicate data risk | MEDIUM | Potential double-counting |
-
-This fix will ensure all commission sources (intro runs AND outside-intro sales) are properly counted with consistent logic across the entire application.
-
+1. **Immediate Fix**: The 8 corrupted records will be cleaned up
+2. **Auto-Fix Button**: One-click solution to find and fix attribution inconsistencies going forward
+3. **Membership View**: Easy access to all purchases for reporting and verification
+4. **Consistency**: Dashboard, Admin, and Payroll will all show matching numbers
