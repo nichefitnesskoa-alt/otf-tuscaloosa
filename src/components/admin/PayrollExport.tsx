@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentPayPeriod, formatDate, getLastPayPeriod } from '@/lib/pay-period';
+import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 
 interface SaleRow {
   id: string;
@@ -64,30 +65,39 @@ export default function PayrollExport() {
       const endDate = formatDate(payPeriod.end);
       setPayPeriodLabel(`${startDate} to ${endDate}`);
 
-      // Fetch sales from sales_outside_intro where date_closed is in pay period
+      // Fetch sales from sales_outside_intro - get all with commission, filter in JS
       const { data: salesData, error: salesError } = await supabase
         .from('sales_outside_intro')
-        .select('id, sale_id, member_name, date_closed, membership_type, commission_amount, sale_type, intro_owner, lead_source')
-        .gte('date_closed', startDate)
-        .lte('date_closed', endDate);
+        .select('id, sale_id, member_name, date_closed, membership_type, commission_amount, sale_type, intro_owner, lead_source, created_at')
+        .gt('commission_amount', 0);
 
       if (salesError) throw salesError;
 
-      // Fetch intro-based sales from intros_run where buy_date is in pay period
+      // Filter by date range using proper date logic (date_closed || created_at)
+      const filteredSalesData = (salesData || []).filter(sale => {
+        const saleDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
+        return isDateInRange(saleDate, startDate, endDate);
+      });
+
+      // Fetch intro-based sales from intros_run - get all with commission, filter in JS
       const { data: introRunData, error: introError } = await supabase
         .from('intros_run')
-        .select('id, run_id, member_name, buy_date, result, commission_amount, intro_owner')
-        .gte('buy_date', startDate)
-        .lte('buy_date', endDate)
+        .select('id, run_id, member_name, buy_date, run_date, result, commission_amount, intro_owner, created_at')
         .gt('commission_amount', 0);
 
       if (introError) throw introError;
+
+      // Filter by date range using proper date logic (buy_date || run_date)
+      const filteredIntroRunData = (introRunData || []).filter(run => {
+        const saleDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
+        return isDateInRange(saleDate, startDate, endDate);
+      });
 
       // Combine and group by intro_owner
       const commissionBySA = new Map<string, PayrollData>();
 
       // Process outside-intro sales
-      (salesData as SaleRow[] || []).forEach((sale) => {
+      filteredSalesData.forEach((sale) => {
         const owner = sale.intro_owner || 'Unassigned';
         if (!commissionBySA.has(owner)) {
           commissionBySA.set(owner, { saName: owner, totalCommission: 0, sales: [] });
@@ -97,7 +107,7 @@ export default function PayrollExport() {
         data.totalCommission += commission;
         data.sales.push({
           memberName: sale.member_name,
-          dateClosed: sale.date_closed || '',
+          dateClosed: sale.date_closed || sale.created_at.split('T')[0],
           membershipType: sale.membership_type,
           commissionAmount: commission,
           saleType: sale.sale_type || 'Outside Intro',
@@ -106,7 +116,7 @@ export default function PayrollExport() {
       });
 
       // Process intro-based sales
-      (introRunData as IntroRunRow[] || []).forEach((run) => {
+      filteredIntroRunData.forEach((run) => {
         const owner = run.intro_owner || 'Unassigned';
         if (!commissionBySA.has(owner)) {
           commissionBySA.set(owner, { saName: owner, totalCommission: 0, sales: [] });
@@ -116,7 +126,7 @@ export default function PayrollExport() {
         data.totalCommission += commission;
         data.sales.push({
           memberName: run.member_name,
-          dateClosed: run.buy_date || '',
+          dateClosed: run.buy_date || run.run_date || '',
           membershipType: run.result,
           commissionAmount: commission,
           saleType: 'Intro',
