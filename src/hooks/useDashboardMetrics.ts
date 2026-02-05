@@ -98,14 +98,12 @@ export function useDashboardMetrics(
   currentUserName?: string
 ): DashboardMetrics {
   return useMemo(() => {
-    // Status values that should be excluded from metrics
+    // Status values that should be excluded from metrics (bad data, duplicates, etc.)
+    // NOTE: "Closed (Purchased)" should NOT be excluded - those are successful conversions!
     const EXCLUDED_STATUSES = [
-      'Closed (Purchased)',
-      'Not interested', 
       'Duplicate',
       'Deleted (soft)',
       'DEAD',
-      'CLOSED',
     ];
     
     const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked'];
