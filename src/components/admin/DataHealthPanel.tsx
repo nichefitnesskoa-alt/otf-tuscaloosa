@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -48,13 +49,16 @@ import {
   Archive,
   EyeOff,
   Trash2,
-  Wand2
+  Wand2,
+  CalendarPlus,
+  Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ALL_STAFF } from '@/types';
+import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES } from '@/types';
 import { DateRange } from '@/lib/pay-period';
 import { useAuth } from '@/context/AuthContext';
+import { capitalizeName } from '@/lib/utils';
 
 interface DataHealthIssue {
   id: string;
@@ -119,6 +123,27 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
   const [showHardDeleteDialog, setShowHardDeleteDialog] = useState(false);
   const [deletingIssue, setDeletingIssue] = useState<DataHealthIssue | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  
+  // Create matching booking dialog
+  const [showCreateBookingDialog, setShowCreateBookingDialog] = useState(false);
+  const [creatingBookingForIssue, setCreatingBookingForIssue] = useState<DataHealthIssue | null>(null);
+  const [creatingBookingRunData, setCreatingBookingRunData] = useState<{
+    member_name: string;
+    run_date: string;
+    class_time: string;
+    lead_source: string;
+    ran_by: string;
+    intro_owner: string;
+    run_id: string;
+  } | null>(null);
+  const [isSelfBooked, setIsSelfBooked] = useState(false);
+  const [newBooking, setNewBooking] = useState({
+    class_date: '',
+    intro_time: '',
+    coach_name: '',
+    sa_working_shift: '',
+    lead_source: '',
+  });
 
   const fetchHealthData = async () => {
     setIsLoading(true);
@@ -533,6 +558,116 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     }
   };
 
+  // Handle opening create matching booking dialog for unlinked runs
+  const handleOpenCreateMatchingBooking = async (issue: DataHealthIssue) => {
+    if (issue.type !== 'unlinked_run') return;
+    
+    // Fetch the full run data
+    const { data: run } = await supabase
+      .from('intros_run')
+      .select('*')
+      .eq('id', issue.id)
+      .single();
+    
+    if (!run) {
+      toast.error('Could not load run data');
+      return;
+    }
+    
+    setCreatingBookingForIssue(issue);
+    setCreatingBookingRunData({
+      member_name: run.member_name,
+      run_date: run.run_date || run.created_at?.split('T')[0] || '',
+      class_time: run.class_time || '',
+      lead_source: run.lead_source || '',
+      ran_by: run.ran_by || run.sa_name || '',
+      intro_owner: run.intro_owner || run.ran_by || run.sa_name || '',
+      run_id: run.id,
+    });
+    
+    // Check if lead source indicates self-booked
+    const isSelfBookedSource = run.lead_source === 'Online Intro Offer (self-booked)';
+    setIsSelfBooked(isSelfBookedSource);
+    
+    setNewBooking({
+      class_date: run.run_date || run.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+      intro_time: run.class_time || '',
+      coach_name: '',
+      sa_working_shift: '',
+      lead_source: run.lead_source || '',
+    });
+    
+    setShowCreateBookingDialog(true);
+  };
+
+  const handleCreateMatchingBooking = async () => {
+    if (!creatingBookingRunData || !creatingBookingForIssue) return;
+    
+    if (!isSelfBooked && !newBooking.sa_working_shift) {
+      toast.error('Booked By is required when not self-booked');
+      return;
+    }
+    
+    setIsFixing(true);
+    try {
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
+      const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || creatingBookingRunData.lead_source || 'Source Not Found');
+      const introOwner = creatingBookingRunData.intro_owner || creatingBookingRunData.ran_by || null;
+      
+      const { data: insertedBooking, error } = await supabase
+        .from('intros_booked')
+        .insert({
+          booking_id: bookingId,
+          member_name: creatingBookingRunData.member_name,
+          class_date: newBooking.class_date,
+          intro_time: newBooking.intro_time || null,
+          coach_name: newBooking.coach_name || 'TBD',
+          sa_working_shift: bookedBy,
+          booked_by: bookedBy,
+          lead_source: leadSource,
+          booking_status: 'Active',
+          intro_owner: introOwner,
+          intro_owner_locked: !!introOwner,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Link the run to this new booking
+      if (insertedBooking) {
+        const { error: linkError } = await supabase
+          .from('intros_run')
+          .update({
+            linked_intro_booked_id: insertedBooking.id,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Linked to newly created matching booking',
+          })
+          .eq('id', creatingBookingRunData.run_id);
+          
+        if (linkError) {
+          console.error('Error linking run to booking:', linkError);
+          toast.error('Booking created but failed to link run');
+        } else {
+          toast.success('Booking created and linked to run');
+        }
+      }
+      
+      setShowCreateBookingDialog(false);
+      setCreatingBookingForIssue(null);
+      setCreatingBookingRunData(null);
+      await fetchHealthData();
+      onFixComplete();
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to create booking');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   const toggleIssueSelection = (id: string) => {
     const newSelection = new Set(selectedIssues);
     if (newSelection.has(id)) {
@@ -942,6 +1077,15 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {issue.type === 'unlinked_run' && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleOpenCreateMatchingBooking(issue)}>
+                                  <CalendarPlus className="w-4 h-4 mr-2" />
+                                  Create Matching Booking
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem onClick={() => handleIgnoreFromMetrics(issue)}>
                               <EyeOff className="w-4 h-4 mr-2" />
                               Ignore from metrics
@@ -1000,6 +1144,122 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
               >
                 {isFixing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
                 Delete Forever
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Matching Booking Dialog */}
+        <Dialog open={showCreateBookingDialog} onOpenChange={(open) => {
+          setShowCreateBookingDialog(open);
+          if (!open) {
+            setCreatingBookingForIssue(null);
+            setCreatingBookingRunData(null);
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create Matching Booking</DialogTitle>
+              <DialogDescription>
+                Create a booking record to match the unlinked intro run for {creatingBookingRunData?.member_name}. 
+                The booking will be automatically linked to this run.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {/* Show run info */}
+            {creatingBookingRunData && (
+              <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+                <div className="font-medium text-sm">Auto-populated from run:</div>
+                <div>Member: {creatingBookingRunData.member_name}</div>
+                <div>Run Date: {creatingBookingRunData.run_date}</div>
+                <div>Time: {creatingBookingRunData.class_time}</div>
+                <div>Lead Source: {creatingBookingRunData.lead_source || 'Not set'}</div>
+                <div>Ran By: {capitalizeName(creatingBookingRunData.ran_by)}</div>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={isSelfBooked}
+                  onCheckedChange={setIsSelfBooked}
+                />
+                <Label className="text-sm">Self-booked (online)</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Date *</Label>
+                  <Input
+                    type="date"
+                    value={newBooking.class_date}
+                    onChange={(e) => setNewBooking({...newBooking, class_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Time</Label>
+                  <Input
+                    type="time"
+                    value={newBooking.intro_time}
+                    onChange={(e) => setNewBooking({...newBooking, intro_time: e.target.value})}
+                  />
+                </div>
+              </div>
+              {!isSelfBooked && (
+                <>
+                  <div>
+                    <Label className="text-xs">Booked By *</Label>
+                    <Select
+                      value={newBooking.sa_working_shift}
+                      onValueChange={(v) => setNewBooking({...newBooking, sa_working_shift: v})}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select SA..." /></SelectTrigger>
+                      <SelectContent>
+                        {SALES_ASSOCIATES.map(sa => (
+                          <SelectItem key={sa} value={sa}>{sa}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Lead Source (from run)</Label>
+                    <Select
+                      value={newBooking.lead_source}
+                      onValueChange={(v) => setNewBooking({...newBooking, lead_source: v})}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
+                      <SelectContent>
+                        {LEAD_SOURCES.map(src => (
+                          <SelectItem key={src} value={src}>{src}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+              <div>
+                <Label className="text-xs">Coach</Label>
+                <Select
+                  value={newBooking.coach_name}
+                  onValueChange={(v) => setNewBooking({...newBooking, coach_name: v})}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_STAFF.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowCreateBookingDialog(false);
+                setCreatingBookingForIssue(null);
+                setCreatingBookingRunData(null);
+              }}>Cancel</Button>
+              <Button onClick={handleCreateMatchingBooking} disabled={isFixing}>
+                {isFixing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                Create & Link
               </Button>
             </DialogFooter>
           </DialogContent>
