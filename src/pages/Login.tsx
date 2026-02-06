@@ -3,43 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Flame, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Flame } from 'lucide-react';
+import { ALL_STAFF } from '@/types';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedName, setSelectedName] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!email || !password) {
-      toast.error('Please enter both email and password');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await login(email, password);
-      toast.success('Welcome back!');
-      navigate('/shift-recap');
-    } catch (error: any) {
-      console.error('Login error:', error);
-      if (error.message?.includes('Invalid login credentials')) {
-        toast.error('Invalid email or password');
-      } else if (error.message?.includes('Email not confirmed')) {
-        toast.error('Please verify your email before signing in');
-      } else {
-        toast.error(error.message || 'Failed to sign in');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+  const handleLogin = () => {
+    if (!selectedName) return;
+    login(selectedName);
+    navigate('/shift-recap');
   };
 
   return (
@@ -57,55 +33,30 @@ export default function Login() {
 
       <Card className="w-full max-w-sm border-0 shadow-2xl">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-xl">Welcome Back</CardTitle>
-          <CardDescription>Sign in to continue</CardDescription>
+          <CardTitle className="text-xl">Welcome</CardTitle>
+          <CardDescription>Select your name to continue</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-12"
-                disabled={isLoading}
-                autoComplete="email"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12"
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
-            </div>
+        <CardContent className="space-y-4">
+          <Select value={selectedName} onValueChange={setSelectedName}>
+            <SelectTrigger className="h-12">
+              <SelectValue placeholder="Select your name..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Admin">Admin</SelectItem>
+              {ALL_STAFF.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-            <Button 
-              type="submit"
-              disabled={isLoading || !email || !password}
-              className="w-full h-12 text-base font-bold"
-              size="lg"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
-          </form>
+          <Button 
+            onClick={handleLogin}
+            disabled={!selectedName}
+            className="w-full h-12 text-base font-bold"
+            size="lg"
+          >
+            Continue
+          </Button>
         </CardContent>
       </Card>
 
