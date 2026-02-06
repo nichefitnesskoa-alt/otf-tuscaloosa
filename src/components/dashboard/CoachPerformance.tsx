@@ -53,13 +53,16 @@ const isMembershipSale = (result: string): boolean => {
 export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPerformanceProps) {
   const coachStats = useMemo(() => {
     const EXCLUDED_STATUSES = ['Duplicate', 'Deleted (soft)', 'DEAD'];
+    const EXCLUDED_BOOKERS = ['Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
     
-    // Filter active bookings
+    // Filter active bookings - exclude self-booked
     const activeBookings = introsBooked.filter(b => {
       const status = ((b as any).booking_status || '').toUpperCase();
       const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
       const isIgnored = (b as any).ignore_from_metrics === true;
-      return !isExcludedStatus && !isIgnored;
+      const bookedBy = (b as any).booked_by || b.sa_working_shift || '';
+      const isSelfBooked = EXCLUDED_BOOKERS.some(e => bookedBy.toLowerCase() === e.toLowerCase());
+      return !isExcludedStatus && !isIgnored && !isSelfBooked;
     });
 
     // Filter active runs

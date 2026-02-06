@@ -106,7 +106,7 @@ export function useDashboardMetrics(
       'DEAD',
     ];
     
-    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked'];
+    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
     
     // Filter out bookings with excluded status or ignored from metrics
     const activeBookings = introsBooked.filter(b => {
@@ -123,11 +123,18 @@ export function useDashboardMetrics(
     });
     
     // FIRST INTRO BOOKINGS ONLY (for leaderboards - show rate)
+    // Also exclude self-booked for studio metrics
     const firstIntroBookings = activeBookings.filter(b => {
       const originatingId = (b as any).originating_booking_id;
       const isFirstIntro = originatingId === null || originatingId === undefined;
       const isInDateRange = isDateInRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
+    });
+    
+    // First intro bookings excluding self-booked (for studio-wide metrics)
+    const firstIntroBookingsNoSelfBooked = firstIntroBookings.filter(b => {
+      const bookedBy = (b as any).booked_by || b.sa_working_shift || '';
+      return !EXCLUDED_NAMES.some(ex => bookedBy.toLowerCase() === ex.toLowerCase());
     });
 
     // Create a map of booking_id to intro runs
@@ -317,9 +324,14 @@ export function useDashboardMetrics(
       return MEMBERSHIP_RESULTS_GLOBAL.some(m => lower.includes(m));
     };
 
+    // Lead sources - exclude self-booked for studio analytics
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
-    firstIntroBookings.forEach(b => {
+    firstIntroBookingsNoSelfBooked.forEach(b => {
       const source = b.lead_source || 'Unknown';
+      // Skip self-booked lead sources entirely
+      if (source.toLowerCase().includes('self-booked') || source.toLowerCase().includes('self booked')) {
+        return;
+      }
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
       existing.booked++;
       
@@ -340,14 +352,14 @@ export function useDashboardMetrics(
       .sort((a, b) => b.booked - a.booked);
 
     // =========================================
-    // PIPELINE METRICS
+    // PIPELINE METRICS (exclude self-booked for studio view)
     // =========================================
-    const pipelineBooked = firstIntroBookings.length;
+    const pipelineBooked = firstIntroBookingsNoSelfBooked.length;
     let pipelineShowed = 0;
     let pipelineSold = 0;
     let pipelineRevenue = 0;
 
-    firstIntroBookings.forEach(b => {
+    firstIntroBookingsNoSelfBooked.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
