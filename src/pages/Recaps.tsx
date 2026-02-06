@@ -7,10 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, Copy, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { PerSATable } from '@/components/dashboard/PerSATable';
-import { Leaderboards } from '@/components/dashboard/Leaderboards';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
-import { IndividualActivityTable } from '@/components/dashboard/IndividualActivityTable';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -34,18 +32,13 @@ export default function Recaps() {
   const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps);
 
   // Use leaderboard data from metrics
-  const { topBookers, topCommission, topClosing, topShowRate } = metrics.leaderboards;
+  const { topBookers, topClosing, topShowRate } = metrics.leaderboards;
 
   // Filter per-SA table based on selected employee (admin only)
   const filteredPerSA = useMemo(() => {
     if (!selectedEmployee) return metrics.perSA;
     return metrics.perSA.filter(m => m.saName === selectedEmployee);
   }, [metrics.perSA, selectedEmployee]);
-
-  const filteredIndividualActivity = useMemo(() => {
-    if (!selectedEmployee) return metrics.individualActivity;
-    return metrics.individualActivity.filter(m => m.saName === selectedEmployee);
-  }, [metrics.individualActivity, selectedEmployee]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -104,13 +97,6 @@ export default function Recaps() {
         text += `${i + 1}. ${m.name}: ${m.value.toFixed(0)}% ${m.subValue ? `(${m.subValue})` : ''}\n`;
       });
       text += `\n`;
-    }
-
-    if (topCommission.length > 0) {
-      text += `💵 Top Commission:\n`;
-      topCommission.forEach((m, i) => {
-        text += `${i + 1}. ${m.name}: $${m.value.toFixed(0)}\n`;
-      });
     }
 
     return text;
@@ -230,14 +216,6 @@ export default function Recaps() {
         madeAFriendRate={metrics.studio.madeAFriendRate}
       />
 
-      {/* Leaderboards */}
-      <Leaderboards 
-        topBookers={topBookers}
-        topCommission={topCommission}
-        topClosing={topClosing}
-        topShowRate={topShowRate}
-      />
-
       {/* Top Performers */}
       <Card>
         <CardHeader className="pb-3">
@@ -247,20 +225,20 @@ export default function Recaps() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Top Bookers */}
+          <div className="grid grid-cols-3 gap-4">
+            {/* Top Bookers - limited to 3 */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Top Bookers</p>
               {topBookers.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No data</p>
               ) : (
-                topBookers.map((m, i) => (
+                topBookers.slice(0, 3).map((m, i) => (
                   <div key={m.name} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1">
                       {i === 0 && '🥇'}
                       {i === 1 && '🥈'}
                       {i === 2 && '🥉'}
-                      {m.name}
+                      <span className="truncate max-w-[60px]">{m.name}</span>
                     </span>
                     <Badge variant="secondary" className="text-xs">{m.value}</Badge>
                   </div>
@@ -268,19 +246,19 @@ export default function Recaps() {
               )}
             </div>
 
-            {/* Top Show Rate */}
+            {/* Top Show Rate - limited to 3 */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Best Show Rate</p>
               {topShowRate.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Min 3 booked</p>
               ) : (
-                topShowRate.map((m, i) => (
+                topShowRate.slice(0, 3).map((m, i) => (
                   <div key={m.name} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1">
                       {i === 0 && '🥇'}
                       {i === 1 && '🥈'}
                       {i === 2 && '🥉'}
-                      {m.name}
+                      <span className="truncate max-w-[60px]">{m.name}</span>
                     </span>
                     <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
                   </div>
@@ -288,41 +266,21 @@ export default function Recaps() {
               )}
             </div>
 
-            {/* Top Closers */}
+            {/* Top Closers - limited to 3 */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Best Close Rate</p>
               {topClosing.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Min 3 ran</p>
+                <p className="text-xs text-muted-foreground">Min 1 ran</p>
               ) : (
-                topClosing.map((m, i) => (
+                topClosing.slice(0, 3).map((m, i) => (
                   <div key={m.name} className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1">
                       {i === 0 && '🥇'}
                       {i === 1 && '🥈'}
                       {i === 2 && '🥉'}
-                      {m.name}
+                      <span className="truncate max-w-[60px]">{m.name}</span>
                     </span>
                     <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Top Commission */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Top Commission</p>
-              {topCommission.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No data</p>
-              ) : (
-                topCommission.map((m, i) => (
-                  <div key={m.name} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      {i === 0 && '🥇'}
-                      {i === 1 && '🥈'}
-                      {i === 2 && '🥉'}
-                      {m.name}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">${m.value.toFixed(0)}</Badge>
                   </div>
                 ))
               )}
@@ -333,9 +291,6 @@ export default function Recaps() {
 
       {/* Per-SA Performance */}
       <PerSATable data={filteredPerSA} />
-
-      {/* Individual Activity Table */}
-      <IndividualActivityTable data={filteredIndividualActivity} />
 
       {/* Export Actions */}
       <Card>
