@@ -228,6 +228,7 @@ export default function ClientJourneyPanel() {
   // Create new booking dialog
   const [showCreateBookingDialog, setShowCreateBookingDialog] = useState(false);
   const [isSelfBooked, setIsSelfBooked] = useState(false);
+  const [creatingBookingFromRun, setCreatingBookingFromRun] = useState<ClientRun | null>(null);
   const [newBooking, setNewBooking] = useState({
     member_name: '',
     class_date: new Date().toISOString().split('T')[0],
@@ -866,6 +867,26 @@ export default function ClientJourneyPanel() {
       fitness_goal: '',
     });
     setIsSelfBooked(false);
+    setCreatingBookingFromRun(null);
+    setShowCreateBookingDialog(true);
+  };
+
+  // Create matching booking from an unlinked run
+  const handleCreateMatchingBooking = (run: ClientRun) => {
+    // Pre-populate with run data
+    setNewBooking({
+      member_name: run.member_name,
+      class_date: run.run_date || new Date().toISOString().split('T')[0],
+      intro_time: run.class_time || '',
+      coach_name: '',
+      sa_working_shift: '',
+      lead_source: run.lead_source || '',
+      fitness_goal: '',
+    });
+    // Check if lead source indicates self-booked
+    const isSelfBookedSource = run.lead_source === 'Online Intro Offer (self-booked)';
+    setIsSelfBooked(isSelfBookedSource);
+    setCreatingBookingFromRun(run);
     setShowCreateBookingDialog(true);
   };
 
@@ -886,7 +907,10 @@ export default function ClientJourneyPanel() {
       const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
       const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Source Not Found');
       
-      const { error } = await supabase
+      // Determine intro_owner from the linked run if creating from run
+      const introOwner = creatingBookingFromRun?.intro_owner || creatingBookingFromRun?.ran_by || null;
+      
+      const { data: insertedBooking, error } = await supabase
         .from('intros_booked')
         .insert({
           booking_id: bookingId,
@@ -898,13 +922,39 @@ export default function ClientJourneyPanel() {
           booked_by: bookedBy,
           lead_source: leadSource,
           fitness_goal: newBooking.fitness_goal || null,
-          booking_status: 'Active',
-        });
+          booking_status: creatingBookingFromRun ? 'Active' : 'Active',
+          intro_owner: introOwner,
+          intro_owner_locked: !!introOwner,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
       
-      toast.success('Booking created');
+      // If creating from a run, link the run to this new booking
+      if (creatingBookingFromRun && insertedBooking) {
+        const { error: linkError } = await supabase
+          .from('intros_run')
+          .update({
+            linked_intro_booked_id: insertedBooking.id,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Admin',
+            edit_reason: 'Linked to newly created matching booking',
+          })
+          .eq('id', creatingBookingFromRun.id);
+          
+        if (linkError) {
+          console.error('Error linking run to booking:', linkError);
+          toast.error('Booking created but failed to link run');
+        } else {
+          toast.success('Booking created and linked to run');
+        }
+      } else {
+        toast.success('Booking created');
+      }
+      
       setShowCreateBookingDialog(false);
+      setCreatingBookingFromRun(null);
       await fetchData();
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -1502,9 +1552,14 @@ export default function ClientJourneyPanel() {
                                           <Edit className="w-3 h-3 mr-2" /> Edit Run
                                         </DropdownMenuItem>
                                         {!r.linked_intro_booked_id ? (
-                                          <DropdownMenuItem onClick={() => handleOpenLinkDialog(r, journey.bookings)}>
-                                            <Link className="w-3 h-3 mr-2" /> Link to Booking
-                                          </DropdownMenuItem>
+                                          <>
+                                            <DropdownMenuItem onClick={() => handleOpenLinkDialog(r, journey.bookings)}>
+                                              <Link className="w-3 h-3 mr-2" /> Link to Existing Booking
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleCreateMatchingBooking(r)}>
+                                              <CalendarPlus className="w-3 h-3 mr-2" /> Create Matching Booking
+                                            </DropdownMenuItem>
+                                          </>
                                         ) : (
                                           <DropdownMenuItem onClick={() => handleUnlinkRun(r)}>
                                             <X className="w-3 h-3 mr-2" /> Unlink from Booking
@@ -2066,14 +2121,34 @@ export default function ClientJourneyPanel() {
         </Dialog>
 
         {/* Create Booking Dialog */}
-        <Dialog open={showCreateBookingDialog} onOpenChange={setShowCreateBookingDialog}>
+        <Dialog open={showCreateBookingDialog} onOpenChange={(open) => {
+          setShowCreateBookingDialog(open);
+          if (!open) setCreatingBookingFromRun(null);
+        }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New Booking</DialogTitle>
+              <DialogTitle>
+                {creatingBookingFromRun ? 'Create Matching Booking' : 'Create New Booking'}
+              </DialogTitle>
               <DialogDescription>
-                Add a new intro booking to the system
+                {creatingBookingFromRun 
+                  ? `Create a booking record to match the intro run for ${creatingBookingFromRun.member_name}. The booking will be automatically linked to this run.`
+                  : 'Add a new intro booking to the system'
+                }
               </DialogDescription>
             </DialogHeader>
+            
+            {/* Show run info if creating from run */}
+            {creatingBookingFromRun && (
+              <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+                <div className="font-medium text-sm">Auto-populated from run:</div>
+                <div>Run Date: {creatingBookingFromRun.run_date}</div>
+                <div>Time: {creatingBookingFromRun.class_time}</div>
+                <div>Lead Source: {creatingBookingFromRun.lead_source || 'Not set'}</div>
+                <div>Ran By: {capitalizeName(creatingBookingFromRun.ran_by)}</div>
+              </div>
+            )}
+            
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Member Name *</Label>
@@ -2081,6 +2156,7 @@ export default function ClientJourneyPanel() {
                   value={newBooking.member_name}
                   onChange={(e) => setNewBooking({...newBooking, member_name: e.target.value})}
                   placeholder="Full name"
+                  disabled={!!creatingBookingFromRun}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -2125,7 +2201,7 @@ export default function ClientJourneyPanel() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Lead Source</Label>
+                    <Label className="text-xs">Lead Source {creatingBookingFromRun ? '(from run)' : ''}</Label>
                     <Select
                       value={newBooking.lead_source}
                       onValueChange={(v) => setNewBooking({...newBooking, lead_source: v})}
@@ -2156,10 +2232,13 @@ export default function ClientJourneyPanel() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateBookingDialog(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => {
+                setShowCreateBookingDialog(false);
+                setCreatingBookingFromRun(null);
+              }}>Cancel</Button>
               <Button onClick={handleCreateBooking} disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                Create Booking
+                {creatingBookingFromRun ? 'Create & Link' : 'Create Booking'}
               </Button>
             </DialogFooter>
           </DialogContent>
