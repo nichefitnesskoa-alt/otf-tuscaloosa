@@ -349,9 +349,11 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         existing.showed++;
-        if (isMembershipSaleGlobal(nonNoShowRun.result)) {
+        // FIX: Check if ANY run has a sale result, not just the first
+        const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
+        if (saleRun) {
           existing.sold++;
-          existing.revenue += nonNoShowRun.commission_amount || 0;
+          existing.revenue += saleRun.commission_amount || 0;
         }
       }
       
@@ -374,9 +376,11 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         pipelineShowed++;
-        if (isMembershipSaleGlobal(nonNoShowRun.result)) {
+        // FIX: Check if ANY run has a sale result, not just the first
+        const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
+        if (saleRun) {
           pipelineSold++;
-          pipelineRevenue += nonNoShowRun.commission_amount || 0;
+          pipelineRevenue += saleRun.commission_amount || 0;
         }
       }
     });

@@ -42,6 +42,7 @@ interface MembershipPurchase {
   intro_owner: string | null;
   booked_by: string | null;
   lead_source: string | null;
+  coach: string | null;
   source: 'intro_run' | 'outside_intro';
 }
 
@@ -97,15 +98,16 @@ export default function MembershipPurchasesPanel() {
           lead_source
         `);
 
-      // Fetch bookings for booked_by and lead_source info
+      // Fetch bookings for booked_by, lead_source, and coach info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by, lead_source');
+        .select('id, sa_working_shift, booked_by, lead_source, coach_name');
 
       const bookingMap = new Map(
         (bookings || []).map(b => [b.id, { 
           bookedBy: b.sa_working_shift || b.booked_by || null,
-          leadSource: b.lead_source || null
+          leadSource: b.lead_source || null,
+          coach: b.coach_name || null
         }])
       );
 
@@ -129,6 +131,7 @@ export default function MembershipPurchasesPanel() {
           intro_owner: capitalizeName(run.intro_owner || run.ran_by || run.sa_name),
           booked_by: capitalizeName(bookingInfo?.bookedBy || null),
           lead_source: run.lead_source || bookingInfo?.leadSource || null,
+          coach: capitalizeName(bookingInfo?.coach || null),
           source: 'intro_run',
         });
       });
@@ -147,6 +150,7 @@ export default function MembershipPurchasesPanel() {
           intro_owner: capitalizeName(sale.intro_owner),
           booked_by: null,
           lead_source: sale.lead_source,
+          coach: null,
           source: 'outside_intro',
         });
       });
@@ -264,6 +268,7 @@ export default function MembershipPurchasesPanel() {
                   <TableHead>Type</TableHead>
                   <TableHead>Commission</TableHead>
                   <TableHead>Ran By</TableHead>
+                  <TableHead>Coach</TableHead>
                   <TableHead>Lead Source</TableHead>
                   <TableHead>Booked By</TableHead>
                 </TableRow>
@@ -290,6 +295,9 @@ export default function MembershipPurchasesPanel() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {purchase.intro_owner || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {purchase.coach || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs">
                       {purchase.lead_source || <span className="text-muted-foreground">—</span>}
