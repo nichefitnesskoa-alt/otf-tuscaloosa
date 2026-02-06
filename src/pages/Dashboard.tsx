@@ -18,6 +18,9 @@ import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { TodaysRace } from '@/components/dashboard/TodaysRace';
 import { WeeklyChallenges, Challenge } from '@/components/dashboard/WeeklyChallenges';
 import { AchievementGrid, Achievement } from '@/components/dashboard/AchievementBadge';
+import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
+import { ClientJourneyReadOnly } from '@/components/dashboard/ClientJourneyReadOnly';
+import { MembershipPurchasesReadOnly } from '@/components/dashboard/MembershipPurchasesReadOnly';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { format, endOfWeek, startOfWeek } from 'date-fns';
@@ -299,8 +302,21 @@ export default function Dashboard() {
             revenue={metrics.pipeline.revenue}
           />
 
+          {/* Coach Performance Section */}
+          <CoachPerformance
+            introsBooked={introsBooked}
+            introsRun={introsRun}
+            dateRange={dateRange}
+          />
+
           {/* Lead Source Analytics */}
           <LeadSourceChart data={metrics.leadSourceMetrics} />
+
+          {/* Client Pipeline (read-only) */}
+          <ClientJourneyReadOnly />
+
+          {/* Members Who Bought (read-only) */}
+          <MembershipPurchasesReadOnly />
 
           {/* Leaderboards with My Rank */}
           <Leaderboards 
