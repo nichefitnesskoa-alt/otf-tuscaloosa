@@ -201,49 +201,59 @@ export function useDashboardMetrics(
         }
       });
 
-      // Count intros run: unique bookings where SA ran the first non-no-show intro + unlinked runs
+      // Count intros run: unique bookings where SA ran any non-no-show intro + unlinked runs
+      // FIX: Track whether ANY run for a booking resulted in a sale (not just first run)
       let introsRunCount = 0;
+      let salesCount = 0;
+      let salesCommission = 0;
       const saFirstRuns: IntroRun[] = [];
       
-      // Count linked runs (first per booking)
-      runsByBooking.forEach((runs) => {
-        const sortedRuns = [...runs].sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        const firstValidRun = sortedRuns[0]; // Already filtered to non-no-show
-        if (firstValidRun) {
-          introsRunCount++;
-          saFirstRuns.push(firstValidRun);
-        }
-      });
-      
-      // Add unlinked runs
-      introsRunCount += unlinkedRuns.length;
-      saFirstRuns.push(...unlinkedRuns);
-
-      // Sales = runs with membership result (Premier/Elite/Basic) within date range
-      // Use buy_date if available, otherwise fall back to run_date
       const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
       const isMembershipSale = (result: string) => {
         const lower = (result || '').toLowerCase();
         return MEMBERSHIP_RESULTS.some(m => lower.includes(m));
       };
       
-      const saSales = saFirstRuns.filter(run => {
+      // Count linked runs - check ALL runs per booking for sale outcome
+      runsByBooking.forEach((runs) => {
+        const sortedRuns = [...runs].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        const firstValidRun = sortedRuns[0]; // First non-no-show run determines "ran"
+        if (firstValidRun) {
+          introsRunCount++;
+          saFirstRuns.push(firstValidRun);
+          
+          // Check if ANY run for this booking has a sale result
+          const saleRun = runs.find(r => {
+            const saleDate = r.buy_date || r.run_date;
+            const saleDateInRange = isDateInRange(saleDate, dateRange);
+            return isMembershipSale(r.result) && saleDateInRange;
+          });
+          
+          if (saleRun) {
+            salesCount++;
+            salesCommission += saleRun.commission_amount || 0;
+          }
+        }
+      });
+      
+      // Add unlinked runs
+      unlinkedRuns.forEach(run => {
+        introsRunCount++;
+        saFirstRuns.push(run);
         const saleDate = run.buy_date || run.run_date;
         const saleDateInRange = isDateInRange(saleDate, dateRange);
-        return isMembershipSale(run.result) && saleDateInRange;
+        if (isMembershipSale(run.result) && saleDateInRange) {
+          salesCount++;
+          salesCommission += run.commission_amount || 0;
+        }
       });
-      const salesCount = saSales.length;
+
       const closingRate = introsRunCount > 0 ? (salesCount / introsRunCount) * 100 : 0;
 
-      // Commission from intros (use buy_date if available, otherwise run_date)
-      const introCommission = saFirstRuns
-        .filter(r => {
-          const saleDate = r.buy_date || r.run_date;
-          return isDateInRange(saleDate, dateRange) && isMembershipSale(r.result);
-        })
-        .reduce((sum, r) => sum + (r.commission_amount || 0), 0);
+      // Commission from intros (already calculated in salesCommission from any-run-with-sale logic)
+      const introCommission = salesCommission;
       
       // Commission from outside sales
       const outsideCommission = sales
@@ -390,7 +400,8 @@ export function useDashboardMetrics(
         const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
         if (run.result !== 'No-show') {
           existing.introsRun++;
-          if (run.commission_amount && run.commission_amount > 0) {
+          // FIX: Use result string to detect sales, not commission_amount
+          if (isMembershipSaleGlobal(run.result)) {
             existing.sales++;
           }
         }
