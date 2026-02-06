@@ -943,13 +943,13 @@ export default function ClientJourneyPanel() {
           lead_source: newRun.lead_source || 'Source Not Found',
           result: newRun.result,
           notes: newRun.notes || null,
-          linked_intro_booked_id: newRun.linked_intro_booked_id || null,
+          linked_intro_booked_id: newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' ? newRun.linked_intro_booked_id : null,
         });
 
       if (error) throw error;
 
       // Sync intro_owner to linked booking if applicable
-      if (newRun.linked_intro_booked_id && newRun.result !== 'No-show') {
+      if (newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' && newRun.result !== 'No-show') {
         await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, user?.name || 'Admin');
       }
 
@@ -2226,7 +2226,7 @@ export default function ClientJourneyPanel() {
                   >
                     <SelectTrigger><SelectValue placeholder="Select booking to link..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">— No link —</SelectItem>
+                      <SelectItem value="__NONE__">— No link —</SelectItem>
                       {creatingRunForJourney.bookings
                         .filter(b => !b.booking_status || b.booking_status === 'Active')
                         .map(b => (
