@@ -35,6 +35,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
       name: d.source.length > 15 ? d.source.substring(0, 15) + '...' : d.source,
       fullName: d.source,
       value: d.booked,
+      sold: d.sold,
     }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
@@ -48,6 +49,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
       showRate: d.booked > 0 ? (d.showed / d.booked) * 100 : 0,
       closeRate: d.showed > 0 ? (d.sold / d.showed) * 100 : 0,
       booked: d.booked,
+      sold: d.sold,
     }))
     .sort((a, b) => b.booked - a.booked)
     .slice(0, 5);
@@ -102,12 +104,29 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                 </Pie>
                 <Tooltip 
                   formatter={(value: number, name: string, entry: any) => [
-                    `${value} bookings`,
+                    `${value} booked, ${entry.payload.sold} sold`,
                     entry.payload.fullName
                   ]}
                 />
               </PieChart>
             </ResponsiveContainer>
+            {/* Summary below chart */}
+            <div className="mt-2 space-y-1">
+              {pieData.slice(0, 4).map((item, idx) => (
+                <div key={item.fullName} className="flex justify-between text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: COLORS[idx % COLORS.length] }} 
+                    />
+                    <span className="truncate max-w-[120px]">{item.fullName}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    {item.value} booked, <span className="text-success font-medium">{item.sold} sold</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </TabsContent>
           
           <TabsContent value="conversion" className="mt-0">
@@ -117,7 +136,12 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                 <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} />
                 <YAxis type="category" dataKey="source" width={80} tick={{ fontSize: 10 }} />
                 <Tooltip 
-                  formatter={(value: number, name: string) => [`${value.toFixed(0)}%`, name]}
+                  formatter={(value: number, name: string, entry: any) => {
+                    if (name === 'Show Rate') {
+                      return [`${value.toFixed(0)}%`, name];
+                    }
+                    return [`${value.toFixed(0)}% (${entry.payload.sold} sales)`, name];
+                  }}
                 />
                 <Bar dataKey="showRate" name="Show Rate" fill="hsl(45, 100%, 51%)" radius={[0, 4, 4, 0]} />
                 <Bar dataKey="closeRate" name="Close Rate" fill="hsl(142, 76%, 36%)" radius={[0, 4, 4, 0]} />
