@@ -232,19 +232,6 @@ export default function Admin() {
           <ClientJourneyPanel />
           
           <MembershipPurchasesPanel />
-          {spreadsheetIdInput && (
-            <>
-              <EmergencySyncBookings 
-                spreadsheetId={spreadsheetIdInput}
-                onSyncComplete={handleSyncComplete}
-              />
-              <EmergencySyncRuns 
-                spreadsheetId={spreadsheetIdInput}
-                onSyncComplete={handleSyncComplete}
-              />
-            </>
-          )}
-          <FixBookingAttribution onFixComplete={handleSyncComplete} />
           <ShiftRecapsEditor />
         </TabsContent>
 
