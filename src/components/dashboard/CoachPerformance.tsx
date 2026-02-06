@@ -53,16 +53,14 @@ const isMembershipSale = (result: string): boolean => {
 export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPerformanceProps) {
   const coachStats = useMemo(() => {
     const EXCLUDED_STATUSES = ['Duplicate', 'Deleted (soft)', 'DEAD'];
-    const EXCLUDED_BOOKERS = ['Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
     
-    // Filter active bookings - exclude self-booked
+    // FIX: Include self-booked clients for coach metrics - coaches still coach these clients
+    // Self-booked exclusion only applies to BOOKER credit, not coach performance
     const activeBookings = introsBooked.filter(b => {
       const status = ((b as any).booking_status || '').toUpperCase();
       const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
       const isIgnored = (b as any).ignore_from_metrics === true;
-      const bookedBy = (b as any).booked_by || b.sa_working_shift || '';
-      const isSelfBooked = EXCLUDED_BOOKERS.some(e => bookedBy.toLowerCase() === e.toLowerCase());
-      return !isExcludedStatus && !isIgnored && !isSelfBooked;
+      return !isExcludedStatus && !isIgnored;
     });
 
     // Filter active runs
@@ -106,9 +104,11 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
       if (nonNoShowRun) {
         existing.intros++;
         
-        if (isMembershipSale(nonNoShowRun.result)) {
+        // FIX: Check if ANY run for this booking has a membership sale result
+        const saleRun = runs.find(r => isMembershipSale(r.result));
+        if (saleRun) {
           existing.sales++;
-          existing.commission += nonNoShowRun.commission_amount || 0;
+          existing.commission += saleRun.commission_amount || 0;
         }
       }
 
