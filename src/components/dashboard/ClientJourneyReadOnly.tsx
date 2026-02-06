@@ -32,7 +32,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
 
 // Tab types
-type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro';
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested';
 
 interface ClientBooking {
   id: string;
@@ -216,7 +216,7 @@ export function ClientJourneyReadOnly() {
     return hasSaleResult || hasClosedBooking;
   };
 
-  // Calculate tab counts
+  // Calculate tab counts - exclude purchased members from all counts
   const tabCounts = useMemo(() => {
     const counts = {
       all: 0,
@@ -225,16 +225,20 @@ export function ClientJourneyReadOnly() {
       no_show: 0,
       missed_guest: 0,
       second_intro: 0,
+      not_interested: 0,
     };
 
     journeys.forEach(journey => {
+      const hasPurchased = hasPurchasedMembership(journey);
+      
+      // Exclude purchased members from pipeline entirely
+      if (hasPurchased) return;
+      
       counts.all++;
 
       const latestActiveBooking = journey.bookings.find(b => 
         !b.booking_status || b.booking_status === 'Active'
       );
-
-      const hasPurchased = hasPurchasedMembership(journey);
 
       if (latestActiveBooking && isBookingUpcoming(latestActiveBooking)) {
         counts.upcoming++;
@@ -250,7 +254,7 @@ export function ClientJourneyReadOnly() {
       );
       const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
       
-      if (!hasPurchased && hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
+      if (hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
         counts.no_show++;
       }
 
@@ -258,7 +262,7 @@ export function ClientJourneyReadOnly() {
       const hasMissedResult = journey.runs.some(r => 
         r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
       );
-      if (!hasPurchased && hasMissedResult) {
+      if (hasMissedResult) {
         counts.missed_guest++;
       }
 
@@ -269,24 +273,32 @@ export function ClientJourneyReadOnly() {
           (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
         ) && journey.runs.length > 0);
       
-      if (!hasPurchased && has2ndIntro) {
+      if (has2ndIntro) {
         counts.second_intro++;
+      }
+
+      // Not interested
+      const hasNotInterested = journey.bookings.some(b => b.booking_status === 'Not interested') ||
+        journey.runs.some(r => r.result === 'Not interested');
+      if (hasNotInterested) {
+        counts.not_interested++;
       }
     });
 
     return counts;
   }, [journeys]);
 
-  // Filter by tab
+  // Filter by tab - always exclude purchased members
   const filterJourneysByTab = (journeyList: ClientJourney[], tab: JourneyTab): ClientJourney[] => {
-    if (tab === 'all') return journeyList;
+    // First, exclude all purchased members from the pipeline
+    const nonPurchased = journeyList.filter(j => !hasPurchasedMembership(j));
+    
+    if (tab === 'all') return nonPurchased;
 
-    return journeyList.filter(journey => {
+    return nonPurchased.filter(journey => {
       const latestActiveBooking = journey.bookings.find(b => 
         !b.booking_status || b.booking_status === 'Active'
       );
-      
-      const hasPurchased = hasPurchasedMembership(journey);
 
       switch (tab) {
         case 'upcoming':
@@ -296,7 +308,6 @@ export function ClientJourneyReadOnly() {
           return latestActiveBooking && isBookingToday(latestActiveBooking);
 
         case 'no_show': {
-          if (hasPurchased) return false;
           const hasActiveBooking = journey.bookings.some(b => 
             (!b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
           );
@@ -305,18 +316,20 @@ export function ClientJourneyReadOnly() {
         }
 
         case 'missed_guest':
-          if (hasPurchased) return false;
           return journey.runs.some(r => 
             r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
           );
 
         case 'second_intro':
-          if (hasPurchased) return false;
           return journey.bookings.some(b => b.originating_booking_id) ||
             journey.runs.some(r => r.result === 'Booked 2nd intro') ||
             (journey.bookings.length > 1 && journey.bookings.some(b => 
               (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
             ) && journey.runs.length > 0);
+
+        case 'not_interested':
+          return journey.bookings.some(b => b.booking_status === 'Not interested') ||
+            journey.runs.some(r => r.result === 'Not interested');
 
         default:
           return true;
@@ -443,6 +456,10 @@ export function ClientJourneyReadOnly() {
             <TabsTrigger value="second_intro" className="flex-1 min-w-[60px] gap-1 text-xs">
               <Target className="w-3 h-3" />
               2nd Intro ({tabCounts.second_intro})
+            </TabsTrigger>
+            <TabsTrigger value="not_interested" className="flex-1 min-w-[60px] gap-1 text-xs">
+              <UserMinus className="w-3 h-3" />
+              Not Interested ({tabCounts.not_interested})
             </TabsTrigger>
           </TabsList>
         </Tabs>
