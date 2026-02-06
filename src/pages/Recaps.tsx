@@ -5,10 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, Copy, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { PerSATable } from '@/components/dashboard/PerSATable';
+import { BookerStatsTable } from '@/components/dashboard/BookerStatsTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
+import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
+import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
+import { ClientJourneyReadOnly } from '@/components/dashboard/ClientJourneyReadOnly';
+import { MembershipPurchasesReadOnly } from '@/components/dashboard/MembershipPurchasesReadOnly';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -216,11 +222,28 @@ export default function Recaps() {
         madeAFriendRate={metrics.studio.madeAFriendRate}
       />
 
+      {/* Pipeline Funnel */}
+      <PipelineFunnel
+        booked={metrics.pipeline.booked}
+        showed={metrics.pipeline.showed}
+        sold={metrics.pipeline.sold}
+        revenue={metrics.pipeline.revenue}
+      />
+
+      {/* Lead Source Analytics */}
+      <LeadSourceChart data={metrics.leadSourceMetrics} />
+
+      {/* Client Pipeline (read-only) */}
+      <ClientJourneyReadOnly />
+
+      {/* Members Who Bought (read-only) */}
+      <MembershipPurchasesReadOnly />
+
       {/* Top Performers */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-yellow-500" />
+            <Trophy className="w-4 h-4 text-primary" />
             Top Performers
           </CardTitle>
         </CardHeader>
@@ -289,8 +312,19 @@ export default function Recaps() {
         </CardContent>
       </Card>
 
-      {/* Per-SA Performance */}
-      <PerSATable data={filteredPerSA} />
+      {/* Runner & Booker Stats Tabs */}
+      <Tabs defaultValue="runner">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="runner">Runner Stats</TabsTrigger>
+          <TabsTrigger value="booker">Booker Stats</TabsTrigger>
+        </TabsList>
+        <TabsContent value="runner">
+          <PerSATable data={filteredPerSA} />
+        </TabsContent>
+        <TabsContent value="booker">
+          <BookerStatsTable data={metrics.bookerStats} />
+        </TabsContent>
+      </Tabs>
 
       {/* Export Actions */}
       <Card>
@@ -321,7 +355,9 @@ export default function Recaps() {
           <p className="text-xs text-muted-foreground">
             <strong>Studio Scoreboard</strong> = all metrics across all staff
             <br />
-            <strong>Per-SA Performance</strong> = metrics credited to intro_owner (who ran first intro)
+            <strong>Runner Stats</strong> = metrics credited to intro_owner (who ran first intro)
+            <br />
+            <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
             <br />
             <strong>Lead Measures</strong> = Goal+Why capture, Relationship experience, Made a Friend
           </p>
