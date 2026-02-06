@@ -1,93 +1,136 @@
 
-# Add Status-Based Tabs to Client Journey View
 
-## Overview
-Add a tabbed interface to organize clients by their intro status, making it easy to see who hasn't shown up yet, who no-showed, who is a "missed guest" (showed but didn't buy), and who has a 2nd intro scheduled.
+# Dashboard Restructuring Plan
 
-## Tab Structure
+## Summary
+This plan restructures the Dashboard to create a clear separation between personal (My Stats) and studio-wide metrics. The "My Stats" tab will focus purely on individual performance, while the "Studio" tab will contain all studio-wide analytics. Coach stats will be moved to Admin only.
 
-| Tab | Description | Filter Logic |
-|-----|-------------|--------------|
-| **All** | All clients (current view) | No filter |
-| **Upcoming** | Intros scheduled for future dates | `class_date > today` OR (`class_date = today` AND `intro_time > now`) |
-| **Today** | Intros scheduled for today | `class_date = today` |
-| **Completed** | Intros that have been run | Has a run record (not just a booking) |
-| **No-shows** | Bookings past their scheduled time with no run logged | Booking date/time is past AND no linked run exists |
-| **Missed Guests** | Showed up but didn't buy (includes those awaiting 2nd intro) | Has a run with result = 'Follow-up needed' OR 'Booked 2nd intro' |
-| **2nd Intros** | Clients scheduled for a 2nd intro | Booking has `originating_booking_id` set OR run result = 'Booked 2nd intro' |
+---
 
-## Implementation Details
+## Changes Overview
 
-### 1. Add Tab State and UI
-- Import the Tabs components from existing UI library
-- Add state for `activeTab` with default value "all"
-- Wrap the client list in a Tabs component with 7 tab triggers
+### My Stats Tab - Remove These Components
+- Achievements card (gamification)
+- Today's Race widget
+- Weekly Challenges widget
+- Individual Activity table (will only show personal activity on this tab - keeping but it's already personal)
 
-### 2. Create Tab Filtering Logic
-Create a `getFilteredByTab` function that applies different filters based on the active tab:
+### Studio Tab - Changes
+1. **Remove from Studio tab:**
+   - Coach Performance section (move to Admin only)
+   - Individual Activity table
+   - Commission from StudioScoreboard
 
+2. **Limit Top Performers:**
+   - All leaderboard categories: max 3 entries (already the case, but ensure no expansion)
+
+3. **Per-SA Performance table:**
+   - Add sorting capability by columns (clicking headers to sort)
+   - Remove commission column
+
+4. **Lead Source Analytics:**
+   - Add "sold" count to show how many leads from each source purchased memberships
+
+---
+
+## Technical Implementation
+
+### 1. Dashboard.tsx - My Stats Tab Cleanup
+**Remove from personal view:**
+- Achievement card and related code (lines 258-266)
+- TodaysRace component (lines 268-272)
+- WeeklyChallenges component (lines 274-278)
+- Remove unused imports: TodaysRace, WeeklyChallenges, AchievementGrid, Achievement
+- Remove unused useMemo computations for achievements and weeklyChallenges
+
+### 2. Dashboard.tsx - Studio Tab Cleanup
+**Remove:**
+- CoachPerformance component (lines 305-310)
+- IndividualActivityTable component (lines 345-346)
+- Remove CoachPerformance import
+
+### 3. StudioScoreboard.tsx - Remove Commission
+**Changes:**
+- Remove the Commission metric from the main metrics row
+- Change grid from 4 columns to 3 columns
+- Remove totalCommission prop and related display
+
+### 4. PerSATable.tsx - Sortable Columns & Remove Commission
+**Changes:**
+- Add sorting state to track current sort column and direction
+- Make table headers clickable with sort indicators
+- Remove the Commission column entirely
+- Implement sort logic for: SA name, Run, Sales, Close%, Goal, Rel., Friend
+
+### 5. LeadSourceChart.tsx - Show Sales Count
+**Changes:**
+- Update the Distribution pie chart to show an option for "Sales" in addition to "Booked"
+- Add a "Sales" tab or integrate sales count into the existing views
+- Show "X booked, Y sold" in tooltips
+
+### 6. Leaderboards.tsx - Remove Top Commission Card
+**Changes:**
+- Remove the "Top Commission" leaderboard card
+- Update grid from 2x2 to show remaining 3 cards in a clean layout
+
+### 7. Admin.tsx - Add Coach Performance
+**Changes:**
+- Import CoachPerformance component
+- Add CoachPerformance to the Admin "overview" or "data" tab
+- Pass required props (introsBooked, introsRun, dateRange)
+
+---
+
+## File Changes Summary
+
+| File | Action |
+|------|--------|
+| `src/pages/Dashboard.tsx` | Remove Achievements, TodaysRace, WeeklyChallenges from My Stats; Remove CoachPerformance, IndividualActivity from Studio |
+| `src/components/dashboard/StudioScoreboard.tsx` | Remove Commission metric, change to 3-column grid |
+| `src/components/dashboard/PerSATable.tsx` | Add sortable columns, remove Commission column |
+| `src/components/dashboard/LeadSourceChart.tsx` | Add sold count display |
+| `src/components/dashboard/Leaderboards.tsx` | Remove Top Commission card, adjust layout |
+| `src/pages/Admin.tsx` | Add CoachPerformance component |
+
+---
+
+## Detailed Component Changes
+
+### PerSATable - Sortable Implementation
 ```text
-function getFilteredByTab(journeys, activeTab, currentDateTime):
-  switch activeTab:
-    case "all": return journeys
-    case "upcoming": filter where latest booking is in the future
-    case "today": filter where latest booking is today
-    case "completed": filter where runs.length > 0
-    case "no_show": filter where booking is past AND no run exists
-    case "missed_guest": filter where run result is "Follow-up needed" or "Booked 2nd intro"
-    case "second_intro": filter where originating_booking_id exists OR result = "Booked 2nd intro"
++------------------------------------------------------------------+
+| Per-SA Performance                                                |
++------------------------------------------------------------------+
+| SA (sort) | Run (sort) | Sales (sort) | Close% | Goal | Rel | Friend |
++------------------------------------------------------------------+
+| Nathan    | 12         | 4            | 33%    | 85%  | 90% | 75%    |
+| James     | 10         | 5            | 50%    | 92%  | 88% | 80%    |
++------------------------------------------------------------------+
 ```
 
-### 3. Auto-Detection Logic for No-Shows
-The key feature: automatically detect no-shows by comparing:
-- Booking `class_date` + `intro_time` against current date/time
-- If the scheduled time has passed AND there's no linked run record, show in "No-shows" tab
+Clicking any column header will:
+- Sort ascending on first click
+- Sort descending on second click
+- Show arrow indicator for sort direction
 
-### 4. Update Summary Stats
-Show counts for each tab in the summary grid or as badge counts on the tab triggers.
+### Lead Source Analytics Enhancement
+The existing chart already tracks `sold` in the data. The change will:
+- Add sold count to tooltips in Distribution view
+- Show "X booked / Y sold" format
+- Potentially add a third tab showing "Sales by Source" pie chart
 
-## File Changes
+### Leaderboards New Layout
+With Top Commission removed, the remaining 3 cards will display in a responsive grid:
+- Top Bookers
+- Best Closing %
+- Best Show Rate
 
-**src/components/admin/ClientJourneyPanel.tsx**:
-1. Add import for Tabs components
-2. Add `activeTab` state
-3. Create `getTabCounts` function to calculate counts per tab
-4. Create `filterJourneysByTab` function with the filtering logic
-5. Update the `filteredJourneys` memo to apply tab filtering after search/inconsistency filters
-6. Wrap the client list section in a Tabs component with TabsList and TabsContent
+---
 
-## Technical Considerations
+## What Stays the Same
+- Personal Scoreboard (commission stays here - this is individual)
+- Progress Ring with today's goal
+- Personal Activity table (shows user's own outreach activity)
+- All Studio tab components except those explicitly removed
+- Pipeline Funnel, Client Pipeline, Members Who Bought in Studio tab
 
-### Time Comparison
-- Use current date/time to determine if a booking is "past" its scheduled slot
-- Account for bookings without `intro_time` (treat as end of day)
-- Handle timezone considerations using local time
-
-### 2nd Intro Detection
-Since `originating_booking_id` isn't being populated in the current data, also check:
-- Run result = "Booked 2nd intro" 
-- Multiple bookings for the same member
-
-### Edge Cases
-- Clients with multiple bookings show in the tab matching their most recent/relevant booking
-- A client could appear in both "Missed Guest" and "2nd Intros" if they have a scheduled 2nd intro after an initial intro that didn't convert
-
-## Expected UI
-
-```text
-+------------------------------------------------------------------+
-| Client Journey View                    [Add Booking] [Fix] [↻]    |
-| Unified view of client bookings...                               |
-+------------------------------------------------------------------+
-| [Search...]                                    [⚠ Issues (0)]    |
-+------------------------------------------------------------------+
-| All | Upcoming | Today | Completed | No-shows | Missed | 2nd     |
-| (50)   (8)       (3)     (25)        (4)       (12)     (6)      |
-+------------------------------------------------------------------+
-| [Summary Stats Grid]                                              |
-+------------------------------------------------------------------+
-| [Filtered Client List based on active tab]                       |
-+------------------------------------------------------------------+
-```
-
-The tab badges will show the count for each category, making it easy to see at a glance how many clients fall into each bucket.
