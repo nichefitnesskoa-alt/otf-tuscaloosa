@@ -251,6 +251,13 @@ export default function ClientJourneyPanel() {
     notes: '',
     linked_intro_booked_id: '',
   });
+  
+  // Inline booking creation within run dialog
+  const [isCreatingNewBooking, setIsCreatingNewBooking] = useState(false);
+  const [inlineBooking, setInlineBooking] = useState({
+    booked_by: '',
+    coach_name: '',
+  });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -954,6 +961,42 @@ export default function ClientJourneyPanel() {
     setIsSaving(true);
     try {
       const runId = `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      let linkedBookingId = newRun.linked_intro_booked_id;
+      
+      // If creating a new booking, do that first
+      if (isCreatingNewBooking || linkedBookingId === '__CREATE_NEW__') {
+        const newBookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Determine booked_by - default to "Online Intro Offer" if not specified
+        const bookedBy = inlineBooking.booked_by || 'Self-booked';
+        const leadSource = !inlineBooking.booked_by 
+          ? 'Online Intro Offer (self-booked)' 
+          : (newRun.lead_source || 'Source Not Found');
+        
+        const { data: createdBooking, error: bookingError } = await supabase
+          .from('intros_booked')
+          .insert({
+            booking_id: newBookingId,
+            member_name: newRun.member_name,
+            class_date: newRun.run_date,
+            intro_time: newRun.class_time || null,
+            coach_name: inlineBooking.coach_name || 'TBD',
+            sa_working_shift: bookedBy,
+            booked_by: bookedBy,
+            lead_source: leadSource,
+            fitness_goal: null,
+            booking_status: 'Active',
+            intro_owner: newRun.ran_by, // Set to the runner
+            intro_owner_locked: true,
+          })
+          .select()
+          .single();
+
+        if (bookingError) throw bookingError;
+        
+        linkedBookingId = createdBooking.id;
+        toast.success('Booking created and linked');
+      }
       
       const { error } = await supabase
         .from('intros_run')
@@ -967,19 +1010,21 @@ export default function ClientJourneyPanel() {
           lead_source: newRun.lead_source || 'Source Not Found',
           result: newRun.result,
           notes: newRun.notes || null,
-          linked_intro_booked_id: newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' ? newRun.linked_intro_booked_id : null,
+          linked_intro_booked_id: linkedBookingId && linkedBookingId !== '__NONE__' && linkedBookingId !== '__CREATE_NEW__' ? linkedBookingId : null,
         });
 
       if (error) throw error;
 
       // Sync intro_owner to linked booking if applicable
-      if (newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' && newRun.result !== 'No-show') {
-        await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, user?.name || 'Admin');
+      if (linkedBookingId && linkedBookingId !== '__NONE__' && linkedBookingId !== '__CREATE_NEW__' && newRun.result !== 'No-show') {
+        await syncIntroOwnerToBooking(linkedBookingId, newRun.ran_by, user?.name || 'Admin');
       }
 
       toast.success('Intro run logged');
       setShowCreateRunDialog(false);
       setCreatingRunForJourney(null);
+      setIsCreatingNewBooking(false);
+      setInlineBooking({ booked_by: '', coach_name: '' });
       await fetchData();
     } catch (error) {
       console.error('Error creating run:', error);
@@ -2241,25 +2286,91 @@ export default function ClientJourneyPanel() {
                   </SelectContent>
                 </Select>
               </div>
-              {creatingRunForJourney && creatingRunForJourney.bookings.length > 0 && (
-                <div>
-                  <Label className="text-xs">Link to Booking</Label>
-                  <Select
-                    value={newRun.linked_intro_booked_id}
-                    onValueChange={(v) => setNewRun({...newRun, linked_intro_booked_id: v})}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select booking to link..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__NONE__">— No link —</SelectItem>
-                      {creatingRunForJourney.bookings
-                        .filter(b => !b.booking_status || b.booking_status === 'Active')
-                        .map(b => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.class_date} {b.intro_time ? `@ ${b.intro_time}` : ''} ({b.booking_status || 'Active'})
-                          </SelectItem>
+              <div>
+                <Label className="text-xs">Link to Booking</Label>
+                <Select
+                  value={isCreatingNewBooking ? '__CREATE_NEW__' : newRun.linked_intro_booked_id}
+                  onValueChange={(v) => {
+                    if (v === '__CREATE_NEW__') {
+                      setIsCreatingNewBooking(true);
+                      setNewRun({...newRun, linked_intro_booked_id: '__CREATE_NEW__'});
+                      // Pre-populate lead source to "Online Intro Offer" if empty
+                      if (!newRun.lead_source) {
+                        setNewRun(prev => ({...prev, lead_source: 'Online Intro Offer (self-booked)', linked_intro_booked_id: '__CREATE_NEW__'}));
+                      }
+                    } else {
+                      setIsCreatingNewBooking(false);
+                      setNewRun({...newRun, linked_intro_booked_id: v});
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select booking to link..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__NONE__">— No link —</SelectItem>
+                    <SelectItem value="__CREATE_NEW__" className="text-primary font-medium">
+                      ➕ Create New Booking
+                    </SelectItem>
+                    {creatingRunForJourney?.bookings
+                      .filter(b => !b.booking_status || b.booking_status === 'Active')
+                      .map(b => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.class_date} {b.intro_time ? `@ ${b.intro_time}` : ''} ({b.booking_status || 'Active'})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Inline booking creation fields */}
+              {isCreatingNewBooking && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 text-primary text-sm font-medium">
+                    <Plus className="w-4 h-4" />
+                    <span>New Booking Details</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    A booking will be created using the run details above. Only specify who booked them (optional - defaults to self-booked).
+                  </p>
+                  <div>
+                    <Label className="text-xs">Booked By (optional)</Label>
+                    <Select
+                      value={inlineBooking.booked_by}
+                      onValueChange={(v) => {
+                        setInlineBooking({...inlineBooking, booked_by: v});
+                        // Update lead source if they select a booker
+                        if (v && v !== 'Self-booked') {
+                          setNewRun(prev => ({
+                            ...prev, 
+                            lead_source: prev.lead_source === 'Online Intro Offer (self-booked)' ? '' : prev.lead_source
+                          }));
+                        } else {
+                          setNewRun(prev => ({...prev, lead_source: 'Online Intro Offer (self-booked)'}));
+                        }
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Self-booked (online)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Self-booked">Self-booked (online)</SelectItem>
+                        {SALES_ASSOCIATES.map(sa => (
+                          <SelectItem key={sa} value={sa}>{sa}</SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Coach (optional)</Label>
+                    <Select
+                      value={inlineBooking.coach_name}
+                      onValueChange={(v) => setInlineBooking({...inlineBooking, coach_name: v})}
+                    >
+                      <SelectTrigger><SelectValue placeholder="TBD" /></SelectTrigger>
+                      <SelectContent>
+                        {ALL_STAFF.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
               <div>
@@ -2273,10 +2384,14 @@ export default function ClientJourneyPanel() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateRunDialog(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => {
+                setShowCreateRunDialog(false);
+                setIsCreatingNewBooking(false);
+                setInlineBooking({ booked_by: '', coach_name: '' });
+              }}>Cancel</Button>
               <Button onClick={handleCreateRun} disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                Add Run
+                {isCreatingNewBooking ? 'Create Booking & Add Run' : 'Add Run'}
               </Button>
             </DialogFooter>
           </DialogContent>
