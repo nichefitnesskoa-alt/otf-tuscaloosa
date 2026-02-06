@@ -420,6 +420,15 @@ export default function ClientJourneyPanel() {
     return booking.intro_time > currentTime;
   };
 
+  // Helper to check if a journey has a membership purchase
+  const hasPurchasedMembership = (journey: ClientJourney): boolean => {
+    // Check if any run result indicates a sale
+    const hasSaleResult = journey.runs.some(r => isMembershipSale(r.result));
+    // Also check if any booking is marked as "Closed (Purchased)"
+    const hasClosedBooking = journey.bookings.some(b => b.booking_status === 'Closed (Purchased)');
+    return hasSaleResult || hasClosedBooking;
+  };
+
   // Calculate tab counts
   const tabCounts = useMemo(() => {
     const counts = {
@@ -439,7 +448,10 @@ export default function ClientJourneyPanel() {
         !b.booking_status || b.booking_status === 'Active'
       );
 
-      // Has run records = completed
+      // Check if this client has purchased a membership
+      const hasPurchased = hasPurchasedMembership(journey);
+
+      // Has run records = completed (includes purchases)
       if (journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show')) {
         counts.completed++;
       }
@@ -455,31 +467,34 @@ export default function ClientJourneyPanel() {
       }
 
       // No-show detection: booking is past AND no run exists (or only no-show runs)
+      // EXCLUDE clients who eventually purchased
       const hasActiveBooking = journey.bookings.some(b => 
         (!b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
       );
       const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
       
-      if (hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
+      if (!hasPurchased && hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show')) {
         counts.no_show++;
       }
 
       // Missed guest: showed up but didn't buy (Follow-up needed or Booked 2nd intro)
+      // EXCLUDE clients who eventually purchased
       const hasMissedResult = journey.runs.some(r => 
         r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
       );
-      if (hasMissedResult) {
+      if (!hasPurchased && hasMissedResult) {
         counts.missed_guest++;
       }
 
       // 2nd intro: has originating_booking_id OR result = 'Booked 2nd intro' OR multiple bookings for same member
+      // EXCLUDE clients who eventually purchased
       const has2ndIntro = journey.bookings.some(b => b.originating_booking_id) ||
         journey.runs.some(r => r.result === 'Booked 2nd intro') ||
         (journey.bookings.length > 1 && journey.bookings.some(b => 
           (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
         ) && journey.runs.length > 0);
       
-      if (has2ndIntro) {
+      if (!hasPurchased && has2ndIntro) {
         counts.second_intro++;
       }
     });
@@ -495,6 +510,9 @@ export default function ClientJourneyPanel() {
       const latestActiveBooking = journey.bookings.find(b => 
         !b.booking_status || b.booking_status === 'Active'
       );
+      
+      // Check if client has purchased for exclusion logic
+      const hasPurchased = hasPurchasedMembership(journey);
 
       switch (tab) {
         case 'upcoming':
@@ -507,6 +525,8 @@ export default function ClientJourneyPanel() {
           return journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show');
 
         case 'no_show': {
+          // Exclude clients who eventually purchased
+          if (hasPurchased) return false;
           const hasActiveBooking = journey.bookings.some(b => 
             (!b.booking_status || b.booking_status === 'Active') && isBookingPast(b)
           );
@@ -515,11 +535,15 @@ export default function ClientJourneyPanel() {
         }
 
         case 'missed_guest':
+          // Exclude clients who eventually purchased
+          if (hasPurchased) return false;
           return journey.runs.some(r => 
             r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
           );
 
         case 'second_intro':
+          // Exclude clients who eventually purchased
+          if (hasPurchased) return false;
           return journey.bookings.some(b => b.originating_booking_id) ||
             journey.runs.some(r => r.result === 'Booked 2nd intro') ||
             (journey.bookings.length > 1 && journey.bookings.some(b => 
