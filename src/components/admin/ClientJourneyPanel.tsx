@@ -72,7 +72,7 @@ import { capitalizeName } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 
 // Tab types
-type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro';
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested';
 
 // Booking status types
 const BOOKING_STATUSES = [
@@ -440,6 +440,7 @@ export default function ClientJourneyPanel() {
       no_show: 0,
       missed_guest: 0,
       second_intro: 0,
+      not_interested: 0,
     };
 
     journeys.forEach(journey => {
@@ -498,6 +499,12 @@ export default function ClientJourneyPanel() {
       if (!hasPurchased && has2ndIntro) {
         counts.second_intro++;
       }
+
+      // Not interested count
+      const hasNotInterestedBooking = journey.bookings.some(b => b.booking_status === 'Not interested');
+      if (hasNotInterestedBooking) {
+        counts.not_interested++;
+      }
     });
 
     return counts;
@@ -550,6 +557,9 @@ export default function ClientJourneyPanel() {
             (journey.bookings.length > 1 && journey.bookings.some(b => 
               (!b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
             ) && journey.runs.length > 0);
+
+        case 'not_interested':
+          return journey.bookings.some(b => b.booking_status === 'Not interested');
 
         default:
           return true;
@@ -1358,6 +1368,11 @@ export default function ClientJourneyPanel() {
               2nd
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.second_intro}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="not_interested" className="flex-1 min-w-[100px] text-xs gap-1 text-muted-foreground data-[state=active]:text-muted-foreground">
+              <UserX className="w-3 h-3" />
+              Not Interested
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.not_interested}</Badge>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -1563,6 +1578,60 @@ export default function ClientJourneyPanel() {
                                         ) : (
                                           <DropdownMenuItem onClick={() => handleUnlinkRun(r)}>
                                             <X className="w-3 h-3 mr-2" /> Unlink from Booking
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        {r.linked_intro_booked_id && (
+                                          <DropdownMenuItem 
+                                            onClick={() => {
+                                              const linkedBooking = journey.bookings.find(b => b.id === r.linked_intro_booked_id);
+                                              if (linkedBooking) {
+                                                handleMarkNotInterested(linkedBooking);
+                                              }
+                                            }}
+                                            className="text-muted-foreground"
+                                          >
+                                            <UserX className="w-3 h-3 mr-2" /> Mark Not Interested
+                                          </DropdownMenuItem>
+                                        )}
+                                        {!r.linked_intro_booked_id && (
+                                          <DropdownMenuItem 
+                                            onClick={async () => {
+                                              // Create a temporary booking and mark as not interested
+                                              setIsSaving(true);
+                                              try {
+                                                const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                                                const { error } = await supabase
+                                                  .from('intros_booked')
+                                                  .insert({
+                                                    booking_id: bookingId,
+                                                    member_name: r.member_name,
+                                                    class_date: r.run_date || new Date().toISOString().split('T')[0],
+                                                    intro_time: r.class_time || null,
+                                                    coach_name: 'TBD',
+                                                    sa_working_shift: r.ran_by || 'Unknown',
+                                                    booked_by: r.ran_by || 'Unknown',
+                                                    lead_source: r.lead_source || 'Source Not Found',
+                                                    booking_status: 'Not interested',
+                                                    intro_owner: r.intro_owner || r.ran_by,
+                                                    closed_at: new Date().toISOString(),
+                                                    closed_by: user?.name || 'Admin',
+                                                  });
+
+                                                if (error) throw error;
+                                                
+                                                toast.success('Client marked as Not Interested');
+                                                await fetchData();
+                                              } catch (error) {
+                                                console.error('Error:', error);
+                                                toast.error('Failed to mark as Not Interested');
+                                              } finally {
+                                                setIsSaving(false);
+                                              }
+                                            }}
+                                            className="text-muted-foreground"
+                                          >
+                                            <UserX className="w-3 h-3 mr-2" /> Mark Not Interested
                                           </DropdownMenuItem>
                                         )}
                                       </DropdownMenuContent>
