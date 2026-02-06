@@ -16,6 +16,7 @@ import confetti from 'canvas-confetti';
 import IntroBookingEntry, { IntroBookingData } from '@/components/IntroBookingEntry';
 import IntroRunEntry, { IntroRunData } from '@/components/IntroRunEntry';
 import SaleEntry, { SaleData } from '@/components/SaleEntry';
+import FollowupPurchaseEntry from '@/components/FollowupPurchaseEntry';
 import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { postShiftRecapToGroupMe } from '@/lib/groupme';
@@ -838,6 +839,13 @@ export default function ShiftRecap() {
           )}
         </CardContent>
       </Card>
+
+      {/* Follow-up Purchases */}
+      <FollowupPurchaseEntry 
+        shiftDate={date} 
+        staffName={user?.name || ''} 
+        onPurchaseComplete={refreshData}
+      />
 
       {/* Sales Outside Intro */}
       <Card>

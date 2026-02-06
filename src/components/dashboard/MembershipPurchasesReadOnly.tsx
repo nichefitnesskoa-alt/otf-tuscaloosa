@@ -41,6 +41,7 @@ interface MembershipPurchase {
   intro_owner: string | null;
   booked_by: string | null;
   lead_source: string | null;
+  coach: string | null;
   source: 'intro_run' | 'outside_intro';
 }
 
@@ -96,15 +97,16 @@ export function MembershipPurchasesReadOnly() {
           lead_source
         `);
 
-      // Fetch bookings for booked_by info
+      // Fetch bookings for booked_by and coach info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by, lead_source');
+        .select('id, sa_working_shift, booked_by, lead_source, coach_name');
 
       const bookingMap = new Map(
         (bookings || []).map(b => [b.id, { 
           bookedBy: b.sa_working_shift || b.booked_by || null,
-          leadSource: b.lead_source || null
+          leadSource: b.lead_source || null,
+          coach: b.coach_name || null
         }])
       );
 
@@ -128,6 +130,7 @@ export function MembershipPurchasesReadOnly() {
           intro_owner: capitalizeName(run.intro_owner || run.ran_by || run.sa_name),
           booked_by: capitalizeName(bookingInfo?.bookedBy || null),
           lead_source: run.lead_source || bookingInfo?.leadSource || null,
+          coach: capitalizeName(bookingInfo?.coach || null),
           source: 'intro_run',
         });
       });
@@ -146,6 +149,7 @@ export function MembershipPurchasesReadOnly() {
           intro_owner: capitalizeName(sale.intro_owner),
           booked_by: null,
           lead_source: sale.lead_source,
+          coach: null,
           source: 'outside_intro',
         });
       });
@@ -261,6 +265,7 @@ export function MembershipPurchasesReadOnly() {
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Ran By</TableHead>
+                  <TableHead className="hidden sm:table-cell">Coach</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -285,6 +290,9 @@ export function MembershipPurchasesReadOnly() {
                     </TableCell>
                     <TableCell className="text-xs">
                       {purchase.intro_owner || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs hidden sm:table-cell">
+                      {purchase.coach || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                   </TableRow>
                 ))}

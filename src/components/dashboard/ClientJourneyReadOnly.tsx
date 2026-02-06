@@ -488,11 +488,16 @@ export function ClientJourneyReadOnly() {
                         )}
                         <div className="text-left">
                           <p className="font-medium">{journey.memberName}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                             {journey.latestIntroOwner && (
                               <span className="flex items-center gap-1">
                                 <User className="w-3 h-3" />
                                 {journey.latestIntroOwner}
+                              </span>
+                            )}
+                            {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
+                              <span className="flex items-center gap-1">
+                                🏋️ {journey.bookings[0].coach_name}
                               </span>
                             )}
                             {journey.bookings[0] && (

@@ -1443,11 +1443,14 @@ export default function ClientJourneyPanel() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                         <span>{journey.bookings.length} booking(s)</span>
                         <span>{journey.runs.length} run(s)</span>
                         {journey.latestIntroOwner && (
                           <span>Owner: {journey.latestIntroOwner}</span>
+                        )}
+                        {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
+                          <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
                         )}
                       </div>
                       {journey.hasInconsistency && journey.inconsistencyType && (
