@@ -1,136 +1,172 @@
 
 
-# Dashboard Restructuring Plan
+# Comprehensive Metrics Fix: Closing Rates, Coach Performance, and Sales Attribution
 
-## Summary
-This plan restructures the Dashboard to create a clear separation between personal (My Stats) and studio-wide metrics. The "My Stats" tab will focus purely on individual performance, while the "Studio" tab will contain all studio-wide analytics. Coach stats will be moved to Admin only.
+## Executive Summary
 
----
+After a deep analysis of the metrics system, I've identified **critical bugs** that are causing Grace and Kailey's sales today to NOT be counted in their closing rates, and coach performance metrics to be incorrect.
 
-## Changes Overview
+## Root Cause Analysis
 
-### My Stats Tab - Remove These Components
-- Achievements card (gamification)
-- Today's Race widget
-- Weekly Challenges widget
-- Individual Activity table (will only show personal activity on this tab - keeping but it's already personal)
+### Bug 1: Follow-up Conversions Are Ignored (HIGH SEVERITY)
 
-### Studio Tab - Changes
-1. **Remove from Studio tab:**
-   - Coach Performance section (move to Admin only)
-   - Individual Activity table
-   - Commission from StudioScoreboard
+**The Problem:**
+The metrics system only counts the FIRST run per booking. When a client:
+1. Comes in for an intro (result: "Follow-up needed")
+2. Returns later and purchases a membership (result: "Premier w/o OTBeat")
 
-2. **Limit Top Performers:**
-   - All leaderboard categories: max 3 entries (already the case, but ensure no expansion)
+Only the first run is counted, so the **sale is completely ignored** in closing rate calculations.
 
-3. **Per-SA Performance table:**
-   - Add sorting capability by columns (clicking headers to sort)
-   - Remove commission column
+**Evidence from Today's Data:**
+| Member | First Run (Counted) | Second Run (IGNORED) | Intro Owner |
+|--------|---------------------|----------------------|-------------|
+| Zoe Hall | Follow-up needed (Feb 4) | Premier w/o OTBeat $15 (Feb 6) | Grace |
+| Adeline Harper | Follow-up needed (Feb 4) | Premier w/o OTBeat $15 (Feb 6) | Grace |
+| Anna Livingston | Follow-up needed (Feb 5) | Premier w/o OTBeat $15 (Feb 6) | Kailey |
 
-4. **Lead Source Analytics:**
-   - Add "sold" count to show how many leads from each source purchased memberships
+**Current Wrong Calculations:**
+- Grace: 7 intros / 0 sales = 0% (WRONG - should be 2 sales = 29%)
+- Kailey: 4 intros / 1 sale = 25% (WRONG - should be 2 sales = 50%)
 
----
+### Bug 2: Coach Performance Excludes Self-Booked Clients
 
-## Technical Implementation
+Coach Natalya coached Zoe Hall and Adeline Harper (both self-booked), but these are excluded from coach metrics. The logic incorrectly filters out the booking entirely instead of just excluding it from booker credit.
 
-### 1. Dashboard.tsx - My Stats Tab Cleanup
-**Remove from personal view:**
-- Achievement card and related code (lines 258-266)
-- TodaysRace component (lines 268-272)
-- WeeklyChallenges component (lines 274-278)
-- Remove unused imports: TodaysRace, WeeklyChallenges, AchievementGrid, Achievement
-- Remove unused useMemo computations for achievements and weeklyChallenges
+### Bug 3: Today's Race Uses Wrong Sale Detection
 
-### 2. Dashboard.tsx - Studio Tab Cleanup
-**Remove:**
-- CoachPerformance component (lines 305-310)
-- IndividualActivityTable component (lines 345-346)
-- Remove CoachPerformance import
+The "Today's Race" component checks `commission_amount > 0` instead of checking the result string for membership keywords.
 
-### 3. StudioScoreboard.tsx - Remove Commission
-**Changes:**
-- Remove the Commission metric from the main metrics row
-- Change grid from 4 columns to 3 columns
-- Remove totalCommission prop and related display
+## Technical Solution
 
-### 4. PerSATable.tsx - Sortable Columns & Remove Commission
-**Changes:**
-- Add sorting state to track current sort column and direction
-- Make table headers clickable with sort indicators
-- Remove the Commission column entirely
-- Implement sort logic for: SA name, Run, Sales, Close%, Goal, Rel., Friend
+### Fix 1: Capture Final Outcome, Not First Run
 
-### 5. LeadSourceChart.tsx - Show Sales Count
-**Changes:**
-- Update the Distribution pie chart to show an option for "Sales" in addition to "Booked"
-- Add a "Sales" tab or integrate sales count into the existing views
-- Show "X booked, Y sold" in tooltips
+Instead of using the first run's result, we need to track whether **any run** for a booking resulted in a sale. The correct logic:
 
-### 6. Leaderboards.tsx - Remove Top Commission Card
-**Changes:**
-- Remove the "Top Commission" leaderboard card
-- Update grid from 2x2 to show remaining 3 cards in a clean layout
-
-### 7. Admin.tsx - Add Coach Performance
-**Changes:**
-- Import CoachPerformance component
-- Add CoachPerformance to the Admin "overview" or "data" tab
-- Pass required props (introsBooked, introsRun, dateRange)
-
----
-
-## File Changes Summary
-
-| File | Action |
-|------|--------|
-| `src/pages/Dashboard.tsx` | Remove Achievements, TodaysRace, WeeklyChallenges from My Stats; Remove CoachPerformance, IndividualActivity from Studio |
-| `src/components/dashboard/StudioScoreboard.tsx` | Remove Commission metric, change to 3-column grid |
-| `src/components/dashboard/PerSATable.tsx` | Add sortable columns, remove Commission column |
-| `src/components/dashboard/LeadSourceChart.tsx` | Add sold count display |
-| `src/components/dashboard/Leaderboards.tsx` | Remove Top Commission card, adjust layout |
-| `src/pages/Admin.tsx` | Add CoachPerformance component |
-
----
-
-## Detailed Component Changes
-
-### PerSATable - Sortable Implementation
 ```text
-+------------------------------------------------------------------+
-| Per-SA Performance                                                |
-+------------------------------------------------------------------+
-| SA (sort) | Run (sort) | Sales (sort) | Close% | Goal | Rel | Friend |
-+------------------------------------------------------------------+
-| Nathan    | 12         | 4            | 33%    | 85%  | 90% | 75%    |
-| James     | 10         | 5            | 50%    | 92%  | 88% | 80%    |
-+------------------------------------------------------------------+
+For each unique booking:
+1. Count as "intro run" if ANY run exists (not no-show)
+2. Count as "sale" if ANY run has membership result
+3. Use the commission from the run with the sale result
 ```
 
-Clicking any column header will:
-- Sort ascending on first click
-- Sort descending on second click
-- Show arrow indicator for sort direction
+**Files to modify:**
+- `src/hooks/useDashboardMetrics.ts` (lines 204-238)
 
-### Lead Source Analytics Enhancement
-The existing chart already tracks `sold` in the data. The change will:
-- Add sold count to tooltips in Distribution view
-- Show "X booked / Y sold" format
-- Potentially add a third tab showing "Sales by Source" pie chart
+### Fix 2: Coach Performance - Include All Coached Intros
 
-### Leaderboards New Layout
-With Top Commission removed, the remaining 3 cards will display in a responsive grid:
-- Top Bookers
-- Best Closing %
-- Best Show Rate
+Remove the self-booked exclusion from CoachPerformance. Self-booked clients still get coached, and that matters for coach metrics.
 
----
+**Files to modify:**
+- `src/components/dashboard/CoachPerformance.tsx` (lines 63-65)
 
-## What Stays the Same
-- Personal Scoreboard (commission stays here - this is individual)
-- Progress Ring with today's goal
-- Personal Activity table (shows user's own outreach activity)
-- All Studio tab components except those explicitly removed
-- Pipeline Funnel, Client Pipeline, Members Who Bought in Studio tab
+### Fix 3: Today's Race - Use Result String
+
+Change the sales detection to use the same `isMembershipSale()` helper.
+
+**Files to modify:**
+- `src/hooks/useDashboardMetrics.ts` (lines 391-398)
+
+## Implementation Details
+
+### Step 1: Update useDashboardMetrics.ts - Per-SA Metrics
+
+**Current (broken) logic:**
+```javascript
+// Only takes FIRST run, ignores subsequent conversions
+const firstValidRun = sortedRuns[0];
+if (isMembershipSale(firstValidRun.result)) {
+  salesCount++;
+}
+```
+
+**Fixed logic:**
+```javascript
+// Check if ANY run has a membership sale result
+const anyRunWithSale = runs.find(r => isMembershipSale(r.result));
+if (anyRunWithSale) {
+  salesCount++;
+  commission += anyRunWithSale.commission_amount || 0;
+}
+// introsRunCount still counts unique bookings (first valid run determines "ran")
+```
+
+### Step 2: Update CoachPerformance.tsx
+
+**Current (broken) logic:**
+```javascript
+const isSelfBooked = EXCLUDED_BOOKERS.some(e => 
+  bookedBy.toLowerCase() === e.toLowerCase());
+return !isExcludedStatus && !isIgnored && !isSelfBooked;
+```
+
+**Fixed logic:**
+```javascript
+// Don't exclude self-booked - coaches still coach these clients
+return !isExcludedStatus && !isIgnored;
+```
+
+Also update the sales detection to find ANY sale run:
+```javascript
+const saleRun = runs.find(r => isMembershipSale(r.result));
+if (saleRun) {
+  existing.sales++;
+  existing.commission += saleRun.commission_amount || 0;
+}
+```
+
+### Step 3: Update Today's Race
+
+**Current (broken) logic:**
+```javascript
+if (run.commission_amount && run.commission_amount > 0) {
+  existing.sales++;
+}
+```
+
+**Fixed logic:**
+```javascript
+if (isMembershipSale(run.result)) {
+  existing.sales++;
+}
+```
+
+## Expected Results After Fix
+
+**Grace's Metrics (Pay Period):**
+- Intros Run: 7 (unique bookings with a showed run)
+- Sales: 2 (Zoe Hall + Adeline Harper)
+- Closing Rate: 29%
+- Commission: $30
+
+**Kailey's Metrics (Pay Period):**
+- Intros Run: 4 (unique bookings with a showed run)
+- Sales: 2 (Lauryn Holzkamp + Anna Livingston)
+- Closing Rate: 50%
+- Commission: $30
+
+**Coach Natalya's Metrics:**
+- Intros Coached: 3 (including self-booked)
+- Sales: 2 (Zoe Hall + Adeline Harper)
+- Closing Rate: 67%
+
+## Files to Modify
+
+1. **src/hooks/useDashboardMetrics.ts**
+   - Fix Per-SA metrics to use any-run-with-sale logic
+   - Fix Today's Race sale detection
+   - Ensure commission is summed correctly from sale runs
+
+2. **src/components/dashboard/CoachPerformance.tsx**
+   - Remove self-booked exclusion for coach stats
+   - Use any-run-with-sale logic for coach closing rate
+
+## Testing Checklist
+
+After implementation, verify:
+- [ ] Grace shows 2 sales and ~29% closing rate
+- [ ] Kailey shows 2 sales and ~50% closing rate  
+- [ ] Coach Natalya shows 2 sales with 67% closing rate
+- [ ] Today's race correctly shows today's sales
+- [ ] Studio scoreboard totals match sum of per-SA metrics
+- [ ] Commission totals are accurate
 
