@@ -24,6 +24,7 @@ import EmergencySyncRuns from '@/components/admin/EmergencySyncRuns';
 import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
+import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
 import { getDateRangeForPreset } from '@/lib/pay-period';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
@@ -47,7 +48,7 @@ interface StaffStats {
 
 export default function Admin() {
   const { user } = useAuth();
-  const { refreshData } = useData();
+  const { introsBooked, introsRun, refreshData } = useData();
   const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(getSpreadsheetId() || '');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [staffStats, setStaffStats] = useState<StaffStats[]>([]);
@@ -263,7 +264,12 @@ export default function Admin() {
           {/* Pay Period Commission */}
           <PayPeriodCommission />
 
-          {/* Team Overview */}
+          {/* Coach Performance */}
+          <CoachPerformance
+            introsBooked={introsBooked}
+            introsRun={introsRun}
+            dateRange={dateRange}
+          />
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">

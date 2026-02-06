@@ -225,7 +225,6 @@ export default function Recaps() {
         introsRun={metrics.studio.introsRun}
         introSales={metrics.studio.introSales}
         closingRate={metrics.studio.closingRate}
-        totalCommission={metrics.studio.totalCommission}
         goalWhyRate={metrics.studio.goalWhyRate}
         relationshipRate={metrics.studio.relationshipRate}
         madeAFriendRate={metrics.studio.madeAFriendRate}

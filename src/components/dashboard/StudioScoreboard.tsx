@@ -13,7 +13,6 @@ interface StudioScoreboardProps {
   introsRun: number;
   introSales: number;
   closingRate: number;
-  totalCommission: number;
   goalWhyRate: number;
   relationshipRate: number;
   madeAFriendRate: number;
@@ -23,7 +22,6 @@ export function StudioScoreboard({
   introsRun,
   introSales,
   closingRate,
-  totalCommission,
   goalWhyRate,
   relationshipRate,
   madeAFriendRate,
@@ -37,7 +35,7 @@ export function StudioScoreboard({
         </h2>
         
         {/* Main Metrics Row */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -79,21 +77,6 @@ export function StudioScoreboard({
               </TooltipTrigger>
               <TooltipContent>
                 <p>Sales ÷ Intros Run</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-center">
-                  <DollarSign className="w-4 h-4 mx-auto mb-1 text-success" />
-                  <p className="text-2xl font-bold text-success">${totalCommission.toFixed(0)}</p>
-                  <p className="text-xs opacity-70">Commission</p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Total commission earned (all sources)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

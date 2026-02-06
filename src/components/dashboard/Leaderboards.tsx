@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, TrendingUp, DollarSign, UserCheck } from 'lucide-react';
+import { Trophy, TrendingUp, UserCheck } from 'lucide-react';
 import { MyRankIndicator } from './MyRankIndicator';
 import { cn } from '@/lib/utils';
 
@@ -127,27 +127,19 @@ export function Leaderboards({
   allParticipants,
 }: LeaderboardsProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       <LeaderboardCard
         title="Top Bookers"
         icon={Trophy}
-        entries={topBookers}
+        entries={topBookers.slice(0, 3)}
         formatValue={(v) => `${v}`}
         currentUserName={currentUserName}
         totalParticipants={allParticipants?.bookers}
       />
       <LeaderboardCard
-        title="Top Commission"
-        icon={DollarSign}
-        entries={topCommission}
-        formatValue={(v) => `$${v.toFixed(0)}`}
-        currentUserName={currentUserName}
-        totalParticipants={allParticipants?.commission}
-      />
-      <LeaderboardCard
         title="Best Closing %"
         icon={TrendingUp}
-        entries={topClosing}
+        entries={topClosing.slice(0, 3)}
         formatValue={(v, sub) => `${v.toFixed(0)}%${sub ? ` (${sub})` : ''}`}
         currentUserName={currentUserName}
         totalParticipants={allParticipants?.closing}
@@ -155,7 +147,7 @@ export function Leaderboards({
       <LeaderboardCard
         title="Best Show Rate"
         icon={UserCheck}
-        entries={topShowRate}
+        entries={topShowRate.slice(0, 3)}
         formatValue={(v, sub) => `${v.toFixed(0)}%${sub ? ` (${sub})` : ''}`}
         currentUserName={currentUserName}
         totalParticipants={allParticipants?.showRate}

@@ -15,15 +15,11 @@ import { Leaderboards } from '@/components/dashboard/Leaderboards';
 import { ProgressRing } from '@/components/dashboard/ProgressRing';
 import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
-import { TodaysRace } from '@/components/dashboard/TodaysRace';
-import { WeeklyChallenges, Challenge } from '@/components/dashboard/WeeklyChallenges';
-import { AchievementGrid, Achievement } from '@/components/dashboard/AchievementBadge';
-import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
 import { ClientJourneyReadOnly } from '@/components/dashboard/ClientJourneyReadOnly';
 import { MembershipPurchasesReadOnly } from '@/components/dashboard/MembershipPurchasesReadOnly';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
-import { format, endOfWeek, startOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 
 const DAILY_INTRO_GOAL = 3;
 
@@ -80,84 +76,6 @@ export default function Dashboard() {
     const todayEntry = metrics.todaysRace.find(e => e.name === userName);
     return todayEntry?.introsRun || 0;
   }, [metrics.todaysRace, userName]);
-
-  // Generate achievements based on metrics
-  const achievements: Achievement[] = useMemo(() => {
-    return [
-      {
-        id: 'first_sale',
-        name: 'First Sale',
-        description: 'Close your first membership sale',
-        icon: '💰',
-        earned: personalMetrics.sales >= 1,
-        earnedDate: personalMetrics.sales >= 1 ? 'This period' : undefined,
-      },
-      {
-        id: 'hundred_club',
-        name: '$100 Week',
-        description: 'Earn $100+ commission in a week',
-        icon: '💵',
-        earned: personalMetrics.commission >= 100,
-        progress: personalMetrics.commission,
-        maxProgress: 100,
-      },
-      {
-        id: 'friend_maker',
-        name: 'Friend Maker',
-        description: 'Make friends with 10 intro clients',
-        icon: '🤝',
-        earned: personalMetrics.madeAFriendRate >= 80 && personalMetrics.introsRun >= 3,
-        progress: Math.round(personalMetrics.madeAFriendRate),
-        maxProgress: 80,
-      },
-      {
-        id: 'perfect_show',
-        name: 'Perfect Show Rate',
-        description: 'Achieve 100% show rate in a week',
-        icon: '✨',
-        earned: false, // Would need to track this specifically
-      },
-      {
-        id: 'goal_getter',
-        name: 'Goal Getter',
-        description: 'Capture Goal+Why for every intro',
-        icon: '🎯',
-        earned: personalMetrics.goalWhyRate >= 100 && personalMetrics.introsRun >= 3,
-        progress: Math.round(personalMetrics.goalWhyRate),
-        maxProgress: 100,
-      },
-      {
-        id: 'closer',
-        name: 'The Closer',
-        description: 'Achieve 50%+ closing rate',
-        icon: '🏆',
-        earned: personalMetrics.closingRate >= 50 && personalMetrics.introsRun >= 3,
-        progress: Math.round(personalMetrics.closingRate),
-        maxProgress: 50,
-      },
-    ];
-  }, [personalMetrics]);
-
-  // Weekly challenges (sample - could be driven by admin settings)
-  const weeklyChallenges: Challenge[] = useMemo(() => {
-    const endOfThisWeek = endOfWeek(new Date(), { weekStartsOn: 0 });
-    
-    return [
-      {
-        id: 'goal_why_challenge',
-        title: 'Goal + Why Champion',
-        description: 'Highest Goal+Why capture rate wins',
-        metric: 'goalWhyRate' as const,
-        target: 90,
-        currentValue: personalMetrics.goalWhyRate,
-        leader: metrics.perSA.length > 0 
-          ? { name: metrics.perSA.sort((a, b) => b.goalWhyRate - a.goalWhyRate)[0].saName, value: metrics.perSA.sort((a, b) => b.goalWhyRate - a.goalWhyRate)[0].goalWhyRate }
-          : undefined,
-        endsAt: endOfThisWeek,
-        reward: 'Team lunch!',
-      },
-    ];
-  }, [personalMetrics.goalWhyRate, metrics.perSA]);
 
   if (isLoading) {
     return (
@@ -255,28 +173,6 @@ export default function Dashboard() {
             madeAFriendRate={personalMetrics.madeAFriendRate}
           />
 
-          {/* Achievements */}
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                🏅 Achievements
-              </h3>
-              <AchievementGrid achievements={achievements} />
-            </CardContent>
-          </Card>
-
-          {/* Today's Race */}
-          <TodaysRace 
-            participants={metrics.todaysRace}
-            currentUserName={userName}
-          />
-
-          {/* Weekly Challenges */}
-          <WeeklyChallenges
-            challenges={weeklyChallenges}
-            currentUserName={userName}
-          />
-
           {/* Personal Activity */}
           <IndividualActivityTable data={personalActivity} />
         </div>
@@ -288,7 +184,6 @@ export default function Dashboard() {
             introsRun={metrics.studio.introsRun}
             introSales={metrics.studio.introSales}
             closingRate={metrics.studio.closingRate}
-            totalCommission={metrics.studio.totalCommission}
             goalWhyRate={metrics.studio.goalWhyRate}
             relationshipRate={metrics.studio.relationshipRate}
             madeAFriendRate={metrics.studio.madeAFriendRate}
@@ -300,13 +195,6 @@ export default function Dashboard() {
             showed={metrics.pipeline.showed}
             sold={metrics.pipeline.sold}
             revenue={metrics.pipeline.revenue}
-          />
-
-          {/* Coach Performance Section */}
-          <CoachPerformance
-            introsBooked={introsBooked}
-            introsRun={introsRun}
-            dateRange={dateRange}
           />
 
           {/* Lead Source Analytics */}
@@ -342,8 +230,6 @@ export default function Dashboard() {
             </TabsContent>
           </Tabs>
 
-          {/* Individual Activity */}
-          <IndividualActivityTable data={metrics.individualActivity} />
         </div>
       )}
 
