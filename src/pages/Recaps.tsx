@@ -227,7 +227,6 @@ export default function Recaps() {
         booked={metrics.pipeline.booked}
         showed={metrics.pipeline.showed}
         sold={metrics.pipeline.sold}
-        revenue={metrics.pipeline.revenue}
       />
 
       {/* Lead Source Analytics */}

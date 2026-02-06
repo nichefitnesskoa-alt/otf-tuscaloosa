@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarPlus } from 'lucide-react';
+import { CalendarPlus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface BookerMetrics {
@@ -15,7 +16,58 @@ interface BookerStatsTableProps {
   data: BookerMetrics[];
 }
 
+type SortColumn = 'saName' | 'introsBooked' | 'introsShowed' | 'showRate' | 'pipelineValue';
+type SortDirection = 'asc' | 'desc';
+
 export function BookerStatsTable({ data }: BookerStatsTableProps) {
+  const [sortColumn, setSortColumn] = useState<SortColumn>('introsBooked');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedData = [...data].sort((a, b) => {
+    const aValue = a[sortColumn];
+    const bValue = b[sortColumn];
+    
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
+    
+    return sortDirection === 'asc' 
+      ? (aValue as number) - (bValue as number)
+      : (bValue as number) - (aValue as number);
+  });
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="w-3 h-3 ml-1" />
+      : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
+
+  const SortableHeader = ({ column, children, className }: { column: SortColumn; children: React.ReactNode; className?: string }) => (
+    <TableHead 
+      className={cn("text-xs whitespace-nowrap cursor-pointer hover:bg-muted/50 select-none", className)}
+      onClick={() => handleSort(column)}
+    >
+      <div className="flex items-center justify-center">
+        {children}
+        <SortIcon column={column} />
+      </div>
+    </TableHead>
+  );
+
   if (data.length === 0) {
     return (
       <Card>
@@ -46,15 +98,15 @@ export function BookerStatsTable({ data }: BookerStatsTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs whitespace-nowrap">SA</TableHead>
-                <TableHead className="text-xs text-center whitespace-nowrap">Booked</TableHead>
-                <TableHead className="text-xs text-center whitespace-nowrap">Showed</TableHead>
-                <TableHead className="text-xs text-center whitespace-nowrap">Show %</TableHead>
-                <TableHead className="text-xs text-right whitespace-nowrap">Pipeline</TableHead>
+                <SortableHeader column="saName" className="text-left">SA</SortableHeader>
+                <SortableHeader column="introsBooked">Booked</SortableHeader>
+                <SortableHeader column="introsShowed">Showed</SortableHeader>
+                <SortableHeader column="showRate">Show %</SortableHeader>
+                <SortableHeader column="pipelineValue">Pipeline</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((row) => (
+              {sortedData.map((row) => (
                 <TableRow key={row.saName}>
                   <TableCell className="font-medium text-sm whitespace-nowrap">{row.saName}</TableCell>
                   <TableCell className="text-center text-sm">{row.introsBooked}</TableCell>

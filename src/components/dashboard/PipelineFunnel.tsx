@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowDown, Users, UserCheck, DollarSign, Target } from 'lucide-react';
+import { ArrowDown, Users, UserCheck, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PipelineFunnelProps {
   booked: number;
   showed: number;
   sold: number;
-  revenue: number;
+  revenue?: number;
   className?: string;
 }
 
@@ -14,7 +14,6 @@ export function PipelineFunnel({
   booked,
   showed,
   sold,
-  revenue,
   className,
 }: PipelineFunnelProps) {
   const showRate = booked > 0 ? (showed / booked) * 100 : 0;
@@ -44,13 +43,6 @@ export function PipelineFunnel({
       color: 'bg-success/20 text-success border-success/30',
       rate: closeRate,
       rateLabel: 'Close Rate',
-    },
-    {
-      label: 'Revenue',
-      value: `$${revenue.toFixed(0)}`,
-      icon: DollarSign,
-      color: 'bg-primary/20 text-primary border-primary/30',
-      rate: null,
     },
   ];
 
@@ -105,9 +97,8 @@ export function PipelineFunnel({
         </div>
         
         {/* Overall Stats */}
-        <div className="mt-4 pt-3 border-t flex justify-between text-xs text-muted-foreground">
+        <div className="mt-4 pt-3 border-t flex justify-center text-xs text-muted-foreground">
           <span>Overall Conversion: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
-          <span>Avg Value: <span className="font-medium text-foreground">${sold > 0 ? (revenue / sold).toFixed(0) : '0'}/sale</span></span>
         </div>
       </CardContent>
     </Card>
