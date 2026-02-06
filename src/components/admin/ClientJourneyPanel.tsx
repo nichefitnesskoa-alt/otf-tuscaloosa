@@ -1888,7 +1888,7 @@ export default function ClientJourneyPanel() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">High Relationship Experience</Label>
+                      <Label className="text-xs">Peak Gym Experience</Label>
                       <Select
                         value={editingRun.relationship_experience || ''}
                         onValueChange={(v) => setEditingRun({...editingRun, relationship_experience: v})}
@@ -1902,7 +1902,7 @@ export default function ClientJourneyPanel() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">Made a Friend</Label>
+                      <Label className="text-xs">Made a Friend (Start a great relationship & natural conversation)</Label>
                       <Select
                         value={editingRun.made_a_friend === true ? 'Yes' : editingRun.made_a_friend === false ? 'No' : ''}
                         onValueChange={(v) => setEditingRun({...editingRun, made_a_friend: v === 'Yes'})}

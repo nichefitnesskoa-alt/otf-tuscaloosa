@@ -248,7 +248,7 @@ export default function ShiftRecapDetails({
                   )}
                   {run.relationship_experience && (
                     <Badge variant="outline" className="text-xs">
-                      Relationship: {run.relationship_experience}
+                      Peak Exp: {run.relationship_experience}
                     </Badge>
                   )}
                   {run.made_a_friend && (

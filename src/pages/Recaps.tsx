@@ -67,7 +67,7 @@ export default function Recaps() {
       text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate)\n`;
       text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
       text += `• Goal+Why: ${userMetrics.goalWhyRate.toFixed(0)}%\n`;
-      text += `• Relationship: ${userMetrics.relationshipRate.toFixed(0)}%\n`;
+      text += `• Peak Exp: ${userMetrics.relationshipRate.toFixed(0)}%\n`;
       text += `• Made Friend: ${userMetrics.madeAFriendRate.toFixed(0)}%\n`;
     } else {
       text += `No intros recorded for this period yet.\n`;
@@ -86,7 +86,7 @@ export default function Recaps() {
     text += `• Sales: ${metrics.studio.introSales} (${metrics.studio.closingRate.toFixed(0)}% close rate)\n`;
     text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n`;
     text += `• Goal+Why: ${metrics.studio.goalWhyRate.toFixed(0)}%\n`;
-    text += `• Relationship: ${metrics.studio.relationshipRate.toFixed(0)}%\n`;
+    text += `• Peak Exp: ${metrics.studio.relationshipRate.toFixed(0)}%\n`;
     text += `• Made Friend: ${metrics.studio.madeAFriendRate.toFixed(0)}%\n\n`;
 
     if (topBookers.length > 0) {
@@ -132,7 +132,7 @@ export default function Recaps() {
     csv += `Studio,All,Close Rate,${metrics.studio.closingRate.toFixed(1)}%\n`;
     csv += `Studio,All,Commission,$${metrics.studio.totalCommission.toFixed(2)}\n`;
     csv += `Studio,All,Goal+Why Rate,${metrics.studio.goalWhyRate.toFixed(1)}%\n`;
-    csv += `Studio,All,Relationship Rate,${metrics.studio.relationshipRate.toFixed(1)}%\n`;
+    csv += `Studio,All,Peak Exp Rate,${metrics.studio.relationshipRate.toFixed(1)}%\n`;
     csv += `Studio,All,Made Friend Rate,${metrics.studio.madeAFriendRate.toFixed(1)}%\n`;
     
     // Per-SA data
@@ -141,7 +141,7 @@ export default function Recaps() {
       csv += `Per-SA,${m.saName},Sales,${m.sales}\n`;
       csv += `Per-SA,${m.saName},Close Rate,${m.closingRate.toFixed(1)}%\n`;
       csv += `Per-SA,${m.saName},Goal+Why Rate,${m.goalWhyRate.toFixed(1)}%\n`;
-      csv += `Per-SA,${m.saName},Relationship Rate,${m.relationshipRate.toFixed(1)}%\n`;
+      csv += `Per-SA,${m.saName},Peak Exp Rate,${m.relationshipRate.toFixed(1)}%\n`;
       csv += `Per-SA,${m.saName},Made Friend Rate,${m.madeAFriendRate.toFixed(1)}%\n`;
       csv += `Per-SA,${m.saName},Commission,$${m.commission.toFixed(2)}\n`;
     });
@@ -358,7 +358,7 @@ export default function Recaps() {
             <br />
             <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
             <br />
-            <strong>Lead Measures</strong> = Goal+Why capture, Relationship experience, Made a Friend
+            <strong>Lead Measures</strong> = Goal+Why capture, Peak Gym Experience, Made a Friend
           </p>
         </CardContent>
       </Card>

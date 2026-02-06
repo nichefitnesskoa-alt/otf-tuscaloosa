@@ -9,7 +9,7 @@ import { Trash2, UserCheck, Calendar, Info } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
 
 const LEAD_SOURCES = [
-  'Self-generated (my outreach)',
+  'My Personal Friend I Invited',
   'Instagram DMs',
   'Referral',
   'Lead Management Call / Text',
@@ -18,6 +18,8 @@ const LEAD_SOURCES = [
   'B2C Event',
   'Member brought friend',
   'Online Intro Offer (self-booked)',
+  'Booked person brought them (Instagram)',
+  'Booked person brought them (Lead Management)',
   'Source Not Found',
 ] as const;
 
@@ -92,10 +94,11 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     sa_working_shift: string;
     intro_owner: string | null;
   }) => {
+    // Auto-apply the lead source from the booking to the intro run
     onUpdate(index, {
       linkedBookingId: booking.id,
       memberName: booking.member_name,
-      leadSource: booking.lead_source,
+      leadSource: booking.lead_source, // Auto-apply lead source from booking
       bookedBy: booking.sa_working_shift,
       originatingBookingId: booking.booking_id || undefined,
     });
@@ -226,9 +229,9 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
           </Select>
         </div>
 
-        {/* 2. Relationship Experience */}
+        {/* 2. Peak Gym Experience */}
         <div className="mb-3">
-          <Label className="text-xs">High relationship experience executed?</Label>
+          <Label className="text-xs">Peak Gym Experience</Label>
           <p className="text-xs text-muted-foreground mb-1">
             (halfway encouragement, pre-mobility, coaching summary)
           </p>
@@ -249,7 +252,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
 
         {/* 3. Made a Friend */}
         <div className="mb-3">
-          <Label className="text-xs">Did you make a friend?</Label>
+          <Label className="text-xs">Did you make a friend (Start a great relationship & created natural conversation)?</Label>
           <Select
             value={intro.madeAFriend ? 'Yes' : intro.madeAFriend === false ? 'No' : ''}
             onValueChange={(v) => onUpdate(index, { madeAFriend: v === 'Yes' })}

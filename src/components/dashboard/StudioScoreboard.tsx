@@ -107,11 +107,11 @@ export function StudioScoreboard({
                   <div className="text-center p-2 bg-background/10 rounded-lg">
                     <Heart className="w-4 h-4 mx-auto mb-1 opacity-70" />
                     <p className="text-xl font-bold">{relationshipRate.toFixed(0)}%</p>
-                    <p className="text-xs opacity-70">Relationship</p>
+                    <p className="text-xs opacity-70">Peak Exp.</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>High relationship experience executed (Yes/Partial)</p>
+                  <p>Peak Gym Experience executed (Yes/Partial)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -126,7 +126,7 @@ export function StudioScoreboard({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Did you make a friend?</p>
+                  <p>Made a friend (great relationship & natural conversation)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
