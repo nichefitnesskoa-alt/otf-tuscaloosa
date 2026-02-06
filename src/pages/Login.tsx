@@ -43,7 +43,7 @@ export default function Login() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Admin">Admin</SelectItem>
-              {ALL_STAFF.map(name => (
+              {[...ALL_STAFF].sort((a, b) => a.localeCompare(b)).map(name => (
                 <SelectItem key={name} value={name}>{name}</SelectItem>
               ))}
             </SelectContent>
