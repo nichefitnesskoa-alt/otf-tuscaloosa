@@ -334,14 +334,11 @@ export function useDashboardMetrics(
       return MEMBERSHIP_RESULTS_GLOBAL.some(m => lower.includes(m));
     };
 
-    // Lead sources - exclude self-booked for studio analytics
+    // Lead sources - include ALL first intros for complete studio/marketing analytics
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
-    firstIntroBookingsNoSelfBooked.forEach(b => {
+    firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
-      // Skip self-booked lead sources entirely
-      if (source.toLowerCase().includes('self-booked') || source.toLowerCase().includes('self booked')) {
-        return;
-      }
+      // Include ALL lead sources including self-booked for complete marketing analysis
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
       existing.booked++;
       
@@ -349,7 +346,7 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         existing.showed++;
-        // FIX: Check if ANY run has a sale result, not just the first
+        // Check if ANY run has a sale result
         const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
         if (saleRun) {
           existing.sold++;
@@ -364,19 +361,19 @@ export function useDashboardMetrics(
       .sort((a, b) => b.booked - a.booked);
 
     // =========================================
-    // PIPELINE METRICS (exclude self-booked for studio view)
+    // PIPELINE METRICS - include ALL first intros for complete studio view
     // =========================================
-    const pipelineBooked = firstIntroBookingsNoSelfBooked.length;
+    const pipelineBooked = firstIntroBookings.length;
     let pipelineShowed = 0;
     let pipelineSold = 0;
     let pipelineRevenue = 0;
 
-    firstIntroBookingsNoSelfBooked.forEach(b => {
+    firstIntroBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         pipelineShowed++;
-        // FIX: Check if ANY run has a sale result, not just the first
+        // Check if ANY run has a sale result
         const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
         if (saleRun) {
           pipelineSold++;
