@@ -16,7 +16,7 @@ export type StaffName = typeof ALL_STAFF[number];
 
 // Lead Sources
 export const LEAD_SOURCES = [
-  'Self-generated (my outreach)',
+  'My Personal Friend I Invited',
   'Instagram DMs',
   'Referral',
   'Lead Management Call / Text',
@@ -25,6 +25,8 @@ export const LEAD_SOURCES = [
   'B2C Event',
   'Member brought friend',
   'Online Intro Offer (self-booked)',
+  'Booked person brought them (Instagram)',
+  'Booked person brought them (Lead Management)',
   'Source Not Found',
 ] as const;
 

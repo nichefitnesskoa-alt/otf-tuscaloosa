@@ -125,7 +125,7 @@ export default function Dashboard() {
             <br />
             <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
             <br />
-            <strong>Lead Measures</strong> = Goal+Why capture, Relationship experience, Made a Friend
+            <strong>Lead Measures</strong> = Goal+Why capture, Peak Gym Experience, Made a Friend
           </p>
         </CardContent>
       </Card>

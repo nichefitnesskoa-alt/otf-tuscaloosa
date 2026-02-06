@@ -106,7 +106,7 @@ export function PerSATable({ data }: PerSATableProps) {
                 <SortableHeader column="sales">Sales</SortableHeader>
                 <SortableHeader column="closingRate">Close%</SortableHeader>
                 <SortableHeader column="goalWhyRate">Goal</SortableHeader>
-                <SortableHeader column="relationshipRate">Rel.</SortableHeader>
+                <SortableHeader column="relationshipRate">Peak</SortableHeader>
                 <SortableHeader column="madeAFriendRate">Friend</SortableHeader>
               </TableRow>
             </TableHeader>
