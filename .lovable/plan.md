@@ -1,172 +1,352 @@
 
-
-# Comprehensive Metrics Fix: Closing Rates, Coach Performance, and Sales Attribution
+# Comprehensive Data Flow Fix: Follow-up Purchases, Coach Columns, and Full System Audit
 
 ## Executive Summary
 
-After a deep analysis of the metrics system, I've identified **critical bugs** that are causing Grace and Kailey's sales today to NOT be counted in their closing rates, and coach performance metrics to be incorrect.
+This plan addresses four major areas:
+1. **New "Mark as Purchased" feature** in Shift Recap for follow-up sales (no extra intro run needed)
+2. **Fix Lead Source Analytics and Pipeline Funnel** to use any-run-with-sale logic
+3. **Add Coach columns** to Client Journey and Members Who Bought panels
+4. **Full system audit** ensuring all data flows correctly across every page
 
-## Root Cause Analysis
+---
 
-### Bug 1: Follow-up Conversions Are Ignored (HIGH SEVERITY)
+## Part 1: New "Mark Follow-up Purchase" Feature in Shift Recap
 
-**The Problem:**
-The metrics system only counts the FIRST run per booking. When a client:
-1. Comes in for an intro (result: "Follow-up needed")
-2. Returns later and purchases a membership (result: "Premier w/o OTBeat")
+### Current Problem
 
-Only the first run is counted, so the **sale is completely ignored** in closing rate calculations.
+When a client (e.g., Zoe Hall) comes in for an intro on Feb 4 with result "Follow-up needed", then returns Feb 6 and purchases a membership, the SA currently has two options:
+1. Create ANOTHER intro run entry (confusing, creates duplicate records)
+2. Ask Admin to manually update (slow, requires elevated access)
 
-**Evidence from Today's Data:**
-| Member | First Run (Counted) | Second Run (IGNORED) | Intro Owner |
-|--------|---------------------|----------------------|-------------|
-| Zoe Hall | Follow-up needed (Feb 4) | Premier w/o OTBeat $15 (Feb 6) | Grace |
-| Adeline Harper | Follow-up needed (Feb 4) | Premier w/o OTBeat $15 (Feb 6) | Grace |
-| Anna Livingston | Follow-up needed (Feb 5) | Premier w/o OTBeat $15 (Feb 6) | Kailey |
+### Proposed Solution
 
-**Current Wrong Calculations:**
-- Grace: 7 intros / 0 sales = 0% (WRONG - should be 2 sales = 29%)
-- Kailey: 4 intros / 1 sale = 25% (WRONG - should be 2 sales = 50%)
+Add a new section in Shift Recap called **"Follow-up Purchases"** that allows SAs to:
+1. Select a client who had a previous intro (from a filtered list of "Follow-up needed" / "Booked 2nd intro" clients)
+2. Select the membership type they purchased
+3. Submit with today's date as the `buy_date`
 
-### Bug 2: Coach Performance Excludes Self-Booked Clients
+This will:
+- **UPDATE** the existing intro_run record with the new `result` and `buy_date`
+- **NOT** create a new intro_run record
+- Maintain proper attribution (original intro_owner gets the commission)
 
-Coach Natalya coached Zoe Hall and Adeline Harper (both self-booked), but these are excluded from coach metrics. The logic incorrectly filters out the booking entirely instead of just excluding it from booker credit.
-
-### Bug 3: Today's Race Uses Wrong Sale Detection
-
-The "Today's Race" component checks `commission_amount > 0` instead of checking the result string for membership keywords.
-
-## Technical Solution
-
-### Fix 1: Capture Final Outcome, Not First Run
-
-Instead of using the first run's result, we need to track whether **any run** for a booking resulted in a sale. The correct logic:
+### New Component: `FollowupPurchaseEntry.tsx`
 
 ```text
-For each unique booking:
-1. Count as "intro run" if ANY run exists (not no-show)
-2. Count as "sale" if ANY run has membership result
-3. Use the commission from the run with the sale result
++----------------------------------------------------------+
+|  Follow-up Purchase                                       |
+|  Select a client who came back to buy after their intro   |
++----------------------------------------------------------+
+|                                                           |
+|  [ Select from follow-up clients... ▼ ]                  |
+|     - Shows clients with "Follow-up needed" result        |
+|     - Displays: Name, Intro Date, Intro Owner             |
+|                                                           |
+|  [ Membership Type ▼ ]                                    |
+|     Premier + OTBeat ($15)                               |
+|     Premier w/o OTBeat ($7.50)                           |
+|     Elite + OTBeat ($12)                                 |
+|     etc.                                                  |
+|                                                           |
+|  Purchase Date: [2026-02-06] (defaults to today)         |
+|                                                           |
+|  ℹ️ Commission ($X) goes to [Intro Owner Name]           |
+|                                                           |
++----------------------------------------------------------+
 ```
 
-**Files to modify:**
-- `src/hooks/useDashboardMetrics.ts` (lines 204-238)
+### Data Flow for Follow-up Purchase
 
-### Fix 2: Coach Performance - Include All Coached Intros
+When submitted:
+1. Find the **most recent run** for the selected client with result "Follow-up needed" or "Booked 2nd intro"
+2. **UPDATE** that run record:
+   - `result` → selected membership type
+   - `buy_date` → today's date (shift date)
+   - `commission_amount` → calculated from membership type
+   - `notes` → append "Follow-up purchase logged by [SA] on [date]"
+3. **UPDATE** the linked booking:
+   - `booking_status` → "Closed (Purchased)"
+   - `closed_at` → now
+   - `closed_by` → SA name
 
-Remove the self-booked exclusion from CoachPerformance. Self-booked clients still get coached, and that matters for coach metrics.
+### Files to Create/Modify
 
-**Files to modify:**
-- `src/components/dashboard/CoachPerformance.tsx` (lines 63-65)
+| File | Action |
+|------|--------|
+| `src/components/FollowupPurchaseEntry.tsx` | CREATE - New component for follow-up purchases |
+| `src/components/FollowupPurchaseSelector.tsx` | CREATE - Selector showing eligible follow-up clients |
+| `src/pages/ShiftRecap.tsx` | MODIFY - Add new section for follow-up purchases |
+| `src/components/IntroRunEntry.tsx` | MODIFY - Update interface to include new data fields |
 
-### Fix 3: Today's Race - Use Result String
+---
 
-Change the sales detection to use the same `isMembershipSale()` helper.
+## Part 2: Fix Lead Source Analytics and Pipeline Funnel
 
-**Files to modify:**
-- `src/hooks/useDashboardMetrics.ts` (lines 391-398)
+### Current Bug
 
-## Implementation Details
+The Lead Source and Pipeline metrics in `useDashboardMetrics.ts` only check the **first run's result**, ignoring follow-up conversions.
 
-### Step 1: Update useDashboardMetrics.ts - Per-SA Metrics
-
-**Current (broken) logic:**
+**Lines 348-358 (Lead Source):**
 ```javascript
-// Only takes FIRST run, ignores subsequent conversions
-const firstValidRun = sortedRuns[0];
-if (isMembershipSale(firstValidRun.result)) {
-  salesCount++;
+const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+if (nonNoShowRun) {
+  existing.showed++;
+  if (isMembershipSaleGlobal(nonNoShowRun.result)) {  // BUG: Only first run
+    existing.sold++;
+    ...
+  }
 }
 ```
 
-**Fixed logic:**
-```javascript
-// Check if ANY run has a membership sale result
-const anyRunWithSale = runs.find(r => isMembershipSale(r.result));
-if (anyRunWithSale) {
-  salesCount++;
-  commission += anyRunWithSale.commission_amount || 0;
-}
-// introsRunCount still counts unique bookings (first valid run determines "ran")
-```
+### Fix Required
 
-### Step 2: Update CoachPerformance.tsx
+Check if **ANY run** for the booking has a sale result:
 
-**Current (broken) logic:**
 ```javascript
-const isSelfBooked = EXCLUDED_BOOKERS.some(e => 
-  bookedBy.toLowerCase() === e.toLowerCase());
-return !isExcludedStatus && !isIgnored && !isSelfBooked;
-```
-
-**Fixed logic:**
-```javascript
-// Don't exclude self-booked - coaches still coach these clients
-return !isExcludedStatus && !isIgnored;
-```
-
-Also update the sales detection to find ANY sale run:
-```javascript
-const saleRun = runs.find(r => isMembershipSale(r.result));
-if (saleRun) {
-  existing.sales++;
-  existing.commission += saleRun.commission_amount || 0;
+const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+if (nonNoShowRun) {
+  existing.showed++;
+  // FIX: Check ALL runs for sale result
+  const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
+  if (saleRun) {
+    existing.sold++;
+    existing.revenue += saleRun.commission_amount || 0;
+  }
 }
 ```
 
-### Step 3: Update Today's Race
+### Files to Modify
 
-**Current (broken) logic:**
-```javascript
-if (run.commission_amount && run.commission_amount > 0) {
-  existing.sales++;
-}
+| File | Lines | Change |
+|------|-------|--------|
+| `src/hooks/useDashboardMetrics.ts` | 348-358 | Fix Lead Source to use any-run-with-sale logic |
+| `src/hooks/useDashboardMetrics.ts` | 372-381 | Fix Pipeline to use any-run-with-sale logic |
+
+---
+
+## Part 3: Add Coach Columns
+
+### Current State
+
+Coach information is stored in `intros_booked.coach_name` but not displayed in:
+- Client Journey Panel (Admin)
+- Client Journey ReadOnly (Studio)
+- Membership Purchases Panel (Admin)
+- Membership Purchases ReadOnly (Studio)
+
+### Implementation
+
+#### 3.1 Client Journey Panels
+
+Add `coach` field to the ClientBooking interface (already present) and display it in the collapsible row summary.
+
+**Display format:**
+```
+[Member Name] | 👤 Owner: Grace | 🏋️ Coach: Natalya | 📅 Feb 4
 ```
 
-**Fixed logic:**
-```javascript
-if (isMembershipSale(run.result)) {
-  existing.sales++;
+#### 3.2 Membership Purchases Panels
+
+Fetch `coach_name` from the linked booking and add a "Coach" column to the table.
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/admin/ClientJourneyPanel.tsx` | Add coach display in row summary |
+| `src/components/dashboard/ClientJourneyReadOnly.tsx` | Add coach display in row summary |
+| `src/components/admin/MembershipPurchasesPanel.tsx` | Fetch coach_name, add Coach column |
+| `src/components/dashboard/MembershipPurchasesReadOnly.tsx` | Fetch coach_name, add Coach column |
+
+---
+
+## Part 4: Full System Audit - Data Interconnection Verification
+
+### Page-by-Page Analysis
+
+#### Shift Recap (`/shift-recap`)
+| Section | Data Created | Status |
+|---------|--------------|--------|
+| Intros Booked | `intros_booked` table | Working |
+| Intros Run | `intros_run` table | Working |
+| Sales Outside | `sales_outside_intro` table | Working |
+| **NEW: Follow-up Purchases** | Updates existing `intros_run` | To implement |
+
+#### My Shifts (`/my-shifts`)
+| Section | Data Displayed | Status |
+|---------|----------------|--------|
+| Shift History | User's `shift_recaps` | Working |
+| Drill-down | Linked bookings/runs/sales | Working |
+
+#### My Stats / Dashboard (`/dashboard`)
+| Section | Data Source | Status |
+|---------|-------------|--------|
+| Personal Scoreboard | `useDashboardMetrics` → perSA | FIXED (previous update) |
+| Individual Activity | `shift_recaps` filtered by user | Working |
+
+#### Studio (`/recaps`)
+| Section | Data Source | Status |
+|---------|-------------|--------|
+| Studio Scoreboard | Aggregated perSA data | Working |
+| Pipeline Funnel | `useDashboardMetrics` → pipeline | **NEEDS FIX** |
+| Lead Source Analytics | `useDashboardMetrics` → leadSourceMetrics | **NEEDS FIX** |
+| Client Pipeline | `ClientJourneyReadOnly` | **NEEDS COACH** |
+| Members Who Bought | `MembershipPurchasesReadOnly` | **NEEDS COACH** |
+| Top Performers | Leaderboard data | Working |
+| Per-SA Table | perSA metrics | Working |
+| Booker Stats | bookerStats metrics | Working |
+
+#### Admin (`/admin`)
+| Section | Data Source | Status |
+|---------|-------------|--------|
+| Payroll Export | Commission calculation | Working |
+| Pay Period Commission | Date-filtered metrics | Working |
+| Coach Performance | Coach stats | FIXED (previous update) |
+| Client Journey | `ClientJourneyPanel` | **NEEDS COACH** |
+| Members Who Bought | `MembershipPurchasesPanel` | **NEEDS COACH** |
+| Shift Recaps Editor | Direct DB editing | Working |
+| Data Health | Data integrity checks | Working |
+
+---
+
+## Part 5: Technical Implementation Details
+
+### 5.1 FollowupPurchaseSelector Component
+
+```typescript
+interface EligibleFollowup {
+  runId: string;
+  memberName: string;
+  introDate: string;
+  introOwner: string;
+  linkedBookingId: string | null;
+  leadSource: string | null;
 }
+
+// Query: Find runs with Follow-up/2nd intro results that don't have a sale
+const eligibleClients = runs.filter(r => 
+  ['Follow-up needed', 'Booked 2nd intro'].includes(r.result) &&
+  !runs.some(other => 
+    other.member_name === r.member_name && 
+    isMembershipSale(other.result)
+  )
+);
 ```
 
-## Expected Results After Fix
+### 5.2 Follow-up Purchase Submission Logic
 
-**Grace's Metrics (Pay Period):**
-- Intros Run: 7 (unique bookings with a showed run)
-- Sales: 2 (Zoe Hall + Adeline Harper)
-- Closing Rate: 29%
-- Commission: $30
+```typescript
+// On submit:
+const handleFollowupPurchase = async (
+  runId: string, 
+  membershipType: string, 
+  buyDate: string,
+  linkedBookingId: string | null
+) => {
+  // Calculate commission
+  const commission = getCommissionForType(membershipType);
+  
+  // Update the existing run record
+  await supabase
+    .from('intros_run')
+    .update({
+      result: membershipType,
+      buy_date: buyDate,
+      commission_amount: commission,
+      notes: `[Previous: Follow-up needed] Converted on ${buyDate}`,
+    })
+    .eq('id', runId);
+  
+  // Close the linked booking if exists
+  if (linkedBookingId) {
+    await supabase
+      .from('intros_booked')
+      .update({
+        booking_status: 'Closed (Purchased)',
+        closed_at: new Date().toISOString(),
+        closed_by: currentUserName,
+      })
+      .eq('id', linkedBookingId);
+  }
+};
+```
 
-**Kailey's Metrics (Pay Period):**
-- Intros Run: 4 (unique bookings with a showed run)
-- Sales: 2 (Lauryn Holzkamp + Anna Livingston)
-- Closing Rate: 50%
-- Commission: $30
+### 5.3 Coach Column in Membership Purchases
 
-**Coach Natalya's Metrics:**
-- Intros Coached: 3 (including self-booked)
-- Sales: 2 (Zoe Hall + Adeline Harper)
-- Closing Rate: 67%
+```typescript
+// Add coach_name to the booking fetch
+const { data: bookings } = await supabase
+  .from('intros_booked')
+  .select('id, sa_working_shift, booked_by, lead_source, coach_name');
+
+const bookingMap = new Map(
+  (bookings || []).map(b => [b.id, { 
+    bookedBy: b.booked_by || b.sa_working_shift,
+    leadSource: b.lead_source,
+    coach: b.coach_name,  // NEW
+  }])
+);
+```
+
+---
+
+## Expected Outcomes After Implementation
+
+### Follow-up Purchase Flow
+- SA can quickly mark a returning client as purchased
+- Original intro_owner gets commission credit
+- No duplicate run records created
+- `buy_date` is set correctly for pay period filtering
+
+### Lead Source Analytics
+- "Online Intro Offer" will show Zoe Hall and Adeline Harper as sold
+- "Instagram DMs" will show Anna Livingston as sold
+- All sources will accurately reflect follow-up conversions
+
+### Pipeline Funnel
+- "Sold" count will increase by 3 (Zoe, Adeline, Anna)
+- Matches per-SA metrics totals
+
+### Coach Visibility
+- Client Journey shows: "Coach: Natalya" for today's sales
+- Members Who Bought shows coach in dedicated column
+
+### Consistency Verification
+- Pipeline Funnel "Sold" = Sum of Lead Source "Sold"
+- Studio Scoreboard sales = Per-SA Table total
+- Commission totals match across all views
+
+---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/components/FollowupPurchaseEntry.tsx` | Main component for follow-up purchase entry |
+| `src/components/FollowupPurchaseSelector.tsx` | Dropdown selector for eligible follow-up clients |
 
 ## Files to Modify
 
-1. **src/hooks/useDashboardMetrics.ts**
-   - Fix Per-SA metrics to use any-run-with-sale logic
-   - Fix Today's Race sale detection
-   - Ensure commission is summed correctly from sale runs
+| File | Changes |
+|------|---------|
+| `src/pages/ShiftRecap.tsx` | Add Follow-up Purchases section |
+| `src/hooks/useDashboardMetrics.ts` | Fix Lead Source and Pipeline to use any-run-with-sale logic |
+| `src/components/admin/ClientJourneyPanel.tsx` | Add coach display in row |
+| `src/components/dashboard/ClientJourneyReadOnly.tsx` | Add coach display in row |
+| `src/components/admin/MembershipPurchasesPanel.tsx` | Add coach_name fetch and column |
+| `src/components/dashboard/MembershipPurchasesReadOnly.tsx` | Add coach_name fetch and column |
 
-2. **src/components/dashboard/CoachPerformance.tsx**
-   - Remove self-booked exclusion for coach stats
-   - Use any-run-with-sale logic for coach closing rate
+---
 
 ## Testing Checklist
 
-After implementation, verify:
-- [ ] Grace shows 2 sales and ~29% closing rate
-- [ ] Kailey shows 2 sales and ~50% closing rate  
-- [ ] Coach Natalya shows 2 sales with 67% closing rate
-- [ ] Today's race correctly shows today's sales
-- [ ] Studio scoreboard totals match sum of per-SA metrics
-- [ ] Commission totals are accurate
-
+After implementation:
+- [ ] Follow-up purchase updates existing run (not creates new)
+- [ ] Lead Source shows correct sold counts (including follow-ups)
+- [ ] Pipeline Funnel sold count matches per-SA totals
+- [ ] Coach displayed in Client Journey (Admin & Studio)
+- [ ] Coach displayed in Members Who Bought (Admin & Studio)
+- [ ] Grace shows 2 sales with correct closing rate
+- [ ] Kailey shows 2 sales with correct closing rate
+- [ ] Commission totals are consistent across all views
