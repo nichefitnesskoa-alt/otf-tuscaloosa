@@ -3,8 +3,54 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+// Helper to verify user authentication
+async function verifyAuth(req: Request): Promise<{ userId: string; staffName: string; staffRole: string } | Response> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized - missing auth token' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  // Verify user is authenticated using getClaims
+  const token = authHeader.replace('Bearer ', '');
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+  
+  if (claimsError || !claimsData?.claims) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized - invalid token' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const userId = claimsData.claims.sub as string;
+
+  // Verify user is in staff table
+  const { data: staff, error: staffError } = await supabase
+    .from('staff')
+    .select('name, role')
+    .eq('user_id', userId)
+    .single();
+
+  if (staffError || !staff) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Forbidden - not a staff member' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return { userId, staffName: staff.name, staffRole: staff.role };
+}
 
 interface GoogleAuth {
   access_token: string;
@@ -424,6 +470,15 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication first
+    const authResult = await verifyAuth(req);
+    if (authResult instanceof Response) {
+      return authResult; // Return error response
+    }
+    
+    const { staffName, staffRole } = authResult;
+    console.log(`[${staffName}] Authenticated for sync-sheets operation`);
+
     const { action, spreadsheetId, data, stableId, editedBy, editReason } = await req.json();
 
     if (!spreadsheetId) {
