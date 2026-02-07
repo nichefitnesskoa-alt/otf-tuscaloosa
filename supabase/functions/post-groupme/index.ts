@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,48 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized - missing auth token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    // Verify user is authenticated
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
-
-    // Verify user is in staff table
-    const { data: staff, error: staffError } = await supabase
-      .from('staff')
-      .select('name, role')
-      .eq('user_id', userId)
-      .single();
-
-    if (staffError || !staff) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Forbidden - not a staff member' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const GROUPME_BOT_ID = Deno.env.get('GROUPME_BOT_ID');
     
     if (!GROUPME_BOT_ID) {
@@ -65,11 +22,11 @@ serve(async (req) => {
       );
     }
 
-    const { text, action } = await req.json();
+    const { text, action, staffName } = await req.json();
 
     // Test connection action
     if (action === 'test') {
-      const testMessage = `✅ GroupMe connected successfully (by ${staff.name})`;
+      const testMessage = `✅ GroupMe connected successfully${staffName ? ` (by ${staffName})` : ''}`;
       const response = await fetch('https://api.groupme.com/v3/bots/post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,7 +59,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${staff.name}] Posting to GroupMe:`, text.substring(0, 100) + '...');
+    console.log(`Posting to GroupMe${staffName ? ` [${staffName}]` : ''}:`, text.substring(0, 100) + '...');
 
     const response = await fetch('https://api.groupme.com/v3/bots/post', {
       method: 'POST',
