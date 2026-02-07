@@ -363,14 +363,14 @@ export default function ShiftRecap() {
             isFirstRun = true;
           }
 
-          // Calculate commission
+          // Calculate commission - check for "+ otbeat" to avoid matching "w/o otbeat"
           let commissionAmount = 0;
           const outcomeLower = run.outcome.toLowerCase();
-          if (outcomeLower.includes('premier') && outcomeLower.includes('otbeat')) commissionAmount = 15;
+          if (outcomeLower.includes('premier') && outcomeLower.includes('+ otbeat')) commissionAmount = 15;
           else if (outcomeLower.includes('premier')) commissionAmount = 7.5;
-          else if (outcomeLower.includes('elite') && outcomeLower.includes('otbeat')) commissionAmount = 12;
+          else if (outcomeLower.includes('elite') && outcomeLower.includes('+ otbeat')) commissionAmount = 12;
           else if (outcomeLower.includes('elite')) commissionAmount = 6;
-          else if (outcomeLower.includes('basic') && outcomeLower.includes('otbeat')) commissionAmount = 9;
+          else if (outcomeLower.includes('basic') && outcomeLower.includes('+ otbeat')) commissionAmount = 9;
           else if (outcomeLower.includes('basic')) commissionAmount = 3;
 
           // Insert the intro run
