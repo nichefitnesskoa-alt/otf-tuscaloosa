@@ -17,6 +17,7 @@ const LEAD_SOURCES = [
   'Online Intro Offer (self-booked)',
   'Booked person brought them (Instagram)',
   'Booked person brought them (Lead Management)',
+  'VIP Class',
   'Source Not Found',
 ] as const;
 
