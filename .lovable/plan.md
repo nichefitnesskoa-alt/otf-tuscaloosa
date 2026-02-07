@@ -1,122 +1,114 @@
 
-# Fix: Duplicate Staff Names and Empty Sales Entry Bug
+# Add Coach Field to Manual Intro Run Entry
 
-## Issues Identified
+## Overview
 
-### Issue 1: "ElizabethElizabeth" Bug in Coach/Staff Dropdowns
-
-**Root Cause**: In `src/types/index.ts`, the `ALL_STAFF` array is created by spreading both `COACHES` and `SALES_ASSOCIATES`:
-
-```typescript
-export const COACHES = ['Bre', 'Elizabeth', 'James', 'Kaitlyn H', 'Nathan', 'Natalya'] as const;
-export const SALES_ASSOCIATES = ['Bre', 'Bri', 'Elizabeth', 'Grace', 'Kailey', 'Katie', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
-export const ALL_STAFF = [...COACHES, ...SALES_ASSOCIATES] as const;
-```
-
-This creates `ALL_STAFF` with duplicates:
-```
-['Bre', 'Elizabeth', 'James', 'Kaitlyn H', 'Nathan', 'Natalya', 'Bre', 'Bri', 'Elizabeth', ...]
-```
-
-When used in Select dropdowns with `{ALL_STAFF.map(s => <SelectItem key={s} value={s}>`, React warns about duplicate keys and the value gets concatenated when selected.
-
-**Solution**: Deduplicate `ALL_STAFF` when creating it.
+When manually entering an intro run (not selecting from booked intros), the user needs to specify which coach led the class. This allows proper tracking of coach performance even for walk-ins or manually entered intro sessions.
 
 ---
 
-### Issue 2: Sarah Allen Missing / Blank Sale Entry in GroupMe
+## What Will Change
 
-**Root Cause**: Looking at the stored GroupMe recap for Bri on 2026-02-06:
-
-```
-💵 Outside Sales (2):
-1. sophia lange : Premier w/o OTBeat ($7.50)
-2. :  ($0.00)    <-- BLANK ENTRY
-```
-
-The `sales` array in the form state contained an empty entry that was passed to GroupMe. This happens when a user adds a sale entry but doesn't fill it out before submitting.
-
-**Clarification on Sarah Allen**: Sarah Allen was an intro run from 2026-02-04 (Bri's shift), not the same recap. She appears correctly in the intros_run database. The "blank name with commission" was a separate issue - an empty sale form entry.
-
-**Solution**: Filter out empty sale entries BEFORE passing to GroupMe (in ShiftRecap.tsx), not just during formatting.
+### User Experience
+- In the "Intros Run" section, when using **Manual Entry** mode, a new "Coach" dropdown will appear after the Lead Source field
+- The dropdown will contain the list of coaches: Bre, Elizabeth, James, Kaitlyn H, Nathan, Natalya
+- This field is optional but recommended for accurate coach performance tracking
 
 ---
 
 ## Technical Implementation
 
-### Fix 1: Deduplicate ALL_STAFF Array
+### Step 1: Database Migration
+Add `coach_name` column to the `intros_run` table:
 
-**File**: `src/types/index.ts`
-
-**Change**: Create a unique array from the combined staff lists
-
-**Before**:
-```typescript
-export const ALL_STAFF = [...COACHES, ...SALES_ASSOCIATES] as const;
+```sql
+ALTER TABLE intros_run ADD COLUMN coach_name text;
 ```
 
-**After**:
+### Step 2: Update IntroRunData Interface
+**File**: `src/components/IntroRunEntry.tsx`
+
+Add `coachName` to the data interface:
 ```typescript
-// Deduplicate staff who appear in both COACHES and SALES_ASSOCIATES
-const _allStaffSet = [...new Set([...COACHES, ...SALES_ASSOCIATES])];
-export const ALL_STAFF = _allStaffSet as unknown as readonly string[];
+export interface IntroRunData {
+  id: string;
+  memberName: string;
+  runDate: string;
+  runTime: string;
+  leadSource: string;
+  coachName: string;  // NEW FIELD
+  outcome: string;
+  // ... rest unchanged
+}
 ```
 
-This ensures Elizabeth and Bre only appear once in dropdowns.
+### Step 3: Add Coach Dropdown UI
+**File**: `src/components/IntroRunEntry.tsx`
 
----
-
-### Fix 2: Filter Empty Sales Before GroupMe Post
-
-**File**: `src/pages/ShiftRecap.tsx` (around line 585)
-
-**Before**:
+Add a coach selector in manual entry mode (after Lead Source):
 ```typescript
-sales: sales.map(s => ({ 
-  memberName: s.memberName, 
-  membershipType: s.membershipType, 
-  commissionAmount: s.commissionAmount 
-})),
+{entryMode === 'manual' && (
+  <div>
+    <Label className="text-xs">Coach</Label>
+    <Select
+      value={intro.coachName || ''}
+      onValueChange={(v) => onUpdate(index, { coachName: v })}
+    >
+      <SelectTrigger className="mt-1">
+        <SelectValue placeholder="Select coach..." />
+      </SelectTrigger>
+      <SelectContent>
+        {COACHES.map((coach) => (
+          <SelectItem key={coach} value={coach}>{coach}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+)}
 ```
 
-**After**:
+### Step 4: Include Coach in Database Insert
+**File**: `src/pages/ShiftRecap.tsx`
+
+When inserting the intro run record, include the coach_name:
 ```typescript
-// Filter out empty sale entries before sending to GroupMe
-sales: sales
-  .filter(s => s.memberName && s.memberName.trim())
-  .map(s => ({ 
-    memberName: s.memberName, 
-    membershipType: s.membershipType, 
-    commissionAmount: s.commissionAmount 
-  })),
+const { error: runError } = await supabase.from('intros_run').insert({
+  // ... existing fields
+  coach_name: run.coachName || null,  // NEW
+});
 ```
 
-This prevents empty form entries from appearing in GroupMe posts.
+### Step 5: Update Default IntroRun State
+**File**: `src/pages/ShiftRecap.tsx`
+
+Update the `addIntroRun` function to include the new field:
+```typescript
+const newRun: IntroRunData = {
+  id: `run_${Date.now()}`,
+  memberName: '',
+  runDate: date,
+  runTime: '',
+  leadSource: '',
+  coachName: '',  // NEW
+  outcome: '',
+  // ... rest
+};
+```
 
 ---
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/types/index.ts` | Deduplicate ALL_STAFF array |
-| `src/pages/ShiftRecap.tsx` | Filter empty sales before GroupMe post |
+| File | Changes |
+|------|---------|
+| **Database** | Add `coach_name` text column to `intros_run` |
+| `src/components/IntroRunEntry.tsx` | Add `coachName` to interface, add Coach dropdown in manual mode |
+| `src/pages/ShiftRecap.tsx` | Include `coach_name` in insert, add to default state |
 
 ---
 
-## Expected Results
+## Notes
 
-After implementation:
-- Coach dropdown shows Elizabeth and Bre only once each
-- Selecting Elizabeth saves as "Elizabeth" (not "ElizabethElizabeth")
-- GroupMe recaps will not include blank sales entries
-- Sarah Allen's intro run data is already correctly stored (no action needed)
-
----
-
-## Testing Checklist
-
-- [ ] Open shift recap form and verify Elizabeth appears once in any staff dropdown
-- [ ] Select Elizabeth as a coach - confirm value saves as "Elizabeth"
-- [ ] Submit a recap with an empty sale entry - verify GroupMe does not show blank entry
-- [ ] Check admin dropdown filters show correct staff list without duplicates
+- When selecting from booked intros, the coach is already captured in the `intros_booked` table and linked via `linked_intro_booked_id`
+- This new field is specifically for manual entries where there's no existing booking to reference
+- The coach field is optional to allow flexibility for edge cases
