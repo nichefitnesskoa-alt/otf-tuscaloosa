@@ -9,7 +9,7 @@ export interface User {
 
 // Staff Data (alphabetically sorted)
 export const COACHES = ['Bre', 'Elizabeth', 'James', 'Kaitlyn H', 'Nathan', 'Natalya'] as const;
-export const SALES_ASSOCIATES = ['Bri', 'Grace', 'Kailey', 'Katie', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
+export const SALES_ASSOCIATES = ['Bre', 'Bri', 'Elizabeth', 'Grace', 'Kailey', 'Katie', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
 export const ALL_STAFF = [...COACHES, ...SALES_ASSOCIATES] as const;
 
 export type StaffName = typeof ALL_STAFF[number];
