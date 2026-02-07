@@ -582,7 +582,7 @@ export default function ShiftRecap() {
             relationshipExperience: r.relationshipExperience,
             madeAFriend: r.madeAFriend,
           })),
-          sales: sales.map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
+          sales: sales.filter(s => s.memberName && s.memberName.trim()).map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
           notes,
         }, shiftData.id);
         

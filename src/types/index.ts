@@ -10,7 +10,9 @@ export interface User {
 // Staff Data (alphabetically sorted)
 export const COACHES = ['Bre', 'Elizabeth', 'James', 'Kaitlyn H', 'Nathan', 'Natalya'] as const;
 export const SALES_ASSOCIATES = ['Bre', 'Bri', 'Elizabeth', 'Grace', 'Kailey', 'Katie', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
-export const ALL_STAFF = [...COACHES, ...SALES_ASSOCIATES] as const;
+// Deduplicate staff who appear in both COACHES and SALES_ASSOCIATES
+const _allStaffSet = [...new Set([...COACHES, ...SALES_ASSOCIATES])];
+export const ALL_STAFF = _allStaffSet as readonly string[];
 
 export type StaffName = typeof ALL_STAFF[number];
 
