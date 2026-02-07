@@ -1,0 +1,1 @@
+ALTER TABLE intros_run ADD COLUMN coach_name text;

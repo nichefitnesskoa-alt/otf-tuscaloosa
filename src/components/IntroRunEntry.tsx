@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Trash2, UserCheck, Calendar, Info } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
+import { COACHES } from '@/types';
 
 const LEAD_SOURCES = [
   'My Personal Friend I Invited',
@@ -46,6 +47,7 @@ export interface IntroRunData {
   runDate: string;
   runTime: string;
   leadSource: string;
+  coachName: string;
   outcome: string;
   // New lead measures (spec-compliant)
   goalWhyCaptured: string;
@@ -201,6 +203,26 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
             <SelectContent>
               {LEAD_SOURCES.map((source) => (
                 <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Coach (for manual entry) */}
+      {entryMode === 'manual' && (
+        <div>
+          <Label className="text-xs">Coach</Label>
+          <Select
+            value={intro.coachName || ''}
+            onValueChange={(v) => onUpdate(index, { coachName: v })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select coach..." />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map((coach) => (
+                <SelectItem key={coach} value={coach}>{coach}</SelectItem>
               ))}
             </SelectContent>
           </Select>
