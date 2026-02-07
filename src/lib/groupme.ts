@@ -64,14 +64,13 @@ function formatRecapText(data: RecapData): string {
     lines.push('');
   }
   
-  // Sales
-  if (data.sales.length > 0) {
-    const totalCommission = data.sales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
-    lines.push(`💵 Outside Sales (${data.sales.length}):`);
-    data.sales.forEach((s, i) => {
-      lines.push(`${i + 1}. ${s.memberName}: ${s.membershipType} ($${s.commissionAmount.toFixed(2)})`);
+  // Sales (filter out entries with empty names)
+  const validSales = data.sales.filter(s => s.memberName && s.memberName.trim());
+  if (validSales.length > 0) {
+    lines.push(`💵 Outside Sales (${validSales.length}):`);
+    validSales.forEach((s, i) => {
+      lines.push(`${i + 1}. ${s.memberName}: ${s.membershipType}`);
     });
-    lines.push(`   Total: $${totalCommission.toFixed(2)}`);
     lines.push('');
   }
   
