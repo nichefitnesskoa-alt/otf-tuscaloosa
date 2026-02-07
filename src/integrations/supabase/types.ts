@@ -225,6 +225,7 @@ export type Database = {
           choice_architecture: boolean | null
           claimed_by_ig_lead_id: string | null
           class_time: string
+          coach_name: string | null
           coaching_summary_presence: boolean | null
           commission_amount: number | null
           created_at: string
@@ -265,6 +266,7 @@ export type Database = {
           choice_architecture?: boolean | null
           claimed_by_ig_lead_id?: string | null
           class_time: string
+          coach_name?: string | null
           coaching_summary_presence?: boolean | null
           commission_amount?: number | null
           created_at?: string
@@ -305,6 +307,7 @@ export type Database = {
           choice_architecture?: boolean | null
           claimed_by_ig_lead_id?: string | null
           class_time?: string
+          coach_name?: string | null
           coaching_summary_presence?: boolean | null
           commission_amount?: number | null
           created_at?: string
