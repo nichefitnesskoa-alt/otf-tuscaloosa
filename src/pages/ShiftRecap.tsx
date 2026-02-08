@@ -423,55 +423,46 @@ export default function ShiftRecap() {
             );
           }
 
-          // Handle "Booked 2nd intro" outcome - create a new booking with proper date/time
-          if (run.outcome === 'Booked 2nd intro') {
-            const secondBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+          // Handle "Booked 2nd intro" outcome - UPDATE existing booking instead of creating duplicate
+          if (run.outcome === 'Booked 2nd intro' && linkedBookingId) {
             const secondIntroDate = run.secondIntroDate || new Date().toISOString().split('T')[0];
             const secondIntroTime = run.secondIntroTime || null;
             
-            // Determine originating booking ID for chain tracking
-            const originatingId = run.originatingBookingId || linkedBookingId || null;
-            
-            // 2nd intro booking: booked_by = current SA, intro_owner carries forward from first run
-            await supabase.from('intros_booked').insert({
-              booking_id: secondBookingId,
-              member_name: run.memberName,
-              class_date: secondIntroDate,
-              intro_time: secondIntroTime,
-              coach_name: 'TBD',
-              sa_working_shift: user?.name || '', // Legacy field
-              booked_by: user?.name || '',        // booked_by = SA scheduling the 2nd
-              lead_source: '2nd Class Intro (staff booked)',
-              fitness_goal: `2nd intro - Intro owner: ${introOwner}`,
-              intro_owner: introOwner,            // carry forward from first
-              intro_owner_locked: true,           // already locked
-              originating_booking_id: originatingId, // Link to original for chain tracking
-            });
+            // Update the existing booking with new date/time and status
+            await supabase.from('intros_booked')
+              .update({
+                class_date: secondIntroDate,
+                intro_time: secondIntroTime,
+                booking_status: '2nd Intro Scheduled',
+                fitness_goal: `2nd intro scheduled - Intro owner: ${introOwner}`,
+                last_edited_at: new Date().toISOString(),
+                last_edited_by: user?.name || 'System',
+                edit_reason: 'Rescheduled for 2nd intro',
+              })
+              .eq('id', linkedBookingId);
 
-            // Sync the 2nd booking to Google Sheets with proper tracking
+            // Sync the update to Google Sheets
             if (spreadsheetId) {
               await supabase.functions.invoke('sync-sheets', {
                 body: {
                   action: 'sync_booking',
                   spreadsheetId,
                   data: {
-                    booking_id: secondBookingId,
+                    booking_id: linkedBookingId,
                     member_name: run.memberName,
                     class_date: secondIntroDate,
                     intro_time: secondIntroTime,
-                    lead_source: '2nd Class Intro (staff booked)',
-                    notes: `2nd intro - Intro owner: ${introOwner}`,
-                    originating_booking_id: originatingId,
-                    booking_status: 'ACTIVE',
-                    booked_by: user?.name || '', // SA who scheduled the 2nd intro
-                    intro_owner: introOwner, // Carry forward from first intro
+                    lead_source: '2nd Intro Scheduled',
+                    notes: `2nd intro scheduled - Intro owner: ${introOwner}`,
+                    booking_status: '2nd Intro Scheduled',
+                    intro_owner: introOwner,
                   },
                 },
               });
             }
             
-            toast.info('2nd intro booked', {
-              description: `Scheduled for ${secondIntroDate}`,
+            toast.info('2nd intro scheduled', {
+              description: `Updated booking for ${secondIntroDate}`,
             });
           }
 
