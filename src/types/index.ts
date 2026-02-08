@@ -16,21 +16,19 @@ export const ALL_STAFF = _allStaffSet as readonly string[];
 
 export type StaffName = typeof ALL_STAFF[number];
 
-// Lead Sources
+// Lead Sources (alphabetized)
 export const LEAD_SOURCES = [
-  'My Personal Friend I Invited',
+  'Business Partnership Referral',
+  'Event',
   'Instagram DMs',
-  'Referral',
-  'Lead Management Call / Text',
-  'Lead Management Web Lead Call',
-  'B2B Partnership',
-  'B2C Event',
-  'Member brought friend',
+  'Instagram DMs (Friend)',
+  'Lead Management',
+  'Lead Management (Friend)',
+  'Member Referral',
+  'My Personal Friend I Invited',
   'Online Intro Offer (self-booked)',
-  'Booked person brought them (Instagram)',
-  'Booked person brought them (Lead Management)',
-  'VIP Class',
   'Source Not Found',
+  'VIP Class',
 ] as const;
 
 export type LeadSource = typeof LEAD_SOURCES[number];

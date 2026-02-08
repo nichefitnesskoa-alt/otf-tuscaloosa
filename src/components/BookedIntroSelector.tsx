@@ -129,11 +129,14 @@ export default function BookedIntroSelector({
       return !EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
     });
     
-    if (!searchQuery.trim()) return activeBookings;
+    // Apply search filter
+    const searched = searchQuery.trim()
+      ? activeBookings.filter(b => b.member_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : activeBookings;
     
-    const query = searchQuery.toLowerCase();
-    return activeBookings.filter(b => 
-      b.member_name.toLowerCase().includes(query)
+    // Sort alphabetically by member name
+    return searched.sort((a, b) => 
+      a.member_name.toLowerCase().localeCompare(b.member_name.toLowerCase())
     );
   }, [bookings, searchQuery]);
 

@@ -5,10 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2 } from 'lucide-react';
 
 const LEAD_SOURCES = [
-  'Winback',
+  'Member Referral',
   'Upgrade',
   'Walk in',
-  'Referral',
+  'Winback',
 ] as const;
 
 const MEMBERSHIP_TYPES = [
