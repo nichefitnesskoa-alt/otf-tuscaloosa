@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, Users, Download, Loader2 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DollarSign, Users, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
@@ -32,10 +33,19 @@ function generatePayPeriods(): { label: string; start: Date; end: Date }[] {
   return periods.sort((a, b) => b.start.getTime() - a.start.getTime());
 }
 
+interface SaleDetail {
+  memberName: string;
+  amount: number;
+  date: string;
+  type: 'intro' | 'outside';
+  membershipType?: string;
+}
+
 interface PayrollEntry {
   name: string;
   total: number;
   sales: number;
+  details: SaleDetail[];
 }
 
 export default function PayPeriodCommission() {
@@ -73,7 +83,7 @@ export default function PayPeriodCommission() {
         // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
-          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at')
+          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name')
           .gt('commission_amount', 0);
 
         if (runsError) throw runsError;
@@ -81,7 +91,7 @@ export default function PayPeriodCommission() {
         // Fetch sales outside intro - fetch all with commission, filter in JS
         const { data: sales, error: salesError } = await supabase
           .from('sales_outside_intro')
-          .select('intro_owner, commission_amount, date_closed, created_at')
+          .select('intro_owner, commission_amount, date_closed, created_at, member_name, membership_type')
           .gt('commission_amount', 0);
 
         if (salesError) throw salesError;
@@ -105,20 +115,40 @@ export default function PayPeriodCommission() {
         for (const run of filteredRuns) {
           const owner = run.intro_owner || run.sa_name || 'Unassigned';
           if (!payrollMap[owner]) {
-            payrollMap[owner] = { name: owner, total: 0, sales: 0 };
+            payrollMap[owner] = { name: owner, total: 0, sales: 0, details: [] };
           }
           payrollMap[owner].total += run.commission_amount || 0;
           payrollMap[owner].sales++;
+          payrollMap[owner].details.push({
+            memberName: run.member_name,
+            amount: run.commission_amount || 0,
+            date: getSaleDate(run.buy_date, run.run_date, null, run.created_at),
+            type: 'intro',
+          });
         }
 
         // Process sales
         for (const sale of filteredSales) {
           const owner = sale.intro_owner || 'Unassigned';
           if (!payrollMap[owner]) {
-            payrollMap[owner] = { name: owner, total: 0, sales: 0 };
+            payrollMap[owner] = { name: owner, total: 0, sales: 0, details: [] };
           }
           payrollMap[owner].total += sale.commission_amount || 0;
           payrollMap[owner].sales++;
+          payrollMap[owner].details.push({
+            memberName: sale.member_name,
+            amount: sale.commission_amount || 0,
+            date: getSaleDate(null, null, sale.date_closed, sale.created_at),
+            type: 'outside',
+            membershipType: sale.membership_type,
+          });
+        }
+
+        // Sort details by date within each owner
+        for (const owner of Object.keys(payrollMap)) {
+          payrollMap[owner].details.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
         }
 
         const payrollList = Object.values(payrollMap).sort((a, b) => b.total - a.total);
@@ -220,20 +250,47 @@ export default function PayPeriodCommission() {
               ) : (
                 <div className="space-y-2">
                   {payroll.map((entry) => (
-                    <div 
-                      key={entry.name}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{entry.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.sales} sale{entry.sales !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <p className="font-bold text-success text-lg">
-                        ${entry.total.toFixed(2)}
-                      </p>
-                    </div>
+                    <Collapsible key={entry.name}>
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                            <div className="text-left">
+                              <p className="font-medium">{entry.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {entry.sales} sale{entry.sales !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="font-bold text-success text-lg">
+                            ${entry.total.toFixed(2)}
+                          </p>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="ml-6 mt-1 space-y-1">
+                          {entry.details.map((detail, idx) => (
+                            <div 
+                              key={idx}
+                              className="flex items-center justify-between p-2 bg-background rounded border text-sm"
+                            >
+                              <div>
+                                <p className="font-medium">{detail.memberName}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{format(new Date(detail.date), 'MMM d')}</span>
+                                  <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
+                                    {detail.type === 'intro' ? 'Intro' : detail.membershipType || 'Outside'}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <p className="font-medium text-success">
+                                ${detail.amount.toFixed(2)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   ))}
                 </div>
               )}
