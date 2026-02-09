@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { IntroBooked, IntroRun, Sale, ShiftRecap } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval, parseISO, isToday } from 'date-fns';
+import { isWithinInterval, isToday } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 
@@ -82,7 +83,7 @@ function isDateInRange(dateStr: string | null | undefined, range: DateRange | nu
   if (!range) return true; // All time - no filtering
   if (!dateStr) return false;
   try {
-    const date = parseISO(dateStr);
+    const date = parseLocalDate(dateStr);
     return isWithinInterval(date, { start: range.start, end: range.end });
   } catch {
     return false;
@@ -392,7 +393,7 @@ export function useDashboardMetrics(
     // =========================================
     // TODAY'S RACE
     // =========================================
-    const todaysRuns = activeRuns.filter(r => r.run_date && isToday(parseISO(r.run_date)));
+    const todaysRuns = activeRuns.filter(r => r.run_date && isToday(parseLocalDate(r.run_date)));
     const todaysRaceMap = new Map<string, { introsRun: number; sales: number }>();
     
     todaysRuns.forEach(run => {

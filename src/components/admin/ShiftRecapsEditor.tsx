@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import ShiftRecapDetails from './ShiftRecapDetails';
+import { parseLocalDate } from '@/lib/utils';
 
 interface ShiftRecap {
   id: string;
@@ -257,7 +258,7 @@ export default function ShiftRecapsEditor() {
                         {recap.staff_name}
                       </TableCell>
                       <TableCell className="text-sm py-2">
-                        {format(new Date(recap.shift_date), 'MMM d, yyyy')}
+                        {format(parseLocalDate(recap.shift_date), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell className="text-sm py-2">
                         <Badge variant="outline" className="text-xs">
@@ -350,7 +351,7 @@ export default function ShiftRecapsEditor() {
             <DialogDescription>
               {selectedRecap && (
                 <>
-                  {selectedRecap.staff_name} - {format(new Date(selectedRecap.shift_date), 'MMM d, yyyy')} ({selectedRecap.shift_type})
+                  {selectedRecap.staff_name} - {format(parseLocalDate(selectedRecap.shift_date), 'MMM d, yyyy')} ({selectedRecap.shift_type})
                 </>
               )}
             </DialogDescription>
@@ -427,7 +428,7 @@ export default function ShiftRecapsEditor() {
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="font-medium">{recapToDelete.staff_name}</p>
               <p className="text-sm text-muted-foreground">
-                {format(new Date(recapToDelete.shift_date), 'MMMM d, yyyy')} - {recapToDelete.shift_type}
+                {format(parseLocalDate(recapToDelete.shift_date), 'MMMM d, yyyy')} - {recapToDelete.shift_type}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 Contacts: {getTotalContacts(recapToDelete)} (Calls: {recapToDelete.calls_made || 0}, Texts: {recapToDelete.texts_sent || 0}, DMs: {recapToDelete.dms_sent || 0}, Emails: {recapToDelete.emails_sent || 0})

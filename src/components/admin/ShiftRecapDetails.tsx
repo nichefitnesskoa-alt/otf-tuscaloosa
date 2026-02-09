@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { Phone, MessageSquare, Mail, Instagram, Users, DollarSign, Calendar, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 
 interface IntroBooked {
   id: string;
@@ -125,7 +126,7 @@ export default function ShiftRecapDetails({
         <div>
           <h3 className="font-semibold text-lg">{staffName}</h3>
           <p className="text-sm text-muted-foreground">
-            {format(new Date(shiftDate), 'EEEE, MMMM d, yyyy')} • {shiftType}
+            {format(parseLocalDate(shiftDate), 'EEEE, MMMM d, yyyy')} • {shiftType}
           </p>
         </div>
         {totalCommission > 0 && (
@@ -178,7 +179,7 @@ export default function ShiftRecapDetails({
                   <div>
                     <p className="font-medium text-sm">{booking.member_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(booking.class_date), 'MMM d, yyyy')}
+                      {format(parseLocalDate(booking.class_date), 'MMM d, yyyy')}
                       {booking.intro_time && ` at ${booking.intro_time}`}
                     </p>
                   </div>
@@ -217,7 +218,7 @@ export default function ShiftRecapDetails({
                   <div>
                     <p className="font-medium text-sm">{run.member_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {run.run_date && format(new Date(run.run_date), 'MMM d, yyyy')} at {run.class_time}
+                      {run.run_date && format(parseLocalDate(run.run_date), 'MMM d, yyyy')} at {run.class_time}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

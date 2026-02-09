@@ -75,3 +75,15 @@ export function hasPartialNameMatch(inputName: string, existingName: string): bo
     )
   );
 }
+
+/**
+ * Parse a YYYY-MM-DD date string as local midnight (not UTC)
+ * Use this when displaying dates from the database to prevent timezone shift
+ */
+export function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date(NaN);
+  const parts = dateStr.split('T')[0].split('-');
+  if (parts.length !== 3) return new Date(NaN);
+  const [year, month, day] = parts.map(Number);
+  return new Date(year, month - 1, day);
+}

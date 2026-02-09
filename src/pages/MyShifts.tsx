@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import ShiftRecapDetails from '@/components/admin/ShiftRecapDetails';
+import { parseLocalDate } from '@/lib/utils';
 
 interface ShiftRecap {
   id: string;
@@ -118,7 +119,7 @@ export default function MyShifts() {
                     </div>
                     <div>
                       <p className="font-medium">
-                        {format(new Date(recap.shift_date), 'EEEE, MMMM d, yyyy')}
+                        {format(parseLocalDate(recap.shift_date), 'EEEE, MMMM d, yyyy')}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="outline" className="text-xs">

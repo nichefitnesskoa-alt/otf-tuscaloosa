@@ -23,7 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
 import { isMembershipSale, getSaleDate } from '@/lib/sales-detection';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, parseLocalDate } from '@/lib/utils';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
@@ -283,7 +283,7 @@ export default function MembershipPurchasesPanel() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {new Date(purchase.purchase_date).toLocaleDateString()}
+                      {parseLocalDate(purchase.purchase_date).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getMembershipBadgeVariant(purchase.membership_type)}>
