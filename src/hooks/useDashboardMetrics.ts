@@ -297,23 +297,28 @@ export function useDashboardMetrics(
 
     // =========================================
     // BOOKER STATS (attributed to booked_by)
+    // Excludes "Online Intro Offer (self-booked)" lead source from booker stats
     // =========================================
+    const EXCLUDED_LEAD_SOURCE = 'Online Intro Offer (self-booked)';
+    
     const bookerCounts = new Map<string, { booked: number; showed: number }>();
-    firstIntroBookings.forEach(b => {
-      const bookedBy = (b as any).booked_by || b.sa_working_shift;
-      if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
-        const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0 };
-        existing.booked++;
-        
-        // Check if this booking has a non-no-show run
-        const runs = bookingToRuns.get(b.id) || [];
-        if (runs.some(run => run.result !== 'No-show')) {
-          existing.showed++;
+    firstIntroBookings
+      .filter(b => b.lead_source !== EXCLUDED_LEAD_SOURCE) // Exclude self-booked lead source
+      .forEach(b => {
+        const bookedBy = (b as any).booked_by || b.sa_working_shift;
+        if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
+          const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0 };
+          existing.booked++;
+          
+          // Check if this booking has a non-no-show run
+          const runs = bookingToRuns.get(b.id) || [];
+          if (runs.some(run => run.result !== 'No-show')) {
+            existing.showed++;
+          }
+          
+          bookerCounts.set(bookedBy, existing);
         }
-        
-        bookerCounts.set(bookedBy, existing);
-      }
-    });
+      });
 
     const bookerStats: BookerMetrics[] = Array.from(bookerCounts.entries())
       .map(([saName, counts]) => ({

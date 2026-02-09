@@ -143,13 +143,7 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
     return null;
   }
 
-  const getPerformanceBadge = (closingRate: number, studioAvg: number) => {
-    const diff = closingRate - studioAvg;
-    if (diff >= 10) return <Badge className="bg-success text-success-foreground">+{diff.toFixed(0)}%</Badge>;
-    if (diff >= 0) return <Badge variant="outline" className="text-success">+{diff.toFixed(0)}%</Badge>;
-    if (diff >= -10) return <Badge variant="outline" className="text-muted-foreground">{diff.toFixed(0)}%</Badge>;
-    return <Badge variant="destructive">{diff.toFixed(0)}%</Badge>;
-  };
+  // getPerformanceBadge removed - vs avg column no longer shown
 
   return (
     <Card>
@@ -220,7 +214,6 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
                   </Tooltip>
                 </TooltipProvider>
               </TableHead>
-              <TableHead className="text-center">vs Avg</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -230,9 +223,6 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
                 <TableCell className="text-center">{coach.introsCoached}</TableCell>
                 <TableCell className="text-center text-success font-medium">{coach.sales}</TableCell>
                 <TableCell className="text-center font-medium">{coach.closingRate.toFixed(0)}%</TableCell>
-                <TableCell className="text-center">
-                  {getPerformanceBadge(coach.closingRate, studioAverage)}
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { DollarSign, Users, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DollarSign, Users, Download, Loader2, ChevronRight, CalendarDays } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/utils';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
+import { DateRange, formatDateRange } from '@/lib/pay-period';
 
 // Pay period anchor: January 26, 2026 (biweekly)
 const PAY_PERIOD_ANCHOR = new Date(2026, 0, 26); // January 26, 2026
@@ -49,16 +51,33 @@ interface PayrollEntry {
   details: SaleDetail[];
 }
 
-export default function PayPeriodCommission() {
+interface ShowRateEntry {
+  saName: string;
+  booked: number;
+  showed: number;
+  showRate: number;
+}
+
+interface PayPeriodCommissionProps {
+  dateRange?: DateRange | null;
+}
+
+export default function PayPeriodCommission({ dateRange: externalDateRange }: PayPeriodCommissionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
+  const [showRateStats, setShowRateStats] = useState<ShowRateEntry[]>([]);
   const [totalCommission, setTotalCommission] = useState(0);
 
   const payPeriods = useMemo(() => generatePayPeriods(), []);
+  
+  // If external date range is provided, use it; otherwise use pay period selector
+  const useExternalRange = externalDateRange !== undefined;
 
-  // Auto-select current period on mount
+  // Auto-select current period on mount (only if not using external range)
   useEffect(() => {
+    if (useExternalRange) return;
+    
     const now = new Date();
     const current = payPeriods.find(p => now >= p.start && now <= p.end);
     if (current) {
@@ -66,21 +85,33 @@ export default function PayPeriodCommission() {
     } else if (payPeriods.length > 0) {
       setSelectedPeriod(payPeriods[0].label);
     }
-  }, [payPeriods]);
+  }, [payPeriods, useExternalRange]);
 
-  // Fetch payroll data when period changes
+  // Fetch payroll data when period or external range changes
   useEffect(() => {
-    if (!selectedPeriod) return;
-
-    const period = payPeriods.find(p => p.label === selectedPeriod);
-    if (!period) return;
+    // Determine date range to use
+    let startDate: string;
+    let endDate: string;
+    
+    if (useExternalRange && externalDateRange) {
+      startDate = format(externalDateRange.start, 'yyyy-MM-dd');
+      endDate = format(externalDateRange.end, 'yyyy-MM-dd');
+    } else if (!useExternalRange && selectedPeriod) {
+      const period = payPeriods.find(p => p.label === selectedPeriod);
+      if (!period) return;
+      startDate = format(period.start, 'yyyy-MM-dd');
+      endDate = format(period.end, 'yyyy-MM-dd');
+    } else if (useExternalRange && externalDateRange === null) {
+      // All time - no date filtering
+      startDate = '1900-01-01';
+      endDate = '2100-12-31';
+    } else {
+      return;
+    }
 
     const fetchPayroll = async () => {
       setIsLoading(true);
       try {
-        const startDate = format(period.start, 'yyyy-MM-dd');
-        const endDate = format(period.end, 'yyyy-MM-dd');
-
         // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
@@ -96,6 +127,22 @@ export default function PayPeriodCommission() {
           .gt('commission_amount', 0);
 
         if (salesError) throw salesError;
+        
+        // Fetch bookings for show rate calculation - exclude Online Intro Offer
+        const { data: bookings, error: bookingsError } = await supabase
+          .from('intros_booked')
+          .select('id, booked_by, class_date, lead_source, booking_status, originating_booking_id')
+          .neq('lead_source', 'Online Intro Offer (self-booked)')
+          .is('originating_booking_id', null); // First intros only
+          
+        if (bookingsError) throw bookingsError;
+        
+        // Fetch runs for show rate (to check if bookings showed)
+        const { data: allRuns, error: allRunsError } = await supabase
+          .from('intros_run')
+          .select('linked_intro_booked_id, result');
+          
+        if (allRunsError) throw allRunsError;
 
         // Filter runs by date range using proper date logic (buy_date || run_date)
         const filteredRuns = (runs || []).filter(run => {
@@ -107,6 +154,21 @@ export default function PayPeriodCommission() {
         const filteredSales = (sales || []).filter(sale => {
           const saleDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
           return isDateInRange(saleDate, startDate, endDate);
+        });
+        
+        // Filter bookings by class_date within range
+        const filteredBookings = (bookings || []).filter(b => 
+          isDateInRange(b.class_date, startDate, endDate)
+        );
+        
+        // Create run lookup for show rate
+        const runsByBookingId = new Map<string, typeof allRuns>();
+        (allRuns || []).forEach(run => {
+          if (run.linked_intro_booked_id) {
+            const existing = runsByBookingId.get(run.linked_intro_booked_id) || [];
+            existing.push(run);
+            runsByBookingId.set(run.linked_intro_booked_id, existing);
+          }
         });
 
         // Aggregate by intro_owner
@@ -156,6 +218,38 @@ export default function PayPeriodCommission() {
         const payrollList = Object.values(payrollMap).sort((a, b) => b.total - a.total);
         setPayroll(payrollList);
         setTotalCommission(payrollList.reduce((sum, p) => sum + p.total, 0));
+        
+        // Calculate show rate stats by booked_by
+        const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
+        const bookerMap = new Map<string, { booked: number; showed: number }>();
+        
+        filteredBookings.forEach(b => {
+          const bookedBy = b.booked_by;
+          if (!bookedBy || EXCLUDED_NAMES.includes(bookedBy)) return;
+          
+          const existing = bookerMap.get(bookedBy) || { booked: 0, showed: 0 };
+          existing.booked++;
+          
+          // Check if showed (has non-no-show run)
+          const runs = runsByBookingId.get(b.id) || [];
+          if (runs.some(r => r.result !== 'No-show')) {
+            existing.showed++;
+          }
+          
+          bookerMap.set(bookedBy, existing);
+        });
+        
+        const showRateList: ShowRateEntry[] = Array.from(bookerMap.entries())
+          .map(([saName, counts]) => ({
+            saName,
+            booked: counts.booked,
+            showed: counts.showed,
+            showRate: counts.booked > 0 ? (counts.showed / counts.booked) * 100 : 0,
+          }))
+          .filter(e => e.booked > 0)
+          .sort((a, b) => b.showRate - a.showRate);
+        
+        setShowRateStats(showRateList);
       } catch (error) {
         console.error('Error fetching payroll:', error);
       } finally {
@@ -164,7 +258,7 @@ export default function PayPeriodCommission() {
     };
 
     fetchPayroll();
-  }, [selectedPeriod, payPeriods]);
+  }, [selectedPeriod, payPeriods, useExternalRange, externalDateRange]);
 
   const handleExport = async () => {
     // Export payroll data
@@ -197,24 +291,26 @@ export default function PayPeriodCommission() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Period Selection */}
-        <div>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select pay period..." />
-            </SelectTrigger>
-            <SelectContent>
-              {payPeriods.map((period) => (
-                <SelectItem key={period.label} value={period.label}>
-                  {period.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-1">
-            Biweekly periods anchored to Jan 26, 2026
-          </p>
-        </div>
+        {/* Period Selection - only show if not using external range */}
+        {!useExternalRange && (
+          <div>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select pay period..." />
+              </SelectTrigger>
+              <SelectContent>
+                {payPeriods.map((period) => (
+                  <SelectItem key={period.label} value={period.label}>
+                    {period.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Biweekly periods anchored to Jan 26, 2026
+            </p>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -296,6 +392,48 @@ export default function PayPeriodCommission() {
                   ))}
                 </div>
               )}
+            </div>
+            
+            {/* Booking Show Rates Section */}
+            <div className="pt-4 border-t">
+              <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                <CalendarDays className="w-4 h-4" />
+                Booking Show Rates by SA
+              </p>
+              
+              {showRateStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No booking data for this period
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SA Name</TableHead>
+                      <TableHead className="text-center">Booked</TableHead>
+                      <TableHead className="text-center">Showed</TableHead>
+                      <TableHead className="text-center">Show %</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {showRateStats.map(entry => (
+                      <TableRow key={entry.saName}>
+                        <TableCell className="font-medium">{entry.saName}</TableCell>
+                        <TableCell className="text-center">{entry.booked}</TableCell>
+                        <TableCell className="text-center">{entry.showed}</TableCell>
+                        <TableCell className="text-center font-medium">
+                          <Badge variant={entry.showRate >= 70 ? 'default' : entry.showRate >= 50 ? 'secondary' : 'outline'}>
+                            {entry.showRate.toFixed(0)}%
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Excludes "Online Intro Offer" bookings
+              </p>
             </div>
           </>
         )}
