@@ -1,185 +1,219 @@
 
-# Lead Source Renaming and Client Deduplication Fix
+
+# Duplicate Client Detection Alert for Intro Bookings
 
 ## Overview
 
-This plan addresses three main areas:
-1. Rename and reorganize lead source options across the application
-2. Update existing database records to use the new lead source names
-3. Fix the duplicate client issue when booking 2nd intros
-4. Alphabetize the bookings list in the "Select from Booked Intros" selector
+When a Sales Associate enters a member name while booking an intro, the system will check for potential matches in the existing database. If a potential duplicate is found, an alert popup will appear showing the existing client(s) and offering options to:
+1. Update the existing client's account (reschedule)
+2. Proceed with creating a new booking anyway
+3. Cancel and start over
 
 ---
 
-## Part 1: Lead Source Changes
+## User Experience
 
-### Changes to Make
+### Trigger
+When the user types a member name in the "Intros Booked" section and blurs out of the field (or after a 500ms debounce while typing), the system searches for similar names.
 
-| Current Name | New Name |
-|--------------|----------|
-| Referral | Member Referral |
-| Booked person brought them (Instagram) | Instagram DMs (Friend) |
-| B2C Event | Event |
-| B2B Partnership | Business Partnership Referral |
-| Lead Management Call / Text | **REMOVE** |
-| Lead Management Web Lead Call | **REMOVE** |
-| Member brought friend | **REMOVE** |
-| *(new)* | Lead Management |
-| *(new)* | Lead Management (Friend) |
+### Matching Logic
+- **Exact match**: Same name (case-insensitive, trimmed)
+- **Fuzzy match**: Similar names using a simple algorithm (e.g., "John Smith" vs "Jon Smith" or "John Smyth")
+- **Partial match**: First name OR last name matches
 
-### New Alphabetized Lead Sources List
+### Alert Popup Content
+```text
+┌─────────────────────────────────────────────────────────┐
+│  ⚠️ Potential Duplicate Found                          │
+├─────────────────────────────────────────────────────────┤
+│  "Sarah Johnson" may already exist in the system:      │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Sarah Johnson                                    │   │
+│  │ 📅 Booked: 2026-02-05 | Status: Active          │   │
+│  │ 📍 Lead Source: Instagram DMs                    │   │
+│  │ 👤 Booked by: Kiley                              │   │
+│  │                                                   │   │
+│  │ [Update This Client] [View Details]              │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  [Create New Booking Anyway]  [Cancel]                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Actions Available
+1. **Update This Client**: Opens a reschedule dialog to update the existing booking with new date/time
+2. **View Details**: Shows full client history
+3. **Create New Booking Anyway**: Dismisses the alert and allows the new booking to proceed (for genuinely different people with similar names)
+4. **Cancel**: Clears the name field and closes the dialog
+
+---
+
+## Additional Features
+
+### 1. Visual Warning Badge
+After dismissing a duplicate warning, show a small warning badge on the booking entry indicating "Similar name exists" as a reminder.
+
+### 2. Reschedule Flow
+When "Update This Client" is selected:
+- Pre-fill a dialog with the existing client's info
+- Allow updating: class_date, intro_time, lead_source, notes
+- Mark as rescheduled with audit trail
+
+### 3. Status-Aware Matching
+Include clients with these statuses in duplicate detection:
+- Active
+- 2nd Intro Scheduled
+- Not interested (show warning: "This client was previously marked as not interested")
+- No-show (show warning: "This client previously no-showed")
+
+Exclude from matching:
+- Closed (Purchased) - these are now members
+- Deleted
+
+---
+
+## Technical Implementation
+
+### Step 1: Create Duplicate Detection Hook
+**New File**: `src/hooks/useDuplicateDetection.ts`
+
+```typescript
+export function useDuplicateDetection() {
+  const checkForDuplicates = async (name: string): Promise<PotentialMatch[]> => {
+    // Normalize the input name
+    const normalizedInput = name.toLowerCase().trim();
+    const nameParts = normalizedInput.split(' ').filter(Boolean);
+    
+    // Query existing bookings
+    const { data } = await supabase
+      .from('intros_booked')
+      .select('*')
+      .is('deleted_at', null)
+      .not('booking_status', 'in', '("Closed (Purchased)","Deleted (soft)")');
+    
+    // Find matches using fuzzy logic
+    return findMatches(normalizedInput, nameParts, data);
+  };
+  
+  return { checkForDuplicates };
+}
+```
+
+### Step 2: Create Duplicate Alert Dialog Component
+**New File**: `src/components/DuplicateClientAlert.tsx`
+
+This dialog will:
+- Display potential duplicate matches
+- Show client status with appropriate warnings
+- Provide action buttons (Update, Create New, Cancel)
+- Handle the reschedule flow inline
+
+### Step 3: Create Reschedule Dialog Component
+**New File**: `src/components/RescheduleClientDialog.tsx`
+
+Allows updating:
+- New intro date
+- New intro time
+- Updated notes
+- Logs the edit with reason "Rescheduled by [SA name]"
+
+### Step 4: Update IntroBookingEntry Component
+**File**: `src/components/IntroBookingEntry.tsx`
+
+Add:
+- Debounced name change handler
+- Integration with duplicate detection hook
+- State for showing duplicate alert
+- Warning badge for dismissed duplicates
+
+### Step 5: Add Name Similarity Function
+**File**: `src/lib/utils.ts`
+
+```typescript
+export function calculateNameSimilarity(name1: string, name2: string): number {
+  // Levenshtein distance or simpler approach
+  // Returns 0-1 similarity score
+}
+
+export function normalizeNameForComparison(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+```
+
+---
+
+## Files to Create/Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/hooks/useDuplicateDetection.ts` | Create | Hook for checking duplicates |
+| `src/components/DuplicateClientAlert.tsx` | Create | Alert dialog component |
+| `src/components/RescheduleClientDialog.tsx` | Create | Reschedule flow dialog |
+| `src/components/IntroBookingEntry.tsx` | Modify | Add duplicate check on name entry |
+| `src/lib/utils.ts` | Modify | Add name similarity functions |
+
+---
+
+## Data Flow
 
 ```text
-1. Business Partnership Referral
-2. Event
-3. Instagram DMs
-4. Instagram DMs (Friend)
-5. Lead Management
-6. Lead Management (Friend)
-7. Member Referral
-8. My Personal Friend I Invited
-9. Online Intro Offer (self-booked)
-10. Source Not Found
-11. VIP Class
-```
-
-### Files to Update
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Update main `LEAD_SOURCES` constant |
-| `src/components/IntroBookingEntry.tsx` | Update local `LEAD_SOURCES` array |
-| `src/components/IntroRunEntry.tsx` | Update local `LEAD_SOURCES` array |
-
-Note: `SaleEntry.tsx` uses a different set of lead sources (Winback, Upgrade, Walk in, Referral) specifically for "Outside Intro" sales - this will also be updated to use "Member Referral" instead of "Referral".
-
----
-
-## Part 2: Database Migration
-
-### Update Existing Records
-
-A database migration will update all existing lead_source values in both `intros_booked` and `intros_run` tables:
-
-```sql
--- Rename lead sources in intros_booked
-UPDATE intros_booked SET lead_source = 'Member Referral' WHERE lead_source = 'Referral';
-UPDATE intros_booked SET lead_source = 'Lead Management' WHERE lead_source = 'Lead Management Call / Text';
-UPDATE intros_booked SET lead_source = 'Lead Management' WHERE lead_source = 'Lead Management Web Lead Call';
-
--- Rename lead sources in intros_run
-UPDATE intros_run SET lead_source = 'Member Referral' WHERE lead_source = 'Referral';
-UPDATE intros_run SET lead_source = 'Lead Management' WHERE lead_source = 'Lead Management Call / Text';
-UPDATE intros_run SET lead_source = 'Lead Management' WHERE lead_source = 'Lead Management Web Lead Call';
-
--- Rename lead sources in sales_outside_intro
-UPDATE sales_outside_intro SET lead_source = 'Member Referral' WHERE lead_source = 'Referral';
+User types name in IntroBookingEntry
+         │
+         ▼ (debounced 500ms)
+useDuplicateDetection.checkForDuplicates()
+         │
+         ▼
+Query intros_booked for similar names
+         │
+         ├── No matches → Proceed normally
+         │
+         └── Matches found → Show DuplicateClientAlert
+                    │
+                    ├── "Update This Client" → RescheduleClientDialog
+                    │           │
+                    │           └── Update booking → Toast success
+                    │
+                    ├── "Create New Anyway" → Set dismissedWarning flag
+                    │
+                    └── "Cancel" → Clear name field
 ```
 
 ---
 
-## Part 3: Alphabetize Booked Intros Selector
+## Matching Algorithm Details
 
-### Current Behavior
-Bookings are sorted by `created_at` descending (newest first).
+### Priority Levels
+1. **Exact Match** (100%): Normalized names are identical
+2. **High Confidence** (>85%): Names differ by 1-2 characters (typos)
+3. **Partial Match** (>60%): First OR last name matches exactly, other part is similar
 
-### New Behavior
-Bookings will be sorted alphabetically by `member_name` (A-Z).
-
-### File to Update
-`src/components/BookedIntroSelector.tsx` - modify the `filteredBookings` memo to sort alphabetically:
-
-```typescript
-const filteredBookings = useMemo(() => {
-  // First filter out closed/deleted bookings
-  const activeBookings = bookings.filter(b => {
-    const status = (b.booking_status || '').toUpperCase();
-    return !EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
-  });
-  
-  // Apply search filter
-  const searched = searchQuery.trim()
-    ? activeBookings.filter(b => b.member_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : activeBookings;
-  
-  // Sort alphabetically by member name
-  return searched.sort((a, b) => 
-    a.member_name.toLowerCase().localeCompare(b.member_name.toLowerCase())
-  );
-}, [bookings, searchQuery]);
-```
+### Edge Cases Handled
+- "Sarah Johnson" vs "Sara Johnson" (typo)
+- "Sarah Johnson" vs "Sarah Johnson-Smith" (hyphenated)
+- "Sarah J" vs "Sarah Johnson" (abbreviated)
+- "S. Johnson" vs "Sarah Johnson" (initial)
 
 ---
 
-## Part 4: Fix Duplicate Client Issue (2nd Intro Booking)
+## Status-Based Warnings
 
-### Current Problem
-When an intro run is marked as "Booked 2nd intro", the system creates a **new booking record** for that client. This results in the same client appearing twice in the bookings list - once for their original intro and once for the 2nd intro.
-
-### Desired Behavior
-When a 2nd intro is scheduled, the system should:
-1. **Update the existing booking** with the new scheduled date/time
-2. Keep the client as a single record
-3. Track the 2nd intro internally via status or notes
-
-### Technical Solution
-
-In `src/pages/ShiftRecap.tsx`, change the "Booked 2nd intro" logic from:
-- **Current**: Create new `intros_booked` record with `lead_source = '2nd Class Intro (staff booked)'`
-
-To:
-- **New**: Update the linked booking record with:
-  - New `class_date` and `intro_time` 
-  - Set `booking_status` to '2nd Intro Scheduled'
-  - Add note indicating it's a 2nd visit
-  - Keep `intro_owner` locked from the first run
-
-### Code Changes
-
-```typescript
-// BEFORE: Create new booking for 2nd intro
-if (run.outcome === 'Booked 2nd intro') {
-  await supabase.from('intros_booked').insert({...});
-}
-
-// AFTER: Update existing booking instead
-if (run.outcome === 'Booked 2nd intro' && linkedBookingId) {
-  await supabase.from('intros_booked')
-    .update({
-      class_date: run.secondIntroDate,
-      intro_time: run.secondIntroTime || null,
-      booking_status: '2nd Intro Scheduled',
-      fitness_goal: `2nd intro scheduled - Intro owner: ${introOwner}`,
-      last_edited_at: new Date().toISOString(),
-      last_edited_by: user?.name || 'System',
-      edit_reason: 'Rescheduled for 2nd intro',
-    })
-    .eq('id', linkedBookingId);
-}
-```
-
----
-
-## Summary of Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Update and alphabetize `LEAD_SOURCES` constant |
-| `src/components/IntroBookingEntry.tsx` | Update local `LEAD_SOURCES` array |
-| `src/components/IntroRunEntry.tsx` | Update local `LEAD_SOURCES` array |
-| `src/components/SaleEntry.tsx` | Update "Referral" to "Member Referral" |
-| `src/components/BookedIntroSelector.tsx` | Add alphabetical sorting |
-| `src/pages/ShiftRecap.tsx` | Change 2nd intro logic to update instead of create |
-| **Database Migration** | Update existing lead_source values |
+| Previous Status | Warning Message |
+|-----------------|-----------------|
+| Active | "This client has an active intro scheduled" |
+| 2nd Intro Scheduled | "This client is scheduled for a 2nd intro" |
+| Not interested | "This client was previously marked as not interested" |
+| No-show | "This client previously no-showed" |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Verify lead source dropdowns show new names in alphabetical order
-- [ ] Confirm "Booked person brought them" options are removed
-- [ ] Confirm "Member brought friend" is removed
-- [ ] Check existing database records were migrated to new names
-- [ ] Test "Select from Booked Intros" shows clients A-Z
-- [ ] Submit a "Booked 2nd intro" outcome and verify no duplicate client is created
-- [ ] Find Duplicates created and update and verify the original booking is updated with new date instead
+- [ ] Type an exact existing name and verify alert appears
+- [ ] Type a similar name (off by one letter) and verify fuzzy match works
+- [ ] Click "Update This Client" and verify reschedule flow works
+- [ ] Click "Create New Anyway" and verify booking proceeds
+- [ ] Verify warning badge appears after dismissing duplicate alert
+- [ ] Test with various client statuses (Active, No-show, Not interested)
+- [ ] Verify Closed (Purchased) clients are NOT flagged as duplicates
+
