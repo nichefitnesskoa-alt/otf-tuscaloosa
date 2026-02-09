@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +32,12 @@ interface ShiftRecap {
 
 export default function MyShifts() {
   const { user } = useAuth();
+  const { lastUpdated: globalLastUpdated } = useData();
   const [recaps, setRecaps] = useState<ShiftRecap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRecap, setSelectedRecap] = useState<ShiftRecap | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const hasMountedRef = useRef(false);
 
   const fetchMyRecaps = async () => {
     if (!user?.name) return;
@@ -61,7 +64,15 @@ export default function MyShifts() {
 
   useEffect(() => {
     fetchMyRecaps();
+    hasMountedRef.current = true;
   }, [user?.name]);
+
+  // Re-fetch when global data is refreshed (e.g., from Admin edits)
+  useEffect(() => {
+    if (hasMountedRef.current && globalLastUpdated) {
+      fetchMyRecaps();
+    }
+  }, [globalLastUpdated]);
 
   const handleOpenDetails = (recap: ShiftRecap) => {
     setSelectedRecap(recap);
