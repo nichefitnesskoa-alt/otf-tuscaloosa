@@ -81,12 +81,16 @@ export function useDuplicateDetection() {
         const similarity = calculateNameSimilarity(normalizedInput, normalizedExisting);
         
         let matchType: 'exact' | 'fuzzy' | 'partial' | null = null;
+        
+        // Check if name starts with the input (for typeahead)
+        const startsWithInput = normalizedExisting.startsWith(normalizedInput) || 
+          normalizedExisting.split(' ').some(part => part.startsWith(normalizedInput));
 
         if (similarity === 1) {
           matchType = 'exact';
         } else if (similarity >= 0.85) {
           matchType = 'fuzzy';
-        } else if (similarity >= 0.6 || hasPartialNameMatch(name, booking.member_name)) {
+        } else if (startsWithInput || similarity >= 0.5 || hasPartialNameMatch(name, booking.member_name)) {
           matchType = 'partial';
         }
 
