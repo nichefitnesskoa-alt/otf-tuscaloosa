@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { DollarSign, Users, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { parseLocalDate } from '@/lib/utils';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 
 // Pay period anchor: January 26, 2026 (biweekly)
@@ -278,7 +279,7 @@ export default function PayPeriodCommission() {
                               <div>
                                 <p className="font-medium">{detail.memberName}</p>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>{format(new Date(detail.date), 'MMM d')}</span>
+                                  <span>{format(parseLocalDate(detail.date), 'MMM d')}</span>
                                   <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
                                     {detail.membershipType || (detail.type === 'intro' ? 'Intro' : 'Outside')}
                                   </Badge>

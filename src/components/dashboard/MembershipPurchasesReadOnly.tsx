@@ -22,7 +22,7 @@ import { RefreshCw, Loader2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
 import { isMembershipSale, getSaleDate } from '@/lib/sales-detection';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, parseLocalDate } from '@/lib/utils';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
@@ -278,7 +278,7 @@ export function MembershipPurchasesReadOnly() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {new Date(purchase.purchase_date).toLocaleDateString('en-US', {
+                      {parseLocalDate(purchase.purchase_date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                       })}

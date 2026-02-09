@@ -27,7 +27,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
 
@@ -381,7 +381,7 @@ export function ClientJourneyReadOnly() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    return parseLocalDate(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     });

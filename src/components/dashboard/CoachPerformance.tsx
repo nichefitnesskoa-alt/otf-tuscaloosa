@@ -18,7 +18,8 @@ import {
 import { Dumbbell, TrendingUp, Users, Target } from 'lucide-react';
 import { IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval, parseISO } from 'date-fns';
+import { isWithinInterval } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 
 interface CoachStats {
   coachName: string;
@@ -38,7 +39,7 @@ function isDateInRange(dateStr: string | null | undefined, range: DateRange | nu
   if (!range) return true;
   if (!dateStr) return false;
   try {
-    const date = parseISO(dateStr);
+    const date = parseLocalDate(dateStr);
     return isWithinInterval(date, { start: range.start, end: range.end });
   } catch {
     return false;

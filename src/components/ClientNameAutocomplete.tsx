@@ -6,6 +6,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandS
 import { AlertTriangle, Loader2, Plus, Calendar, MapPin, User } from 'lucide-react';
 import { useDuplicateDetection, PotentialMatch } from '@/hooks/useDuplicateDetection';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 
 interface ClientNameAutocompleteProps {
   value: string;
@@ -165,7 +166,7 @@ export default function ClientNameAutocomplete({
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {format(new Date(client.class_date), 'MMM d, yyyy')}
+                        {format(parseLocalDate(client.class_date), 'MMM d, yyyy')}
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />

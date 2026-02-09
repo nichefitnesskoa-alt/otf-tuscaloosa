@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link, Calendar, User, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { cn, parseLocalDate } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface BookingChainNode {
   id: string;
@@ -43,7 +43,7 @@ export function BookingChainViewer({ chain, className }: BookingChainViewerProps
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(parseISO(dateStr), 'MMM d, yyyy');
+      return format(parseLocalDate(dateStr), 'MMM d, yyyy');
     } catch {
       return dateStr;
     }
