@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DollarSign, Users, Download, Loader2, ChevronRight, CalendarDays } from 'lucide-react';
+import { capitalizeName } from '@/lib/utils';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/utils';
@@ -42,6 +43,9 @@ interface SaleDetail {
   date: string;
   type: 'intro' | 'outside';
   membershipType?: string;
+  leadSource?: string | null;
+  coach?: string | null;
+  bookedBy?: string | null;
 }
 
 interface PayrollEntry {
@@ -119,7 +123,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
-          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name, result')
+          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name, result, lead_source, linked_intro_booked_id')
           .gt('commission_amount', 0);
 
         if (runsError) throw runsError;
@@ -127,19 +131,31 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         // Fetch sales outside intro - fetch all with commission, filter in JS
         const { data: sales, error: salesError } = await supabase
           .from('sales_outside_intro')
-          .select('intro_owner, commission_amount, date_closed, created_at, member_name, membership_type')
+          .select('intro_owner, commission_amount, date_closed, created_at, member_name, membership_type, lead_source')
           .gt('commission_amount', 0);
 
         if (salesError) throw salesError;
         
-        // Fetch bookings for show rate calculation - exclude Online Intro Offer
-        const { data: bookings, error: bookingsError } = await supabase
+        // Fetch all bookings for show rate calculation and for attribution lookup
+        const { data: allBookings, error: allBookingsError } = await supabase
           .from('intros_booked')
-          .select('id, booked_by, class_date, lead_source, booking_status, originating_booking_id')
-          .neq('lead_source', 'Online Intro Offer (self-booked)')
-          .is('originating_booking_id', null); // First intros only
+          .select('id, booked_by, sa_working_shift, class_date, lead_source, booking_status, originating_booking_id, coach_name');
           
-        if (bookingsError) throw bookingsError;
+        if (allBookingsError) throw allBookingsError;
+        
+        // Filter bookings for show rate (exclude Online Intro Offer and 2nd intros)
+        const bookingsForShowRate = (allBookings || []).filter(b => 
+          b.lead_source !== 'Online Intro Offer (self-booked)' && !b.originating_booking_id
+        );
+        
+        // Create booking lookup for attribution (coach, booked_by)
+        const bookingMap = new Map<string, { coach: string | null; bookedBy: string | null; leadSource: string | null }>(
+          (allBookings || []).map(b => [b.id, {
+            coach: b.coach_name,
+            bookedBy: b.booked_by || b.sa_working_shift || null,
+            leadSource: b.lead_source,
+          }])
+        );
         
         // Fetch runs for show rate (to check if bookings showed)
         const { data: allRuns, error: allRunsError } = await supabase
@@ -160,8 +176,8 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           return isDateInRange(saleDate, startDate, endDate);
         });
         
-        // Filter bookings by class_date within range
-        const filteredBookings = (bookings || []).filter(b => 
+        // Filter bookings for show rate by class_date within range
+        const filteredBookings = bookingsForShowRate.filter(b => 
           isDateInRange(b.class_date, startDate, endDate)
         );
         
@@ -186,12 +202,19 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           }
           payrollMap[owner].total += run.commission_amount || 0;
           payrollMap[owner].sales++;
+          
+          // Get attribution info from linked booking
+          const bookingInfo = run.linked_intro_booked_id ? bookingMap.get(run.linked_intro_booked_id) : null;
+          
           payrollMap[owner].details.push({
             memberName: run.member_name,
             amount: run.commission_amount || 0,
             date: getSaleDate(run.buy_date, run.run_date, null, run.created_at),
             type: 'intro',
             membershipType: run.result,
+            leadSource: run.lead_source || bookingInfo?.leadSource || null,
+            coach: bookingInfo?.coach || null,
+            bookedBy: bookingInfo?.bookedBy || null,
           });
         }
 
@@ -209,6 +232,9 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
             date: getSaleDate(null, null, sale.date_closed, sale.created_at),
             type: 'outside',
             membershipType: sale.membership_type,
+            leadSource: sale.lead_source || null,
+            coach: null,
+            bookedBy: null,
           });
         }
 
@@ -396,11 +422,20 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                             >
                               <div>
                                 <p className="font-medium">{detail.memberName}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                   <span>{format(parseLocalDate(detail.date), 'MMM d')}</span>
                                   <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
                                     {detail.membershipType || (detail.type === 'intro' ? 'Intro' : 'Outside')}
                                   </Badge>
+                                  {detail.leadSource && (
+                                    <span>📍 {detail.leadSource}</span>
+                                  )}
+                                  {detail.coach && (
+                                    <span>🏋️ {capitalizeName(detail.coach)}</span>
+                                  )}
+                                  {detail.bookedBy && (
+                                    <span>📅 {capitalizeName(detail.bookedBy)}</span>
+                                  )}
                                 </div>
                               </div>
                               <p className="font-medium text-success">
