@@ -265,6 +265,7 @@ export function MembershipPurchasesReadOnly() {
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Ran By</TableHead>
+                  <TableHead className="hidden sm:table-cell">Source</TableHead>
                   <TableHead className="hidden sm:table-cell">Coach</TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,6 +291,9 @@ export function MembershipPurchasesReadOnly() {
                     </TableCell>
                     <TableCell className="text-xs">
                       {purchase.intro_owner || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs hidden sm:table-cell">
+                      {purchase.lead_source || <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-xs hidden sm:table-cell">
                       {purchase.coach || <span className="text-muted-foreground">—</span>}

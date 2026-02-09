@@ -63,6 +63,7 @@ import {
   UserMinus,
   Users,
   CalendarPlus,
+  Filter,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -72,7 +73,7 @@ import { capitalizeName } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 
 // Tab types
-type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested';
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source';
 
 // Booking status types
 const BOOKING_STATUSES = [
@@ -186,6 +187,7 @@ export default function ClientJourneyPanel() {
   const [activeTab, setActiveTab] = useState<JourneyTab>('all');
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
   
   // Auto-fix dialog
   const [showFixDialog, setShowFixDialog] = useState(false);
@@ -439,6 +441,17 @@ export default function ClientJourneyPanel() {
     return hasSaleResult || hasClosedBooking;
   };
 
+  // Lead source options for filter dropdown
+  const leadSourceOptions = useMemo(() => {
+    const sources = new Set<string>();
+    journeys.forEach(j => {
+      j.bookings.forEach(b => {
+        if (b.lead_source) sources.add(b.lead_source);
+      });
+    });
+    return Array.from(sources).sort();
+  }, [journeys]);
+
   // Calculate tab counts
   const tabCounts = useMemo(() => {
     const counts = {
@@ -450,6 +463,7 @@ export default function ClientJourneyPanel() {
       missed_guest: 0,
       second_intro: 0,
       not_interested: 0,
+      by_lead_source: 0,
     };
 
     journeys.forEach(journey => {
@@ -514,6 +528,9 @@ export default function ClientJourneyPanel() {
       if (hasNotInterestedBooking) {
         counts.not_interested++;
       }
+
+      // By lead source count (shows all clients)
+      counts.by_lead_source++;
     });
 
     return counts;
@@ -570,6 +587,14 @@ export default function ClientJourneyPanel() {
         case 'not_interested':
           return journey.bookings.some(b => b.booking_status === 'Not interested');
 
+        case 'by_lead_source':
+          // If a lead source is selected, filter by it
+          if (selectedLeadSource) {
+            return journey.bookings.some(b => b.lead_source === selectedLeadSource);
+          }
+          // If no source selected, show all
+          return true;
+
         default:
           return true;
       }
@@ -597,7 +622,7 @@ export default function ClientJourneyPanel() {
     filtered = filterJourneysByTab(filtered, activeTab);
 
     return filtered;
-  }, [journeys, searchTerm, filterInconsistencies, activeTab]);
+  }, [journeys, searchTerm, filterInconsistencies, activeTab, selectedLeadSource]);
 
   const inconsistencyCount = useMemo(() => 
     journeys.filter(j => j.hasInconsistency).length,
@@ -1401,8 +1426,30 @@ export default function ClientJourneyPanel() {
               Not Interested
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.not_interested}</Badge>
             </TabsTrigger>
+            <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
+              <Filter className="w-3 h-3" />
+              By Source
+            </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Lead Source Filter - shown when By Source tab is active */}
+        {activeTab === 'by_lead_source' && (
+          <Select 
+            value={selectedLeadSource || 'all'} 
+            onValueChange={(v) => setSelectedLeadSource(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select lead source..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Lead Sources</SelectItem>
+              {leadSourceOptions.map(source => (
+                <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Summary stats */}
         <div className="grid grid-cols-4 gap-2 text-center text-xs">

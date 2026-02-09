@@ -25,14 +25,22 @@ import {
   Users,
   CalendarPlus,
   Phone,
+  Filter,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
 
 // Tab types
-type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested';
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source';
 
 interface ClientBooking {
   id: string;
@@ -79,6 +87,7 @@ export function ClientJourneyReadOnly() {
   const [activeTab, setActiveTab] = useState<JourneyTab>('all');
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -178,10 +187,18 @@ export function ClientJourneyReadOnly() {
     fetchData();
   }, []);
 
+  // Helper to get current local date as YYYY-MM-DD string (avoids UTC conversion issues)
+  const getLocalDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Helper to check if a booking's scheduled time has passed
   const isBookingPast = (booking: ClientBooking): boolean => {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateString(now);
     
     if (booking.class_date < today) return true;
     if (booking.class_date > today) return false;
@@ -193,13 +210,13 @@ export function ClientJourneyReadOnly() {
   };
 
   const isBookingToday = (booking: ClientBooking): boolean => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
     return booking.class_date === today;
   };
 
   const isBookingUpcoming = (booking: ClientBooking): boolean => {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateString(now);
     
     if (booking.class_date > today) return true;
     if (booking.class_date < today) return false;
@@ -216,6 +233,17 @@ export function ClientJourneyReadOnly() {
     return hasSaleResult || hasClosedBooking;
   };
 
+  // Lead source options for filter dropdown
+  const leadSourceOptions = useMemo(() => {
+    const sources = new Set<string>();
+    journeys.forEach(j => {
+      j.bookings.forEach(b => {
+        if (b.lead_source) sources.add(b.lead_source);
+      });
+    });
+    return Array.from(sources).sort();
+  }, [journeys]);
+
   // Calculate tab counts - exclude purchased members from all counts
   const tabCounts = useMemo(() => {
     const counts = {
@@ -226,6 +254,7 @@ export function ClientJourneyReadOnly() {
       missed_guest: 0,
       second_intro: 0,
       not_interested: 0,
+      by_lead_source: 0,
     };
 
     journeys.forEach(journey => {
@@ -283,6 +312,9 @@ export function ClientJourneyReadOnly() {
       if (hasNotInterested) {
         counts.not_interested++;
       }
+
+      // By lead source count (shows all when no specific source selected)
+      counts.by_lead_source++;
     });
 
     return counts;
@@ -331,6 +363,14 @@ export function ClientJourneyReadOnly() {
           return journey.bookings.some(b => b.booking_status === 'Not interested') ||
             journey.runs.some(r => r.result === 'Not interested');
 
+        case 'by_lead_source':
+          // If a lead source is selected, filter by it
+          if (selectedLeadSource) {
+            return journey.bookings.some(b => b.lead_source === selectedLeadSource);
+          }
+          // If no source selected, show all
+          return true;
+
         default:
           return true;
       }
@@ -351,7 +391,7 @@ export function ClientJourneyReadOnly() {
     filtered = filterJourneysByTab(filtered, activeTab);
 
     return filtered;
-  }, [journeys, searchTerm, activeTab]);
+  }, [journeys, searchTerm, activeTab, selectedLeadSource]);
 
   const toggleExpand = (key: string) => {
     setExpandedClients(prev => {
@@ -461,8 +501,30 @@ export function ClientJourneyReadOnly() {
               <UserMinus className="w-3 h-3" />
               Not Interested ({tabCounts.not_interested})
             </TabsTrigger>
+            <TabsTrigger value="by_lead_source" className="flex-1 min-w-[60px] gap-1 text-xs">
+              <Filter className="w-3 h-3" />
+              By Source
+            </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Lead Source Filter - shown when By Source tab is active */}
+        {activeTab === 'by_lead_source' && (
+          <Select 
+            value={selectedLeadSource || 'all'} 
+            onValueChange={(v) => setSelectedLeadSource(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select lead source..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Lead Sources</SelectItem>
+              {leadSourceOptions.map(source => (
+                <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Client List */}
         <ScrollArea className="h-[400px]">
