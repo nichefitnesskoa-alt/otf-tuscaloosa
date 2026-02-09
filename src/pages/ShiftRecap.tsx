@@ -770,6 +770,7 @@ export default function ShiftRecap() {
                   index={index}
                   onUpdate={updateIntroBooking}
                   onRemove={removeIntroBooking}
+                  currentUserName={user?.name || 'Unknown'}
                 />
               ))}
               
