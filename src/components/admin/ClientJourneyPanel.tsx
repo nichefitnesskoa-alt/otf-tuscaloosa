@@ -69,6 +69,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { capitalizeName } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 
@@ -180,6 +181,7 @@ export async function syncIntroOwnerToBooking(
 
 export default function ClientJourneyPanel() {
   const { user } = useAuth();
+  const { refreshData: refreshGlobalData } = useData();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -676,6 +678,7 @@ export default function ClientJourneyPanel() {
       toast.success('Booking updated');
       setEditingBooking(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error saving booking:', error);
       toast.error('Failed to save booking');
@@ -749,6 +752,7 @@ export default function ClientJourneyPanel() {
       setShowPurchaseDialog(false);
       setPurchasingBooking(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error recording purchase:', error);
       toast.error('Failed to record purchase');
@@ -776,6 +780,7 @@ export default function ClientJourneyPanel() {
       
       toast.success('Booking marked as not interested');
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error updating booking:', error);
       toast.error('Failed to update booking');
@@ -836,6 +841,7 @@ export default function ClientJourneyPanel() {
       setShowSetOwnerDialog(false);
       setOwnerBooking(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error setting intro owner:', error);
       toast.error('Failed to set intro owner');
@@ -861,6 +867,7 @@ export default function ClientJourneyPanel() {
       
       toast.success('Booking archived');
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error archiving booking:', error);
       toast.error('Failed to archive booking');
@@ -891,6 +898,7 @@ export default function ClientJourneyPanel() {
       setShowHardDeleteDialog(false);
       setDeletingBooking(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error deleting booking:', error);
       toast.error('Failed to delete booking');
@@ -1000,6 +1008,7 @@ export default function ClientJourneyPanel() {
       setShowCreateBookingDialog(false);
       setCreatingBookingFromRun(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error creating booking:', error);
       toast.error('Failed to create booking');
@@ -1075,6 +1084,7 @@ export default function ClientJourneyPanel() {
       setShowCreateRunDialog(false);
       setCreatingRunForJourney(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error creating run:', error);
       toast.error('Failed to create run');
@@ -1151,6 +1161,7 @@ export default function ClientJourneyPanel() {
       toast.success('Run updated');
       setEditingRun(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error saving run:', error);
       toast.error('Failed to save run');
@@ -1196,6 +1207,7 @@ export default function ClientJourneyPanel() {
       setShowLinkDialog(false);
       setLinkingRun(null);
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error linking run:', error);
       toast.error('Failed to link run');
@@ -1221,6 +1233,7 @@ export default function ClientJourneyPanel() {
       
       toast.success('Run unlinked from booking');
       await fetchData();
+      await refreshGlobalData();
     } catch (error) {
       console.error('Error unlinking run:', error);
       toast.error('Failed to unlink run');
@@ -1295,6 +1308,7 @@ export default function ClientJourneyPanel() {
       if (fixed > 0) {
         toast.success(`Fixed ${fixed} inconsistencies`);
         await fetchData();
+        await refreshGlobalData();
       }
     } catch (error) {
       console.error('Error auto-fixing:', error);
