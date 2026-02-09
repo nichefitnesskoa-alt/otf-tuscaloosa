@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
-import { useDuplicateDetection, PotentialMatch } from '@/hooks/useDuplicateDetection';
-import DuplicateClientAlert from './DuplicateClientAlert';
+import { Trash2, AlertTriangle } from 'lucide-react';
+import { PotentialMatch } from '@/hooks/useDuplicateDetection';
+import ClientNameAutocomplete from './ClientNameAutocomplete';
+import RescheduleClientDialog from './RescheduleClientDialog';
 import { LEAD_SOURCES } from '@/types';
 
 export interface IntroBookingData {
@@ -34,31 +35,9 @@ export default function IntroBookingEntry({
   onRemove,
   currentUserName = 'Unknown',
 }: IntroBookingEntryProps) {
-  const { checkForDuplicates, isChecking, matches, clearMatches } = useDuplicateDetection();
-  const [showDuplicateAlert, setShowDuplicateAlert] = useState(false);
   const [dismissedWarning, setDismissedWarning] = useState(false);
-  const [pendingMatches, setPendingMatches] = useState<PotentialMatch[]>([]);
-
-  // Debounced duplicate check
-  useEffect(() => {
-    if (!booking.memberName || booking.memberName.trim().length < 3) {
-      clearMatches();
-      return;
-    }
-
-    // If warning was already dismissed for this name, don't check again
-    if (dismissedWarning) return;
-
-    const timer = setTimeout(async () => {
-      const foundMatches = await checkForDuplicates(booking.memberName);
-      if (foundMatches.length > 0) {
-        setPendingMatches(foundMatches);
-        setShowDuplicateAlert(true);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [booking.memberName, checkForDuplicates, clearMatches, dismissedWarning]);
+  const [selectedClient, setSelectedClient] = useState<PotentialMatch | null>(null);
+  const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
 
   const handleNameChange = useCallback((value: string) => {
     // Reset dismissed warning when name changes significantly
@@ -68,24 +47,21 @@ export default function IntroBookingEntry({
     onUpdate(index, { memberName: value });
   }, [index, onUpdate, dismissedWarning]);
 
-  const handleCreateAnyway = useCallback(() => {
-    setShowDuplicateAlert(false);
-    setDismissedWarning(true);
-    clearMatches();
-  }, [clearMatches]);
+  const handleSelectExisting = useCallback((client: PotentialMatch) => {
+    setSelectedClient(client);
+    setShowRescheduleDialog(true);
+  }, []);
 
-  const handleCancel = useCallback(() => {
-    setShowDuplicateAlert(false);
-    onUpdate(index, { memberName: '' });
-    clearMatches();
-  }, [index, onUpdate, clearMatches]);
+  const handleCreateNew = useCallback(() => {
+    setDismissedWarning(true);
+  }, []);
 
   const handleRescheduleSuccess = useCallback(() => {
-    setShowDuplicateAlert(false);
+    setShowRescheduleDialog(false);
+    setSelectedClient(null);
     // Clear the booking entry since we updated an existing client
     onUpdate(index, { memberName: '', introDate: '', introTime: '', leadSource: '', notes: '' });
-    clearMatches();
-  }, [index, onUpdate, clearMatches]);
+  }, [index, onUpdate]);
 
   return (
     <>
@@ -102,7 +78,6 @@ export default function IntroBookingEntry({
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Member Name *</Label>
-            {isChecking && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
             {dismissedWarning && (
               <Badge variant="secondary" className="text-xs py-0 px-1.5">
                 <AlertTriangle className="w-3 h-3 mr-1 text-destructive" />
@@ -110,12 +85,14 @@ export default function IntroBookingEntry({
               </Badge>
             )}
           </div>
-          <Input
-            value={booking.memberName}
-            onChange={(e) => handleNameChange(e.target.value)}
-            className="mt-1"
-            placeholder="Full name"
-          />
+          <div className="mt-1">
+            <ClientNameAutocomplete
+              value={booking.memberName}
+              onChange={handleNameChange}
+              onSelectExisting={handleSelectExisting}
+              onCreateNew={handleCreateNew}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -167,16 +144,18 @@ export default function IntroBookingEntry({
         </div>
       </div>
 
-      <DuplicateClientAlert
-        open={showDuplicateAlert}
-        onOpenChange={setShowDuplicateAlert}
-        inputName={booking.memberName}
-        matches={pendingMatches}
-        currentUserName={currentUserName}
-        onCreateAnyway={handleCreateAnyway}
-        onCancel={handleCancel}
-        onRescheduleSuccess={handleRescheduleSuccess}
-      />
+      {selectedClient && (
+        <RescheduleClientDialog
+          open={showRescheduleDialog}
+          onOpenChange={(open) => {
+            setShowRescheduleDialog(open);
+            if (!open) setSelectedClient(null);
+          }}
+          client={selectedClient}
+          currentUserName={currentUserName}
+          onSuccess={handleRescheduleSuccess}
+        />
+      )}
     </>
   );
 }
