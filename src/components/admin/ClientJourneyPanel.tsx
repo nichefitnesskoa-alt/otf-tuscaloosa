@@ -130,6 +130,7 @@ interface ClientRun {
   notes: string | null;
   commission_amount: number | null;
   linked_intro_booked_id: string | null;
+  coach_name: string | null;
   // Lead measures fields
   goal_why_captured: string | null;
   relationship_experience: string | null;
@@ -263,7 +264,7 @@ export default function ClientJourneyPanel() {
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
-          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date')
+          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date, coach_name')
           .order('run_date', { ascending: false }),
       ]);
 
@@ -1075,6 +1076,7 @@ export default function ClientJourneyPanel() {
           pricing_engagement: editingRun.pricing_engagement,
           notes: editingRun.notes,
           linked_intro_booked_id: editingRun.linked_intro_booked_id,
+          coach_name: editingRun.coach_name,
           // Lead measures
           goal_why_captured: editingRun.goal_why_captured,
           relationship_experience: editingRun.relationship_experience,
@@ -1090,9 +1092,27 @@ export default function ClientJourneyPanel() {
 
       if (error) throw error;
       
-      // Real-time sync to linked booking
-      if (editingRun.linked_intro_booked_id && editingRun.result !== 'No-show' && effectiveIntroOwner) {
-        await syncIntroOwnerToBooking(editingRun.linked_intro_booked_id, effectiveIntroOwner, user?.name || 'Admin');
+      // Real-time sync to linked booking (intro_owner and coach_name)
+      if (editingRun.linked_intro_booked_id && editingRun.result !== 'No-show') {
+        const updateData: Record<string, unknown> = {
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: `${user?.name || 'Admin'} (Auto-Sync)`,
+          edit_reason: 'Synced from linked run',
+        };
+        
+        if (effectiveIntroOwner) {
+          updateData.intro_owner = effectiveIntroOwner;
+          updateData.intro_owner_locked = true;
+        }
+        
+        if (editingRun.coach_name) {
+          updateData.coach_name = editingRun.coach_name;
+        }
+        
+        await supabase
+          .from('intros_booked')
+          .update(updateData)
+          .eq('id', editingRun.linked_intro_booked_id);
       }
       
       toast.success('Run updated');
@@ -1741,10 +1761,11 @@ export default function ClientJourneyPanel() {
                   <Label className="text-xs">Coach</Label>
                   <Select
                     value={editingBooking.coach_name || ''}
-                    onValueChange={(v) => setEditingBooking({...editingBooking, coach_name: v})}
+                    onValueChange={(v) => setEditingBooking({...editingBooking, coach_name: v === '__TBD__' ? 'TBD' : v})}
                   >
                     <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__TBD__">— TBD/Unknown —</SelectItem>
                       {ALL_STAFF.map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
@@ -1867,6 +1888,21 @@ export default function ClientJourneyPanel() {
                     <SelectContent>
                       {VALID_OUTCOMES.map(o => (
                         <SelectItem key={o} value={o}>{o}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Coach</Label>
+                  <Select
+                    value={editingRun.coach_name || ''}
+                    onValueChange={(v) => setEditingRun({...editingRun, coach_name: v === '__TBD__' ? null : v})}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__TBD__">— TBD/Unknown —</SelectItem>
+                      {ALL_STAFF.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
