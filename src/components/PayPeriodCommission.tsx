@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 
 // Pay period anchor: January 26, 2026 (biweekly)
-const PAY_PERIOD_ANCHOR = new Date('2026-01-26');
+const PAY_PERIOD_ANCHOR = new Date(2026, 0, 26); // January 26, 2026
 
 function generatePayPeriods(): { label: string; start: Date; end: Date }[] {
   const periods: { label: string; start: Date; end: Date }[] = [];
