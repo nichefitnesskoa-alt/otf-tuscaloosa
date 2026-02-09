@@ -83,7 +83,7 @@ export default function PayPeriodCommission() {
         // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
-          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name')
+          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name, result')
           .gt('commission_amount', 0);
 
         if (runsError) throw runsError;
@@ -124,6 +124,7 @@ export default function PayPeriodCommission() {
             amount: run.commission_amount || 0,
             date: getSaleDate(run.buy_date, run.run_date, null, run.created_at),
             type: 'intro',
+            membershipType: run.result,
           });
         }
 
@@ -279,7 +280,7 @@ export default function PayPeriodCommission() {
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>{format(new Date(detail.date), 'MMM d')}</span>
                                   <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
-                                    {detail.type === 'intro' ? 'Intro' : detail.membershipType || 'Outside'}
+                                    {detail.membershipType || (detail.type === 'intro' ? 'Intro' : 'Outside')}
                                   </Badge>
                                 </div>
                               </div>
