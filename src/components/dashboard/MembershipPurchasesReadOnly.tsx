@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,10 +47,12 @@ interface MembershipPurchase {
 }
 
 export function MembershipPurchasesReadOnly() {
+  const { lastUpdated: globalLastUpdated } = useData();
   const [purchases, setPurchases] = useState<MembershipPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<DatePreset>('pay_period');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const hasMountedRef = useRef(false);
 
   useEffect(() => {
     const range = getDateRangeForPreset(selectedPeriod);
@@ -168,8 +171,16 @@ export function MembershipPurchasesReadOnly() {
   useEffect(() => {
     if (dateRange) {
       fetchPurchases();
+      hasMountedRef.current = true;
     }
   }, [dateRange]);
+
+  // Re-fetch when global data is refreshed (e.g., from Admin edits)
+  useEffect(() => {
+    if (hasMountedRef.current && globalLastUpdated && dateRange) {
+      fetchPurchases();
+    }
+  }, [globalLastUpdated]);
 
   const stats = useMemo(() => {
     const total = purchases.reduce((sum, p) => sum + p.commission_amount, 0);

@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -82,12 +83,14 @@ interface ClientJourney {
 }
 
 export function ClientJourneyReadOnly() {
+  const { lastUpdated: globalLastUpdated } = useData();
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<JourneyTab>('all');
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
+  const hasMountedRef = useRef(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -185,7 +188,15 @@ export function ClientJourneyReadOnly() {
 
   useEffect(() => {
     fetchData();
+    hasMountedRef.current = true;
   }, []);
+
+  // Re-fetch when global data is refreshed (e.g., from Admin edits)
+  useEffect(() => {
+    if (hasMountedRef.current && globalLastUpdated) {
+      fetchData();
+    }
+  }, [globalLastUpdated]);
 
   // Helper to get current local date as YYYY-MM-DD string (avoids UTC conversion issues)
   const getLocalDateString = (date: Date): string => {
