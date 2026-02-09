@@ -68,6 +68,10 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
   const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
   const [showRateStats, setShowRateStats] = useState<ShowRateEntry[]>([]);
   const [totalCommission, setTotalCommission] = useState(0);
+  const [showRateSort, setShowRateSort] = useState<{
+    column: 'saName' | 'booked' | 'showed' | 'showRate';
+    direction: 'asc' | 'desc';
+  }>({ column: 'showRate', direction: 'desc' });
 
   const payPeriods = useMemo(() => generatePayPeriods(), []);
   
@@ -220,7 +224,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         setTotalCommission(payrollList.reduce((sum, p) => sum + p.total, 0));
         
         // Calculate show rate stats by booked_by
-        const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
+        const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
         const bookerMap = new Map<string, { booked: number; showed: number }>();
         
         filteredBookings.forEach(b => {
@@ -259,6 +263,24 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
 
     fetchPayroll();
   }, [selectedPeriod, payPeriods, useExternalRange, externalDateRange]);
+
+  const sortedShowRateStats = useMemo(() => {
+    return [...showRateStats].sort((a, b) => {
+      const aVal = a[showRateSort.column];
+      const bVal = b[showRateSort.column];
+      const cmp = typeof aVal === 'string' 
+        ? aVal.localeCompare(bVal as string) 
+        : (aVal as number) - (bVal as number);
+      return showRateSort.direction === 'asc' ? cmp : -cmp;
+    });
+  }, [showRateStats, showRateSort]);
+
+  const handleShowRateSort = (column: typeof showRateSort.column) => {
+    setShowRateSort(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   const handleExport = async () => {
     // Export payroll data
@@ -409,14 +431,34 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SA Name</TableHead>
-                      <TableHead className="text-center">Booked</TableHead>
-                      <TableHead className="text-center">Showed</TableHead>
-                      <TableHead className="text-center">Show %</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleShowRateSort('saName')}
+                      >
+                        SA Name {showRateSort.column === 'saName' && (showRateSort.direction === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleShowRateSort('booked')}
+                      >
+                        Booked {showRateSort.column === 'booked' && (showRateSort.direction === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleShowRateSort('showed')}
+                      >
+                        Showed {showRateSort.column === 'showed' && (showRateSort.direction === 'asc' ? '↑' : '↓')}
+                      </TableHead>
+                      <TableHead 
+                        className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleShowRateSort('showRate')}
+                      >
+                        Show % {showRateSort.column === 'showRate' && (showRateSort.direction === 'asc' ? '↑' : '↓')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {showRateStats.map(entry => (
+                    {sortedShowRateStats.map(entry => (
                       <TableRow key={entry.saName}>
                         <TableCell className="font-medium">{entry.saName}</TableCell>
                         <TableCell className="text-center">{entry.booked}</TableCell>
@@ -432,7 +474,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                 </Table>
               )}
               <p className="text-xs text-muted-foreground mt-2">
-                Excludes "Online Intro Offer" bookings
+                Excludes "Online Intro Offer" and "Run-first entry" bookings
               </p>
             </div>
           </>
