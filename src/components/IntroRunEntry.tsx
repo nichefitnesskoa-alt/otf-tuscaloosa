@@ -74,6 +74,7 @@ interface IntroRunEntryProps {
 export default function IntroRunEntry({ intro, index, onUpdate, onRemove, currentUserName = 'SA' }: IntroRunEntryProps) {
   const [entryMode, setEntryMode] = useState<'select' | 'manual'>('select');
   const [show2ndIntroPrompt, setShow2ndIntroPrompt] = useState(false);
+  const [selectedBookingNeedsCoach, setSelectedBookingNeedsCoach] = useState(false);
 
   // Watch for "Booked 2nd intro" outcome
   useEffect(() => {
@@ -95,7 +96,12 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     lead_source: string;
     sa_working_shift: string;
     intro_owner: string | null;
+    coach_name: string;
   }) => {
+    // Check if coach is TBD or missing
+    const needsCoach = !booking.coach_name || booking.coach_name === 'TBD';
+    setSelectedBookingNeedsCoach(needsCoach);
+    
     // Auto-apply the lead source from the booking to the intro run
     onUpdate(index, {
       linkedBookingId: booking.id,
@@ -103,6 +109,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
       leadSource: booking.lead_source, // Auto-apply lead source from booking
       bookedBy: booking.sa_working_shift,
       originatingBookingId: booking.booking_id || undefined,
+      coachName: needsCoach ? '' : booking.coach_name, // Pass coach if known
     });
   };
 
@@ -206,6 +213,37 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
               ))}
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {/* Coach (when selected booking doesn't have one) */}
+      {entryMode === 'select' && selectedBookingNeedsCoach && intro.linkedBookingId && (
+        <div className="p-2 bg-warning/10 border border-warning/30 rounded-lg">
+          <Label className="text-xs font-medium">Coach for this intro *</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            This booking doesn't have a coach assigned. Please select who coached the intro.
+          </p>
+          <Select
+            value={intro.coachName || ''}
+            onValueChange={(v) => onUpdate(index, { coachName: v })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select coach..." />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map((coach) => (
+                <SelectItem key={coach} value={coach}>{coach}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Display coach when already known (read-only) */}
+      {entryMode === 'select' && !selectedBookingNeedsCoach && intro.coachName && intro.linkedBookingId && (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+          <span className="text-xs text-muted-foreground">Coach:</span>
+          <Badge variant="secondary">{intro.coachName}</Badge>
         </div>
       )}
 

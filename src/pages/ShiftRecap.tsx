@@ -411,6 +411,27 @@ export default function ShiftRecap() {
               .eq('id', linkedBookingId);
           }
 
+          // If the booking had TBD coach, update it with the newly entered coach
+          if (linkedBookingId && run.coachName) {
+            const { data: linkedBookingForCoach } = await supabase
+              .from('intros_booked')
+              .select('coach_name')
+              .eq('id', linkedBookingId)
+              .maybeSingle();
+              
+            if (linkedBookingForCoach?.coach_name === 'TBD') {
+              await supabase
+                .from('intros_booked')
+                .update({
+                  coach_name: run.coachName,
+                  last_edited_at: new Date().toISOString(),
+                  last_edited_by: user?.name || 'System',
+                  edit_reason: 'Coach added when intro was run',
+                })
+                .eq('id', linkedBookingId);
+            }
+          }
+
           // If sale outcome, close the linked booking
           if (commissionAmount > 0 && linkedBookingId) {
             await closeBookingOnSale(
