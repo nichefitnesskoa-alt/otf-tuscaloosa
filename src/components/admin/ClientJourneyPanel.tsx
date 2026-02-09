@@ -383,10 +383,18 @@ export default function ClientJourneyPanel() {
     fetchData();
   }, []);
 
+  // Helper to get current local date as YYYY-MM-DD string (avoids UTC conversion issues)
+  const getLocalDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Helper to check if a booking's scheduled time has passed
   const isBookingPast = (booking: ClientBooking): boolean => {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateString(now);
     
     if (booking.class_date < today) return true;
     if (booking.class_date > today) return false;
@@ -403,14 +411,14 @@ export default function ClientJourneyPanel() {
 
   // Helper to check if a booking is today
   const isBookingToday = (booking: ClientBooking): boolean => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(new Date());
     return booking.class_date === today;
   };
 
   // Helper to check if a booking is in the future
   const isBookingUpcoming = (booking: ClientBooking): boolean => {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateString(now);
     
     if (booking.class_date > today) return true;
     if (booking.class_date < today) return false;
