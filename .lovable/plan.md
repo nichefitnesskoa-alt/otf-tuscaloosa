@@ -1,27 +1,37 @@
 
-
-# Add Coach Field to Edit Intros Run + Clear Option for Bookings
+# Fix No-Show Detection Using Correct Local Date/Time
 
 ## Problem
 
-1. **Edit Run Dialog**: When editing an intro run in Admin > Client Journey View, there's no coach field - so you cannot add or change the coach for an intro that was run.
+Bookings for future dates (like Mary El Neal on Feb 9th) are incorrectly showing in the No-shows tab. This is happening because the `isBookingPast`, `isBookingToday`, and `isBookingUpcoming` helper functions in `ClientJourneyPanel.tsx` are mixing UTC and local time calculations.
 
-2. **Edit Booking Dialog**: While there IS a coach selector, there's no option to clear/reset it to "TBD" if you made a mistake picking someone for a future intro.
+The root cause:
+```typescript
+// Line 389 - converts to UTC then extracts date (WRONG)
+const today = now.toISOString().split('T')[0]; // Returns UTC date!
+
+// Line 400 - uses local time (CORRECT)
+const currentTime = now.toTimeString().slice(0, 5); // Returns local time
+```
+
+When a user is in CST timezone at 10pm on Feb 8th:
+- `toISOString().split('T')[0]` returns `2026-02-09` (UTC date = tomorrow)
+- `toTimeString().slice(0, 5)` returns `22:00` (local time)
+
+This mismatch causes incorrect date comparisons.
 
 ## Solution
 
-### Part 1: Add Coach Field to Edit Run Dialog
+Update all three helper functions to use **local date formatting** instead of UTC conversion:
 
-Update the `ClientJourneyPanel.tsx` to:
-1. Add `coach_name` to the `ClientRun` interface
-2. Include `coach_name` in the data fetch query for `intros_run`
-3. Add a Coach selector field to the Edit Run Dialog
-4. Include `coach_name` in the `handleSaveRun` function when updating the database
-5. When coach is updated on a run, also sync it to the linked booking (if applicable)
+```typescript
+// Instead of:
+const today = now.toISOString().split('T')[0]; // UTC!
 
-### Part 2: Add "TBD/Clear" Option to Coach Selectors
-
-Update both Edit Booking and Edit Run dialogs to include a special "TBD" option that allows clearing/resetting the coach.
+// Use:
+const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+// Or use a helper function for cleaner code
+```
 
 ---
 
@@ -29,71 +39,59 @@ Update both Edit Booking and Edit Run dialogs to include a special "TBD" option 
 
 ### File: `src/components/admin/ClientJourneyPanel.tsx`
 
-**1. Update `ClientRun` interface (line 118-138):**
-Add `coach_name` field to track which coach ran the intro.
+**1. Add local date formatting helper (around line 386)**
 
-**2. Update data fetch query (line 265-266):**
-Add `coach_name` to the select statement for `intros_run`.
+Add a small utility function to get today's date in local `YYYY-MM-DD` format:
 
-**3. Update Edit Run Dialog (after line 1873, before Lead Measures):**
-Add a Coach selector with options for all coaches + a "TBD" option.
-
-**4. Update `handleSaveRun` function (line 1057-1107):**
-- Include `coach_name` in the update
-- When coach is changed and run is linked to a booking, sync the coach to the booking
-
-**5. Update Edit Booking Dialog coach selector (line 1741-1752):**
-Add a "TBD" option at the top of the coach list.
-
----
-
-## UI Changes
-
-### Edit Run Dialog - Add Coach Field
-
-```text
-Before:                           After:
-┌────────────────────────┐       ┌────────────────────────┐
-│ Member Name            │       │ Member Name            │
-│ Run Date | Time        │       │ Run Date | Time        │
-│ Ran By                 │       │ Ran By                 │
-│ Lead Source            │       │ Lead Source            │
-│ Result/Outcome         │       │ Coach  ← NEW FIELD     │
-│ ─────────────────────  │       │ Result/Outcome         │
-│ Lead Measures...       │       │ ─────────────────────  │
-└────────────────────────┘       │ Lead Measures...       │
-                                 └────────────────────────┘
+```typescript
+// Helper to get current local date as YYYY-MM-DD string
+const getLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 ```
 
-### Edit Booking Dialog - Coach Field
+**2. Update `isBookingPast` function (lines 387-402)**
 
-```text
-Before:                           After:
-┌────────────────────────┐       ┌────────────────────────┐
-│ Coach                  │       │ Coach                  │
-│ [Select coach...    ▼] │       │ [Select coach...    ▼] │
-│ ├─ Bre                 │       │ ├─ — TBD/Unknown —     │ ← NEW
-│ ├─ Elizabeth           │       │ ├─ Bre                 │
-│ └─ James, etc.         │       │ ├─ Elizabeth           │
-└────────────────────────┘       │ └─ James, etc.         │
-                                 └────────────────────────┘
+```typescript
+// Current (broken):
+const today = now.toISOString().split('T')[0];
+
+// Fixed:
+const today = getLocalDateString(now);
+```
+
+**3. Update `isBookingToday` function (lines 404-408)**
+
+```typescript
+// Current (broken):
+const today = new Date().toISOString().split('T')[0];
+
+// Fixed:
+const today = getLocalDateString(new Date());
+```
+
+**4. Update `isBookingUpcoming` function (lines 410-423)**
+
+```typescript
+// Current (broken):
+const today = now.toISOString().split('T')[0];
+
+// Fixed:
+const today = getLocalDateString(now);
 ```
 
 ---
 
-## Data Flow for Coach Sync
+## Before vs After
 
-When editing a run's coach and saving:
-
-```text
-Edit Run → Save → Update intros_run.coach_name
-                        ↓
-                Is run linked to a booking?
-                        ↓
-                      YES → Update intros_booked.coach_name too
-```
-
-This ensures the coach is consistent between the run and its linked booking.
+| Scenario | Before (Bug) | After (Fixed) |
+|----------|--------------|---------------|
+| User in CST at 10pm Feb 8th | `today = '2026-02-09'` (UTC) | `today = '2026-02-08'` (local) |
+| Mary El Neal booked for Feb 9th | Shows in No-shows (wrong!) | Shows in Upcoming (correct) |
+| Sydney Hawkinson booked for Feb 9th | Shows in No-shows (wrong!) | Shows in Upcoming (correct) |
 
 ---
 
@@ -101,10 +99,9 @@ This ensures the coach is consistent between the run and its linked booking.
 
 | Change | Location |
 |--------|----------|
-| Add `coach_name` to `ClientRun` interface | Line 118-138 |
-| Add `coach_name` to fetch query | Line 265-266 |
-| Add Coach selector to Edit Run Dialog | After line 1873 |
-| Include `coach_name` in `handleSaveRun` | Line 1064-1089 |
-| Sync coach to linked booking on save | After line 1094 |
-| Add "TBD" option to Booking coach selector | Line 1741-1752 |
+| Add `getLocalDateString` helper | After line 385 |
+| Fix `isBookingPast` | Line 389 |
+| Fix `isBookingToday` | Line 406 |
+| Fix `isBookingUpcoming` | Line 413 |
 
+This ensures that No-shows only includes bookings where the local date AND time have actually passed, and future bookings correctly appear in Upcoming.
