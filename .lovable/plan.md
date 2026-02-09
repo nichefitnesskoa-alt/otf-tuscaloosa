@@ -1,189 +1,110 @@
 
 
-# Capture Coach for Intros Run When Booking Has No Coach
+# Add Coach Field to Edit Intros Run + Clear Option for Bookings
 
 ## Problem
 
-When a booking is created, the coach is often unknown and set to `TBD`. Currently, when a user selects one of these bookings from the "Select Booked" list to log an intro run, there's no prompt to capture the coach information. The coach field only appears for manual entries, not for bookings selected from the list.
+1. **Edit Run Dialog**: When editing an intro run in Admin > Client Journey View, there's no coach field - so you cannot add or change the coach for an intro that was run.
 
-This means intro runs linked to bookings with `coach_name: 'TBD'` end up with no coach attribution.
+2. **Edit Booking Dialog**: While there IS a coach selector, there's no option to clear/reset it to "TBD" if you made a mistake picking someone for a future intro.
 
 ## Solution
 
-Update the `IntroRunEntry` component to:
-1. Pass the coach name from the selected booking to the intro run form
-2. Display a coach selector when the selected booking has `coach_name` as `TBD`, empty, or null
-3. Always show the coach info when it's already known (read-only display)
+### Part 1: Add Coach Field to Edit Run Dialog
 
----
+Update the `ClientJourneyPanel.tsx` to:
+1. Add `coach_name` to the `ClientRun` interface
+2. Include `coach_name` in the data fetch query for `intros_run`
+3. Add a Coach selector field to the Edit Run Dialog
+4. Include `coach_name` in the `handleSaveRun` function when updating the database
+5. When coach is updated on a run, also sync it to the linked booking (if applicable)
 
-## Data Flow
+### Part 2: Add "TBD/Clear" Option to Coach Selectors
 
-```text
-BookedIntroSelector → onSelect(booking) → IntroRunEntry.handleSelectBookedIntro
-                                              ↓
-                                     Check if coach_name is 'TBD'/empty
-                                              ↓
-                               YES: Show coach selector (required)
-                               NO: Display coach name (read-only)
-```
+Update both Edit Booking and Edit Run dialogs to include a special "TBD" option that allows clearing/resetting the coach.
 
 ---
 
 ## Technical Changes
 
-### 1. Update `BookedIntroSelector.tsx`
+### File: `src/components/admin/ClientJourneyPanel.tsx`
 
-Ensure the `coach_name` field is included in the `onSelect` callback.
+**1. Update `ClientRun` interface (line 118-138):**
+Add `coach_name` field to track which coach ran the intro.
 
-**Current interface (line 27-39):**
-The `BookedIntro` interface already includes `coach_name`, and the `onSelect` prop passes the full booking object.
+**2. Update data fetch query (line 265-266):**
+Add `coach_name` to the select statement for `intros_run`.
 
-**However**, the parent component's `handleSelectBookedIntro` function (in `IntroRunEntry`) doesn't extract the coach name.
+**3. Update Edit Run Dialog (after line 1873, before Lead Measures):**
+Add a Coach selector with options for all coaches + a "TBD" option.
+
+**4. Update `handleSaveRun` function (line 1057-1107):**
+- Include `coach_name` in the update
+- When coach is changed and run is linked to a booking, sync the coach to the booking
+
+**5. Update Edit Booking Dialog coach selector (line 1741-1752):**
+Add a "TBD" option at the top of the coach list.
 
 ---
 
-### 2. Update `IntroRunEntry.tsx`
+## UI Changes
 
-#### A. Update `handleSelectBookedIntro` to pass coach name (line 91-107)
+### Edit Run Dialog - Add Coach Field
 
-```typescript
-const handleSelectBookedIntro = (booking: {
-  id: string;
-  booking_id: string | null;
-  member_name: string;
-  lead_source: string;
-  sa_working_shift: string;
-  intro_owner: string | null;
-  coach_name: string;  // ADD THIS
-}) => {
-  onUpdate(index, {
-    linkedBookingId: booking.id,
-    memberName: booking.member_name,
-    leadSource: booking.lead_source,
-    bookedBy: booking.sa_working_shift,
-    originatingBookingId: booking.booking_id || undefined,
-    coachName: booking.coach_name === 'TBD' ? '' : booking.coach_name, // ADD THIS
-  });
-};
+```text
+Before:                           After:
+┌────────────────────────┐       ┌────────────────────────┐
+│ Member Name            │       │ Member Name            │
+│ Run Date | Time        │       │ Run Date | Time        │
+│ Ran By                 │       │ Ran By                 │
+│ Lead Source            │       │ Lead Source            │
+│ Result/Outcome         │       │ Coach  ← NEW FIELD     │
+│ ─────────────────────  │       │ Result/Outcome         │
+│ Lead Measures...       │       │ ─────────────────────  │
+└────────────────────────┘       │ Lead Measures...       │
+                                 └────────────────────────┘
 ```
 
-#### B. Add state to track if selected booking needs coach (around line 76)
+### Edit Booking Dialog - Coach Field
 
-```typescript
-const [selectedBookingNeedsCoach, setSelectedBookingNeedsCoach] = useState(false);
-
-// Update the select handler to also check if coach is needed
-const handleSelectBookedIntro = (booking: {...}) => {
-  const needsCoach = !booking.coach_name || booking.coach_name === 'TBD';
-  setSelectedBookingNeedsCoach(needsCoach);
-  
-  onUpdate(index, {
-    linkedBookingId: booking.id,
-    memberName: booking.member_name,
-    leadSource: booking.lead_source,
-    bookedBy: booking.sa_working_shift,
-    originatingBookingId: booking.booking_id || undefined,
-    coachName: needsCoach ? '' : booking.coach_name,
-  });
-};
-```
-
-#### C. Show coach selector when selected booking lacks coach info (after line 209)
-
-Add a new section that appears when `entryMode === 'select'` and the selected booking has `TBD` coach:
-
-```typescript
-{/* Coach (when selected booking doesn't have one) */}
-{entryMode === 'select' && selectedBookingNeedsCoach && (
-  <div className="p-2 bg-warning/10 border border-warning/30 rounded-lg">
-    <Label className="text-xs font-medium">Coach for this intro *</Label>
-    <p className="text-xs text-muted-foreground mb-2">
-      This booking doesn't have a coach assigned. Please select who coached the intro.
-    </p>
-    <Select
-      value={intro.coachName || ''}
-      onValueChange={(v) => onUpdate(index, { coachName: v })}
-    >
-      <SelectTrigger className="mt-1">
-        <SelectValue placeholder="Select coach..." />
-      </SelectTrigger>
-      <SelectContent>
-        {COACHES.map((coach) => (
-          <SelectItem key={coach} value={coach}>{coach}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-)}
-
-{/* Display coach when already known (read-only) */}
-{entryMode === 'select' && !selectedBookingNeedsCoach && intro.coachName && (
-  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-    <span className="text-xs text-muted-foreground">Coach:</span>
-    <Badge variant="secondary">{intro.coachName}</Badge>
-  </div>
-)}
+```text
+Before:                           After:
+┌────────────────────────┐       ┌────────────────────────┐
+│ Coach                  │       │ Coach                  │
+│ [Select coach...    ▼] │       │ [Select coach...    ▼] │
+│ ├─ Bre                 │       │ ├─ — TBD/Unknown —     │ ← NEW
+│ ├─ Elizabeth           │       │ ├─ Bre                 │
+│ └─ James, etc.         │       │ ├─ Elizabeth           │
+└────────────────────────┘       │ └─ James, etc.         │
+                                 └────────────────────────┘
 ```
 
 ---
 
-### 3. Update `ShiftRecap.tsx` Submission Logic
+## Data Flow for Coach Sync
 
-When saving the intro run, also update the linked booking's coach_name if it was TBD:
+When editing a run's coach and saving:
 
-```typescript
-// After inserting the intro run (around line 396-412)
-// If the booking had TBD coach, update it with the newly entered coach
-if (linkedBookingId && run.coachName) {
-  const { data: linkedBooking } = await supabase
-    .from('intros_booked')
-    .select('coach_name')
-    .eq('id', linkedBookingId)
-    .maybeSingle();
-    
-  if (linkedBooking?.coach_name === 'TBD') {
-    await supabase
-      .from('intros_booked')
-      .update({
-        coach_name: run.coachName,
-        last_edited_at: new Date().toISOString(),
-        last_edited_by: user?.name || 'System',
-        edit_reason: 'Coach added when intro was run',
-      })
-      .eq('id', linkedBookingId);
-  }
-}
+```text
+Edit Run → Save → Update intros_run.coach_name
+                        ↓
+                Is run linked to a booking?
+                        ↓
+                      YES → Update intros_booked.coach_name too
 ```
 
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/IntroRunEntry.tsx` | Add coach selector when selected booking has TBD coach |
-| `src/pages/ShiftRecap.tsx` | Update linked booking's coach when intro is run |
-
----
-
-## UI Behavior
-
-### Before
-- User selects "Sarah Johnson" from booked intros (has `coach_name: 'TBD'`)
-- No coach field is shown
-- Intro run is saved with no coach attribution
-
-### After
-- User selects "Sarah Johnson" from booked intros (has `coach_name: 'TBD'`)
-- Warning-styled coach selector appears: "This booking doesn't have a coach assigned. Please select who coached the intro."
-- User selects the coach
-- Intro run is saved with coach attribution
-- Original booking is also updated with the coach name
+This ensures the coach is consistent between the run and its linked booking.
 
 ---
 
 ## Summary
 
-This change ensures that coach attribution is captured at the point of logging an intro run when it wasn't known at booking time, improving data quality for coach performance tracking.
+| Change | Location |
+|--------|----------|
+| Add `coach_name` to `ClientRun` interface | Line 118-138 |
+| Add `coach_name` to fetch query | Line 265-266 |
+| Add Coach selector to Edit Run Dialog | After line 1873 |
+| Include `coach_name` in `handleSaveRun` | Line 1064-1089 |
+| Sync coach to linked booking on save | After line 1094 |
+| Add "TBD" option to Booking coach selector | Line 1741-1752 |
 
