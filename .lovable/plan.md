@@ -1,120 +1,179 @@
 
+# Global Data Refresh Synchronization Plan
 
-# Fix: Lead Source Analytics Not Updating After Client Journey Edits
+## Problem Summary
 
-## Problem
+There are two issues:
 
-When you edit lead sources in the Client Journey panel (Admin), the Lead Source Analytics chart on the Studio/Recaps page doesn't update. This happens because:
+1. **Components with local data fetching bypass global state**: Several components in Studio, My Stats, and My Shifts fetch data directly from Supabase instead of using the global DataContext, so they don't update when Admin makes changes.
 
-1. `ClientJourneyPanel` has its own local data fetching that bypasses the global state
-2. When you save an edit, it only refreshes the local panel data
-3. The `LeadSourceChart` gets its data from the global DataContext, which is NOT refreshed
-4. So the chart shows stale lead source data until you manually refresh the page
+2. **Lead Source Analytics should be updating but isn't**: The LeadSourceChart uses global state correctly, but there may be a timing or page-navigation issue where the refresh happens on a different page than where you're viewing.
 
-## Root Cause
+## Root Cause Analysis
 
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│                         CURRENT FLOW                              │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ClientJourneyPanel                    Recaps Page                │
-│  ┌─────────────────┐                  ┌─────────────────┐        │
-│  │ Local fetchData │                  │ LeadSourceChart │        │
-│  │ (Supabase)      │                  │                 │        │
-│  └────────┬────────┘                  └────────▲────────┘        │
-│           │                                    │                  │
-│           │ Edit saves                         │ Uses stale data  │
-│           │ ↓                                  │                  │
-│  ┌────────▼────────┐                  ┌────────┴────────┐        │
-│  │ Local state     │    NO SYNC       │ Global Context  │        │
-│  │ updates ✓       │ ←─────────────── │ NOT updated ✗   │        │
-│  └─────────────────┘                  └─────────────────┘        │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+CURRENT ARCHITECTURE:
+
+Admin Page                           Other Pages
+┌────────────────┐                   ┌────────────────────────┐
+│ ClientJourney  │                   │ Recaps (Studio)        │
+│ Panel (Admin)  │                   │ ┌──────────────────┐   │
+│                │                   │ │ LeadSourceChart  │   │
+│ Edit lead      │ refreshGlobalData│ │ uses useData() ✓ │   │
+│ source ──────────────────────────► │ └──────────────────┘   │
+│                │                   │ ┌──────────────────┐   │
+│                │    NOT synced     │ │ ClientJourney    │   │
+│                │ ─────────────────X│ │ ReadOnly (local) │   │
+│                │                   │ └──────────────────┘   │
+└────────────────┘                   │ ┌──────────────────┐   │
+                                     │ │ MembersPurchased │   │
+                                     │ │ ReadOnly (local) │   │
+                                     │ └──────────────────┘   │
+                                     └────────────────────────┘
+
+┌────────────────┐                   ┌────────────────────────┐
+│ Dashboard      │                   │ MyShifts               │
+│ uses useData() │                   │ (local fetchMyRecaps)  │
+│ ✓              │                   │ NOT synced with global │
+└────────────────┘                   └────────────────────────┘
 ```
 
 ## Solution
 
-Make `ClientJourneyPanel` call the global `refreshData()` from `useData()` after any booking or run edits. This ensures all components using DataContext see the updated data.
+### Part 1: Make Local-Fetching Components Listen to Global State
+
+Components with local data fetching need to re-fetch when global data is refreshed. We'll add a `lastUpdated` dependency that triggers re-fetches.
+
+### Part 2: Ensure All Views Respond to Global Refresh
+
+When `refreshGlobalData()` is called from Admin, all pages should see updated data without manual refresh.
+
+---
 
 ## Technical Changes
 
-### File: `src/components/admin/ClientJourneyPanel.tsx`
+### File 1: `src/components/dashboard/ClientJourneyReadOnly.tsx`
 
-**1. Import and use the global DataContext**
-
-Add `useData` import and get `refreshData`:
+**Add dependency on global lastUpdated to trigger refresh**
 
 ```typescript
+// Import useData
 import { useData } from '@/context/DataContext';
 
 // Inside component:
-const { refreshData: refreshGlobalData } = useData();
+const { lastUpdated: globalLastUpdated } = useData();
+
+// Add effect to refetch when global data changes
+useEffect(() => {
+  if (globalLastUpdated) {
+    fetchData();
+  }
+}, [globalLastUpdated]);
 ```
 
-**2. Update all save handlers to also refresh global data**
+### File 2: `src/components/dashboard/MembershipPurchasesReadOnly.tsx`
 
-After each successful edit, call `refreshGlobalData()` in addition to the local `fetchData()`:
-
-- `handleSaveBooking` (line 678)
-- `handleConfirmPurchase` (line 751)
-- `handleMarkNotInterested` (line 778)
-- `handleConfirmSetOwner` (line ~825)
-- `handleMarkNoShow` (line ~860)
-- `handleDeleteBooking` (line ~895)
-- `handleRestoreBooking` (line ~930)
-- `handleSaveRun` (line ~970)
-- `handleLinkRun` (line ~1010)
-- `handleAutoFix` (line ~1050)
-
-Example change for `handleSaveBooking`:
+**Add dependency on global lastUpdated**
 
 ```typescript
-// Before:
-toast.success('Booking updated');
-setEditingBooking(null);
-await fetchData();
+// Import useData
+import { useData } from '@/context/DataContext';
 
-// After:
-toast.success('Booking updated');
-setEditingBooking(null);
-await fetchData();
-await refreshGlobalData(); // Refresh global state so charts update
+// Inside component:
+const { lastUpdated: globalLastUpdated } = useData();
+
+// Add effect to refetch when global data changes
+useEffect(() => {
+  if (globalLastUpdated && dateRange) {
+    fetchPurchases();
+  }
+}, [globalLastUpdated, dateRange]);
 ```
 
-## Summary of Changes
+### File 3: `src/pages/MyShifts.tsx`
 
-| Location | Change |
-|----------|--------|
-| Line ~71 | Add `import { useData } from '@/context/DataContext'` |
-| Line ~183 | Add `const { refreshData: refreshGlobalData } = useData()` |
-| Multiple handlers | Add `await refreshGlobalData()` after each save operation |
+**Add dependency on global lastUpdated**
 
-## After Fix
+```typescript
+// Import useData
+import { useData } from '@/context/DataContext';
+
+// Inside component:
+const { lastUpdated: globalLastUpdated } = useData();
+
+// Add effect to refetch when global data changes
+useEffect(() => {
+  if (globalLastUpdated) {
+    fetchMyRecaps();
+  }
+}, [globalLastUpdated, user?.name]);
+```
+
+### File 4: `src/pages/Dashboard.tsx` (My Stats)
+
+**Already uses useData() correctly** - no changes needed. The `useDashboardMetrics` hook recomputes when global data changes.
+
+### File 5: `src/pages/Recaps.tsx` (Studio)
+
+**Already uses useData() correctly** - LeadSourceChart should update. However, let's verify by adding a console log temporarily or ensuring the refresh triggers correctly.
+
+---
+
+## Summary Table
+
+| Component | Current State | Change |
+|-----------|--------------|--------|
+| `ClientJourneyReadOnly.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
+| `MembershipPurchasesReadOnly.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
+| `MyShifts.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
+| `Dashboard.tsx` (My Stats) | Uses global context | No changes |
+| `Recaps.tsx` (Studio) | Uses global context | No changes |
+| `LeadSourceChart.tsx` | Pure component, uses props | No changes |
+
+---
+
+## Why Lead Source Analytics Should Already Work
+
+The `LeadSourceChart` on the Recaps page:
+1. Gets `data={metrics.leadSourceMetrics}` from `useDashboardMetrics`
+2. `useDashboardMetrics` uses `introsBooked` from `useData()`
+3. When `refreshGlobalData()` is called, `introsBooked` updates
+4. The `useMemo` in `useDashboardMetrics` recalculates `leadSourceMetrics`
+5. `LeadSourceChart` re-renders with new data
+
+If it's not updating, the issue may be:
+- You're editing in Admin, but haven't navigated back to Studio/Recaps
+- The page needs to be in view when the refresh happens
+- Or there may be a caching issue in the browser
+
+**Recommended test**: After making changes in Admin, click the refresh button (↻) on the Recaps page manually to verify the data is correct in the database.
+
+---
+
+## After This Fix
 
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│                         FIXED FLOW                                │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ClientJourneyPanel                    Recaps Page                │
-│  ┌─────────────────┐                  ┌─────────────────┐        │
-│  │ Local fetchData │                  │ LeadSourceChart │        │
-│  └────────┬────────┘                  └────────▲────────┘        │
-│           │                                    │                  │
-│           │ Edit saves                         │ Gets fresh data  │
-│           │ ↓                                  │                  │
-│  ┌────────▼────────┐    SYNC!         ┌────────┴────────┐        │
-│  │ Local state     │ ──────────────→  │ Global Context  │        │
-│  │ updates ✓       │  refreshData()   │ UPDATED ✓       │        │
-│  └─────────────────┘                  └─────────────────┘        │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+FIXED ARCHITECTURE:
+
+Admin Page                           Other Pages
+┌────────────────┐                   ┌────────────────────────┐
+│ ClientJourney  │                   │ Recaps (Studio)        │
+│ Panel (Admin)  │                   │ ┌──────────────────┐   │
+│                │                   │ │ LeadSourceChart  │ ✓ │
+│ Edit lead      │ refreshGlobalData│ └──────────────────┘   │
+│ source ──────────────────────────► │ ┌──────────────────┐   │
+│                │                   │ │ ClientJourney    │   │
+│                │ lastUpdated ─────►│ │ ReadOnly ✓       │   │
+│                │ triggers refetch  │ └──────────────────┘   │
+│                │                   │ ┌──────────────────┐   │
+│                │                   │ │ MembersPurchased │   │
+│                │                   │ │ ReadOnly ✓       │   │
+└────────────────┘                   └──────────────────────────┘
+
+                                     ┌────────────────────────┐
+                                     │ MyShifts ✓             │
+                                     │ Now syncs with global  │
+                                     └────────────────────────┘
 ```
 
-Now when you edit a lead source from "Member Referral" to "Instagram DMs (Friend)", the change will immediately appear in:
-- Lead Source Analytics chart
-- Pipeline Funnel (if applicable)
-- All other components using the global DataContext
-
+All components will now respond to global data changes without requiring a manual page refresh.
