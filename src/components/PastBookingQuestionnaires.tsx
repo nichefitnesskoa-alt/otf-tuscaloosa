@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText } from 'lucide-react';
+import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { generateUniqueSlug } from '@/lib/utils';
+import QuestionnaireResponseViewer from '@/components/QuestionnaireResponseViewer';
 
 const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
@@ -27,10 +30,10 @@ export default function PastBookingQuestionnaires() {
   const [open, setOpen] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
-    // Can't do a LEFT JOIN via supabase-js easily, so we fetch both and merge
     const [{ data: bookingsData }, { data: questionnaires }] = await Promise.all([
       supabase
         .from('intros_booked')
@@ -140,8 +143,15 @@ export default function PastBookingQuestionnaires() {
     }
   };
 
-  const needsLink = bookings.filter((b) => !b.questionnaire_id);
-  const hasLink = bookings.filter((b) => b.questionnaire_id);
+  // Filter by search term
+  const filtered = bookings.filter((b) =>
+    b.member_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const pending = filtered.filter((b) => b.q_status !== 'completed');
+  const completed = filtered.filter((b) => b.q_status === 'completed');
+  const needsLink = pending.filter((b) => !b.questionnaire_id);
+  const hasLinkPending = pending.filter((b) => b.questionnaire_id);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -167,91 +177,128 @@ export default function PastBookingQuestionnaires() {
             ) : bookings.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">No active bookings found.</p>
             ) : (
-              <div className="space-y-4">
-                {/* Needs Link */}
-                {needsLink.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Needs Link ({needsLink.length})
-                    </p>
-                    <div className="space-y-2">
-                      {needsLink.map((b) => (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{b.member_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(b.class_date + 'T00:00:00'), 'MMM d, yyyy')}
-                              {b.intro_time && ` · ${b.intro_time}`}
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 h-7 text-xs"
-                            disabled={generatingId === b.id}
-                            onClick={() => generateLink(b)}
-                          >
-                            {generatingId === b.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                            ) : null}
-                            Generate Link
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="space-y-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
 
-                {/* Has Link */}
-                {hasLink.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Link Generated ({hasLink.length})
-                    </p>
-                    <div className="space-y-2">
-                      {hasLink.map((b) => (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{b.member_name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(b.class_date + 'T00:00:00'), 'MMM d, yyyy')}
-                              {b.intro_time && ` · ${b.intro_time}`}
+                {/* Tabs */}
+                <Tabs defaultValue="pending">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="pending" className="flex-1 text-xs">
+                      Pending ({pending.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="completed" className="flex-1 text-xs">
+                      Completed ({completed.length})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="pending">
+                    {pending.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">No pending bookings.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {needsLink.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                              Needs Link ({needsLink.length})
                             </p>
+                            <div className="space-y-2">
+                              {needsLink.map((b) => (
+                                <div key={b.id} className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium truncate">{b.member_name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {format(new Date(b.class_date + 'T00:00:00'), 'MMM d, yyyy')}
+                                      {b.intro_time && ` · ${b.intro_time}`}
+                                    </p>
+                                  </div>
+                                  <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" disabled={generatingId === b.id} onClick={() => generateLink(b)}>
+                                    {generatingId === b.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                                    Generate Link
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {statusBadge(b.q_status)}
-                            <a
-                              href={b.q_slug ? `${PUBLISHED_URL}/q/${b.q_slug}` : `${PUBLISHED_URL}/q/${b.questionnaire_id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => copyLink(b)}
-                            >
-                              {copiedId === b.id ? (
-                                <Check className="w-3 h-3 text-green-600" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                            </Button>
+                        )}
+                        {hasLinkPending.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                              Link Generated ({hasLinkPending.length})
+                            </p>
+                            <div className="space-y-2">
+                              {hasLinkPending.map((b) => (
+                                <div key={b.id} className="flex items-center justify-between gap-2 p-2 rounded-md border bg-card text-sm">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-medium truncate">{b.member_name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {format(new Date(b.class_date + 'T00:00:00'), 'MMM d, yyyy')}
+                                      {b.intro_time && ` · ${b.intro_time}`}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {statusBadge(b.q_status)}
+                                    <a href={b.q_slug ? `${PUBLISHED_URL}/q/${b.q_slug}` : `${PUBLISHED_URL}/q/${b.questionnaire_id}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(b)}>
+                                      {copiedId === b.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        )}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="completed">
+                    {completed.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">No completed questionnaires.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {completed.map((b) => (
+                          <div key={b.id} className="p-2 rounded-md border bg-card text-sm">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium truncate">{b.member_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(b.class_date + 'T00:00:00'), 'MMM d, yyyy')}
+                                  {b.intro_time && ` · ${b.intro_time}`}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {statusBadge(b.q_status)}
+                                <a href={b.q_slug ? `${PUBLISHED_URL}/q/${b.q_slug}` : `${PUBLISHED_URL}/q/${b.questionnaire_id}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-0.5">
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(b)}>
+                                  {copiedId === b.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                </Button>
+                              </div>
+                            </div>
+                            {b.questionnaire_id && (
+                              <QuestionnaireResponseViewer
+                                questionnaireId={b.questionnaire_id}
+                                questionnaireStatus="completed"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </div>
             )}
           </CardContent>
