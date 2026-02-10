@@ -1,43 +1,30 @@
 
 
-# Fix Questionnaire Link Generation
+# Fix: Questionnaire Not Using Full Name
 
 ## Problem
 
-Two issues are causing the failure:
-
-1. **RLS Policy Mismatch**: The INSERT policy on `intro_questionnaires` requires `auth.uid() IS NOT NULL`, but the app uses localStorage-based staff login -- not Supabase Auth. So `auth.uid()` is always NULL and every insert is blocked.
-
-2. **Infinite Retry Loop**: When the insert fails, the error doesn't prevent re-attempts. The `useEffect` + `useCallback` in `QuestionnaireLink.tsx` keeps firing the failed insert every render cycle, producing dozens of error logs per second.
+The questionnaire link auto-creates as soon as the SA types a single character (e.g., "K") and a date is set. At that point, `client_first_name` is saved as "K" in the database. When the SA finishes typing the full name, the DB record is never updated -- so the prospect sees "Welcome, K!" instead of their full name.
 
 ## Solution
 
-### 1. Database: Update INSERT RLS policy
+Two changes to `src/components/QuestionnaireLink.tsx`:
 
-Change the INSERT policy from `auth.uid() IS NOT NULL` to `true` (allow public inserts), matching the same pattern used by the SELECT and UPDATE policies.
+### 1. Delay auto-creation until the name looks complete
 
-This is safe because:
-- The table only stores questionnaire data entered by the prospect themselves
-- The UUID primary key is unguessable
-- No sensitive data is at risk
+Add a minimum length check: require `firstName.length >= 2` before triggering the auto-create. This prevents firing on the first keystroke.
 
-### 2. Code: Add error guard to prevent retry loop
+### 2. Sync name changes back to the database
 
-In `QuestionnaireLink.tsx`, add a `failed` state flag so that if the insert fails, it stops retrying instead of hammering the database.
+After the questionnaire record is created, if the SA updates the name (finishes typing, corrects a typo, etc.), push those changes to the existing DB record. Add a `useEffect` that watches `firstName`, `lastName`, `introDate`, and `introTime` and updates the record via a debounced call whenever they change.
 
-## Technical Details
+### Technical Details
 
-### Database Migration
-```sql
-DROP POLICY "Authenticated users can create questionnaires" ON intro_questionnaires;
-CREATE POLICY "Anyone can create questionnaires"
-  ON intro_questionnaires FOR INSERT
-  WITH CHECK (true);
-```
+**File: `src/components/QuestionnaireLink.tsx`**
 
-### File: `src/components/QuestionnaireLink.tsx`
-- Add a `failed` state variable
-- Set it to `true` on insert error
-- Check `failed` in the guard condition to prevent retries
-- Show an error state in the UI instead of silently retrying
+- Change the `hasMinData` check from `firstName.length > 0` to `firstName.length >= 2`
+- Add a new `useEffect` that runs when `questionnaireId` exists and `firstName`/`lastName`/`introDate`/`introTime` change:
+  - Debounce 800ms to avoid spamming updates on every keystroke
+  - Call `supabase.from('intro_questionnaires').update({ client_first_name, client_last_name, scheduled_class_date, scheduled_class_time }).eq('id', questionnaireId)`
+- This ensures the welcome message always shows the latest, complete name
 
