@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import PastBookingQuestionnaires from '@/components/PastBookingQuestionnaires';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -231,6 +232,9 @@ export default function Recaps() {
 
       {/* Lead Source Analytics */}
       <LeadSourceChart data={metrics.leadSourceMetrics} />
+
+      {/* Pre-Intro Questionnaire Links */}
+      <PastBookingQuestionnaires />
 
       {/* Client Pipeline (read-only) */}
       <ClientJourneyReadOnly />
