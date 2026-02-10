@@ -208,11 +208,9 @@ export default function Questionnaire() {
       'DESCRIPTION:Your first OTF class! Arrive 15 minutes early.',
       'END:VEVENT', 'END:VCALENDAR',
     ].join('\r\n');
-    const blob = new Blob([ics], { type: 'text/calendar' });
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'otf-intro-class.ics'; a.click();
-    URL.revokeObjectURL(url);
+    window.location.href = url;
   };
 
   if (loading) return (
