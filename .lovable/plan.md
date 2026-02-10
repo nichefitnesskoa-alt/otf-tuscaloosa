@@ -1,37 +1,48 @@
 
 
-# Fix: Questionnaire Links Breaking After Sync/Submit
+# Fix: "Resend Questionnaire" Not Populating Booking Form
 
 ## The Problem
 
-Every time the name sync effect runs (which happens on re-renders, auto-save cycles, or prop changes), it generates a **new** slug with an incremented number because the `generateUniqueSlug` function doesn't exclude the current record's own slug. So:
+When you select a client and choose "Resend Questionnaire," the form briefly shows the client's info (name, date, etc.) but then immediately reverts back to what was typed (e.g., "ry"). The booking data doesn't stick.
 
-1. You create a questionnaire for "Koa Vincent" -- slug is `koa-vincent`
-2. The sync effect fires again -- it sees `koa-vincent` is "taken" and overwrites it with `koa-vincent-2`
-3. It fires again -- overwrites with `koa-vincent-3`
-4. The link you already copied/shared (`koa-vincent` or `koa-vincent-2`) no longer exists in the database
+## Root Cause
 
-This is why links stop working "after a while" or after submitting.
+The `updateIntroBooking` function in `ShiftRecap.tsx` uses stale state due to a JavaScript closure issue:
+
+```text
+Current (broken):
+  setIntrosBooked(introsBooked.map(...))
+                  ^^^^^^^^^^^^
+                  This is a snapshot from when the function was created,
+                  not the latest state
+```
+
+When "Resend Questionnaire" is chosen, `onUpdate` is called **twice**:
+1. First call: sets memberName, introDate, introTime, leadSource, notes
+2. Second call (after async questionnaire lookup): sets questionnaireId, questionnaireStatus
+
+The second call still sees the **old** state (before the first update), so it overwrites all the fields back to their original values (e.g., memberName goes back to "ry").
 
 ## The Fix
 
-### 1. Fix `generateUniqueSlug` to exclude current record (`src/lib/utils.ts`)
+### File: `src/pages/ShiftRecap.tsx`
 
-The function accepts an `excludeId` parameter but never uses it. Add a filter so when syncing an existing questionnaire, its own slug isn't counted as "taken."
+Change `updateIntroBooking` to use a **functional state update**, which always receives the latest state:
 
+```text
+Before:
+  setIntrosBooked(introsBooked.map((intro, i) =>
+    i === index ? { ...intro, ...updates } : intro
+  ));
+
+After:
+  setIntrosBooked(prev => prev.map((intro, i) =>
+    i === index ? { ...intro, ...updates } : intro
+  ));
 ```
-// Add .neq('id', excludeId) when excludeId is provided
-```
 
-### 2. Prevent unnecessary slug regeneration (`src/components/QuestionnaireLink.tsx`)
+This one-line change ensures both updates are applied correctly, even when called in quick succession or after async operations.
 
-The sync effect should only regenerate the slug when the **name actually changes**, not on every re-render. Changes:
-
-- Track previous name values and only regenerate slug when they actually differ
-- If the name hasn't changed, just sync date/time without touching the slug
-- This prevents the slug from incrementing on every auto-save cycle
-
-### No database changes needed
-
-The `slug` column and existing data are fine -- the bug is purely in the client-side logic.
+No other files or database changes needed.
 
