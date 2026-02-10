@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { generateUniqueSlug } from '@/lib/utils';
+
+const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
 interface QuestionnaireLinkProps {
   bookingId: string;
@@ -35,12 +38,14 @@ export default function QuestionnaireLink({
   const lastName = nameParts.slice(1).join(' ') || '';
   const hasMinData = firstName.length >= 2 && introDate;
   const syncRef = useRef<NodeJS.Timeout>();
+  const [slug, setSlug] = useState<string | null>(null);
 
   // Auto-create questionnaire when we have minimum data and no ID yet
   const createQuestionnaire = useCallback(async () => {
     if (!hasMinData || questionnaireId || creating || failed) return;
     setCreating(true);
     const newId = crypto.randomUUID();
+    const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: null,
@@ -49,7 +54,8 @@ export default function QuestionnaireLink({
       scheduled_class_date: introDate,
       scheduled_class_time: introTime || null,
       status: 'not_sent',
-    });
+      slug: newSlug || null,
+    } as any);
     setCreating(false);
     if (error) {
       console.error('Error creating questionnaire:', error);
@@ -57,6 +63,7 @@ export default function QuestionnaireLink({
       setFailed(true);
       return;
     }
+    setSlug(newSlug);
     onQuestionnaireCreated(newId);
   }, [hasMinData, questionnaireId, creating, failed, firstName, lastName, introDate, introTime, onQuestionnaireCreated]);
 
@@ -69,15 +76,31 @@ export default function QuestionnaireLink({
     if (!questionnaireId || !firstName) return;
     if (syncRef.current) clearTimeout(syncRef.current);
     syncRef.current = setTimeout(async () => {
+      const newSlug = await generateUniqueSlug(firstName, lastName, supabase, questionnaireId);
       await supabase.from('intro_questionnaires').update({
         client_first_name: firstName,
         client_last_name: lastName,
         scheduled_class_date: introDate,
         scheduled_class_time: introTime || null,
-      }).eq('id', questionnaireId);
+        slug: newSlug || null,
+      } as any).eq('id', questionnaireId);
+      setSlug(newSlug);
     }, 800);
     return () => { if (syncRef.current) clearTimeout(syncRef.current); };
   }, [questionnaireId, firstName, lastName, introDate, introTime]);
+
+  // Fetch slug for existing questionnaire
+  useEffect(() => {
+    if (!questionnaireId || slug) return;
+    (async () => {
+      const { data } = await supabase
+        .from('intro_questionnaires')
+        .select('slug' as any)
+        .eq('id', questionnaireId)
+        .maybeSingle();
+      if ((data as any)?.slug) setSlug((data as any).slug);
+    })();
+  }, [questionnaireId]);
 
   // Poll for completion status
   useEffect(() => {
@@ -103,7 +126,7 @@ export default function QuestionnaireLink({
   );
   if (!questionnaireId) return null;
 
-  const link = `${window.location.origin}/q/${questionnaireId}`;
+  const link = slug ? `${PUBLISHED_URL}/q/${slug}` : `${PUBLISHED_URL}/q/${questionnaireId}`;
 
   const copyLink = async () => {
     try {

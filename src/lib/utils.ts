@@ -87,3 +87,41 @@ export function parseLocalDate(dateStr: string): Date {
   const [year, month, day] = parts.map(Number);
   return new Date(year, month - 1, day);
 }
+
+/**
+ * Generate a URL-friendly slug from a first and last name.
+ * e.g. "John Smith" → "john-smith"
+ */
+export function generateNameSlug(firstName: string, lastName: string): string {
+  return `${firstName}-${lastName}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * Generate a unique slug by checking existing slugs in the database.
+ */
+export async function generateUniqueSlug(
+  firstName: string,
+  lastName: string,
+  supabaseClient: any,
+  excludeId?: string,
+): Promise<string> {
+  const base = generateNameSlug(firstName, lastName);
+  if (!base) return '';
+
+  const { data: existing } = await supabaseClient
+    .from('intro_questionnaires')
+    .select('slug')
+    .like('slug', `${base}%`);
+
+  const taken = new Set((existing || []).map((r: any) => r.slug));
+
+  if (!taken.has(base)) return base;
+
+  let counter = 2;
+  while (taken.has(`${base}-${counter}`)) counter++;
+  return `${base}-${counter}`;
+}

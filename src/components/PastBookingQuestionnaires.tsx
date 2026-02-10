@@ -7,6 +7,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { generateUniqueSlug } from '@/lib/utils';
+
+const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
 interface BookingWithQ {
   id: string;
@@ -15,6 +18,7 @@ interface BookingWithQ {
   intro_time: string | null;
   questionnaire_id: string | null;
   q_status: string | null;
+  q_slug: string | null;
 }
 
 export default function PastBookingQuestionnaires() {
@@ -36,12 +40,12 @@ export default function PastBookingQuestionnaires() {
         .order('class_date', { ascending: false }),
       supabase
         .from('intro_questionnaires')
-        .select('id, booking_id, status'),
+        .select('id, booking_id, status, slug' as any),
     ]);
 
-    const qMap = new Map<string, { id: string; status: string }>();
-    questionnaires?.forEach((q) => {
-      if (q.booking_id) qMap.set(q.booking_id, { id: q.id, status: q.status });
+    const qMap = new Map<string, { id: string; status: string; slug: string | null }>();
+    questionnaires?.forEach((q: any) => {
+      if (q.booking_id) qMap.set(q.booking_id, { id: q.id, status: q.status, slug: q.slug || null });
     });
 
     const merged: BookingWithQ[] = (bookingsData || []).map((b) => {
@@ -53,6 +57,7 @@ export default function PastBookingQuestionnaires() {
         intro_time: b.intro_time,
         questionnaire_id: q?.id || null,
         q_status: q?.status || null,
+        q_slug: q?.slug || null,
       };
     });
 
@@ -71,6 +76,7 @@ export default function PastBookingQuestionnaires() {
     const lastName = nameParts.slice(1).join(' ') || '';
     const newId = crypto.randomUUID();
 
+    const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: booking.id,
@@ -79,7 +85,8 @@ export default function PastBookingQuestionnaires() {
       scheduled_class_date: booking.class_date,
       scheduled_class_time: booking.intro_time || null,
       status: 'not_sent',
-    });
+      slug: newSlug || null,
+    } as any);
 
     setGeneratingId(null);
     if (error) {
@@ -90,7 +97,7 @@ export default function PastBookingQuestionnaires() {
 
     setBookings((prev) =>
       prev.map((b) =>
-        b.id === booking.id ? { ...b, questionnaire_id: newId, q_status: 'not_sent' } : b
+        b.id === booking.id ? { ...b, questionnaire_id: newId, q_status: 'not_sent', q_slug: newSlug } : b
       )
     );
     toast.success('Questionnaire link generated!');
@@ -98,7 +105,7 @@ export default function PastBookingQuestionnaires() {
 
   const copyLink = async (booking: BookingWithQ) => {
     if (!booking.questionnaire_id) return;
-    const link = `${window.location.origin}/q/${booking.questionnaire_id}`;
+    const link = booking.q_slug ? `${PUBLISHED_URL}/q/${booking.q_slug}` : `${PUBLISHED_URL}/q/${booking.questionnaire_id}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopiedId(booking.id);
@@ -220,7 +227,7 @@ export default function PastBookingQuestionnaires() {
                           <div className="flex items-center gap-1.5 shrink-0">
                             {statusBadge(b.q_status)}
                             <a
-                              href={`${window.location.origin}/q/${b.questionnaire_id}`}
+                              href={b.q_slug ? `${PUBLISHED_URL}/q/${b.q_slug}` : `${PUBLISHED_URL}/q/${b.questionnaire_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
