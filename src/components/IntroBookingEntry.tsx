@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, AlertTriangle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
 import RescheduleClientDialog from './RescheduleClientDialog';
@@ -76,16 +77,50 @@ export default function IntroBookingEntry({
     });
   }, [selectedClient, index, onUpdate]);
 
+  const handleChooseResendQuestionnaire = useCallback(async () => {
+    if (!selectedClient) return;
+    setShowActionDialog(false);
+    setDismissedWarning(true);
+    // Populate form with existing client info
+    onUpdate(index, {
+      memberName: selectedClient.member_name,
+      introDate: selectedClient.class_date,
+      introTime: selectedClient.intro_time || '',
+      leadSource: selectedClient.lead_source,
+      notes: selectedClient.fitness_goal || '',
+    });
+    // Look up existing questionnaire for this booking
+    const { data } = await supabase
+      .from('intro_questionnaires')
+      .select('id, status')
+      .eq('booking_id', selectedClient.id)
+      .maybeSingle();
+    if (data) {
+      onUpdate(index, {
+        questionnaireId: data.id,
+        questionnaireStatus: data.status as 'not_sent' | 'sent' | 'completed',
+      });
+    }
+  }, [selectedClient, index, onUpdate]);
+
   const handleCreateNew = useCallback(() => {
     setDismissedWarning(true);
   }, []);
 
-  const handleRescheduleSuccess = useCallback(() => {
+  const handleRescheduleSuccess = useCallback((updatedData: { date: string; time: string }) => {
+    if (!selectedClient) return;
     setShowRescheduleDialog(false);
+    // Populate form with updated info instead of clearing
+    onUpdate(index, {
+      memberName: selectedClient.member_name,
+      introDate: updatedData.date,
+      introTime: updatedData.time,
+      leadSource: selectedClient.lead_source,
+      notes: selectedClient.fitness_goal || '',
+    });
+    setDismissedWarning(true);
     setSelectedClient(null);
-    // Clear the booking entry since we updated an existing client
-    onUpdate(index, { memberName: '', introDate: '', introTime: '', leadSource: '', notes: '' });
-  }, [index, onUpdate]);
+  }, [index, onUpdate, selectedClient]);
 
   return (
     <>
@@ -199,6 +234,7 @@ export default function IntroBookingEntry({
             client={selectedClient}
             onReschedule={handleChooseReschedule}
             onSecondIntro={handleChoose2ndIntro}
+            onResendQuestionnaire={handleChooseResendQuestionnaire}
           />
           <RescheduleClientDialog
             open={showRescheduleDialog}
