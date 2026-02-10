@@ -106,6 +106,63 @@ export type Database = {
         }
         Relationships: []
       }
+      intro_questionnaires: {
+        Row: {
+          booking_id: string | null
+          client_first_name: string
+          client_last_name: string
+          created_at: string
+          id: string
+          q1_fitness_goal: string | null
+          q2_fitness_level: number | null
+          q3_obstacle: string | null
+          q4_past_experience: string | null
+          q5_emotional_driver: string | null
+          q6_weekly_commitment: string | null
+          q7_coach_notes: string | null
+          scheduled_class_date: string
+          scheduled_class_time: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          client_first_name: string
+          client_last_name?: string
+          created_at?: string
+          id?: string
+          q1_fitness_goal?: string | null
+          q2_fitness_level?: number | null
+          q3_obstacle?: string | null
+          q4_past_experience?: string | null
+          q5_emotional_driver?: string | null
+          q6_weekly_commitment?: string | null
+          q7_coach_notes?: string | null
+          scheduled_class_date: string
+          scheduled_class_time?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          client_first_name?: string
+          client_last_name?: string
+          created_at?: string
+          id?: string
+          q1_fitness_goal?: string | null
+          q2_fitness_level?: number | null
+          q3_obstacle?: string | null
+          q4_past_experience?: string | null
+          q5_emotional_driver?: string | null
+          q6_weekly_commitment?: string | null
+          q7_coach_notes?: string | null
+          scheduled_class_date?: string
+          scheduled_class_time?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: []
+      }
       intros_booked: {
         Row: {
           booked_by: string | null

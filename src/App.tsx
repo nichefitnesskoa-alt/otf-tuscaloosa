@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Recaps from "./pages/Recaps";
 import MyShifts from "./pages/MyShifts";
 import Admin from "./pages/Admin";
+import Questionnaire from "./pages/Questionnaire";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -75,6 +76,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/questionnaire/:id" element={<Questionnaire />} />
       <Route path="/" element={<Navigate to="/shift-recap" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
