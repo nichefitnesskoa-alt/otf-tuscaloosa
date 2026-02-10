@@ -1,30 +1,37 @@
 
 
-# Fix: Questionnaire Not Using Full Name
+# Shorten the Questionnaire Link
 
-## Problem
+## Current State
 
-The questionnaire link auto-creates as soon as the SA types a single character (e.g., "K") and a date is set. At that point, `client_first_name` is saved as "K" in the database. When the SA finishes typing the full name, the DB record is never updated -- so the prospect sees "Welcome, K!" instead of their full name.
+The link customers see looks like:
+```
+https://otf-tuscaloosa-shift-recap.lovable.app/questionnaire/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
 
-## Solution
+That's long and unfriendly in a text message.
 
-Two changes to `src/components/QuestionnaireLink.tsx`:
+## Change
 
-### 1. Delay auto-creation until the name looks complete
+Shorten the route from `/questionnaire/:id` to `/q/:id`. The resulting link will be:
 
-Add a minimum length check: require `firstName.length >= 2` before triggering the auto-create. This prevents firing on the first keystroke.
+```
+https://otf-tuscaloosa-shift-recap.lovable.app/q/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
 
-### 2. Sync name changes back to the database
+This cuts roughly 15 characters. The UUID itself must stay (it's the secure, unguessable identifier), but the path prefix gets much shorter.
 
-After the questionnaire record is created, if the SA updates the name (finishes typing, corrects a typo, etc.), push those changes to the existing DB record. Add a `useEffect` that watches `firstName`, `lastName`, `introDate`, and `introTime` and updates the record via a debounced call whenever they change.
+We'll also keep `/questionnaire/:id` as a redirect to `/q/:id` so any previously shared links still work.
 
-### Technical Details
+## Files Changed
 
-**File: `src/components/QuestionnaireLink.tsx`**
+### `src/App.tsx`
+- Change the primary route from `/questionnaire/:id` to `/q/:id`
+- Add a redirect: `/questionnaire/:id` forwards to `/q/:id` (backward compatibility)
 
-- Change the `hasMinData` check from `firstName.length > 0` to `firstName.length >= 2`
-- Add a new `useEffect` that runs when `questionnaireId` exists and `firstName`/`lastName`/`introDate`/`introTime` change:
-  - Debounce 800ms to avoid spamming updates on every keystroke
-  - Call `supabase.from('intro_questionnaires').update({ client_first_name, client_last_name, scheduled_class_date, scheduled_class_time }).eq('id', questionnaireId)`
-- This ensures the welcome message always shows the latest, complete name
+### `src/components/QuestionnaireLink.tsx`
+- Update the link template from `/questionnaire/${questionnaireId}` to `/q/${questionnaireId}`
+
+### `src/pages/Questionnaire.tsx`
+- No changes needed -- it reads the `:id` param regardless of route path
 
