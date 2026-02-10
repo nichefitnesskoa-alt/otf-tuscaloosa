@@ -1,45 +1,45 @@
 
 
-# Add "Resend Questionnaire" Option and Keep Booking Entry After Reschedule/2nd Intro
+# Name-Based Slug Questionnaire Links
 
-## Changes
+## What Changes
 
-### 1. Add "Resend Questionnaire" option to ClientActionDialog
-When selecting an existing client from autocomplete, a third button appears: **"Resend Questionnaire"**. This pulls the existing client's info into the booking entry form (name, date, time, lead source) but specifically to access/generate/copy the questionnaire link -- without creating a new booking or modifying the existing one.
+Questionnaire links will go from:
+`otf-tuscaloosa.lovable.app/q/a1b2c3d4-e5f6-7890-abcd-ef1234567890`
 
-### 2. Stop clearing the form after Reschedule or 2nd Intro
-Currently, after a successful reschedule, the booking entry fields are wiped clean (`memberName: '', introDate: '', ...`). After a 2nd intro selection, the dialog closes but the form stays populated (this already works). 
+To:
+`otf-tuscaloosa.lovable.app/q/john-smith`
 
-The fix: After **reschedule**, instead of clearing the form, populate it with the updated client info (new date/time) so the questionnaire link section appears and the SA can generate/copy the link.
-
-### 3. "Resend Questionnaire" flow
-When the SA picks "Resend Questionnaire":
-- Populate the booking entry with the client's existing name, date, time, lead source
-- Check if a questionnaire already exists for that booking (via `intro_questionnaires.booking_id`)
-- If yes, load the existing questionnaire ID and status so the link/copy/status badge appears
-- If no, the `QuestionnaireLink` component auto-generates one as usual
-- The SA can then copy the link and send it
+The published domain is already `otf-tuscaloosa.lovable.app` (no "shift-recap"), so no project rename needed.
 
 ## Technical Details
 
-### File: `src/components/ClientActionDialog.tsx`
-- Add a third button: "Resend Questionnaire" with a `FileText` icon
-- Description: "Get the pre-intro questionnaire link for this client"
-- Add `onResendQuestionnaire` callback prop
+### 1. Database migration
+- Add `slug` column (text, unique, nullable) to `intro_questionnaires`
+- Backfill existing records by generating slugs from `client_first_name` + `client_last_name`
+- Handle duplicate names by appending `-2`, `-3`, etc.
 
-### File: `src/components/IntroBookingEntry.tsx`
-- Add `handleChooseResendQuestionnaire` callback that:
-  - Closes the action dialog
-  - Populates the form with the client's existing info (name, date, time, lead source)
-  - Looks up any existing `intro_questionnaires` record by `booking_id` matching the selected client's ID
-  - If found, sets `questionnaireId` and `questionnaireStatus` on the booking entry
-  - Sets `dismissedWarning = true` to suppress the duplicate warning
-- Modify `handleRescheduleSuccess`:
-  - Instead of clearing all fields, populate them with the rescheduled client's updated info (new date/time from the reschedule dialog)
-  - This keeps the entry visible so the questionnaire link appears
-- Pass `onResendQuestionnaire` to `ClientActionDialog`
+### 2. Slug generation helper (`src/lib/utils.ts`)
+Add a `generateSlug` function:
+- Converts "John Smith" to `john-smith`
+- Strips special characters, collapses hyphens
+- Before inserting, queries existing slugs with same prefix and appends a number if needed (e.g., `john-smith-2`)
 
-### File: `src/components/RescheduleClientDialog.tsx`
-- Change `onSuccess` to pass back the updated date/time so `IntroBookingEntry` can populate the form instead of clearing it
-- Update the callback type to: `onSuccess: (updatedData: { date: string; time: string }) => void`
+### 3. `src/components/QuestionnaireLink.tsx`
+- When creating a questionnaire, generate slug from the name and store it
+- Use the published URL (`https://otf-tuscaloosa.lovable.app`) + slug for the link instead of `window.location.origin` + UUID
+- Sync slug when name changes
+
+### 4. `src/components/PastBookingQuestionnaires.tsx`
+- Same change: use published URL + slug for link generation and copy
+- Fetch `slug` column from existing questionnaire records
+
+### 5. `src/pages/Questionnaire.tsx`
+- Update lookup: try matching URL param against `slug` first, then fall back to `id` (UUID) for backward compatibility
+```
+.or(`slug.eq.${param},id.eq.${param}`)
+```
+
+### 6. `src/components/IntroBookingEntry.tsx`
+- When looking up existing questionnaires for resend, also fetch the `slug` field
 
