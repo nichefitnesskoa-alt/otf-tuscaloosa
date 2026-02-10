@@ -9,6 +9,7 @@ import { Trash2, AlertTriangle } from 'lucide-react';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
 import RescheduleClientDialog from './RescheduleClientDialog';
+import ClientActionDialog from './ClientActionDialog';
 import { LEAD_SOURCES } from '@/types';
 
 export interface IntroBookingData {
@@ -18,6 +19,7 @@ export interface IntroBookingData {
   introTime: string;
   leadSource: string;
   notes: string;
+  originatingBookingId?: string;
 }
 
 interface IntroBookingEntryProps {
@@ -38,6 +40,7 @@ export default function IntroBookingEntry({
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [selectedClient, setSelectedClient] = useState<PotentialMatch | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
+  const [showActionDialog, setShowActionDialog] = useState(false);
 
   const handleNameChange = useCallback((value: string) => {
     // Reset dismissed warning when name changes significantly
@@ -49,8 +52,25 @@ export default function IntroBookingEntry({
 
   const handleSelectExisting = useCallback((client: PotentialMatch) => {
     setSelectedClient(client);
+    setShowActionDialog(true);
+  }, []);
+
+  const handleChooseReschedule = useCallback(() => {
+    setShowActionDialog(false);
     setShowRescheduleDialog(true);
   }, []);
+
+  const handleChoose2ndIntro = useCallback(() => {
+    if (!selectedClient) return;
+    setShowActionDialog(false);
+    setDismissedWarning(true);
+    onUpdate(index, {
+      memberName: selectedClient.member_name,
+      leadSource: selectedClient.lead_source,
+      notes: `2nd intro - Original booking: ${selectedClient.class_date}`,
+      originatingBookingId: selectedClient.id,
+    });
+  }, [selectedClient, index, onUpdate]);
 
   const handleCreateNew = useCallback(() => {
     setDismissedWarning(true);
@@ -145,16 +165,28 @@ export default function IntroBookingEntry({
       </div>
 
       {selectedClient && (
-        <RescheduleClientDialog
-          open={showRescheduleDialog}
-          onOpenChange={(open) => {
-            setShowRescheduleDialog(open);
-            if (!open) setSelectedClient(null);
-          }}
-          client={selectedClient}
-          currentUserName={currentUserName}
-          onSuccess={handleRescheduleSuccess}
-        />
+        <>
+          <ClientActionDialog
+            open={showActionDialog}
+            onOpenChange={(open) => {
+              setShowActionDialog(open);
+              if (!open) setSelectedClient(null);
+            }}
+            client={selectedClient}
+            onReschedule={handleChooseReschedule}
+            onSecondIntro={handleChoose2ndIntro}
+          />
+          <RescheduleClientDialog
+            open={showRescheduleDialog}
+            onOpenChange={(open) => {
+              setShowRescheduleDialog(open);
+              if (!open) setSelectedClient(null);
+            }}
+            client={selectedClient}
+            currentUserName={currentUserName}
+            onSuccess={handleRescheduleSuccess}
+          />
+        </>
       )}
     </>
   );
