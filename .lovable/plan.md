@@ -1,44 +1,27 @@
 
 
-# Fix Link Preview for Questionnaire URLs
+# Add "Who's Coaching" Field to Intro Booking Entry
 
-## The Problem
-When you share a questionnaire link (e.g., `otf-tuscaloosa.lovable.app/q/koa-vincent`) on Instagram or iMessage, the preview shows "OTF T-Town Shift Recap" with a generic Lovable image. This looks unrelated and spammy.
+## What Changes
 
-## The Solution: Two Parts
+When booking an intro, staff will now be able to select which coach is running the session. Currently the coach is always saved as "TBD" and only gets filled in later when the intro is actually run.
 
-### Part 1 -- Update default meta tags (quick win)
-Update `index.html` to show Orangetheory branding by default:
-- **Title**: "Orangetheory Fitness Tuscaloosa" (or "OTF Tuscaloosa - Pre-Intro Questionnaire")
-- **Description**: Something like "Your personalized fitness journey starts here"
-- **OG Image**: Use the OTF logo or an Orangetheory-branded image instead of the generic Lovable one
-- **Favicon**: Already set to OTF
-
-This improves ALL link previews site-wide immediately.
-
-### Part 2 -- Dynamic OG tags for questionnaire links (server-side)
-Social media crawlers (Instagram, iMessage, etc.) don't run JavaScript, so they only see the static HTML. To show personalized previews per client (e.g., "Koa's Pre-Intro Questionnaire"), we need a backend function that intercepts crawler requests and returns custom HTML with the right meta tags.
-
-**How it works:**
-1. Create a backend function (`og-image` or `questionnaire-og`) that:
-   - Receives the slug from the URL
-   - Looks up the client name from the database
-   - Returns an HTML page with customized OG meta tags (title: "Koa's Pre-Intro Questionnaire", description: "Complete your quick questionnaire before your intro class at Orangetheory Fitness Tuscaloosa")
-   - Includes a redirect so real users (not crawlers) get sent to the actual questionnaire page
-
-2. This gives you personalized, professional-looking previews when shared on social media
-
-**However**, this approach has a limitation: it requires the questionnaire links to point to the edge function URL first, which makes the URL longer/different. A simpler alternative is to just make the default OG tags Orangetheory-branded (Part 1), which covers 90% of the problem.
-
-## Recommendation
-Start with **Part 1 only** -- update the default meta tags to be OTF-branded. This is simple, immediate, and makes every link preview look professional rather than spammy. The title won't say "Shift Recap" anymore, and the image will be OTF-branded.
+Adding a coach dropdown to the booking form lets staff assign the coach upfront when they know who it will be, while still defaulting to "TBD" if unknown.
 
 ## Technical Details
 
-### File: `index.html`
-- Change `<title>` from "OTF T-Town Shift Recap" to "Orangetheory Fitness Tuscaloosa"
-- Update `og:title` and `twitter:title` to match
-- Change `og:description` and `description` to something like "Your personalized fitness journey starts here"
-- Replace `og:image` and `twitter:image` with the OTF logo (upload a properly sized OG image, ideally 1200x630px, to the public folder)
-- Remove the Lovable twitter:site reference
+### 1. Update `IntroBookingData` interface (`src/components/IntroBookingEntry.tsx`)
+- Add `coachName: string` field to the interface (default `'TBD'`)
+
+### 2. Add coach selector UI (`src/components/IntroBookingEntry.tsx`)
+- Add a `<Select>` dropdown labeled "Who's Coaching" between the Lead Source and Notes fields
+- Options: all coaches from `COACHES` constant, plus a "TBD" option for when unknown
+- Import `COACHES` from `@/types`
+
+### 3. Update booking creation default (`src/pages/ShiftRecap.tsx`)
+- When creating a new blank booking entry, set `coachName: 'TBD'`
+- When inserting into `intros_booked`, use `booking.coachName` instead of the hardcoded `'TBD'`
+
+### 4. No database changes needed
+- The `intros_booked` table already has a `coach_name` column -- we're just populating it from the form instead of hardcoding "TBD"
 
