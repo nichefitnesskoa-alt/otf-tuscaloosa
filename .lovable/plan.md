@@ -1,179 +1,117 @@
 
-# Global Data Refresh Synchronization Plan
+# Add Reschedule vs 2nd Intro Choice
 
-## Problem Summary
+## Problem
 
-There are two issues:
-
-1. **Components with local data fetching bypass global state**: Several components in Studio, My Stats, and My Shifts fetch data directly from Supabase instead of using the global DataContext, so they don't update when Admin makes changes.
-
-2. **Lead Source Analytics should be updating but isn't**: The LeadSourceChart uses global state correctly, but there may be a timing or page-navigation issue where the refresh happens on a different page than where you're viewing.
-
-## Root Cause Analysis
-
-```text
-CURRENT ARCHITECTURE:
-
-Admin Page                           Other Pages
-┌────────────────┐                   ┌────────────────────────┐
-│ ClientJourney  │                   │ Recaps (Studio)        │
-│ Panel (Admin)  │                   │ ┌──────────────────┐   │
-│                │                   │ │ LeadSourceChart  │   │
-│ Edit lead      │ refreshGlobalData│ │ uses useData() ✓ │   │
-│ source ──────────────────────────► │ └──────────────────┘   │
-│                │                   │ ┌──────────────────┐   │
-│                │    NOT synced     │ │ ClientJourney    │   │
-│                │ ─────────────────X│ │ ReadOnly (local) │   │
-│                │                   │ └──────────────────┘   │
-└────────────────┘                   │ ┌──────────────────┐   │
-                                     │ │ MembersPurchased │   │
-                                     │ │ ReadOnly (local) │   │
-                                     │ └──────────────────┘   │
-                                     └────────────────────────┘
-
-┌────────────────┐                   ┌────────────────────────┐
-│ Dashboard      │                   │ MyShifts               │
-│ uses useData() │                   │ (local fetchMyRecaps)  │
-│ ✓              │                   │ NOT synced with global │
-└────────────────┘                   └────────────────────────┘
-```
+When you type a client name during booking entry and select an existing client, the app always assumes it's a **reschedule** and opens the reschedule dialog. But sometimes the client needs a **2nd intro** -- a completely new booking linked to the original -- not just a date change on the existing one.
 
 ## Solution
 
-### Part 1: Make Local-Fetching Components Listen to Global State
-
-Components with local data fetching need to re-fetch when global data is refreshed. We'll add a `lastUpdated` dependency that triggers re-fetches.
-
-### Part 2: Ensure All Views Respond to Global Refresh
-
-When `refreshGlobalData()` is called from Admin, all pages should see updated data without manual refresh.
+Replace the automatic reschedule behavior with a **choice dialog** that asks: "Is this a Reschedule or a 2nd Intro?" Then proceed accordingly.
 
 ---
 
-## Technical Changes
-
-### File 1: `src/components/dashboard/ClientJourneyReadOnly.tsx`
-
-**Add dependency on global lastUpdated to trigger refresh**
-
-```typescript
-// Import useData
-import { useData } from '@/context/DataContext';
-
-// Inside component:
-const { lastUpdated: globalLastUpdated } = useData();
-
-// Add effect to refetch when global data changes
-useEffect(() => {
-  if (globalLastUpdated) {
-    fetchData();
-  }
-}, [globalLastUpdated]);
-```
-
-### File 2: `src/components/dashboard/MembershipPurchasesReadOnly.tsx`
-
-**Add dependency on global lastUpdated**
-
-```typescript
-// Import useData
-import { useData } from '@/context/DataContext';
-
-// Inside component:
-const { lastUpdated: globalLastUpdated } = useData();
-
-// Add effect to refetch when global data changes
-useEffect(() => {
-  if (globalLastUpdated && dateRange) {
-    fetchPurchases();
-  }
-}, [globalLastUpdated, dateRange]);
-```
-
-### File 3: `src/pages/MyShifts.tsx`
-
-**Add dependency on global lastUpdated**
-
-```typescript
-// Import useData
-import { useData } from '@/context/DataContext';
-
-// Inside component:
-const { lastUpdated: globalLastUpdated } = useData();
-
-// Add effect to refetch when global data changes
-useEffect(() => {
-  if (globalLastUpdated) {
-    fetchMyRecaps();
-  }
-}, [globalLastUpdated, user?.name]);
-```
-
-### File 4: `src/pages/Dashboard.tsx` (My Stats)
-
-**Already uses useData() correctly** - no changes needed. The `useDashboardMetrics` hook recomputes when global data changes.
-
-### File 5: `src/pages/Recaps.tsx` (Studio)
-
-**Already uses useData() correctly** - LeadSourceChart should update. However, let's verify by adding a console log temporarily or ensuring the refresh triggers correctly.
-
----
-
-## Summary Table
-
-| Component | Current State | Change |
-|-----------|--------------|--------|
-| `ClientJourneyReadOnly.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
-| `MembershipPurchasesReadOnly.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
-| `MyShifts.tsx` | Local fetch bypasses global | Add `lastUpdated` listener |
-| `Dashboard.tsx` (My Stats) | Uses global context | No changes |
-| `Recaps.tsx` (Studio) | Uses global context | No changes |
-| `LeadSourceChart.tsx` | Pure component, uses props | No changes |
-
----
-
-## Why Lead Source Analytics Should Already Work
-
-The `LeadSourceChart` on the Recaps page:
-1. Gets `data={metrics.leadSourceMetrics}` from `useDashboardMetrics`
-2. `useDashboardMetrics` uses `introsBooked` from `useData()`
-3. When `refreshGlobalData()` is called, `introsBooked` updates
-4. The `useMemo` in `useDashboardMetrics` recalculates `leadSourceMetrics`
-5. `LeadSourceChart` re-renders with new data
-
-If it's not updating, the issue may be:
-- You're editing in Admin, but haven't navigated back to Studio/Recaps
-- The page needs to be in view when the refresh happens
-- Or there may be a caching issue in the browser
-
-**Recommended test**: After making changes in Admin, click the refresh button (↻) on the Recaps page manually to verify the data is correct in the database.
-
----
-
-## After This Fix
+## How It Works
 
 ```text
-FIXED ARCHITECTURE:
-
-Admin Page                           Other Pages
-┌────────────────┐                   ┌────────────────────────┐
-│ ClientJourney  │                   │ Recaps (Studio)        │
-│ Panel (Admin)  │                   │ ┌──────────────────┐   │
-│                │                   │ │ LeadSourceChart  │ ✓ │
-│ Edit lead      │ refreshGlobalData│ └──────────────────┘   │
-│ source ──────────────────────────► │ ┌──────────────────┐   │
-│                │                   │ │ ClientJourney    │   │
-│                │ lastUpdated ─────►│ │ ReadOnly ✓       │   │
-│                │ triggers refetch  │ └──────────────────┘   │
-│                │                   │ ┌──────────────────┐   │
-│                │                   │ │ MembersPurchased │   │
-│                │                   │ │ ReadOnly ✓       │   │
-└────────────────┘                   └──────────────────────────┘
-
-                                     ┌────────────────────────┐
-                                     │ MyShifts ✓             │
-                                     │ Now syncs with global  │
-                                     └────────────────────────┘
+Type client name → Match found → Click existing client
+                                        │
+                                  ┌─────▼──────┐
+                                  │ What action?│
+                                  └──┬──────┬───┘
+                                     │      │
+                              Reschedule  2nd Intro
+                                     │      │
+                              Update the   Create NEW
+                              existing     booking with
+                              booking's    originating_
+                              date/time    booking_id
+                                           pointing to
+                                           original
 ```
 
-All components will now respond to global data changes without requiring a manual page refresh.
+## Changes
+
+### 1. New Component: `src/components/ClientActionDialog.tsx`
+
+A small dialog that appears when you select an existing client. It shows:
+- Client name and current booking info
+- Two buttons: **Reschedule** and **Book 2nd Intro**
+
+Selecting **Reschedule** opens the existing `RescheduleClientDialog`.
+
+Selecting **Book 2nd Intro** pre-fills the booking entry form with:
+- The client's name (auto-filled)
+- Lead source carried over from original
+- `originating_booking_id` set to the original booking's ID
+- Dismisses the duplicate warning since this is intentional
+
+### 2. Modify: `src/components/IntroBookingEntry.tsx`
+
+- Replace the direct `RescheduleClientDialog` opening with the new `ClientActionDialog`
+- Add `originating_booking_id` to the `IntroBookingData` interface so the shift recap submission can link them
+- When "2nd Intro" is chosen, populate the form fields and set `originating_booking_id`
+
+Updated interface:
+```typescript
+export interface IntroBookingData {
+  id: string;
+  memberName: string;
+  introDate: string;
+  introTime: string;
+  leadSource: string;
+  notes: string;
+  originatingBookingId?: string;  // NEW - links 2nd intros to original
+}
+```
+
+Updated handler flow:
+```typescript
+const handleSelectExisting = (client: PotentialMatch) => {
+  setSelectedClient(client);
+  setShowActionDialog(true);  // Show choice dialog instead of reschedule
+};
+
+const handleChooseReschedule = () => {
+  setShowActionDialog(false);
+  setShowRescheduleDialog(true);
+};
+
+const handleChoose2ndIntro = () => {
+  setShowActionDialog(false);
+  setDismissedWarning(true);
+  onUpdate(index, {
+    memberName: selectedClient.member_name,
+    leadSource: selectedClient.lead_source,
+    notes: `2nd intro - Original booking: ${selectedClient.class_date}`,
+    originatingBookingId: selectedClient.id,
+  });
+};
+```
+
+### 3. Modify: `src/pages/ShiftRecap.tsx`
+
+When submitting bookings, pass through the `originating_booking_id` field so new 2nd-intro bookings are properly linked to their original booking in the database.
+
+Find the booking submission section and add:
+```typescript
+originating_booking_id: booking.originatingBookingId || null,
+```
+
+---
+
+## Technical Details
+
+### Files to Create
+| File | Purpose |
+|------|---------|
+| `src/components/ClientActionDialog.tsx` | Choice dialog: Reschedule vs 2nd Intro |
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/IntroBookingEntry.tsx` | Add action choice flow, add `originatingBookingId` to interface |
+| `src/pages/ShiftRecap.tsx` | Pass `originating_booking_id` when inserting bookings |
+
+### Database
+No schema changes needed -- `intros_booked` already has an `originating_booking_id` column.
