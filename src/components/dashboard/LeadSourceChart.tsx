@@ -25,6 +25,10 @@ const COLORS = [
   'hsl(270, 70%, 50%)',   // purple
   'hsl(180, 70%, 45%)',   // teal
   'hsl(330, 70%, 50%)',   // pink
+  'hsl(15, 80%, 55%)',    // coral
+  'hsl(200, 60%, 40%)',   // steel blue
+  'hsl(90, 60%, 40%)',    // olive
+  'hsl(300, 50%, 55%)',   // orchid
 ];
 
 export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
@@ -37,8 +41,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
       value: d.booked,
       sold: d.sold,
     }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+    .sort((a, b) => b.value - a.value);
 
   // Prepare bar chart data for conversion rates
   const barData = data
@@ -95,7 +98,6 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                   innerRadius={40}
                   outerRadius={70}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                   labelLine={false}
                 >
                   {pieData.map((_, index) => (
@@ -112,7 +114,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
             </ResponsiveContainer>
             {/* Summary below chart */}
             <div className="mt-2 space-y-1">
-              {pieData.slice(0, 4).map((item, idx) => (
+              {pieData.map((item, idx) => (
                 <div key={item.fullName} className="flex justify-between text-xs">
                   <span className="flex items-center gap-1.5">
                     <span 
