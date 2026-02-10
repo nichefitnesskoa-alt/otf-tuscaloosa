@@ -112,10 +112,12 @@ export async function generateUniqueSlug(
   const base = generateNameSlug(firstName, lastName);
   if (!base) return '';
 
-  const { data: existing } = await supabaseClient
+  let query = supabaseClient
     .from('intro_questionnaires')
     .select('slug')
     .like('slug', `${base}%`);
+  if (excludeId) query = query.neq('id', excludeId);
+  const { data: existing } = await query;
 
   const taken = new Set((existing || []).map((r: any) => r.slug));
 

@@ -39,6 +39,7 @@ export default function QuestionnaireLink({
   const hasMinData = firstName.length >= 2 && introDate;
   const syncRef = useRef<NodeJS.Timeout>();
   const [slug, setSlug] = useState<string | null>(null);
+  const prevNameRef = useRef<string>('');
 
   // Auto-create questionnaire when we have minimum data and no ID yet
   const createQuestionnaire = useCallback(async () => {
@@ -64,6 +65,7 @@ export default function QuestionnaireLink({
       return;
     }
     setSlug(newSlug);
+    prevNameRef.current = `${firstName} ${lastName}`.trim();
     onQuestionnaireCreated(newId);
   }, [hasMinData, questionnaireId, creating, failed, firstName, lastName, introDate, introTime, onQuestionnaireCreated]);
 
@@ -76,15 +78,26 @@ export default function QuestionnaireLink({
     if (!questionnaireId || !firstName) return;
     if (syncRef.current) clearTimeout(syncRef.current);
     syncRef.current = setTimeout(async () => {
-      const newSlug = await generateUniqueSlug(firstName, lastName, supabase, questionnaireId);
-      await supabase.from('intro_questionnaires').update({
-        client_first_name: firstName,
-        client_last_name: lastName,
-        scheduled_class_date: introDate,
-        scheduled_class_time: introTime || null,
-        slug: newSlug || null,
-      } as any).eq('id', questionnaireId);
-      setSlug(newSlug);
+      const currentName = `${firstName} ${lastName}`.trim();
+      const nameChanged = currentName !== prevNameRef.current;
+
+      if (nameChanged) {
+        const newSlug = await generateUniqueSlug(firstName, lastName, supabase, questionnaireId);
+        await supabase.from('intro_questionnaires').update({
+          client_first_name: firstName,
+          client_last_name: lastName,
+          scheduled_class_date: introDate,
+          scheduled_class_time: introTime || null,
+          slug: newSlug || null,
+        } as any).eq('id', questionnaireId);
+        setSlug(newSlug);
+        prevNameRef.current = currentName;
+      } else {
+        await supabase.from('intro_questionnaires').update({
+          scheduled_class_date: introDate,
+          scheduled_class_time: introTime || null,
+        } as any).eq('id', questionnaireId);
+      }
     }, 800);
     return () => { if (syncRef.current) clearTimeout(syncRef.current); };
   }, [questionnaireId, firstName, lastName, introDate, introTime]);
