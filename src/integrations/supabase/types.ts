@@ -123,6 +123,7 @@ export type Database = {
           q7_coach_notes: string | null
           scheduled_class_date: string
           scheduled_class_time: string | null
+          slug: string | null
           status: string
           submitted_at: string | null
         }
@@ -142,6 +143,7 @@ export type Database = {
           q7_coach_notes?: string | null
           scheduled_class_date: string
           scheduled_class_time?: string | null
+          slug?: string | null
           status?: string
           submitted_at?: string | null
         }
@@ -161,6 +163,7 @@ export type Database = {
           q7_coach_notes?: string | null
           scheduled_class_date?: string
           scheduled_class_time?: string | null
+          slug?: string | null
           status?: string
           submitted_at?: string | null
         }

@@ -97,10 +97,12 @@ export default function Questionnaire() {
   useEffect(() => {
     if (!id) { setError('Invalid link'); setLoading(false); return; }
     (async () => {
+      // Try slug first, fall back to UUID for backward compat
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       const { data: row, error: err } = await supabase
         .from('intro_questionnaires')
         .select('id, client_first_name, client_last_name, scheduled_class_date, scheduled_class_time, status')
-        .eq('id', id)
+        .or(isUUID ? `id.eq.${id},slug.eq.${id}` : `slug.eq.${id}`)
         .maybeSingle();
       if (err || !row) { setError('Invalid link'); setLoading(false); return; }
       if (row.status === 'completed') { setError('already_submitted'); setData(row as QuestionnaireData); setLoading(false); return; }
