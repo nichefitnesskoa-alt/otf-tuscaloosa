@@ -27,6 +27,7 @@ export default function QuestionnaireLink({
   onStatusChange,
 }: QuestionnaireLinkProps) {
   const [creating, setCreating] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const nameParts = memberName.trim().split(/\s+/);
@@ -36,7 +37,7 @@ export default function QuestionnaireLink({
 
   // Auto-create questionnaire when we have minimum data and no ID yet
   const createQuestionnaire = useCallback(async () => {
-    if (!hasMinData || questionnaireId || creating) return;
+    if (!hasMinData || questionnaireId || creating || failed) return;
     setCreating(true);
     const newId = crypto.randomUUID();
     const { error } = await supabase.from('intro_questionnaires').insert({
@@ -52,10 +53,11 @@ export default function QuestionnaireLink({
     if (error) {
       console.error('Error creating questionnaire:', error);
       toast.error('Failed to generate questionnaire link');
+      setFailed(true);
       return;
     }
     onQuestionnaireCreated(newId);
-  }, [hasMinData, questionnaireId, creating, firstName, lastName, introDate, introTime, onQuestionnaireCreated]);
+  }, [hasMinData, questionnaireId, creating, failed, firstName, lastName, introDate, introTime, onQuestionnaireCreated]);
 
   useEffect(() => {
     createQuestionnaire();
