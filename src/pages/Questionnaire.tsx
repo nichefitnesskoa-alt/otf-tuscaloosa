@@ -48,8 +48,9 @@ const Q4A_OPTIONS = [
 ];
 
 const Q4B_OPTIONS = [
-  'Yes, but I need something new',
-  'I saw some progress but couldn\'t stick with it',
+  'Yes',
+  'I saw some progress but couldn\'t stick to it',
+  'I just need something new',
   'Not really',
 ];
 
@@ -80,7 +81,7 @@ export default function Questionnaire() {
   const [q1, setQ1] = useState('');
   const [q1Other, setQ1Other] = useState('');
   const [q2, setQ2] = useState<number | null>(null);
-  const [q3, setQ3] = useState('');
+  const [q3, setQ3] = useState<string[]>([]);
   const [q3Other, setQ3Other] = useState('');
   const [q4a, setQ4a] = useState('');
   const [q4b, setQ4b] = useState('');
@@ -130,14 +131,14 @@ export default function Questionnaire() {
     switch (step) {
       case 1: return q1 !== '' && (q1 !== 'Other' || q1Other.trim() !== '');
       case 2: return q2 !== null;
-      case 3: return q3 !== '' && (q3 !== 'Other' || q3Other.trim() !== '');
+      case 3: return q3.length > 0 && (!q3.includes('Other') || q3Other.trim() !== '');
       case 4: return q4a !== '';
       case 5: return true; // optional
       case 6: return q6 !== '';
       case 7: return true; // optional
       default: return true;
     }
-  }, [step, q1, q1Other, q2, q3, q3Other, q4a, q5, q5Other, q6]);
+  }, [step, q1, q1Other, q2, q3, q3Other, q4a, q6]);
 
   const goNext = () => {
     if (!canProceed()) { setShowError(true); return; }
@@ -157,7 +158,7 @@ export default function Questionnaire() {
     if (!data) return;
     setSubmitting(true);
     const finalQ1 = q1 === 'Other' ? q1Other : q1;
-    const finalQ3 = q3 === 'Other' ? q3Other : q3;
+    const finalQ3 = q3.map(val => val === 'Other' ? q3Other : val).join(' | ');
     const finalQ5 = q5 === 'Other' ? q5Other : (q5 || null);
     // Q4: combine Q4a and Q4b
     const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
@@ -222,16 +223,16 @@ export default function Questionnaire() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
       <img src={otfLogo} alt="Orangetheory Fitness" className="h-12 mb-6 object-contain" />
       <CheckCircle className="w-16 h-16 mb-4" style={{ color: OTF_ORANGE }} />
-      <h1 className="text-2xl font-bold mb-2" style={{ color: '#333' }}>You already submitted your questionnaire.</h1>
-      <p className="text-lg" style={{ color: '#666' }}>See you at class, {data.client_first_name}! 🧡</p>
+      <h1 className="text-2xl font-bold mb-2" style={{ color: '#1a1a1a' }}>You already submitted your questionnaire.</h1>
+      <p className="text-lg" style={{ color: '#555' }}>See you at class, {data.client_first_name}! 🧡</p>
     </div>
   );
 
   if (error) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
       <img src={otfLogo} alt="Orangetheory Fitness" className="h-12 mb-6 object-contain" />
-      <h1 className="text-2xl font-bold mb-2" style={{ color: '#333' }}>Invalid Link</h1>
-      <p style={{ color: '#666' }}>This questionnaire link is not valid. Please check the link you received.</p>
+      <h1 className="text-2xl font-bold mb-2" style={{ color: '#1a1a1a' }}>Invalid Link</h1>
+      <p style={{ color: '#555' }}>This questionnaire link is not valid. Please check the link you received.</p>
     </div>
   );
 
@@ -267,12 +268,12 @@ export default function Questionnaire() {
       case 0: // Welcome
         return (
           <div className="text-center space-y-6">
-            <h1 className="text-2xl font-bold" style={{ color: '#333' }}>Help Your Coach Help You</h1>
-            <p className="text-base" style={{ color: '#666' }}>
+            <h1 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>Help Your Coach Help You</h1>
+            <p className="text-base" style={{ color: '#555' }}>
               Answer a few quick questions so your coach can personalize your first class. Takes about 2 minutes.
             </p>
             <div className="rounded-xl p-4" style={{ backgroundColor: '#FFF5EB', border: `1px solid ${OTF_ORANGE}30` }}>
-              <p className="text-lg" style={{ color: '#333' }}>
+              <p className="text-lg" style={{ color: '#1a1a1a' }}>
                 Welcome, <strong>{data.client_first_name}</strong>! We're excited to see you on <strong>{formatClassDate()}</strong>.
               </p>
             </div>
@@ -285,7 +286,7 @@ export default function Questionnaire() {
       case 1: // Q1
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>What's your #1 fitness goal right now?</h2>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What's your #1 fitness goal right now?</h2>
             <div className="space-y-3">
               {Q1_OPTIONS.map(opt => (
                 <SelectCard key={opt} label={opt} selected={q1 === opt} onSelect={() => { setQ1(opt); setShowError(false); }} />
@@ -308,7 +309,7 @@ export default function Questionnaire() {
       case 2: // Q2 - 1-5 Tappable Buttons
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>On a scale of 1 to 5, how would you rate your current fitness level?</h2>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>On a scale of 1 to 5, how would you rate your current fitness level?</h2>
             <div className="flex justify-center gap-3">
               {[1, 2, 3, 4, 5].map(n => (
                 <button
@@ -325,7 +326,7 @@ export default function Questionnaire() {
                 </button>
               ))}
             </div>
-            <div className="flex justify-between text-xs px-1" style={{ color: '#999' }}>
+            <div className="flex justify-between text-xs px-1" style={{ color: '#777' }}>
               <span>Starting from<br />scratch</span>
               <span className="text-center">Decent but<br />inconsistent</span>
               <span className="text-right">Peak<br />fitness</span>
@@ -334,16 +335,73 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 3: // Q3 - Single select
+      case 3: // Q3 - Multi-select
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>What's been the biggest thing stopping you from reaching your fitness goals?</h2>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What's been the biggest thing stopping you from reaching your fitness goals?</h2>
+            <p className="text-sm" style={{ color: '#555' }}>Select all that apply.</p>
             <div className="space-y-3">
-              {Q3_OPTIONS.map(opt => (
-                <SelectCard key={opt} label={opt} selected={q3 === opt} onSelect={() => { setQ3(opt); setShowError(false); }} />
-              ))}
-              <SelectCard label="Other (please share)" selected={q3 === 'Other'} onSelect={() => { setQ3('Other'); setShowError(false); }} />
-              {q3 === 'Other' && (
+              {Q3_OPTIONS.map(opt => {
+                const selected = q3.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setQ3(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt]);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    {opt}
+                  </button>
+                );
+              })}
+              {/* Other option */}
+              {(() => {
+                const selected = q3.includes('Other');
+                return (
+                  <button
+                    onClick={() => {
+                      setQ3(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other']);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    Other (please share)
+                  </button>
+                );
+              })()}
+              {q3.includes('Other') && (
                 <Input
                   value={q3Other}
                   onChange={e => setQ3Other(e.target.value)}
@@ -353,7 +411,7 @@ export default function Questionnaire() {
                 />
               )}
             </div>
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option to continue.</p>}
+            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select at least one option to continue.</p>}
           </div>
         );
 
@@ -361,7 +419,7 @@ export default function Questionnaire() {
         return (
           <div className="space-y-6">
             <div className="space-y-4">
-              <h2 className="text-xl font-bold" style={{ color: '#333' }}>Have you tried other gyms or fitness programs before?</h2>
+              <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>Have you tried other gyms or fitness programs before?</h2>
               <div className="space-y-3">
                 {Q4A_OPTIONS.map(opt => (
                   <SelectCard
@@ -389,7 +447,7 @@ export default function Questionnaire() {
                   className="overflow-hidden"
                 >
                   <div className="space-y-4 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
-                    <h3 className="text-lg font-semibold" style={{ color: '#333' }}>Did you see the results you were hoping for?</h3>
+                    <h3 className="text-lg font-semibold" style={{ color: '#1a1a1a' }}>Did you see the results you were hoping for?</h3>
                     <div className="space-y-3">
                       {Q4B_OPTIONS.map(opt => (
                         <SelectCard key={opt} label={opt} selected={q4b === opt} onSelect={() => setQ4b(opt)} />
@@ -407,11 +465,11 @@ export default function Questionnaire() {
       case 5: // Q5 - Single select, optional
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>
               What would reaching your fitness/health goals actually mean for you?
-              <span className="text-sm font-normal ml-2" style={{ color: '#999' }}>(Optional)</span>
+              <span className="text-sm font-normal ml-2" style={{ color: '#777' }}>(Optional)</span>
             </h2>
-            <p className="text-sm" style={{ color: '#999' }}>Totally optional, but it helps your coach understand what really matters to you.</p>
+            <p className="text-sm" style={{ color: '#555' }}>Totally optional, but it helps your coach understand what really matters to you.</p>
             <div className="space-y-3">
               {Q5_OPTIONS.map(opt => (
                 <SelectCard
@@ -443,7 +501,7 @@ export default function Questionnaire() {
         return (
           <div className="space-y-6">
             <div className="space-y-4">
-              <h2 className="text-xl font-bold" style={{ color: '#333' }}>How many days per week could you realistically commit to working out?</h2>
+              <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>How many days per week could you realistically commit to working out?</h2>
               <div className="space-y-3">
                 {Q6_OPTIONS.map(opt => (
                   <button
@@ -473,7 +531,7 @@ export default function Questionnaire() {
                   className="overflow-hidden"
                 >
                   <div className="space-y-3 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
-                    <h3 className="text-lg font-semibold" style={{ color: '#333' }}>What days are you most likely available?</h3>
+                    <h3 className="text-lg font-semibold" style={{ color: '#1a1a1a' }}>What days are you most likely available to block out an hour of time to work out?</h3>
                     <div className="grid grid-cols-4 gap-2">
                       {DAY_OPTIONS.map(day => {
                         const selected = q6bDays.includes(day);
@@ -506,11 +564,11 @@ export default function Questionnaire() {
       case 7: // Q7
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>
               Anything else you'd like your coach to know?
-              <span className="text-sm font-normal ml-2" style={{ color: '#999' }}>(Optional)</span>
+              <span className="text-sm font-normal ml-2" style={{ color: '#777' }}>(Optional)</span>
             </h2>
-            <p className="text-sm" style={{ color: '#999' }}>Injuries, preferences, concerns, questions — anything helps.</p>
+            <p className="text-sm" style={{ color: '#555' }}>Injuries, preferences, concerns, questions, anything helps.</p>
             <Textarea
               value={q7}
               onChange={e => setQ7(e.target.value)}
@@ -524,10 +582,10 @@ export default function Questionnaire() {
         return (
           <div className="text-center space-y-6">
             <CheckCircle className="w-20 h-20 mx-auto" style={{ color: OTF_ORANGE }} />
-            <h1 className="text-2xl font-bold" style={{ color: '#333' }}>
+            <h1 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>
               You're all set, {data.client_first_name}!
             </h1>
-            <p className="text-lg" style={{ color: '#666' }}>
+            <p className="text-lg" style={{ color: '#555' }}>
               Your coach will use this to make your first class awesome. See you on {formatClassDate()}!
             </p>
             <Button
@@ -553,7 +611,7 @@ export default function Questionnaire() {
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 object-contain" />
           {step > 0 && step < 8 && (
-            <span className="text-xs font-medium" style={{ color: '#999' }}>{step} of 7</span>
+            <span className="text-xs font-medium" style={{ color: '#777' }}>{step} of 7</span>
           )}
         </div>
         {step > 0 && step < 8 && (
