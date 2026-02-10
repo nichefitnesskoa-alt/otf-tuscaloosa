@@ -10,6 +10,7 @@ interface QuestionnaireResponse {
   q4_past_experience: string | null;
   q5_emotional_driver: string | null;
   q6_weekly_commitment: string | null;
+  q6b_available_days: string | null;
   q7_coach_notes: string | null;
 }
 
@@ -31,7 +32,17 @@ export default function QuestionnaireResponseViewer({ questionnaireId, questionn
         .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q7_coach_notes')
         .eq('id', questionnaireId)
         .maybeSingle();
-      if (row) setData(row as QuestionnaireResponse);
+      // Also fetch q6b_available_days via a separate cast since it may not be in generated types yet
+      let q6bValue: string | null = null;
+      try {
+        const { data: extraRow } = await supabase
+          .from('intro_questionnaires')
+          .select('q6b_available_days' as any)
+          .eq('id', questionnaireId)
+          .maybeSingle();
+        q6bValue = (extraRow as any)?.q6b_available_days ?? null;
+      } catch {}
+      if (row) setData({ ...(row as any), q6b_available_days: q6bValue } as QuestionnaireResponse);
       setLoaded(true);
     })();
   }, [questionnaireId, questionnaireStatus, loaded]);
@@ -43,6 +54,11 @@ export default function QuestionnaireResponseViewer({ questionnaireId, questionn
       ? data.q5_emotional_driver.substring(0, 80) + '…'
       : data.q5_emotional_driver
     : '—';
+
+  // Parse Q4 into Q4a and Q4b
+  const q4Parts = data.q4_past_experience?.split(' | ') ?? [];
+  const q4a = q4Parts[0] || null;
+  const q4b = q4Parts.length > 1 ? q4Parts.slice(1).join(' | ') : null;
 
   return (
     <div className="mt-2">
@@ -69,7 +85,7 @@ export default function QuestionnaireResponseViewer({ questionnaireId, questionn
             </div>
             <div className="flex gap-2">
               <span className="font-bold text-muted-foreground w-24 shrink-0">LEVEL:</span>
-              <span style={{ color: '#333' }}>{data.q2_fitness_level ?? '—'}/10</span>
+              <span style={{ color: '#333' }}>{data.q2_fitness_level ?? '—'}/5</span>
             </div>
             <div className="flex gap-2">
               <span className="font-bold text-muted-foreground w-24 shrink-0">OBSTACLE:</span>
@@ -84,11 +100,13 @@ export default function QuestionnaireResponseViewer({ questionnaireId, questionn
           {/* Full responses */}
           <div className="space-y-2 text-xs">
             <ResponseRow label="Q1: Fitness Goal" value={data.q1_fitness_goal} />
-            <ResponseRow label="Q2: Fitness Level" value={data.q2_fitness_level ? `${data.q2_fitness_level}/10` : null} />
+            <ResponseRow label="Q2: Fitness Level" value={data.q2_fitness_level ? `${data.q2_fitness_level}/5` : null} />
             <ResponseRow label="Q3: Biggest Obstacle" value={data.q3_obstacle} />
-            <ResponseRow label="Q4: Past Experience" value={data.q4_past_experience} />
+            <ResponseRow label="Q4a: Past Experience" value={q4a} />
+            <ResponseRow label="Q4b: Past Results" value={q4b} />
             <ResponseRow label="Q5: Emotional Driver" value={data.q5_emotional_driver} />
             <ResponseRow label="Q6: Weekly Commitment" value={data.q6_weekly_commitment} />
+            <ResponseRow label="Q6b: Available Days" value={data.q6b_available_days} />
             <ResponseRow label="Q7: Coach Notes" value={data.q7_coach_notes} />
           </div>
         </div>
