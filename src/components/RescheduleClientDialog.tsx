@@ -16,7 +16,7 @@ interface RescheduleClientDialogProps {
   onOpenChange: (open: boolean) => void;
   client: PotentialMatch;
   currentUserName: string;
-  onSuccess: () => void;
+  onSuccess: (updatedData: { date: string; time: string }) => void;
 }
 
 export default function RescheduleClientDialog({
@@ -65,7 +65,7 @@ export default function RescheduleClientDialog({
         description: `${client.member_name}'s intro has been updated to ${newDate}`,
       });
 
-      onSuccess();
+      onSuccess({ date: newDate, time: newTime });
       onOpenChange(false);
     } catch (err) {
       console.error('Error rescheduling client:', err);
