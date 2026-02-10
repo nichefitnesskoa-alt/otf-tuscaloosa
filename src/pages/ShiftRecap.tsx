@@ -143,6 +143,7 @@ export default function ShiftRecap() {
       introDate: date,
       introTime: '',
       leadSource: '',
+      coachName: 'TBD',
       notes: ''
     }]);
   };
@@ -247,7 +248,7 @@ export default function ShiftRecap() {
             member_name: booking.memberName,
             class_date: booking.introDate,
             intro_time: booking.introTime || null,
-            coach_name: 'TBD',
+            coach_name: booking.coachName || 'TBD',
             sa_working_shift: staffName,
             booked_by: staffName,
             lead_source: booking.leadSource || 'Source Not Found',

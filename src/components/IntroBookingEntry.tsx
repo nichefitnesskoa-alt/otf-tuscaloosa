@@ -13,7 +13,7 @@ import RescheduleClientDialog from './RescheduleClientDialog';
 import ClientActionDialog from './ClientActionDialog';
 import QuestionnaireLink from './QuestionnaireLink';
 import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
-import { LEAD_SOURCES } from '@/types';
+import { LEAD_SOURCES, COACHES } from '@/types';
 
 export interface IntroBookingData {
   id: string;
@@ -21,6 +21,7 @@ export interface IntroBookingData {
   introDate: string;
   introTime: string;
   leadSource: string;
+  coachName: string;
   notes: string;
   originatingBookingId?: string;
   questionnaireId?: string;
@@ -187,6 +188,24 @@ export default function IntroBookingEntry({
             <SelectContent>
               {LEAD_SOURCES.map((source) => (
                 <SelectItem key={source} value={source}>{source}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-xs">Who's Coaching</Label>
+          <Select
+            value={booking.coachName}
+            onValueChange={(v) => onUpdate(index, { coachName: v })}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select coach..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TBD">TBD</SelectItem>
+              {COACHES.map((coach) => (
+                <SelectItem key={coach} value={coach}>{coach}</SelectItem>
               ))}
             </SelectContent>
           </Select>
