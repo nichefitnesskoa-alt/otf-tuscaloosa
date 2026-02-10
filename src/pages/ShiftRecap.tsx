@@ -248,14 +248,14 @@ export default function ShiftRecap() {
             class_date: booking.introDate,
             intro_time: booking.introTime || null,
             coach_name: 'TBD',
-            sa_working_shift: staffName, // Legacy field (still populated for backwards compatibility)
-            booked_by: staffName,        // NEW: booked_by = who booked it
+            sa_working_shift: staffName,
+            booked_by: staffName,
             lead_source: booking.leadSource || 'Source Not Found',
             fitness_goal: booking.notes || null,
             shift_recap_id: shiftData.id,
-            // intro_owner is NULL at booking creation (set on first run)
             intro_owner: null,
             intro_owner_locked: false,
+            originating_booking_id: booking.originatingBookingId || null,
           });
 
           // Sync to Google Sheets if configured
