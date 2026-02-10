@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format, parse } from 'date-fns';
 
@@ -40,6 +41,16 @@ const Q3_OPTIONS = [
   "Haven't found a gym or program that fits me",
 ];
 
+const Q5_OPTIONS = [
+  'Feel more confident in how I look and feel',
+  'Have more energy for my kids, family, or daily life',
+  'Prove to myself I can stick with something',
+  'Reduce stress and feel mentally healthier',
+  'Get off medications or improve a health condition',
+  'Feel strong and capable again',
+  'Keep up with activities I love (sports, hiking, travel, etc.)',
+];
+
 const Q6_OPTIONS = ['1-2 days', '3-4 days', '5+ days'];
 
 export default function Questionnaire() {
@@ -55,10 +66,11 @@ export default function Questionnaire() {
   const [q1, setQ1] = useState('');
   const [q1Other, setQ1Other] = useState('');
   const [q2, setQ2] = useState<number | null>(null);
-  const [q3, setQ3] = useState('');
+  const [q3, setQ3] = useState<string[]>([]);
   const [q3Other, setQ3Other] = useState('');
   const [q4, setQ4] = useState('');
-  const [q5, setQ5] = useState('');
+  const [q5, setQ5] = useState<string[]>([]);
+  const [q5Other, setQ5Other] = useState('');
   const [q6, setQ6] = useState('');
   const [q7, setQ7] = useState('');
 
@@ -102,14 +114,14 @@ export default function Questionnaire() {
     switch (step) {
       case 1: return q1 !== '' && (q1 !== 'Other' || q1Other.trim() !== '');
       case 2: return q2 !== null;
-      case 3: return q3 !== '' && (q3 !== 'Other' || q3Other.trim() !== '');
+      case 3: return q3.length > 0 && (!q3.includes('Other') || q3Other.trim() !== '');
       case 4: return q4.trim() !== '';
-      case 5: return q5.trim() !== '';
+      case 5: return true; // optional
       case 6: return q6 !== '';
       case 7: return true; // optional
       default: return true;
     }
-  }, [step, q1, q1Other, q2, q3, q3Other, q4, q5, q6]);
+  }, [step, q1, q1Other, q2, q3, q3Other, q4, q5, q5Other, q6]);
 
   const goNext = () => {
     if (!canProceed()) { setShowError(true); return; }
@@ -129,7 +141,8 @@ export default function Questionnaire() {
     if (!data) return;
     setSubmitting(true);
     const finalQ1 = q1 === 'Other' ? q1Other : q1;
-    const finalQ3 = q3 === 'Other' ? q3Other : q3;
+    const finalQ3 = q3.map(v => v === 'Other' ? q3Other : v).join(' | ');
+    const finalQ5 = q5.length > 0 ? q5.map(v => v === 'Other' ? q5Other : v).join(' | ') : null;
     const { error: err } = await supabase
       .from('intro_questionnaires')
       .update({
@@ -137,7 +150,7 @@ export default function Questionnaire() {
         q2_fitness_level: q2,
         q3_obstacle: finalQ3,
         q4_past_experience: q4,
-        q5_emotional_driver: q5,
+        q5_emotional_driver: finalQ5,
         q6_weekly_commitment: q6,
         q7_coach_notes: q7 || null,
         status: 'completed',
@@ -268,25 +281,24 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 2: // Q2
+      case 2: // Q2 - Slider
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-bold" style={{ color: '#333' }}>On a scale of 1 to 10, how would you rate your current fitness level?</h2>
-            <div className="grid grid-cols-5 gap-2">
-              {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                <button
-                  key={n}
-                  onClick={() => { setQ2(n); setShowError(false); }}
-                  className="h-14 rounded-xl font-bold text-lg transition-all duration-200 border-2"
-                  style={{
-                    borderColor: q2 === n ? OTF_ORANGE : '#e5e7eb',
-                    backgroundColor: q2 === n ? OTF_ORANGE : 'white',
-                    color: q2 === n ? 'white' : '#333',
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
+            <div className="text-center">
+              <span className="text-6xl font-bold" style={{ color: q2 !== null ? OTF_ORANGE : '#ccc' }}>
+                {q2 ?? '—'}
+              </span>
+            </div>
+            <div className="px-2">
+              <Slider
+                min={1}
+                max={10}
+                step={1}
+                value={q2 !== null ? [q2] : [5]}
+                onValueChange={(val) => { setQ2(val[0]); setShowError(false); }}
+                className="[&_[data-slot=range]]:bg-[#FF6900] [&_[data-slot=thumb]]:border-[#FF6900] [&_[data-slot=thumb]]:bg-white [&_[data-slot=thumb]]:h-7 [&_[data-slot=thumb]]:w-7"
+              />
             </div>
             <div className="flex justify-between text-xs px-1" style={{ color: '#999' }}>
               <span>Starting from scratch</span>
@@ -297,16 +309,60 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 3: // Q3
+      case 3: // Q3 - Multi-select
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold" style={{ color: '#333' }}>What's been the biggest thing stopping you from reaching your fitness goals?</h2>
+            <p className="text-sm" style={{ color: '#999' }}>Select all that apply.</p>
             <div className="space-y-3">
-              {Q3_OPTIONS.map(opt => (
-                <SelectCard key={opt} label={opt} selected={q3 === opt} onSelect={() => { setQ3(opt); setShowError(false); }} />
-              ))}
-              <SelectCard label="Other (please share)" selected={q3 === 'Other'} onSelect={() => { setQ3('Other'); setShowError(false); }} />
-              {q3 === 'Other' && (
+              {Q3_OPTIONS.map(opt => {
+                const selected = q3.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setQ3(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt]);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
+                      {selected && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    {opt}
+                  </button>
+                );
+              })}
+              {(() => {
+                const selected = q3.includes('Other');
+                return (
+                  <button
+                    onClick={() => {
+                      setQ3(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other']);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
+                      {selected && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    Other (please share)
+                  </button>
+                );
+              })()}
+              {q3.includes('Other') && (
                 <Input
                   value={q3Other}
                   onChange={e => setQ3Other(e.target.value)}
@@ -316,7 +372,7 @@ export default function Questionnaire() {
                 />
               )}
             </div>
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option to continue.</p>}
+            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select at least one option.</p>}
           </div>
         );
 
@@ -334,17 +390,66 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 5: // Q5
+      case 5: // Q5 - Multi-select, optional
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>If this class turns out to be exactly what you've been looking for, what would that change for you?</h2>
-            <Textarea
-              value={q5}
-              onChange={e => { setQ5(e.target.value); setShowError(false); }}
-              placeholder="What would it mean for your life if you finally found something that worked?"
-              className="min-h-[120px] text-base rounded-xl"
-            />
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please share what this would mean for you.</p>}
+            <h2 className="text-xl font-bold" style={{ color: '#333' }}>
+              What would getting in shape actually mean for you?
+              <span className="text-sm font-normal ml-2" style={{ color: '#999' }}>(Optional)</span>
+            </h2>
+            <p className="text-sm" style={{ color: '#999' }}>Totally optional, but it helps your coach understand what really matters to you.</p>
+            <div className="space-y-3">
+              {Q5_OPTIONS.map(opt => {
+                const selected = q5.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt])}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
+                      {selected && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    {opt}
+                  </button>
+                );
+              })}
+              {(() => {
+                const selected = q5.includes('Other');
+                return (
+                  <button
+                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other'])}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
+                      {selected && <Check className="w-4 h-4 text-white" />}
+                    </div>
+                    Other (please share)
+                  </button>
+                );
+              })()}
+              {q5.includes('Other') && (
+                <Input
+                  value={q5Other}
+                  onChange={e => setQ5Other(e.target.value)}
+                  placeholder="Tell us what it would mean for you..."
+                  className="mt-2 h-12 text-base rounded-xl"
+                  autoFocus
+                />
+              )}
+            </div>
           </div>
         );
 
