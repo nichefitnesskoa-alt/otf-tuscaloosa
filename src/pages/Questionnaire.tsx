@@ -286,7 +286,7 @@ export default function Questionnaire() {
       case 1: // Q1
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What's your #1 fitness goal right now?</h2>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}><h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What's your #1 health/fitness goal right now?</h2></h2>
             <div className="space-y-3">
               {Q1_OPTIONS.map(opt => (
                 <SelectCard key={opt} label={opt} selected={q1 === opt} onSelect={() => { setQ1(opt); setShowError(false); }} />
@@ -326,10 +326,12 @@ export default function Questionnaire() {
                 </button>
               ))}
             </div>
-            <div className="flex justify-between text-xs px-1" style={{ color: '#777' }}>
-              <span>Starting from<br />scratch</span>
+            <div className="grid grid-cols-5 gap-3 text-xs px-1" style={{ color: '#777' }}>
+              <span className="text-center">Starting from<br />scratch</span>
+              <span></span>
               <span className="text-center">Decent but<br />inconsistent</span>
-              <span className="text-right">Peak<br />fitness</span>
+              <span></span>
+              <span className="text-center">Peak<br />fitness</span>
             </div>
             {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select a number.</p>}
           </div>
