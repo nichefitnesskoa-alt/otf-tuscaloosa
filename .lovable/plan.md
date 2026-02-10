@@ -1,55 +1,45 @@
 
 
-# Send Questionnaire Links for Past Bookings
+# Add "Resend Questionnaire" Option and Keep Booking Entry After Reschedule/2nd Intro
 
-## Problem
-Currently, questionnaire links are only generated during new booking entry in the Shift Recap form. There's no way to generate/send links for the 50+ bookings that were already submitted.
+## Changes
 
-## Solution
-Add a new "Send Questionnaire Links" section on the Recaps page (or a dedicated tab) that:
-1. Pulls all active bookings that don't yet have a questionnaire linked
-2. Displays them in a list with name, date, and time
-3. Lets the SA generate a questionnaire link for any booking with one tap
-4. Shows copy-to-clipboard button and status badge (same as the shift recap form)
+### 1. Add "Resend Questionnaire" option to ClientActionDialog
+When selecting an existing client from autocomplete, a third button appears: **"Resend Questionnaire"**. This pulls the existing client's info into the booking entry form (name, date, time, lead source) but specifically to access/generate/copy the questionnaire link -- without creating a new booking or modifying the existing one.
 
-## How It Works
+### 2. Stop clearing the form after Reschedule or 2nd Intro
+Currently, after a successful reschedule, the booking entry fields are wiped clean (`memberName: '', introDate: '', ...`). After a 2nd intro selection, the dialog closes but the form stays populated (this already works). 
 
-1. **New component: `PastBookingQuestionnaires.tsx`**
-   - Fetches from `intros_booked` where `booking_status = 'Active'` and no matching `intro_questionnaires` record exists (LEFT JOIN where `iq.id IS NULL`)
-   - Also shows bookings that DO have a questionnaire (for copy/status tracking)
-   - Displays as a compact card list sorted by class date (newest first)
-   - Each card shows: member name, class date/time, and a "Generate Link" button or the existing link + copy button + status badge
+The fix: After **reschedule**, instead of clearing the form, populate it with the updated client info (new date/time) so the questionnaire link section appears and the SA can generate/copy the link.
 
-2. **"Generate Link" button action:**
-   - Creates an `intro_questionnaires` record with the booking's name, date, time, and `booking_id` set to the `intros_booked.id`
-   - Immediately shows the link and copy button
-   - Reuses the same `QuestionnaireLink`-style UI for consistency
-
-3. **Placement:** Add as a collapsible card on the Recaps page, between the existing sections, titled "Pre-Intro Questionnaire Links". This keeps it accessible without cluttering the main scoreboard view.
+### 3. "Resend Questionnaire" flow
+When the SA picks "Resend Questionnaire":
+- Populate the booking entry with the client's existing name, date, time, lead source
+- Check if a questionnaire already exists for that booking (via `intro_questionnaires.booking_id`)
+- If yes, load the existing questionnaire ID and status so the link/copy/status badge appears
+- If no, the `QuestionnaireLink` component auto-generates one as usual
+- The SA can then copy the link and send it
 
 ## Technical Details
 
-### New file: `src/components/PastBookingQuestionnaires.tsx`
-- Fetches bookings from `intros_booked` (active, not deleted) with a LEFT JOIN to `intro_questionnaires` on `booking_id`
-- Groups into two lists: "Needs Link" and "Link Sent/Completed"
-- Each row has: member name, date, generate/copy button, status badge
-- Generate button creates the questionnaire record linking `booking_id` to the actual booking ID
-- Copy button copies `{origin}/q/{questionnaire_id}` and updates status to "sent"
+### File: `src/components/ClientActionDialog.tsx`
+- Add a third button: "Resend Questionnaire" with a `FileText` icon
+- Description: "Get the pre-intro questionnaire link for this client"
+- Add `onResendQuestionnaire` callback prop
 
-### Modified file: `src/pages/Recaps.tsx`
-- Import and render `PastBookingQuestionnaires` component in the page layout
+### File: `src/components/IntroBookingEntry.tsx`
+- Add `handleChooseResendQuestionnaire` callback that:
+  - Closes the action dialog
+  - Populates the form with the client's existing info (name, date, time, lead source)
+  - Looks up any existing `intro_questionnaires` record by `booking_id` matching the selected client's ID
+  - If found, sets `questionnaireId` and `questionnaireStatus` on the booking entry
+  - Sets `dismissedWarning = true` to suppress the duplicate warning
+- Modify `handleRescheduleSuccess`:
+  - Instead of clearing all fields, populate them with the rescheduled client's updated info (new date/time from the reschedule dialog)
+  - This keeps the entry visible so the questionnaire link appears
+- Pass `onResendQuestionnaire` to `ClientActionDialog`
 
-### Database
-- No schema changes needed -- `intro_questionnaires.booking_id` already exists as a foreign key field
-- New records will have `booking_id` properly set (unlike the shift recap flow which sets it to null initially)
+### File: `src/components/RescheduleClientDialog.tsx`
+- Change `onSuccess` to pass back the updated date/time so `IntroBookingEntry` can populate the form instead of clearing it
+- Update the callback type to: `onSuccess: (updatedData: { date: string; time: string }) => void`
 
-### Query logic
-```sql
-SELECT ib.id, ib.member_name, ib.class_date, ib.intro_time, 
-       iq.id as questionnaire_id, iq.status as q_status
-FROM intros_booked ib
-LEFT JOIN intro_questionnaires iq ON iq.booking_id = ib.id
-WHERE ib.deleted_at IS NULL 
-  AND ib.booking_status = 'Active'
-ORDER BY ib.class_date DESC
-```
