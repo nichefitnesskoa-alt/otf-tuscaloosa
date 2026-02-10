@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
@@ -33,7 +33,8 @@ export default function QuestionnaireLink({
   const nameParts = memberName.trim().split(/\s+/);
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
-  const hasMinData = firstName.length > 0 && introDate;
+  const hasMinData = firstName.length >= 2 && introDate;
+  const syncRef = useRef<NodeJS.Timeout>();
 
   // Auto-create questionnaire when we have minimum data and no ID yet
   const createQuestionnaire = useCallback(async () => {
@@ -62,6 +63,21 @@ export default function QuestionnaireLink({
   useEffect(() => {
     createQuestionnaire();
   }, [createQuestionnaire]);
+
+  // Sync name/date/time changes back to existing questionnaire record
+  useEffect(() => {
+    if (!questionnaireId || !firstName) return;
+    if (syncRef.current) clearTimeout(syncRef.current);
+    syncRef.current = setTimeout(async () => {
+      await supabase.from('intro_questionnaires').update({
+        client_first_name: firstName,
+        client_last_name: lastName,
+        scheduled_class_date: introDate,
+        scheduled_class_time: introTime || null,
+      }).eq('id', questionnaireId);
+    }, 800);
+    return () => { if (syncRef.current) clearTimeout(syncRef.current); };
+  }, [questionnaireId, firstName, lastName, introDate, introTime]);
 
   // Poll for completion status
   useEffect(() => {
