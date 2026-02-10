@@ -1,27 +1,37 @@
 
 
-# Add "Who's Coaching" Field to Intro Booking Entry
+# Fix: Questionnaire Links Breaking After Sync/Submit
 
-## What Changes
+## The Problem
 
-When booking an intro, staff will now be able to select which coach is running the session. Currently the coach is always saved as "TBD" and only gets filled in later when the intro is actually run.
+Every time the name sync effect runs (which happens on re-renders, auto-save cycles, or prop changes), it generates a **new** slug with an incremented number because the `generateUniqueSlug` function doesn't exclude the current record's own slug. So:
 
-Adding a coach dropdown to the booking form lets staff assign the coach upfront when they know who it will be, while still defaulting to "TBD" if unknown.
+1. You create a questionnaire for "Koa Vincent" -- slug is `koa-vincent`
+2. The sync effect fires again -- it sees `koa-vincent` is "taken" and overwrites it with `koa-vincent-2`
+3. It fires again -- overwrites with `koa-vincent-3`
+4. The link you already copied/shared (`koa-vincent` or `koa-vincent-2`) no longer exists in the database
 
-## Technical Details
+This is why links stop working "after a while" or after submitting.
 
-### 1. Update `IntroBookingData` interface (`src/components/IntroBookingEntry.tsx`)
-- Add `coachName: string` field to the interface (default `'TBD'`)
+## The Fix
 
-### 2. Add coach selector UI (`src/components/IntroBookingEntry.tsx`)
-- Add a `<Select>` dropdown labeled "Who's Coaching" between the Lead Source and Notes fields
-- Options: all coaches from `COACHES` constant, plus a "TBD" option for when unknown
-- Import `COACHES` from `@/types`
+### 1. Fix `generateUniqueSlug` to exclude current record (`src/lib/utils.ts`)
 
-### 3. Update booking creation default (`src/pages/ShiftRecap.tsx`)
-- When creating a new blank booking entry, set `coachName: 'TBD'`
-- When inserting into `intros_booked`, use `booking.coachName` instead of the hardcoded `'TBD'`
+The function accepts an `excludeId` parameter but never uses it. Add a filter so when syncing an existing questionnaire, its own slug isn't counted as "taken."
 
-### 4. No database changes needed
-- The `intros_booked` table already has a `coach_name` column -- we're just populating it from the form instead of hardcoding "TBD"
+```
+// Add .neq('id', excludeId) when excludeId is provided
+```
+
+### 2. Prevent unnecessary slug regeneration (`src/components/QuestionnaireLink.tsx`)
+
+The sync effect should only regenerate the slug when the **name actually changes**, not on every re-render. Changes:
+
+- Track previous name values and only regenerate slug when they actually differ
+- If the name hasn't changed, just sync date/time without touching the slug
+- This prevents the slug from incrementing on every auto-save cycle
+
+### No database changes needed
+
+The `slug` column and existing data are fine -- the bug is purely in the client-side logic.
 
