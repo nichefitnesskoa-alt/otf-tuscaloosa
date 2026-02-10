@@ -1,45 +1,44 @@
 
 
-# Name-Based Slug Questionnaire Links
+# Fix Link Preview for Questionnaire URLs
 
-## What Changes
+## The Problem
+When you share a questionnaire link (e.g., `otf-tuscaloosa.lovable.app/q/koa-vincent`) on Instagram or iMessage, the preview shows "OTF T-Town Shift Recap" with a generic Lovable image. This looks unrelated and spammy.
 
-Questionnaire links will go from:
-`otf-tuscaloosa.lovable.app/q/a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+## The Solution: Two Parts
 
-To:
-`otf-tuscaloosa.lovable.app/q/john-smith`
+### Part 1 -- Update default meta tags (quick win)
+Update `index.html` to show Orangetheory branding by default:
+- **Title**: "Orangetheory Fitness Tuscaloosa" (or "OTF Tuscaloosa - Pre-Intro Questionnaire")
+- **Description**: Something like "Your personalized fitness journey starts here"
+- **OG Image**: Use the OTF logo or an Orangetheory-branded image instead of the generic Lovable one
+- **Favicon**: Already set to OTF
 
-The published domain is already `otf-tuscaloosa.lovable.app` (no "shift-recap"), so no project rename needed.
+This improves ALL link previews site-wide immediately.
+
+### Part 2 -- Dynamic OG tags for questionnaire links (server-side)
+Social media crawlers (Instagram, iMessage, etc.) don't run JavaScript, so they only see the static HTML. To show personalized previews per client (e.g., "Koa's Pre-Intro Questionnaire"), we need a backend function that intercepts crawler requests and returns custom HTML with the right meta tags.
+
+**How it works:**
+1. Create a backend function (`og-image` or `questionnaire-og`) that:
+   - Receives the slug from the URL
+   - Looks up the client name from the database
+   - Returns an HTML page with customized OG meta tags (title: "Koa's Pre-Intro Questionnaire", description: "Complete your quick questionnaire before your intro class at Orangetheory Fitness Tuscaloosa")
+   - Includes a redirect so real users (not crawlers) get sent to the actual questionnaire page
+
+2. This gives you personalized, professional-looking previews when shared on social media
+
+**However**, this approach has a limitation: it requires the questionnaire links to point to the edge function URL first, which makes the URL longer/different. A simpler alternative is to just make the default OG tags Orangetheory-branded (Part 1), which covers 90% of the problem.
+
+## Recommendation
+Start with **Part 1 only** -- update the default meta tags to be OTF-branded. This is simple, immediate, and makes every link preview look professional rather than spammy. The title won't say "Shift Recap" anymore, and the image will be OTF-branded.
 
 ## Technical Details
 
-### 1. Database migration
-- Add `slug` column (text, unique, nullable) to `intro_questionnaires`
-- Backfill existing records by generating slugs from `client_first_name` + `client_last_name`
-- Handle duplicate names by appending `-2`, `-3`, etc.
-
-### 2. Slug generation helper (`src/lib/utils.ts`)
-Add a `generateSlug` function:
-- Converts "John Smith" to `john-smith`
-- Strips special characters, collapses hyphens
-- Before inserting, queries existing slugs with same prefix and appends a number if needed (e.g., `john-smith-2`)
-
-### 3. `src/components/QuestionnaireLink.tsx`
-- When creating a questionnaire, generate slug from the name and store it
-- Use the published URL (`https://otf-tuscaloosa.lovable.app`) + slug for the link instead of `window.location.origin` + UUID
-- Sync slug when name changes
-
-### 4. `src/components/PastBookingQuestionnaires.tsx`
-- Same change: use published URL + slug for link generation and copy
-- Fetch `slug` column from existing questionnaire records
-
-### 5. `src/pages/Questionnaire.tsx`
-- Update lookup: try matching URL param against `slug` first, then fall back to `id` (UUID) for backward compatibility
-```
-.or(`slug.eq.${param},id.eq.${param}`)
-```
-
-### 6. `src/components/IntroBookingEntry.tsx`
-- When looking up existing questionnaires for resend, also fetch the `slug` field
+### File: `index.html`
+- Change `<title>` from "OTF T-Town Shift Recap" to "Orangetheory Fitness Tuscaloosa"
+- Update `og:title` and `twitter:title` to match
+- Change `og:description` and `description` to something like "Your personalized fitness journey starts here"
+- Replace `og:image` and `twitter:image` with the OTF logo (upload a properly sized OG image, ideally 1200x630px, to the public folder)
+- Remove the Lovable twitter:site reference
 
