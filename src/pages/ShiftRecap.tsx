@@ -242,7 +242,7 @@ export default function ShiftRecap() {
           const bookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
           const staffName = user?.name || '';
           
-          await supabase.from('intros_booked').insert({
+          const { data: insertedBooking, error: bookingInsertError } = await supabase.from('intros_booked').insert({
             booking_id: bookingId,
             member_name: booking.memberName,
             class_date: booking.introDate,
@@ -256,7 +256,16 @@ export default function ShiftRecap() {
             intro_owner: null,
             intro_owner_locked: false,
             originating_booking_id: booking.originatingBookingId || null,
-          });
+          }).select().single();
+
+          if (bookingInsertError) throw bookingInsertError;
+
+          // Link questionnaire to the newly created booking
+          if (booking.questionnaireId && insertedBooking) {
+            await supabase.from('intro_questionnaires')
+              .update({ booking_id: insertedBooking.id })
+              .eq('id', booking.questionnaireId);
+          }
 
           // Sync to Google Sheets if configured
           if (spreadsheetId) {

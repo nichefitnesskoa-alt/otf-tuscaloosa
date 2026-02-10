@@ -10,6 +10,8 @@ import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
 import RescheduleClientDialog from './RescheduleClientDialog';
 import ClientActionDialog from './ClientActionDialog';
+import QuestionnaireLink from './QuestionnaireLink';
+import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
 import { LEAD_SOURCES } from '@/types';
 
 export interface IntroBookingData {
@@ -20,6 +22,8 @@ export interface IntroBookingData {
   leadSource: string;
   notes: string;
   originatingBookingId?: string;
+  questionnaireId?: string;
+  questionnaireStatus?: 'not_sent' | 'sent' | 'completed';
 }
 
 interface IntroBookingEntryProps {
@@ -162,6 +166,26 @@ export default function IntroBookingEntry({
             placeholder="Any notes..."
           />
         </div>
+
+        {/* Questionnaire Link */}
+        <QuestionnaireLink
+          bookingId={booking.id}
+          memberName={booking.memberName}
+          introDate={booking.introDate}
+          introTime={booking.introTime}
+          questionnaireId={booking.questionnaireId}
+          questionnaireStatus={booking.questionnaireStatus}
+          onQuestionnaireCreated={(id) => onUpdate(index, { questionnaireId: id, questionnaireStatus: 'not_sent' })}
+          onStatusChange={(status) => onUpdate(index, { questionnaireStatus: status })}
+        />
+
+        {/* Questionnaire Response Viewer */}
+        {booking.questionnaireId && (
+          <QuestionnaireResponseViewer
+            questionnaireId={booking.questionnaireId}
+            questionnaireStatus={booking.questionnaireStatus}
+          />
+        )}
       </div>
 
       {selectedClient && (
