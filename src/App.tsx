@@ -14,6 +14,12 @@ import MyShifts from "./pages/MyShifts";
 import Admin from "./pages/Admin";
 import Questionnaire from "./pages/Questionnaire";
 import NotFound from "./pages/NotFound";
+import { useParams } from "react-router-dom";
+
+function QuestionnaireRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/q/${id}`} replace />;
+}
 
 const queryClient = new QueryClient();
 
@@ -76,7 +82,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/questionnaire/:id" element={<Questionnaire />} />
+      <Route path="/q/:id" element={<Questionnaire />} />
+      <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route path="/" element={<Navigate to="/shift-recap" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
