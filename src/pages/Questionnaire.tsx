@@ -5,14 +5,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Slider } from '@/components/ui/slider';
 import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format, parse } from 'date-fns';
 
 const OTF_ORANGE = '#FF6900';
-const TOTAL_STEPS = 9; // welcome + 7 questions + completion
+const TOTAL_STEPS = 9; // welcome + 7 question screens + completion
 
 interface QuestionnaireData {
   id: string;
@@ -26,7 +24,8 @@ interface QuestionnaireData {
 const Q1_OPTIONS = [
   'Lose weight / lean out',
   'Build strength and muscle',
-  'Get more energy and feel better overall',
+  'Get more energy and feel better day to day',
+  'Improve a health condition or follow doctor\'s recommendations',
   'Train for something specific (race, sport, event)',
   'Get back into a routine after falling off',
   'Reduce stress and improve mental health',
@@ -36,9 +35,22 @@ const Q3_OPTIONS = [
   'No accountability or motivation to stay consistent',
   "Don't know what to do or how to structure workouts",
   "Schedule is too busy / can't find the time",
+  "Cost / not sure if it's worth the investment",
   'Past injuries or health concerns',
   "Tried things before that didn't work or stick",
   "Haven't found a gym or program that fits me",
+];
+
+const Q4A_OPTIONS = [
+  'Yes',
+  'A few times but nothing consistent',
+  'No, this is my first time',
+];
+
+const Q4B_OPTIONS = [
+  'Yes, but I need something new',
+  'I saw some progress but couldn\'t stick with it',
+  'Not really',
 ];
 
 const Q5_OPTIONS = [
@@ -53,6 +65,8 @@ const Q5_OPTIONS = [
 
 const Q6_OPTIONS = ['1-2 days', '3-4 days', '5+ days'];
 
+const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 export default function Questionnaire() {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
@@ -66,12 +80,14 @@ export default function Questionnaire() {
   const [q1, setQ1] = useState('');
   const [q1Other, setQ1Other] = useState('');
   const [q2, setQ2] = useState<number | null>(null);
-  const [q3, setQ3] = useState<string[]>([]);
+  const [q3, setQ3] = useState('');
   const [q3Other, setQ3Other] = useState('');
-  const [q4, setQ4] = useState('');
-  const [q5, setQ5] = useState<string[]>([]);
+  const [q4a, setQ4a] = useState('');
+  const [q4b, setQ4b] = useState('');
+  const [q5, setQ5] = useState('');
   const [q5Other, setQ5Other] = useState('');
   const [q6, setQ6] = useState('');
+  const [q6bDays, setQ6bDays] = useState<string[]>([]);
   const [q7, setQ7] = useState('');
 
   // Validation
@@ -114,14 +130,14 @@ export default function Questionnaire() {
     switch (step) {
       case 1: return q1 !== '' && (q1 !== 'Other' || q1Other.trim() !== '');
       case 2: return q2 !== null;
-      case 3: return q3.length > 0 && (!q3.includes('Other') || q3Other.trim() !== '');
-      case 4: return q4.trim() !== '';
+      case 3: return q3 !== '' && (q3 !== 'Other' || q3Other.trim() !== '');
+      case 4: return q4a !== '';
       case 5: return true; // optional
       case 6: return q6 !== '';
       case 7: return true; // optional
       default: return true;
     }
-  }, [step, q1, q1Other, q2, q3, q3Other, q4, q5, q5Other, q6]);
+  }, [step, q1, q1Other, q2, q3, q3Other, q4a, q5, q5Other, q6]);
 
   const goNext = () => {
     if (!canProceed()) { setShowError(true); return; }
@@ -141,21 +157,27 @@ export default function Questionnaire() {
     if (!data) return;
     setSubmitting(true);
     const finalQ1 = q1 === 'Other' ? q1Other : q1;
-    const finalQ3 = q3.map(v => v === 'Other' ? q3Other : v).join(' | ');
-    const finalQ5 = q5.length > 0 ? q5.map(v => v === 'Other' ? q5Other : v).join(' | ') : null;
+    const finalQ3 = q3 === 'Other' ? q3Other : q3;
+    const finalQ5 = q5 === 'Other' ? q5Other : (q5 || null);
+    // Q4: combine Q4a and Q4b
+    const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
+    // Q6b: pipe-separated days
+    const finalQ6b = q6bDays.length > 0 ? q6bDays.join(' | ') : null;
+
     const { error: err } = await supabase
       .from('intro_questionnaires')
       .update({
         q1_fitness_goal: finalQ1,
         q2_fitness_level: q2,
         q3_obstacle: finalQ3,
-        q4_past_experience: q4,
+        q4_past_experience: finalQ4,
         q5_emotional_driver: finalQ5,
         q6_weekly_commitment: q6,
+        q6b_available_days: finalQ6b,
         q7_coach_notes: q7 || null,
         status: 'completed',
         submitted_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', data.id);
     setSubmitting(false);
     if (err) { console.error(err); return; }
@@ -238,6 +260,8 @@ export default function Questionnaire() {
     </button>
   );
 
+  const showQ4b = q4a === 'Yes' || q4a === 'A few times but nothing consistent';
+
   const renderStep = () => {
     switch (step) {
       case 0: // Welcome
@@ -281,88 +305,45 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 2: // Q2 - Slider
+      case 2: // Q2 - 1-5 Tappable Buttons
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>On a scale of 1 to 10, how would you rate your current fitness level?</h2>
-            <div className="text-center">
-              <span className="text-6xl font-bold" style={{ color: q2 !== null ? OTF_ORANGE : '#ccc' }}>
-                {q2 ?? '—'}
-              </span>
-            </div>
-            <div className="px-2">
-              <Slider
-                min={1}
-                max={10}
-                step={1}
-                value={q2 !== null ? [q2] : [5]}
-                onValueChange={(val) => { setQ2(val[0]); setShowError(false); }}
-                className="[&_[data-slot=range]]:bg-[#FF6900] [&_[data-slot=thumb]]:border-[#FF6900] [&_[data-slot=thumb]]:bg-white [&_[data-slot=thumb]]:h-7 [&_[data-slot=thumb]]:w-7"
-              />
+            <h2 className="text-xl font-bold" style={{ color: '#333' }}>On a scale of 1 to 5, how would you rate your current fitness level?</h2>
+            <div className="flex justify-center gap-3">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => { setQ2(n); setShowError(false); }}
+                  className="w-16 h-16 rounded-2xl text-2xl font-bold border-2 transition-all duration-200"
+                  style={{
+                    borderColor: q2 === n ? OTF_ORANGE : '#e5e7eb',
+                    backgroundColor: q2 === n ? OTF_ORANGE : 'white',
+                    color: q2 === n ? 'white' : '#333',
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
             <div className="flex justify-between text-xs px-1" style={{ color: '#999' }}>
-              <span>Starting from scratch</span>
-              <span>Decent but inconsistent</span>
-              <span>Peak fitness</span>
+              <span>Starting from<br />scratch</span>
+              <span className="text-center">Decent but<br />inconsistent</span>
+              <span className="text-right">Peak<br />fitness</span>
             </div>
             {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select a number.</p>}
           </div>
         );
 
-      case 3: // Q3 - Multi-select
+      case 3: // Q3 - Single select
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold" style={{ color: '#333' }}>What's been the biggest thing stopping you from reaching your fitness goals?</h2>
-            <p className="text-sm" style={{ color: '#999' }}>Select all that apply.</p>
             <div className="space-y-3">
-              {Q3_OPTIONS.map(opt => {
-                const selected = q3.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => {
-                      setQ3(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt]);
-                      setShowError(false);
-                    }}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
-                    style={{
-                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
-                      backgroundColor: selected ? '#FFF5EB' : 'white',
-                      color: '#333',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
-                      {selected && <Check className="w-4 h-4 text-white" />}
-                    </div>
-                    {opt}
-                  </button>
-                );
-              })}
-              {(() => {
-                const selected = q3.includes('Other');
-                return (
-                  <button
-                    onClick={() => {
-                      setQ3(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other']);
-                      setShowError(false);
-                    }}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
-                    style={{
-                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
-                      backgroundColor: selected ? '#FFF5EB' : 'white',
-                      color: '#333',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
-                      {selected && <Check className="w-4 h-4 text-white" />}
-                    </div>
-                    Other (please share)
-                  </button>
-                );
-              })()}
-              {q3.includes('Other') && (
+              {Q3_OPTIONS.map(opt => (
+                <SelectCard key={opt} label={opt} selected={q3 === opt} onSelect={() => { setQ3(opt); setShowError(false); }} />
+              ))}
+              <SelectCard label="Other (please share)" selected={q3 === 'Other'} onSelect={() => { setQ3('Other'); setShowError(false); }} />
+              {q3 === 'Other' && (
                 <Input
                   value={q3Other}
                   onChange={e => setQ3Other(e.target.value)}
@@ -372,75 +353,80 @@ export default function Questionnaire() {
                 />
               )}
             </div>
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select at least one option.</p>}
+            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option to continue.</p>}
           </div>
         );
 
-      case 4: // Q4
+      case 4: // Q4a + Q4b (same screen)
         return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>Have you tried other gyms, programs, or fitness routines before? How did that go?</h2>
-            <Textarea
-              value={q4}
-              onChange={e => { setQ4(e.target.value); setShowError(false); }}
-              placeholder="Tell us briefly what you've tried and what happened."
-              className="min-h-[120px] text-base rounded-xl"
-            />
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please share a bit about your experience.</p>}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold" style={{ color: '#333' }}>Have you tried other gyms or fitness programs before?</h2>
+              <div className="space-y-3">
+                {Q4A_OPTIONS.map(opt => (
+                  <SelectCard
+                    key={opt}
+                    label={opt}
+                    selected={q4a === opt}
+                    onSelect={() => {
+                      setQ4a(opt);
+                      if (opt === 'No, this is my first time') setQ4b('');
+                      setShowError(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Q4b - conditional reveal */}
+            <AnimatePresence>
+              {showQ4b && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
+                    <h3 className="text-lg font-semibold" style={{ color: '#333' }}>Did you see the results you were hoping for?</h3>
+                    <div className="space-y-3">
+                      {Q4B_OPTIONS.map(opt => (
+                        <SelectCard key={opt} label={opt} selected={q4b === opt} onSelect={() => setQ4b(opt)} />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option to continue.</p>}
           </div>
         );
 
-      case 5: // Q5 - Multi-select, optional
+      case 5: // Q5 - Single select, optional
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold" style={{ color: '#333' }}>
-              What would getting in shape actually mean for you?
+              What would reaching your fitness/health goals actually mean for you?
               <span className="text-sm font-normal ml-2" style={{ color: '#999' }}>(Optional)</span>
             </h2>
             <p className="text-sm" style={{ color: '#999' }}>Totally optional, but it helps your coach understand what really matters to you.</p>
             <div className="space-y-3">
-              {Q5_OPTIONS.map(opt => {
-                const selected = q5.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt])}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
-                    style={{
-                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
-                      backgroundColor: selected ? '#FFF5EB' : 'white',
-                      color: '#333',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
-                      {selected && <Check className="w-4 h-4 text-white" />}
-                    </div>
-                    {opt}
-                  </button>
-                );
-              })}
-              {(() => {
-                const selected = q5.includes('Other');
-                return (
-                  <button
-                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other'])}
-                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
-                    style={{
-                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
-                      backgroundColor: selected ? '#FFF5EB' : 'white',
-                      color: '#333',
-                      fontSize: '16px',
-                    }}
-                  >
-                    <div className="w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: selected ? OTF_ORANGE : '#d1d5db', backgroundColor: selected ? OTF_ORANGE : 'white' }}>
-                      {selected && <Check className="w-4 h-4 text-white" />}
-                    </div>
-                    Other (please share)
-                  </button>
-                );
-              })()}
-              {q5.includes('Other') && (
+              {Q5_OPTIONS.map(opt => (
+                <SelectCard
+                  key={opt}
+                  label={opt}
+                  selected={q5 === opt}
+                  onSelect={() => setQ5(prev => prev === opt ? '' : opt)}
+                />
+              ))}
+              <SelectCard
+                label="Other (please share)"
+                selected={q5 === 'Other'}
+                onSelect={() => setQ5(prev => prev === 'Other' ? '' : 'Other')}
+              />
+              {q5 === 'Other' && (
                 <Input
                   value={q5Other}
                   onChange={e => setQ5Other(e.target.value)}
@@ -453,26 +439,66 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 6: // Q6
+      case 6: // Q6 + Q6b day picker (same screen)
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold" style={{ color: '#333' }}>How many days per week could you realistically commit to working out?</h2>
-            <div className="space-y-3">
-              {Q6_OPTIONS.map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => { setQ6(opt); setShowError(false); }}
-                  className="w-full h-16 rounded-xl font-semibold text-lg border-2 transition-all duration-200"
-                  style={{
-                    borderColor: q6 === opt ? OTF_ORANGE : '#e5e7eb',
-                    backgroundColor: q6 === opt ? '#FFF5EB' : 'white',
-                    color: '#333',
-                  }}
-                >
-                  {opt}
-                </button>
-              ))}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold" style={{ color: '#333' }}>How many days per week could you realistically commit to working out?</h2>
+              <div className="space-y-3">
+                {Q6_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    onClick={() => { setQ6(opt); setShowError(false); }}
+                    className="w-full h-16 rounded-xl font-semibold text-lg border-2 transition-all duration-200"
+                    style={{
+                      borderColor: q6 === opt ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: q6 === opt ? '#FFF5EB' : 'white',
+                      color: '#333',
+                    }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Q6b - day picker reveal */}
+            <AnimatePresence>
+              {q6 !== '' && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-3 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
+                    <h3 className="text-lg font-semibold" style={{ color: '#333' }}>What days are you most likely available?</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {DAY_OPTIONS.map(day => {
+                        const selected = q6bDays.includes(day);
+                        const short = day.substring(0, 3);
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => setQ6bDays(prev => selected ? prev.filter(d => d !== day) : [...prev, day])}
+                            className="h-12 rounded-xl font-medium text-sm border-2 transition-all duration-200"
+                            style={{
+                              borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                              backgroundColor: selected ? OTF_ORANGE : 'white',
+                              color: selected ? 'white' : '#333',
+                            }}
+                          >
+                            {short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option.</p>}
           </div>
         );

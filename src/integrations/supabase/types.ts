@@ -119,6 +119,7 @@ export type Database = {
           q4_past_experience: string | null
           q5_emotional_driver: string | null
           q6_weekly_commitment: string | null
+          q6b_available_days: string | null
           q7_coach_notes: string | null
           scheduled_class_date: string
           scheduled_class_time: string | null
@@ -137,6 +138,7 @@ export type Database = {
           q4_past_experience?: string | null
           q5_emotional_driver?: string | null
           q6_weekly_commitment?: string | null
+          q6b_available_days?: string | null
           q7_coach_notes?: string | null
           scheduled_class_date: string
           scheduled_class_time?: string | null
@@ -155,6 +157,7 @@ export type Database = {
           q4_past_experience?: string | null
           q5_emotional_driver?: string | null
           q6_weekly_commitment?: string | null
+          q6b_available_days?: string | null
           q7_coach_notes?: string | null
           scheduled_class_date?: string
           scheduled_class_time?: string | null

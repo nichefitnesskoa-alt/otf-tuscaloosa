@@ -1,0 +1,1 @@
+ALTER TABLE intro_questionnaires ADD COLUMN q6b_available_days text;
