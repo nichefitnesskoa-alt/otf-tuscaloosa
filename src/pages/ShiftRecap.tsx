@@ -149,7 +149,7 @@ export default function ShiftRecap() {
   };
 
   const updateIntroBooking = (index: number, updates: Partial<IntroBookingData>) => {
-    setIntrosBooked(introsBooked.map((intro, i) => 
+    setIntrosBooked(prev => prev.map((intro, i) => 
       i === index ? { ...intro, ...updates } : intro
     ));
   };
