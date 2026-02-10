@@ -103,7 +103,7 @@ export default function QuestionnaireLink({
   );
   if (!questionnaireId) return null;
 
-  const link = `${window.location.origin}/questionnaire/${questionnaireId}`;
+  const link = `${window.location.origin}/q/${questionnaireId}`;
 
   const copyLink = async () => {
     try {
