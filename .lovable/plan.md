@@ -1,45 +1,37 @@
 
-# Fix Questionnaire Linking and Clean Up Orphaned Records
+# Fix Questionnaire Display, Pipeline Layout, and Add Quick-Create Links
 
-## Problem
-The `QuestionnaireLink` component (used in the Shift Recap form) creates questionnaire records with `booking_id: null`. When the SA later generates a link from the Pipeline's "Questionnaire Links" section (which correctly sets `booking_id`), a duplicate is created. The client fills out the original orphaned one (via their slug), but the system looks for responses on the booking-linked one -- which is empty.
+## Issues Found
 
-**Chloe Gorman's case:**
-- Record `b244fea9` -- linked to booking `ec87d3f8`, status "sent", NO responses
-- Record `cb04c3d8` -- no booking link, status "completed", HAS all responses
+**Completed Questionnaires Not Showing**: Chloe Gorman's completed questionnaire (cb04c3d8) still has `booking_id = null`, while her booking is linked to an empty duplicate (b244fea9). The code finds the empty one first by booking_id and never falls through to the name-based match. SQL cleanup is needed again, plus a code fix to prefer completed records.
 
-**Other orphaned records found:** 15 questionnaires with no booking_id, including duplicates for Koa Vincent (4 records, 1 completed) and partial-name fragments like "le", "ry", "chloe" from mid-typing auto-creates.
+**Sarah Beth Strickland Missing**: No import-lead call was ever made for her -- no intake_events or edge function logs exist. This is a Gmail script issue (the email was never forwarded to the edge function), not an app bug. No code change needed, but you may need to re-trigger or manually add her.
 
----
+**Questionnaire Section Placement**: Move it to the top of the Pipeline page.
 
-## Fix Part 1: Data Cleanup (SQL)
-
-Run data corrections to:
-1. **Chloe Gorman**: Link completed questionnaire `cb04c3d8` to booking `ec87d3f8`, then delete the empty duplicate `b244fea9`.
-2. **Koa Vincent**: Find Koa's booking, link the completed questionnaire `601ab894` to it, delete the 3 empty duplicates.
-3. **Delete junk records**: Remove orphaned questionnaires with partial names ("le", "ry", "chloe", "sdcs", "abbie", "lydia") that were created mid-typing and never completed.
+**Create Links Without a Booking**: Add a "Quick Add" button to PastBookingQuestionnaires that lets staff create a questionnaire link by typing a name and date, without needing a shift recap or intros_booked record first.
 
 ---
 
-## Fix Part 2: Prevent Future Duplicates (Code)
+## Changes
 
-### `src/components/QuestionnaireLink.tsx`
+### 1. SQL Data Fix (again)
+- Delete the empty duplicate `b244fea9` (linked to Chloe's booking, status "sent", no responses)
+- Update the completed record `cb04c3d8` to set `booking_id = 'ec87d3f8-8823-4e9a-acc9-fd0b1c52aced'`
+- Also link Abbie Randol and Lydia Guyse orphaned questionnaires to their bookings if matches exist
 
-Change the `createQuestionnaire` function to check for an existing questionnaire by matching `client_first_name`/`client_last_name` (case-insensitive) before creating a new one. If a match is found (especially a completed one), reuse it instead of inserting a duplicate.
+### 2. Pipeline.tsx -- Move questionnaire section to top
+Reorder the three components so PastBookingQuestionnaires renders first, before ClientJourneyReadOnly.
 
-The updated logic:
-1. Before inserting, query `intro_questionnaires` where `client_first_name` matches (case-insensitive) and `client_last_name` matches.
-2. If a completed record exists, adopt it: call `onQuestionnaireCreated(existingId)` and skip insert.
-3. If a non-completed orphan exists (with `booking_id = null`), adopt it and update its `booking_id` if available.
-4. Only create a new record if no match is found.
+### 3. PastBookingQuestionnaires.tsx -- Fix fallback logic + Add Quick-Create
+**Fix**: When building the questionnaire map, if a booking_id match exists but has no responses (status not "completed"), check the name-based map for a completed record and prefer it.
 
-### `src/components/PastBookingQuestionnaires.tsx`
+**Quick-Create**: Add a "Quick Add" button at the top of the section. Clicking it shows a small inline form with:
+- Client name (text input)
+- Intro date (date input)
+- Intro time (optional time input)
 
-Update the questionnaire lookup in `fetchBookings` to also match by client name (not just `booking_id`). This catches the case where a completed questionnaire exists but was never linked to the booking.
-
-The updated logic:
-1. After building the `booking_id`-based map, do a second pass: for any booking without a matched questionnaire, check if there's a questionnaire matching the member name (first + last, case-insensitive).
-2. If found, link it (update `booking_id` in the database) and use it.
+On submit, create an `intro_questionnaires` record (no booking_id needed) with a generated slug, and show the copyable link immediately. This creates a standalone questionnaire link that the name-based fallback will automatically link to a booking later when one is created.
 
 ---
 
@@ -47,6 +39,6 @@ The updated logic:
 
 | Action | File |
 |--------|------|
-| SQL data fix | Delete duplicates and link completed questionnaires to correct bookings |
-| Edit | `src/components/QuestionnaireLink.tsx` -- add existing-questionnaire lookup before creating |
-| Edit | `src/components/PastBookingQuestionnaires.tsx` -- add name-based fallback matching |
+| SQL | Delete empty duplicate, link completed record to booking, fix other orphans |
+| Edit | `src/pages/Pipeline.tsx` -- reorder: PastBookingQuestionnaires first |
+| Edit | `src/components/PastBookingQuestionnaires.tsx` -- fix completed-record preference in fallback, add Quick Add form |
