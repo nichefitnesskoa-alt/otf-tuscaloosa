@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText, Search, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -280,21 +280,18 @@ export default function PastBookingQuestionnaires() {
   const hasLinkPending = pending.filter((b) => b.questionnaire_id);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <Card>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              Pre-Intro Questionnaire Links
-              {open ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
-              {!open && needsLink.length > 0 && (
-                <Badge variant="destructive" className="text-[10px] ml-1">{needsLink.length} need links</Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+    <Card>
+      <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setOpen(!open)}>
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileText className="w-4 h-4 text-primary" />
+          Pre-Intro Questionnaire Links
+          {open ? <ChevronDown className="w-4 h-4 ml-auto" /> : <ChevronRight className="w-4 h-4 ml-auto" />}
+          {!open && needsLink.length > 0 && (
+            <Badge variant="destructive" className="text-[10px] ml-1">{needsLink.length} need links</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      {open && (
           <CardContent className="pt-0">
             {loading ? (
               <div className="flex items-center justify-center py-6">
@@ -478,8 +475,7 @@ export default function PastBookingQuestionnaires() {
               </div>
             )}
           </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+      )}
+    </Card>
   );
 }
