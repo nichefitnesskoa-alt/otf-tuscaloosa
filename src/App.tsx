@@ -8,9 +8,8 @@ import { DataProvider } from "@/context/DataContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import ShiftRecap from "./pages/ShiftRecap";
-import Dashboard from "./pages/Dashboard";
-import Recaps from "./pages/Recaps";
 import MyShifts from "./pages/MyShifts";
+import Recaps from "./pages/Recaps";
 import Leads from "./pages/Leads";
 import Admin from "./pages/Admin";
 import Pipeline from "./pages/Pipeline";
@@ -54,11 +53,7 @@ function AppRoutes() {
       />
       <Route
         path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/my-shifts" replace />}
       />
       <Route
         path="/recaps"

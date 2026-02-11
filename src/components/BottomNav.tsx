@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, LayoutDashboard, Settings, TrendingUp, ClipboardList, Users, GitBranch } from 'lucide-react';
+import { FileText, Settings, TrendingUp, ClipboardList, Users, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
@@ -8,7 +8,6 @@ const navItems = [
   { path: '/leads', label: 'Leads', icon: Users },
   { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   { path: '/my-shifts', label: 'My Shifts', icon: ClipboardList },
-  { path: '/dashboard', label: 'My Stats', icon: LayoutDashboard },
   { path: '/recaps', label: 'Studio', icon: TrendingUp },
 ];
 

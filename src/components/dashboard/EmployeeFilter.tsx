@@ -11,19 +11,16 @@ import { ALL_STAFF } from '@/types';
 interface EmployeeFilterProps {
   selectedEmployee: string | null;
   onEmployeeChange: (employee: string | null) => void;
-  isAdmin: boolean;
 }
 
-export function EmployeeFilter({ selectedEmployee, onEmployeeChange, isAdmin }: EmployeeFilterProps) {
-  if (!isAdmin) return null;
-
+export function EmployeeFilter({ selectedEmployee, onEmployeeChange }: EmployeeFilterProps) {
   return (
     <div className="flex items-center gap-2">
       <Select 
         value={selectedEmployee || 'all'} 
         onValueChange={(v) => onEmployeeChange(v === 'all' ? null : v)}
       >
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-44 bg-primary text-primary-foreground border-primary font-semibold">
           <div className="flex items-center gap-2">
             {selectedEmployee ? (
               <User className="w-4 h-4" />
