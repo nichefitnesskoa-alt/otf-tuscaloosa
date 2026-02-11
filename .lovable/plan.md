@@ -1,59 +1,45 @@
 
+# Fix Questionnaire Linking and Clean Up Orphaned Records
 
-# Add "Create Text" to Client Pipeline
+## Problem
+The `QuestionnaireLink` component (used in the Shift Recap form) creates questionnaire records with `booking_id: null`. When the SA later generates a link from the Pipeline's "Questionnaire Links" section (which correctly sets `booking_id`), a duplicate is created. The client fills out the original orphaned one (via their slug), but the system looks for responses on the booking-linked one -- which is empty.
 
-## Overview
-Add a "Create Text" button to each client in the Client Pipeline (ClientJourneyReadOnly). Tapping it opens the existing MessageGenerator flow with scripts pre-filtered based on the client's journey status (upcoming, no-show, post-class, etc.) and merge fields auto-filled from their booking data.
+**Chloe Gorman's case:**
+- Record `b244fea9` -- linked to booking `ec87d3f8`, status "sent", NO responses
+- Record `cb04c3d8` -- no booking link, status "completed", HAS all responses
 
----
-
-## How It Works
-
-1. Each client row in the pipeline gets a small message icon button (visible without expanding).
-2. Tapping it opens a ScriptPickerSheet with scripts filtered by that client's status:
-   - **Upcoming booking**: Booking Confirmation + Pre-Class Reminder scripts
-   - **Today's class**: Pre-Class Reminder scripts
-   - **No-show**: No-Show sequence (auto-detects next step)
-   - **Missed guest / Post-class no sale**: Post-Class (Didn't Close) variants
-   - **Not interested**: Cold Lead Re-Engagement scripts
-   - **Active (general)**: All relevant scripts
-3. Merge fields auto-fill from the booking data: `{first-name}`, `{last-name}`, `{day}`, `{time}`, `{sa-name}`, `{questionnaire-link}`.
-4. After selecting a script, the normal MessageGenerator flow handles preview, edit, copy, and log.
+**Other orphaned records found:** 15 questionnaires with no booking_id, including duplicates for Koa Vincent (4 records, 1 completed) and partial-name fragments like "le", "ry", "chloe" from mid-typing auto-creates.
 
 ---
 
-## Technical Details
+## Fix Part 1: Data Cleanup (SQL)
 
-### File: `src/components/dashboard/ClientJourneyReadOnly.tsx`
+Run data corrections to:
+1. **Chloe Gorman**: Link completed questionnaire `cb04c3d8` to booking `ec87d3f8`, then delete the empty duplicate `b244fea9`.
+2. **Koa Vincent**: Find Koa's booking, link the completed questionnaire `601ab894` to it, delete the 3 empty duplicates.
+3. **Delete junk records**: Remove orphaned questionnaires with partial names ("le", "ry", "chloe", "sdcs", "abbie", "lydia") that were created mid-typing and never completed.
 
-- Import `ScriptPickerSheet` and `MessageGenerator` from the scripts components, plus `useAuth` and `useScriptSendLog`.
-- Add state for `scriptTarget` (the selected journey) and `selectedTemplate`.
-- Add a `MessageSquare` icon button on each client row (next to the status badge). Uses `e.stopPropagation()` to avoid toggling the collapsible.
-- When tapped, determine suggested script categories from the journey status:
+---
 
-```text
-status = 'no_show'       -> ['no_show']
-status = 'active' + upcoming booking -> ['booking_confirmation', 'pre_class_reminder']
-status = 'active' + today booking -> ['pre_class_reminder']
-status = 'active' + past booking -> ['post_class_no_close']
-status = 'not_interested' -> ['cold_lead']
-default -> all categories
-```
+## Fix Part 2: Prevent Future Duplicates (Code)
 
-- Build merge context from the journey's latest booking: parse `member_name` into first/last, pull `class_date`/`intro_time` for `{day}` and `{time}`, fetch questionnaire slug if available.
-- Open a dialog showing recommended scripts (filtered by suggested categories) at top, with "All Scripts" below using category tabs.
-- Selecting a script opens MessageGenerator with the pre-filled context and the booking ID for logging.
+### `src/components/QuestionnaireLink.tsx`
 
-### New Component: `src/components/dashboard/PipelineScriptPicker.tsx`
+Change the `createQuestionnaire` function to check for an existing questionnaire by matching `client_first_name`/`client_last_name` (case-insensitive) before creating a new one. If a match is found (especially a completed one), reuse it instead of inserting a duplicate.
 
-A small wrapper component specific to the pipeline that:
-- Accepts a `ClientJourney` object
-- Determines suggested categories
-- Builds merge context (including async questionnaire-link lookup)
-- Renders a dialog with recommended + all scripts
-- Hands off to MessageGenerator on selection
+The updated logic:
+1. Before inserting, query `intro_questionnaires` where `client_first_name` matches (case-insensitive) and `client_last_name` matches.
+2. If a completed record exists, adopt it: call `onQuestionnaireCreated(existingId)` and skip insert.
+3. If a non-completed orphan exists (with `booking_id = null`), adopt it and update its `booking_id` if available.
+4. Only create a new record if no match is found.
 
-This keeps `ClientJourneyReadOnly` clean by encapsulating the script logic.
+### `src/components/PastBookingQuestionnaires.tsx`
+
+Update the questionnaire lookup in `fetchBookings` to also match by client name (not just `booking_id`). This catches the case where a completed questionnaire exists but was never linked to the booking.
+
+The updated logic:
+1. After building the `booking_id`-based map, do a second pass: for any booking without a matched questionnaire, check if there's a questionnaire matching the member name (first + last, case-insensitive).
+2. If found, link it (update `booking_id` in the database) and use it.
 
 ---
 
@@ -61,6 +47,6 @@ This keeps `ClientJourneyReadOnly` clean by encapsulating the script logic.
 
 | Action | File |
 |--------|------|
-| Create | `src/components/dashboard/PipelineScriptPicker.tsx` -- script picker dialog for pipeline clients |
-| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` -- add MessageSquare button per client row, wire up PipelineScriptPicker |
-
+| SQL data fix | Delete duplicates and link completed questionnaires to correct bookings |
+| Edit | `src/components/QuestionnaireLink.tsx` -- add existing-questionnaire lookup before creating |
+| Edit | `src/components/PastBookingQuestionnaires.tsx` -- add name-based fallback matching |
