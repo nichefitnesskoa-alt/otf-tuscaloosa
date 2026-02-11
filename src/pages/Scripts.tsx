@@ -5,9 +5,10 @@ import { TemplateCategoryTabs } from '@/components/scripts/TemplateCategoryTabs'
 import { TemplateCard } from '@/components/scripts/TemplateCard';
 import { TemplateEditor } from '@/components/scripts/TemplateEditor';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
+import { ClientSearchScriptPicker } from '@/components/scripts/ClientSearchScriptPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Wand2 } from 'lucide-react';
 
 export default function Scripts() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function Scripts() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ScriptTemplate | null>(null);
   const [generatorTemplate, setGeneratorTemplate] = useState<ScriptTemplate | null>(null);
+  const [showClientSearch, setShowClientSearch] = useState(false);
   const { data: templates = [], isLoading } = useScriptTemplates();
 
   const filtered = templates.filter((t) => {
@@ -46,11 +48,16 @@ export default function Scripts() {
     <div className="space-y-4 pb-20">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Scripts</h1>
-        {isAdmin && (
-          <Button size="sm" onClick={handleAdd}>
-            <Plus className="w-4 h-4 mr-1" /> Add
+        <div className="flex gap-2">
+          <Button size="sm" variant="default" onClick={() => setShowClientSearch(true)}>
+            <Wand2 className="w-4 h-4 mr-1" /> Generate
           </Button>
-        )}
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={handleAdd}>
+              <Plus className="w-4 h-4 mr-1" /> Add
+            </Button>
+          )}
+        </div>
       </div>
 
       <TemplateCategoryTabs selected={selectedCategory} onSelect={setSelectedCategory} />
@@ -97,6 +104,11 @@ export default function Scripts() {
           template={generatorTemplate}
         />
       )}
+
+      <ClientSearchScriptPicker
+        open={showClientSearch}
+        onOpenChange={setShowClientSearch}
+      />
     </div>
   );
 }

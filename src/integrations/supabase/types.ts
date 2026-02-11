@@ -225,6 +225,7 @@ export type Database = {
           linked_ig_lead_id: string | null
           member_name: string
           originating_booking_id: string | null
+          paired_booking_id: string | null
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
@@ -254,6 +255,7 @@ export type Database = {
           linked_ig_lead_id?: string | null
           member_name: string
           originating_booking_id?: string | null
+          paired_booking_id?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
@@ -283,6 +285,7 @@ export type Database = {
           linked_ig_lead_id?: string | null
           member_name?: string
           originating_booking_id?: string | null
+          paired_booking_id?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
@@ -298,6 +301,13 @@ export type Database = {
           {
             foreignKeyName: "intros_booked_originating_booking_id_fkey"
             columns: ["originating_booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intros_booked_paired_booking_id_fkey"
+            columns: ["paired_booking_id"]
             isOneToOne: false
             referencedRelation: "intros_booked"
             referencedColumns: ["id"]
