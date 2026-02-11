@@ -1,79 +1,38 @@
 
 
-# Auto-Import Online Intros into Client Pipeline
+# Fix: Prevent Auto-Imported Leads from Showing in Leads Pipeline
 
-## Overview
+## Problem
 
-Update the `import-lead` edge function to handle a new nested payload format that includes booking data. When your Apps Script POSTs a parsed Orangebook email, the system will automatically create a lead AND an `intros_booked` record so it appears in "Booked / Upcoming" immediately -- no manual shift recap step needed.
+When an online intro email is parsed and POSTed to `import-lead`, the edge function creates both a **lead** (in `leads` table) and a **booking** (in `intros_booked`). The booking correctly appears in the Client Pipeline's "Upcoming" tab. However, the lead also appears in the Leads Pipeline because the `booked_intro_id` field on the lead record is never set.
 
-Coach name will be left blank (empty string / TBD), so the existing intro run flow will require coach selection as usual.
+Your frontend already has the logic to hide booked leads -- the Kanban board, List view, and Metrics bar all filter out leads where `booked_intro_id` is not null. The only missing piece is on the backend.
 
-## Database Changes
+## Fix (One Change)
 
-### New table: `intake_events`
+**File:** `supabase/functions/import-lead/index.ts`
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID | Primary key |
-| source | text | e.g. 'gmail' |
-| external_id | text | Unique -- stores `meta.gmail_message_id` |
-| payload | jsonb | Full request body for audit |
-| lead_id | UUID | Nullable |
-| booking_id | UUID | Nullable |
-| received_at | timestamptz | Default now() |
+After the booking is created (or an existing one is found), update the lead record to set:
+- `booked_intro_id` = the booking's UUID
+- `stage` = `'booked'`
 
-Open RLS policies (matching existing app pattern). The unique constraint on `external_id` prevents the same email from being processed twice.
+This is a small addition (~5 lines) right after the booking dedupe/creation block (around line 227), before the intake event is recorded.
 
-## Edge Function: `import-lead` Rewrite
+```text
+Current flow:
+  Create/find booking -> Record intake event -> Return
 
-The function will detect the payload format automatically and handle both:
-
-### Format A (existing -- backward compatible)
-Flat JSON with `first_name`, `last_name`, `email`, `phone`. Works exactly as it does today.
-
-### Format B (new -- booking + idempotency)
-Nested JSON with `lead`, `booking`, and `meta` objects.
-
-Processing steps for Format B:
-
-1. **Auth** -- validate `x-api-key` (unchanged)
-2. **Idempotency** -- check `intake_events` for `external_id` matching `meta.gmail_message_id`. If found, return 200 with `{ ok: true, duplicate: true }` and stop.
-3. **Upsert lead** -- match by email OR phone. If found, fill in any missing fields (name, phone, email). If not found, create new lead with stage `'new'`.
-4. **Parse date/time** -- convert `MM-DD-YYYY` to `YYYY-MM-DD` and `h:mm AM/PM` to `HH:MM` 24-hour format. Return 400 if parsing fails.
-5. **Dedupe booking** -- check `intros_booked` for same member name + class_date + intro_time. Skip if already exists.
-6. **Create booking** -- insert into `intros_booked` with:
-   - `member_name`: "FirstName LastName"
-   - `class_date`: parsed date
-   - `intro_time`: parsed time
-   - `lead_source`: "Online Intro Offer (self-booked)"
-   - `coach_name`: "TBD" (left blank so coach must be selected when the intro is run)
-   - `sa_working_shift`: "Online"
-   - `booked_by`: "System (Auto-Import)"
-   - `booking_status`: "Active"
-7. **Record intake event** -- insert into `intake_events` with full payload, lead_id, and booking_id.
-8. **Return response**:
-```json
-{
-  "ok": true,
-  "lead_id": "...",
-  "booking_id": "...",
-  "created_lead": true,
-  "created_booking": true
-}
+Updated flow:
+  Create/find booking -> Link booking to lead (set booked_intro_id + stage) -> Record intake event -> Return
 ```
 
-## Coach Name Handling
+## What This Fixes
 
-The `coach_name` field will be set to `"TBD"`. Your existing intro run flow already checks for this -- when an SA selects a booking with a TBD coach to log an intro run, the `IntroRunEntry` component shows a required coach selection prompt. No changes needed on the frontend for this.
+- Leads that come in via the auto-import (Format B) will have `booked_intro_id` set, so they won't appear in the Leads Pipeline
+- They will still appear in the Client Pipeline via `intros_booked` as they do now
+- No frontend changes needed -- the filtering logic is already in place
 
-## No Frontend Changes Needed
+## Existing Data
 
-The Client Pipeline "Upcoming" tab already reads from `intros_booked` where `booking_status = 'Active'` and `class_date` is in the future. Auto-imported bookings will appear there automatically.
-
-## File Summary
-
-| Action | File |
-|--------|------|
-| Migration | Create `intake_events` table with unique constraint on `external_id` |
-| Rewrite | `supabase/functions/import-lead/index.ts` |
+Mary (and any other leads already imported this way) will also need their `booked_intro_id` updated. I'll query for leads created by the auto-import that are missing this link and patch them.
 
