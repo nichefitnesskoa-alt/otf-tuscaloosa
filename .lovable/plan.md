@@ -1,23 +1,43 @@
 
 
-# Fix: Pre-Intro Questionnaire Links Section Not Expanding
+# Add Manual Delete and Auto-Delete for Completed Questionnaires
 
-## Root Cause
+## Overview
 
-The Radix `CollapsibleTrigger asChild` wrapping `CardHeader` creates a DOM structure conflict. The Collapsible's internal state management and the `hidden` attribute on `CollapsibleContent` are not toggling correctly, causing the content to remain hidden even when clicked.
-
-## Solution
-
-Replace the Radix `Collapsible` / `CollapsibleTrigger` / `CollapsibleContent` pattern with a simple manual toggle using React state. The component already has `open` / `setOpen` state -- we just need to use a plain `onClick` handler on the `CardHeader` and conditionally render the `CardContent` based on `open`, bypassing the Radix Collapsible entirely.
+Add a delete button on each completed questionnaire row, plus an automatic cleanup that removes completed questionnaires 3 days after the intro was actually run.
 
 ## Changes
 
-### File: `src/components/PastBookingQuestionnaires.tsx`
+### 1. `src/components/PastBookingQuestionnaires.tsx` -- Add Delete Button
 
-1. Remove `Collapsible`, `CollapsibleContent`, `CollapsibleTrigger` from imports
-2. Replace the outer `<Collapsible>` wrapper with just `<Card>`
-3. Replace `<CollapsibleTrigger asChild>` around `CardHeader` with a plain `CardHeader` that has `onClick={() => setOpen(!open)}`
-4. Replace `<CollapsibleContent>` around `CardContent` with a simple `{open && (<CardContent>...</CardContent>)}`
+- Import `Trash2` from lucide-react
+- Add a `deleteQuestionnaire` function that:
+  - Deletes the record from `intro_questionnaires` by ID
+  - Removes it from local state
+  - Shows a toast confirmation
+- Add a small trash icon button next to each completed questionnaire row (in the Completed tab), styled as a ghost button matching the existing copy/link buttons
 
-No logic changes -- just swapping the Radix Collapsible for a manual show/hide that avoids the DOM nesting and state issues.
+### 2. Auto-Delete via Scheduled Cleanup (Edge Function + Cron)
+
+Create an edge function `cleanup-questionnaires` that:
+- Queries `intro_questionnaires` where `status = 'completed'`
+- Joins against `intros_run` by member name to find questionnaires whose client has a completed intro run
+- If the intro run's `created_at` is more than 3 days ago, delete the questionnaire record
+- Returns a count of deleted records
+
+Schedule it via `pg_cron` to run once daily.
+
+### 3. Database: No schema changes needed
+The existing `intro_questionnaires` table and its RLS delete policy (admin-only) will need to be updated to allow broader delete access, OR the edge function can use the service role key to bypass RLS. For the manual delete button in the UI, we need to add a permissive delete policy (since current policy requires admin role).
+
+**RLS update**: Add a new DELETE policy on `intro_questionnaires` that allows deletion when `status = 'completed'` (so staff can only delete completed ones, not in-progress ones).
+
+## File Summary
+
+| Action | File |
+|--------|------|
+| Migration | Add permissive DELETE policy on `intro_questionnaires` for completed records |
+| Edit | `src/components/PastBookingQuestionnaires.tsx` -- add delete button on completed rows |
+| Create | `supabase/functions/cleanup-questionnaires/index.ts` -- auto-delete completed questionnaires 3 days after intro run |
+| SQL (insert tool) | Schedule daily cron job for cleanup function |
 
