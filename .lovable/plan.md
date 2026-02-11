@@ -1,53 +1,121 @@
 
 
-# Fix Leads Metrics Bar
+# Studio Employee Filter, Remove My Stats, Lead Source "Showed"
 
-## Changes
+## Overview
 
-**File:** `src/components/leads/LeadMetricsBar.tsx`
+Three changes: (1) make the employee dropdown filter ALL Studio sections (not just the per-SA table), make it visible to all users, and style it prominently; (2) move Individual Activity to My Shifts and remove the My Stats page; (3) add "showed" counts to Lead Source Analytics.
 
-Two fixes:
+---
 
-### 1. "Booked (Week)" should not count self-booked leads
+## 1. Employee Dropdown Filters Everything in Studio
 
-Currently, `bookedThisWeek` counts any lead with a `booked_intro_id` updated this week. But leads auto-created by the import system (source like "Orangebook") get `booked_intro_id` set automatically -- these are self-booked online intros, not SA-driven conversions.
+**Current behavior:** The dropdown only filters the Runner Stats table (`filteredPerSA`). The Studio Scoreboard, Pipeline Funnel, Lead Source, Top Performers, and Booker Stats all ignore it.
 
-Fix: Only count leads where `booked_intro_id` is set AND the lead was originally in the leads pipeline (i.e., `source` is NOT an online/auto source like `"Orangebook Web Lead"` or `"Orangebook Online Intro"`). Alternatively, since leads created by Format B imports now skip the leads table entirely (per the recent edge function fix), the simplest approach is to exclude leads whose source starts with `"Orangebook"`.
+**New behavior:** When an SA is selected, ALL sections on the Studio page show only that person's data:
+- **Studio Scoreboard** shows that SA's individual metrics (intros run, sales, close %, lead measures)
+- **Pipeline Funnel** shows bookings/shows/sales for that SA only
+- **Lead Source** filters to bookings by that SA
+- **Top Performers** hides (only relevant for studio-wide view)
+- **Runner Stats** filters to that SA
+- **Booker Stats** filters to that SA
 
-### 2. Rename label from "Booked (Week)" to "Booked"
+**Make it available to ALL users** (not just admins), so any staff member can view any colleague's scoreboard. Remove the `if (!isAdmin) return null` guard.
 
-Drop the "(Week)" suffix. The other metrics like "Lost" also track the current week but don't say "(Week)". Keep it consistent and clean. Rename "Lost (Week)" to "Lost" as well for consistency.
+**Style the dropdown:** Orange background with black text for high visibility.
 
-### Updated code
+### Files changed:
+- `src/components/dashboard/EmployeeFilter.tsx` -- remove admin-only guard, apply orange/black styling
+- `src/pages/Recaps.tsx` -- compute filtered metrics for all sections when an employee is selected
+- `src/hooks/useDashboardMetrics.ts` -- no changes needed (filtering happens at the page level using existing `perSA` and `bookerStats` data)
 
+---
+
+## 2. Remove My Stats Page, Move Activity to My Shifts
+
+Since any user can now view individual scoreboards in Studio, the separate "My Stats" page is redundant.
+
+- **Move** the Individual Activity table into the My Shifts page (below the shift history list)
+- **Remove** the `/dashboard` route and "My Stats" nav item from the bottom nav
+- **Delete** `src/pages/Dashboard.tsx` (no longer needed)
+
+### Files changed:
+- `src/pages/MyShifts.tsx` -- add IndividualActivityTable with date filter, using `useDashboardMetrics` for the logged-in user's activity data
+- `src/components/BottomNav.tsx` -- remove the "My Stats" nav item (`/dashboard`)
+- `src/App.tsx` -- remove the `/dashboard` route (redirect to `/my-shifts` if anyone hits it)
+
+---
+
+## 3. Lead Source Analytics: Add "Showed" Count
+
+Currently the distribution summary shows `"X booked, Y sold"` per source. Add the showed count between them: `"X booked, Z showed, Y sold"`.
+
+### Files changed:
+- `src/components/dashboard/LeadSourceChart.tsx` -- add `showed` to pie data, update summary text and tooltip to display it
+
+---
+
+## Technical Details
+
+### EmployeeFilter.tsx
 ```typescript
-// Booked this week: exclude auto-imported / self-booked sources
-const bookedThisWeek = leads.filter(l => {
-  if (!l.booked_intro_id) return false;
-  if (l.source?.startsWith('Orangebook')) return false;
-  const updated = parseISO(l.updated_at);
-  return isAfter(updated, weekStart) && isBefore(updated, weekEnd);
-}).length;
+// Remove: if (!isAdmin) return null;
+// Add orange styling to SelectTrigger:
+<SelectTrigger className="w-40 bg-primary text-primary-foreground border-primary">
 ```
 
-Labels change:
-- `'Booked (Week)'` becomes `'Booked'`
-- `'Lost (Week)'` becomes `'Lost'`
-
-### 30-day conversion rate
-
-Also update the conversion rate calculation to exclude Orangebook-sourced leads, so it only measures SA pipeline effectiveness:
+### Recaps.tsx -- Filtered metrics
+When `selectedEmployee` is set, compute individual metrics from `metrics.perSA` for scoreboard, filter pipeline/lead-source from the raw data, and hide Top Performers:
 
 ```typescript
-const recent = leads.filter(l => 
-  isAfter(parseISO(l.updated_at), thirtyDaysAgo) && 
-  !l.source?.startsWith('Orangebook')
-);
+// Filtered scoreboard metrics
+const scoreboardMetrics = useMemo(() => {
+  if (!selectedEmployee) return metrics.studio;
+  const sa = metrics.perSA.find(m => m.saName === selectedEmployee);
+  if (!sa) return { introsRun: 0, introSales: 0, closingRate: 0, ... };
+  return {
+    introsRun: sa.introsRun,
+    introSales: sa.sales,
+    closingRate: sa.closingRate,
+    goalWhyRate: sa.goalWhyRate,
+    relationshipRate: sa.relationshipRate,
+    madeAFriendRate: sa.madeAFriendRate,
+  };
+}, [selectedEmployee, metrics]);
 ```
+
+For Pipeline and Lead Source filtering by employee, add a new parameter to `useDashboardMetrics` or filter at the page level by re-computing from the raw booking/run data filtered to the selected SA's `intro_owner`.
+
+### LeadSourceChart.tsx
+```typescript
+// Add showed to pieData
+const pieData = data.map(d => ({
+  ...existing,
+  showed: d.showed,
+}));
+
+// Summary line becomes:
+{item.value} booked, {item.showed} showed, {item.sold} sold
+```
+
+### MyShifts.tsx
+Add below existing shift list:
+```typescript
+<IndividualActivityTable data={personalActivity} />
+```
+With a date filter and `useDashboardMetrics` call scoped to the current user.
+
+---
 
 ## File Summary
 
 | Action | File |
 |--------|------|
-| Edit | `src/components/leads/LeadMetricsBar.tsx` -- exclude Orangebook sources from Booked count and conversion rate; rename labels |
+| Edit | `src/components/dashboard/EmployeeFilter.tsx` -- remove admin guard, orange styling |
+| Edit | `src/pages/Recaps.tsx` -- filter all sections by selected employee |
+| Edit | `src/components/dashboard/LeadSourceChart.tsx` -- add "showed" count |
+| Edit | `src/pages/MyShifts.tsx` -- add Individual Activity table |
+| Edit | `src/components/BottomNav.tsx` -- remove My Stats nav item |
+| Edit | `src/App.tsx` -- remove /dashboard route, redirect to /my-shifts |
+| Delete | `src/pages/Dashboard.tsx` -- no longer needed |
 
