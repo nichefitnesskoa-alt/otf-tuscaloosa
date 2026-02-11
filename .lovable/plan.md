@@ -1,73 +1,105 @@
 
 
-# Multi-Feature Update: Questionnaire Changes, Delete Policy, and Pipeline Enhancements
+# Friend Booking Flow in Shift Recap + Script/Questionnaire Link Fixes
 
-## 1. Delete Non-Completed Questionnaires
+## Overview
 
-**Current state**: The RLS DELETE policy on `intro_questionnaires` only allows deleting records where `status = 'completed'`. This blocks deleting "not_sent" or "sent" records.
-
-**Changes**:
-- Update the RLS DELETE policy to allow deleting any questionnaire (remove the `status = 'completed'` restriction)
-- Add a delete (trash) button to rows in the **Pending** tab ("Link Generated" section) in `PastBookingQuestionnaires.tsx`, matching the existing delete button style used in the Completed tab
-- Update the cleanup edge function condition comment (no code change needed since it already filters by `status = 'completed'` in its query)
+This plan adds a "Bringing a friend?" prompt to the Intros Booked section of the Shift Recap, fixes the questionnaire link slugs in script merge fields, moves the Send Script button to a more visible position, and creates a referral tracking panel in Admin.
 
 ---
 
-## 2. Make Q1 (Fitness Goal) Multi-Select
+## 1. Friend Booking Prompt in IntroBookingEntry
 
-**Current state**: Q1 uses `SelectCard` for single selection, stored as a single string.
+After the user selects a Lead Source, a toggle/prompt appears: **"Are they bringing a friend?"**
 
-**Changes in `src/pages/Questionnaire.tsx`**:
-- Change `q1` state from `string` to `string[]` (like Q3)
-- Add `q1Other` as existing (already there)
-- Render Q1 options as multi-select checkboxes (same pattern as Q3 -- checkbox-style buttons with check icons)
-- Update `canProceed` for step 1: `q1.length > 0`
-- Update `handleSubmit`: serialize as pipe-delimited string (`q1.map(v => v === 'Other' ? q1Other : v).join(' | ')`)
-- Update question text from "What's your #1 health/fitness goal" to "What are your health/fitness goals right now?" with "Select all that apply"
+When toggled on:
+- A friend info section expands (same pattern as `BookIntroDialog`)
+- Fields: First Name (required), Last Name, Phone (required), Email
+- The intro date, time, and coach auto-copy from the current booking
+- On shift recap submission, the system:
+  - Creates a second `intros_booked` record for the friend (same date/time/coach)
+  - Sets the friend's `lead_source` to the appropriate "(Friend)" variant (e.g., "Instagram DMs" becomes "Instagram DMs (Friend)")
+  - Cross-links both bookings via `paired_booking_id`
+  - Auto-creates a questionnaire for the friend (using `QuestionnaireLink` logic)
+  - Notes the referral relationship in both booking records
 
----
+### Changes to `IntroBookingData` interface:
+- Add `bringingFriend: boolean`
+- Add `friendFirstName`, `friendLastName`, `friendPhone`, `friendEmail` fields
 
-## 3. Make Q5 (Emotional Driver) Multi-Select
+### Changes to `IntroBookingEntry.tsx`:
+- Add the friend toggle UI after Lead Source select
+- When friend is enabled, show friend name/phone/email fields
+- Auto-create a second `QuestionnaireLink` for the friend
+- Pass `friend-questionnaire-link` into the script merge context so confirmation scripts auto-populate both links
 
-**Current state**: Q5 uses `SelectCard` for single selection.
-
-**Changes in `src/pages/Questionnaire.tsx`**:
-- Change `q5` state from `string` to `string[]`
-- Render Q5 options as multi-select checkboxes (same pattern as Q3)
-- Update `handleSubmit`: serialize as pipe-delimited string
-- Add "Select all that apply" subtitle
-
----
-
-## 4. Show Lead Source in Client Pipeline (All Tab, Collapsed View)
-
-**Current state**: The collapsed row in the "All" tab shows member name, intro owner, coach, and date. Lead source only appears inside the expanded details.
-
-**Changes in `src/components/dashboard/ClientJourneyReadOnly.tsx`**:
-- Add lead source as a small badge/text in the collapsed row metadata (next to date/coach), using the booking's `lead_source` field
-- Add a special "Online Intro" badge (e.g., a distinct colored badge like blue/teal) when the lead source is `"Online Intro Offer (self-booked)"` to clearly flag email-parsed online intros
-- This badge serves as the "disclaimer" to know it was auto-parsed from email
+### Changes to `ShiftRecap.tsx` submission logic:
+- When a booking has `bringingFriend = true`, create a second `intros_booked` record
+- Cross-link via `paired_booking_id`
+- Link the friend's questionnaire to the friend's booking
 
 ---
 
-## 5. Questionnaire Link in Shift Recap Booking (Already Exists)
+## 2. Fix Questionnaire Link in Script Merge Context
 
-The `IntroBookingEntry` component already includes the `QuestionnaireLink` component which auto-generates and displays questionnaire links when a client name is entered. This is already working. No changes needed here -- the existing flow in the shift recap form already supports creating questionnaire links before submission (the `QuestionnaireLink` component creates records with `booking_id: null` and links them later).
+**Bug**: The `IntroBookingEntry` uses `useState(() => {...})` to fetch the slug -- this is incorrect (should be `useEffect`). This causes the slug fetch to fail, so the fallback UUID-based link is used instead of the name-based slug.
+
+### Fix in `IntroBookingEntry.tsx`:
+- Replace the `useState(() => {...})` slug fetch (lines 77-87) with a proper `useEffect`
+- This ensures the slug is fetched correctly and the `questionnaire-link` merge field uses the `/q/john-smith` format instead of `/q/uuid`
 
 ---
 
-## Technical Details
+## 3. Move "Send Script" Button
 
-### Database Migration
-- Drop the existing DELETE policy on `intro_questionnaires` that restricts to `status = 'completed'`
-- Create a new DELETE policy allowing deletion of any record (using `true` condition)
+### Changes to `IntroBookingEntry.tsx`:
+- Remove the small `Send` icon button from the top-right corner (lines 184-192)
+- Add a full-width black "Send Script" button at the bottom, after the QuestionnaireLink and QuestionnaireResponseViewer sections
+- Styled as: `className="w-full bg-black text-white hover:bg-black/90"` with text "Send Script"
 
-### File Changes
+---
+
+## 4. Referral Tracking in Admin
+
+### New database table: `referrals`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| referrer_booking_id | uuid | The person who brought the friend |
+| referred_booking_id | uuid | The friend's booking |
+| referrer_name | text | Display name |
+| referred_name | text | Display name |
+| discount_applied | boolean | Default false -- admin checks this off |
+| created_at | timestamptz | |
+
+RLS: Open read/insert/update (matching existing table patterns).
+
+### New component: `src/components/admin/ReferralTracker.tsx`
+- Fetches from `referrals` table
+- Shows a list of referral pairs with referrer name, referred name, date
+- Each row has a checkbox to mark "Discount Applied" ($50 off)
+- Admin can filter by pending vs. applied
+
+### Add tab to Admin page:
+- New "Referrals" tab in the Admin Tabs component
+
+---
+
+## 5. Friend Questionnaire Link in Scripts
+
+When `bringingFriend` is enabled and the friend's questionnaire is created:
+- The friend's slug-based link is passed as `friend-questionnaire-link` in the merge context
+- Confirmation scripts (e.g., template 1C) that contain `{friend-questionnaire-link}` will auto-populate with the friend's unique questionnaire URL
+
+---
+
+## Technical File Summary
 
 | Action | File |
 |--------|------|
-| Migration | Update DELETE RLS policy on `intro_questionnaires` to allow all deletes |
-| Edit | `src/components/PastBookingQuestionnaires.tsx` -- Add delete button to pending "Link Generated" rows |
-| Edit | `src/pages/Questionnaire.tsx` -- Convert Q1 and Q5 from single-select to multi-select |
-| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` -- Show lead source + "Online Intro" badge in collapsed view |
+| Edit | `src/components/IntroBookingEntry.tsx` -- Add friend toggle, fix slug useEffect, move Send Script button, pass friend questionnaire link |
+| Edit | `src/pages/ShiftRecap.tsx` -- Handle friend booking creation on submit, cross-link paired_booking_id, link friend questionnaire |
+| Migration | Create `referrals` table with RLS policies |
+| Create | `src/components/admin/ReferralTracker.tsx` -- Referral discount tracking panel |
+| Edit | `src/pages/Admin.tsx` -- Add Referrals tab |
 
