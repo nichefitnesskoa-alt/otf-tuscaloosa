@@ -106,6 +106,36 @@ export type Database = {
         }
         Relationships: []
       }
+      intake_events: {
+        Row: {
+          booking_id: string | null
+          external_id: string
+          id: string
+          lead_id: string | null
+          payload: Json | null
+          received_at: string
+          source: string
+        }
+        Insert: {
+          booking_id?: string | null
+          external_id: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          received_at?: string
+          source?: string
+        }
+        Update: {
+          booking_id?: string | null
+          external_id?: string
+          id?: string
+          lead_id?: string | null
+          payload?: Json | null
+          received_at?: string
+          source?: string
+        }
+        Relationships: []
+      }
       intro_questionnaires: {
         Row: {
           booking_id: string | null
