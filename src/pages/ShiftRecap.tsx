@@ -218,7 +218,7 @@ export default function ShiftRecap() {
   };
 
   // Auto-link leads: match by name and update stage/booked_intro_id
-  const matchLeadByName = async (memberName: string, bookingId: string | null, newStage: 'booked' | 'won') => {
+  const matchLeadByName = async (memberName: string, bookingId: string | null, newStage: 'booked' | 'won', leadSource?: string) => {
     try {
       const parts = memberName.trim().split(/\s+/);
       if (parts.length < 2) return;
@@ -240,15 +240,20 @@ export default function ShiftRecap() {
 
         const updates: Record<string, unknown> = { stage: newStage };
         if (bookingId) updates.booked_intro_id = bookingId;
+        if (leadSource) updates.source = leadSource;
 
         await supabase.from('leads').update(updates).eq('id', lead.id);
+
+        let notes = newStage === 'won'
+          ? 'Auto-linked: membership purchased via shift recap'
+          : 'Auto-linked from shift recap booking';
+        if (leadSource) notes += `. Source updated to: ${leadSource}`;
+
         await supabase.from('lead_activities').insert({
           lead_id: lead.id,
           activity_type: 'stage_change',
           performed_by: 'System',
-          notes: newStage === 'won'
-            ? 'Auto-linked: membership purchased via shift recap'
-            : 'Auto-linked from shift recap booking',
+          notes,
         });
       }
     } catch (err) {
@@ -308,7 +313,7 @@ export default function ShiftRecap() {
 
           // Auto-link matching lead
           if (insertedBooking) {
-            await matchLeadByName(booking.memberName, insertedBooking.id, 'booked');
+            await matchLeadByName(booking.memberName, insertedBooking.id, 'booked', booking.leadSource);
           }
 
           // Link questionnaire to the newly created booking
@@ -544,7 +549,7 @@ export default function ShiftRecap() {
           // If sale outcome, close the linked booking
           if (commissionAmount > 0 && linkedBookingId) {
             // Auto-link matching lead as won
-            await matchLeadByName(run.memberName, linkedBookingId, 'won');
+            await matchLeadByName(run.memberName, linkedBookingId, 'won', run.leadSource);
             
             await closeBookingOnSale(
               run.memberName,
@@ -643,7 +648,7 @@ export default function ShiftRecap() {
           });
 
           // Auto-link matching lead as won
-          await matchLeadByName(sale.memberName, null, 'won');
+          await matchLeadByName(sale.memberName, null, 'won', sale.leadSource);
 
           // Auto-close any matching active bookings
           if (sale.commissionAmount > 0 || sale.membershipType) {

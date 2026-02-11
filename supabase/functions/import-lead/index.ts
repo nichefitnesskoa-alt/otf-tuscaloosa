@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
 
       const { data: existingBooking } = await supabase
         .from("intros_booked")
-        .select("id")
+        .select("id, lead_source")
         .ilike("member_name", memberName)
         .is("deleted_at", null)
         .limit(1)
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
           email: lead.email || null,
           phone: lead.phone || "",
           stage: autoStage,
-          source: lead.source || "Orangebook Web Lead",
+          source: existingBooking?.lead_source || lead.source || "Orangebook Web Lead",
           booked_intro_id: autoBookedIntroId,
         })
         .select("id")
