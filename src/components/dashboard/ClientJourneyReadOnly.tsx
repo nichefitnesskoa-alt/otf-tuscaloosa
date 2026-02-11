@@ -27,6 +27,7 @@ import {
   CalendarPlus,
   Phone,
   Filter,
+  MessageSquare,
 } from 'lucide-react';
 import {
   Select,
@@ -39,6 +40,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
+import { PipelineScriptPicker } from './PipelineScriptPicker';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source';
@@ -90,6 +92,7 @@ export function ClientJourneyReadOnly() {
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
+  const [scriptTargetKey, setScriptTargetKey] = useState<string | null>(null);
   const hasMountedRef = useRef(false);
 
   const fetchData = async () => {
@@ -577,6 +580,16 @@ export function ClientJourneyReadOnly() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setScriptTargetKey(journey.memberKey);
+                          }}
+                          className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                          title="Create text"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </button>
                         {journey.totalCommission > 0 && (
                           <Badge variant="outline" className="text-success">
                             <DollarSign className="w-3 h-3 mr-0.5" />
@@ -690,6 +703,19 @@ export function ClientJourneyReadOnly() {
             </div>
           )}
         </ScrollArea>
+
+        {/* Script Picker for selected client */}
+        {scriptTargetKey && (() => {
+          const targetJourney = journeys.find(j => j.memberKey === scriptTargetKey);
+          if (!targetJourney) return null;
+          return (
+            <PipelineScriptPicker
+              journey={targetJourney}
+              open={true}
+              onOpenChange={(open) => { if (!open) setScriptTargetKey(null); }}
+            />
+          );
+        })()}
       </CardContent>
     </Card>
   );
