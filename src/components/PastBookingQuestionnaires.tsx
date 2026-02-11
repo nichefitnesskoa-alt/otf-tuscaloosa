@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
-import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText, Search, Plus, X } from 'lucide-react';
+import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText, Search, Plus, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { generateUniqueSlug } from '@/lib/utils';
@@ -233,6 +233,20 @@ export default function PastBookingQuestionnaires() {
     fetchBookings();
   };
 
+  const deleteQuestionnaire = async (booking: BookingWithQ) => {
+    if (!booking.questionnaire_id) return;
+    const { error } = await supabase
+      .from('intro_questionnaires')
+      .delete()
+      .eq('id', booking.questionnaire_id);
+    if (error) {
+      toast.error('Failed to delete questionnaire');
+      return;
+    }
+    setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+    toast.success('Questionnaire deleted');
+  };
+
   const copyLink = async (booking: BookingWithQ) => {
     if (!booking.questionnaire_id) return;
     const link = booking.q_slug ? `${PUBLISHED_URL}/q/${booking.q_slug}` : `${PUBLISHED_URL}/q/${booking.questionnaire_id}`;
@@ -456,6 +470,9 @@ export default function PastBookingQuestionnaires() {
                                   </a>
                                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(b)}>
                                     {copiedId === b.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => deleteQuestionnaire(b)}>
+                                    <Trash2 className="w-3 h-3" />
                                   </Button>
                                 </div>
                               </div>
