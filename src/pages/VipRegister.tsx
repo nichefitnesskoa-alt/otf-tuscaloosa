@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,8 @@ const formSchema = z.object({
 });
 
 export default function VipRegister() {
+  const [searchParams] = useSearchParams();
+  const vipClassName = searchParams.get('class') || '';
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -59,7 +62,8 @@ export default function VipRegister() {
           lead_source: 'VIP Class',
           booked_by: 'Self (VIP Form)',
           booking_status: 'Active',
-        })
+          vip_class_name: vipClassName || null,
+        } as any)
         .select('id')
         .single();
 
@@ -76,7 +80,8 @@ export default function VipRegister() {
           birthday: birthday || null,
           weight_lbs: weightLbs ? parseInt(weightLbs) : null,
           booking_id: booking.id,
-        });
+          vip_class_name: vipClassName || null,
+        } as any);
 
       if (vipError) throw vipError;
 
@@ -118,7 +123,7 @@ export default function VipRegister() {
             VIP Class Registration
           </div>
           <h1 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>
-            Register for VIP Class
+            {vipClassName ? `${vipClassName} VIP Class` : 'Register for VIP Class'}
           </h1>
           <p className="text-sm" style={{ color: '#555' }}>
             Fill out the form below and we'll get you set up for your VIP experience.
