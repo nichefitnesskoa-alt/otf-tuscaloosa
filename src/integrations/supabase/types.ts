@@ -429,6 +429,86 @@ export type Database = {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          created_at: string
+          id: string
+          lead_id: string
+          notes: string | null
+          performed_by: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          id?: string
+          lead_id: string
+          notes?: string | null
+          performed_by: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          booked_intro_id: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          follow_up_at: string | null
+          id: string
+          last_name: string
+          lost_reason: string | null
+          phone: string
+          source: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          booked_intro_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          follow_up_at?: string | null
+          id?: string
+          last_name: string
+          lost_reason?: string | null
+          phone: string
+          source?: string
+          stage?: string
+          updated_at?: string
+        }
+        Update: {
+          booked_intro_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          follow_up_at?: string | null
+          id?: string
+          last_name?: string
+          lost_reason?: string | null
+          phone?: string
+          source?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales_outside_intro: {
         Row: {
           commission_amount: number | null
