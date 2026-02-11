@@ -64,6 +64,7 @@ import {
   Users,
   CalendarPlus,
   Filter,
+  Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -74,7 +75,7 @@ import { capitalizeName, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 
 // Tab types
-type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source';
+type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
 
 // Booking status types
 const BOOKING_STATUSES = [
@@ -460,6 +461,7 @@ export default function ClientJourneyPanel() {
       second_intro: 0,
       not_interested: 0,
       by_lead_source: 0,
+      vip_class: 0,
     };
 
     journeys.forEach(journey => {
@@ -529,11 +531,22 @@ export default function ClientJourneyPanel() {
       counts.by_lead_source++;
     });
 
+    // VIP count - includes ALL journeys (even purchased) with VIP Class lead source
+    journeys.forEach(journey => {
+      const isVip = journey.bookings.some(b => b.lead_source === 'VIP Class');
+      if (isVip) counts.vip_class++;
+    });
+
     return counts;
   }, [journeys]);
 
   // Filter by tab
   const filterJourneysByTab = (journeyList: ClientJourney[], tab: JourneyTab): ClientJourney[] => {
+    // VIP tab: show ALL VIP Class clients regardless of purchase status
+    if (tab === 'vip_class') {
+      return journeyList.filter(j => j.bookings.some(b => b.lead_source === 'VIP Class'));
+    }
+
     if (tab === 'all') return journeyList;
 
     return journeyList.filter(journey => {
@@ -1433,6 +1446,11 @@ export default function ClientJourneyPanel() {
               <UserX className="w-3 h-3" />
               Not Interested
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.not_interested}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="vip_class" className="flex-1 min-w-[60px] text-xs gap-1 text-purple-600 data-[state=active]:text-purple-700">
+              <Star className="w-3 h-3" />
+              VIP
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.vip_class}</Badge>
             </TabsTrigger>
             <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
               <Filter className="w-3 h-3" />
