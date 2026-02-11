@@ -1,75 +1,43 @@
 
 
-# Fix Friend Script Logging + Auto-Mark Questionnaires as Sent
+# VIP Class Pipeline Section
 
-## Problems
+## What This Does
 
-1. **"Log as Sent" doesn't update the friend's questionnaire status** -- When you send a confirmation script containing both questionnaire links, only the main person's questionnaire gets updated. The friend's stays at "Not Sent" because the system doesn't know the friend's link was included in the message.
+Adds a dedicated "VIP Class" tab to the Client Pipeline that shows all clients whose lead source is "VIP Class" -- regardless of their lifecycle stage. Unlike the other tabs (Upcoming, No-shows, etc.) which filter by status, VIP Class clients will always appear in this tab from booking through purchase, giving your team a single place to track all VIP visitors.
 
-2. **Auto-complete already works** -- If a client accesses and fills out their questionnaire without it being marked "sent" first, it correctly updates to "completed." The polling in the QuestionnaireLink component already handles this (checks every 10 seconds). No fix needed here.
+VIP clients will still appear in the regular tabs too (Upcoming, Today, etc.) so they get the same follow-up attention, but the VIP tab gives a consolidated view of just those clients.
 
-## Solution
+## What Your Team Sees
 
-### 1. Auto-mark both questionnaires as "sent" when a script is logged
-
-**File: `src/components/scripts/MessageGenerator.tsx`**
-
-Update the `handleLog` function to detect questionnaire URLs in the sent message body. After successfully logging:
-- Check if the message body contains a questionnaire link matching the main person's questionnaire ID or slug
-- Check if the message body contains the friend's questionnaire link
-- For each match found, update that questionnaire's status from `not_sent` to `sent`
-
-Pass new optional props `questionnaireId`, `friendQuestionnaireId`, and callbacks `onQuestionnaireSent`, `onFriendQuestionnaireSent` through the component chain.
-
-### 2. Thread the questionnaire IDs through ScriptPickerSheet
-
-**File: `src/components/scripts/ScriptPickerSheet.tsx`**
-
-Add optional props: `questionnaireId`, `friendQuestionnaireId`, `onQuestionnaireSent`, `onFriendQuestionnaireSent`. Pass them down to `MessageGenerator`.
-
-### 3. Pass from IntroBookingEntry
-
-**File: `src/components/IntroBookingEntry.tsx`**
-
-Pass `questionnaireId` and `friendQuestionnaireId` to `ScriptPickerSheet`, along with callbacks that update the booking entry's questionnaire statuses to `sent`.
+- A new "VIP" tab in the Client Pipeline (both Pipeline page and Admin)
+- VIP tab shows a count of all VIP Class clients
+- Each client card shows their current status (Active, Purchased, No-show, etc.) so you can see where they are in the journey
+- A purple star icon distinguishes the tab visually
 
 ---
 
 ## Technical Details
 
-### MessageGenerator.tsx changes
+### Changes to Both Components
 
-Add props:
-```
-questionnaireId?: string;
-friendQuestionnaireId?: string;
-onQuestionnaireSent?: () => void;
-onFriendQuestionnaireSent?: () => void;
-```
+**Files:**
+- `src/components/dashboard/ClientJourneyReadOnly.tsx` (Pipeline page)
+- `src/components/admin/ClientJourneyPanel.tsx` (Admin page)
 
-In `handleLog`, after the successful `logSent.mutateAsync` call:
-- If `questionnaireId` exists, update its status to `sent` (if currently `not_sent`)
-- If `friendQuestionnaireId` exists, update its status to `sent` (if currently `not_sent`)
-- Call the corresponding callbacks so the parent UI updates
+In each file:
 
-### ScriptPickerSheet.tsx changes
+1. Add `'vip_class'` to the `JourneyTab` type union
+2. Add a `vip_class` count to `tabCounts` -- counts ALL journeys (including purchased) where any booking has `lead_source === 'VIP Class'`
+3. Add a new `TabsTrigger` for "VIP" with a star icon and count
+4. Add filter logic in `filterJourneysByTab`: for `vip_class` tab, return all journeys where any booking's `lead_source` is "VIP Class" (do NOT exclude purchased members -- VIP clients stay visible the entire time)
 
-Add the same 4 optional props and forward them to `MessageGenerator`.
+### Key Difference from Other Tabs
 
-### IntroBookingEntry.tsx changes
-
-Update the `ScriptPickerSheet` usage (line 448-454):
-- Pass `questionnaireId={booking.questionnaireId}`
-- Pass `friendQuestionnaireId={booking.friendQuestionnaireId}`
-- Pass `onQuestionnaireSent` callback that calls `onUpdate(index, { questionnaireStatus: 'sent' })`
-- Pass `onFriendQuestionnaireSent` callback that calls `onUpdate(index, { friendQuestionnaireStatus: 'sent' })`
-
----
-
-## File Summary
+Other tabs exclude purchased members via `hasPurchasedMembership()`. The VIP tab intentionally skips this exclusion so VIP clients remain visible throughout their full lifecycle.
 
 | Action | File | What Changes |
 |--------|------|-------------|
-| Edit | `src/components/scripts/MessageGenerator.tsx` | Add questionnaire ID props, auto-update status to "sent" on log |
-| Edit | `src/components/scripts/ScriptPickerSheet.tsx` | Thread new props to MessageGenerator |
-| Edit | `src/components/IntroBookingEntry.tsx` | Pass questionnaire IDs and callbacks to ScriptPickerSheet |
+| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` | Add VIP tab type, count, trigger, and filter logic |
+| Edit | `src/components/admin/ClientJourneyPanel.tsx` | Same changes mirrored for Admin view |
+
