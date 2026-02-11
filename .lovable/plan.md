@@ -1,43 +1,73 @@
 
 
-# Add Manual Delete and Auto-Delete for Completed Questionnaires
+# Multi-Feature Update: Questionnaire Changes, Delete Policy, and Pipeline Enhancements
 
-## Overview
+## 1. Delete Non-Completed Questionnaires
 
-Add a delete button on each completed questionnaire row, plus an automatic cleanup that removes completed questionnaires 3 days after the intro was actually run.
+**Current state**: The RLS DELETE policy on `intro_questionnaires` only allows deleting records where `status = 'completed'`. This blocks deleting "not_sent" or "sent" records.
 
-## Changes
+**Changes**:
+- Update the RLS DELETE policy to allow deleting any questionnaire (remove the `status = 'completed'` restriction)
+- Add a delete (trash) button to rows in the **Pending** tab ("Link Generated" section) in `PastBookingQuestionnaires.tsx`, matching the existing delete button style used in the Completed tab
+- Update the cleanup edge function condition comment (no code change needed since it already filters by `status = 'completed'` in its query)
 
-### 1. `src/components/PastBookingQuestionnaires.tsx` -- Add Delete Button
+---
 
-- Import `Trash2` from lucide-react
-- Add a `deleteQuestionnaire` function that:
-  - Deletes the record from `intro_questionnaires` by ID
-  - Removes it from local state
-  - Shows a toast confirmation
-- Add a small trash icon button next to each completed questionnaire row (in the Completed tab), styled as a ghost button matching the existing copy/link buttons
+## 2. Make Q1 (Fitness Goal) Multi-Select
 
-### 2. Auto-Delete via Scheduled Cleanup (Edge Function + Cron)
+**Current state**: Q1 uses `SelectCard` for single selection, stored as a single string.
 
-Create an edge function `cleanup-questionnaires` that:
-- Queries `intro_questionnaires` where `status = 'completed'`
-- Joins against `intros_run` by member name to find questionnaires whose client has a completed intro run
-- If the intro run's `created_at` is more than 3 days ago, delete the questionnaire record
-- Returns a count of deleted records
+**Changes in `src/pages/Questionnaire.tsx`**:
+- Change `q1` state from `string` to `string[]` (like Q3)
+- Add `q1Other` as existing (already there)
+- Render Q1 options as multi-select checkboxes (same pattern as Q3 -- checkbox-style buttons with check icons)
+- Update `canProceed` for step 1: `q1.length > 0`
+- Update `handleSubmit`: serialize as pipe-delimited string (`q1.map(v => v === 'Other' ? q1Other : v).join(' | ')`)
+- Update question text from "What's your #1 health/fitness goal" to "What are your health/fitness goals right now?" with "Select all that apply"
 
-Schedule it via `pg_cron` to run once daily.
+---
 
-### 3. Database: No schema changes needed
-The existing `intro_questionnaires` table and its RLS delete policy (admin-only) will need to be updated to allow broader delete access, OR the edge function can use the service role key to bypass RLS. For the manual delete button in the UI, we need to add a permissive delete policy (since current policy requires admin role).
+## 3. Make Q5 (Emotional Driver) Multi-Select
 
-**RLS update**: Add a new DELETE policy on `intro_questionnaires` that allows deletion when `status = 'completed'` (so staff can only delete completed ones, not in-progress ones).
+**Current state**: Q5 uses `SelectCard` for single selection.
 
-## File Summary
+**Changes in `src/pages/Questionnaire.tsx`**:
+- Change `q5` state from `string` to `string[]`
+- Render Q5 options as multi-select checkboxes (same pattern as Q3)
+- Update `handleSubmit`: serialize as pipe-delimited string
+- Add "Select all that apply" subtitle
+
+---
+
+## 4. Show Lead Source in Client Pipeline (All Tab, Collapsed View)
+
+**Current state**: The collapsed row in the "All" tab shows member name, intro owner, coach, and date. Lead source only appears inside the expanded details.
+
+**Changes in `src/components/dashboard/ClientJourneyReadOnly.tsx`**:
+- Add lead source as a small badge/text in the collapsed row metadata (next to date/coach), using the booking's `lead_source` field
+- Add a special "Online Intro" badge (e.g., a distinct colored badge like blue/teal) when the lead source is `"Online Intro Offer (self-booked)"` to clearly flag email-parsed online intros
+- This badge serves as the "disclaimer" to know it was auto-parsed from email
+
+---
+
+## 5. Questionnaire Link in Shift Recap Booking (Already Exists)
+
+The `IntroBookingEntry` component already includes the `QuestionnaireLink` component which auto-generates and displays questionnaire links when a client name is entered. This is already working. No changes needed here -- the existing flow in the shift recap form already supports creating questionnaire links before submission (the `QuestionnaireLink` component creates records with `booking_id: null` and links them later).
+
+---
+
+## Technical Details
+
+### Database Migration
+- Drop the existing DELETE policy on `intro_questionnaires` that restricts to `status = 'completed'`
+- Create a new DELETE policy allowing deletion of any record (using `true` condition)
+
+### File Changes
 
 | Action | File |
 |--------|------|
-| Migration | Add permissive DELETE policy on `intro_questionnaires` for completed records |
-| Edit | `src/components/PastBookingQuestionnaires.tsx` -- add delete button on completed rows |
-| Create | `supabase/functions/cleanup-questionnaires/index.ts` -- auto-delete completed questionnaires 3 days after intro run |
-| SQL (insert tool) | Schedule daily cron job for cleanup function |
+| Migration | Update DELETE RLS policy on `intro_questionnaires` to allow all deletes |
+| Edit | `src/components/PastBookingQuestionnaires.tsx` -- Add delete button to pending "Link Generated" rows |
+| Edit | `src/pages/Questionnaire.tsx` -- Convert Q1 and Q5 from single-select to multi-select |
+| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` -- Show lead source + "Online Intro" badge in collapsed view |
 
