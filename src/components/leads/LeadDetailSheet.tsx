@@ -53,12 +53,28 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
 
   const isBooked = !!lead.booked_intro_id;
 
-  // Determine script categories based on lead stage/age
+  // Determine script categories based on lead stage/age/source
   const leadAgeDays = differenceInDays(new Date(), parseISO(lead.created_at));
   const scriptCategories: string[] = [];
-  if (lead.source.toLowerCase().includes('instagram')) scriptCategories.push('ig_dm');
+  
+  // Source-based suggestions
+  if (lead.source.toLowerCase().includes('instagram')) {
+    scriptCategories.push('ig_dm');
+  } else if (lead.source.toLowerCase().includes('cold lead')) {
+    scriptCategories.push('cold_lead');
+  }
+  
   scriptCategories.push('web_lead');
-  if (leadAgeDays > 30) scriptCategories.push('cold_lead');
+  
+  // Add cold lead if old enough
+  if (leadAgeDays > 30 && !scriptCategories.includes('cold_lead')) {
+    scriptCategories.push('cold_lead');
+  }
+  
+  // If booked, suggest booking confirmation
+  if (isBooked) {
+    scriptCategories.unshift('booking_confirmation');
+  }
 
   const scriptMergeContext = {
     'first-name': lead.first_name,

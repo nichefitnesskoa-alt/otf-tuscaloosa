@@ -68,6 +68,30 @@ export default function IntroBookingEntry({
     } catch { return undefined; }
   };
 
+  const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
+
+  // Build questionnaire link from slug if available
+  const [questionnaireSlug, setQuestionnaireSlug] = useState<string | null>(null);
+  
+  // Fetch slug when questionnaireId changes
+  useState(() => {
+    if (!booking.questionnaireId) return;
+    supabase
+      .from('intro_questionnaires')
+      .select('slug' as any)
+      .eq('id', booking.questionnaireId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if ((data as any)?.slug) setQuestionnaireSlug((data as any).slug);
+      });
+  });
+
+  const questionnaireLink = questionnaireSlug
+    ? `${PUBLISHED_URL}/q/${questionnaireSlug}`
+    : booking.questionnaireId
+      ? `${PUBLISHED_URL}/q/${booking.questionnaireId}`
+      : undefined;
+
   const scriptMergeContext = {
     'first-name': firstName,
     'last-name': lastName,
@@ -75,6 +99,7 @@ export default function IntroBookingEntry({
     day: booking.introDate ? format(parseISO(booking.introDate), 'EEEE') : undefined,
     time: booking.introTime || undefined,
     'today/tomorrow': computeTodayTomorrow(),
+    'questionnaire-link': questionnaireLink,
   };
 
   const handleNameChange = useCallback((value: string) => {

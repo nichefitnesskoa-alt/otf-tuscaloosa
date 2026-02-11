@@ -4,9 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+
+const LEAD_SOURCE_OPTIONS = [
+  'Manual Entry',
+  'Instagram DM',
+  'Cold Lead Re-engagement',
+  'Member Referral',
+  'Event',
+  'Walk-in',
+] as const;
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -20,6 +30,7 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [source, setSource] = useState('Manual Entry');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -28,6 +39,7 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
     setLastName('');
     setPhone('');
     setEmail('');
+    setSource('Manual Entry');
     setNotes('');
   };
 
@@ -45,7 +57,7 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
           last_name: lastName.trim(),
           phone: phone.trim(),
           email: email.trim() || null,
-          source: 'Manual Entry',
+          source,
           stage: 'new',
         })
         .select('id')
@@ -98,6 +110,19 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
           <div>
             <Label>Email</Label>
             <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" />
+          </div>
+          <div>
+            <Label>Source</Label>
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEAD_SOURCE_OPTIONS.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Notes</Label>
