@@ -1,25 +1,23 @@
 
 
-# VIP Class URL Generator
+# VIP Link Generator: Published URL + Remove "Optional" Labels
 
-## What This Does
+## Changes
 
-Adds a simple tool in the Admin panel where you type a VIP class name (e.g., "Miss Alabama") and it instantly generates the shareable registration link. You can copy it with one click.
+### 1. Use Published URL in Generator (`VipBulkImport.tsx`)
 
-## What You See
+Instead of using `window.location.origin` (which shows the preview URL), hardcode the published domain so the generated links always look like:
 
-A small card with:
-- A text input for the class name
-- The generated URL displayed below it (updates as you type)
-- A "Copy" button that copies the link to your clipboard
+`otf-tuscaloosa.lovable.app/vip-register?class=Miss+Alabama`
 
-## Technical Details
+### 2. Remove "Optional" Label from VIP Form (`VipRegister.tsx`)
 
-### File Changes
+The heart rate monitor section currently says "Optional" in its header. That label will be removed -- the fields (Birthday, Weight) will still be optional to fill out, but the form won't call attention to it.
+
+## File Summary
 
 | Action | File | What Changes |
 |--------|------|-------------|
-| Edit | `src/components/admin/VipBulkImport.tsx` | Add URL generator section at the top of the existing VIP component (keeps VIP tools together) |
-
-The generator builds the URL using `window.location.origin + '/vip-register?class=' + encodeURIComponent(className)`. No database changes needed -- it's purely a UI helper.
+| Edit | `src/components/admin/VipBulkImport.tsx` | Replace `window.location.origin` with `https://otf-tuscaloosa.lovable.app` |
+| Edit | `src/pages/VipRegister.tsx` | Remove "(Optional)" text from the heart rate monitor section header |
 
