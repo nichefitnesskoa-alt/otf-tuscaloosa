@@ -58,7 +58,7 @@ import { toast } from 'sonner';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES } from '@/types';
 import { DateRange } from '@/lib/pay-period';
 import { useAuth } from '@/context/AuthContext';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, getLocalDateString } from '@/lib/utils';
 
 interface DataHealthIssue {
   id: string;
@@ -590,7 +590,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     setIsSelfBooked(isSelfBookedSource);
     
     setNewBooking({
-      class_date: run.run_date || run.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+      class_date: run.run_date || run.created_at?.split('T')[0] || getLocalDateString(),
       intro_time: run.class_time || '',
       coach_name: '',
       sa_working_shift: '',

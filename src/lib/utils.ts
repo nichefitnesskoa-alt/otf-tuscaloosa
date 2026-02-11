@@ -89,6 +89,18 @@ export function parseLocalDate(dateStr: string): Date {
 }
 
 /**
+ * Get current local date as YYYY-MM-DD string (avoids UTC conversion issues).
+ * Use this instead of new Date().toISOString().split('T')[0] which can shift
+ * the date forward when the local time is behind UTC (e.g., Central Time after 6 PM).
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Generate a URL-friendly slug from a first and last name.
  * e.g. "John Smith" → "john-smith"
  */

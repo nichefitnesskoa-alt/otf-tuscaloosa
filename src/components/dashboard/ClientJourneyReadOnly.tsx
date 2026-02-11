@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { capitalizeName, parseLocalDate } from '@/lib/utils';
+import { capitalizeName, parseLocalDate, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
 
@@ -198,13 +198,7 @@ export function ClientJourneyReadOnly() {
     }
   }, [globalLastUpdated]);
 
-  // Helper to get current local date as YYYY-MM-DD string (avoids UTC conversion issues)
-  const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Use shared getLocalDateString from utils (avoids UTC conversion issues)
 
   // Helper to check if a booking's scheduled time has passed
   const isBookingPast = (booking: ClientBooking): boolean => {
