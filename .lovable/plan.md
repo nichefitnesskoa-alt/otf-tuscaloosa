@@ -1,30 +1,53 @@
 
 
-# Exclude "Run-first entry" from Top Performers
+# Fix Leads Metrics Bar
 
-## Problem
+## Changes
 
-When staff manually enter an intro run without a prior booking, the system auto-creates a booking with `booked_by = 'Run-first entry'`. There are 14 such records. The `EXCLUDED_NAMES` list in `useDashboardMetrics.ts` does not include this value, so these entries inflate the Top Bookers and Best Show Rate leaderboards in the Top Performers section.
+**File:** `src/components/leads/LeadMetricsBar.tsx`
 
-The `PayPeriodCommission` component already excludes this value -- the dashboard metrics hook just needs to match.
+Two fixes:
 
-## Fix
+### 1. "Booked (Week)" should not count self-booked leads
 
-**File:** `src/hooks/useDashboardMetrics.ts` (line 110)
+Currently, `bookedThisWeek` counts any lead with a `booked_intro_id` updated this week. But leads auto-created by the import system (source like "Orangebook") get `booked_intro_id` set automatically -- these are self-booked online intros, not SA-driven conversions.
 
-Add `'Run-first entry'` to the `EXCLUDED_NAMES` array:
+Fix: Only count leads where `booked_intro_id` is set AND the lead was originally in the leads pipeline (i.e., `source` is NOT an online/auto source like `"Orangebook Web Lead"` or `"Orangebook Online Intro"`). Alternatively, since leads created by Format B imports now skip the leads table entirely (per the recent edge function fix), the simplest approach is to exclude leads whose source starts with `"Orangebook"`.
 
+### 2. Rename label from "Booked (Week)" to "Booked"
+
+Drop the "(Week)" suffix. The other metrics like "Lost" also track the current week but don't say "(Week)". Keep it consistent and clean. Rename "Lost (Week)" to "Lost" as well for consistency.
+
+### Updated code
+
+```typescript
+// Booked this week: exclude auto-imported / self-booked sources
+const bookedThisWeek = leads.filter(l => {
+  if (!l.booked_intro_id) return false;
+  if (l.source?.startsWith('Orangebook')) return false;
+  const updated = parseISO(l.updated_at);
+  return isAfter(updated, weekStart) && isBefore(updated, weekEnd);
+}).length;
 ```
-Before:
-const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
 
-After:
-const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
+Labels change:
+- `'Booked (Week)'` becomes `'Booked'`
+- `'Lost (Week)'` becomes `'Lost'`
+
+### 30-day conversion rate
+
+Also update the conversion rate calculation to exclude Orangebook-sourced leads, so it only measures SA pipeline effectiveness:
+
+```typescript
+const recent = leads.filter(l => 
+  isAfter(parseISO(l.updated_at), thirtyDaysAgo) && 
+  !l.source?.startsWith('Orangebook')
+);
 ```
 
-This one-line change filters "Run-first entry" out of:
-- **Top Bookers** leaderboard (bookerCounts uses EXCLUDED_NAMES at line 309)
-- **Best Show Rate** leaderboard (derived from bookerCounts)
-- **SA name collection** (line 159)
+## File Summary
 
-No other files need changes.
+| Action | File |
+|--------|------|
+| Edit | `src/components/leads/LeadMetricsBar.tsx` -- exclude Orangebook sources from Booked count and conversion rate; rename labels |
+
