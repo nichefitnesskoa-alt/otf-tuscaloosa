@@ -34,7 +34,7 @@ export default function PastBookingQuestionnaires() {
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
-    const [{ data: bookingsData }, { data: questionnaires }] = await Promise.all([
+    const [{ data: bookingsData }, { data: questionnaires }, { data: introsRun }] = await Promise.all([
       supabase
         .from('intros_booked')
         .select('id, member_name, class_date, intro_time')
@@ -44,14 +44,25 @@ export default function PastBookingQuestionnaires() {
       supabase
         .from('intro_questionnaires')
         .select('id, booking_id, status, slug' as any),
+      supabase
+        .from('intros_run')
+        .select('member_name, result'),
     ]);
+
+    // Build set of member names that have a completed run (not No-show)
+    const ranMembers = new Set<string>();
+    introsRun?.forEach((r: any) => {
+      if (r.result && r.result !== 'No-show') {
+        ranMembers.add(r.member_name?.toLowerCase());
+      }
+    });
 
     const qMap = new Map<string, { id: string; status: string; slug: string | null }>();
     questionnaires?.forEach((q: any) => {
       if (q.booking_id) qMap.set(q.booking_id, { id: q.id, status: q.status, slug: q.slug || null });
     });
 
-    const merged: BookingWithQ[] = (bookingsData || []).map((b) => {
+    const merged: BookingWithQ[] = (bookingsData || []).filter((b) => !ranMembers.has(b.member_name?.toLowerCase())).map((b) => {
       const q = qMap.get(b.id);
       return {
         id: b.id,

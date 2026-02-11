@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     }
 
     // ═══════════════════════════════════════
-    // FORMAT B — nested payload with booking + idempotency
+    // FORMAT B — nested payload: booking only (no leads table)
     // ═══════════════════════════════════════
     const { lead, booking, meta } = body;
 
@@ -141,55 +141,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: `Invalid time format: ${booking.time}. Expected h:mm AM/PM` }, 400);
     }
 
-    // 3) Upsert lead
-    let leadId: string;
-    let createdLead = false;
-
-    const orFilters: string[] = [];
-    if (lead.email) orFilters.push(`email.eq.${lead.email}`);
-    if (lead.phone) orFilters.push(`phone.eq.${lead.phone}`);
-
-    let existingLead = null;
-    if (orFilters.length > 0) {
-      const { data } = await supabase
-        .from("leads")
-        .select("id, first_name, last_name, email, phone")
-        .or(orFilters.join(","))
-        .limit(1)
-        .maybeSingle();
-      existingLead = data;
-    }
-
-    if (existingLead) {
-      leadId = existingLead.id;
-      // Fill in any missing fields
-      const updates: Record<string, string> = {};
-      if (!existingLead.email && lead.email) updates.email = lead.email;
-      if (!existingLead.phone && lead.phone) updates.phone = lead.phone;
-      if (!existingLead.first_name && lead.first_name) updates.first_name = lead.first_name;
-      if (!existingLead.last_name && lead.last_name) updates.last_name = lead.last_name;
-      if (Object.keys(updates).length > 0) {
-        await supabase.from("leads").update(updates).eq("id", leadId);
-      }
-    } else {
-      const { data: newLead, error } = await supabase
-        .from("leads")
-        .insert({
-          first_name: lead.first_name,
-          last_name: lead.last_name,
-          email: lead.email || null,
-          phone: lead.phone || "",
-          stage: "new",
-          source: lead.source || "Orangebook Online Intro",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      leadId = newLead.id;
-      createdLead = true;
-    }
-
-    // 4) Dedupe booking
+    // 3) Dedupe booking
     const memberName = `${lead.first_name} ${lead.last_name}`;
     let bookingId: string | null = null;
     let createdBooking = false;
@@ -204,7 +156,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!existingBooking) {
-      // 5) Create booking
+      // 4) Create booking
       const { data: newBooking, error: bookingError } = await supabase
         .from("intros_booked")
         .insert({
@@ -226,26 +178,17 @@ Deno.serve(async (req) => {
       bookingId = existingBooking.id;
     }
 
-    // 6) Link booking to lead (prevents showing in Leads Pipeline)
-    await supabase.from("leads").update({
-      booked_intro_id: bookingId,
-      stage: "booked",
-    }).eq("id", leadId);
-
-    // 7) Record intake event
+    // 5) Record intake event (no lead_id since we skip leads table)
     await supabase.from("intake_events").insert({
       source: "gmail",
       external_id: meta.gmail_message_id,
       payload: body,
-      lead_id: leadId,
       booking_id: bookingId,
     });
 
     return jsonResponse({
       ok: true,
-      lead_id: leadId,
       booking_id: bookingId,
-      created_lead: createdLead,
       created_booking: createdBooking,
     });
   } catch (err) {

@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import PastBookingQuestionnaires from '@/components/PastBookingQuestionnaires';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +13,6 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
-import { ClientJourneyReadOnly } from '@/components/dashboard/ClientJourneyReadOnly';
-import { MembershipPurchasesReadOnly } from '@/components/dashboard/MembershipPurchasesReadOnly';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -232,15 +229,6 @@ export default function Recaps() {
 
       {/* Lead Source Analytics */}
       <LeadSourceChart data={metrics.leadSourceMetrics} />
-
-      {/* Pre-Intro Questionnaire Links */}
-      <PastBookingQuestionnaires />
-
-      {/* Client Pipeline (read-only) */}
-      <ClientJourneyReadOnly />
-
-      {/* Members Who Bought (read-only) */}
-      <MembershipPurchasesReadOnly />
 
       {/* Top Performers */}
       <Card>
