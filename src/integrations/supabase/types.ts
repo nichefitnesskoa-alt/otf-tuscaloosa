@@ -929,6 +929,42 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_registrations: {
+        Row: {
+          birthday: string | null
+          booking_id: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          weight_lbs: number | null
+        }
+        Insert: {
+          birthday?: string | null
+          booking_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          phone: string
+          weight_lbs?: number | null
+        }
+        Update: {
+          birthday?: string | null
+          booking_id?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string
+          weight_lbs?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
