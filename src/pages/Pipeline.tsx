@@ -16,8 +16,8 @@ export default function Pipeline() {
         </p>
       </div>
 
-      <ClientJourneyReadOnly />
       <PastBookingQuestionnaires />
+      <ClientJourneyReadOnly />
       <MembershipPurchasesReadOnly />
     </div>
   );
