@@ -107,7 +107,7 @@ export function useDashboardMetrics(
       'DEAD',
     ];
     
-    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
+    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
     
     // Filter out bookings with excluded status or ignored from metrics
     const activeBookings = introsBooked.filter(b => {
