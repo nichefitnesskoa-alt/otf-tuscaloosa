@@ -27,7 +27,7 @@ export default function Recaps() {
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   
-  // Employee filter state (admin only)
+  // Employee filter state
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   
   const isAdmin = user?.role === 'Admin';
@@ -38,11 +38,82 @@ export default function Recaps() {
   // Use leaderboard data from metrics
   const { topBookers, topClosing, topShowRate } = metrics.leaderboards;
 
-  // Filter per-SA table based on selected employee (admin only)
+  // Filter per-SA table based on selected employee
   const filteredPerSA = useMemo(() => {
     if (!selectedEmployee) return metrics.perSA;
     return metrics.perSA.filter(m => m.saName === selectedEmployee);
   }, [metrics.perSA, selectedEmployee]);
+
+  // Filtered booker stats
+  const filteredBookerStats = useMemo(() => {
+    if (!selectedEmployee) return metrics.bookerStats;
+    return metrics.bookerStats.filter(m => m.saName === selectedEmployee);
+  }, [metrics.bookerStats, selectedEmployee]);
+
+  // Filtered scoreboard metrics for individual view
+  const scoreboardMetrics = useMemo(() => {
+    if (!selectedEmployee) return metrics.studio;
+    const sa = metrics.perSA.find(m => m.saName === selectedEmployee);
+    if (!sa) return { introsRun: 0, introSales: 0, closingRate: 0, totalCommission: 0, goalWhyRate: 0, relationshipRate: 0, madeAFriendRate: 0 };
+    return {
+      introsRun: sa.introsRun,
+      introSales: sa.sales,
+      closingRate: sa.closingRate,
+      totalCommission: sa.commission,
+      goalWhyRate: sa.goalWhyRate,
+      relationshipRate: sa.relationshipRate,
+      madeAFriendRate: sa.madeAFriendRate,
+    };
+  }, [selectedEmployee, metrics]);
+
+  // Filtered pipeline metrics
+  const filteredPipeline = useMemo(() => {
+    if (!selectedEmployee) return metrics.pipeline;
+    // Recompute from raw data filtered to this SA
+    const saBookings = introsBooked.filter(b => {
+      const introOwner = (b as any).intro_owner || b.sa_working_shift;
+      const originatingId = (b as any).originating_booking_id;
+      const isFirst = originatingId === null || originatingId === undefined;
+      const inRange = dateRange ? (() => { try { const d = new Date(b.class_date); return d >= dateRange.start && d <= dateRange.end; } catch { return false; } })() : true;
+      return introOwner === selectedEmployee && isFirst && inRange;
+    });
+    let showed = 0, sold = 0;
+    const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
+    saBookings.forEach(b => {
+      const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id && r.result !== 'No-show');
+      if (runs.length > 0) {
+        showed++;
+        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) sold++;
+      }
+    });
+    return { booked: saBookings.length, showed, sold, revenue: 0 };
+  }, [selectedEmployee, introsBooked, introsRun, dateRange, metrics.pipeline]);
+
+  // Filtered lead source metrics
+  const filteredLeadSource = useMemo(() => {
+    if (!selectedEmployee) return metrics.leadSourceMetrics;
+    const saBookings = introsBooked.filter(b => {
+      const introOwner = (b as any).intro_owner || b.sa_working_shift;
+      const originatingId = (b as any).originating_booking_id;
+      const isFirst = originatingId === null || originatingId === undefined;
+      const inRange = dateRange ? (() => { try { const d = new Date(b.class_date); return d >= dateRange.start && d <= dateRange.end; } catch { return false; } })() : true;
+      return introOwner === selectedEmployee && isFirst && inRange;
+    });
+    const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
+    const sourceMap = new Map<string, { source: string; booked: number; showed: number; sold: number; revenue: number }>();
+    saBookings.forEach(b => {
+      const source = b.lead_source || 'Unknown';
+      const existing = sourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      existing.booked++;
+      const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id && r.result !== 'No-show');
+      if (runs.length > 0) {
+        existing.showed++;
+        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) existing.sold++;
+      }
+      sourceMap.set(source, existing);
+    });
+    return Array.from(sourceMap.values()).sort((a, b) => b.booked - a.booked);
+  }, [selectedEmployee, introsBooked, introsRun, dateRange, metrics.leadSourceMetrics]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -196,7 +267,6 @@ export default function Recaps() {
           <EmployeeFilter 
             selectedEmployee={selectedEmployee}
             onEmployeeChange={setSelectedEmployee}
-            isAdmin={isAdmin}
           />
           
           {/* Global Date Filter - same as Personal Dashboard */}
@@ -212,96 +282,98 @@ export default function Recaps() {
 
       {/* Studio Scoreboard */}
       <StudioScoreboard
-        introsRun={metrics.studio.introsRun}
-        introSales={metrics.studio.introSales}
-        closingRate={metrics.studio.closingRate}
-        goalWhyRate={metrics.studio.goalWhyRate}
-        relationshipRate={metrics.studio.relationshipRate}
-        madeAFriendRate={metrics.studio.madeAFriendRate}
+        introsRun={scoreboardMetrics.introsRun}
+        introSales={scoreboardMetrics.introSales}
+        closingRate={scoreboardMetrics.closingRate}
+        goalWhyRate={scoreboardMetrics.goalWhyRate}
+        relationshipRate={scoreboardMetrics.relationshipRate}
+        madeAFriendRate={scoreboardMetrics.madeAFriendRate}
       />
 
       {/* Pipeline Funnel */}
       <PipelineFunnel
-        booked={metrics.pipeline.booked}
-        showed={metrics.pipeline.showed}
-        sold={metrics.pipeline.sold}
+        booked={filteredPipeline.booked}
+        showed={filteredPipeline.showed}
+        sold={filteredPipeline.sold}
       />
 
       {/* Lead Source Analytics */}
-      <LeadSourceChart data={metrics.leadSourceMetrics} />
+      <LeadSourceChart data={filteredLeadSource} />
 
-      {/* Top Performers */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-primary" />
-            Top Performers
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            {/* Top Bookers - limited to 3 */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Top Bookers</p>
-              {topBookers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No data</p>
-              ) : (
-                topBookers.slice(0, 3).map((m, i) => (
-                  <div key={m.name} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      {i === 0 && '🥇'}
-                      {i === 1 && '🥈'}
-                      {i === 2 && '🥉'}
-                      <span className="truncate max-w-[60px]">{m.name}</span>
-                    </span>
-                    <Badge variant="secondary" className="text-xs">{m.value}</Badge>
-                  </div>
-                ))
-              )}
-            </div>
+      {/* Top Performers - only show when viewing all staff */}
+      {!selectedEmployee && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-primary" />
+              Top Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              {/* Top Bookers - limited to 3 */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Top Bookers</p>
+                {topBookers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No data</p>
+                ) : (
+                  topBookers.slice(0, 3).map((m, i) => (
+                    <div key={m.name} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        {i === 0 && '🥇'}
+                        {i === 1 && '🥈'}
+                        {i === 2 && '🥉'}
+                        <span className="truncate max-w-[60px]">{m.name}</span>
+                      </span>
+                      <Badge variant="secondary" className="text-xs">{m.value}</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
 
-            {/* Top Show Rate - limited to 3 */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Best Show Rate</p>
-              {topShowRate.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Min 3 booked</p>
-              ) : (
-                topShowRate.slice(0, 3).map((m, i) => (
-                  <div key={m.name} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      {i === 0 && '🥇'}
-                      {i === 1 && '🥈'}
-                      {i === 2 && '🥉'}
-                      <span className="truncate max-w-[60px]">{m.name}</span>
-                    </span>
-                    <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
-                  </div>
-                ))
-              )}
-            </div>
+              {/* Top Show Rate - limited to 3 */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Best Show Rate</p>
+                {topShowRate.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Min 3 booked</p>
+                ) : (
+                  topShowRate.slice(0, 3).map((m, i) => (
+                    <div key={m.name} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        {i === 0 && '🥇'}
+                        {i === 1 && '🥈'}
+                        {i === 2 && '🥉'}
+                        <span className="truncate max-w-[60px]">{m.name}</span>
+                      </span>
+                      <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
 
-            {/* Top Closers - limited to 3 */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Best Close Rate</p>
-              {topClosing.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Min 1 ran</p>
-              ) : (
-                topClosing.slice(0, 3).map((m, i) => (
-                  <div key={m.name} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      {i === 0 && '🥇'}
-                      {i === 1 && '🥈'}
-                      {i === 2 && '🥉'}
-                      <span className="truncate max-w-[60px]">{m.name}</span>
-                    </span>
-                    <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
-                  </div>
-                ))
-              )}
+              {/* Top Closers - limited to 3 */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Best Close Rate</p>
+                {topClosing.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Min 1 ran</p>
+                ) : (
+                  topClosing.slice(0, 3).map((m, i) => (
+                    <div key={m.name} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1">
+                        {i === 0 && '🥇'}
+                        {i === 1 && '🥈'}
+                        {i === 2 && '🥉'}
+                        <span className="truncate max-w-[60px]">{m.name}</span>
+                      </span>
+                      <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Runner & Booker Stats Tabs */}
       <Tabs defaultValue="runner">
@@ -313,7 +385,7 @@ export default function Recaps() {
           <PerSATable data={filteredPerSA} />
         </TabsContent>
         <TabsContent value="booker">
-          <BookerStatsTable data={metrics.bookerStats} />
+          <BookerStatsTable data={filteredBookerStats} />
         </TabsContent>
       </Tabs>
 

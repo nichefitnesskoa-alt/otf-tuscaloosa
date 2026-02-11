@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,10 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import ShiftRecapDetails from '@/components/admin/ShiftRecapDetails';
 import { parseLocalDate } from '@/lib/utils';
+import { IndividualActivityTable } from '@/components/dashboard/IndividualActivityTable';
+import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 
 interface ShiftRecap {
   id: string;
@@ -32,12 +36,22 @@ interface ShiftRecap {
 
 export default function MyShifts() {
   const { user } = useAuth();
-  const { lastUpdated: globalLastUpdated } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, lastUpdated: globalLastUpdated } = useData();
   const [recaps, setRecaps] = useState<ShiftRecap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRecap, setSelectedRecap] = useState<ShiftRecap | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const hasMountedRef = useRef(false);
+
+  // Date filter for activity
+  const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
+  const userName = user?.name || '';
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, userName);
+  const personalActivity = useMemo(() => {
+    return metrics.individualActivity.filter(m => m.saName === userName);
+  }, [metrics.individualActivity, userName]);
 
   const fetchMyRecaps = async () => {
     if (!user?.name) return;
@@ -153,6 +167,25 @@ export default function MyShifts() {
       <p className="text-xs text-muted-foreground text-center">
         Showing {recaps.length} shift{recaps.length !== 1 ? 's' : ''}
       </p>
+
+      {/* My Activity */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">My Activity</CardTitle>
+          <div className="mt-2">
+            <DateRangeFilter
+              preset={datePreset}
+              customRange={customRange}
+              onPresetChange={setDatePreset}
+              onCustomRangeChange={setCustomRange}
+              dateRange={dateRange || { start: new Date(2020, 0, 1), end: new Date() }}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <IndividualActivityTable data={personalActivity} />
+        </CardContent>
+      </Card>
 
       {/* View Details Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>

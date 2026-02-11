@@ -39,6 +39,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
       name: d.source.length > 15 ? d.source.substring(0, 15) + '...' : d.source,
       fullName: d.source,
       value: d.booked,
+      showed: d.showed,
       sold: d.sold,
     }))
     .sort((a, b) => b.value - a.value);
@@ -106,7 +107,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                 </Pie>
                 <Tooltip 
                   formatter={(value: number, name: string, entry: any) => [
-                    `${value} booked, ${entry.payload.sold} sold`,
+                    `${value} booked, ${entry.payload.showed} showed, ${entry.payload.sold} sold`,
                     entry.payload.fullName
                   ]}
                 />
@@ -124,7 +125,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                     <span className="truncate max-w-[120px]">{item.fullName}</span>
                   </span>
                   <span className="text-muted-foreground">
-                    {item.value} booked, <span className="text-success font-medium">{item.sold} sold</span>
+                    {item.value} booked, {item.showed} showed, <span className="text-success font-medium">{item.sold} sold</span>
                   </span>
                 </div>
               ))}
