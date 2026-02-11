@@ -85,6 +85,11 @@ interface ClientJourney {
   status: 'active' | 'purchased' | 'not_interested' | 'no_show' | 'unknown';
 }
 
+interface VipInfo {
+  birthday: string | null;
+  weight_lbs: number | null;
+}
+
 export function ClientJourneyReadOnly() {
   const { lastUpdated: globalLastUpdated } = useData();
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +99,21 @@ export function ClientJourneyReadOnly() {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
   const [scriptTargetKey, setScriptTargetKey] = useState<string | null>(null);
+  const [vipInfoMap, setVipInfoMap] = useState<Map<string, VipInfo>>(new Map());
   const hasMountedRef = useRef(false);
+
+  const fetchVipInfo = async () => {
+    const { data } = await supabase
+      .from('vip_registrations')
+      .select('booking_id, birthday, weight_lbs');
+    if (data) {
+      const map = new Map<string, VipInfo>();
+      data.forEach((r: any) => {
+        if (r.booking_id) map.set(r.booking_id, { birthday: r.birthday, weight_lbs: r.weight_lbs });
+      });
+      setVipInfoMap(map);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -192,6 +211,7 @@ export function ClientJourneyReadOnly() {
 
   useEffect(() => {
     fetchData();
+    fetchVipInfo();
     hasMountedRef.current = true;
   }, []);
 
@@ -601,6 +621,17 @@ export function ClientJourneyReadOnly() {
                             {journey.bookings[0]?.lead_source && journey.bookings[0].lead_source !== 'Online Intro Offer (self-booked)' && (
                               <span className="text-[10px] opacity-70">{journey.bookings[0].lead_source}</span>
                             )}
+                            {/* VIP info badges */}
+                            {activeTab === 'vip_class' && (() => {
+                              const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
+                              if (!vip) return null;
+                              return (
+                                <>
+                                  {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                                  {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

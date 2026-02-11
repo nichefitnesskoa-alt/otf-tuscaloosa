@@ -15,6 +15,7 @@ import Admin from "./pages/Admin";
 import Pipeline from "./pages/Pipeline";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
+import VipRegister from "./pages/VipRegister";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
 
@@ -105,6 +106,7 @@ function AppRoutes() {
         }
       />
       <Route path="/q/:id" element={<Questionnaire />} />
+      <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route path="/" element={<Navigate to="/shift-recap" replace />} />
       <Route path="*" element={<NotFound />} />

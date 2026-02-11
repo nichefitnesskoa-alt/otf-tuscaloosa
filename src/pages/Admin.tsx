@@ -16,6 +16,7 @@ import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPane
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
 import ReferralTracker from '@/components/admin/ReferralTracker';
+import VipBulkImport from '@/components/admin/VipBulkImport';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 
@@ -163,6 +164,7 @@ export default function Admin() {
           {/* Unified Client Journey View - Primary data management */}
           <ClientJourneyPanel />
           
+          <VipBulkImport />
           <MembershipPurchasesPanel />
           <ShiftRecapsEditor />
         </TabsContent>

@@ -191,6 +191,7 @@ export default function ClientJourneyPanel() {
   const [journeys, setJourneys] = useState<ClientJourney[]>([]);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
+  const [vipInfoMap, setVipInfoMap] = useState<Map<string, { birthday: string | null; weight_lbs: number | null }>>(new Map());
   
   // Auto-fix dialog
   const [showFixDialog, setShowFixDialog] = useState(false);
@@ -258,6 +259,19 @@ export default function ClientJourneyPanel() {
     notes: '',
     linked_intro_booked_id: '',
   });
+
+  const fetchVipInfo = async () => {
+    const { data } = await supabase
+      .from('vip_registrations')
+      .select('booking_id, birthday, weight_lbs');
+    if (data) {
+      const map = new Map<string, { birthday: string | null; weight_lbs: number | null }>();
+      data.forEach((r: any) => {
+        if (r.booking_id) map.set(r.booking_id, { birthday: r.birthday, weight_lbs: r.weight_lbs });
+      });
+      setVipInfoMap(map);
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -386,6 +400,7 @@ export default function ClientJourneyPanel() {
 
   useEffect(() => {
     fetchData();
+    fetchVipInfo();
   }, []);
 
   // Use shared getLocalDateString from utils (avoids UTC conversion issues)
@@ -1553,6 +1568,17 @@ export default function ClientJourneyPanel() {
                         {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
                           <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
                         )}
+                        {/* VIP info badges */}
+                        {activeTab === 'vip_class' && (() => {
+                          const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
+                          if (!vip) return null;
+                          return (
+                            <>
+                              {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                              {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                            </>
+                          );
+                        })()}
                       </div>
                       {journey.hasInconsistency && journey.inconsistencyType && (
                         <div className="mt-1 text-xs text-warning">
