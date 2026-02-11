@@ -54,109 +54,140 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-
-    // ── Detect payload format ──
-    const isFormatB = body.lead && body.booking && body.meta;
-
-    if (!isFormatB) {
-      // ═══════════════════════════════════════
-      // FORMAT A — existing flat payload (backward compatible)
-      // ═══════════════════════════════════════
-      const { first_name, last_name, email, phone, source } = body;
-      if (!first_name || !last_name || !email || !phone) {
-        return jsonResponse(
-          { error: "Missing required fields: first_name, last_name, email, phone" },
-          400
-        );
-      }
-
-      const { data: existing } = await supabase
-        .from("leads")
-        .select("id, first_name, last_name")
-        .or(`email.eq.${email},phone.eq.${phone}`)
-        .limit(1)
-        .maybeSingle();
-
-      if (existing) {
-        const now = new Date().toLocaleDateString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-        });
-        await supabase.from("lead_activities").insert({
-          lead_id: existing.id,
-          activity_type: "duplicate_detected",
-          performed_by: "System",
-          notes: `Duplicate lead received from Orangebook on ${now}. Lead already exists in pipeline.`,
-        });
-        return jsonResponse({
-          status: "duplicate",
-          message: `Lead already exists: ${existing.first_name} ${existing.last_name}`,
-          existing_lead_id: existing.id,
-        });
-      }
-
-      const { data: newLead, error } = await supabase
-        .from("leads")
-        .insert({ first_name, last_name, email, phone, stage: "new", source: source || "Orangebook Web Lead" })
-        .select("id")
-        .single();
-      if (error) throw error;
-
-      return jsonResponse({ status: "created", lead_id: newLead.id }, 201);
-    }
-
-    // ═══════════════════════════════════════
-    // FORMAT B — nested payload: booking only (no leads table)
-    // ═══════════════════════════════════════
     const { lead, booking, meta } = body;
 
-    // Validate required nested fields
+    // Validate lead object
     if (!lead?.first_name || !lead?.last_name) {
       return jsonResponse({ error: "Missing lead.first_name or lead.last_name" }, 400);
     }
-    if (!booking?.date || !booking?.time) {
-      return jsonResponse({ error: "Missing booking.date or booking.time" }, 400);
-    }
-    if (!meta?.gmail_message_id) {
-      return jsonResponse({ error: "Missing meta.gmail_message_id" }, 400);
-    }
 
-    // 1) Idempotency check
-    const { data: existingEvent } = await supabase
-      .from("intake_events")
-      .select("id")
-      .eq("external_id", meta.gmail_message_id)
-      .maybeSingle();
+    // Idempotency check via gmail_message_id if present
+    if (meta?.gmail_message_id) {
+      const { data: existingEvent } = await supabase
+        .from("intake_events")
+        .select("id")
+        .eq("external_id", meta.gmail_message_id)
+        .maybeSingle();
 
-    if (existingEvent) {
-      return jsonResponse({ ok: true, duplicate: true });
+      if (existingEvent) {
+        return jsonResponse({ ok: true, duplicate: true, reason: "gmail_message_id already processed" });
+      }
     }
 
-    // 2) Parse date & time
-    const classDate = parseDate(booking.date);
-    const introTime = parseTime(booking.time);
-    if (!classDate) {
-      return jsonResponse({ error: `Invalid date format: ${booking.date}. Expected MM-DD-YYYY` }, 400);
-    }
-    if (!introTime) {
-      return jsonResponse({ error: `Invalid time format: ${booking.time}. Expected h:mm AM/PM` }, 400);
-    }
+    // Determine type: booking with a non-empty date = Type 2, otherwise Type 1
+    const isType2 = booking && booking.date && booking.date.trim() !== "";
 
-    // 3) Dedupe booking
-    const memberName = `${lead.first_name} ${lead.last_name}`;
-    let bookingId: string | null = null;
-    let createdBooking = false;
+    if (!isType2) {
+      // ═══════════════════════════════════════
+      // TYPE 1 — Web Lead → leads table
+      // ═══════════════════════════════════════
+      if (!lead.email && !lead.phone) {
+        return jsonResponse({ error: "Missing lead.email or lead.phone" }, 400);
+      }
 
-    const { data: existingBooking } = await supabase
-      .from("intros_booked")
-      .select("id")
-      .eq("member_name", memberName)
-      .eq("class_date", classDate)
-      .eq("intro_time", introTime)
-      .limit(1)
-      .maybeSingle();
+      // Duplicate detection on email and phone
+      const orFilters: string[] = [];
+      if (lead.email) orFilters.push(`email.eq.${lead.email}`);
+      if (lead.phone) orFilters.push(`phone.eq.${lead.phone}`);
 
-    if (!existingBooking) {
-      // 4) Create booking
+      const { data: existingLead } = await supabase
+        .from("leads")
+        .select("id, first_name, last_name")
+        .or(orFilters.join(","))
+        .limit(1)
+        .maybeSingle();
+
+      if (existingLead) {
+        // Record intake event for audit
+        if (meta?.gmail_message_id) {
+          await supabase.from("intake_events").insert({
+            source: "gmail",
+            external_id: meta.gmail_message_id,
+            payload: body,
+            lead_id: existingLead.id,
+          });
+        }
+        return jsonResponse({
+          status: "duplicate",
+          message: `Lead already exists: ${existingLead.first_name} ${existingLead.last_name}`,
+          existing_lead_id: existingLead.id,
+        });
+      }
+
+      // Create new lead
+      const { data: newLead, error: leadError } = await supabase
+        .from("leads")
+        .insert({
+          first_name: lead.first_name,
+          last_name: lead.last_name,
+          email: lead.email || null,
+          phone: lead.phone || "",
+          stage: "new",
+          source: lead.source || "Orangebook Web Lead",
+        })
+        .select("id")
+        .single();
+      if (leadError) throw leadError;
+
+      // Record intake event
+      if (meta?.gmail_message_id) {
+        await supabase.from("intake_events").insert({
+          source: "gmail",
+          external_id: meta.gmail_message_id,
+          payload: body,
+          lead_id: newLead.id,
+        });
+      }
+
+      return jsonResponse({ status: "created", lead_id: newLead.id }, 201);
+
+    } else {
+      // ═══════════════════════════════════════
+      // TYPE 2 — Online Intro → intros_booked table
+      // ═══════════════════════════════════════
+      if (!booking.time) {
+        return jsonResponse({ error: "Missing booking.time" }, 400);
+      }
+
+      const classDate = parseDate(booking.date);
+      const introTime = parseTime(booking.time);
+      if (!classDate) {
+        return jsonResponse({ error: `Invalid date format: ${booking.date}. Expected MM-DD-YYYY` }, 400);
+      }
+      if (!introTime) {
+        return jsonResponse({ error: `Invalid time format: ${booking.time}. Expected h:mm AM/PM` }, 400);
+      }
+
+      const memberName = `${lead.first_name} ${lead.last_name}`;
+
+      // Duplicate detection: check intros_booked by name + date + time
+      const { data: existingBooking } = await supabase
+        .from("intros_booked")
+        .select("id")
+        .eq("member_name", memberName)
+        .eq("class_date", classDate)
+        .eq("intro_time", introTime)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingBooking) {
+        if (meta?.gmail_message_id) {
+          await supabase.from("intake_events").insert({
+            source: "gmail",
+            external_id: meta.gmail_message_id,
+            payload: body,
+            booking_id: existingBooking.id,
+          });
+        }
+        return jsonResponse({
+          status: "duplicate",
+          message: `Booking already exists for ${memberName} on ${classDate}`,
+          existing_booking_id: existingBooking.id,
+        });
+      }
+
+      // Create booking
       const { data: newBooking, error: bookingError } = await supabase
         .from("intros_booked")
         .insert({
@@ -172,25 +203,19 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       if (bookingError) throw bookingError;
-      bookingId = newBooking.id;
-      createdBooking = true;
-    } else {
-      bookingId = existingBooking.id;
+
+      // Record intake event
+      if (meta?.gmail_message_id) {
+        await supabase.from("intake_events").insert({
+          source: "gmail",
+          external_id: meta.gmail_message_id,
+          payload: body,
+          booking_id: newBooking.id,
+        });
+      }
+
+      return jsonResponse({ status: "created", booking_id: newBooking.id }, 201);
     }
-
-    // 5) Record intake event (no lead_id since we skip leads table)
-    await supabase.from("intake_events").insert({
-      source: "gmail",
-      external_id: meta.gmail_message_id,
-      payload: body,
-      booking_id: bookingId,
-    });
-
-    return jsonResponse({
-      ok: true,
-      booking_id: bookingId,
-      created_booking: createdBooking,
-    });
   } catch (err) {
     console.error("import-lead error:", err);
     return jsonResponse({ error: "Internal server error", details: String(err) }, 500);
