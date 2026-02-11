@@ -229,6 +229,7 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
+          vip_class_name: string | null
         }
         Insert: {
           booked_by?: string | null
@@ -259,6 +260,7 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          vip_class_name?: string | null
         }
         Update: {
           booked_by?: string | null
@@ -289,6 +291,7 @@ export type Database = {
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          vip_class_name?: string | null
         }
         Relationships: [
           {
@@ -939,6 +942,7 @@ export type Database = {
           id: string
           last_name: string
           phone: string
+          vip_class_name: string | null
           weight_lbs: number | null
         }
         Insert: {
@@ -950,6 +954,7 @@ export type Database = {
           id?: string
           last_name: string
           phone: string
+          vip_class_name?: string | null
           weight_lbs?: number | null
         }
         Update: {
@@ -961,6 +966,7 @@ export type Database = {
           id?: string
           last_name?: string
           phone?: string
+          vip_class_name?: string | null
           weight_lbs?: number | null
         }
         Relationships: []

@@ -116,6 +116,7 @@ interface ClientBooking {
   intro_owner: string | null;
   intro_owner_locked: boolean | null;
   originating_booking_id: string | null;
+  vip_class_name: string | null;
 }
 
 interface ClientRun {
@@ -279,7 +280,7 @@ export default function ClientJourneyPanel() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id')
+          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
@@ -647,6 +648,23 @@ export default function ClientJourneyPanel() {
 
     return filtered;
   }, [journeys, searchTerm, filterInconsistencies, activeTab, selectedLeadSource]);
+
+  // Group VIP journeys by class name
+  const vipGroups = useMemo(() => {
+    if (activeTab !== 'vip_class') return null;
+    const groups: Record<string, typeof filteredJourneys> = {};
+    filteredJourneys.forEach(j => {
+      const className = j.bookings.find(b => (b as any).vip_class_name)?.vip_class_name || 'Ungrouped';
+      if (!groups[className]) groups[className] = [];
+      groups[className].push(j);
+    });
+    const sorted = Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Ungrouped') return 1;
+      if (b === 'Ungrouped') return -1;
+      return a.localeCompare(b);
+    });
+    return sorted;
+  }, [filteredJourneys, activeTab]);
 
   const inconsistencyCount = useMemo(() => 
     journeys.filter(j => j.hasInconsistency).length,
@@ -1518,9 +1536,85 @@ export default function ClientJourneyPanel() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
-          ) : filteredJourneys.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No clients found
+          ) : activeTab === 'vip_class' && vipGroups ? (
+            <div className="space-y-4">
+              {vipGroups.map(([groupName, groupJourneys]) => (
+                <div key={groupName}>
+                  <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-purple-50 border border-purple-200">
+                    <Star className="w-3.5 h-3.5 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-700">{groupName}</span>
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5">{groupJourneys.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {groupJourneys.slice(0, 100).map((journey) => (
+                      <Collapsible
+                        key={journey.memberKey}
+                        open={expandedClients.has(journey.memberKey)}
+                        onOpenChange={() => toggleExpand(journey.memberKey)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <div
+                            className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                              journey.hasInconsistency 
+                                ? 'bg-warning/10 border border-warning/30 hover:bg-warning/20' 
+                                : 'bg-muted/50 hover:bg-muted'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {expandedClients.has(journey.memberKey) ? (
+                                  <ChevronDown className="w-4 h-4" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4" />
+                                )}
+                                <span className="font-medium">{journey.memberName}</span>
+                                {journey.hasInconsistency && (
+                                  <AlertTriangle className="w-4 h-4 text-warning" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {getStatusBadge(journey.status)}
+                                {journey.totalCommission > 0 && (
+                                  <Badge variant="outline" className="text-success">
+                                    ${journey.totalCommission.toFixed(0)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+                              <span>{journey.bookings.length} booking(s)</span>
+                              <span>{journey.runs.length} run(s)</span>
+                              {journey.latestIntroOwner && (
+                                <span>Owner: {journey.latestIntroOwner}</span>
+                              )}
+                              {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
+                                <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
+                              )}
+                              {(() => {
+                                const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
+                                if (!vip) return null;
+                                return (
+                                  <>
+                                    {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                                    {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="ml-6 mt-2 space-y-3 pb-2">
+                            <div className="text-xs text-muted-foreground">
+                              Expand in the main list to see full details
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="space-y-2">

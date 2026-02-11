@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,6 +22,7 @@ interface ParsedRow {
 
 export default function VipBulkImport() {
   const [rawText, setRawText] = useState('');
+  const [vipClassName, setVipClassName] = useState('');
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -110,7 +113,8 @@ export default function VipBulkImport() {
             lead_source: 'VIP Class',
             booked_by: 'Bulk Import',
             booking_status: 'Active',
-          })
+            vip_class_name: vipClassName || null,
+          } as any)
           .select('id')
           .single();
 
@@ -127,7 +131,8 @@ export default function VipBulkImport() {
             birthday: row.birthday || null,
             weight_lbs: row.weightLbs || null,
             booking_id: booking.id,
-          });
+            vip_class_name: vipClassName || null,
+          } as any);
 
         success++;
       } catch (err) {
@@ -153,6 +158,17 @@ export default function VipBulkImport() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="vipClassName" className="text-xs font-medium">VIP Class Name</Label>
+          <Input
+            id="vipClassName"
+            placeholder="e.g. Miss Alabama, Chamber of Commerce"
+            value={vipClassName}
+            onChange={e => setVipClassName(e.target.value)}
+            className="text-sm"
+          />
+          <p className="text-[10px] text-muted-foreground">Applied to all imported rows. Leave blank if ungrouped.</p>
+        </div>
         <Textarea
           placeholder={`John\tDoe\t555-123-4567\tjohn@email.com\t1990-01-15\t180\nJane\tSmith\t555-987-6543\tjane@email.com`}
           value={rawText}

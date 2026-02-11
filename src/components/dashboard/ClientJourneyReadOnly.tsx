@@ -58,6 +58,7 @@ interface ClientBooking {
   booking_status: string | null;
   intro_owner: string | null;
   originating_booking_id: string | null;
+  vip_class_name: string | null;
 }
 
 interface ClientRun {
@@ -121,7 +122,7 @@ export function ClientJourneyReadOnly() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, member_name, class_date, intro_time, coach_name, booked_by, lead_source, fitness_goal, booking_status, intro_owner, originating_booking_id')
+          .select('id, member_name, class_date, intro_time, coach_name, booked_by, lead_source, fitness_goal, booking_status, intro_owner, originating_booking_id, vip_class_name')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
@@ -434,6 +435,24 @@ export function ClientJourneyReadOnly() {
     return filtered;
   }, [journeys, searchTerm, activeTab, selectedLeadSource]);
 
+  // Group VIP journeys by class name
+  const vipGroups = useMemo(() => {
+    if (activeTab !== 'vip_class') return null;
+    const groups: Record<string, typeof filteredJourneys> = {};
+    filteredJourneys.forEach(j => {
+      const className = j.bookings.find(b => (b as any).vip_class_name)?.vip_class_name || 'Ungrouped';
+      if (!groups[className]) groups[className] = [];
+      groups[className].push(j);
+    });
+    // Sort: named groups first, Ungrouped last
+    const sorted = Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Ungrouped') return 1;
+      if (b === 'Ungrouped') return -1;
+      return a.localeCompare(b);
+    });
+    return sorted;
+  }, [filteredJourneys, activeTab]);
+
   const toggleExpand = (key: string) => {
     setExpandedClients(prev => {
       const next = new Set(prev);
@@ -472,6 +491,166 @@ export function ClientJourneyReadOnly() {
     if (!timeStr) return '';
     return timeStr.substring(0, 5);
   };
+
+  const renderJourneyCard = (journey: ClientJourney) => (
+    <>
+      <CollapsibleTrigger className="w-full">
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+          <div className="flex items-center gap-3">
+            {expandedClients.has(journey.memberKey) ? (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            )}
+            <div className="text-left">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium">{journey.memberName}</p>
+                {journey.bookings[0]?.lead_source === 'Online Intro Offer (self-booked)' && (
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">Online Intro</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                {journey.latestIntroOwner && (
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {journey.latestIntroOwner}
+                  </span>
+                )}
+                {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
+                  <span className="flex items-center gap-1">
+                    🏋️ {journey.bookings[0].coach_name}
+                  </span>
+                )}
+                {journey.bookings[0] && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {formatDate(journey.bookings[0].class_date)}
+                  </span>
+                )}
+                {journey.bookings[0]?.lead_source && journey.bookings[0].lead_source !== 'Online Intro Offer (self-booked)' && (
+                  <span className="text-[10px] opacity-70">{journey.bookings[0].lead_source}</span>
+                )}
+                {activeTab === 'vip_class' && (() => {
+                  const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
+                  if (!vip) return null;
+                  return (
+                    <>
+                      {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                      {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setScriptTargetKey(journey.memberKey);
+              }}
+              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+              title="Create text"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+            {journey.totalCommission > 0 && (
+              <Badge variant="outline" className="text-success">
+                <DollarSign className="w-3 h-3 mr-0.5" />
+                {journey.totalCommission.toFixed(0)}
+              </Badge>
+            )}
+            {getStatusBadge(journey.status)}
+          </div>
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 ml-7 space-y-3 p-3 border rounded-lg bg-background">
+          {journey.bookings.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Bookings ({journey.bookings.length})
+              </p>
+              <div className="space-y-2">
+                {journey.bookings.map(booking => (
+                  <div key={booking.id} className="text-sm p-2 bg-muted/30 rounded">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {formatDate(booking.class_date)}
+                        {booking.intro_time && ` @ ${formatTime(booking.intro_time)}`}
+                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {booking.booking_status || 'Active'}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                      {booking.booked_by && <span>Booked by: {capitalizeName(booking.booked_by)}</span>}
+                      {booking.coach_name && <span>Coach: {booking.coach_name}</span>}
+                      {booking.lead_source && <span>Source: {booking.lead_source}</span>}
+                    </div>
+                    {booking.fitness_goal && (
+                      <div className="mt-1 text-xs">
+                        <span className="font-medium">Goal: </span>
+                        {booking.fitness_goal}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {journey.runs.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <Target className="w-3 h-3" />
+                Intro Runs ({journey.runs.length})
+              </p>
+              <div className="space-y-2">
+                {journey.runs.map(run => (
+                  <div key={run.id} className="text-sm p-2 bg-muted/30 rounded">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {run.run_date ? formatDate(run.run_date) : 'No date'}
+                        {run.class_time && ` @ ${formatTime(run.class_time)}`}
+                      </span>
+                      <Badge 
+                        variant={isMembershipSale(run.result) ? 'default' : 'outline'}
+                        className={isMembershipSale(run.result) ? 'bg-success text-success-foreground' : ''}
+                      >
+                        {run.result}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                      {run.ran_by && <span>Ran by: {capitalizeName(run.ran_by)}</span>}
+                      {run.intro_owner && run.intro_owner !== run.ran_by && (
+                        <span>Owner: {capitalizeName(run.intro_owner)}</span>
+                      )}
+                      {run.commission_amount && run.commission_amount > 0 && (
+                        <span className="text-success font-medium">
+                          ${run.commission_amount.toFixed(2)} commission
+                        </span>
+                      )}
+                    </div>
+                    {run.notes && (
+                      <div className="mt-1 text-xs text-muted-foreground italic">
+                        {run.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {journey.bookings.length === 0 && journey.runs.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              No booking or run records
+            </p>
+          )}
+        </div>
+      </CollapsibleContent>
+    </>
+  );
 
   if (isLoading) {
     return (
@@ -577,6 +756,29 @@ export function ClientJourneyReadOnly() {
             <p className="text-sm text-muted-foreground text-center py-4">
               No clients found
             </p>
+          ) : activeTab === 'vip_class' && vipGroups ? (
+            <div className="space-y-4">
+              {vipGroups.map(([groupName, groupJourneys]) => (
+                <div key={groupName}>
+                  <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-purple-50 border border-purple-200">
+                    <Star className="w-3.5 h-3.5 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-700">{groupName}</span>
+                    <Badge variant="secondary" className="ml-auto text-[10px] h-5">{groupJourneys.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {groupJourneys.map(journey => (
+                      <Collapsible
+                        key={journey.memberKey}
+                        open={expandedClients.has(journey.memberKey)}
+                        onOpenChange={() => toggleExpand(journey.memberKey)}
+                      >
+                        {renderJourneyCard(journey)}
+                      </Collapsible>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="space-y-2">
               {filteredJourneys.map(journey => (
@@ -585,175 +787,7 @@ export function ClientJourneyReadOnly() {
                   open={expandedClients.has(journey.memberKey)}
                   onOpenChange={() => toggleExpand(journey.memberKey)}
                 >
-                  <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                      <div className="flex items-center gap-3">
-                        {expandedClients.has(journey.memberKey) ? (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                        )}
-                        <div className="text-left">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium">{journey.memberName}</p>
-                            {journey.bookings[0]?.lead_source === 'Online Intro Offer (self-booked)' && (
-                              <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">Online Intro</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                            {journey.latestIntroOwner && (
-                              <span className="flex items-center gap-1">
-                                <User className="w-3 h-3" />
-                                {journey.latestIntroOwner}
-                              </span>
-                            )}
-                            {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
-                              <span className="flex items-center gap-1">
-                                🏋️ {journey.bookings[0].coach_name}
-                              </span>
-                            )}
-                            {journey.bookings[0] && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {formatDate(journey.bookings[0].class_date)}
-                              </span>
-                            )}
-                            {journey.bookings[0]?.lead_source && journey.bookings[0].lead_source !== 'Online Intro Offer (self-booked)' && (
-                              <span className="text-[10px] opacity-70">{journey.bookings[0].lead_source}</span>
-                            )}
-                            {/* VIP info badges */}
-                            {activeTab === 'vip_class' && (() => {
-                              const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
-                              if (!vip) return null;
-                              return (
-                                <>
-                                  {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
-                                  {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setScriptTargetKey(journey.memberKey);
-                          }}
-                          className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                          title="Create text"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        {journey.totalCommission > 0 && (
-                          <Badge variant="outline" className="text-success">
-                            <DollarSign className="w-3 h-3 mr-0.5" />
-                            {journey.totalCommission.toFixed(0)}
-                          </Badge>
-                        )}
-                        {getStatusBadge(journey.status)}
-                      </div>
-                    </div>
-                  </CollapsibleTrigger>
-
-                  <CollapsibleContent>
-                    <div className="mt-2 ml-7 space-y-3 p-3 border rounded-lg bg-background">
-                      {/* Bookings */}
-                      {journey.bookings.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Bookings ({journey.bookings.length})
-                          </p>
-                          <div className="space-y-2">
-                            {journey.bookings.map(booking => (
-                              <div key={booking.id} className="text-sm p-2 bg-muted/30 rounded">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">
-                                    {formatDate(booking.class_date)}
-                                    {booking.intro_time && ` @ ${formatTime(booking.intro_time)}`}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {booking.booking_status || 'Active'}
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
-                                  {booking.booked_by && (
-                                    <span>Booked by: {capitalizeName(booking.booked_by)}</span>
-                                  )}
-                                  {booking.coach_name && (
-                                    <span>Coach: {booking.coach_name}</span>
-                                  )}
-                                  {booking.lead_source && (
-                                    <span>Source: {booking.lead_source}</span>
-                                  )}
-                                </div>
-                                {booking.fitness_goal && (
-                                  <div className="mt-1 text-xs">
-                                    <span className="font-medium">Goal: </span>
-                                    {booking.fitness_goal}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Runs */}
-                      {journey.runs.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                            <Target className="w-3 h-3" />
-                            Intro Runs ({journey.runs.length})
-                          </p>
-                          <div className="space-y-2">
-                            {journey.runs.map(run => (
-                              <div key={run.id} className="text-sm p-2 bg-muted/30 rounded">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-medium">
-                                    {run.run_date ? formatDate(run.run_date) : 'No date'}
-                                    {run.class_time && ` @ ${formatTime(run.class_time)}`}
-                                  </span>
-                                  <Badge 
-                                    variant={isMembershipSale(run.result) ? 'default' : 'outline'}
-                                    className={isMembershipSale(run.result) ? 'bg-success text-success-foreground' : ''}
-                                  >
-                                    {run.result}
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
-                                  {run.ran_by && (
-                                    <span>Ran by: {capitalizeName(run.ran_by)}</span>
-                                  )}
-                                  {run.intro_owner && run.intro_owner !== run.ran_by && (
-                                    <span>Owner: {capitalizeName(run.intro_owner)}</span>
-                                  )}
-                                  {run.commission_amount && run.commission_amount > 0 && (
-                                    <span className="text-success font-medium">
-                                      ${run.commission_amount.toFixed(2)} commission
-                                    </span>
-                                  )}
-                                </div>
-                                {run.notes && (
-                                  <div className="mt-1 text-xs text-muted-foreground italic">
-                                    {run.notes}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {journey.bookings.length === 0 && journey.runs.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          No booking or run records
-                        </p>
-                      )}
-                    </div>
-                  </CollapsibleContent>
+                  {renderJourneyCard(journey)}
                 </Collapsible>
               ))}
             </div>
