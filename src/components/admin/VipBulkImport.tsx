@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Upload, Star, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Upload, Star, CheckCircle, AlertTriangle, Link, Copy } from 'lucide-react';
 
 interface ParsedRow {
   firstName: string;
@@ -23,6 +23,18 @@ interface ParsedRow {
 export default function VipBulkImport() {
   const [rawText, setRawText] = useState('');
   const [vipClassName, setVipClassName] = useState('');
+  const [urlClassName, setUrlClassName] = useState('');
+
+  const generatedUrl = urlClassName.trim()
+    ? `${window.location.origin}/vip-register?class=${encodeURIComponent(urlClassName.trim())}`
+    : '';
+
+  const copyUrl = () => {
+    if (generatedUrl) {
+      navigator.clipboard.writeText(generatedUrl);
+      toast.success('Link copied!');
+    }
+  };
   const [parsed, setParsed] = useState<ParsedRow[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -147,6 +159,38 @@ export default function VipBulkImport() {
   };
 
   return (
+    <div className="space-y-4">
+      {/* URL Generator */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Link className="w-4 h-4 text-primary" />
+            VIP Registration Link Generator
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Type a class name to generate a shareable registration link
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="e.g. Miss Alabama"
+            value={urlClassName}
+            onChange={e => setUrlClassName(e.target.value)}
+            className="text-sm"
+          />
+          {generatedUrl && (
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md truncate">{generatedUrl}</code>
+              <Button onClick={copyUrl} size="sm" variant="outline" className="shrink-0">
+                <Copy className="w-3 h-3 mr-1" />
+                Copy
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Bulk Import */}
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
@@ -247,5 +291,6 @@ export default function VipBulkImport() {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
