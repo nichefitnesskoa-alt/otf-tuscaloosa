@@ -71,9 +71,21 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart }: LeadCard
           )}
         </div>
       </div>
-      <p className="text-[11px] text-muted-foreground mt-1.5">
-        {formatDistanceToNow(createdAt, { addSuffix: true })}
-      </p>
+      <div className="flex items-center gap-1.5 mt-1.5">
+        <p className="text-[11px] text-muted-foreground">
+          {formatDistanceToNow(createdAt, { addSuffix: true })}
+        </p>
+        {lead.booked_intro_id && lead.stage === 'booked' && (
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-600 text-white border-transparent">
+            Already Booked
+          </Badge>
+        )}
+        {lead.stage === 'won' && (
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 text-white border-transparent">
+            Purchased
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }

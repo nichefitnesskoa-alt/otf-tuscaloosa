@@ -217,6 +217,45 @@ export default function ShiftRecap() {
     setSales(sales.filter((_, i) => i !== index));
   };
 
+  // Auto-link leads: match by name and update stage/booked_intro_id
+  const matchLeadByName = async (memberName: string, bookingId: string | null, newStage: 'booked' | 'won') => {
+    try {
+      const parts = memberName.trim().split(/\s+/);
+      if (parts.length < 2) return;
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ');
+
+      const { data: matchedLeads } = await supabase
+        .from('leads')
+        .select('id, stage')
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName)
+        .is('booked_intro_id', null)
+        .neq('stage', 'lost');
+
+      if (matchedLeads && matchedLeads.length > 0) {
+        const lead = matchedLeads[0];
+        // Don't downgrade: if already 'won', don't set to 'booked'
+        if (newStage === 'booked' && lead.stage === 'won') return;
+
+        const updates: Record<string, unknown> = { stage: newStage };
+        if (bookingId) updates.booked_intro_id = bookingId;
+
+        await supabase.from('leads').update(updates).eq('id', lead.id);
+        await supabase.from('lead_activities').insert({
+          lead_id: lead.id,
+          activity_type: 'stage_change',
+          performed_by: 'System',
+          notes: newStage === 'won'
+            ? 'Auto-linked: membership purchased via shift recap'
+            : 'Auto-linked from shift recap booking',
+        });
+      }
+    } catch (err) {
+      console.error('Lead auto-link error:', err);
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
@@ -266,6 +305,11 @@ export default function ShiftRecap() {
           }).select().single();
 
           if (bookingInsertError) throw bookingInsertError;
+
+          // Auto-link matching lead
+          if (insertedBooking) {
+            await matchLeadByName(booking.memberName, insertedBooking.id, 'booked');
+          }
 
           // Link questionnaire to the newly created booking
           if (booking.questionnaireId && insertedBooking) {
@@ -499,6 +543,9 @@ export default function ShiftRecap() {
 
           // If sale outcome, close the linked booking
           if (commissionAmount > 0 && linkedBookingId) {
+            // Auto-link matching lead as won
+            await matchLeadByName(run.memberName, linkedBookingId, 'won');
+            
             await closeBookingOnSale(
               run.memberName,
               commissionAmount,
@@ -594,6 +641,9 @@ export default function ShiftRecap() {
             shift_recap_id: shiftData.id,
             date_closed: date, // Use shift date as date_closed for pay period filtering
           });
+
+          // Auto-link matching lead as won
+          await matchLeadByName(sale.memberName, null, 'won');
 
           // Auto-close any matching active bookings
           if (sale.commissionAmount > 0 || sale.membershipType) {

@@ -114,7 +114,48 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create new lead
+      // Check if this person already has a booking in intros_booked
+      const memberName = `${lead.first_name} ${lead.last_name}`;
+      let autoStage = "new";
+      let autoBookedIntroId: string | null = null;
+
+      const { data: existingBooking } = await supabase
+        .from("intros_booked")
+        .select("id")
+        .ilike("member_name", memberName)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingBooking) {
+        autoBookedIntroId = existingBooking.id;
+        autoStage = "booked";
+
+        // Check if they already purchased (sale result in intros_run)
+        const { data: saleRun } = await supabase
+          .from("intros_run")
+          .select("id")
+          .eq("linked_intro_booked_id", existingBooking.id)
+          .ilike("result", "%premier%")
+          .limit(1)
+          .maybeSingle();
+
+        if (!saleRun) {
+          // Also check other sale patterns
+          const { data: saleRun2 } = await supabase
+            .from("intros_run")
+            .select("id, result")
+            .eq("linked_intro_booked_id", existingBooking.id)
+            .gt("commission_amount", 0)
+            .limit(1)
+            .maybeSingle();
+          if (saleRun2) autoStage = "won";
+        } else {
+          autoStage = "won";
+        }
+      }
+
+      // Create new lead with correct stage
       const { data: newLead, error: leadError } = await supabase
         .from("leads")
         .insert({
@@ -122,8 +163,9 @@ Deno.serve(async (req) => {
           last_name: lead.last_name,
           email: lead.email || null,
           phone: lead.phone || "",
-          stage: "new",
+          stage: autoStage,
           source: lead.source || "Orangebook Web Lead",
+          booked_intro_id: autoBookedIntroId,
         })
         .select("id")
         .single();
