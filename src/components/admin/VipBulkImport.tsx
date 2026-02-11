@@ -26,7 +26,7 @@ export default function VipBulkImport() {
   const [urlClassName, setUrlClassName] = useState('');
 
   const generatedUrl = urlClassName.trim()
-    ? `${window.location.origin}/vip-register?class=${encodeURIComponent(urlClassName.trim())}`
+    ? `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(urlClassName.trim())}`
     : '';
 
   const copyUrl = () => {

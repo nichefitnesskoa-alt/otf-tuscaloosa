@@ -188,7 +188,7 @@ export default function VipRegister() {
 
           <div className="rounded-xl p-3" style={{ backgroundColor: '#FFF5EB', border: `1px solid ${OTF_ORANGE}30` }}>
             <p className="text-xs font-medium mb-3" style={{ color: OTF_ORANGE }}>
-              ❤️ Heart Rate Monitor Setup (Optional)
+              ❤️ Heart Rate Monitor Setup
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
