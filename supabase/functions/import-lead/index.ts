@@ -226,7 +226,13 @@ Deno.serve(async (req) => {
       bookingId = existingBooking.id;
     }
 
-    // 6) Record intake event
+    // 6) Link booking to lead (prevents showing in Leads Pipeline)
+    await supabase.from("leads").update({
+      booked_intro_id: bookingId,
+      stage: "booked",
+    }).eq("id", leadId);
+
+    // 7) Record intake event
     await supabase.from("intake_events").insert({
       source: "gmail",
       external_id: meta.gmail_message_id,
