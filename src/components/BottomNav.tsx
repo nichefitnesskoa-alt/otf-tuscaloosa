@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, LayoutDashboard, Settings, TrendingUp, ClipboardList } from 'lucide-react';
+import { FileText, LayoutDashboard, Settings, TrendingUp, ClipboardList, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
 const navItems = [
   { path: '/shift-recap', label: 'Recap', icon: FileText },
+  { path: '/leads', label: 'Leads', icon: Users },
   { path: '/my-shifts', label: 'My Shifts', icon: ClipboardList },
   { path: '/dashboard', label: 'My Stats', icon: LayoutDashboard },
   { path: '/recaps', label: 'Studio', icon: TrendingUp },

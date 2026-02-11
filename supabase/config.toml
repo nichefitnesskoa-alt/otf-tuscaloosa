@@ -1,1 +1,4 @@
 project_id = "clwgjsacgkapohxscihy"
+
+[functions.import-lead]
+verify_jwt = false
