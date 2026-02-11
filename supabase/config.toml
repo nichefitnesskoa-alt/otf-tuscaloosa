@@ -2,3 +2,6 @@ project_id = "clwgjsacgkapohxscihy"
 
 [functions.import-lead]
 verify_jwt = false
+
+[functions.cleanup-questionnaires]
+verify_jwt = false
