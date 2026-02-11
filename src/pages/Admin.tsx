@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare, Users } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
+import ReferralTracker from '@/components/admin/ReferralTracker';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 
@@ -102,7 +103,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -110,6 +111,10 @@ export default function Admin() {
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
             <span className="hidden sm:inline">Data</span>
+          </TabsTrigger>
+          <TabsTrigger value="referrals" className="gap-1">
+            <Users className="w-4 h-4" />
+            <span className="hidden sm:inline">Referrals</span>
           </TabsTrigger>
           <TabsTrigger value="groupme" className="gap-1">
             <MessageSquare className="w-4 h-4" />
@@ -120,6 +125,11 @@ export default function Admin() {
             <span className="hidden sm:inline">Health</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Referrals Tab */}
+        <TabsContent value="referrals">
+          <ReferralTracker />
+        </TabsContent>
 
         {/* GroupMe Tab */}
         <TabsContent value="groupme">

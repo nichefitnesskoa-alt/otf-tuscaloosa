@@ -1,11 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, AlertTriangle, Send } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Trash2, AlertTriangle, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
@@ -29,6 +30,13 @@ export interface IntroBookingData {
   originatingBookingId?: string;
   questionnaireId?: string;
   questionnaireStatus?: 'not_sent' | 'sent' | 'completed';
+  bringingFriend: boolean;
+  friendFirstName: string;
+  friendLastName: string;
+  friendPhone: string;
+  friendEmail: string;
+  friendQuestionnaireId?: string;
+  friendQuestionnaireStatus?: 'not_sent' | 'sent' | 'completed';
 }
 
 interface IntroBookingEntryProps {
@@ -70,12 +78,14 @@ export default function IntroBookingEntry({
 
   const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
-  // Build questionnaire link from slug if available
+  // Fetch slug for questionnaire link (fix: useEffect instead of useState)
   const [questionnaireSlug, setQuestionnaireSlug] = useState<string | null>(null);
   
-  // Fetch slug when questionnaireId changes
-  useState(() => {
-    if (!booking.questionnaireId) return;
+  useEffect(() => {
+    if (!booking.questionnaireId) {
+      setQuestionnaireSlug(null);
+      return;
+    }
     supabase
       .from('intro_questionnaires')
       .select('slug' as any)
@@ -84,12 +94,36 @@ export default function IntroBookingEntry({
       .then(({ data }) => {
         if ((data as any)?.slug) setQuestionnaireSlug((data as any).slug);
       });
-  });
+  }, [booking.questionnaireId]);
+
+  // Fetch slug for friend's questionnaire
+  const [friendQuestionnaireSlug, setFriendQuestionnaireSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!booking.friendQuestionnaireId) {
+      setFriendQuestionnaireSlug(null);
+      return;
+    }
+    supabase
+      .from('intro_questionnaires')
+      .select('slug' as any)
+      .eq('id', booking.friendQuestionnaireId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if ((data as any)?.slug) setFriendQuestionnaireSlug((data as any).slug);
+      });
+  }, [booking.friendQuestionnaireId]);
 
   const questionnaireLink = questionnaireSlug
     ? `${PUBLISHED_URL}/q/${questionnaireSlug}`
     : booking.questionnaireId
       ? `${PUBLISHED_URL}/q/${booking.questionnaireId}`
+      : undefined;
+
+  const friendQuestionnaireLink = friendQuestionnaireSlug
+    ? `${PUBLISHED_URL}/q/${friendQuestionnaireSlug}`
+    : booking.friendQuestionnaireId
+      ? `${PUBLISHED_URL}/q/${booking.friendQuestionnaireId}`
       : undefined;
 
   const scriptMergeContext = {
@@ -100,10 +134,10 @@ export default function IntroBookingEntry({
     time: booking.introTime || undefined,
     'today/tomorrow': computeTodayTomorrow(),
     'questionnaire-link': questionnaireLink,
+    'friend-questionnaire-link': friendQuestionnaireLink,
   };
 
   const handleNameChange = useCallback((value: string) => {
-    // Reset dismissed warning when name changes significantly
     if (dismissedWarning && value.length < 3) {
       setDismissedWarning(false);
     }
@@ -136,7 +170,6 @@ export default function IntroBookingEntry({
     if (!selectedClient) return;
     setShowActionDialog(false);
     setDismissedWarning(true);
-    // Populate form with existing client info
     onUpdate(index, {
       memberName: selectedClient.member_name,
       introDate: selectedClient.class_date,
@@ -144,7 +177,6 @@ export default function IntroBookingEntry({
       leadSource: selectedClient.lead_source,
       notes: selectedClient.fitness_goal || '',
     });
-    // Look up existing questionnaire for this booking
     const { data } = await supabase
       .from('intro_questionnaires')
       .select('id, status')
@@ -165,7 +197,6 @@ export default function IntroBookingEntry({
   const handleRescheduleSuccess = useCallback((updatedData: { date: string; time: string }) => {
     if (!selectedClient) return;
     setShowRescheduleDialog(false);
-    // Populate form with updated info instead of clearing
     onUpdate(index, {
       memberName: selectedClient.member_name,
       introDate: updatedData.date,
@@ -177,19 +208,13 @@ export default function IntroBookingEntry({
     setSelectedClient(null);
   }, [index, onUpdate, selectedClient]);
 
+  // Friend name for questionnaire link
+  const friendFullName = `${booking.friendFirstName} ${booking.friendLastName}`.trim();
+
   return (
     <>
       <div className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
         <div className="absolute top-2 right-2 flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => setShowScripts(true)}
-            title="Send Script"
-          >
-            <Send className="w-3.5 h-3.5 text-primary" />
-          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -258,6 +283,86 @@ export default function IntroBookingEntry({
           </Select>
         </div>
 
+        {/* Bringing a Friend Toggle - appears after lead source */}
+        {booking.leadSource && (
+          <div className="border border-dashed border-primary/30 rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <Label className="text-xs font-medium">Bringing a friend?</Label>
+              </div>
+              <Switch
+                checked={booking.bringingFriend}
+                onCheckedChange={(checked) => onUpdate(index, { bringingFriend: checked })}
+              />
+            </div>
+
+            {booking.bringingFriend && (
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Friend's First Name *</Label>
+                    <Input
+                      value={booking.friendFirstName}
+                      onChange={(e) => onUpdate(index, { friendFirstName: e.target.value })}
+                      placeholder="First name"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Friend's Last Name</Label>
+                    <Input
+                      value={booking.friendLastName}
+                      onChange={(e) => onUpdate(index, { friendLastName: e.target.value })}
+                      placeholder="Last name"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Phone *</Label>
+                    <Input
+                      type="tel"
+                      value={booking.friendPhone}
+                      onChange={(e) => onUpdate(index, { friendPhone: e.target.value })}
+                      placeholder="Phone number"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Email</Label>
+                    <Input
+                      type="email"
+                      value={booking.friendEmail}
+                      onChange={(e) => onUpdate(index, { friendEmail: e.target.value })}
+                      placeholder="Email"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Same date/time/coach as above • Lead source: {booking.leadSource} (Friend)
+                </p>
+
+                {/* Friend's Questionnaire Link */}
+                {booking.friendFirstName.length >= 2 && (
+                  <QuestionnaireLink
+                    bookingId={`friend-${booking.id}`}
+                    memberName={friendFullName}
+                    introDate={booking.introDate}
+                    introTime={booking.introTime}
+                    questionnaireId={booking.friendQuestionnaireId}
+                    questionnaireStatus={booking.friendQuestionnaireStatus}
+                    onQuestionnaireCreated={(id) => onUpdate(index, { friendQuestionnaireId: id, friendQuestionnaireStatus: 'not_sent' })}
+                    onStatusChange={(status) => onUpdate(index, { friendQuestionnaireStatus: status })}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <Label className="text-xs">Who's Coaching</Label>
           <Select
@@ -305,6 +410,14 @@ export default function IntroBookingEntry({
             questionnaireStatus={booking.questionnaireStatus}
           />
         )}
+
+        {/* Send Script Button - visible black button at bottom */}
+        <Button
+          onClick={() => setShowScripts(true)}
+          className="w-full bg-black text-white hover:bg-black/90"
+        >
+          Send Script
+        </Button>
       </div>
 
       {selectedClient && (

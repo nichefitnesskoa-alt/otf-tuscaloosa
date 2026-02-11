@@ -549,6 +549,36 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          created_at: string
+          discount_applied: boolean
+          id: string
+          referred_booking_id: string | null
+          referred_name: string
+          referrer_booking_id: string | null
+          referrer_name: string
+        }
+        Insert: {
+          created_at?: string
+          discount_applied?: boolean
+          id?: string
+          referred_booking_id?: string | null
+          referred_name: string
+          referrer_booking_id?: string | null
+          referrer_name: string
+        }
+        Update: {
+          created_at?: string
+          discount_applied?: boolean
+          id?: string
+          referred_booking_id?: string | null
+          referred_name?: string
+          referrer_booking_id?: string | null
+          referrer_name?: string
+        }
+        Relationships: []
+      }
       sales_outside_intro: {
         Row: {
           commission_amount: number | null
