@@ -1,38 +1,80 @@
 
 
-# Fix: Prevent Auto-Imported Leads from Showing in Leads Pipeline
+# Restructure: Separate Client Pipeline + Edge Function Fix
 
-## Problem
+## Overview
 
-When an online intro email is parsed and POSTed to `import-lead`, the edge function creates both a **lead** (in `leads` table) and a **booking** (in `intros_booked`). The booking correctly appears in the Client Pipeline's "Upcoming" tab. However, the lead also appears in the Leads Pipeline because the `booked_intro_id` field on the lead record is never set.
+Three changes:
+1. Stop creating lead records for auto-imported online intros (Format B) -- they go straight to `intros_booked` only
+2. Create a new "Pipeline" bottom nav tab housing Client Pipeline, Pre-Intro Questionnaire Links, and Members Who Bought
+3. Hide clients from Pre-Intro Questionnaire Links (not Client Pipeline) once their intro has been run
 
-Your frontend already has the logic to hide booked leads -- the Kanban board, List view, and Metrics bar all filter out leads where `booked_intro_id` is not null. The only missing piece is on the backend.
+---
 
-## Fix (One Change)
+## 1. Edge Function Fix
 
 **File:** `supabase/functions/import-lead/index.ts`
 
-After the booking is created (or an existing one is found), update the lead record to set:
-- `booked_intro_id` = the booking's UUID
-- `stage` = `'booked'`
+For Format B (nested payload), remove all `leads` table logic (steps 3 and 6 -- the upsert and the `booked_intro_id` linking). The function will only:
+- Check idempotency via `intake_events`
+- Parse date/time
+- Dedupe and create `intros_booked` record
+- Record `intake_events` (without `lead_id`, since no lead is created)
 
-This is a small addition (~5 lines) right after the booking dedupe/creation block (around line 227), before the intake event is recorded.
+Format A (flat payload for manual web leads) stays unchanged.
+
+---
+
+## 2. New "Pipeline" Page and Navigation
+
+### New file: `src/pages/Pipeline.tsx`
+
+A simple page containing three sections:
+1. Client Pipeline (`ClientJourneyReadOnly`)
+2. Pre-Intro Questionnaire Links (`PastBookingQuestionnaires`)
+3. Members Who Bought (`MembershipPurchasesReadOnly`)
+
+### Update: `src/components/BottomNav.tsx`
+
+Add "Pipeline" tab (using `GitBranch` icon) between Leads and My Shifts:
 
 ```text
-Current flow:
-  Create/find booking -> Record intake event -> Return
-
-Updated flow:
-  Create/find booking -> Link booking to lead (set booked_intro_id + stage) -> Record intake event -> Return
+Recap | Leads | Pipeline | My Shifts | My Stats | Studio
 ```
 
-## What This Fixes
+### Update: `src/App.tsx`
 
-- Leads that come in via the auto-import (Format B) will have `booked_intro_id` set, so they won't appear in the Leads Pipeline
-- They will still appear in the Client Pipeline via `intros_booked` as they do now
-- No frontend changes needed -- the filtering logic is already in place
+Add `/pipeline` route as a protected route.
 
-## Existing Data
+### Update: `src/pages/Recaps.tsx` (Studio)
 
-Mary (and any other leads already imported this way) will also need their `booked_intro_id` updated. I'll query for leads created by the auto-import that are missing this link and patch them.
+Remove the three moved components and their imports:
+- `ClientJourneyReadOnly`
+- `PastBookingQuestionnaires`
+- `MembershipPurchasesReadOnly`
+
+Studio keeps: Studio Scoreboard, Pipeline Funnel, Lead Source Analytics, Top Performers, Runner/Booker Stats, and export actions.
+
+---
+
+## 3. Hide Run Clients from Pre-Intro Questionnaires
+
+**File:** `src/components/PastBookingQuestionnaires.tsx`
+
+The questionnaire links section currently shows all active bookings. Update it to also fetch `intros_run` and exclude any booking whose `member_name` has a completed intro run (result other than 'No-show'). This way, once an intro is actually run for someone, their questionnaire link row disappears -- they no longer need a pre-intro questionnaire.
+
+The Client Pipeline itself remains unchanged and continues to show all pipeline stages as it does today.
+
+---
+
+## File Summary
+
+| Action | File |
+|--------|------|
+| Edit | `supabase/functions/import-lead/index.ts` -- remove leads logic for Format B |
+| Create | `src/pages/Pipeline.tsx` -- new page with 3 components |
+| Edit | `src/components/BottomNav.tsx` -- add Pipeline tab |
+| Edit | `src/App.tsx` -- add /pipeline route |
+| Edit | `src/pages/Recaps.tsx` -- remove 3 moved components |
+| Edit | `src/components/PastBookingQuestionnaires.tsx` -- exclude clients with completed runs |
 
