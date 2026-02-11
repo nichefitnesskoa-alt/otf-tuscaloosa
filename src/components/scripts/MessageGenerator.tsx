@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,10 @@ interface MessageGeneratorProps {
   leadId?: string;
   bookingId?: string;
   onLogged?: () => void;
+  questionnaireId?: string;
+  friendQuestionnaireId?: string;
+  onQuestionnaireSent?: () => void;
+  onFriendQuestionnaireSent?: () => void;
 }
 
 const MERGE_FIELD_REGEX = /\{([a-z\-\/]+)\}/g;
@@ -58,7 +63,7 @@ function applyMergeFields(body: string, context: MergeContext, manual: Record<st
   });
 }
 
-export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, onLogged }: MessageGeneratorProps) {
+export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent }: MessageGeneratorProps) {
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
@@ -105,6 +110,25 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
         message_body_sent: editedMessage,
         sequence_step_number: template.sequence_order || null,
       });
+
+      // Auto-mark questionnaires as "sent" if IDs are provided
+      if (questionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', questionnaireId)
+          .eq('status', 'not_sent');
+        onQuestionnaireSent?.();
+      }
+      if (friendQuestionnaireId) {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', friendQuestionnaireId)
+          .eq('status', 'not_sent');
+        onFriendQuestionnaireSent?.();
+      }
+
       toast({ title: 'Logged as sent' });
       onLogged?.();
       onOpenChange(false);

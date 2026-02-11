@@ -451,6 +451,10 @@ export default function IntroBookingEntry({
         suggestedCategories={['booking_confirmation', 'pre_class_reminder']}
         mergeContext={scriptMergeContext}
         bookingId={booking.id}
+        questionnaireId={booking.questionnaireId}
+        friendQuestionnaireId={booking.friendQuestionnaireId}
+        onQuestionnaireSent={() => onUpdate(index, { questionnaireStatus: 'sent' })}
+        onFriendQuestionnaireSent={() => onUpdate(index, { friendQuestionnaireStatus: 'sent' })}
       />
     </>
   );

@@ -28,9 +28,13 @@ interface ScriptPickerSheetProps {
   leadId?: string;
   bookingId?: string;
   onLogged?: () => void;
+  questionnaireId?: string;
+  friendQuestionnaireId?: string;
+  onQuestionnaireSent?: () => void;
+  onFriendQuestionnaireSent?: () => void;
 }
 
-export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, onLogged }: ScriptPickerSheetProps) {
+export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mergeContext, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent }: ScriptPickerSheetProps) {
   const [selectedCategory, setSelectedCategory] = useState(suggestedCategories[0] || '');
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
@@ -131,6 +135,10 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           leadId={leadId}
           bookingId={bookingId}
           onLogged={onLogged}
+          questionnaireId={questionnaireId}
+          friendQuestionnaireId={friendQuestionnaireId}
+          onQuestionnaireSent={onQuestionnaireSent}
+          onFriendQuestionnaireSent={onFriendQuestionnaireSent}
         />
       )}
     </>
