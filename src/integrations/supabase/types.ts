@@ -607,6 +607,117 @@ export type Database = {
           },
         ]
       }
+      script_send_log: {
+        Row: {
+          booking_id: string | null
+          id: string
+          lead_id: string | null
+          message_body_sent: string
+          sent_at: string
+          sent_by: string
+          sequence_step_number: number | null
+          template_id: string
+        }
+        Insert: {
+          booking_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message_body_sent: string
+          sent_at?: string
+          sent_by: string
+          sequence_step_number?: number | null
+          template_id: string
+        }
+        Update: {
+          booking_id?: string | null
+          id?: string
+          lead_id?: string | null
+          message_body_sent?: string
+          sent_at?: string
+          sent_by?: string
+          sequence_step_number?: number | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_send_log_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_send_log_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "script_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_templates: {
+        Row: {
+          body: string
+          category: string
+          channel: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_shared_step: boolean
+          name: string
+          sequence_order: number | null
+          shared_step_id: string | null
+          timing_note: string | null
+          updated_at: string
+          variant_label: string | null
+        }
+        Insert: {
+          body?: string
+          category: string
+          channel?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_shared_step?: boolean
+          name: string
+          sequence_order?: number | null
+          shared_step_id?: string | null
+          timing_note?: string | null
+          updated_at?: string
+          variant_label?: string | null
+        }
+        Update: {
+          body?: string
+          category?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_shared_step?: boolean
+          name?: string
+          sequence_order?: number | null
+          shared_step_id?: string | null
+          timing_note?: string | null
+          updated_at?: string
+          variant_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_templates_shared_step_id_fkey"
+            columns: ["shared_step_id"]
+            isOneToOne: false
+            referencedRelation: "script_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sheets_sync_log: {
         Row: {
           created_at: string

@@ -13,6 +13,7 @@ import Recaps from "./pages/Recaps";
 import Leads from "./pages/Leads";
 import Admin from "./pages/Admin";
 import Pipeline from "./pages/Pipeline";
+import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -76,6 +77,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyShifts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scripts"
+        element={
+          <ProtectedRoute>
+            <Scripts />
           </ProtectedRoute>
         }
       />
