@@ -1,80 +1,30 @@
 
 
-# Restructure: Separate Client Pipeline + Edge Function Fix
+# Exclude "Run-first entry" from Top Performers
 
-## Overview
+## Problem
 
-Three changes:
-1. Stop creating lead records for auto-imported online intros (Format B) -- they go straight to `intros_booked` only
-2. Create a new "Pipeline" bottom nav tab housing Client Pipeline, Pre-Intro Questionnaire Links, and Members Who Bought
-3. Hide clients from Pre-Intro Questionnaire Links (not Client Pipeline) once their intro has been run
+When staff manually enter an intro run without a prior booking, the system auto-creates a booking with `booked_by = 'Run-first entry'`. There are 14 such records. The `EXCLUDED_NAMES` list in `useDashboardMetrics.ts` does not include this value, so these entries inflate the Top Bookers and Best Show Rate leaderboards in the Top Performers section.
 
----
+The `PayPeriodCommission` component already excludes this value -- the dashboard metrics hook just needs to match.
 
-## 1. Edge Function Fix
+## Fix
 
-**File:** `supabase/functions/import-lead/index.ts`
+**File:** `src/hooks/useDashboardMetrics.ts` (line 110)
 
-For Format B (nested payload), remove all `leads` table logic (steps 3 and 6 -- the upsert and the `booked_intro_id` linking). The function will only:
-- Check idempotency via `intake_events`
-- Parse date/time
-- Dedupe and create `intros_booked` record
-- Record `intake_events` (without `lead_id`, since no lead is created)
+Add `'Run-first entry'` to the `EXCLUDED_NAMES` array:
 
-Format A (flat payload for manual web leads) stays unchanged.
+```
+Before:
+const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked'];
 
----
-
-## 2. New "Pipeline" Page and Navigation
-
-### New file: `src/pages/Pipeline.tsx`
-
-A simple page containing three sections:
-1. Client Pipeline (`ClientJourneyReadOnly`)
-2. Pre-Intro Questionnaire Links (`PastBookingQuestionnaires`)
-3. Members Who Bought (`MembershipPurchasesReadOnly`)
-
-### Update: `src/components/BottomNav.tsx`
-
-Add "Pipeline" tab (using `GitBranch` icon) between Leads and My Shifts:
-
-```text
-Recap | Leads | Pipeline | My Shifts | My Stats | Studio
+After:
+const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
 ```
 
-### Update: `src/App.tsx`
+This one-line change filters "Run-first entry" out of:
+- **Top Bookers** leaderboard (bookerCounts uses EXCLUDED_NAMES at line 309)
+- **Best Show Rate** leaderboard (derived from bookerCounts)
+- **SA name collection** (line 159)
 
-Add `/pipeline` route as a protected route.
-
-### Update: `src/pages/Recaps.tsx` (Studio)
-
-Remove the three moved components and their imports:
-- `ClientJourneyReadOnly`
-- `PastBookingQuestionnaires`
-- `MembershipPurchasesReadOnly`
-
-Studio keeps: Studio Scoreboard, Pipeline Funnel, Lead Source Analytics, Top Performers, Runner/Booker Stats, and export actions.
-
----
-
-## 3. Hide Run Clients from Pre-Intro Questionnaires
-
-**File:** `src/components/PastBookingQuestionnaires.tsx`
-
-The questionnaire links section currently shows all active bookings. Update it to also fetch `intros_run` and exclude any booking whose `member_name` has a completed intro run (result other than 'No-show'). This way, once an intro is actually run for someone, their questionnaire link row disappears -- they no longer need a pre-intro questionnaire.
-
-The Client Pipeline itself remains unchanged and continues to show all pipeline stages as it does today.
-
----
-
-## File Summary
-
-| Action | File |
-|--------|------|
-| Edit | `supabase/functions/import-lead/index.ts` -- remove leads logic for Format B |
-| Create | `src/pages/Pipeline.tsx` -- new page with 3 components |
-| Edit | `src/components/BottomNav.tsx` -- add Pipeline tab |
-| Edit | `src/App.tsx` -- add /pipeline route |
-| Edit | `src/pages/Recaps.tsx` -- remove 3 moved components |
-| Edit | `src/components/PastBookingQuestionnaires.tsx` -- exclude clients with completed runs |
-
+No other files need changes.
