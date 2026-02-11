@@ -1,33 +1,157 @@
 
 
-# Upgrade Pre-Intro Questionnaire Links Section
+# Leads Pipeline Feature
 
-## What Changes
+## Overview
 
-Three improvements to the "Pre-Intro Questionnaire Links" section on the Recaps page:
+A new "Leads" section in the app for managing pre-intro leads. Leads come in via API (Power Automate) or manual entry, get worked by SAs through New -> Contacted -> Lost/Booked stages, and hand off to the existing intro booking pipeline when booked.
 
-### 1. Add Search Bar
-A text input at the top that filters bookings by member name in real time across all tabs.
+## New Database Tables
 
-### 2. Add Tabs: "Pending" and "Completed"
-Replace the current single list with two tabs:
-- **Pending** -- bookings that need a link, or have a link but status is "not_sent" or "sent" (not yet completed)
-- **Completed** -- bookings where the questionnaire status is "completed"
+### `leads` table
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | Primary key, default gen_random_uuid() |
+| first_name | text | Required |
+| last_name | text | Required |
+| email | text | Nullable |
+| phone | text | Required |
+| stage | text | 'new', 'contacted', 'lost' (default 'new') |
+| source | text | Default 'Manual Entry' |
+| lost_reason | text | Nullable |
+| follow_up_at | timestamptz | Nullable |
+| booked_intro_id | UUID | Nullable, set when lead is booked |
+| created_at | timestamptz | Default now() |
+| updated_at | timestamptz | Default now() |
 
-### 3. Show Questionnaire Responses for Completed Entries
-Each completed entry will include an inline expandable response viewer (reusing the existing `QuestionnaireResponseViewer` component) showing the Quick-View Summary Card and full answers.
+RLS: Open read/insert/update/delete for authenticated users (matching existing app pattern -- this app uses name-based auth without Supabase Auth, so policies use `true`).
 
-## Technical Details
+### `lead_activities` table
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID | Primary key |
+| lead_id | UUID | FK to leads.id, ON DELETE CASCADE |
+| activity_type | text | 'call', 'text', 'note', 'reminder', 'stage_change', 'duplicate_detected' |
+| performed_by | text | SA name |
+| notes | text | Nullable |
+| created_at | timestamptz | Default now() |
 
-### File: `src/components/PastBookingQuestionnaires.tsx`
+Same RLS pattern. Add `updated_at` trigger on leads table.
 
-- Add a `searchTerm` state and an `Input` field at the top of the content area
-- Filter bookings by `member_name.toLowerCase().includes(searchTerm)` before splitting into tabs
-- Add `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent` from the existing UI components to split "Pending" vs "Completed"
-- **Pending tab**: contains "Needs Link" and "Sent/Not Sent" groups (existing layout, unchanged)
-- **Completed tab**: shows completed bookings with inline `QuestionnaireResponseViewer` under each entry
-- Fetch questionnaire data including response fields so the viewer has what it needs (the existing `QuestionnaireResponseViewer` fetches its own data, so no extra fetch logic needed -- just pass `questionnaireId` and `questionnaireStatus`)
-- Add counts to tab labels (e.g., "Pending (5)" / "Completed (3)")
+## New Edge Function: `import-lead`
 
-### No new files or database changes needed
-All UI components (`Tabs`, `Input`, `QuestionnaireResponseViewer`) already exist in the project.
+**File:** `supabase/functions/import-lead/index.ts`
+
+- Public endpoint (verify_jwt = false)
+- Validates `x-api-key` header against a `LEADS_API_KEY` secret
+- Accepts POST with `{ first_name, last_name, email, phone, source? }`
+- Duplicate detection: checks existing leads by email OR phone
+  - If duplicate found: adds a "duplicate_detected" activity to existing lead, returns 200
+  - If new: inserts lead with stage 'new', returns 201
+- Returns 400 for missing fields, 401 for bad API key
+
+A new secret `LEADS_API_KEY` will be requested from the admin.
+
+## New Page: `src/pages/Leads.tsx`
+
+Top-level page accessible from bottom nav. Contains:
+
+### Metrics Bar (top)
+Five stat cards in a horizontal scroll: New count, In Progress count, Booked This Week, Lost This Week, Overdue Follow-ups (red if > 0), Conversion Rate (30-day rolling).
+
+### View Toggle (Kanban / List)
+Icon toggle in top-right corner.
+
+### Kanban View
+Three columns: New, Contacted, Lost. Each lead rendered as a compact card showing:
+- Name, phone (tappable tel: link)
+- Time since created (relative, e.g., "2h ago")
+- Contact attempts badge
+- Red border/dot if follow-up is overdue
+- Pulse animation or "NEW" badge if < 1 hour old
+- Lost cards at reduced opacity
+
+Drag-and-drop between columns using HTML5 drag events (no extra library needed for simple 3-column DnD).
+
+### List View
+Table with sortable columns: Name, Phone, Email, Stage (inline dropdown), Date Received, Last Action, Days Since Contact, Attempts. Clicking a row opens detail view.
+
+### Add Lead Button
+Opens a dialog/sheet with form: first name, last name, phone, email (optional), notes. Creates lead in 'new' stage with source 'Manual Entry'.
+
+## Lead Detail View: `src/components/leads/LeadDetailSheet.tsx`
+
+Opens as a bottom sheet (Drawer on mobile). Contains:
+
+**Header:** Name, phone (tel: link), email (mailto: link), stage badge, source, date received.
+
+**Quick Actions (row of buttons):**
+- Log Call -- optional notes, auto-moves New -> Contacted
+- Log Text -- optional notes, auto-moves New -> Contacted
+- Add Notes -- general note
+- Set Follow-Up -- date/time picker, creates reminder activity
+- Book Intro -- prompts for class date/time, creates intros_booked record, sets lead stage to 'booked' and booked_intro_id
+- Mark Lost -- dropdown for reason, moves to Lost
+
+**Activity Timeline:** Reverse-chronological list of all activities for this lead.
+
+## Supporting Components
+
+- `src/components/leads/LeadCard.tsx` -- Kanban card
+- `src/components/leads/LeadMetricsBar.tsx` -- Top metrics
+- `src/components/leads/AddLeadDialog.tsx` -- Manual entry form
+- `src/components/leads/LeadKanbanBoard.tsx` -- Kanban layout with DnD
+- `src/components/leads/LeadListView.tsx` -- Table view
+- `src/components/leads/LogActionDialog.tsx` -- Dialog for logging calls/texts/notes
+- `src/components/leads/MarkLostDialog.tsx` -- Lost reason selection
+- `src/components/leads/BookIntroDialog.tsx` -- Book into intro pipeline
+- `src/components/leads/ScheduleFollowUpDialog.tsx` -- Follow-up picker
+
+## Navigation Changes
+
+### `src/components/BottomNav.tsx`
+Add a "Leads" nav item (using `Users` icon from lucide) between "Recap" and "My Shifts":
+```text
+Recap | Leads | My Shifts | My Stats | Studio | (Admin)
+```
+
+### `src/App.tsx`
+Add `/leads` route as a protected route pointing to the new Leads page.
+
+## Data Flow
+
+### Book Intro Handoff
+When "Book Intro" is tapped on a lead:
+1. Create a new `intros_booked` record with the lead's name, class date/time, lead_source set to the lead's source, and sa_working_shift set to current user
+2. Update the lead's `stage` to a special value (we'll use the existing 3 stages + track via `booked_intro_id` being non-null) and set `booked_intro_id`
+3. The lead disappears from active pipeline views (filtered out when booked_intro_id is set)
+4. Log a stage_change activity
+
+### Auto-Stage Advancement
+When logging a Call or Text on a lead in 'new' stage, automatically update stage to 'contacted' and log a stage_change activity.
+
+## Secret Setup
+
+Before building the edge function, I'll request a `LEADS_API_KEY` secret. You can set this to any random string -- it's the key you'll paste into Power Automate's HTTP action headers as `x-api-key`.
+
+## File Summary
+
+| Action | File |
+|--------|------|
+| Create | `src/pages/Leads.tsx` |
+| Create | `src/components/leads/LeadCard.tsx` |
+| Create | `src/components/leads/LeadDetailSheet.tsx` |
+| Create | `src/components/leads/LeadMetricsBar.tsx` |
+| Create | `src/components/leads/AddLeadDialog.tsx` |
+| Create | `src/components/leads/LeadKanbanBoard.tsx` |
+| Create | `src/components/leads/LeadListView.tsx` |
+| Create | `src/components/leads/LogActionDialog.tsx` |
+| Create | `src/components/leads/MarkLostDialog.tsx` |
+| Create | `src/components/leads/BookIntroDialog.tsx` |
+| Create | `src/components/leads/ScheduleFollowUpDialog.tsx` |
+| Create | `supabase/functions/import-lead/index.ts` |
+| Modify | `src/components/BottomNav.tsx` (add Leads nav item) |
+| Modify | `src/App.tsx` (add /leads route) |
+| Migration | Create `leads` and `lead_activities` tables with RLS |
+| Secret | `LEADS_API_KEY` |
+
