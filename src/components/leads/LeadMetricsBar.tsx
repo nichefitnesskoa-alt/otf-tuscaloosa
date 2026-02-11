@@ -18,6 +18,7 @@ export function LeadMetricsBar({ leads, activities }: LeadMetricsBarProps) {
   // Booked this week: leads with booked_intro_id set, updated this week
   const bookedThisWeek = leads.filter(l => {
     if (!l.booked_intro_id) return false;
+    if (l.source?.startsWith('Orangebook')) return false;
     const updated = parseISO(l.updated_at);
     return isAfter(updated, weekStart) && isBefore(updated, weekEnd);
   }).length;
@@ -36,7 +37,7 @@ export function LeadMetricsBar({ leads, activities }: LeadMetricsBarProps) {
   }).length;
 
   // 30-day conversion rate
-  const recent = leads.filter(l => isAfter(parseISO(l.updated_at), thirtyDaysAgo));
+  const recent = leads.filter(l => isAfter(parseISO(l.updated_at), thirtyDaysAgo) && !l.source?.startsWith('Orangebook'));
   const bookedRecent = recent.filter(l => l.booked_intro_id).length;
   const lostRecent = recent.filter(l => l.stage === 'lost').length;
   const total = bookedRecent + lostRecent;
@@ -45,8 +46,8 @@ export function LeadMetricsBar({ leads, activities }: LeadMetricsBarProps) {
   const metrics = [
     { label: 'New', value: newCount, color: 'text-info' },
     { label: 'In Progress', value: contactedCount, color: 'text-warning' },
-    { label: 'Booked (Week)', value: bookedThisWeek, color: 'text-success' },
-    { label: 'Lost (Week)', value: lostThisWeek, color: 'text-muted-foreground' },
+    { label: 'Booked', value: bookedThisWeek, color: 'text-success' },
+    { label: 'Lost', value: lostThisWeek, color: 'text-muted-foreground' },
     { label: 'Overdue', value: overdueCount, color: overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground', highlight: overdueCount > 0 },
     { label: 'Conv. Rate', value: `${conversionRate}%`, color: 'text-primary' },
   ];
