@@ -11,6 +11,7 @@ import ShiftRecap from "./pages/ShiftRecap";
 import Dashboard from "./pages/Dashboard";
 import Recaps from "./pages/Recaps";
 import MyShifts from "./pages/MyShifts";
+import Leads from "./pages/Leads";
 import Admin from "./pages/Admin";
 import Questionnaire from "./pages/Questionnaire";
 import NotFound from "./pages/NotFound";
@@ -63,6 +64,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Recaps />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leads"
+        element={
+          <ProtectedRoute>
+            <Leads />
           </ProtectedRoute>
         }
       />
