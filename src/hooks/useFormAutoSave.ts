@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getLocalDateString } from '@/lib/utils';
 
 interface FormData {
   shiftType: string;
@@ -31,7 +32,7 @@ export function useFormAutoSave(userName: string | undefined) {
       if (saved) {
         const parsed = JSON.parse(saved);
         // Check if the draft is from today
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         if (parsed.date === today) {
           return parsed;
         }
@@ -71,7 +72,7 @@ export function useFormAutoSave(userName: string | undefined) {
       const saved = localStorage.getItem(getStorageKey());
       if (saved) {
         const parsed = JSON.parse(saved);
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         return parsed.date === today;
       }
       return false;

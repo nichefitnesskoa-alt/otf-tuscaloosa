@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { postShiftRecapToGroupMe } from '@/lib/groupme';
 import { format } from 'date-fns';
+import { getLocalDateString } from '@/lib/utils';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
 import { useFormAutoSave } from '@/hooks/useFormAutoSave';
 import {
@@ -55,7 +56,7 @@ export default function ShiftRecap() {
 
   // Basic Info
   const [shiftType, setShiftType] = useState<ShiftType>('AM Shift');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateString());
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Confirmation dialog for multiple matching bookings
@@ -85,7 +86,7 @@ export default function ShiftRecap() {
       const draft = loadDraft();
       if (draft) {
         setShiftType(draft.shiftType as ShiftType || 'AM Shift');
-        setDate(draft.date || new Date().toISOString().split('T')[0]);
+        setDate(draft.date || getLocalDateString());
         setCallsMade(draft.callsMade || 0);
         setTextsSent(draft.textsSent || 0);
         setEmailsSent(draft.emailsSent || 0);
@@ -456,7 +457,7 @@ export default function ShiftRecap() {
 
           // Handle "Booked 2nd intro" outcome - UPDATE existing booking instead of creating duplicate
           if (run.outcome === 'Booked 2nd intro' && linkedBookingId) {
-            const secondIntroDate = run.secondIntroDate || new Date().toISOString().split('T')[0];
+            const secondIntroDate = run.secondIntroDate || getLocalDateString();
             const secondIntroTime = run.secondIntroTime || null;
             
             // Update the existing booking with new date/time and status

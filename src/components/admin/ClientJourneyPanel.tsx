@@ -70,7 +70,7 @@ import { toast } from 'sonner';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 
 // Tab types
@@ -208,7 +208,7 @@ export default function ClientJourneyPanel() {
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
   const [purchasingBooking, setPurchasingBooking] = useState<ClientBooking | null>(null);
   const [purchaseData, setPurchaseData] = useState({
-    date_closed: new Date().toISOString().split('T')[0],
+    date_closed: getLocalDateString(),
     membership_type: '',
     sale_type: 'Intro' as 'Intro' | 'Outside Intro',
     intro_owner: '',
@@ -236,7 +236,7 @@ export default function ClientJourneyPanel() {
   const [creatingBookingFromRun, setCreatingBookingFromRun] = useState<ClientRun | null>(null);
   const [newBooking, setNewBooking] = useState({
     member_name: '',
-    class_date: new Date().toISOString().split('T')[0],
+    class_date: getLocalDateString(),
     intro_time: '',
     coach_name: '',
     sa_working_shift: '',
@@ -249,7 +249,7 @@ export default function ClientJourneyPanel() {
   const [creatingRunForJourney, setCreatingRunForJourney] = useState<ClientJourney | null>(null);
   const [newRun, setNewRun] = useState({
     member_name: '',
-    run_date: new Date().toISOString().split('T')[0],
+    run_date: getLocalDateString(),
     class_time: '',
     ran_by: '',
     lead_source: '',
@@ -387,13 +387,7 @@ export default function ClientJourneyPanel() {
     fetchData();
   }, []);
 
-  // Helper to get current local date as YYYY-MM-DD string (avoids UTC conversion issues)
-  const getLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Use shared getLocalDateString from utils (avoids UTC conversion issues)
 
   // Helper to check if a booking's scheduled time has passed
   const isBookingPast = (booking: ClientBooking): boolean => {
@@ -690,7 +684,7 @@ export default function ClientJourneyPanel() {
   const handleOpenPurchaseDialog = (booking: ClientBooking) => {
     setPurchasingBooking(booking);
     setPurchaseData({
-      date_closed: new Date().toISOString().split('T')[0],
+      date_closed: getLocalDateString(),
       membership_type: '',
       sale_type: 'Intro',
       intro_owner: booking.intro_owner || '',
@@ -911,7 +905,7 @@ export default function ClientJourneyPanel() {
   const handleOpenCreateBookingDialog = () => {
     setNewBooking({
       member_name: '',
-      class_date: new Date().toISOString().split('T')[0],
+      class_date: getLocalDateString(),
       intro_time: '',
       coach_name: '',
       sa_working_shift: '',
@@ -928,7 +922,7 @@ export default function ClientJourneyPanel() {
     // Pre-populate with run data
     setNewBooking({
       member_name: run.member_name,
-      class_date: run.run_date || new Date().toISOString().split('T')[0],
+      class_date: run.run_date || getLocalDateString(),
       intro_time: run.class_time || '',
       coach_name: '',
       sa_working_shift: '',
@@ -1025,7 +1019,7 @@ export default function ClientJourneyPanel() {
     const latestBooking = journey.bookings.find(b => !b.booking_status || b.booking_status === 'Active');
     setNewRun({
       member_name: journey.memberName,
-      run_date: new Date().toISOString().split('T')[0],
+      run_date: getLocalDateString(),
       class_time: latestBooking?.intro_time || '',
       ran_by: '',
       lead_source: latestBooking?.lead_source || '',
@@ -1698,7 +1692,7 @@ export default function ClientJourneyPanel() {
                                                   .insert({
                                                     booking_id: bookingId,
                                                     member_name: r.member_name,
-                                                    class_date: r.run_date || new Date().toISOString().split('T')[0],
+                                                    class_date: r.run_date || getLocalDateString(),
                                                     intro_time: r.class_time || null,
                                                     coach_name: 'TBD',
                                                     sa_working_shift: r.ran_by || 'Unknown',
