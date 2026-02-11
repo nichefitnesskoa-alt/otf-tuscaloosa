@@ -1,43 +1,88 @@
 
 
-# VIP Class Pipeline Section
+# VIP Class Registration Form + Bulk Import
 
-## What This Does
+## What You Get
 
-Adds a dedicated "VIP Class" tab to the Client Pipeline that shows all clients whose lead source is "VIP Class" -- regardless of their lifecycle stage. Unlike the other tabs (Upcoming, No-shows, etc.) which filter by status, VIP Class clients will always appear in this tab from booking through purchase, giving your team a single place to track all VIP visitors.
+### 1. Public VIP Registration Form
+A shareable link (e.g., `otf-tuscaloosa.lovable.app/vip-register`) that VIP class invitees can fill out. It collects:
+- First Name, Last Name
+- Email, Phone Number
+- Birthday (for heart rate monitor setup)
+- Weight in LBs (for heart rate monitor setup)
 
-VIP clients will still appear in the regular tabs too (Upcoming, Today, etc.) so they get the same follow-up attention, but the VIP tab gives a consolidated view of just those clients.
+When submitted, it automatically:
+- Creates a booking in `intros_booked` with lead source "VIP Class"
+- The person immediately appears in your VIP tab in the Client Pipeline
+- No staff action needed -- it's fully self-service
 
-## What Your Team Sees
+The form will have the same OTF-branded look as the existing questionnaire (orange theme, logo, clean mobile-friendly design).
 
-- A new "VIP" tab in the Client Pipeline (both Pipeline page and Admin)
-- VIP tab shows a count of all VIP Class clients
-- Each client card shows their current status (Active, Purchased, No-show, etc.) so you can see where they are in the journey
-- A purple star icon distinguishes the tab visually
+### 2. Bulk Import for Existing VIP Contacts
+An admin tool (in the Admin panel) where you can paste a spreadsheet of existing VIP contacts. Each row needs at minimum first name, last name, phone, and email. Birthday and weight are optional. It will:
+- Create bookings in `intros_booked` with "VIP Class" lead source for each person
+- Store the extra info (birthday, weight) for heart rate monitor setup
+- Skip duplicates based on name matching
+
+### 3. Heart Rate Monitor Info Visible in Pipeline
+The VIP tab cards will show birthday and weight when available, so you can set up heart rate monitors before clients arrive.
 
 ---
 
 ## Technical Details
 
-### Changes to Both Components
+### New Database Table: `vip_registrations`
 
-**Files:**
-- `src/components/dashboard/ClientJourneyReadOnly.tsx` (Pipeline page)
-- `src/components/admin/ClientJourneyPanel.tsx` (Admin page)
+Stores the extra VIP-specific data (birthday, weight) that doesn't belong in `intros_booked`:
 
-In each file:
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | Primary key |
+| first_name | text | Required |
+| last_name | text | Required |
+| email | text | Nullable |
+| phone | text | Required |
+| birthday | date | Nullable |
+| weight_lbs | integer | Nullable |
+| booking_id | uuid | Links to intros_booked |
+| created_at | timestamptz | Default now() |
 
-1. Add `'vip_class'` to the `JourneyTab` type union
-2. Add a `vip_class` count to `tabCounts` -- counts ALL journeys (including purchased) where any booking has `lead_source === 'VIP Class'`
-3. Add a new `TabsTrigger` for "VIP" with a star icon and count
-4. Add filter logic in `filterJourneysByTab`: for `vip_class` tab, return all journeys where any booking's `lead_source` is "VIP Class" (do NOT exclude purchased members -- VIP clients stay visible the entire time)
+RLS: Public INSERT (form submissions), authenticated SELECT/UPDATE/DELETE.
 
-### Key Difference from Other Tabs
+### New Page: `src/pages/VipRegister.tsx`
 
-Other tabs exclude purchased members via `hasPurchasedMembership()`. The VIP tab intentionally skips this exclusion so VIP clients remain visible throughout their full lifecycle.
+Public form page at `/vip-register` (no login required). Styled to match the existing questionnaire page (OTF orange branding). On submit:
+1. Creates an `intros_booked` entry with member name, lead source "VIP Class", class date as today, coach "TBD", sa "VIP Registration", booked_by "Self (VIP Form)"
+2. Creates a `vip_registrations` entry with birthday, weight, and link to the booking
+3. Shows a confirmation screen
+
+### Route Addition: `src/App.tsx`
+
+Add `/vip-register` as a public route (like `/q/:id`).
+
+### Admin Bulk Import: `src/components/admin/VipBulkImport.tsx`
+
+A component in the Admin panel with a textarea where you paste tab-separated or comma-separated data. Columns: First Name, Last Name, Phone, Email (optional: Birthday, Weight). Each row creates a booking + vip_registration entry. Shows a preview table before confirming.
+
+### Admin Panel Update: `src/pages/Admin.tsx`
+
+Add the VIP Bulk Import component to the admin page.
+
+### VIP Info Display: `src/components/dashboard/ClientJourneyReadOnly.tsx` + `src/components/admin/ClientJourneyPanel.tsx`
+
+When rendering cards in the VIP tab, fetch matching `vip_registrations` data and display birthday/weight as small badges so you can prep heart rate monitors.
+
+---
+
+## File Summary
 
 | Action | File | What Changes |
 |--------|------|-------------|
-| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` | Add VIP tab type, count, trigger, and filter logic |
-| Edit | `src/components/admin/ClientJourneyPanel.tsx` | Same changes mirrored for Admin view |
+| Create | DB migration | New `vip_registrations` table |
+| Create | `src/pages/VipRegister.tsx` | Public VIP registration form |
+| Create | `src/components/admin/VipBulkImport.tsx` | Bulk paste import tool |
+| Edit | `src/App.tsx` | Add `/vip-register` route |
+| Edit | `src/pages/Admin.tsx` | Add VIP Bulk Import section |
+| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` | Show birthday/weight on VIP cards |
+| Edit | `src/components/admin/ClientJourneyPanel.tsx` | Show birthday/weight on VIP cards |
 
