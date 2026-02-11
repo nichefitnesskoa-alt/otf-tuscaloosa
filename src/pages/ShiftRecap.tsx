@@ -145,7 +145,12 @@ export default function ShiftRecap() {
       introTime: '',
       leadSource: '',
       coachName: 'TBD',
-      notes: ''
+      notes: '',
+      bringingFriend: false,
+      friendFirstName: '',
+      friendLastName: '',
+      friendPhone: '',
+      friendEmail: '',
     }]);
   };
 
@@ -267,6 +272,55 @@ export default function ShiftRecap() {
             await supabase.from('intro_questionnaires')
               .update({ booking_id: insertedBooking.id })
               .eq('id', booking.questionnaireId);
+          }
+
+          // Handle friend booking if bringing a friend
+          if (booking.bringingFriend && booking.friendFirstName && insertedBooking) {
+            const friendName = `${booking.friendFirstName} ${booking.friendLastName}`.trim();
+            const friendLeadSource = booking.leadSource.includes('(Friend)')
+              ? booking.leadSource
+              : `${booking.leadSource} (Friend)`;
+            const friendBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+
+            const { data: friendBooking, error: friendError } = await supabase.from('intros_booked').insert({
+              booking_id: friendBookingId,
+              member_name: friendName,
+              class_date: booking.introDate,
+              intro_time: booking.introTime || null,
+              coach_name: booking.coachName || 'TBD',
+              sa_working_shift: staffName,
+              booked_by: staffName,
+              lead_source: friendLeadSource,
+              fitness_goal: `Friend of ${booking.memberName}`,
+              shift_recap_id: shiftData.id,
+              intro_owner: null,
+              intro_owner_locked: false,
+              paired_booking_id: insertedBooking.id,
+            }).select().single();
+
+            if (friendError) {
+              console.error('Error creating friend booking:', friendError);
+            } else if (friendBooking) {
+              // Cross-link: update original booking with friend's ID
+              await supabase.from('intros_booked')
+                .update({ paired_booking_id: friendBooking.id })
+                .eq('id', insertedBooking.id);
+
+              // Link friend's questionnaire
+              if (booking.friendQuestionnaireId) {
+                await supabase.from('intro_questionnaires')
+                  .update({ booking_id: friendBooking.id })
+                  .eq('id', booking.friendQuestionnaireId);
+              }
+
+              // Create referral record
+              await supabase.from('referrals').insert({
+                referrer_booking_id: insertedBooking.id,
+                referred_booking_id: friendBooking.id,
+                referrer_name: booking.memberName,
+                referred_name: friendName,
+              } as any);
+            }
           }
 
           // Sync to Google Sheets if configured
