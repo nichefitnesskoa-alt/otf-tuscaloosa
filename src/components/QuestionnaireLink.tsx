@@ -42,9 +42,36 @@ export default function QuestionnaireLink({
   const prevNameRef = useRef<string>('');
 
   // Auto-create questionnaire when we have minimum data and no ID yet
+  // First checks for existing questionnaire by name to prevent duplicates
   const createQuestionnaire = useCallback(async () => {
     if (!hasMinData || questionnaireId || creating || failed) return;
     setCreating(true);
+
+    // Check for existing questionnaire by name (case-insensitive)
+    const { data: existing } = await supabase
+      .from('intro_questionnaires')
+      .select('id, status, slug, booking_id' as any)
+      .ilike('client_first_name', firstName)
+      .ilike('client_last_name', lastName || '')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const existingRecords = (existing || []) as any[];
+
+    // Prefer a completed record, then any existing record
+    const completed = existingRecords.find((r: any) => r.status === 'completed');
+    const reusable = completed || existingRecords.find((r: any) => !r.booking_id) || existingRecords[0];
+
+    if (reusable) {
+      // Adopt existing questionnaire instead of creating a duplicate
+      setSlug(reusable.slug || null);
+      prevNameRef.current = `${firstName} ${lastName}`.trim();
+      setCreating(false);
+      onQuestionnaireCreated(reusable.id);
+      return;
+    }
+
+    // No existing record found — create new
     const newId = crypto.randomUUID();
     const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
     const { error } = await supabase.from('intro_questionnaires').insert({

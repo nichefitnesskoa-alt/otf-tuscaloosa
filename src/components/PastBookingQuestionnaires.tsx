@@ -58,12 +58,34 @@ export default function PastBookingQuestionnaires() {
     });
 
     const qMap = new Map<string, { id: string; status: string; slug: string | null }>();
+    // Also build a name-based map for fallback matching
+    const qByName = new Map<string, { id: string; status: string; slug: string | null }>();
     questionnaires?.forEach((q: any) => {
       if (q.booking_id) qMap.set(q.booking_id, { id: q.id, status: q.status, slug: q.slug || null });
+      // Index by normalized name for fallback; prefer completed records
+      const nameKey = `${q.client_first_name || ''} ${q.client_last_name || ''}`.trim().toLowerCase();
+      if (nameKey) {
+        const existing = qByName.get(nameKey);
+        if (!existing || q.status === 'completed') {
+          qByName.set(nameKey, { id: q.id, status: q.status, slug: q.slug || null });
+        }
+      }
     });
 
     const merged: BookingWithQ[] = (bookingsData || []).filter((b) => !ranMembers.has(b.member_name?.toLowerCase())).map((b) => {
-      const q = qMap.get(b.id);
+      let q = qMap.get(b.id);
+      // Fallback: match by member name if no booking_id link exists
+      if (!q) {
+        const nameKey = b.member_name?.trim().toLowerCase();
+        if (nameKey) {
+          const nameMatch = qByName.get(nameKey);
+          if (nameMatch) {
+            q = nameMatch;
+            // Async link it to the booking for future lookups
+            supabase.from('intro_questionnaires').update({ booking_id: b.id } as any).eq('id', nameMatch.id).then();
+          }
+        }
+      }
       return {
         id: b.id,
         member_name: b.member_name,
