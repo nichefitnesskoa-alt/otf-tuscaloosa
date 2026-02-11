@@ -557,7 +557,12 @@ export function ClientJourneyReadOnly() {
                           <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
                         <div className="text-left">
-                          <p className="font-medium">{journey.memberName}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium">{journey.memberName}</p>
+                            {journey.bookings[0]?.lead_source === 'Online Intro Offer (self-booked)' && (
+                              <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">Online Intro</Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                             {journey.latestIntroOwner && (
                               <span className="flex items-center gap-1">
@@ -575,6 +580,9 @@ export function ClientJourneyReadOnly() {
                                 <Calendar className="w-3 h-3" />
                                 {formatDate(journey.bookings[0].class_date)}
                               </span>
+                            )}
+                            {journey.bookings[0]?.lead_source && journey.bookings[0].lead_source !== 'Online Intro Offer (self-booked)' && (
+                              <span className="text-[10px] opacity-70">{journey.bookings[0].lead_source}</span>
                             )}
                           </div>
                         </div>
