@@ -438,6 +438,9 @@ export default function PastBookingQuestionnaires() {
                                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(b)}>
                                         {copiedId === b.id ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
                                       </Button>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => deleteQuestionnaire(b)}>
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
                                     </div>
                                   </div>
                                 ))}

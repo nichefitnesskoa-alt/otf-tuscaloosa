@@ -78,14 +78,14 @@ export default function Questionnaire() {
   const [direction, setDirection] = useState(1);
 
   // Answers
-  const [q1, setQ1] = useState('');
+  const [q1, setQ1] = useState<string[]>([]);
   const [q1Other, setQ1Other] = useState('');
   const [q2, setQ2] = useState<number | null>(null);
   const [q3, setQ3] = useState<string[]>([]);
   const [q3Other, setQ3Other] = useState('');
   const [q4a, setQ4a] = useState('');
   const [q4b, setQ4b] = useState('');
-  const [q5, setQ5] = useState('');
+  const [q5, setQ5] = useState<string[]>([]);
   const [q5Other, setQ5Other] = useState('');
   const [q6, setQ6] = useState('');
   const [q6bDays, setQ6bDays] = useState<string[]>([]);
@@ -131,7 +131,7 @@ export default function Questionnaire() {
 
   const canProceed = useCallback(() => {
     switch (step) {
-      case 1: return q1 !== '' && (q1 !== 'Other' || q1Other.trim() !== '');
+      case 1: return q1.length > 0 && (!q1.includes('Other') || q1Other.trim() !== '');
       case 2: return q2 !== null;
       case 3: return q3.length > 0 && (!q3.includes('Other') || q3Other.trim() !== '');
       case 4: return q4a !== '';
@@ -140,7 +140,7 @@ export default function Questionnaire() {
       case 7: return true; // optional
       default: return true;
     }
-  }, [step, q1, q1Other, q2, q3, q3Other, q4a, q6]);
+  }, [step, q1, q1Other, q2, q3, q3Other, q4a, q5, q5Other, q6]);
 
   const goNext = () => {
     if (!canProceed()) { setShowError(true); return; }
@@ -159,9 +159,9 @@ export default function Questionnaire() {
   const handleSubmit = async () => {
     if (!data) return;
     setSubmitting(true);
-    const finalQ1 = q1 === 'Other' ? q1Other : q1;
+    const finalQ1 = q1.map(v => v === 'Other' ? q1Other : v).join(' | ');
     const finalQ3 = q3.map(val => val === 'Other' ? q3Other : val).join(' | ');
-    const finalQ5 = q5 === 'Other' ? q5Other : (q5 || null);
+    const finalQ5 = q5.length > 0 ? q5.map(v => v === 'Other' ? q5Other : v).join(' | ') : null;
     // Q4: combine Q4a and Q4b
     const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
     // Q6b: pipe-separated days
@@ -283,16 +283,73 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 1: // Q1
+      case 1: // Q1 - Multi-select
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}><h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What's your #1 health/fitness goal right now?</h2></h2>
+            <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>What are your health/fitness goals right now?</h2>
+            <p className="text-sm" style={{ color: '#555' }}>Select all that apply.</p>
             <div className="space-y-3">
-              {Q1_OPTIONS.map(opt => (
-                <SelectCard key={opt} label={opt} selected={q1 === opt} onSelect={() => { setQ1(opt); setShowError(false); }} />
-              ))}
-              <SelectCard label="Other (please share)" selected={q1 === 'Other'} onSelect={() => { setQ1('Other'); setShowError(false); }} />
-              {q1 === 'Other' && (
+              {Q1_OPTIONS.map(opt => {
+                const selected = q1.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setQ1(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt]);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    {opt}
+                  </button>
+                );
+              })}
+              {/* Other option */}
+              {(() => {
+                const selected = q1.includes('Other');
+                return (
+                  <button
+                    onClick={() => {
+                      setQ1(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other']);
+                      setShowError(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    Other (please share)
+                  </button>
+                );
+              })()}
+              {q1.includes('Other') && (
                 <Input
                   value={q1Other}
                   onChange={e => setQ1Other(e.target.value)}
@@ -302,7 +359,7 @@ export default function Questionnaire() {
                 />
               )}
             </div>
-            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select an option to continue.</p>}
+            {showError && !canProceed() && <p className="text-sm" style={{ color: '#ef4444' }}>Please select at least one option to continue.</p>}
           </div>
         );
 
@@ -464,29 +521,70 @@ export default function Questionnaire() {
           </div>
         );
 
-      case 5: // Q5 - Single select, optional
+      case 5: // Q5 - Multi-select, optional
         return (
           <div className="space-y-4">
             <h2 className="text-xl font-bold" style={{ color: '#1a1a1a' }}>
               What would reaching your fitness/health goals actually mean for you?
               <span className="text-sm font-normal ml-2" style={{ color: '#777' }}>(Optional)</span>
             </h2>
-            <p className="text-sm" style={{ color: '#555' }}>Totally optional, but it helps your coach understand what really matters to you.</p>
+            <p className="text-sm" style={{ color: '#555' }}>Select all that apply. Totally optional, but it helps your coach understand what really matters to you.</p>
             <div className="space-y-3">
-              {Q5_OPTIONS.map(opt => (
-                <SelectCard
-                  key={opt}
-                  label={opt}
-                  selected={q5 === opt}
-                  onSelect={() => setQ5(prev => prev === opt ? '' : opt)}
-                />
-              ))}
-              <SelectCard
-                label="Other (please share)"
-                selected={q5 === 'Other'}
-                onSelect={() => setQ5(prev => prev === 'Other' ? '' : 'Other')}
-              />
-              {q5 === 'Other' && (
+              {Q5_OPTIONS.map(opt => {
+                const selected = q5.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== opt) : [...prev, opt])}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    {opt}
+                  </button>
+                );
+              })}
+              {/* Other option */}
+              {(() => {
+                const selected = q5.includes('Other');
+                return (
+                  <button
+                    onClick={() => setQ5(prev => selected ? prev.filter(v => v !== 'Other') : [...prev, 'Other'])}
+                    className="w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3"
+                    style={{
+                      borderColor: selected ? OTF_ORANGE : '#e5e7eb',
+                      backgroundColor: selected ? '#FFF5EB' : 'white',
+                      color: '#333',
+                      fontSize: '16px',
+                    }}
+                  >
+                    <div
+                      className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                      style={{
+                        borderColor: selected ? OTF_ORANGE : '#d1d5db',
+                        backgroundColor: selected ? OTF_ORANGE : 'white',
+                      }}
+                    >
+                      {selected && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
+                    Other (please share)
+                  </button>
+                );
+              })()}
+              {q5.includes('Other') && (
                 <Input
                   value={q5Other}
                   onChange={e => setQ5Other(e.target.value)}
