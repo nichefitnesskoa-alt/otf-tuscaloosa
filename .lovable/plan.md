@@ -1,88 +1,89 @@
 
 
-# VIP Class Registration Form + Bulk Import
+# VIP Class Grouping by Event Name
 
-## What You Get
+## What This Does
 
-### 1. Public VIP Registration Form
-A shareable link (e.g., `otf-tuscaloosa.lovable.app/vip-register`) that VIP class invitees can fill out. It collects:
-- First Name, Last Name
-- Email, Phone Number
-- Birthday (for heart rate monitor setup)
-- Weight in LBs (for heart rate monitor setup)
+Adds a "VIP Class Name" field so you can organize VIP clients into named groups (e.g., "Miss Alabama VIP Class", "Chamber of Commerce VIP Class"). In the VIP tab, clients are grouped under collapsible headers by their class name, so you can quickly see who belongs to which event.
 
-When submitted, it automatically:
-- Creates a booking in `intros_booked` with lead source "VIP Class"
-- The person immediately appears in your VIP tab in the Client Pipeline
-- No staff action needed -- it's fully self-service
+## What Changes
 
-The form will have the same OTF-branded look as the existing questionnaire (orange theme, logo, clean mobile-friendly design).
+### 1. Database: Add `vip_class_name` column
 
-### 2. Bulk Import for Existing VIP Contacts
-An admin tool (in the Admin panel) where you can paste a spreadsheet of existing VIP contacts. Each row needs at minimum first name, last name, phone, and email. Birthday and weight are optional. It will:
-- Create bookings in `intros_booked` with "VIP Class" lead source for each person
-- Store the extra info (birthday, weight) for heart rate monitor setup
-- Skip duplicates based on name matching
+Add a `vip_class_name` text column to both `vip_registrations` and `intros_booked` tables. Using `intros_booked` ensures the grouping works even for clients without a `vip_registrations` row. Existing VIP bookings default to `null` -- you can backfill the 17 Miss Alabama imports afterward.
 
-### 3. Heart Rate Monitor Info Visible in Pipeline
-The VIP tab cards will show birthday and weight when available, so you can set up heart rate monitors before clients arrive.
+### 2. Public VIP Registration Form (`VipRegister.tsx`)
+
+Currently the form is generic. Two options for how to assign the class name:
+
+- **URL parameter approach** (recommended): You create a link like `/vip-register?class=Miss+Alabama` and share that specific link with the group. The form reads the class name from the URL and stores it automatically -- clients never see or type it.
+- The class name displays on the form as a subtitle so clients know which event they're registering for.
+
+### 3. Bulk Import (`VipBulkImport.tsx`)
+
+Add a "VIP Class Name" input field above the paste area. Whatever you type there (e.g., "Miss Alabama") gets applied to all rows in that import batch. This way you paste your spreadsheet and all 17 people get tagged as "Miss Alabama."
+
+### 4. VIP Tab Grouping (`ClientJourneyReadOnly.tsx` + `ClientJourneyPanel.tsx`)
+
+When viewing the VIP tab, clients are grouped under headers by their class name:
+
+```text
+--- Miss Alabama (17) ---
+  [client cards...]
+
+--- Chamber of Commerce (8) ---
+  [client cards...]
+
+--- Ungrouped (3) ---
+  [client cards...]
+```
+
+Each group is collapsible. The class name and count show as a purple-tinted section header.
+
+### 5. Backfill Existing Imports
+
+After the schema change, run a quick update to tag the 17 existing VIP bookings as "Miss Alabama" (or whatever you'd like to name that class). This can be done via Admin or a one-time data update.
 
 ---
 
 ## Technical Details
 
-### New Database Table: `vip_registrations`
+### Database Migration
 
-Stores the extra VIP-specific data (birthday, weight) that doesn't belong in `intros_booked`:
+```sql
+ALTER TABLE vip_registrations ADD COLUMN vip_class_name text;
+ALTER TABLE intros_booked ADD COLUMN vip_class_name text;
+```
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | Primary key |
-| first_name | text | Required |
-| last_name | text | Required |
-| email | text | Nullable |
-| phone | text | Required |
-| birthday | date | Nullable |
-| weight_lbs | integer | Nullable |
-| booking_id | uuid | Links to intros_booked |
-| created_at | timestamptz | Default now() |
+Using `intros_booked` as the source of truth for grouping since every VIP client has a booking, but not all have a `vip_registrations` row (bulk imports without birthday/weight).
 
-RLS: Public INSERT (form submissions), authenticated SELECT/UPDATE/DELETE.
+### VipRegister.tsx
 
-### New Page: `src/pages/VipRegister.tsx`
+- Read `class` query parameter from URL using `useSearchParams()`
+- Store in `intros_booked.vip_class_name` and `vip_registrations.vip_class_name`
+- Display the class name on the form as a subtitle badge
+- If no class parameter, show a generic "VIP Class" label
 
-Public form page at `/vip-register` (no login required). Styled to match the existing questionnaire page (OTF orange branding). On submit:
-1. Creates an `intros_booked` entry with member name, lead source "VIP Class", class date as today, coach "TBD", sa "VIP Registration", booked_by "Self (VIP Form)"
-2. Creates a `vip_registrations` entry with birthday, weight, and link to the booking
-3. Shows a confirmation screen
+### VipBulkImport.tsx
 
-### Route Addition: `src/App.tsx`
+- Add an `Input` field for "VIP Class Name" at the top
+- Pass the value into each `intros_booked` insert as `vip_class_name`
+- Also store in `vip_registrations.vip_class_name`
 
-Add `/vip-register` as a public route (like `/q/:id`).
+### ClientJourneyReadOnly.tsx + ClientJourneyPanel.tsx (VIP tab only)
 
-### Admin Bulk Import: `src/components/admin/VipBulkImport.tsx`
+- Fetch `vip_class_name` from `intros_booked` alongside existing booking data
+- When `activeTab === 'vip_class'`, group filtered journeys by `vip_class_name`
+- Render each group under a collapsible section header with count
+- Clients with no class name go under "Ungrouped"
 
-A component in the Admin panel with a textarea where you paste tab-separated or comma-separated data. Columns: First Name, Last Name, Phone, Email (optional: Birthday, Weight). Each row creates a booking + vip_registration entry. Shows a preview table before confirming.
-
-### Admin Panel Update: `src/pages/Admin.tsx`
-
-Add the VIP Bulk Import component to the admin page.
-
-### VIP Info Display: `src/components/dashboard/ClientJourneyReadOnly.tsx` + `src/components/admin/ClientJourneyPanel.tsx`
-
-When rendering cards in the VIP tab, fetch matching `vip_registrations` data and display birthday/weight as small badges so you can prep heart rate monitors.
-
----
-
-## File Summary
+### File Summary
 
 | Action | File | What Changes |
 |--------|------|-------------|
-| Create | DB migration | New `vip_registrations` table |
-| Create | `src/pages/VipRegister.tsx` | Public VIP registration form |
-| Create | `src/components/admin/VipBulkImport.tsx` | Bulk paste import tool |
-| Edit | `src/App.tsx` | Add `/vip-register` route |
-| Edit | `src/pages/Admin.tsx` | Add VIP Bulk Import section |
-| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` | Show birthday/weight on VIP cards |
-| Edit | `src/components/admin/ClientJourneyPanel.tsx` | Show birthday/weight on VIP cards |
+| Create | DB migration | Add `vip_class_name` to `intros_booked` and `vip_registrations` |
+| Edit | `src/pages/VipRegister.tsx` | Read class name from URL param, store on both tables |
+| Edit | `src/components/admin/VipBulkImport.tsx` | Add class name input, apply to all imported rows |
+| Edit | `src/components/dashboard/ClientJourneyReadOnly.tsx` | Group VIP tab by class name with collapsible headers |
+| Edit | `src/components/admin/ClientJourneyPanel.tsx` | Same grouping for admin view |
 
