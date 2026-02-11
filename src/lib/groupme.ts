@@ -8,7 +8,7 @@ interface RecapData {
   textsSent: number;
   dmsSent: number;
   emailsSent: number;
-  introsBooked: Array<{ memberName: string; leadSource: string }>;
+  introsBooked: Array<{ memberName: string; leadSource: string; friendName?: string }>;
   introsRun: Array<{ 
     memberName: string; 
     outcome: string; 
@@ -36,9 +36,17 @@ function formatRecapText(data: RecapData): string {
   
   // Intros Booked
   if (data.introsBooked.length > 0) {
-    lines.push(`📅 Intros Booked (${data.introsBooked.length}):`);
-    data.introsBooked.forEach((b, i) => {
-      lines.push(`${i + 1}. ${b.memberName} (${b.leadSource})`);
+    // Count total bookings including friends
+    const totalCount = data.introsBooked.length + data.introsBooked.filter(b => b.friendName).length;
+    lines.push(`📅 Intros Booked (${totalCount}):`);
+    let num = 1;
+    data.introsBooked.forEach((b) => {
+      lines.push(`${num}. ${b.memberName} (${b.leadSource})`);
+      num++;
+      if (b.friendName) {
+        lines.push(`${num}. ${b.friendName} (${b.leadSource} - Friend of ${b.memberName})`);
+        num++;
+      }
     });
     lines.push('');
   }

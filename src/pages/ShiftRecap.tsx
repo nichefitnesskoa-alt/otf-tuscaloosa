@@ -708,7 +708,11 @@ export default function ShiftRecap() {
           textsSent,
           dmsSent,
           emailsSent,
-          introsBooked: introsBooked.map(b => ({ memberName: b.memberName, leadSource: b.leadSource })),
+          introsBooked: introsBooked.map(b => ({
+            memberName: b.memberName,
+            leadSource: b.leadSource,
+            friendName: b.bringingFriend && b.friendFirstName ? `${b.friendFirstName} ${b.friendLastName}`.trim() : undefined,
+          })),
           introsRun: introsRun.map(r => ({
             memberName: r.memberName,
             outcome: r.outcome,
