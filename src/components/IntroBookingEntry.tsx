@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
@@ -13,7 +13,10 @@ import RescheduleClientDialog from './RescheduleClientDialog';
 import ClientActionDialog from './ClientActionDialog';
 import QuestionnaireLink from './QuestionnaireLink';
 import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
+import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES, COACHES } from '@/types';
+import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 
 export interface IntroBookingData {
   id: string;
@@ -43,10 +46,36 @@ export default function IntroBookingEntry({
   onRemove,
   currentUserName = 'Unknown',
 }: IntroBookingEntryProps) {
+  const { user } = useAuth();
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [selectedClient, setSelectedClient] = useState<PotentialMatch | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
   const [showActionDialog, setShowActionDialog] = useState(false);
+  const [showScripts, setShowScripts] = useState(false);
+
+  // Compute merge context for scripts
+  const nameParts = booking.memberName.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  const computeTodayTomorrow = () => {
+    if (!booking.introDate) return undefined;
+    try {
+      const d = parseISO(booking.introDate);
+      if (isToday(d)) return 'today';
+      if (isTomorrow(d)) return 'tomorrow';
+      return format(d, 'EEEE');
+    } catch { return undefined; }
+  };
+
+  const scriptMergeContext = {
+    'first-name': firstName,
+    'last-name': lastName,
+    'sa-name': user?.name || currentUserName,
+    day: booking.introDate ? format(parseISO(booking.introDate), 'EEEE') : undefined,
+    time: booking.introTime || undefined,
+    'today/tomorrow': computeTodayTomorrow(),
+  };
 
   const handleNameChange = useCallback((value: string) => {
     // Reset dismissed warning when name changes significantly
@@ -126,14 +155,25 @@ export default function IntroBookingEntry({
   return (
     <>
       <div className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-2 right-2 h-6 w-6"
-          onClick={() => onRemove(index)}
-        >
-          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-        </Button>
+        <div className="absolute top-2 right-2 flex gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setShowScripts(true)}
+            title="Send Script"
+          >
+            <Send className="w-3.5 h-3.5 text-primary" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => onRemove(index)}
+          >
+            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+          </Button>
+        </div>
 
         <div>
           <div className="flex items-center gap-2">
@@ -267,6 +307,13 @@ export default function IntroBookingEntry({
           />
         </>
       )}
+      <ScriptPickerSheet
+        open={showScripts}
+        onOpenChange={setShowScripts}
+        suggestedCategories={['booking_confirmation', 'pre_class_reminder']}
+        mergeContext={scriptMergeContext}
+        bookingId={booking.id}
+      />
     </>
   );
 }

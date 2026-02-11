@@ -1,8 +1,9 @@
 import { Tables } from '@/integrations/supabase/types';
 import { formatDistanceToNow, parseISO, isBefore, differenceInMinutes } from 'date-fns';
-import { Phone, Clock, AlertCircle } from 'lucide-react';
+import { Phone, Clock, AlertCircle, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useScriptSendLog } from '@/hooks/useScriptSendLog';
 
 interface LeadCardProps {
   lead: Tables<'leads'>;
@@ -12,11 +13,13 @@ interface LeadCardProps {
 }
 
 export function LeadCard({ lead, activityCount, onClick, onDragStart }: LeadCardProps) {
+  const { data: sendLogs = [] } = useScriptSendLog({ leadId: lead.id });
   const now = new Date();
   const createdAt = parseISO(lead.created_at);
   const isNew = differenceInMinutes(now, createdAt) < 60;
   const isOverdue = lead.follow_up_at && isBefore(parseISO(lead.follow_up_at), now) && lead.stage !== 'lost';
   const isLost = lead.stage === 'lost';
+  const hasSequenceActivity = sendLogs.length > 0;
 
   return (
     <div
@@ -62,6 +65,9 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart }: LeadCard
           )}
           {lead.follow_up_at && !isOverdue && lead.stage !== 'lost' && (
             <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+          {hasSequenceActivity && (
+            <MessageSquare className="w-3.5 h-3.5 text-primary" />
           )}
         </div>
       </div>

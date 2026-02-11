@@ -2,14 +2,17 @@ import { Tables } from '@/integrations/supabase/types';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, PhoneCall, MessageSquare, StickyNote, Clock, CalendarPlus, XCircle } from 'lucide-react';
-import { formatDistanceToNow, parseISO, format } from 'date-fns';
+import { Phone, Mail, PhoneCall, MessageSquare, StickyNote, Clock, CalendarPlus, XCircle, Send } from 'lucide-react';
+import { formatDistanceToNow, parseISO, format, differenceInDays } from 'date-fns';
 import { useState } from 'react';
 import { LogActionDialog } from './LogActionDialog';
 import { MarkLostDialog } from './MarkLostDialog';
 import { BookIntroDialog } from './BookIntroDialog';
 import { ScheduleFollowUpDialog } from './ScheduleFollowUpDialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { SequenceTracker } from '@/components/scripts/SequenceTracker';
+import { useAuth } from '@/context/AuthContext';
 
 interface LeadDetailSheetProps {
   lead: Tables<'leads'> | null;
@@ -35,10 +38,12 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefresh }: LeadDetailSheetProps) {
+  const { user } = useAuth();
   const [logAction, setLogAction] = useState<'call' | 'text' | 'note' | null>(null);
   const [showLostDialog, setShowLostDialog] = useState(false);
   const [showBookDialog, setShowBookDialog] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const [showScripts, setShowScripts] = useState(false);
 
   if (!lead) return null;
 
@@ -47,6 +52,19 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const isBooked = !!lead.booked_intro_id;
+
+  // Determine script categories based on lead stage/age
+  const leadAgeDays = differenceInDays(new Date(), parseISO(lead.created_at));
+  const scriptCategories: string[] = [];
+  if (lead.source.toLowerCase().includes('instagram')) scriptCategories.push('ig_dm');
+  scriptCategories.push('web_lead');
+  if (leadAgeDays > 30) scriptCategories.push('cold_lead');
+
+  const scriptMergeContext = {
+    'first-name': lead.first_name,
+    'last-name': lead.last_name,
+    'sa-name': user?.name,
+  };
 
   return (
     <>
@@ -99,11 +117,21 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                 <Button size="sm" variant="default" onClick={() => setShowBookDialog(true)} className="text-xs">
                   <CalendarPlus className="w-3.5 h-3.5 mr-1" /> Book
                 </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowScripts(true)} className="text-xs">
+                  <Send className="w-3.5 h-3.5 mr-1" /> Script
+                </Button>
                 {lead.stage !== 'lost' && (
                   <Button size="sm" variant="destructive" onClick={() => setShowLostDialog(true)} className="text-xs">
                     <XCircle className="w-3.5 h-3.5 mr-1" /> Lost
                   </Button>
                 )}
+              </div>
+            )}
+
+            {/* Sequence Tracker */}
+            {scriptCategories.includes('web_lead') && (
+              <div className="mb-4">
+                <SequenceTracker leadId={lead.id} category="web_lead" />
               </div>
             )}
 
@@ -151,6 +179,14 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
       <MarkLostDialog open={showLostDialog} onOpenChange={setShowLostDialog} leadId={lead.id} onDone={onRefresh} />
       <BookIntroDialog open={showBookDialog} onOpenChange={setShowBookDialog} lead={lead} onDone={onRefresh} />
       <ScheduleFollowUpDialog open={showFollowUpDialog} onOpenChange={setShowFollowUpDialog} leadId={lead.id} onDone={onRefresh} />
+      <ScriptPickerSheet
+        open={showScripts}
+        onOpenChange={setShowScripts}
+        suggestedCategories={scriptCategories}
+        mergeContext={scriptMergeContext}
+        leadId={lead.id}
+        onLogged={onRefresh}
+      />
     </>
   );
 }
