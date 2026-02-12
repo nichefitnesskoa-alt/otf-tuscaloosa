@@ -178,7 +178,7 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
         .maybeSingle();
 
       if (data?.slug) {
-        setQuestionnaireLink(`${window.location.origin}/q/${data.slug}`);
+        setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
       }
     };
 
