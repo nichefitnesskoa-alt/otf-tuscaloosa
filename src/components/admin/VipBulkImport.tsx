@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Upload, Star, CheckCircle, AlertTriangle, Link, Copy } from 'lucide-react';
+import { Loader2, Upload, Star, CheckCircle, AlertTriangle, Link, Copy, ArrowRight } from 'lucide-react';
+import VipGroupDetail from './VipGroupDetail';
 
 interface ParsedRow {
   firstName: string;
@@ -20,10 +21,38 @@ interface ParsedRow {
   error?: string;
 }
 
+interface VipGroupSummary {
+  name: string;
+  count: number;
+}
+
 export default function VipBulkImport() {
   const [rawText, setRawText] = useState('');
   const [vipClassName, setVipClassName] = useState('');
   const [urlClassName, setUrlClassName] = useState('');
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [groups, setGroups] = useState<VipGroupSummary[]>([]);
+
+  // Fetch existing VIP groups on mount
+  const fetchGroups = async () => {
+    const { data } = await supabase
+      .from('intros_booked')
+      .select('vip_class_name')
+      .eq('lead_source', 'VIP Class')
+      .is('deleted_at', null)
+      .not('vip_class_name', 'is', null);
+    
+    if (data) {
+      const counts = new Map<string, number>();
+      data.forEach((r: any) => {
+        const name = r.vip_class_name;
+        if (name) counts.set(name, (counts.get(name) || 0) + 1);
+      });
+      setGroups(Array.from(counts.entries()).map(([name, count]) => ({ name, count })));
+    }
+  };
+
+  useEffect(() => { fetchGroups(); }, []);
 
   const generatedUrl = urlClassName.trim()
     ? `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(urlClassName.trim())}`
@@ -124,7 +153,7 @@ export default function VipBulkImport() {
             sa_working_shift: 'VIP Registration',
             lead_source: 'VIP Class',
             booked_by: 'Bulk Import',
-            booking_status: 'Active',
+            booking_status: 'Unscheduled',
             vip_class_name: vipClassName || null,
           } as any)
           .select('id')
@@ -155,11 +184,54 @@ export default function VipBulkImport() {
 
     setImportResult({ success, skipped, errors });
     setImporting(false);
-    if (success > 0) toast.success(`Imported ${success} VIP client(s)`);
+    if (success > 0) {
+      toast.success(`Imported ${success} VIP client(s)`);
+      fetchGroups();
+    }
   };
+
+  // If viewing a specific group, show the detail view
+  if (activeGroup) {
+    return (
+      <VipGroupDetail
+        groupName={activeGroup}
+        onBack={() => { setActiveGroup(null); fetchGroups(); }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
+      {/* Existing VIP Groups */}
+      {groups.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Star className="w-4 h-4 text-purple-600" />
+              VIP Groups ({groups.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {groups.map(g => (
+              <div
+                key={g.name}
+                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => setActiveGroup(g.name)}
+              >
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-purple-500" />
+                  <span className="font-medium text-sm">{g.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">{g.count} members</Badge>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* URL Generator */}
       <Card>
         <CardHeader className="pb-3">
@@ -191,106 +263,106 @@ export default function VipBulkImport() {
       </Card>
 
       {/* Bulk Import */}
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Star className="w-4 h-4 text-purple-600" />
-          VIP Bulk Import
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Paste spreadsheet data to bulk-add VIP clients. Columns: First Name, Last Name, Phone, Email (optional: Birthday, Weight)
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="vipClassName" className="text-xs font-medium">VIP Class Name</Label>
-          <Input
-            id="vipClassName"
-            placeholder="e.g. Miss Alabama, Chamber of Commerce"
-            value={vipClassName}
-            onChange={e => setVipClassName(e.target.value)}
-            className="text-sm"
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Star className="w-4 h-4 text-purple-600" />
+            VIP Bulk Import
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Paste spreadsheet data to bulk-add VIP clients (status: Unscheduled until assigned to a session)
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="vipClassName" className="text-xs font-medium">VIP Class Name</Label>
+            <Input
+              id="vipClassName"
+              placeholder="e.g. Alpha Phi Spring 2026"
+              value={vipClassName}
+              onChange={e => setVipClassName(e.target.value)}
+              className="text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">Applied to all imported rows. Leave blank if ungrouped.</p>
+          </div>
+          <Textarea
+            placeholder={`John\tDoe\t555-123-4567\tjohn@email.com\t1990-01-15\t180\nJane\tSmith\t555-987-6543\tjane@email.com`}
+            value={rawText}
+            onChange={e => setRawText(e.target.value)}
+            rows={6}
+            className="font-mono text-xs"
           />
-          <p className="text-[10px] text-muted-foreground">Applied to all imported rows. Leave blank if ungrouped.</p>
-        </div>
-        <Textarea
-          placeholder={`John\tDoe\t555-123-4567\tjohn@email.com\t1990-01-15\t180\nJane\tSmith\t555-987-6543\tjane@email.com`}
-          value={rawText}
-          onChange={e => setRawText(e.target.value)}
-          rows={6}
-          className="font-mono text-xs"
-        />
 
-        <div className="flex gap-2">
-          <Button onClick={parseInput} variant="outline" size="sm" disabled={!rawText.trim()}>
-            Preview Import
-          </Button>
-          {showPreview && parsed.filter(r => !r.error).length > 0 && (
-            <Button onClick={handleImport} size="sm" disabled={importing} className="bg-purple-600 hover:bg-purple-700">
-              {importing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
-              Import {parsed.filter(r => !r.error).length} Client(s)
+          <div className="flex gap-2">
+            <Button onClick={parseInput} variant="outline" size="sm" disabled={!rawText.trim()}>
+              Preview Import
             </Button>
+            {showPreview && parsed.filter(r => !r.error).length > 0 && (
+              <Button onClick={handleImport} size="sm" disabled={importing} className="bg-purple-600 hover:bg-purple-700">
+                {importing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
+                Import {parsed.filter(r => !r.error).length} Client(s)
+              </Button>
+            )}
+          </div>
+
+          {importResult && (
+            <div className="flex gap-3 text-sm">
+              {importResult.success > 0 && (
+                <Badge className="bg-success/20 text-success border-success/30">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  {importResult.success} imported
+                </Badge>
+              )}
+              {importResult.skipped > 0 && (
+                <Badge variant="secondary">
+                  {importResult.skipped} skipped (duplicate)
+                </Badge>
+              )}
+              {importResult.errors > 0 && (
+                <Badge variant="destructive">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  {importResult.errors} error(s)
+                </Badge>
+              )}
+            </div>
           )}
-        </div>
 
-        {importResult && (
-          <div className="flex gap-3 text-sm">
-            {importResult.success > 0 && (
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                {importResult.success} imported
-              </Badge>
-            )}
-            {importResult.skipped > 0 && (
-              <Badge variant="secondary">
-                {importResult.skipped} skipped (duplicate)
-              </Badge>
-            )}
-            {importResult.errors > 0 && (
-              <Badge variant="destructive">
-                <AlertTriangle className="w-3 h-3 mr-1" />
-                {importResult.errors} error(s)
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {showPreview && parsed.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Name</TableHead>
-                  <TableHead className="text-xs">Phone</TableHead>
-                  <TableHead className="text-xs">Email</TableHead>
-                  <TableHead className="text-xs">Birthday</TableHead>
-                  <TableHead className="text-xs">Weight</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parsed.map((row, i) => (
-                  <TableRow key={i} className={row.error ? 'bg-destructive/10' : ''}>
-                    <TableCell className="text-xs">{row.firstName} {row.lastName}</TableCell>
-                    <TableCell className="text-xs">{row.phone}</TableCell>
-                    <TableCell className="text-xs">{row.email}</TableCell>
-                    <TableCell className="text-xs">{row.birthday || '-'}</TableCell>
-                    <TableCell className="text-xs">{row.weightLbs || '-'}</TableCell>
-                    <TableCell className="text-xs">
-                      {row.error ? (
-                        <span className="text-destructive">{row.error}</span>
-                      ) : (
-                        <span className="text-emerald-600">Ready</span>
-                      )}
-                    </TableCell>
+          {showPreview && parsed.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Name</TableHead>
+                    <TableHead className="text-xs">Phone</TableHead>
+                    <TableHead className="text-xs">Email</TableHead>
+                    <TableHead className="text-xs">Birthday</TableHead>
+                    <TableHead className="text-xs">Weight</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {parsed.map((row, i) => (
+                    <TableRow key={i} className={row.error ? 'bg-destructive/10' : ''}>
+                      <TableCell className="text-xs">{row.firstName} {row.lastName}</TableCell>
+                      <TableCell className="text-xs">{row.phone}</TableCell>
+                      <TableCell className="text-xs">{row.email}</TableCell>
+                      <TableCell className="text-xs">{row.birthday || '-'}</TableCell>
+                      <TableCell className="text-xs">{row.weightLbs || '-'}</TableCell>
+                      <TableCell className="text-xs">
+                        {row.error ? (
+                          <span className="text-destructive">{row.error}</span>
+                        ) : (
+                          <span className="text-success">Ready</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

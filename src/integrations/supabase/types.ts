@@ -326,6 +326,7 @@ export type Database = {
           sheets_row_number: number | null
           shift_recap_id: string | null
           vip_class_name: string | null
+          vip_session_id: string | null
         }
         Insert: {
           booked_by?: string | null
@@ -360,6 +361,7 @@ export type Database = {
           sheets_row_number?: number | null
           shift_recap_id?: string | null
           vip_class_name?: string | null
+          vip_session_id?: string | null
         }
         Update: {
           booked_by?: string | null
@@ -394,6 +396,7 @@ export type Database = {
           sheets_row_number?: number | null
           shift_recap_id?: string | null
           vip_class_name?: string | null
+          vip_session_id?: string | null
         }
         Relationships: [
           {
@@ -422,6 +425,13 @@ export type Database = {
             columns: ["shift_recap_id"]
             isOneToOne: false
             referencedRelation: "shift_recaps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intros_booked_vip_session_id_fkey"
+            columns: ["vip_session_id"]
+            isOneToOne: false
+            referencedRelation: "vip_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1070,6 +1080,36 @@ export type Database = {
           phone?: string
           vip_class_name?: string | null
           weight_lbs?: number | null
+        }
+        Relationships: []
+      }
+      vip_sessions: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          session_date: string | null
+          session_label: string | null
+          session_time: string | null
+          vip_class_name: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          session_date?: string | null
+          session_label?: string | null
+          session_time?: string | null
+          vip_class_name: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          session_date?: string | null
+          session_label?: string | null
+          session_time?: string | null
+          vip_class_name?: string
         }
         Relationships: []
       }

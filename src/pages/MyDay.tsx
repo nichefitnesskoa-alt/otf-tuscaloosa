@@ -9,8 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, parseISO, addDays } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
-  Clock, FileText, CalendarCheck
+  Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight
 } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { IntroTypeBadge, LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { IntroActionBar, LeadActionBar } from '@/components/ActionBar';
 import { useIntroTypeDetection } from '@/hooks/useIntroTypeDetection';
@@ -31,6 +36,15 @@ interface DayBooking {
   created_at: string;
   phone: string | null;
   email: string | null;
+  vip_class_name?: string | null;
+  vip_session_id?: string | null;
+}
+
+interface VipGroup {
+  groupName: string;
+  sessionLabel: string | null;
+  sessionTime: string | null;
+  members: DayBooking[];
 }
 
 interface AllBookingMinimal {
@@ -56,6 +70,8 @@ export default function MyDay() {
   const [allBookings, setAllBookings] = useState<AllBookingMinimal[]>([]);
   const [overdueFollowUps, setOverdueFollowUps] = useState<OverdueFollowUp[]>([]);
   const [newLeads, setNewLeads] = useState<Tables<'leads'>[]>([]);
+  const [vipGroups, setVipGroups] = useState<VipGroup[]>([]);
+  const [expandedVipGroups, setExpandedVipGroups] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
 
@@ -77,7 +93,7 @@ export default function MyDay() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
-      // 1. Today's and tomorrow's booked intros
+      // 1. Today's and tomorrow's booked intros (non-VIP)
       const { data: bookings } = await supabase
         .from('intros_booked')
         .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email')
@@ -86,6 +102,57 @@ export default function MyDay() {
         .is('vip_class_name', null)
         .neq('booking_status', 'Closed – Bought')
         .order('intro_time', { ascending: true });
+
+      // 1b. Today's VIP intros (grouped by session)
+      const { data: vipBookings } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email, vip_class_name, vip_session_id')
+        .in('class_date', [today])
+        .is('deleted_at', null)
+        .not('vip_class_name', 'is', null)
+        .neq('booking_status', 'Closed – Bought')
+        .neq('booking_status', 'Unscheduled')
+        .order('intro_time', { ascending: true });
+
+      // Process VIP bookings into groups
+      if (vipBookings && vipBookings.length > 0) {
+        // Fetch session info for these bookings
+        const sessionIds = [...new Set(vipBookings.map((b: any) => b.vip_session_id).filter(Boolean))];
+        let sessionMap = new Map<string, { session_label: string | null; session_time: string | null }>();
+        if (sessionIds.length > 0) {
+          const { data: sessionsData } = await supabase
+            .from('vip_sessions')
+            .select('id, session_label, session_time')
+            .in('id', sessionIds);
+          if (sessionsData) {
+            sessionsData.forEach((s: any) => sessionMap.set(s.id, { session_label: s.session_label, session_time: s.session_time }));
+          }
+        }
+
+        // Group by vip_class_name + vip_session_id
+        const groupMap = new Map<string, VipGroup>();
+        vipBookings.forEach((b: any) => {
+          const session = b.vip_session_id ? sessionMap.get(b.vip_session_id) : null;
+          const key = `${b.vip_class_name || 'VIP'}__${b.vip_session_id || 'none'}`;
+          if (!groupMap.has(key)) {
+            groupMap.set(key, {
+              groupName: b.vip_class_name || 'VIP Class',
+              sessionLabel: session?.session_label || null,
+              sessionTime: b.intro_time || session?.session_time || null,
+              members: [],
+            });
+          }
+          groupMap.get(key)!.members.push({
+            ...b,
+            questionnaire_status: null,
+            phone: b.phone || null,
+            email: b.email || null,
+          });
+        });
+        setVipGroups(Array.from(groupMap.values()));
+      } else {
+        setVipGroups([]);
+      }
 
       // Fetch all bookings for intro type detection
       const { data: allBookingsData } = await supabase
@@ -286,7 +353,48 @@ export default function MyDay() {
         </CardContent>
       </Card>
 
-      {/* Tomorrow's Intros */}
+      {/* Today's VIP Classes */}
+      {vipGroups.length > 0 && vipGroups.map((group, gi) => {
+        const groupKey = `${group.groupName}__${group.sessionLabel || gi}`;
+        const isExpanded = expandedVipGroups.has(groupKey);
+        const timeStr = group.sessionTime 
+          ? format(parseISO(`2000-01-01T${group.sessionTime}`), 'h:mm a')
+          : '';
+        const headerLabel = group.sessionLabel 
+          ? `${group.groupName} – ${group.sessionLabel}${timeStr ? ` (${timeStr})` : ''}`
+          : `${group.groupName}${timeStr ? ` (${timeStr})` : ''}`;
+
+        return (
+          <Collapsible key={groupKey} open={isExpanded} onOpenChange={() => {
+            setExpandedVipGroups(prev => {
+              const next = new Set(prev);
+              if (next.has(groupKey)) next.delete(groupKey);
+              else next.add(groupKey);
+              return next;
+            });
+          }}>
+            <Card className="border-purple-200">
+              <CollapsibleTrigger className="w-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    <Star className="w-4 h-4 text-purple-600" />
+                    {headerLabel}
+                    <Badge variant="secondary" className="ml-auto text-xs">{group.members.length} intros</Badge>
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-2 pt-0">
+                  {group.members.map(b => renderIntroCard(b))}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
