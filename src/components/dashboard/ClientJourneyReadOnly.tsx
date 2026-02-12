@@ -32,7 +32,9 @@ import {
   ClipboardList,
   Briefcase,
   UserCheck,
+  Phone as PhoneIcon,
 } from 'lucide-react';
+import { IntroActionBar } from '@/components/ActionBar';
 import {
   Select,
   SelectContent,
@@ -550,83 +552,95 @@ export function ClientJourneyReadOnly() {
     return timeStr.substring(0, 5);
   };
 
-  const renderJourneyCard = (journey: ClientJourney) => (
+  const renderJourneyCard = (journey: ClientJourney) => {
+    const latestBooking = journey.bookings[0];
+    const is2nd = journey.bookings.some(b => b.originating_booking_id != null) || journey.bookings.length > 1;
+    const firstBookingId = is2nd ? journey.bookings[journey.bookings.length - 1]?.id : null;
+
+    return (
     <>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-          <div className="flex items-center gap-3">
-            {expandedClients.has(journey.memberKey) ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            )}
-            <div className="text-left">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <p className="font-medium">{journey.memberName}</p>
-                <IntroTypeBadge isSecondIntro={journey.bookings.some(b => b.originating_booking_id != null) || journey.bookings.length > 1} />
-                <LeadSourceTag source={journey.bookings[0]?.lead_source || 'Unknown'} />
-                {(() => {
-                  const is2nd = journey.bookings.some(b => b.originating_booking_id != null) || journey.bookings.length > 1;
-                  if (is2nd) return null; // Hide questionnaire for 2nd intros
-                  const qStatus = journey.bookings.map(b => questionnaireMap.get(b.id)).find(s => s);
-                  if (!qStatus) return null;
-                  if (qStatus === 'completed') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Done</Badge>;
-                  if (qStatus === 'sent') return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Sent</Badge>;
-                  return <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Not Sent</Badge>;
-                })()}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                {journey.latestIntroOwner && (
-                  <span className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {journey.latestIntroOwner}
-                  </span>
-                )}
-                {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
-                  <span className="flex items-center gap-1">
-                    🏋️ {journey.bookings[0].coach_name}
-                  </span>
-                )}
-                {journey.bookings[0] && (
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {formatDate(journey.bookings[0].class_date)}
-                  </span>
-                )}
-                {activeTab === 'vip_class' && (() => {
-                  const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
-                  if (!vip) return null;
-                  return (
-                    <>
-                      {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
-                      {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
-                    </>
-                  );
-                })()}
+      <div className="rounded-lg border bg-card p-3 space-y-2">
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {expandedClients.has(journey.memberKey) ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              )}
+              <div className="text-left">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-medium">{journey.memberName}</p>
+                  <IntroTypeBadge isSecondIntro={is2nd} />
+                  <LeadSourceTag source={latestBooking?.lead_source || 'Unknown'} />
+                  {(() => {
+                    if (is2nd) return null;
+                    const qStatus = journey.bookings.map(b => questionnaireMap.get(b.id)).find(s => s);
+                    if (!qStatus) return null;
+                    if (qStatus === 'completed') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Done</Badge>;
+                    if (qStatus === 'sent') return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Sent</Badge>;
+                    return <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Not Sent</Badge>;
+                  })()}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                  {journey.latestIntroOwner && (
+                    <span className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {journey.latestIntroOwner}
+                    </span>
+                  )}
+                  {latestBooking?.coach_name && latestBooking.coach_name !== 'TBD' && (
+                    <span className="flex items-center gap-1">
+                      🏋️ {latestBooking.coach_name}
+                    </span>
+                  )}
+                  {latestBooking && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {formatDate(latestBooking.class_date)}
+                    </span>
+                  )}
+                  {activeTab === 'vip_class' && (() => {
+                    const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
+                    if (!vip) return null;
+                    return (
+                      <>
+                        {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                        {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              {journey.totalCommission > 0 && (
+                <Badge variant="outline" className="text-success">
+                  <DollarSign className="w-3 h-3 mr-0.5" />
+                  {journey.totalCommission.toFixed(0)}
+                </Badge>
+              )}
+              {getStatusBadge(journey.status)}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setScriptTargetKey(journey.memberKey);
-              }}
-              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-              title="Create text"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
-            {journey.totalCommission > 0 && (
-              <Badge variant="outline" className="text-success">
-                <DollarSign className="w-3 h-3 mr-0.5" />
-                {journey.totalCommission.toFixed(0)}
-              </Badge>
-            )}
-            {getStatusBadge(journey.status)}
-          </div>
-        </div>
-      </CollapsibleTrigger>
+        </CollapsibleTrigger>
+
+        {/* Inline action bar - always visible */}
+        {latestBooking && (
+          <IntroActionBar
+            memberName={journey.memberName}
+            memberKey={journey.memberKey}
+            bookingId={latestBooking.id}
+            classDate={latestBooking.class_date}
+            classTime={latestBooking.intro_time}
+            coachName={latestBooking.coach_name}
+            leadSource={latestBooking.lead_source}
+            isSecondIntro={is2nd}
+            firstBookingId={firstBookingId}
+            bookings={journey.bookings}
+            runs={journey.runs}
+          />
+        )}
       <CollapsibleContent>
         <div className="mt-2 ml-7 space-y-3 p-3 border rounded-lg bg-background">
           {journey.bookings.length > 0 && (
@@ -732,8 +746,10 @@ export function ClientJourneyReadOnly() {
           )}
         </div>
       </CollapsibleContent>
+      </div>
     </>
-  );
+    );
+  };
 
   if (isLoading) {
     return (

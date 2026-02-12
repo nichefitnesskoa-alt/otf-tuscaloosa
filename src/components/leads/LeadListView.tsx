@@ -9,17 +9,19 @@ import {
 } from '@/components/ui/select';
 import { ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LeadActionBar } from '@/components/ActionBar';
 
 interface LeadListViewProps {
   leads: Tables<'leads'>[];
   activities: Tables<'lead_activities'>[];
   onLeadClick: (lead: Tables<'leads'>) => void;
   onStageChange: (leadId: string, newStage: string) => void;
+  onBookIntro?: (lead: Tables<'leads'>) => void;
 }
 
 type SortKey = 'name' | 'phone' | 'email' | 'stage' | 'created_at' | 'last_action' | 'days_since' | 'attempts';
 
-export function LeadListView({ leads, activities, onLeadClick, onStageChange }: LeadListViewProps) {
+export function LeadListView({ leads, activities, onLeadClick, onStageChange, onBookIntro }: LeadListViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -89,7 +91,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange }: 
             <SortHeader label="Received" k="created_at" />
             <SortHeader label="Last Action" k="last_action" />
             <SortHeader label="Days Since" k="days_since" />
-            <SortHeader label="Attempts" k="attempts" />
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -97,7 +99,6 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange }: 
             <TableRow
               key={lead.id}
               className={cn('cursor-pointer hover:bg-muted/50', lead.stage === 'lost' && 'opacity-50')}
-              onClick={() => onLeadClick(lead)}
             >
               <TableCell className="font-medium whitespace-nowrap">{lead.first_name} {lead.last_name}</TableCell>
               <TableCell>
@@ -128,7 +129,19 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange }: 
                   : '—'}
               </TableCell>
               <TableCell className="text-center">{daysSinceContact ?? '—'}</TableCell>
-              <TableCell className="text-center">{attempts}</TableCell>
+              <TableCell>
+                <LeadActionBar
+                  leadId={lead.id}
+                  firstName={lead.first_name}
+                  lastName={lead.last_name}
+                  phone={lead.phone}
+                  source={lead.source}
+                  stage={lead.stage}
+                  onOpenDetail={() => onLeadClick(lead)}
+                  onBookIntro={onBookIntro ? () => onBookIntro(lead) : () => onLeadClick(lead)}
+                  onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
+                />
+              </TableCell>
             </TableRow>
           ))}
           {sorted.length === 0 && (
