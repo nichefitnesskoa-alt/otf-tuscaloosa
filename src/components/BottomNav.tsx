@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Settings, TrendingUp, ClipboardList, Users, GitBranch, MessageSquare, Home } from 'lucide-react';
+import { FileText, Settings, TrendingUp, ClipboardList, Users, GitBranch, MessageSquare, Home, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useFollowUpCount } from '@/components/leads/FollowUpQueue';
@@ -15,6 +15,7 @@ const navItems = [
 ];
 
 const adminItem = { path: '/admin', label: 'Admin', icon: Settings };
+const settingsItem = { path: '/settings', label: 'Config', icon: Wrench };
 
 export function BottomNav() {
   const location = useLocation();
@@ -22,7 +23,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { data: overdueCount = 0 } = useFollowUpCount();
 
-  const items = user?.role === 'Admin' ? [...navItems, adminItem] : navItems;
+  const items = user?.role === 'Admin' ? [...navItems, adminItem, settingsItem] : navItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
