@@ -14,6 +14,9 @@ import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { AmcTracker } from '@/components/dashboard/AmcTracker';
+import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
+import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
+import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -284,6 +287,9 @@ export default function Recaps() {
       {/* AMC Tracker - top of Studio */}
       <AmcTracker />
 
+      {/* This Week's Schedule */}
+      <WeeklySchedule />
+
       {/* Studio Scoreboard */}
       <StudioScoreboard
         introsRun={scoreboardMetrics.introsRun}
@@ -294,15 +300,14 @@ export default function Recaps() {
         madeAFriendRate={scoreboardMetrics.madeAFriendRate}
       />
 
-      {/* Pipeline Funnel */}
-      <PipelineFunnel
-        booked={filteredPipeline.booked}
-        showed={filteredPipeline.showed}
-        sold={filteredPipeline.sold}
-      />
+      {/* Conversion Funnel with 1st/2nd Intro toggle */}
+      <ConversionFunnel dateRange={dateRange} />
 
       {/* Lead Source Analytics */}
       <LeadSourceChart data={filteredLeadSource} />
+
+      {/* Referral Leaderboard */}
+      <ReferralLeaderboard />
 
       {/* Top Performers - only show when viewing all staff */}
       {!selectedEmployee && (

@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, LabelList } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LabelList } from 'recharts';
 import { TrendingUp, Target, Users } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { parseLocalDate } from '@/lib/utils';
+import { isWithinInterval } from 'date-fns';
 
 interface SAMetrics {
   name: string;
@@ -15,8 +18,47 @@ interface SAMetrics {
   totalSales: number;
 }
 
+type CoachingPreset = 'this_week' | '7_days' | '30_days' | 'this_month' | 'last_month' | 'all';
+
+function getCoachingRange(preset: CoachingPreset): { start: Date; end: Date } | null {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  switch (preset) {
+    case 'this_week': {
+      const day = today.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      const start = new Date(today); start.setDate(today.getDate() - diff);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return { start, end };
+    }
+    case '7_days': {
+      const start = new Date(today); start.setDate(today.getDate() - 6);
+      return { start, end: today };
+    }
+    case '30_days': {
+      const start = new Date(today); start.setDate(today.getDate() - 29);
+      return { start, end: today };
+    }
+    case 'this_month': {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return { start, end };
+    }
+    case 'last_month': {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const end = new Date(today.getFullYear(), today.getMonth(), 0);
+      return { start, end };
+    }
+    case 'all': return null;
+  }
+}
+
 export default function CoachingView() {
   const { introsRun } = useData();
+  const [preset, setPreset] = useState<CoachingPreset>('30_days');
+
+  const range = useMemo(() => getCoachingRange(preset), [preset]);
 
   const saMetrics = useMemo(() => {
     const byStaff = new Map<string, { runs: number; sales: number; goalWhy: number; friend: number }>();
@@ -24,10 +66,20 @@ export default function CoachingView() {
     for (const run of introsRun) {
       const sa = run.intro_owner || run.sa_name || 'Unknown';
       if (sa === 'Unknown') continue;
-      
-      const m = byStaff.get(sa) || { runs: 0, sales: 0, goalWhy: 0, friend: 0 };
       if (run.result === 'No-show') continue;
       
+      // Apply date filter
+      if (range) {
+        const runDate = run.run_date || run.created_at?.split('T')[0];
+        if (runDate) {
+          try {
+            const d = parseLocalDate(runDate);
+            if (!isWithinInterval(d, { start: range.start, end: range.end })) continue;
+          } catch { continue; }
+        }
+      }
+      
+      const m = byStaff.get(sa) || { runs: 0, sales: 0, goalWhy: 0, friend: 0 };
       m.runs++;
       if (isMembershipSale(run.result)) m.sales++;
       if ((run as any).goal_why_captured === 'Yes') m.goalWhy++;
@@ -37,7 +89,7 @@ export default function CoachingView() {
 
     const metrics: SAMetrics[] = [];
     for (const [name, m] of byStaff) {
-      if (m.runs < 3) continue; // Need min sample
+      if (m.runs < 3) continue;
       metrics.push({
         name,
         closeRate: Math.round((m.sales / m.runs) * 100),
@@ -48,30 +100,18 @@ export default function CoachingView() {
       });
     }
     return metrics.sort((a, b) => b.closeRate - a.closeRate);
-  }, [introsRun]);
+  }, [introsRun, range]);
 
   const suggestions = useMemo(() => {
     const tips: { name: string; tip: string; priority: 'high' | 'medium' | 'low' }[] = [];
     
     for (const sa of saMetrics) {
       if (sa.goalWhyRate < 50 && sa.closeRate < 40) {
-        tips.push({
-          name: sa.name,
-          tip: `Goal/Why capture at ${sa.goalWhyRate}% — focus on deeper discovery conversations to improve close rate.`,
-          priority: 'high',
-        });
+        tips.push({ name: sa.name, tip: `Goal/Why capture at ${sa.goalWhyRate}% — focus on deeper discovery conversations to improve close rate.`, priority: 'high' });
       } else if (sa.friendRate < 30 && sa.closeRate < 50) {
-        tips.push({
-          name: sa.name,
-          tip: `"Made a Friend" rate is ${sa.friendRate}% — building rapport before pricing may boost conversions.`,
-          priority: 'medium',
-        });
+        tips.push({ name: sa.name, tip: `"Made a Friend" rate is ${sa.friendRate}% — building rapport before pricing may boost conversions.`, priority: 'medium' });
       } else if (sa.closeRate >= 60) {
-        tips.push({
-          name: sa.name,
-          tip: `Strong ${sa.closeRate}% close rate! Consider mentoring newer SAs.`,
-          priority: 'low',
-        });
+        tips.push({ name: sa.name, tip: `Strong ${sa.closeRate}% close rate! Consider mentoring newer SAs.`, priority: 'low' });
       }
     }
     return tips;
@@ -93,8 +133,32 @@ export default function CoachingView() {
     return null;
   };
 
+  const presets: { key: CoachingPreset; label: string }[] = [
+    { key: 'this_week', label: 'This Week' },
+    { key: '7_days', label: '7 Days' },
+    { key: '30_days', label: '30 Days' },
+    { key: 'this_month', label: 'This Month' },
+    { key: 'last_month', label: 'Last Month' },
+    { key: 'all', label: 'All Time' },
+  ];
+
   return (
     <div className="space-y-4">
+      {/* Date filter */}
+      <div className="flex gap-1 flex-wrap">
+        {presets.map(p => (
+          <Button
+            key={p.key}
+            variant={preset === p.key ? 'default' : 'outline'}
+            size="sm"
+            className="text-xs h-7 px-2"
+            onClick={() => setPreset(p.key)}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
+
       {/* Scatter: Close Rate vs Goal/Why */}
       <Card>
         <CardHeader className="pb-2">
