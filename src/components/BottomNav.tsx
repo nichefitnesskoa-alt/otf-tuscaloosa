@@ -10,7 +10,7 @@ const navItems = [
   { path: '/leads', label: 'Leads', icon: Users },
   { path: '/scripts', label: 'Scripts', icon: MessageSquare },
   { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
-  { path: '/my-shifts', label: 'My Shifts', icon: ClipboardList },
+  { path: '/my-shifts', label: 'My Perf', icon: ClipboardList },
   { path: '/recaps', label: 'Studio', icon: TrendingUp },
 ];
 

@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      amc_log: {
+        Row: {
+          amc_value: number
+          created_at: string
+          created_by: string | null
+          id: string
+          logged_date: string
+          note: string | null
+        }
+        Insert: {
+          amc_value: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logged_date: string
+          note?: string | null
+        }
+        Update: {
+          amc_value?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logged_date?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           campaign_id: string

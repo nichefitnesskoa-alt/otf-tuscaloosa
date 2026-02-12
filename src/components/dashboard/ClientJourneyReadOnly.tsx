@@ -47,6 +47,9 @@ import { Button } from '@/components/ui/button';
 import { PipelineScriptPicker } from './PipelineScriptPicker';
 import { ClientProfileSheet } from './ClientProfileSheet';
 import { IntroPrepCard } from './IntroPrepCard';
+import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
+
+type PipelineSort = 'recent' | 'oldest' | 'az' | 'za' | 'date_asc' | 'date_desc';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
@@ -110,6 +113,7 @@ export function ClientJourneyReadOnly() {
   const [questionnaireMap, setQuestionnaireMap] = useState<Map<string, string>>(new Map()); // booking_id -> status
   const [profileTarget, setProfileTarget] = useState<ClientJourney | null>(null);
   const [prepTarget, setPrepTarget] = useState<{ booking: ClientBooking; journey: ClientJourney } | null>(null);
+  const [sortBy, setSortBy] = useState<PipelineSort>('recent');
   const hasMountedRef = useRef(false);
 
   const fetchVipInfo = async () => {
@@ -455,8 +459,39 @@ export function ClientJourneyReadOnly() {
 
     filtered = filterJourneysByTab(filtered, activeTab);
 
-    return filtered;
-  }, [journeys, searchTerm, activeTab, selectedLeadSource]);
+    // Apply sort
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case 'recent': {
+          const aDate = a.bookings[0]?.class_date || '';
+          const bDate = b.bookings[0]?.class_date || '';
+          return bDate.localeCompare(aDate);
+        }
+        case 'oldest': {
+          const aDate = a.bookings[0]?.class_date || '';
+          const bDate = b.bookings[0]?.class_date || '';
+          return aDate.localeCompare(bDate);
+        }
+        case 'az':
+          return a.memberName.localeCompare(b.memberName);
+        case 'za':
+          return b.memberName.localeCompare(a.memberName);
+        case 'date_asc': {
+          const aDate = a.bookings[0]?.class_date || '9999';
+          const bDate = b.bookings[0]?.class_date || '9999';
+          return aDate.localeCompare(bDate);
+        }
+        case 'date_desc': {
+          const aDate = a.bookings[0]?.class_date || '';
+          const bDate = b.bookings[0]?.class_date || '';
+          return bDate.localeCompare(aDate);
+        }
+        default: return 0;
+      }
+    });
+    return sorted;
+  }, [journeys, searchTerm, activeTab, selectedLeadSource, sortBy]);
 
   // Group VIP journeys by class name
   const vipGroups = useMemo(() => {
@@ -526,12 +561,13 @@ export function ClientJourneyReadOnly() {
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             )}
             <div className="text-left">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <p className="font-medium">{journey.memberName}</p>
-                {journey.bookings[0]?.lead_source === 'Online Intro Offer (self-booked)' && (
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">Online Intro</Badge>
-                )}
+                <IntroTypeBadge isSecondIntro={journey.bookings.some(b => b.originating_booking_id != null) || journey.bookings.length > 1} />
+                <LeadSourceTag source={journey.bookings[0]?.lead_source || 'Unknown'} />
                 {(() => {
+                  const is2nd = journey.bookings.some(b => b.originating_booking_id != null) || journey.bookings.length > 1;
+                  if (is2nd) return null; // Hide questionnaire for 2nd intros
                   const qStatus = journey.bookings.map(b => questionnaireMap.get(b.id)).find(s => s);
                   if (!qStatus) return null;
                   if (qStatus === 'completed') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Done</Badge>;
@@ -556,9 +592,6 @@ export function ClientJourneyReadOnly() {
                     <Calendar className="w-3 h-3" />
                     {formatDate(journey.bookings[0].class_date)}
                   </span>
-                )}
-                {journey.bookings[0]?.lead_source && journey.bookings[0].lead_source !== 'Online Intro Offer (self-booked)' && (
-                  <span className="text-[10px] opacity-70">{journey.bookings[0].lead_source}</span>
                 )}
                 {activeTab === 'vip_class' && (() => {
                   const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
@@ -729,15 +762,30 @@ export function ClientJourneyReadOnly() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
+        {/* Search + Sort */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search clients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as PipelineSort)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Most Recent</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="az">A → Z</SelectItem>
+              <SelectItem value="za">Z → A</SelectItem>
+              <SelectItem value="date_asc">Intro Soonest</SelectItem>
+              <SelectItem value="date_desc">Intro Latest</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Tabs */}
