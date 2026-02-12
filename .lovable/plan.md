@@ -1,48 +1,58 @@
 
 
-# Fix My Day "Today's Intros" + VIP Group Bulk Scheduling
+# Rename "Lost" to "Do Not Contact" + Add "Purchased" Stage + Delete Leads
 
-## Problem 1: My Day shows VIP class entries as "Today's Intros"
-The query in `MyDay.tsx` fetches ALL `intros_booked` where `class_date = today`, which includes VIP class registrations that aren't actual intro appointments. These VIP entries have `lead_source = 'VIP Class'` and often have a `vip_class_name` set.
+## Overview
+Rename the "Lost" stage label to "Do Not Contact" everywhere in the UI, add a "Purchased" (`won`) stage, and add the ability to delete leads with confirmation.
 
-**Fix:** Add a filter to exclude VIP class bookings from the Today's Intros query:
-- Add `.is('vip_class_name', null)` to the query, so only real intro bookings show up
-- Alternatively filter by `lead_source` not being `'VIP Class'`, but `vip_class_name` is more reliable since some VIP entries may have varied source names
+## Changes
 
-## Problem 2: Bulk set date/time for a VIP group
-Currently each VIP booking must be edited individually. The admin needs a way to select a VIP group and set the class date and time for everyone in that group at once.
+### 1. Rename "Lost" to "Do Not Contact" (UI labels only, DB value stays `lost`)
 
-**Fix:** Add a "Set Group Schedule" control to the VIP group header in `ClientJourneyPanel.tsx`:
-- Next to each VIP group name header (the purple bar), add a button "Set Date & Time"
-- Clicking it opens a small inline form or popover with date and time inputs
-- On submit, bulk-update all `intros_booked` records in that group (matching `vip_class_name`) with the chosen `class_date` and `intro_time`
-- Also update the corresponding `intro_questionnaires` records with `scheduled_class_date` and `scheduled_class_time`
-- Show a toast confirming how many bookings were updated
+**Files affected:**
+- `LeadKanbanBoard.tsx` -- Column label "Lost" becomes "Do Not Contact"
+- `LeadListView.tsx` -- Stage dropdown option "Lost" becomes "Do Not Contact"
+- `LeadDetailSheet.tsx` -- Stage badge displays "Do Not Contact" for `lost`, button text "Lost" becomes "Do Not Contact"
+- `MarkLostDialog.tsx` -- Title becomes "Mark as Do Not Contact", button text updated
+- `LeadMetricsBar.tsx` -- Metric label "Lost" becomes "DNC" (short form to fit the card)
+- `LeadCard.tsx` -- No text label changes needed (uses opacity styling)
 
----
+### 2. Add "Purchased" (`won`) stage
+
+- **`LeadKanbanBoard.tsx`** -- Add 4th column: "Purchased" with amber styling (`bg-amber-500/10 border-amber-500/30`)
+- **`LeadListView.tsx`** -- Add "Purchased" option to stage dropdown
+- **`LeadDetailSheet.tsx`** -- Add stage color for `won`, add "Mark Purchased" button (amber) that sets `stage = 'won'`
+- **`Leads.tsx` (`handleStageChange`)** -- Handle `won` stage directly (no reason dialog needed)
+
+### 3. Delete Lead capability
+
+- **`LeadDetailSheet.tsx`** -- Add a red "Delete Lead" button at the bottom of the detail view with an `AlertDialog` confirmation
+- On confirm: delete from `lead_activities` first (FK dependency), then delete from `leads`
+- Close the sheet and refresh the list after deletion
 
 ## Technical Details
 
-### File: `src/pages/MyDay.tsx` (line 51-57)
-Add `.is('vip_class_name', null)` to the intros_booked query to exclude VIP groups from the "Today's Intros" section.
+### `LeadKanbanBoard.tsx`
+- Update COLUMNS array: rename "Lost" label to "Do Not Contact", add `{ stage: 'won', label: 'Purchased', color: 'bg-amber-500/10 border-amber-500/30' }`
 
-### File: `src/components/admin/ClientJourneyPanel.tsx` (lines 1539-1547)
-In the VIP group header rendering:
-- Add state for `bulkScheduleGroup` (tracks which group is being edited), `bulkDate`, and `bulkTime`
-- Add a "Set Schedule" button to the purple group header bar
-- When clicked, show date + time inputs inline
-- On confirm, run a Supabase update:
-  ```sql
-  UPDATE intros_booked SET class_date = $date, intro_time = $time
-  WHERE vip_class_name = $groupName AND deleted_at IS NULL
-  ```
-- Also update linked `intro_questionnaires`:
-  ```sql
-  UPDATE intro_questionnaires SET scheduled_class_date = $date, scheduled_class_time = $time
-  WHERE booking_id IN (SELECT id FROM intros_booked WHERE vip_class_name = $groupName)
-  ```
-- Show toast: "Updated X bookings for {groupName}"
+### `LeadListView.tsx`
+- Stage dropdown: rename "Lost" to "Do Not Contact", add "Purchased" with value `won`
 
-### Files changed:
-1. `src/pages/MyDay.tsx` -- add VIP exclusion filter
-2. `src/components/admin/ClientJourneyPanel.tsx` -- add bulk schedule UI and logic to VIP group headers
+### `LeadDetailSheet.tsx`
+- Add `won: 'bg-amber-500 text-white'` to STAGE_COLORS
+- Rename `lost` display in badge to "Do Not Contact"
+- Add stage label mapping for badge display
+- Add "Mark Purchased" button alongside existing actions
+- Add delete button with AlertDialog import and confirmation flow
+- Delete logic: `supabase.from('lead_activities').delete().eq('lead_id', id)` then `supabase.from('leads').delete().eq('id', id)`
+
+### `MarkLostDialog.tsx`
+- Dialog title: "Mark as Do Not Contact"
+- Button text: "Mark as Do Not Contact"
+
+### `LeadMetricsBar.tsx`
+- Label "Lost" becomes "DNC"
+
+### `Leads.tsx`
+- In `handleStageChange`: allow `won` to pass through without triggering the lost-reason dialog
+
