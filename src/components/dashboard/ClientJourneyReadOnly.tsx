@@ -58,6 +58,7 @@ interface ClientBooking {
   booking_status: string | null;
   intro_owner: string | null;
   originating_booking_id: string | null;
+  paired_booking_id: string | null;
   vip_class_name: string | null;
 }
 
@@ -122,7 +123,7 @@ export function ClientJourneyReadOnly() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, member_name, class_date, intro_time, coach_name, booked_by, lead_source, fitness_goal, booking_status, intro_owner, originating_booking_id, vip_class_name')
+          .select('id, member_name, class_date, intro_time, coach_name, booked_by, lead_source, fitness_goal, booking_status, intro_owner, originating_booking_id, paired_booking_id, vip_class_name')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
