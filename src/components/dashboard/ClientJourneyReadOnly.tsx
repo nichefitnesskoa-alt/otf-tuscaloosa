@@ -29,6 +29,9 @@ import {
   Filter,
   MessageSquare,
   Star,
+  ClipboardList,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
 import {
   Select,
@@ -42,6 +45,8 @@ import { capitalizeName, parseLocalDate, getLocalDateString } from '@/lib/utils'
 import { isMembershipSale } from '@/lib/sales-detection';
 import { Button } from '@/components/ui/button';
 import { PipelineScriptPicker } from './PipelineScriptPicker';
+import { ClientProfileSheet } from './ClientProfileSheet';
+import { IntroPrepCard } from './IntroPrepCard';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
@@ -102,6 +107,9 @@ export function ClientJourneyReadOnly() {
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
   const [scriptTargetKey, setScriptTargetKey] = useState<string | null>(null);
   const [vipInfoMap, setVipInfoMap] = useState<Map<string, VipInfo>>(new Map());
+  const [questionnaireMap, setQuestionnaireMap] = useState<Map<string, string>>(new Map()); // booking_id -> status
+  const [profileTarget, setProfileTarget] = useState<ClientJourney | null>(null);
+  const [prepTarget, setPrepTarget] = useState<{ booking: ClientBooking; journey: ClientJourney } | null>(null);
   const hasMountedRef = useRef(false);
 
   const fetchVipInfo = async () => {
@@ -211,9 +219,23 @@ export function ClientJourneyReadOnly() {
     }
   };
 
+  const fetchQuestionnaireStatuses = async () => {
+    const { data } = await supabase
+      .from('intro_questionnaires')
+      .select('booking_id, status');
+    if (data) {
+      const map = new Map<string, string>();
+      (data as any[]).forEach(r => {
+        if (r.booking_id) map.set(r.booking_id, r.status);
+      });
+      setQuestionnaireMap(map);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     fetchVipInfo();
+    fetchQuestionnaireStatuses();
     hasMountedRef.current = true;
   }, []);
 
@@ -509,6 +531,13 @@ export function ClientJourneyReadOnly() {
                 {journey.bookings[0]?.lead_source === 'Online Intro Offer (self-booked)' && (
                   <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] px-1.5 py-0">Online Intro</Badge>
                 )}
+                {(() => {
+                  const qStatus = journey.bookings.map(b => questionnaireMap.get(b.id)).find(s => s);
+                  if (!qStatus) return null;
+                  if (qStatus === 'completed') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Done</Badge>;
+                  if (qStatus === 'sent') return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Sent</Badge>;
+                  return <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-[9px] px-1.5 py-0"><ClipboardList className="w-2.5 h-2.5 mr-0.5" />Not Sent</Badge>;
+                })()}
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                 {journey.latestIntroOwner && (
@@ -596,6 +625,26 @@ export function ClientJourneyReadOnly() {
                         {booking.fitness_goal}
                       </div>
                     )}
+                    <div className="flex gap-1 mt-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-6 px-2"
+                        onClick={(e) => { e.stopPropagation(); setPrepTarget({ booking, journey }); }}
+                      >
+                        <Briefcase className="w-3 h-3 mr-1" />
+                        Intro Prep
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-6 px-2"
+                        onClick={(e) => { e.stopPropagation(); setProfileTarget(journey); }}
+                      >
+                        <UserCheck className="w-3 h-3 mr-1" />
+                        Profile
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -807,6 +856,30 @@ export function ClientJourneyReadOnly() {
             />
           );
         })()}
+        {/* Client Profile Sheet */}
+        {profileTarget && (
+          <ClientProfileSheet
+            open={true}
+            onOpenChange={(open) => { if (!open) setProfileTarget(null); }}
+            memberName={profileTarget.memberName}
+            memberKey={profileTarget.memberKey}
+            bookings={profileTarget.bookings}
+            runs={profileTarget.runs}
+          />
+        )}
+
+        {/* Intro Prep Card */}
+        {prepTarget && (
+          <IntroPrepCard
+            open={true}
+            onOpenChange={(open) => { if (!open) setPrepTarget(null); }}
+            memberName={prepTarget.journey.memberName}
+            classDate={prepTarget.booking.class_date}
+            classTime={prepTarget.booking.intro_time}
+            coachName={prepTarget.booking.coach_name}
+            bookingId={prepTarget.booking.id}
+          />
+        )}
       </CardContent>
     </Card>
   );

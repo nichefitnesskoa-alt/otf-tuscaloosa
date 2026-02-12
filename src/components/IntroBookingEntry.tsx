@@ -37,6 +37,7 @@ export interface IntroBookingData {
   friendEmail: string;
   friendQuestionnaireId?: string;
   friendQuestionnaireStatus?: 'not_sent' | 'sent' | 'completed';
+  referredByMemberName?: string;
 }
 
 interface IntroBookingEntryProps {
@@ -282,6 +283,19 @@ export default function IntroBookingEntry({
             </SelectContent>
           </Select>
         </div>
+
+        {/* Referred By - shown when lead source is Member Referral */}
+        {booking.leadSource === 'Member Referral' && (
+          <div>
+            <Label className="text-xs">Referred By (Member Name)</Label>
+            <Input
+              value={booking.referredByMemberName || ''}
+              onChange={(e) => onUpdate(index, { referredByMemberName: e.target.value })}
+              placeholder="Who referred them?"
+              className="mt-1"
+            />
+          </div>
+        )}
 
         {/* Bringing a Friend Toggle - appears after lead source */}
         {booking.leadSource && (

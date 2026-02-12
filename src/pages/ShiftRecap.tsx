@@ -307,13 +307,23 @@ export default function ShiftRecap() {
             intro_owner: null,
             intro_owner_locked: false,
             originating_booking_id: booking.originatingBookingId || null,
-          }).select().single();
+            referred_by_member_name: booking.referredByMemberName || null,
+          } as any).select().single();
 
           if (bookingInsertError) throw bookingInsertError;
 
           // Auto-link matching lead
           if (insertedBooking) {
             await matchLeadByName(booking.memberName, insertedBooking.id, 'booked', booking.leadSource);
+
+            // Auto-create referral record if referred by someone
+            if (booking.referredByMemberName) {
+              await supabase.from('referrals').insert({
+                referrer_name: booking.referredByMemberName,
+                referred_name: booking.memberName,
+                referred_booking_id: insertedBooking.id,
+              });
+            }
           }
 
           // Link questionnaire to the newly created booking

@@ -16,6 +16,7 @@ import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPane
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
 import ReferralTracker from '@/components/admin/ReferralTracker';
+import ReferralTree from '@/components/admin/ReferralTree';
 import VipBulkImport from '@/components/admin/VipBulkImport';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -128,8 +129,9 @@ export default function Admin() {
         </TabsList>
 
         {/* Referrals Tab */}
-        <TabsContent value="referrals">
+        <TabsContent value="referrals" className="space-y-4">
           <ReferralTracker />
+          <ReferralTree />
         </TabsContent>
 
         {/* GroupMe Tab */}
