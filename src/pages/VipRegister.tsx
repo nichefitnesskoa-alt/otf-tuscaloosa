@@ -61,7 +61,7 @@ export default function VipRegister() {
           sa_working_shift: 'VIP Registration',
           lead_source: 'VIP Class',
           booked_by: 'Self (VIP Form)',
-          booking_status: 'Active',
+          booking_status: 'Unscheduled',
           vip_class_name: vipClassName || null,
         } as any)
         .select('id')
