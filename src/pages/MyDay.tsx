@@ -6,16 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isToday, parseISO } from 'date-fns';
+import { format, isToday, parseISO, addDays } from 'date-fns';
 import { 
-  ClipboardList, Calendar, AlertTriangle, UserPlus, 
-  ChevronRight, Clock, FileText
+  Calendar, AlertTriangle, UserPlus, 
+  Clock, FileText, CalendarCheck
 } from 'lucide-react';
 import { IntroTypeBadge, LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
-import { ClientActionMenu } from '@/components/dashboard/ClientActionMenu';
+import { IntroActionBar, LeadActionBar } from '@/components/ActionBar';
 import { useIntroTypeDetection } from '@/hooks/useIntroTypeDetection';
+import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
+import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
+import { toast } from 'sonner';
+import { Tables } from '@/integrations/supabase/types';
 
-interface TodayBooking {
+interface DayBooking {
   id: string;
   member_name: string;
   intro_time: string | null;
@@ -45,13 +49,18 @@ export default function MyDay() {
   const { user } = useAuth();
   const { introsBooked } = useData();
   const navigate = useNavigate();
-  const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([]);
+  const [todayBookings, setTodayBookings] = useState<DayBooking[]>([]);
+  const [tomorrowBookings, setTomorrowBookings] = useState<DayBooking[]>([]);
   const [allBookings, setAllBookings] = useState<AllBookingMinimal[]>([]);
   const [overdueFollowUps, setOverdueFollowUps] = useState<OverdueFollowUp[]>([]);
-  const [newLeads, setNewLeads] = useState<{ id: string; first_name: string; last_name: string; source: string; created_at: string }[]>([]);
+  const [newLeads, setNewLeads] = useState<Tables<'leads'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
 
-  // Intro type detection
+  // Lead actions state
+  const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
+  const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
+
   const { isSecondIntro, getFirstBookingId } = useIntroTypeDetection(allBookings);
 
   useEffect(() => {
@@ -64,12 +73,13 @@ export default function MyDay() {
 
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
+      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
-      // 1. Today's booked intros
+      // 1. Today's and tomorrow's booked intros
       const { data: bookings } = await supabase
         .from('intros_booked')
         .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at')
-        .eq('class_date', today)
+        .in('class_date', [today, tomorrow])
         .is('deleted_at', null)
         .is('vip_class_name', null)
         .neq('booking_status', 'Closed – Bought')
@@ -84,7 +94,6 @@ export default function MyDay() {
       if (allBookingsData) setAllBookings(allBookingsData as AllBookingMinimal[]);
 
       if (bookings) {
-        // Get questionnaire statuses
         const bookingIds = bookings.map(b => b.id);
         const { data: questionnaires } = await supabase
           .from('intro_questionnaires')
@@ -93,10 +102,25 @@ export default function MyDay() {
 
         const qMap = new Map(questionnaires?.map(q => [q.booking_id, q.status]) || []);
         
-        setTodayBookings(bookings.map(b => ({
+        const enriched = bookings.map(b => ({
           ...b,
           questionnaire_status: qMap.get(b.id) || null,
-        })));
+        }));
+
+        setTodayBookings(enriched.filter(b => b.class_date === today));
+        setTomorrowBookings(enriched.filter(b => b.class_date === tomorrow));
+
+        // Check reminder sent status for tomorrow's bookings
+        const tomorrowIds = enriched.filter(b => b.class_date === tomorrow).map(b => b.id);
+        if (tomorrowIds.length > 0) {
+          const { data: sendLogs } = await supabase
+            .from('script_send_log')
+            .select('booking_id')
+            .in('booking_id', tomorrowIds);
+          
+          const sentSet = new Set((sendLogs || []).map(l => l.booking_id).filter(Boolean) as string[]);
+          setReminderSentMap(sentSet);
+        }
       }
 
       // 2. Overdue follow-ups
@@ -133,7 +157,7 @@ export default function MyDay() {
       // 3. New uncontacted leads
       const { data: leads } = await supabase
         .from('leads')
-        .select('id, first_name, last_name, source, created_at')
+        .select('*')
         .eq('stage', 'new')
         .order('created_at', { ascending: false })
         .limit(5);
@@ -146,13 +170,73 @@ export default function MyDay() {
     }
   };
 
+  const handleMarkContacted = async (leadId: string) => {
+    try {
+      await supabase.from('leads').update({ stage: 'contacted' }).eq('id', leadId);
+      await supabase.from('lead_activities').insert({
+        lead_id: leadId,
+        activity_type: 'stage_change',
+        performed_by: user?.name || 'Unknown',
+        notes: 'Marked as contacted from My Day',
+      });
+      toast.success('Lead marked as contacted');
+      fetchMyDayData();
+    } catch {
+      toast.error('Failed to update');
+    }
+  };
+
   const getQBadge = (status: string | null, is2nd: boolean) => {
-    // Hide questionnaire badges for 2nd intros
     if (is2nd) return null;
     if (!status) return <Badge variant="outline" className="text-muted-foreground text-[10px]">No Q</Badge>;
-    if (status === 'submitted') return <Badge className="bg-success text-success-foreground text-[10px]">Q Done</Badge>;
+    if (status === 'submitted' || status === 'completed') return <Badge className="bg-success text-success-foreground text-[10px]">Q Done</Badge>;
     if (status === 'sent') return <Badge className="bg-warning text-warning-foreground text-[10px]">Q Sent</Badge>;
     return <Badge variant="outline" className="text-muted-foreground text-[10px]">Not Sent</Badge>;
+  };
+
+  const renderIntroCard = (b: DayBooking, showReminderStatus = false) => {
+    const is2nd = isSecondIntro(b.id);
+    const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
+    const reminderSent = reminderSentMap.has(b.id);
+
+    return (
+      <div key={b.id} className="rounded-lg border bg-card p-3 space-y-2">
+        {/* Main row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-sm">{b.member_name}</span>
+              <IntroTypeBadge isSecondIntro={is2nd} />
+              <LeadSourceTag source={b.lead_source} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {getQBadge(b.questionnaire_status, is2nd)}
+            {showReminderStatus && !reminderSent && (
+              <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30">
+                Reminder Not Sent
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Inline action bar */}
+        <IntroActionBar
+          memberName={b.member_name}
+          memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+          bookingId={b.id}
+          classDate={b.class_date}
+          classTime={b.intro_time}
+          coachName={b.coach_name}
+          leadSource={b.lead_source}
+          isSecondIntro={is2nd}
+          firstBookingId={firstId}
+        />
+      </div>
+    );
   };
 
   return (
@@ -186,40 +270,26 @@ export default function MyDay() {
           ) : todayBookings.length === 0 ? (
             <p className="text-sm text-muted-foreground">No intros scheduled today</p>
           ) : (
-            todayBookings.map(b => {
-              const is2nd = isSecondIntro(b.id);
-              const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
-              return (
-                <div key={b.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <ClientActionMenu
-                        memberName={b.member_name}
-                        memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
-                        bookingId={b.id}
-                        classDate={b.class_date}
-                        classTime={b.intro_time}
-                        coachName={b.coach_name}
-                        leadSource={b.lead_source}
-                        firstBookingId={firstId}
-                      >
-                        <button className="font-medium text-sm text-primary hover:underline cursor-pointer text-left">
-                          {b.member_name}
-                        </button>
-                      </ClientActionMenu>
-                      <IntroTypeBadge isSecondIntro={is2nd} />
-                      <LeadSourceTag source={b.lead_source} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {getQBadge(b.questionnaire_status, is2nd)}
-                  </div>
-                </div>
-              );
-            })
+            todayBookings.map(b => renderIntroCard(b))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tomorrow's Intros */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarCheck className="w-4 h-4 text-info" />
+            Tomorrow's Intros ({tomorrowBookings.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : tomorrowBookings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No intros scheduled for tomorrow</p>
+          ) : (
+            tomorrowBookings.map(b => renderIntroCard(b, true))
           )}
         </CardContent>
       </Card>
@@ -269,14 +339,29 @@ export default function MyDay() {
           </CardHeader>
           <CardContent className="space-y-2">
             {newLeads.map(lead => (
-              <div key={lead.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-sm">{lead.first_name} {lead.last_name}</p>
-                  <p className="text-xs text-muted-foreground">{lead.source}</p>
+              <div key={lead.id} className="rounded-lg border bg-card p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-sm">{lead.first_name} {lead.last_name}</span>
+                      <LeadSourceTag source={lead.source} />
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                    {isToday(new Date(lead.created_at)) ? 'Today' : format(new Date(lead.created_at), 'MMM d')}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {isToday(new Date(lead.created_at)) ? 'Today' : format(new Date(lead.created_at), 'MMM d')}
-                </Badge>
+                <LeadActionBar
+                  leadId={lead.id}
+                  firstName={lead.first_name}
+                  lastName={lead.last_name}
+                  phone={lead.phone}
+                  source={lead.source}
+                  stage={lead.stage}
+                  onOpenDetail={() => setDetailLead(lead)}
+                  onBookIntro={() => setBookIntroLead(lead)}
+                  onMarkContacted={() => handleMarkContacted(lead.id)}
+                />
               </div>
             ))}
             <Button 
@@ -290,6 +375,24 @@ export default function MyDay() {
           </CardContent>
         </Card>
       )}
+
+      {/* Dialogs */}
+      {bookIntroLead && (
+        <BookIntroDialog
+          open={!!bookIntroLead}
+          onOpenChange={open => { if (!open) setBookIntroLead(null); }}
+          lead={bookIntroLead}
+          onDone={() => { setBookIntroLead(null); fetchMyDayData(); }}
+        />
+      )}
+
+      <LeadDetailSheet
+        lead={detailLead}
+        activities={[]}
+        open={!!detailLead}
+        onOpenChange={open => { if (!open) setDetailLead(null); }}
+        onRefresh={fetchMyDayData}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
+import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -26,6 +27,7 @@ export default function Leads() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('most_recent');
+  const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads'],
@@ -194,6 +196,7 @@ export default function Leads() {
           activities={activities}
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}
+          onBookIntro={(lead) => setBookIntroLead(lead)}
         />
       ) : (
         <LeadListView
@@ -201,6 +204,7 @@ export default function Leads() {
           activities={activities}
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}
+          onBookIntro={(lead) => setBookIntroLead(lead)}
         />
       )}
 
@@ -220,6 +224,15 @@ export default function Leads() {
       />
 
       <AddLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} onLeadAdded={refresh} />
+
+      {bookIntroLead && (
+        <BookIntroDialog
+          open={!!bookIntroLead}
+          onOpenChange={open => { if (!open) setBookIntroLead(null); }}
+          lead={bookIntroLead}
+          onDone={() => { setBookIntroLead(null); refresh(); }}
+        />
+      )}
 
       {lostDialogLeadId && (
         <MarkLostDialog
