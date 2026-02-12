@@ -2,6 +2,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { LeadAlertBell } from '@/components/LeadAlertBell';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -28,6 +29,7 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-3">
+          <LeadAlertBell />
           <div className="flex items-center gap-2">
             <User className="w-4 h-4" />
             <span className="text-sm font-medium">{user.name}</span>

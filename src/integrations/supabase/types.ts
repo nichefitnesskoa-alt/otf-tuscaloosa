@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_sends: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          send_log_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          send_log_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          send_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_sends_send_log_id_fkey"
+            columns: ["send_log_id"]
+            isOneToOne: false
+            referencedRelation: "script_send_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          name: string
+          offer_description: string | null
+          start_date: string
+          target_audience: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name: string
+          offer_description?: string | null
+          start_date: string
+          target_audience?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name?: string
+          offer_description?: string | null
+          start_date?: string
+          target_audience?: string | null
+        }
+        Relationships: []
+      }
       daily_recaps: {
         Row: {
           created_at: string
@@ -971,6 +1037,27 @@ export type Database = {
           phone?: string
           vip_class_name?: string | null
           weight_lbs?: number | null
+        }
+        Relationships: []
+      }
+      weekly_digests: {
+        Row: {
+          created_at: string
+          id: string
+          report_json: Json
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_json?: Json
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_json?: Json
+          week_start?: string
         }
         Relationships: []
       }

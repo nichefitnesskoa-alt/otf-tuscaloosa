@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare, Users } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare, Users, BarChart3, Megaphone } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,8 @@ import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
 import VipBulkImport from '@/components/admin/VipBulkImport';
+import CoachingView from '@/components/admin/CoachingView';
+import CampaignsPanel from '@/components/admin/CampaignsPanel';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 
@@ -105,7 +107,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -113,6 +115,14 @@ export default function Admin() {
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
             <span className="hidden sm:inline">Data</span>
+          </TabsTrigger>
+          <TabsTrigger value="coaching" className="gap-1">
+            <BarChart3 className="w-4 h-4" />
+            <span className="hidden sm:inline">Coaching</span>
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="gap-1">
+            <Megaphone className="w-4 h-4" />
+            <span className="hidden sm:inline">Campaigns</span>
           </TabsTrigger>
           <TabsTrigger value="referrals" className="gap-1">
             <Users className="w-4 h-4" />
@@ -127,6 +137,16 @@ export default function Admin() {
             <span className="hidden sm:inline">Health</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Coaching Tab */}
+        <TabsContent value="coaching" className="space-y-4">
+          <CoachingView />
+        </TabsContent>
+
+        {/* Campaigns Tab */}
+        <TabsContent value="campaigns" className="space-y-4">
+          <CampaignsPanel />
+        </TabsContent>
 
         {/* Referrals Tab */}
         <TabsContent value="referrals" className="space-y-4">

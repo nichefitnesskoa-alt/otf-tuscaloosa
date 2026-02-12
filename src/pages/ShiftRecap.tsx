@@ -19,7 +19,7 @@ import SaleEntry, { SaleData } from '@/components/SaleEntry';
 import FollowupPurchaseEntry from '@/components/FollowupPurchaseEntry';
 import { supabase } from '@/integrations/supabase/client';
 import { getSpreadsheetId } from '@/lib/sheets-sync';
-import { postShiftRecapToGroupMe } from '@/lib/groupme';
+import { postShiftRecapToGroupMe, postSaleCelebration } from '@/lib/groupme';
 import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
@@ -745,6 +745,47 @@ export default function ShiftRecap() {
         toast.error('GroupMe post failed', {
           description: 'Could not post to GroupMe',
         });
+      }
+
+      // 6b. Post sale celebrations to GroupMe
+      try {
+        // Collect all sales from this recap (intro runs + outside sales)
+        const allSaleNames: { name: string; type: string }[] = [];
+        for (const run of introsRun) {
+          const outcomeLower = run.outcome.toLowerCase();
+          if (['premier', 'elite', 'basic'].some(k => outcomeLower.includes(k))) {
+            allSaleNames.push({ name: run.memberName, type: run.outcome });
+          }
+        }
+        for (const sale of sales) {
+          if (sale.membershipType && sale.memberName?.trim()) {
+            allSaleNames.push({ name: sale.memberName, type: sale.membershipType });
+          }
+        }
+
+        if (allSaleNames.length > 0) {
+          // Get pay period sales count
+          const { getPayPeriodForDate } = await import('@/lib/pay-period');
+          const pp = getPayPeriodForDate(new Date(date));
+          const ppStart = pp.start.toISOString().split('T')[0];
+          const ppEnd = pp.end.toISOString().split('T')[0];
+
+          const [{ count: introCount }, { count: outsideCount }] = await Promise.all([
+            supabase.from('intros_run').select('*', { count: 'exact', head: true })
+              .gte('run_date', ppStart).lte('run_date', ppEnd)
+              .or('result.ilike.%premier%,result.ilike.%elite%,result.ilike.%basic%'),
+            supabase.from('sales_outside_intro').select('*', { count: 'exact', head: true })
+              .gte('date_closed', ppStart).lte('date_closed', ppEnd),
+          ]);
+
+          const totalPPSales = (introCount || 0) + (outsideCount || 0);
+
+          for (const s of allSaleNames) {
+            await postSaleCelebration(user?.name || '', s.name, s.type, totalPPSales);
+          }
+        }
+      } catch (err) {
+        console.error('Sale celebration error:', err);
       }
 
       // Success!

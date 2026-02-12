@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.daily-followup-digest]
 verify_jwt = false
+
+[functions.weekly-digest]
+verify_jwt = false
