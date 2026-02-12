@@ -6,6 +6,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
 import { LeadMetricsBar } from '@/components/leads/LeadMetricsBar';
+import { FollowUpQueue } from '@/components/leads/FollowUpQueue';
 import { LeadKanbanBoard } from '@/components/leads/LeadKanbanBoard';
 import { LeadListView } from '@/components/leads/LeadListView';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
@@ -148,6 +149,8 @@ export default function Leads() {
           </Button>
         </div>
       </div>
+
+      <FollowUpQueue />
 
       <LeadMetricsBar leads={leads} activities={activities} />
 
