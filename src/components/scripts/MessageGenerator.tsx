@@ -159,7 +159,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-sm">{template.name}</DialogTitle>
         </DialogHeader>
