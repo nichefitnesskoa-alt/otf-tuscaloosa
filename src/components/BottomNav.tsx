@@ -27,7 +27,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-center justify-around h-16 overflow-x-auto scrollbar-hide">
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
