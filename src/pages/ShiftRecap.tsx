@@ -263,10 +263,140 @@ export default function ShiftRecap() {
     }
   };
 
+  // Instant submit a single booking entry
+  const handleInstantBooking = async (index: number) => {
+    const booking = introsBooked[index];
+    if (!booking || booking.submittedAt) return;
+
+    try {
+      const bookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+      const staffName = user?.name || '';
+
+      const { data: insertedBooking, error: bookingInsertError } = await supabase.from('intros_booked').insert({
+        booking_id: bookingId,
+        member_name: booking.memberName,
+        class_date: booking.introDate,
+        intro_time: booking.introTime || null,
+        coach_name: booking.coachName || 'TBD',
+        sa_working_shift: staffName,
+        booked_by: staffName,
+        lead_source: booking.leadSource || 'Source Not Found',
+        fitness_goal: booking.notes || null,
+        intro_owner: null,
+        intro_owner_locked: false,
+        originating_booking_id: booking.originatingBookingId || null,
+        referred_by_member_name: booking.referredByMemberName || null,
+        phone: booking.phone?.trim() || null,
+        email: booking.email?.trim() || null,
+      } as any).select().single();
+
+      if (bookingInsertError) throw bookingInsertError;
+
+      // Auto-link matching lead
+      if (insertedBooking) {
+        await matchLeadByName(booking.memberName, insertedBooking.id, 'booked', booking.leadSource);
+
+        // Auto-create referral record if referred
+        if (booking.referredByMemberName) {
+          await supabase.from('referrals').insert({
+            referrer_name: booking.referredByMemberName,
+            referred_name: booking.memberName,
+            referred_booking_id: insertedBooking.id,
+          });
+        }
+      }
+
+      // Link questionnaire
+      if (booking.questionnaireId && insertedBooking) {
+        await supabase.from('intro_questionnaires')
+          .update({ booking_id: insertedBooking.id })
+          .eq('id', booking.questionnaireId);
+      }
+
+      // Handle friend booking
+      if (booking.bringingFriend && booking.friendFirstName && insertedBooking) {
+        const friendName = `${booking.friendFirstName} ${booking.friendLastName}`.trim();
+        const friendLeadSource = booking.leadSource.includes('(Friend)')
+          ? booking.leadSource
+          : `${booking.leadSource} (Friend)`;
+        const friendBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
+
+        const { data: friendBooking, error: friendError } = await supabase.from('intros_booked').insert({
+          booking_id: friendBookingId,
+          member_name: friendName,
+          class_date: booking.introDate,
+          intro_time: booking.introTime || null,
+          coach_name: booking.coachName || 'TBD',
+          sa_working_shift: staffName,
+          booked_by: staffName,
+          lead_source: friendLeadSource,
+          fitness_goal: `Friend of ${booking.memberName}`,
+          intro_owner: null,
+          intro_owner_locked: false,
+          paired_booking_id: insertedBooking.id,
+        }).select().single();
+
+        if (!friendError && friendBooking) {
+          await supabase.from('intros_booked')
+            .update({ paired_booking_id: friendBooking.id })
+            .eq('id', insertedBooking.id);
+
+          if (booking.friendQuestionnaireId) {
+            await supabase.from('intro_questionnaires')
+              .update({ booking_id: friendBooking.id })
+              .eq('id', booking.friendQuestionnaireId);
+          }
+
+          await supabase.from('referrals').insert({
+            referrer_booking_id: insertedBooking.id,
+            referred_booking_id: friendBooking.id,
+            referrer_name: booking.memberName,
+            referred_name: friendName,
+          } as any);
+        }
+      }
+
+      // Sync to Google Sheets
+      if (spreadsheetId) {
+        await supabase.functions.invoke('sync-sheets', {
+          body: {
+            action: 'sync_booking',
+            spreadsheetId,
+            data: {
+              booking_id: bookingId,
+              member_name: booking.memberName,
+              class_date: booking.introDate,
+              intro_time: booking.introTime,
+              lead_source: booking.leadSource,
+              notes: booking.notes,
+              booked_by: staffName,
+              intro_owner: '',
+              booking_status: 'ACTIVE',
+            },
+          },
+        });
+      }
+
+      // Mark as submitted
+      updateIntroBooking(index, {
+        submittedAt: new Date().toISOString(),
+        submittedBookingId: insertedBooking?.id,
+      });
+
+      // Refresh dashboard data so My Day picks it up
+      await refreshData();
+
+      toast.success(`Booked! ${booking.memberName} synced to pipeline.`);
+    } catch (error) {
+      console.error('Instant booking error:', error);
+      toast.error('Failed to submit booking');
+    }
+  };
+
   const handleSubmit = async () => {
-    // Validate phone on bookings
+    // Validate phone on bookings (only non-submitted ones)
     for (const booking of introsBooked) {
-      if (booking.memberName && !booking.phone?.trim()) {
+      if (booking.memberName && !booking.submittedAt && !booking.phone?.trim()) {
         toast.error(`Phone number required for ${booking.memberName}`);
         return;
       }
@@ -303,10 +433,20 @@ export default function ShiftRecap() {
 
       if (shiftError) throw shiftError;
 
-      // 2. Save intro bookings
+      // 2. Save intro bookings (skip already instant-submitted ones)
       //    - booked_by = logged-in SA (booking credit)
       //    - intro_owner is NULL at booking time; only set when first intro is RUN
       for (const booking of introsBooked) {
+        // Skip bookings that were already instant-submitted
+        if (booking.submittedAt) {
+          // Just link them to this shift recap if they have a submitted ID
+          if (booking.submittedBookingId) {
+            await supabase.from('intros_booked')
+              .update({ shift_recap_id: shiftData.id })
+              .eq('id', booking.submittedBookingId);
+          }
+          continue;
+        }
         if (booking.memberName && booking.introDate) {
           const bookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
           const staffName = user?.name || '';
@@ -997,6 +1137,7 @@ export default function ShiftRecap() {
                   onUpdate={updateIntroBooking}
                   onRemove={removeIntroBooking}
                   currentUserName={user?.name || 'Unknown'}
+                  onInstantSubmit={handleInstantBooking}
                 />
               ))}
               
