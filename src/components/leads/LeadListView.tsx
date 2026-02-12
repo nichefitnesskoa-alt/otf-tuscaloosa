@@ -7,9 +7,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LeadActionBar } from '@/components/ActionBar';
+import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 
 interface LeadListViewProps {
   leads: Tables<'leads'>[];
@@ -17,11 +19,12 @@ interface LeadListViewProps {
   onLeadClick: (lead: Tables<'leads'>) => void;
   onStageChange: (leadId: string, newStage: string) => void;
   onBookIntro?: (lead: Tables<'leads'>) => void;
+  onMarkAlreadyBooked?: (leadId: string) => void;
 }
 
 type SortKey = 'name' | 'phone' | 'email' | 'stage' | 'created_at' | 'last_action' | 'days_since' | 'attempts';
 
-export function LeadListView({ leads, activities, onLeadClick, onStageChange, onBookIntro }: LeadListViewProps) {
+export function LeadListView({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked }: LeadListViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -38,8 +41,14 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
       const daysSinceContact = lastContactActivity
         ? differenceInDays(new Date(), parseISO(lastContactActivity.created_at))
         : null;
+      
+      // Stale detection: days since any activity (or since creation if no activity)
+      const lastAnyDate = lastActivity ? parseISO(lastActivity.created_at) : parseISO(lead.created_at);
+      const daysSinceAny = differenceInDays(new Date(), lastAnyDate);
+      const isStale = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 7 && daysSinceAny < 14;
+      const isGoingCold = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 14;
 
-      return { lead, attempts, lastActivity, daysSinceContact };
+      return { lead, attempts, lastActivity, daysSinceContact, isStale, isGoingCold };
     });
   }, [activeLeads, activities]);
 
@@ -86,7 +95,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
           <TableRow>
             <SortHeader label="Name" k="name" />
             <SortHeader label="Phone" k="phone" />
-            <SortHeader label="Email" k="email" />
+            <TableHead>Source</TableHead>
             <TableHead>Stage</TableHead>
             <SortHeader label="Received" k="created_at" />
             <SortHeader label="Last Action" k="last_action" />
@@ -95,18 +104,28 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map(({ lead, attempts, lastActivity, daysSinceContact }) => (
+          {sorted.map(({ lead, attempts, lastActivity, daysSinceContact, isStale, isGoingCold }) => (
             <TableRow
               key={lead.id}
               className={cn('cursor-pointer hover:bg-muted/50', lead.stage === 'lost' && 'opacity-50')}
             >
-              <TableCell className="font-medium whitespace-nowrap">{lead.first_name} {lead.last_name}</TableCell>
+              <TableCell className="font-medium whitespace-nowrap">
+                <div className="flex items-center gap-1.5">
+                  {lead.first_name} {lead.last_name}
+                  {isGoingCold && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Going Cold</Badge>
+                  )}
+                  {isStale && !isGoingCold && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-warning text-warning">Stale</Badge>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>
                 <a href={`tel:${lead.phone}`} onClick={e => e.stopPropagation()} className="hover:text-primary">
                   {lead.phone}
                 </a>
               </TableCell>
-              <TableCell className="text-muted-foreground">{lead.email || '—'}</TableCell>
+              <TableCell><LeadSourceTag source={lead.source} /></TableCell>
               <TableCell onClick={e => e.stopPropagation()}>
                 <Select value={lead.stage} onValueChange={v => onStageChange(lead.id, v)}>
                   <SelectTrigger className="h-7 w-[110px] text-xs">
@@ -115,6 +134,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                   <SelectContent>
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="contacted">Contacted</SelectItem>
+                    <SelectItem value="booked">Booked</SelectItem>
                     <SelectItem value="won">Purchased</SelectItem>
                     <SelectItem value="lost">Do Not Contact</SelectItem>
                   </SelectContent>
@@ -140,6 +160,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                   onOpenDetail={() => onLeadClick(lead)}
                   onBookIntro={onBookIntro ? () => onBookIntro(lead) : () => onLeadClick(lead)}
                   onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
+                  onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
                 />
               </TableCell>
             </TableRow>

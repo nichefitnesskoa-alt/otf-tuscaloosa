@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, MessageSquare, FileText, User, Phone, Copy, CalendarPlus, CheckCircle, Eye } from 'lucide-react';
+import { ClipboardList, MessageSquare, FileText, User, Phone, Copy, CalendarPlus, CalendarCheck, CheckCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClientProfileSheet } from '@/components/dashboard/ClientProfileSheet';
 import { IntroPrepCard } from '@/components/dashboard/IntroPrepCard';
@@ -201,6 +201,7 @@ interface LeadActionBarProps {
   onOpenDetail: () => void;
   onBookIntro: () => void;
   onMarkContacted?: () => void;
+  onMarkAlreadyBooked?: () => void;
 }
 
 export function LeadActionBar({
@@ -213,6 +214,7 @@ export function LeadActionBar({
   onOpenDetail,
   onBookIntro,
   onMarkContacted,
+  onMarkAlreadyBooked,
 }: LeadActionBarProps) {
   const navigate = useNavigate();
 
@@ -237,6 +239,20 @@ export function LeadActionBar({
       <ActionButton icon={<Phone className="w-3.5 h-3.5" />} label="Phone" onClick={handleCopyPhone} />
       {stage === 'new' && onMarkContacted && (
         <ActionButton icon={<CheckCircle className="w-3.5 h-3.5" />} label="Contacted" onClick={onMarkContacted} />
+      )}
+      {(stage === 'new' || stage === 'contacted') && onMarkAlreadyBooked && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0 border-warning text-warning hover:bg-warning/10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMarkAlreadyBooked();
+          }}
+        >
+          <CalendarCheck className="w-3.5 h-3.5" />
+          Already Booked
+        </Button>
       )}
     </div>
   );

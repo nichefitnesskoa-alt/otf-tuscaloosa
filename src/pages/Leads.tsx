@@ -72,9 +72,9 @@ export default function Leads() {
   const handleCleanDuplicates = async () => {
     setCleaning(true);
     try {
-      const newLeads = leads.filter(l => l.stage === 'new');
+      const newLeads = leads.filter(l => l.stage === 'new' || l.stage === 'contacted');
       if (newLeads.length === 0) {
-        toast.info('No new leads to check');
+        toast.info('No leads to check');
         setCleaning(false);
         return;
       }
@@ -82,19 +82,40 @@ export default function Leads() {
       let cleaned = 0;
       for (const lead of newLeads) {
         const fullName = `${lead.first_name} ${lead.last_name}`;
+        
+        // Check intros_booked for matching name
         const { data: nameMatch } = await supabase
           .from('intros_booked')
-          .select('id')
+          .select('id, booking_status')
           .ilike('member_name', fullName)
           .is('deleted_at', null)
           .limit(1)
           .maybeSingle();
 
         if (nameMatch) {
-          await supabase.from('leads').update({
-            stage: 'lost',
-            lost_reason: 'Already booked in client pipeline',
-          }).eq('id', lead.id);
+          // Check if already purchased (booking closed as bought)
+          const isBought = (nameMatch as any).booking_status === 'Closed – Bought';
+          
+          // Also check intros_run for a sale result
+          const { data: saleRun } = await supabase
+            .from('intros_run')
+            .select('id')
+            .ilike('member_name', fullName)
+            .or('result.ilike.%premier%,result.ilike.%elite%,result.ilike.%basic%')
+            .limit(1)
+            .maybeSingle();
+
+          if (isBought || saleRun) {
+            // Already purchased → delete the lead entirely
+            await supabase.from('lead_activities').delete().eq('lead_id', lead.id);
+            await supabase.from('leads').delete().eq('id', lead.id);
+          } else {
+            // Active booking → set to "booked" stage (not DNC)
+            await supabase.from('leads').update({
+              stage: 'booked',
+              booked_intro_id: nameMatch.id,
+            }).eq('id', lead.id);
+          }
           cleaned++;
         }
       }
@@ -117,9 +138,6 @@ export default function Leads() {
       setLostDialogLeadId(leadId);
       return;
     }
-    if (newStage === 'won') {
-      // Mark as purchased directly, no reason needed
-    }
 
     try {
       await supabase.from('leads').update({ stage: newStage }).eq('id', leadId);
@@ -132,6 +150,22 @@ export default function Leads() {
       refresh();
     } catch {
       toast.error('Failed to update stage');
+    }
+  };
+
+  const handleMarkAlreadyBooked = async (leadId: string) => {
+    try {
+      await supabase.from('leads').update({ stage: 'booked' }).eq('id', leadId);
+      await supabase.from('lead_activities').insert({
+        lead_id: leadId,
+        activity_type: 'stage_change',
+        performed_by: user?.name || 'Unknown',
+        notes: 'Manually marked as Already Booked',
+      });
+      toast.success('Lead moved to Booked');
+      refresh();
+    } catch {
+      toast.error('Failed to update');
     }
   };
 
@@ -197,6 +231,7 @@ export default function Leads() {
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}
           onBookIntro={(lead) => setBookIntroLead(lead)}
+          onMarkAlreadyBooked={handleMarkAlreadyBooked}
         />
       ) : (
         <LeadListView
@@ -205,6 +240,7 @@ export default function Leads() {
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}
           onBookIntro={(lead) => setBookIntroLead(lead)}
+          onMarkAlreadyBooked={handleMarkAlreadyBooked}
         />
       )}
 

@@ -272,6 +272,7 @@ export default function MyDay() {
 
   const handleMarkContacted = async (leadId: string) => {
     try {
+      // Auto-progress to "contacted" stage (which represents "In Progress")
       await supabase.from('leads').update({ stage: 'contacted' }).eq('id', leadId);
       await supabase.from('lead_activities').insert({
         lead_id: leadId,
@@ -279,7 +280,23 @@ export default function MyDay() {
         performed_by: user?.name || 'Unknown',
         notes: 'Marked as contacted from My Day',
       });
-      toast.success('Lead marked as contacted');
+      toast.success('Lead moved to In Progress');
+      fetchMyDayData();
+    } catch {
+      toast.error('Failed to update');
+    }
+  };
+
+  const handleMarkAlreadyBooked = async (leadId: string) => {
+    try {
+      await supabase.from('leads').update({ stage: 'booked' }).eq('id', leadId);
+      await supabase.from('lead_activities').insert({
+        lead_id: leadId,
+        activity_type: 'stage_change',
+        performed_by: user?.name || 'Unknown',
+        notes: 'Manually marked as Already Booked from My Day',
+      });
+      toast.success('Lead moved to Booked');
       fetchMyDayData();
     } catch {
       toast.error('Failed to update');
@@ -544,6 +561,7 @@ export default function MyDay() {
                     onOpenDetail={() => setDetailLead(lead)}
                     onBookIntro={() => setBookIntroLead(lead)}
                     onMarkContacted={() => handleMarkContacted(lead.id)}
+                    onMarkAlreadyBooked={() => handleMarkAlreadyBooked(lead.id)}
                   />
                 </div>
               );

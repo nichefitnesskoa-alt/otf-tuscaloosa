@@ -1,5 +1,5 @@
 import { Tables } from '@/integrations/supabase/types';
-import { formatDistanceToNow, parseISO, isBefore, differenceInMinutes } from 'date-fns';
+import { formatDistanceToNow, parseISO, isBefore, differenceInMinutes, differenceInDays } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -9,18 +9,26 @@ import { LeadActionBar } from '@/components/ActionBar';
 interface LeadCardProps {
   lead: Tables<'leads'>;
   activityCount: number;
+  lastActivityDate?: string | null;
   onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
   onBookIntro?: () => void;
   onMarkContacted?: () => void;
+  onMarkAlreadyBooked?: () => void;
 }
 
-export function LeadCard({ lead, activityCount, onClick, onDragStart, onBookIntro, onMarkContacted }: LeadCardProps) {
+export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDragStart, onBookIntro, onMarkContacted, onMarkAlreadyBooked }: LeadCardProps) {
   const now = new Date();
   const createdAt = parseISO(lead.created_at);
   const isNew = differenceInMinutes(now, createdAt) < 60;
   const isOverdue = lead.follow_up_at && isBefore(parseISO(lead.follow_up_at), now) && lead.stage !== 'lost';
   const isLost = lead.stage === 'lost';
+
+  // Stale detection
+  const lastDate = lastActivityDate ? parseISO(lastActivityDate) : createdAt;
+  const daysSinceAny = differenceInDays(now, lastDate);
+  const isStale = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 7 && daysSinceAny < 14;
+  const isGoingCold = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 14;
 
   return (
     <div
@@ -43,6 +51,12 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart, onBookIntr
               <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-primary">
                 NEW
               </Badge>
+            )}
+            {isGoingCold && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Going Cold</Badge>
+            )}
+            {isStale && !isGoingCold && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-warning text-warning">Stale</Badge>
             )}
             <LeadSourceTag source={lead.source} />
           </div>
@@ -83,6 +97,7 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart, onBookIntr
         onOpenDetail={onClick}
         onBookIntro={onBookIntro || onClick}
         onMarkContacted={onMarkContacted}
+        onMarkAlreadyBooked={onMarkAlreadyBooked}
       />
     </div>
   );
