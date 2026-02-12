@@ -28,7 +28,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortAsc, setSortAsc] = useState(false);
 
-  const activeLeads = leads.filter(l => !l.booked_intro_id);
+  const activeLeads = leads.filter(l => !l.booked_intro_id && l.stage !== 'booked' && l.stage !== 'won');
 
   const enriched = useMemo(() => {
     return activeLeads.map(lead => {
@@ -95,7 +95,6 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
           <TableRow>
             <SortHeader label="Name" k="name" />
             <SortHeader label="Phone" k="phone" />
-            <TableHead>Source</TableHead>
             <TableHead>Stage</TableHead>
             <SortHeader label="Received" k="created_at" />
             <SortHeader label="Last Action" k="last_action" />
@@ -125,7 +124,6 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                   {lead.phone}
                 </a>
               </TableCell>
-              <TableCell><LeadSourceTag source={lead.source} /></TableCell>
               <TableCell onClick={e => e.stopPropagation()}>
                 <Select value={lead.stage} onValueChange={v => onStageChange(lead.id, v)}>
                   <SelectTrigger className="h-7 w-[110px] text-xs">
@@ -167,7 +165,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
           ))}
           {sorted.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                 No leads yet
               </TableCell>
             </TableRow>
