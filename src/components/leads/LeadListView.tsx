@@ -114,7 +114,8 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange }: 
                   <SelectContent>
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
+                    <SelectItem value="won">Purchased</SelectItem>
+                    <SelectItem value="lost">Do Not Contact</SelectItem>
                   </SelectContent>
                 </Select>
               </TableCell>
