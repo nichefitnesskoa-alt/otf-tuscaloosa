@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { LeadMetricsBar } from '@/components/leads/LeadMetricsBar';
 import { FollowUpQueue } from '@/components/leads/FollowUpQueue';
 import { LeadKanbanBoard } from '@/components/leads/LeadKanbanBoard';
@@ -22,6 +25,7 @@ export default function Leads() {
   const [selectedLead, setSelectedLead] = useState<Tables<'leads'> | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('most_recent');
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads'],
@@ -46,6 +50,17 @@ export default function Leads() {
       return data;
     },
   });
+
+  const sortedLeads = useMemo(() => {
+    const arr = [...leads];
+    switch (sortBy) {
+      case 'oldest': arr.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
+      case 'alpha_az': arr.sort((a, b) => a.last_name.localeCompare(b.last_name)); break;
+      case 'alpha_za': arr.sort((a, b) => b.last_name.localeCompare(a.last_name)); break;
+      default: arr.sort((a, b) => b.created_at.localeCompare(a.created_at)); break;
+    }
+    return arr;
+  }, [leads, sortBy]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -153,20 +168,36 @@ export default function Leads() {
         </div>
       </div>
 
+      {/* Sort control */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Sort:</span>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="h-7 w-[160px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="most_recent">Most Recent</SelectItem>
+            <SelectItem value="oldest">Oldest First</SelectItem>
+            <SelectItem value="alpha_az">A → Z</SelectItem>
+            <SelectItem value="alpha_za">Z → A</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <FollowUpQueue />
 
-      <LeadMetricsBar leads={leads} activities={activities} />
+      <LeadMetricsBar leads={sortedLeads} activities={activities} />
 
       {view === 'kanban' ? (
         <LeadKanbanBoard
-          leads={leads}
+          leads={sortedLeads}
           activities={activities}
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}
         />
       ) : (
         <LeadListView
-          leads={leads}
+          leads={sortedLeads}
           activities={activities}
           onLeadClick={handleLeadClick}
           onStageChange={handleStageChange}

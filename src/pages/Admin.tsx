@@ -3,15 +3,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, RefreshCw, FileSpreadsheet, Database, HeartPulse, MessageSquare, Users, BarChart3, Megaphone } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import DataHealthPanel from '@/components/admin/DataHealthPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
-import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
+
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 // CoachPerformance removed from Overview - available in Coaching tab and Studio
@@ -52,8 +51,6 @@ export default function Admin() {
     return getDateRangeForPreset(datePreset, customRange);
   }, [datePreset, customRange]);
   
-  // Date range for data health (always all time)
-  const healthDateRange = useMemo(() => getDateRangeForPreset('all_time'), []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,7 +105,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -129,14 +126,6 @@ export default function Admin() {
             <Users className="w-4 h-4" />
             <span className="hidden sm:inline">Referrals</span>
           </TabsTrigger>
-          <TabsTrigger value="groupme" className="gap-1">
-            <MessageSquare className="w-4 h-4" />
-            <span className="hidden sm:inline">GroupMe</span>
-          </TabsTrigger>
-          <TabsTrigger value="health" className="gap-1">
-            <HeartPulse className="w-4 h-4" />
-            <span className="hidden sm:inline">Health</span>
-          </TabsTrigger>
         </TabsList>
 
         {/* Coaching Tab */}
@@ -153,11 +142,6 @@ export default function Admin() {
         <TabsContent value="referrals" className="space-y-4">
           <ReferralTracker />
           <ReferralTree />
-        </TabsContent>
-
-        {/* GroupMe Tab */}
-        <TabsContent value="groupme">
-          <GroupMeSettings />
         </TabsContent>
 
         {/* Overview Tab */}
@@ -186,14 +170,6 @@ export default function Admin() {
           <VipBulkImport />
           <MembershipPurchasesPanel />
           <ShiftRecapsEditor />
-        </TabsContent>
-
-        {/* Health Tab */}
-        <TabsContent value="health" className="space-y-4">
-          <DataHealthPanel 
-            dateRange={healthDateRange}
-            onFixComplete={handleSyncComplete}
-          />
         </TabsContent>
       </Tabs>
     </div>

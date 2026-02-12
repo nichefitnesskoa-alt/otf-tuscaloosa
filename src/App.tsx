@@ -13,6 +13,7 @@ import MyShifts from "./pages/MyShifts";
 import Recaps from "./pages/Recaps";
 import Leads from "./pages/Leads";
 import Admin from "./pages/Admin";
+import SettingsPage from "./pages/Settings";
 import Pipeline from "./pages/Pipeline";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
@@ -103,6 +104,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

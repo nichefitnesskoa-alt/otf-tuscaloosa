@@ -4,6 +4,7 @@ import { Phone, Clock, AlertCircle, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useScriptSendLog } from '@/hooks/useScriptSendLog';
+import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 
 interface LeadCardProps {
   lead: Tables<'leads'>;
@@ -35,7 +36,7 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart }: LeadCard
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <p className="font-semibold text-sm truncate">
               {lead.first_name} {lead.last_name}
             </p>
@@ -44,6 +45,7 @@ export function LeadCard({ lead, activityCount, onClick, onDragStart }: LeadCard
                 NEW
               </Badge>
             )}
+            <LeadSourceTag source={lead.source} />
           </div>
           <a
             href={`tel:${lead.phone}`}
