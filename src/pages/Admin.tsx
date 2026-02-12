@@ -14,7 +14,7 @@ import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
-import { CoachPerformance } from '@/components/dashboard/CoachPerformance';
+// CoachPerformance removed from Overview - available in Coaching tab and Studio
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
 import VipBulkImport from '@/components/admin/VipBulkImport';
@@ -174,15 +174,8 @@ export default function Admin() {
           {/* AMC Log */}
           <AmcLogForm />
 
-          {/* Pay Period Commission with Show Rates */}
+          {/* Pay Period Commission */}
           <PayPeriodCommission dateRange={dateRange} />
-
-          {/* Coach Performance */}
-          <CoachPerformance
-            introsBooked={introsBooked}
-            introsRun={introsRun}
-            dateRange={dateRange}
-          />
         </TabsContent>
 
         {/* Data Management Tab */}
