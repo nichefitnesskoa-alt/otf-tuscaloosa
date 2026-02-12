@@ -15,7 +15,7 @@ export default function Login() {
   const handleLogin = () => {
     if (!selectedName) return;
     login(selectedName);
-    navigate('/shift-recap');
+    navigate('/my-day');
   };
 
   return (
