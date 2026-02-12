@@ -47,7 +47,7 @@ export function LeadMetricsBar({ leads, activities }: LeadMetricsBarProps) {
     { label: 'New', value: newCount, color: 'text-info' },
     { label: 'In Progress', value: contactedCount, color: 'text-warning' },
     { label: 'Booked', value: bookedThisWeek, color: 'text-success' },
-    { label: 'Lost', value: lostThisWeek, color: 'text-muted-foreground' },
+    { label: 'DNC', value: lostThisWeek, color: 'text-muted-foreground' },
     { label: 'Overdue', value: overdueCount, color: overdueCount > 0 ? 'text-destructive' : 'text-muted-foreground', highlight: overdueCount > 0 },
     { label: 'Conv. Rate', value: `${conversionRate}%`, color: 'text-primary' },
   ];

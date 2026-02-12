@@ -13,7 +13,8 @@ interface LeadKanbanBoardProps {
 const COLUMNS = [
   { stage: 'new', label: 'New', color: 'bg-info/10 border-info/30' },
   { stage: 'contacted', label: 'Contacted', color: 'bg-warning/10 border-warning/30' },
-  { stage: 'lost', label: 'Lost', color: 'bg-muted border-muted-foreground/20' },
+  { stage: 'won', label: 'Purchased', color: 'bg-amber-500/10 border-amber-500/30' },
+  { stage: 'lost', label: 'Do Not Contact', color: 'bg-muted border-muted-foreground/20' },
 ];
 
 export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange }: LeadKanbanBoardProps) {
@@ -25,7 +26,7 @@ export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange 
   const activeLeads = leads.filter(l => !l.booked_intro_id);
 
   return (
-    <div className="grid grid-cols-3 gap-2 min-h-[300px]">
+    <div className="grid grid-cols-4 gap-2 min-h-[300px]">
       {COLUMNS.map(col => {
         const columnLeads = activeLeads.filter(l => l.stage === col.stage);
         return (

@@ -57,7 +57,7 @@ export function MarkLostDialog({ open, onOpenChange, leadId, onDone }: MarkLostD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Mark as Lost</DialogTitle>
+          <DialogTitle>Mark as Do Not Contact</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -74,7 +74,7 @@ export function MarkLostDialog({ open, onOpenChange, leadId, onDone }: MarkLostD
             </Select>
           </div>
           <Button onClick={handleSubmit} disabled={saving} variant="destructive" className="w-full">
-            {saving ? 'Saving...' : 'Mark as Lost'}
+            {saving ? 'Saving...' : 'Mark as Do Not Contact'}
           </Button>
         </div>
       </DialogContent>

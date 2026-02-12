@@ -2,7 +2,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, PhoneCall, MessageSquare, StickyNote, Clock, CalendarPlus, XCircle, Send } from 'lucide-react';
+import { Phone, Mail, PhoneCall, MessageSquare, StickyNote, Clock, CalendarPlus, XCircle, Send, ShoppingBag, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO, format, differenceInDays } from 'date-fns';
 import { useState } from 'react';
 import { LogActionDialog } from './LogActionDialog';
@@ -13,6 +13,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { SequenceTracker } from '@/components/scripts/SequenceTracker';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 interface LeadDetailSheetProps {
   lead: Tables<'leads'> | null;
@@ -25,7 +28,15 @@ interface LeadDetailSheetProps {
 const STAGE_COLORS: Record<string, string> = {
   new: 'bg-info text-info-foreground',
   contacted: 'bg-warning text-warning-foreground',
+  won: 'bg-amber-500 text-white',
   lost: 'bg-muted text-muted-foreground',
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  won: 'Purchased',
+  lost: 'Do Not Contact',
 };
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
@@ -44,6 +55,42 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
   const [showBookDialog, setShowBookDialog] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const [showScripts, setShowScripts] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [markingPurchased, setMarkingPurchased] = useState(false);
+
+  const handleMarkPurchased = async () => {
+    setMarkingPurchased(true);
+    try {
+      await supabase.from('leads').update({ stage: 'won' }).eq('id', lead!.id);
+      await supabase.from('lead_activities').insert({
+        lead_id: lead!.id,
+        activity_type: 'stage_change',
+        performed_by: user?.name || 'Unknown',
+        notes: 'Marked as Purchased',
+      });
+      toast.success('Lead marked as Purchased');
+      onRefresh();
+    } catch {
+      toast.error('Failed to update');
+    } finally {
+      setMarkingPurchased(false);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    setDeleting(true);
+    try {
+      await supabase.from('lead_activities').delete().eq('lead_id', lead!.id);
+      await supabase.from('leads').delete().eq('id', lead!.id);
+      toast.success('Lead deleted');
+      onOpenChange(false);
+      onRefresh();
+    } catch {
+      toast.error('Failed to delete lead');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (!lead) return null;
 
@@ -96,7 +143,7 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
             {/* Header info */}
             <div className="space-y-2 mb-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge className={STAGE_COLORS[lead.stage] || ''}>{lead.stage}</Badge>
+                <Badge className={STAGE_COLORS[lead.stage] || ''}>{STAGE_LABELS[lead.stage] || lead.stage}</Badge>
                 {isBooked && <Badge className="bg-success text-success-foreground">Booked</Badge>}
                 <span className="text-xs text-muted-foreground">{lead.source}</span>
               </div>
@@ -136,9 +183,14 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                 <Button size="sm" variant="outline" onClick={() => setShowScripts(true)} className="text-xs">
                   <Send className="w-3.5 h-3.5 mr-1" /> Script
                 </Button>
-                {lead.stage !== 'lost' && (
+                {lead.stage !== 'lost' && lead.stage !== 'won' && (
                   <Button size="sm" variant="destructive" onClick={() => setShowLostDialog(true)} className="text-xs">
-                    <XCircle className="w-3.5 h-3.5 mr-1" /> Lost
+                    <XCircle className="w-3.5 h-3.5 mr-1" /> DNC
+                  </Button>
+                )}
+                {lead.stage !== 'won' && (
+                  <Button size="sm" className="text-xs bg-amber-500 hover:bg-amber-600 text-white" onClick={handleMarkPurchased} disabled={markingPurchased}>
+                    <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Purchased
                   </Button>
                 )}
               </div>
@@ -177,6 +229,31 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Delete Lead */}
+            <div className="mt-6 pt-4 border-t">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 text-xs">
+                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete Lead
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove {lead.first_name} {lead.last_name} and all their activity history. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteLead} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {deleting ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </ScrollArea>
         </DrawerContent>

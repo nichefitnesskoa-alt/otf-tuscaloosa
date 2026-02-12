@@ -100,6 +100,9 @@ export default function Leads() {
       setLostDialogLeadId(leadId);
       return;
     }
+    if (newStage === 'won') {
+      // Mark as purchased directly, no reason needed
+    }
 
     try {
       await supabase.from('leads').update({ stage: newStage }).eq('id', leadId);
