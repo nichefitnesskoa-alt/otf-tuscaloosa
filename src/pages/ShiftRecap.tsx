@@ -406,10 +406,14 @@ export default function ShiftRecap() {
   };
 
   const handleSubmitClick = () => {
-    // Validate phone on bookings (only non-submitted ones)
+    // Validate phone and email on bookings (only non-submitted ones)
     for (const booking of introsBooked) {
       if (booking.memberName && !booking.submittedAt && !booking.phone?.trim()) {
         toast.error(`Phone number required for ${booking.memberName}`);
+        return;
+      }
+      if (booking.memberName && !booking.submittedAt && !booking.email?.trim()) {
+        toast.error(`Email required for ${booking.memberName}`);
         return;
       }
     }
