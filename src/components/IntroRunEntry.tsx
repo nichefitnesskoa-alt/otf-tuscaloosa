@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, UserCheck, Calendar, Info } from 'lucide-react';
+import { Trash2, UserCheck, Calendar, Info, AlertTriangle, Phone } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
+import { supabase } from '@/integrations/supabase/client';
 import { COACHES } from '@/types';
 
 // Lead Sources (alphabetized)
@@ -61,6 +62,10 @@ export interface IntroRunData {
   // Booking info (carry forward)
   bookedBy?: string;
   originatingBookingId?: string;
+  // Contact info enforcement
+  phoneCollected?: string;
+  emailCollected?: string;
+  phoneMissing?: boolean;
 }
 
 interface IntroRunEntryProps {
@@ -89,7 +94,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     }
   }, [intro.outcome]);
 
-  const handleSelectBookedIntro = (booking: {
+  const handleSelectBookedIntro = async (booking: {
     id: string;
     booking_id: string | null;
     member_name: string;
@@ -102,14 +107,26 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
     const needsCoach = !booking.coach_name || booking.coach_name === 'TBD';
     setSelectedBookingNeedsCoach(needsCoach);
     
+    // Check if phone exists on the booking
+    const { data: bookingData } = await supabase
+      .from('intros_booked')
+      .select('phone, email' as any)
+      .eq('id', booking.id)
+      .maybeSingle();
+    
+    const hasPhone = !!(bookingData as any)?.phone;
+    
     // Auto-apply the lead source from the booking to the intro run
     onUpdate(index, {
       linkedBookingId: booking.id,
       memberName: booking.member_name,
-      leadSource: booking.lead_source, // Auto-apply lead source from booking
+      leadSource: booking.lead_source,
       bookedBy: booking.sa_working_shift,
       originatingBookingId: booking.booking_id || undefined,
-      coachName: needsCoach ? '' : booking.coach_name, // Pass coach if known
+      coachName: needsCoach ? '' : booking.coach_name,
+      phoneMissing: !hasPhone,
+      phoneCollected: (bookingData as any)?.phone || '',
+      emailCollected: (bookingData as any)?.email || '',
     });
   };
 
@@ -388,6 +405,44 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
           <Badge className="bg-success">
             Commission Eligible
           </Badge>
+        </div>
+      )}
+
+      {/* Phone enforcement prompt */}
+      {intro.phoneMissing && (
+        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg space-y-2">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm font-medium">Phone number needed for {intro.memberName.split(' ')[0]}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            We need a phone number before you can log this intro.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Phone *</Label>
+              <Input
+                type="tel"
+                value={intro.phoneCollected || ''}
+                onChange={(e) => onUpdate(index, { 
+                  phoneCollected: e.target.value,
+                  phoneMissing: !e.target.value.trim(),
+                })}
+                placeholder="(555) 123-4567"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input
+                type="email"
+                value={intro.emailCollected || ''}
+                onChange={(e) => onUpdate(index, { emailCollected: e.target.value })}
+                placeholder="email@example.com"
+                className="mt-1"
+              />
+            </div>
+          </div>
         </div>
       )}
 

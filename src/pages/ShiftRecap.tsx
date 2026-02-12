@@ -141,6 +141,8 @@ export default function ShiftRecap() {
     setIntrosBooked([...introsBooked, { 
       id: crypto.randomUUID(),
       memberName: '',
+      phone: '',
+      email: '',
       introDate: date,
       introTime: '',
       leadSource: '',
@@ -262,6 +264,22 @@ export default function ShiftRecap() {
   };
 
   const handleSubmit = async () => {
+    // Validate phone on bookings
+    for (const booking of introsBooked) {
+      if (booking.memberName && !booking.phone?.trim()) {
+        toast.error(`Phone number required for ${booking.memberName}`);
+        return;
+      }
+    }
+
+    // Validate phone on intro runs (enforce collection)
+    for (const run of introsRun) {
+      if (run.memberName && run.outcome && run.phoneMissing) {
+        toast.error(`Phone number required for ${run.memberName} before logging intro`);
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -308,6 +326,8 @@ export default function ShiftRecap() {
             intro_owner_locked: false,
             originating_booking_id: booking.originatingBookingId || null,
             referred_by_member_name: booking.referredByMemberName || null,
+            phone: booking.phone?.trim() || null,
+            email: booking.email?.trim() || null,
           } as any).select().single();
 
           if (bookingInsertError) throw bookingInsertError;
@@ -520,6 +540,16 @@ export default function ShiftRecap() {
           });
 
           if (runError) throw runError;
+
+          // Save collected phone/email to the booking record
+          if (linkedBookingId && (run.phoneCollected || run.emailCollected)) {
+            const contactUpdate: Record<string, unknown> = {};
+            if (run.phoneCollected?.trim()) contactUpdate.phone = run.phoneCollected.trim();
+            if (run.emailCollected?.trim()) contactUpdate.email = run.emailCollected.trim();
+            if (Object.keys(contactUpdate).length > 0) {
+              await supabase.from('intros_booked').update(contactUpdate).eq('id', linkedBookingId);
+            }
+          }
 
           // If this is the first non-no-show run, lock intro_owner on the booking too
           if (isFirstRun && linkedBookingId && run.outcome !== 'No-show') {

@@ -306,6 +306,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           edit_reason: string | null
+          email: string | null
           fitness_goal: string | null
           id: string
           ignore_from_metrics: boolean | null
@@ -319,6 +320,7 @@ export type Database = {
           member_name: string
           originating_booking_id: string | null
           paired_booking_id: string | null
+          phone: string | null
           referred_by_member_name: string | null
           sa_working_shift: string
           sheets_row_number: number | null
@@ -338,6 +340,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           edit_reason?: string | null
+          email?: string | null
           fitness_goal?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -351,6 +354,7 @@ export type Database = {
           member_name: string
           originating_booking_id?: string | null
           paired_booking_id?: string | null
+          phone?: string | null
           referred_by_member_name?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
@@ -370,6 +374,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           edit_reason?: string | null
+          email?: string | null
           fitness_goal?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -383,6 +388,7 @@ export type Database = {
           member_name?: string
           originating_booking_id?: string | null
           paired_booking_id?: string | null
+          phone?: string | null
           referred_by_member_name?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null

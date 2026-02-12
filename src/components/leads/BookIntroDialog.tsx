@@ -60,7 +60,9 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           sa_working_shift: user?.name || 'Unknown',
           lead_source: lead.source,
           booked_by: user?.name || 'Unknown',
-        })
+          phone: lead.phone || null,
+          email: lead.email || null,
+        } as any)
         .select('id')
         .single();
 
