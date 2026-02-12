@@ -9,8 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, parseISO, addDays, differenceInMinutes } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
-  Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight
+  Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Collapsible,
   CollapsibleContent,
@@ -53,6 +54,7 @@ interface AllBookingMinimal {
   originating_booking_id: string | null;
   class_date: string;
   created_at: string;
+  is_vip?: boolean | null;
 }
 
 interface OverdueFollowUp {
@@ -158,7 +160,7 @@ export default function MyDay() {
       // Fetch all bookings for intro type detection
       const { data: allBookingsData } = await supabase
         .from('intros_booked')
-        .select('id, member_name, originating_booking_id, class_date, created_at')
+        .select('id, member_name, originating_booking_id, class_date, created_at, is_vip')
         .is('deleted_at', null);
 
       if (allBookingsData) setAllBookings(allBookingsData as AllBookingMinimal[]);
@@ -311,20 +313,29 @@ export default function MyDay() {
     return <Badge variant="outline" className="text-muted-foreground text-[10px]">Not Sent</Badge>;
   };
 
-  const renderIntroCard = (b: DayBooking, showReminderStatus = false) => {
-    const is2nd = isSecondIntro(b.id);
+  const renderIntroCard = (b: DayBooking, showReminderStatus = false, isVipCard = false) => {
+    const is2nd = isVipCard ? false : isSecondIntro(b.id);
     const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
     const reminderSent = reminderSentMap.has(b.id);
 
     return (
-      <div key={b.id} className="rounded-lg border bg-card p-3 space-y-2">
+      <div key={b.id} className={cn(
+        'rounded-lg border bg-card p-3 space-y-2',
+        isVipCard && 'border-purple-200 bg-purple-50/30'
+      )}>
         {/* Main row */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-semibold text-sm">{b.member_name}</span>
-              <IntroTypeBadge isSecondIntro={is2nd} />
-              <LeadSourceTag source={b.lead_source} />
+              {isVipCard ? (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
+              ) : (
+                <>
+                  <IntroTypeBadge isSecondIntro={is2nd} />
+                  <LeadSourceTag source={b.lead_source} />
+                </>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
@@ -337,7 +348,7 @@ export default function MyDay() {
             {b.phone && !b.email && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">No Email</Badge>
             )}
-            {getQBadge(b.questionnaire_status, is2nd)}
+            {!isVipCard && getQBadge(b.questionnaire_status, is2nd)}
             {showReminderStatus && !reminderSent && (
               <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30">
                 Reminder Not Sent
@@ -346,19 +357,46 @@ export default function MyDay() {
           </div>
         </div>
 
-        {/* Inline action bar */}
-        <IntroActionBar
-          memberName={b.member_name}
-          memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
-          bookingId={b.id}
-          classDate={b.class_date}
-          classTime={b.intro_time}
-          coachName={b.coach_name}
-          leadSource={b.lead_source}
-          isSecondIntro={is2nd}
-          firstBookingId={firstId}
-          phone={b.phone}
-        />
+        {/* Inline action bar - VIP cards get "Book Real Intro" instead of script generate */}
+        {isVipCard ? (
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] flex-1 text-purple-700 border-purple-300 hover:bg-purple-50"
+              onClick={() => {
+                setBookIntroLead({
+                  id: '',
+                  first_name: b.member_name.split(' ')[0] || '',
+                  last_name: b.member_name.split(' ').slice(1).join(' ') || '',
+                  phone: b.phone || '',
+                  email: b.email || '',
+                  source: 'VIP Class',
+                  stage: 'new',
+                  created_at: b.created_at,
+                  updated_at: b.created_at,
+                  last_name_2: '',
+                } as any);
+              }}
+            >
+              <CalendarPlus className="w-3 h-3 mr-1" />
+              Book Real Intro
+            </Button>
+          </div>
+        ) : (
+          <IntroActionBar
+            memberName={b.member_name}
+            memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+            bookingId={b.id}
+            classDate={b.class_date}
+            classTime={b.intro_time}
+            coachName={b.coach_name}
+            leadSource={b.lead_source}
+            isSecondIntro={is2nd}
+            firstBookingId={firstId}
+            phone={b.phone}
+          />
+        )}
       </div>
     );
   };
@@ -425,14 +463,14 @@ export default function MyDay() {
                   <CardTitle className="text-base flex items-center gap-2">
                     {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     <Star className="w-4 h-4 text-purple-600" />
-                    {headerLabel}
-                    <Badge variant="secondary" className="ml-auto text-xs">{group.members.length} intros</Badge>
+                    VIP Event: {headerLabel}
+                    <Badge variant="secondary" className="ml-auto text-xs">{group.members.length} guests</Badge>
                   </CardTitle>
                 </CardHeader>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-2 pt-0">
-                  {group.members.map(b => renderIntroCard(b))}
+                  {group.members.map(b => renderIntroCard(b, false, true))}
                 </CardContent>
               </CollapsibleContent>
             </Card>

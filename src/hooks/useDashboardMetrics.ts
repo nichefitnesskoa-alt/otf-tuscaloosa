@@ -109,18 +109,23 @@ export function useDashboardMetrics(
     
     const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
     
-    // Filter out bookings with excluded status or ignored from metrics
+    // Filter out bookings with excluded status, ignored from metrics, or VIP
     const activeBookings = introsBooked.filter(b => {
       const status = ((b as any).booking_status || '').toUpperCase();
       const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
       const isIgnored = (b as any).ignore_from_metrics === true;
-      return !isExcludedStatus && !isIgnored;
+      const isVip = (b as any).is_vip === true;
+      return !isExcludedStatus && !isIgnored && !isVip;
     });
     
-    // Filter out runs that are ignored from metrics
+    // Filter out runs that are ignored from metrics or linked to VIP bookings
+    const vipBookingIds = new Set(
+      introsBooked.filter(b => (b as any).is_vip === true).map(b => b.id)
+    );
     const activeRuns = introsRun.filter(r => {
       const isIgnored = (r as any).ignore_from_metrics === true;
-      return !isIgnored;
+      const isVipRun = r.linked_intro_booked_id && vipBookingIds.has(r.linked_intro_booked_id);
+      return !isIgnored && !isVipRun;
     });
     
     // FIRST INTRO BOOKINGS ONLY (for leaderboards - show rate)

@@ -63,6 +63,7 @@ export default function VipRegister() {
           booked_by: 'Self (VIP Form)',
           booking_status: 'Unscheduled',
           vip_class_name: vipClassName || null,
+          is_vip: true,
         } as any)
         .select('id')
         .single();

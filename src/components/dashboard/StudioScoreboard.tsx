@@ -132,6 +132,7 @@ export function StudioScoreboard({
             </TooltipProvider>
           </div>
         </div>
+        <p className="text-[10px] opacity-40 text-center mt-3">Excludes VIP events</p>
       </CardContent>
     </Card>
   );

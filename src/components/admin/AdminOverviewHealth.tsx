@@ -54,7 +54,7 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
       supabase.from('referrals').select('*'),
       supabase.from('daily_recaps').select('status, created_at').order('created_at', { ascending: false }).limit(50),
       supabase.from('sheets_sync_log').select('status, created_at').order('created_at', { ascending: false }).limit(1),
-      supabase.from('intros_booked').select('id, lead_source, class_date, originating_booking_id, deleted_at').is('deleted_at', null),
+      supabase.from('intros_booked').select('id, lead_source, class_date, originating_booking_id, deleted_at, is_vip').is('deleted_at', null),
       supabase.from('intros_run').select('linked_intro_booked_id, result, run_date, buy_date, created_at, commission_amount'),
     ]);
 
@@ -94,7 +94,7 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
     // Lead source performance
     if (bookingsRes.data && runsRes.data) {
       const bookings = (bookingsRes.data as any[]).filter(b =>
-        !b.originating_booking_id && isDateInRange(b.class_date, startStr, endStr)
+        !b.originating_booking_id && !b.is_vip && isDateInRange(b.class_date, startStr, endStr)
       );
       const runs = runsRes.data;
 

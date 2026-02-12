@@ -17,6 +17,7 @@ import { AmcTracker } from '@/components/dashboard/AmcTracker';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
+import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -309,6 +310,8 @@ export default function Recaps() {
       {/* Referral Leaderboard */}
       <ReferralLeaderboard />
 
+      {/* VIP Conversion Tracking */}
+      <VipConversionCard dateRange={dateRange} />
       {/* Top Performers - only show when viewing all staff */}
       {!selectedEmployee && (
         <Card>
