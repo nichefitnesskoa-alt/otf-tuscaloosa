@@ -1,38 +1,54 @@
 
-# Fix Mobile Layout Overflow
+# Fix: Friend Bookings Not Detected as 2nd Intros + Follow-up Improvements
 
-## Problem
-Several elements cause horizontal overflow and poor fit on mobile screens:
+## Root Cause
 
-1. **`App.css` root padding**: The `#root` selector applies `padding: 2rem` (32px per side), stealing 64px of horizontal space on every page.
-2. **Header overflow**: The header row contains logo, user name, role badge, alert bell, and logout button all in one line with no wrapping or truncation. On narrow screens (390px), this overflows.
-3. **BottomNav crowding**: Admin users see 9 nav items in a single row (`flex justify-around`), causing tiny tap targets and potential overflow.
-4. **No global overflow prevention**: Nothing prevents the body/root from scrolling horizontally when child content pushes wider than the viewport.
+Lydia Guyse has only **one** record in the database. When she was booked as Abbie Randol's friend via the "Bringing a friend?" toggle, the system created a single booking for her. The intro type detection hook (`useIntroTypeDetection`) determines 2nd intros by checking:
+
+1. Does the booking have an `originating_booking_id`? -- Lydia's is `null`
+2. Does the same name appear in multiple bookings? -- Lydia only has one record
+
+Since neither condition is met, she's classified as a 1st intro despite `booking_status` being "2nd Intro Scheduled." The hook doesn't use `booking_status` at all.
+
+**Secondary issue:** Lydia's `phone` and `email` are both `null` because the friend sub-form data (phone/email) was not being saved to the `intros_booked` record during submission.
+
+---
 
 ## Plan
 
-### 1. Fix App.css root styles
-Remove the `padding: 2rem` and `max-width: 1280px` from `#root` since they conflict with the full-width mobile layout. The `AppLayout` and individual pages already handle their own padding.
+### 1. Save friend phone and email to their booking record
+Both the instant-submit and full-submit paths in `ShiftRecap.tsx` create the friend's `intros_booked` record but never include `phone` or `email` from the friend sub-form. Add these fields to both insert calls.
 
-### 2. Add global overflow-x prevention
-In `index.css`, add `overflow-x: hidden` to the `html` and `body` elements to prevent horizontal scroll.
+**File:** `src/pages/ShiftRecap.tsx` (two locations: ~line 324 and ~line 526)
 
-### 3. Make Header mobile-responsive
-- Hide the user's name text on small screens (show only on `sm:` breakpoint and above)
-- Keep the OTF logo, alert bell, role badge, and logout button visible
-- Add `overflow-hidden` and `min-w-0` to prevent the header from forcing horizontal scroll
+### 2. Check for existing bookings when creating friend records
+Before inserting a friend booking, query `intros_booked` for any prior booking matching the friend's name or phone. If a match is found:
+- Set `originating_booking_id` on the new friend booking to point to the earliest existing record
+- This ensures the intro type detection hook correctly identifies it as a 2nd intro
 
-### 4. Make BottomNav scrollable on mobile
-- For Admin users with 9 items, add `overflow-x-auto` and `scrollbar-hide` so the nav items can scroll horizontally without overflowing the viewport
-- Slightly reduce icon/text sizing for better fit
+**File:** `src/pages/ShiftRecap.tsx` (both submission paths)
 
-### 5. Ensure card content doesn't overflow
-- Add `overflow-hidden` to the main content wrapper in `AppLayout`
-- Ensure intro cards and lead cards use `min-w-0` on flex children to allow text truncation
+### 3. Include `booking_status` as a fallback in intro type detection
+Update `useIntroTypeDetection` to also check `booking_status` containing "2nd" as a tertiary signal when neither `originating_booking_id` nor name-match logic triggers. This provides a safety net for manually-tagged records.
 
-## Files to modify
-- `src/App.css` -- remove conflicting root styles
-- `src/index.css` -- add overflow-x prevention
-- `src/components/Header.tsx` -- responsive header layout
-- `src/components/BottomNav.tsx` -- handle many nav items gracefully
-- `src/components/AppLayout.tsx` -- add overflow protection
+**File:** `src/hooks/useIntroTypeDetection.ts`
+
+### 4. Fix Lydia's existing data
+Run a migration to set `originating_booking_id` on Lydia's record to point to Abbie's first booking (since they're friends and Lydia is confirmed as a 2nd intro). This is a one-time data fix.
+
+**SQL migration**
+
+### 5. Include phone-based matching in intro type detection
+Currently the hook only matches by `member_name`. Add phone number as a secondary matching key so that even if a name is slightly different (e.g., "Lydia G" vs "Lydia Guyse"), the system can still detect duplicates via phone.
+
+**File:** `src/hooks/useIntroTypeDetection.ts`
+
+---
+
+## Summary of files to modify
+
+| File | Change |
+|------|--------|
+| `src/pages/ShiftRecap.tsx` | Save friend phone/email; check for prior bookings before inserting friend record |
+| `src/hooks/useIntroTypeDetection.ts` | Add phone-based matching and `booking_status` fallback |
+| SQL migration | Fix Lydia's `originating_booking_id` data |
