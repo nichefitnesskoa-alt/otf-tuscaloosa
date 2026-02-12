@@ -253,6 +253,10 @@ export default function IntroBookingEntry({
       toast.error('Phone number is required');
       return;
     }
+    if (!booking.email?.trim()) {
+      toast.error('Email is required');
+      return;
+    }
     if (!booking.leadSource) {
       toast.error('Lead source is required');
       return;
@@ -326,7 +330,7 @@ export default function IntroBookingEntry({
             />
           </div>
           <div>
-            <Label className="text-xs">Email <span className="text-muted-foreground">(optional)</span></Label>
+            <Label className="text-xs">Email *</Label>
             <Input
               type="email"
               value={booking.email}
