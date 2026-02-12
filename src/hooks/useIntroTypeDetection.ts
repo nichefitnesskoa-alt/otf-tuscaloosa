@@ -12,21 +12,28 @@ export function useIntroTypeDetection(
     originating_booking_id?: string | null;
     class_date: string;
     created_at?: string;
+    is_vip?: boolean | null;
   }>
 ) {
   // Build a map: booking_id -> isSecondIntro
   const introTypeMap = useMemo(() => {
     const map = new Map<string, boolean>();
     
-    // Group bookings by member_key
-    const memberGroups = new Map<string, typeof allBookings>();
-    allBookings.forEach(b => {
+    // Group bookings by member_key, excluding VIP bookings from intro type logic
+    const nonVipBookings = allBookings.filter(b => !b.is_vip);
+    const memberGroups = new Map<string, typeof nonVipBookings>();
+    nonVipBookings.forEach(b => {
       const key = b.member_name.toLowerCase().replace(/\s+/g, '');
       if (!memberGroups.has(key)) memberGroups.set(key, []);
       memberGroups.get(key)!.push(b);
     });
 
     allBookings.forEach(b => {
+      // VIP bookings are never 1st/2nd intros - skip them
+      if (b.is_vip) {
+        map.set(b.id, false);
+        return;
+      }
       // If it has an originating_booking_id, it's definitively a 2nd intro
       if (b.originating_booking_id) {
         map.set(b.id, true);

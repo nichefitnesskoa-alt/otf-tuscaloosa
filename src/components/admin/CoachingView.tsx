@@ -55,18 +55,24 @@ function getCoachingRange(preset: CoachingPreset): { start: Date; end: Date } | 
 }
 
 export default function CoachingView() {
-  const { introsRun } = useData();
+  const { introsRun, introsBooked } = useData();
   const [preset, setPreset] = useState<CoachingPreset>('30_days');
 
   const range = useMemo(() => getCoachingRange(preset), [preset]);
 
   const saMetrics = useMemo(() => {
+    // Build set of VIP booking IDs to exclude
+    const vipBookingIds = new Set(
+      introsBooked.filter(b => (b as any).is_vip === true).map(b => b.id)
+    );
     const byStaff = new Map<string, { runs: number; sales: number; goalWhy: number; friend: number }>();
 
     for (const run of introsRun) {
       const sa = run.intro_owner || run.sa_name || 'Unknown';
       if (sa === 'Unknown') continue;
       if (run.result === 'No-show') continue;
+      // Exclude VIP runs
+      if (run.linked_intro_booked_id && vipBookingIds.has(run.linked_intro_booked_id)) continue;
       
       // Apply date filter
       if (range) {
@@ -100,7 +106,7 @@ export default function CoachingView() {
       });
     }
     return metrics.sort((a, b) => b.closeRate - a.closeRate);
-  }, [introsRun, range]);
+  }, [introsRun, introsBooked, range]);
 
   const suggestions = useMemo(() => {
     const tips: { name: string; tip: string; priority: 'high' | 'medium' | 'low' }[] = [];

@@ -340,6 +340,7 @@ export type Database = {
           intro_owner: string | null
           intro_owner_locked: boolean | null
           intro_time: string | null
+          is_vip: boolean
           last_edited_at: string | null
           last_edited_by: string | null
           lead_source: string
@@ -375,6 +376,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           intro_time?: string | null
+          is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_source: string
@@ -410,6 +412,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           intro_time?: string | null
+          is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_source?: string

@@ -54,6 +54,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
         const status = ((b as any).booking_status || '').toUpperCase();
         if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
         if ((b as any).ignore_from_metrics) return false;
+        if ((b as any).is_vip === true) return false; // Exclude VIP events
         if (!isInRange(b.class_date, dateRange || null)) return false;
         
         if (filter === '1st') return isFirstIntro(b);
@@ -157,8 +158,11 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
           ))}
         </div>
         
-        <div className="mt-4 pt-3 border-t flex justify-center text-xs text-muted-foreground">
-          <span>Overall Conversion: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
+        <div className="mt-4 pt-3 border-t space-y-1">
+          <div className="flex justify-center text-xs text-muted-foreground">
+            <span>Overall Conversion: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
+          </div>
+          <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events</p>
         </div>
 
         {/* Comparison card */}

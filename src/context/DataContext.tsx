@@ -32,6 +32,7 @@ export interface IntroBooked {
   intro_owner?: string | null;
   intro_owner_locked?: boolean | null;
   originating_booking_id?: string | null;
+  is_vip?: boolean | null;
   created_at: string;
 }
 
