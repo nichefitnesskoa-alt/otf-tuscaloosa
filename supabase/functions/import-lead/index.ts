@@ -114,18 +114,80 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if this person already has a booking in intros_booked
+      // ── Cross-table duplicate detection ──
+      // Check intros_booked by name (case-insensitive)
       const memberName = `${lead.first_name} ${lead.last_name}`;
-      let autoStage = "new";
-      let autoBookedIntroId: string | null = null;
 
-      const { data: existingBooking } = await supabase
+      const { data: nameMatchBooking } = await supabase
         .from("intros_booked")
         .select("id, lead_source")
         .ilike("member_name", memberName)
         .is("deleted_at", null)
         .limit(1)
         .maybeSingle();
+
+      // Also check by phone via vip_registrations linked to bookings
+      let phoneMatchBooking: { id: string; lead_source: string } | null = null;
+      if (lead.phone) {
+        const { data: vipMatch } = await supabase
+          .from("vip_registrations")
+          .select("booking_id")
+          .eq("phone", lead.phone)
+          .not("booking_id", "is", null)
+          .limit(1)
+          .maybeSingle();
+
+        if (vipMatch?.booking_id) {
+          const { data: bookingMatch } = await supabase
+            .from("intros_booked")
+            .select("id, lead_source")
+            .eq("id", vipMatch.booking_id)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (bookingMatch) phoneMatchBooking = bookingMatch;
+        }
+      }
+
+      const existingBooking = nameMatchBooking || phoneMatchBooking;
+
+      // If found in pipeline already but NOT in leads, return early
+      if (existingBooking) {
+        // Check if a lead record already exists for this person
+        const orFiltersBookingCheck: string[] = [];
+        if (lead.email) orFiltersBookingCheck.push(`email.eq.${lead.email}`);
+        if (lead.phone) orFiltersBookingCheck.push(`phone.eq.${lead.phone}`);
+
+        let existingLeadForBooking = null;
+        if (orFiltersBookingCheck.length > 0) {
+          const { data } = await supabase
+            .from("leads")
+            .select("id")
+            .or(orFiltersBookingCheck.join(","))
+            .limit(1)
+            .maybeSingle();
+          existingLeadForBooking = data;
+        }
+
+        if (!existingLeadForBooking) {
+          // No lead record either — this person is already in the booking pipeline
+          if (meta?.gmail_message_id) {
+            await supabase.from("intake_events").insert({
+              source: "gmail",
+              external_id: meta.gmail_message_id,
+              payload: body,
+              booking_id: existingBooking.id,
+            });
+          }
+          return jsonResponse({
+            status: "already_exists",
+            message: `Already exists in client pipeline as booking: ${memberName}`,
+            existing_booking_id: existingBooking.id,
+          });
+        }
+      }
+
+      let autoStage = "new";
+      let autoBookedIntroId: string | null = null;
 
       if (existingBooking) {
         autoBookedIntroId = existingBooking.id;

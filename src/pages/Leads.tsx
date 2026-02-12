@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
-import { Plus, LayoutGrid, List } from 'lucide-react';
+import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
 import { LeadMetricsBar } from '@/components/leads/LeadMetricsBar';
 import { LeadKanbanBoard } from '@/components/leads/LeadKanbanBoard';
 import { LeadListView } from '@/components/leads/LeadListView';
@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 export default function Leads() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+  const [view, setView] = useState<'kanban' | 'list'>('list');
+  const [cleaning, setCleaning] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Tables<'leads'> | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
@@ -48,6 +49,49 @@ export default function Leads() {
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
     queryClient.invalidateQueries({ queryKey: ['lead_activities'] });
+  };
+
+  const handleCleanDuplicates = async () => {
+    setCleaning(true);
+    try {
+      const newLeads = leads.filter(l => l.stage === 'new');
+      if (newLeads.length === 0) {
+        toast.info('No new leads to check');
+        setCleaning(false);
+        return;
+      }
+
+      let cleaned = 0;
+      for (const lead of newLeads) {
+        const fullName = `${lead.first_name} ${lead.last_name}`;
+        const { data: nameMatch } = await supabase
+          .from('intros_booked')
+          .select('id')
+          .ilike('member_name', fullName)
+          .is('deleted_at', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (nameMatch) {
+          await supabase.from('leads').update({
+            stage: 'lost',
+            lost_reason: 'Already booked in client pipeline',
+          }).eq('id', lead.id);
+          cleaned++;
+        }
+      }
+
+      if (cleaned > 0) {
+        toast.success(`${cleaned} duplicate${cleaned > 1 ? 's' : ''} cleaned`);
+        refresh();
+      } else {
+        toast.info('No duplicates found');
+      }
+    } catch {
+      toast.error('Failed to clean duplicates');
+    } finally {
+      setCleaning(false);
+    }
   };
 
   const handleStageChange = async (leadId: string, newStage: string) => {
@@ -95,6 +139,9 @@ export default function Leads() {
             onClick={() => setView('list')}
           >
             <List className="w-4 h-4" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleCleanDuplicates} disabled={cleaning}>
+            <Sparkles className="w-4 h-4 mr-1" /> {cleaning ? 'Cleaning...' : 'Clean Duplicates'}
           </Button>
           <Button size="sm" onClick={() => setShowAddDialog(true)}>
             <Plus className="w-4 h-4 mr-1" /> Add Lead

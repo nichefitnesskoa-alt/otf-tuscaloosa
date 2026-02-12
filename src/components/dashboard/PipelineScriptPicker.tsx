@@ -16,6 +16,7 @@ interface ClientBooking {
   booking_status: string | null;
   intro_owner: string | null;
   originating_booking_id: string | null;
+  paired_booking_id: string | null;
 }
 
 interface ClientRun {
@@ -162,15 +163,18 @@ function buildMergeContext(journey: ClientJourney): Record<string, string> {
 
 export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineScriptPickerProps) {
   const [questionnaireLink, setQuestionnaireLink] = useState<string | undefined>();
+  const [friendQuestionnaireLink, setFriendQuestionnaireLink] = useState<string | undefined>();
   const suggestedCategories = getSuggestedCategories(journey);
   const mergeContext = buildMergeContext(journey);
 
-  // Fetch questionnaire link for the latest booking
+  // Fetch questionnaire link for the latest booking + friend booking
   useEffect(() => {
     if (!open || !journey.bookings[0]) return;
 
-    const fetchQLink = async () => {
+    const fetchQLinks = async () => {
       const booking = journey.bookings[0];
+
+      // Primary questionnaire link
       const { data } = await supabase
         .from('intro_questionnaires')
         .select('slug')
@@ -180,14 +184,28 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
       if (data?.slug) {
         setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
       }
+
+      // Friend questionnaire link via paired_booking_id
+      if (booking.paired_booking_id) {
+        const { data: friendData } = await supabase
+          .from('intro_questionnaires')
+          .select('slug')
+          .eq('booking_id', booking.paired_booking_id)
+          .maybeSingle();
+
+        if (friendData?.slug) {
+          setFriendQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${friendData.slug}`);
+        }
+      }
     };
 
-    fetchQLink();
+    fetchQLinks();
   }, [open, journey.bookings]);
 
   const fullMergeContext = {
     ...mergeContext,
     ...(questionnaireLink ? { 'questionnaire-link': questionnaireLink } : {}),
+    ...(friendQuestionnaireLink ? { 'friend-questionnaire-link': friendQuestionnaireLink } : {}),
   };
 
   return (
