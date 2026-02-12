@@ -22,6 +22,8 @@ import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 export interface IntroBookingData {
   id: string;
   memberName: string;
+  phone: string;
+  email: string;
   introDate: string;
   introTime: string;
   leadSource: string;
@@ -143,7 +145,29 @@ export default function IntroBookingEntry({
       setDismissedWarning(false);
     }
     onUpdate(index, { memberName: value });
-  }, [index, onUpdate, dismissedWarning]);
+
+    // Auto-populate phone/email from leads table when name matches
+    if (value.trim().split(/\s+/).length >= 2) {
+      const parts = value.trim().split(/\s+/);
+      const fn = parts[0];
+      const ln = parts.slice(1).join(' ');
+      supabase
+        .from('leads')
+        .select('phone, email')
+        .ilike('first_name', fn)
+        .ilike('last_name', ln)
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const updates: Partial<IntroBookingData> = {};
+            if (data.phone && !booking.phone) updates.phone = data.phone;
+            if (data.email && !booking.email) updates.email = data.email;
+            if (Object.keys(updates).length > 0) onUpdate(index, updates);
+          }
+        });
+    }
+  }, [index, onUpdate, dismissedWarning, booking.phone, booking.email]);
 
   const handleSelectExisting = useCallback((client: PotentialMatch) => {
     setSelectedClient(client);
@@ -242,6 +266,30 @@ export default function IntroBookingEntry({
               onChange={handleNameChange}
               onSelectExisting={handleSelectExisting}
               onCreateNew={handleCreateNew}
+            />
+          </div>
+        </div>
+
+        {/* Phone & Email */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Phone *</Label>
+            <Input
+              type="tel"
+              value={booking.phone}
+              onChange={(e) => onUpdate(index, { phone: e.target.value })}
+              placeholder="(555) 123-4567"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Email <span className="text-muted-foreground">(optional)</span></Label>
+            <Input
+              type="email"
+              value={booking.email}
+              onChange={(e) => onUpdate(index, { email: e.target.value })}
+              placeholder="email@example.com"
+              className="mt-1"
             />
           </div>
         </div>

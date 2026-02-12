@@ -29,6 +29,8 @@ interface DayBooking {
   originating_booking_id: string | null;
   class_date: string;
   created_at: string;
+  phone: string | null;
+  email: string | null;
 }
 
 interface AllBookingMinimal {
@@ -78,7 +80,7 @@ export default function MyDay() {
       // 1. Today's and tomorrow's booked intros
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at')
+        .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email')
         .in('class_date', [today, tomorrow])
         .is('deleted_at', null)
         .is('vip_class_name', null)
@@ -105,6 +107,8 @@ export default function MyDay() {
         const enriched = bookings.map(b => ({
           ...b,
           questionnaire_status: qMap.get(b.id) || null,
+          phone: (b as any).phone || null,
+          email: (b as any).email || null,
         }));
 
         setTodayBookings(enriched.filter(b => b.class_date === today));
@@ -214,6 +218,12 @@ export default function MyDay() {
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            {!b.phone && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">No Phone</Badge>
+            )}
+            {b.phone && !b.email && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">No Email</Badge>
+            )}
             {getQBadge(b.questionnaire_status, is2nd)}
             {showReminderStatus && !reminderSent && (
               <Badge variant="outline" className="text-[10px] bg-warning/15 text-warning border-warning/30">
@@ -234,6 +244,7 @@ export default function MyDay() {
           leadSource={b.lead_source}
           isSecondIntro={is2nd}
           firstBookingId={firstId}
+          phone={b.phone}
         />
       </div>
     );
