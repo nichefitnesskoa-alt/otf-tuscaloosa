@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.cleanup-questionnaires]
 verify_jwt = false
+
+[functions.daily-followup-digest]
+verify_jwt = false
