@@ -194,6 +194,53 @@ export default function ClientJourneyPanel() {
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
   const [vipInfoMap, setVipInfoMap] = useState<Map<string, { birthday: string | null; weight_lbs: number | null }>>(new Map());
   
+  // Bulk schedule state for VIP groups
+  const [bulkScheduleGroup, setBulkScheduleGroup] = useState<string | null>(null);
+  const [bulkDate, setBulkDate] = useState('');
+  const [bulkTime, setBulkTime] = useState('');
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  const handleBulkSchedule = async (groupName: string) => {
+    if (!bulkDate || !bulkTime) {
+      toast.error('Please set both date and time');
+      return;
+    }
+    setIsBulkUpdating(true);
+    try {
+      // Update intros_booked
+      const { data: updated, error: bookingError } = await supabase
+        .from('intros_booked')
+        .update({ class_date: bulkDate, intro_time: bulkTime })
+        .eq('vip_class_name', groupName)
+        .is('deleted_at', null)
+        .select('id');
+
+      if (bookingError) throw bookingError;
+
+      const count = updated?.length || 0;
+
+      // Update linked questionnaires
+      if (count > 0) {
+        const bookingIds = updated!.map(b => b.id);
+        await supabase
+          .from('intro_questionnaires')
+          .update({ scheduled_class_date: bulkDate, scheduled_class_time: bulkTime })
+          .in('booking_id', bookingIds);
+      }
+
+      toast.success(`Updated ${count} bookings for ${groupName}`);
+      setBulkScheduleGroup(null);
+      setBulkDate('');
+      setBulkTime('');
+      fetchData();
+    } catch (err) {
+      console.error('Bulk schedule error:', err);
+      toast.error('Failed to update group schedule');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+  
   // Auto-fix dialog
   const [showFixDialog, setShowFixDialog] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
@@ -1540,10 +1587,58 @@ export default function ClientJourneyPanel() {
             <div className="space-y-4">
               {vipGroups.map(([groupName, groupJourneys]) => (
                 <div key={groupName}>
-                  <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-purple-50 border border-purple-200">
-                    <Star className="w-3.5 h-3.5 text-purple-600" />
-                    <span className="text-sm font-semibold text-purple-700">{groupName}</span>
-                    <Badge variant="secondary" className="ml-auto text-[10px] h-5">{groupJourneys.length}</Badge>
+                  <div className="mb-2">
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-purple-50 border border-purple-200">
+                      <Star className="w-3.5 h-3.5 text-purple-600" />
+                      <span className="text-sm font-semibold text-purple-700">{groupName}</span>
+                      <Badge variant="secondary" className="text-[10px] h-5">{groupJourneys.length}</Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="ml-auto h-6 text-[10px] gap-1 border-purple-300 text-purple-700 hover:bg-purple-100"
+                        onClick={() => {
+                          setBulkScheduleGroup(bulkScheduleGroup === groupName ? null : groupName);
+                          setBulkDate('');
+                          setBulkTime('');
+                        }}
+                      >
+                        <CalendarPlus className="w-3 h-3" />
+                        Set Date & Time
+                      </Button>
+                    </div>
+                    {bulkScheduleGroup === groupName && (
+                      <div className="flex items-center gap-2 mt-1.5 px-2 py-2 rounded-md bg-purple-50/50 border border-purple-100">
+                        <Input
+                          type="date"
+                          value={bulkDate}
+                          onChange={(e) => setBulkDate(e.target.value)}
+                          className="h-7 text-xs w-36"
+                        />
+                        <Input
+                          type="time"
+                          value={bulkTime}
+                          onChange={(e) => setBulkTime(e.target.value)}
+                          className="h-7 text-xs w-28"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          disabled={isBulkUpdating || !bulkDate || !bulkTime}
+                          onClick={() => handleBulkSchedule(groupName)}
+                        >
+                          {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                          Apply
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => setBulkScheduleGroup(null)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     {groupJourneys.slice(0, 100).map((journey) => (
