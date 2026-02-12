@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider } from "@/context/DataContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
+import MyDay from "./pages/MyDay";
 import ShiftRecap from "./pages/ShiftRecap";
 import MyShifts from "./pages/MyShifts";
 import Recaps from "./pages/Recaps";
@@ -43,7 +44,7 @@ function AppRoutes() {
     <Routes>
       <Route 
         path="/login" 
-        element={isAuthenticated ? <Navigate to="/shift-recap" replace /> : <Login />} 
+        element={isAuthenticated ? <Navigate to="/my-day" replace /> : <Login />} 
       />
       <Route
         path="/shift-recap"
@@ -108,7 +109,15 @@ function AppRoutes() {
       <Route path="/q/:id" element={<Questionnaire />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
-      <Route path="/" element={<Navigate to="/shift-recap" replace />} />
+      <Route
+        path="/my-day"
+        element={
+          <ProtectedRoute>
+            <MyDay />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/" element={<Navigate to="/my-day" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
