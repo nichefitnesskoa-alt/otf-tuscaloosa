@@ -11,6 +11,9 @@ import {
   ClipboardList, Calendar, AlertTriangle, UserPlus, 
   ChevronRight, Clock, FileText
 } from 'lucide-react';
+import { IntroTypeBadge, LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
+import { ClientActionMenu } from '@/components/dashboard/ClientActionMenu';
+import { useIntroTypeDetection } from '@/hooks/useIntroTypeDetection';
 
 interface TodayBooking {
   id: string;
@@ -19,6 +22,17 @@ interface TodayBooking {
   coach_name: string;
   lead_source: string;
   questionnaire_status: string | null;
+  originating_booking_id: string | null;
+  class_date: string;
+  created_at: string;
+}
+
+interface AllBookingMinimal {
+  id: string;
+  member_name: string;
+  originating_booking_id: string | null;
+  class_date: string;
+  created_at: string;
 }
 
 interface OverdueFollowUp {
@@ -32,9 +46,13 @@ export default function MyDay() {
   const { introsBooked } = useData();
   const navigate = useNavigate();
   const [todayBookings, setTodayBookings] = useState<TodayBooking[]>([]);
+  const [allBookings, setAllBookings] = useState<AllBookingMinimal[]>([]);
   const [overdueFollowUps, setOverdueFollowUps] = useState<OverdueFollowUp[]>([]);
   const [newLeads, setNewLeads] = useState<{ id: string; first_name: string; last_name: string; source: string; created_at: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Intro type detection
+  const { isSecondIntro, getFirstBookingId } = useIntroTypeDetection(allBookings);
 
   useEffect(() => {
     fetchMyDayData();
@@ -50,12 +68,20 @@ export default function MyDay() {
       // 1. Today's booked intros
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, intro_time, coach_name, lead_source')
+        .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at')
         .eq('class_date', today)
         .is('deleted_at', null)
         .is('vip_class_name', null)
         .neq('booking_status', 'Closed – Bought')
         .order('intro_time', { ascending: true });
+
+      // Fetch all bookings for intro type detection
+      const { data: allBookingsData } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, originating_booking_id, class_date, created_at')
+        .is('deleted_at', null);
+
+      if (allBookingsData) setAllBookings(allBookingsData as AllBookingMinimal[]);
 
       if (bookings) {
         // Get questionnaire statuses
@@ -73,7 +99,7 @@ export default function MyDay() {
         })));
       }
 
-      // 2. Overdue follow-ups (simplified: check script_send_log for items needing next step)
+      // 2. Overdue follow-ups
       const { data: sendLogs } = await supabase
         .from('script_send_log')
         .select('*, booking:intros_booked(member_name), lead:leads(first_name, last_name)')
@@ -82,7 +108,6 @@ export default function MyDay() {
         .limit(50);
 
       if (sendLogs) {
-        // Group by booking_id/lead_id, find those with pending next steps
         const grouped = new Map<string, typeof sendLogs[0]>();
         for (const log of sendLogs) {
           const key = log.booking_id || log.lead_id || log.id;
@@ -121,7 +146,9 @@ export default function MyDay() {
     }
   };
 
-  const getQBadge = (status: string | null) => {
+  const getQBadge = (status: string | null, is2nd: boolean) => {
+    // Hide questionnaire badges for 2nd intros
+    if (is2nd) return null;
     if (!status) return <Badge variant="outline" className="text-muted-foreground text-[10px]">No Q</Badge>;
     if (status === 'submitted') return <Badge className="bg-success text-success-foreground text-[10px]">Q Done</Badge>;
     if (status === 'sent') return <Badge className="bg-warning text-warning-foreground text-[10px]">Q Sent</Badge>;
@@ -159,20 +186,40 @@ export default function MyDay() {
           ) : todayBookings.length === 0 ? (
             <p className="text-sm text-muted-foreground">No intros scheduled today</p>
           ) : (
-            todayBookings.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                <div>
-                  <p className="font-medium text-sm">{b.member_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
-                  </p>
+            todayBookings.map(b => {
+              const is2nd = isSecondIntro(b.id);
+              const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
+              return (
+                <div key={b.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <ClientActionMenu
+                        memberName={b.member_name}
+                        memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+                        bookingId={b.id}
+                        classDate={b.class_date}
+                        classTime={b.intro_time}
+                        coachName={b.coach_name}
+                        leadSource={b.lead_source}
+                        firstBookingId={firstId}
+                      >
+                        <button className="font-medium text-sm text-primary hover:underline cursor-pointer text-left">
+                          {b.member_name}
+                        </button>
+                      </ClientActionMenu>
+                      <IntroTypeBadge isSecondIntro={is2nd} />
+                      <LeadSourceTag source={b.lead_source} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {getQBadge(b.questionnaire_status, is2nd)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {getQBadge(b.questionnaire_status)}
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>

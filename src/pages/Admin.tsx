@@ -20,6 +20,7 @@ import ReferralTree from '@/components/admin/ReferralTree';
 import VipBulkImport from '@/components/admin/VipBulkImport';
 import CoachingView from '@/components/admin/CoachingView';
 import CampaignsPanel from '@/components/admin/CampaignsPanel';
+import AmcLogForm from '@/components/admin/AmcLogForm';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 
@@ -169,6 +170,9 @@ export default function Admin() {
             onCustomRangeChange={setCustomRange}
             dateRange={dateRange || { start: new Date(), end: new Date() }}
           />
+
+          {/* AMC Log */}
+          <AmcLogForm />
 
           {/* Pay Period Commission with Show Rates */}
           <PayPeriodCommission dateRange={dateRange} />

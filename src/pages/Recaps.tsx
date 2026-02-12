@@ -13,6 +13,7 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
+import { AmcTracker } from '@/components/dashboard/AmcTracker';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -279,6 +280,9 @@ export default function Recaps() {
           />
         </div>
       </div>
+
+      {/* AMC Tracker - top of Studio */}
+      <AmcTracker />
 
       {/* Studio Scoreboard */}
       <StudioScoreboard
