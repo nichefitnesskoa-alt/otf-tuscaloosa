@@ -6,8 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, AlertTriangle, Users } from 'lucide-react';
+import { Trash2, AlertTriangle, Users, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import ClientNameAutocomplete from './ClientNameAutocomplete';
 import RescheduleClientDialog from './RescheduleClientDialog';
@@ -40,6 +41,8 @@ export interface IntroBookingData {
   friendQuestionnaireId?: string;
   friendQuestionnaireStatus?: 'not_sent' | 'sent' | 'completed';
   referredByMemberName?: string;
+  submittedAt?: string; // ISO string when instant-submitted via Book Now
+  submittedBookingId?: string; // DB id after instant submission
 }
 
 interface IntroBookingEntryProps {
@@ -48,6 +51,7 @@ interface IntroBookingEntryProps {
   onUpdate: (index: number, updates: Partial<IntroBookingData>) => void;
   onRemove: (index: number) => void;
   currentUserName?: string;
+  onInstantSubmit?: (index: number) => void;
 }
 
 export default function IntroBookingEntry({ 
@@ -56,6 +60,7 @@ export default function IntroBookingEntry({
   onUpdate, 
   onRemove,
   currentUserName = 'Unknown',
+  onInstantSubmit,
 }: IntroBookingEntryProps) {
   const { user } = useAuth();
   const [dismissedWarning, setDismissedWarning] = useState(false);
@@ -63,6 +68,7 @@ export default function IntroBookingEntry({
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);
   const [showActionDialog, setShowActionDialog] = useState(false);
   const [showScripts, setShowScripts] = useState(false);
+  const [isInstantSubmitting, setIsInstantSubmitting] = useState(false);
 
   // Compute merge context for scripts
   const nameParts = booking.memberName.split(' ');
@@ -236,18 +242,55 @@ export default function IntroBookingEntry({
   // Friend name for questionnaire link
   const friendFullName = `${booking.friendFirstName} ${booking.friendLastName}`.trim();
 
+  const isSubmitted = !!booking.submittedAt;
+
+  const handleInstantSubmit = async () => {
+    if (!booking.memberName?.trim() || !booking.introDate) {
+      toast.error('Name and date are required');
+      return;
+    }
+    if (!booking.phone?.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
+    if (!booking.leadSource) {
+      toast.error('Lead source is required');
+      return;
+    }
+    setIsInstantSubmitting(true);
+    try {
+      if (onInstantSubmit) {
+        await onInstantSubmit(index);
+      }
+    } finally {
+      setIsInstantSubmitting(false);
+    }
+  };
+
   return (
     <>
-      <div className="p-3 bg-muted/50 rounded-lg space-y-3 relative">
+      <div className={`p-3 rounded-lg space-y-3 relative ${isSubmitted ? 'bg-success/10 border border-success/30' : 'bg-muted/50'}`}>
+        {/* Submitted overlay */}
+        {isSubmitted && (
+          <div className="absolute top-2 left-2 z-10">
+            <Badge className="bg-success text-success-foreground text-[10px] gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Submitted
+            </Badge>
+          </div>
+        )}
+
         <div className="absolute top-2 right-2 flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => onRemove(index)}
-          >
-            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-          </Button>
+          {!isSubmitted && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onRemove(index)}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+            </Button>
+          )}
         </div>
 
         <div>
@@ -473,13 +516,28 @@ export default function IntroBookingEntry({
           />
         )}
 
-        {/* Send Script Button - visible black button at bottom */}
-        <Button
-          onClick={() => setShowScripts(true)}
-          className="w-full bg-black text-white hover:bg-black/90"
-        >
-          Send Script
-        </Button>
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          {!isSubmitted && onInstantSubmit && (
+            <Button
+              onClick={handleInstantSubmit}
+              disabled={isInstantSubmitting}
+              className="flex-1 bg-success text-success-foreground hover:bg-success/90"
+            >
+              {isInstantSubmitting ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Booking...</>
+              ) : (
+                <><CheckCircle className="w-4 h-4 mr-1" /> Book Now</>
+              )}
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowScripts(true)}
+            className={`bg-black text-white hover:bg-black/90 ${!isSubmitted && onInstantSubmit ? 'flex-1' : 'w-full'}`}
+          >
+            Send Script
+          </Button>
+        </div>
       </div>
 
       {selectedClient && (

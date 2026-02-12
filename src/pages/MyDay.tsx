@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isToday, parseISO, addDays } from 'date-fns';
+import { format, isToday, parseISO, addDays, differenceInMinutes } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
   Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight
@@ -70,6 +70,7 @@ export default function MyDay() {
   const [allBookings, setAllBookings] = useState<AllBookingMinimal[]>([]);
   const [overdueFollowUps, setOverdueFollowUps] = useState<OverdueFollowUp[]>([]);
   const [newLeads, setNewLeads] = useState<Tables<'leads'>[]>([]);
+  const [alreadyBookedLeadIds, setAlreadyBookedLeadIds] = useState<Set<string>>(new Set());
   const [vipGroups, setVipGroups] = useState<VipGroup[]>([]);
   const [expandedVipGroups, setExpandedVipGroups] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
@@ -233,7 +234,35 @@ export default function MyDay() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (leads) setNewLeads(leads);
+      if (leads) {
+        setNewLeads(leads);
+
+        // Check for already-booked leads (name or phone match in intros_booked)
+        if (leads.length > 0) {
+          const names = leads.map(l => `${l.first_name} ${l.last_name}`.toLowerCase());
+          const phones = leads.map(l => l.phone).filter(Boolean);
+          
+          const { data: matchingBookings } = await supabase
+            .from('intros_booked')
+            .select('member_name, phone')
+            .is('deleted_at', null)
+            .neq('booking_status', 'Closed – Bought');
+
+          if (matchingBookings) {
+            const bookedNames = new Set(matchingBookings.map(b => b.member_name.toLowerCase()));
+            const bookedPhones = new Set(matchingBookings.map(b => (b as any).phone?.toLowerCase()).filter(Boolean));
+            
+            const bookedLeadIds = new Set<string>();
+            for (const lead of leads) {
+              const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase();
+              if (bookedNames.has(fullName) || (lead.phone && bookedPhones.has(lead.phone.toLowerCase()))) {
+                bookedLeadIds.add(lead.id);
+              }
+            }
+            setAlreadyBookedLeadIds(bookedLeadIds);
+          }
+        }
+      }
     } catch (err) {
       console.error('MyDay fetch error:', err);
     } finally {
@@ -457,32 +486,68 @@ export default function MyDay() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {newLeads.map(lead => (
-              <div key={lead.id} className="rounded-lg border bg-card p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-sm">{lead.first_name} {lead.last_name}</span>
-                      <LeadSourceTag source={lead.source} />
+            {newLeads.map(lead => {
+              const minutesAgo = differenceInMinutes(new Date(), new Date(lead.created_at));
+              const speedColor = minutesAgo < 5 ? 'bg-success text-success-foreground' 
+                : minutesAgo < 30 ? 'bg-warning text-warning-foreground' 
+                : 'bg-destructive text-destructive-foreground';
+              const isAlreadyBooked = alreadyBookedLeadIds.has(lead.id);
+
+              const handleDismissBooked = async () => {
+                try {
+                  await supabase.from('leads').update({ stage: 'booked' }).eq('id', lead.id);
+                  await supabase.from('lead_activities').insert({
+                    lead_id: lead.id,
+                    activity_type: 'stage_change',
+                    performed_by: user?.name || 'Unknown',
+                    notes: 'Auto-dismissed: already booked',
+                  });
+                  toast.success('Lead moved to Booked');
+                  fetchMyDayData();
+                } catch {
+                  toast.error('Failed to update');
+                }
+              };
+
+              return (
+                <div key={lead.id} className="rounded-lg border bg-card p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-sm">{lead.first_name} {lead.last_name}</span>
+                        <LeadSourceTag source={lead.source} />
+                        {isAlreadyBooked && (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
+                            Already Booked
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Badge className={`text-[10px] px-1.5 py-0 h-4 ${speedColor}`}>
+                        {minutesAgo < 60 ? `${minutesAgo}m` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
+                      </Badge>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                    {isToday(new Date(lead.created_at)) ? 'Today' : format(new Date(lead.created_at), 'MMM d')}
-                  </Badge>
+                  {isAlreadyBooked && (
+                    <Button variant="outline" size="sm" className="w-full h-7 text-[11px]" onClick={handleDismissBooked}>
+                      Dismiss – Move to Booked
+                    </Button>
+                  )}
+                  <LeadActionBar
+                    leadId={lead.id}
+                    firstName={lead.first_name}
+                    lastName={lead.last_name}
+                    phone={lead.phone}
+                    source={lead.source}
+                    stage={lead.stage}
+                    onOpenDetail={() => setDetailLead(lead)}
+                    onBookIntro={() => setBookIntroLead(lead)}
+                    onMarkContacted={() => handleMarkContacted(lead.id)}
+                  />
                 </div>
-                <LeadActionBar
-                  leadId={lead.id}
-                  firstName={lead.first_name}
-                  lastName={lead.last_name}
-                  phone={lead.phone}
-                  source={lead.source}
-                  stage={lead.stage}
-                  onOpenDetail={() => setDetailLead(lead)}
-                  onBookIntro={() => setBookIntroLead(lead)}
-                  onMarkContacted={() => handleMarkContacted(lead.id)}
-                />
-              </div>
-            ))}
+              );
+            })}
             <Button 
               variant="ghost" 
               size="sm" 
