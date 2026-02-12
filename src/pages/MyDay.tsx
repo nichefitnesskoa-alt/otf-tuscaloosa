@@ -53,6 +53,7 @@ export default function MyDay() {
         .select('id, member_name, intro_time, coach_name, lead_source')
         .eq('class_date', today)
         .is('deleted_at', null)
+        .is('vip_class_name', null)
         .neq('booking_status', 'Closed – Bought')
         .order('intro_time', { ascending: true });
 
