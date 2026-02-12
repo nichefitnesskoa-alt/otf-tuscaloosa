@@ -9,6 +9,7 @@ interface LeadKanbanBoardProps {
   onLeadClick: (lead: Tables<'leads'>) => void;
   onStageChange: (leadId: string, newStage: string) => void;
   onBookIntro?: (lead: Tables<'leads'>) => void;
+  onMarkAlreadyBooked?: (leadId: string) => void;
 }
 
 const COLUMNS = [
@@ -18,7 +19,7 @@ const COLUMNS = [
   { stage: 'lost', label: 'Do Not Contact', color: 'bg-muted border-muted-foreground/20' },
 ];
 
-export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange, onBookIntro }: LeadKanbanBoardProps) {
+export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked }: LeadKanbanBoardProps) {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   const getActivityCount = (leadId: string) =>
@@ -59,17 +60,23 @@ export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange,
               </span>
             </div>
             <div className="space-y-2">
-              {columnLeads.map(lead => (
+              {columnLeads.map(lead => {
+                const leadActs = activities.filter(a => a.lead_id === lead.id);
+                const lastAct = leadActs.sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+                return (
                 <LeadCard
                   key={lead.id}
                   lead={lead}
                   activityCount={getActivityCount(lead.id)}
+                  lastActivityDate={lastAct?.created_at || null}
                   onClick={() => onLeadClick(lead)}
                   onDragStart={e => e.dataTransfer.setData('text/plain', lead.id)}
                   onBookIntro={onBookIntro ? () => onBookIntro(lead) : undefined}
                   onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
+                  onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
                 />
-              ))}
+                );
+              })}
             </div>
           </div>
         );

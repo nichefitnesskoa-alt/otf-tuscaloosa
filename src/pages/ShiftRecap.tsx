@@ -393,7 +393,19 @@ export default function ShiftRecap() {
     }
   };
 
-  const handleSubmit = async () => {
+  // Submit confirmation state
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+
+  const getSubmitSummary = () => {
+    const totalBookings = introsBooked.filter(b => b.memberName).length;
+    const alreadySubmitted = introsBooked.filter(b => b.submittedAt).length;
+    const newBookings = totalBookings - alreadySubmitted;
+    const totalRuns = introsRun.filter(r => r.memberName && r.outcome).length;
+    const totalSales = sales.filter(s => s.memberName && s.membershipType).length;
+    return { totalBookings, alreadySubmitted, newBookings, totalRuns, totalSales };
+  };
+
+  const handleSubmitClick = () => {
     // Validate phone on bookings (only non-submitted ones)
     for (const booking of introsBooked) {
       if (booking.memberName && !booking.submittedAt && !booking.phone?.trim()) {
@@ -409,6 +421,12 @@ export default function ShiftRecap() {
         return;
       }
     }
+
+    setShowSubmitConfirm(true);
+  };
+
+  const handleSubmit = async () => {
+    setShowSubmitConfirm(false);
 
     setIsSubmitting(true);
     
@@ -1272,7 +1290,7 @@ export default function ShiftRecap() {
 
       {/* Submit Button */}
       <Button 
-        onClick={handleSubmit}
+        onClick={handleSubmitClick}
         className="w-full h-14 text-lg font-bold"
         size="lg"
         disabled={isSubmitting}
@@ -1289,6 +1307,52 @@ export default function ShiftRecap() {
           </>
         )}
       </Button>
+
+      {/* Submit Confirmation Dialog */}
+      <Dialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Submission</DialogTitle>
+            <DialogDescription>Review your shift recap before submitting:</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            {(() => {
+              const s = getSubmitSummary();
+              return (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Bookings</span>
+                    <span className="font-medium">
+                      {s.totalBookings} total
+                      {s.alreadySubmitted > 0 && <span className="text-success ml-1">({s.alreadySubmitted} already submitted, {s.newBookings} new)</span>}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Intro Runs</span>
+                    <span className="font-medium">{s.totalRuns}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Outside Sales</span>
+                    <span className="font-medium">{s.totalSales}</span>
+                  </div>
+                  {notes && (
+                    <div className="flex justify-between text-sm">
+                      <span>Notes</span>
+                      <span className="text-muted-foreground truncate max-w-[200px]">{notes.substring(0, 50)}...</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowSubmitConfirm(false)}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Submitting...</> : 'Submit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Multiple Matching Bookings Dialog */}
       <Dialog open={showConfirmDialog && pendingMatches !== null} onOpenChange={(open) => {

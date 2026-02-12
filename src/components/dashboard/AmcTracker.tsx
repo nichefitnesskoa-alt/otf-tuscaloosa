@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingUp, TrendingDown, Target } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, subDays } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis } from 'recharts';
 
 const AMC_TARGET = 400;
@@ -17,8 +17,15 @@ interface AmcEntry {
   created_at: string;
 }
 
+interface ChurnEntry {
+  id: string;
+  churn_count: number;
+  effective_date: string;
+}
+
 export function AmcTracker() {
   const [entries, setEntries] = useState<AmcEntry[]>([]);
+  const [churnEntries, setChurnEntries] = useState<ChurnEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -26,11 +33,12 @@ export function AmcTracker() {
   }, []);
 
   const fetchEntries = async () => {
-    const { data } = await supabase
-      .from('amc_log')
-      .select('*')
-      .order('logged_date', { ascending: true });
-    if (data) setEntries(data as AmcEntry[]);
+    const [{ data: amcData }, { data: churnData }] = await Promise.all([
+      supabase.from('amc_log').select('*').order('logged_date', { ascending: true }),
+      supabase.from('churn_log').select('id, churn_count, effective_date').order('effective_date', { ascending: true }),
+    ]);
+    if (amcData) setEntries(amcData as AmcEntry[]);
+    if (churnData) setChurnEntries(churnData as ChurnEntry[]);
     setIsLoading(false);
   };
 
@@ -39,7 +47,21 @@ export function AmcTracker() {
   const latest = entries[entries.length - 1];
   const previous = entries.length > 1 ? entries[entries.length - 2] : null;
   const netChange = previous ? latest.amc_value - previous.amc_value : 0;
-  const progressPct = Math.min((latest.amc_value / AMC_TARGET) * 100, 100);
+
+  // Churn calculations
+  const now = new Date();
+  const currentMonthStart = startOfMonth(now);
+  const currentMonthEnd = endOfMonth(now);
+  const pendingChurn = churnEntries
+    .filter(e => {
+      const d = parseISO(e.effective_date);
+      return isAfter(d, subDays(currentMonthStart, 1)) && isBefore(d, currentMonthEnd);
+    })
+    .reduce((sum, e) => sum + e.churn_count, 0);
+
+  const projectedAmc = latest.amc_value - pendingChurn;
+  const progressPct = Math.min((projectedAmc / AMC_TARGET) * 100, 100);
+  const netNeeded = Math.max(0, AMC_TARGET - projectedAmc);
 
   const chartData = entries.slice(-30).map(e => ({
     date: format(parseISO(e.logged_date), 'M/d'),
@@ -71,11 +93,19 @@ export function AmcTracker() {
           )}
         </div>
 
+        {/* Churn-aware projection */}
+        {pendingChurn > 0 && (
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <TrendingDown className="w-3 h-3" />
+            <span>{pendingChurn} pending churn → Projected: {projectedAmc}</span>
+          </div>
+        )}
+
         {/* Progress Bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{progressPct.toFixed(0)}% to goal</span>
-            <span>{AMC_TARGET - latest.amc_value} to go</span>
+            <span>+{netNeeded} net to {AMC_TARGET}</span>
           </div>
           <Progress value={progressPct} className="h-2" />
         </div>

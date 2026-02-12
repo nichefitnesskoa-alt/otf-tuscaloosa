@@ -107,6 +107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      churn_log: {
+        Row: {
+          churn_count: number
+          created_at: string
+          created_by: string | null
+          effective_date: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          churn_count: number
+          created_at?: string
+          created_by?: string | null
+          effective_date: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          churn_count?: number
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       daily_recaps: {
         Row: {
           created_at: string
