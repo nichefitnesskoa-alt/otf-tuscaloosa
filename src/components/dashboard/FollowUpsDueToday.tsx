@@ -77,40 +77,54 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         const bookingIds = [...new Set(data.map(d => d.booking_id).filter(Boolean))] as string[];
         const sixDaysAgo = format(addDays(new Date(), -6), 'yyyy-MM-dd');
         
-        // Fetch lead_source from intros_booked for all booking IDs
-        let leadSourceMap = new Map<string, string>();
-        if (bookingIds.length > 0) {
-          const { data: bookings } = await supabase
-            .from('intros_booked')
-            .select('id, lead_source')
-            .in('id', bookingIds);
-          if (bookings) {
-            leadSourceMap = new Map(bookings.map(b => [b.id, b.lead_source]));
+        // Parallel: fetch lead_source, check cooling guardrail, check purchases
+        const [leadSourceRes, recentSentRes, recentActionsRes, purchasedRes] = await Promise.all([
+          // Fetch lead_source from intros_booked
+          bookingIds.length > 0
+            ? supabase.from('intros_booked').select('id, lead_source').in('id', bookingIds)
+            : Promise.resolve({ data: [] }),
+          // 6-day cooling guardrail
+          supabase.from('follow_up_queue').select('person_name')
+            .eq('status', 'sent').gte('sent_at', sixDaysAgo + 'T00:00:00').in('person_name', personNames),
+          // Script_actions for manual contacts
+          supabase.from('script_actions').select('booking_id').gte('completed_at', sixDaysAgo + 'T00:00:00'),
+          // AUTO-EXIT: Check if person purchased via ANY intro run (name match)
+          supabase.from('intros_run').select('member_name, result')
+            .in('member_name', personNames),
+        ]);
+
+        const leadSourceMap = new Map(
+          ((leadSourceRes as any).data || []).map((b: any) => [b.id, b.lead_source])
+        );
+
+        const recentlySentNames = new Set(
+          ((recentSentRes as any).data || []).map((r: any) => r.person_name)
+        );
+        
+        const recentActionBookingIds = new Set(
+          ((recentActionsRes as any).data || []).map((a: any) => a.booking_id).filter(Boolean)
+        );
+
+        // Build set of names who purchased (Premier/Elite/Basic in result)
+        const purchasedNames = new Set<string>();
+        for (const run of ((purchasedRes as any).data || []) as { member_name: string; result: string }[]) {
+          const r = run.result?.toLowerCase() || '';
+          if (r.includes('premier') || r.includes('elite') || r.includes('basic')) {
+            purchasedNames.add(run.member_name);
           }
         }
 
-        // 6-day cooling guardrail
-        const { data: recentSent } = await supabase
-          .from('follow_up_queue')
-          .select('person_name')
-          .eq('status', 'sent')
-          .gte('sent_at', sixDaysAgo + 'T00:00:00')
-          .in('person_name', personNames);
-
-        // Also check script_actions for manual contacts
-        const { data: recentActions } = await supabase
-          .from('script_actions')
-          .select('booking_id')
-          .gte('completed_at', sixDaysAgo + 'T00:00:00');
-
-        const recentlySentNames = new Set((recentSent || []).map(r => r.person_name));
-        
-        // Get booking IDs that had recent actions
-        const recentActionBookingIds = new Set(
-          (recentActions || []).map(a => a.booking_id).filter(Boolean)
-        );
+        // Auto-convert purchased members in DB (fire and forget)
+        if (purchasedNames.size > 0) {
+          supabase.from('follow_up_queue')
+            .update({ status: 'converted' })
+            .eq('status', 'pending')
+            .in('person_name', Array.from(purchasedNames))
+            .then(() => {});
+        }
         
         const filtered = data.filter(d => {
+          if (purchasedNames.has(d.person_name)) return false;
           if (recentlySentNames.has(d.person_name)) return false;
           if (d.booking_id && recentActionBookingIds.has(d.booking_id)) return false;
           return true;
