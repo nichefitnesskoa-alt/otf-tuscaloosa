@@ -591,7 +591,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
                       size="sm"
                       className="h-7 text-[11px] w-full gap-1"
                       onClick={() => handleStartSequence(item)}
-                      disabled={noPhone}
+                      disabled={false}
                     >
                       <Send className="w-3 h-3" />
                       Start Sequence
@@ -627,7 +627,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
                       size="sm"
                       className="h-7 text-[11px] w-full gap-1"
                       onClick={() => handleSend(item)}
-                      disabled={noPhone}
+                      disabled={false}
                     >
                       <Send className="w-3 h-3" />
                       Send
