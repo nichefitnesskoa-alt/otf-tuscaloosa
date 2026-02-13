@@ -25,6 +25,8 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { InlineIntroLogger } from '@/components/dashboard/InlineIntroLogger';
 import { ReadyForIntroChecklist } from '@/components/dashboard/ReadyForIntroChecklist';
 import { FollowUpQueue, generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
+import { ShiftHandoffSummary } from '@/components/dashboard/ShiftHandoffSummary';
+import { WinStreak } from '@/components/dashboard/WinStreak';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -83,7 +85,7 @@ function formatBookedTime(createdAt: string): string {
 
 export default function MyDay() {
   const { user } = useAuth();
-  const { introsBooked } = useData();
+  const { introsBooked, introsRun, sales } = useData();
   const navigate = useNavigate();
   const [todayBookings, setTodayBookings] = useState<DayBooking[]>([]);
   const [tomorrowBookings, setTomorrowBookings] = useState<DayBooking[]>([]);
@@ -97,6 +99,8 @@ export default function MyDay() {
   const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
   const [confirmationSentMap, setConfirmationSentMap] = useState<Set<string>>(new Set());
   const [scriptActionsMap, setScriptActionsMap] = useState<Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>>(new Map());
+  const [todayScriptsSent, setTodayScriptsSent] = useState(0);
+  const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
   const [loggingOpenId, setLoggingOpenId] = useState<string | null>(null);
   const [completedExpanded, setCompletedExpanded] = useState(false);
 
@@ -246,6 +250,7 @@ export default function MyDay() {
 
         if (actionsData) {
           const map = new Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>();
+          let scriptsCount = 0;
           for (const a of actionsData) {
             if (a.booking_id && (a.action_type === 'script_sent' || a.action_type === 'intro_logged')) {
               map.set(a.booking_id, {
@@ -255,9 +260,19 @@ export default function MyDay() {
                 completed_at: a.completed_at,
               });
             }
+            if (a.action_type === 'script_sent' && a.completed_by === user?.name) scriptsCount++;
           }
           setScriptActionsMap(map);
+          setTodayScriptsSent(scriptsCount);
         }
+
+        // Count follow-ups sent today
+        const { count: fuSentCount } = await supabase
+          .from('follow_up_queue')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'sent')
+          .gte('sent_at', todayStart);
+        setTodayFollowUpsSent(fuSentCount || 0);
       }
 
       // 2. Overdue follow-ups
@@ -622,6 +637,9 @@ export default function MyDay() {
         <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
       </div>
 
+      {/* Win Streaks (Part 11C) */}
+      <WinStreak userName={user?.name || ''} introsRun={introsRun} sales={sales} />
+
       {/* Quick Start Button */}
       <Button 
         className="w-full gap-2" 
@@ -875,6 +893,15 @@ export default function MyDay() {
           </CardContent>
         </Card>
       )}
+
+      {/* Shift Handoff Summary (Part 8D) */}
+      <ShiftHandoffSummary
+        todayCompletedCount={completedTodayBookings.length}
+        todayActiveCount={activeTodayBookings.length}
+        scriptsSentCount={todayScriptsSent}
+        followUpsSentCount={todayFollowUpsSent}
+        userName={user?.name || ''}
+      />
 
       {/* Dialogs */}
       {bookIntroLead && (
