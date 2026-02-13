@@ -1,10 +1,12 @@
 import { Tables } from '@/integrations/supabase/types';
 import { formatDistanceToNow, parseISO, isBefore, differenceInMinutes, differenceInDays } from 'date-fns';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Flame } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { LeadActionBar } from '@/components/ActionBar';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LeadCardProps {
   lead: Tables<'leads'>;
@@ -29,6 +31,31 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
   const daysSinceAny = differenceInDays(now, lastDate);
   const isStale = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 7 && daysSinceAny < 14;
   const isGoingCold = (lead.stage === 'new' || lead.stage === 'contacted') && daysSinceAny >= 14;
+
+  // 6C: Hot lead detection from questionnaire
+  const [isHot, setIsHot] = useState(false);
+  useEffect(() => {
+    const fn = async () => {
+      const { data: q } = await supabase
+        .from('intro_questionnaires')
+        .select('q2_fitness_level, q6_weekly_commitment, q5_emotional_driver' as any)
+        .ilike('client_first_name', lead.first_name)
+        .ilike('client_last_name', lead.last_name)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!q) return;
+      const qd = q as any;
+      const highFitness = (qd.q2_fitness_level || 0) >= 4;
+      const highCommit = (qd.q6_weekly_commitment || '').match(/[4-7]/);
+      const strongWhy = (qd.q5_emotional_driver || '').length > 30;
+      if ((highFitness && highCommit) || (highFitness && strongWhy) || (highCommit && strongWhy)) {
+        setIsHot(true);
+      }
+    };
+    fn();
+  }, [lead.first_name, lead.last_name]);
 
   return (
     <div
@@ -59,6 +86,12 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-warning text-warning">Stale</Badge>
             )}
             <LeadSourceTag source={lead.source} />
+            {isHot && (
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-orange-500 text-white border-transparent gap-0.5">
+                <Flame className="w-2.5 h-2.5" />
+                Hot
+              </Badge>
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {formatDistanceToNow(createdAt, { addSuffix: true })}

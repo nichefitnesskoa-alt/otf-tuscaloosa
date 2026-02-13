@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart
+  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart, ClipboardList, AlertTriangle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -16,6 +16,7 @@ interface StudioScoreboardProps {
   goalWhyRate: number;
   relationshipRate: number;
   madeAFriendRate: number;
+  qCompletionRate?: number;
 }
 
 export function StudioScoreboard({
@@ -25,6 +26,7 @@ export function StudioScoreboard({
   goalWhyRate,
   relationshipRate,
   madeAFriendRate,
+  qCompletionRate,
 }: StudioScoreboardProps) {
   return (
     <Card className="bg-foreground text-background">
@@ -132,6 +134,27 @@ export function StudioScoreboard({
             </TooltipProvider>
           </div>
         </div>
+        {/* 6B: Q Completion Rate */}
+        {qCompletionRate !== undefined && (
+          <div className="border-t border-background/20 pt-3 mt-3">
+            <div className="flex items-center justify-between p-2 bg-background/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 opacity-70" />
+                <div>
+                  <p className="text-sm font-bold">{qCompletionRate.toFixed(0)}%</p>
+                  <p className="text-xs opacity-70">Q Completion</p>
+                </div>
+              </div>
+              {qCompletionRate < 70 && (
+                <div className="flex items-center gap-1 text-warning">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-medium">Below 70%</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <p className="text-[10px] opacity-40 text-center mt-3">Excludes VIP events</p>
       </CardContent>
     </Card>

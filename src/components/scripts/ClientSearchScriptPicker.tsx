@@ -105,7 +105,7 @@ function useSearchPeople(query: string) {
   });
 }
 
-function getSuggestedCategories(result: SearchResult, sendLogCount: number): string[] {
+function getSuggestedCategories(result: SearchResult, sendLogCount: number, primaryObjection?: string | null): string[] {
   if (result.type === 'lead') {
     const cats: string[] = [];
     if (result.source?.toLowerCase().includes('instagram')) cats.push('ig_dm');
@@ -134,7 +134,20 @@ function getSuggestedCategories(result: SearchResult, sendLogCount: number): str
   return cats;
 }
 
-export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson }: ClientSearchScriptPickerProps) {
+/** 6A: Given a primary objection from the intro run, find the best matching post_class script variant */
+function getObjectionVariantLabel(objection: string | null | undefined): string | null {
+  if (!objection) return null;
+  const map: Record<string, string> = {
+    'Pricing': '7B',
+    'Time': '7C',
+    'Shopping Around': '7D',
+    'Think About It': '7E',
+    'Spousal/Parental': '7F',
+  };
+  return map[objection] || null;
+}
+
+export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson }: ClientSearchScriptPickerProps & { primaryObjection?: string | null }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<SearchResult | null>(preSelectedPerson || null);
@@ -196,7 +209,21 @@ export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson
   }, [selectedPerson, manualMode, manualFirstName, manualLastName, user]);
 
   // Filter templates
-  const recommended = templates.filter(t => t.is_active && suggestedCats.includes(t.category));
+  // 6A: Auto-select objection variant if available
+  const objVariant = getObjectionVariantLabel((preSelectedPerson as any)?.primaryObjection);
+  
+  const recommended = useMemo(() => {
+    const base = templates.filter(t => t.is_active && suggestedCats.includes(t.category));
+    if (objVariant && base.length > 0) {
+      // Sort: matching variant label first
+      return [...base].sort((a, b) => {
+        const aMatch = a.variant_label?.includes(objVariant) ? -1 : 0;
+        const bMatch = b.variant_label?.includes(objVariant) ? -1 : 0;
+        return aMatch - bMatch;
+      });
+    }
+    return base;
+  }, [templates, suggestedCats, objVariant]);
   const allFiltered = templates.filter(t => {
     if (!t.is_active) return false;
     if (selectedCategory && t.category !== selectedCategory) return false;
