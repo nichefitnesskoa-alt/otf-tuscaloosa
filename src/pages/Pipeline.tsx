@@ -1,5 +1,5 @@
-import { ClientJourneyReadOnly } from '@/components/dashboard/ClientJourneyReadOnly';
-import { MembershipPurchasesReadOnly } from '@/components/dashboard/MembershipPurchasesReadOnly';
+import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
+import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import PastBookingQuestionnaires from '@/components/PastBookingQuestionnaires';
 import { GitBranch } from 'lucide-react';
 
@@ -17,8 +17,8 @@ export default function Pipeline() {
       </div>
 
       <PastBookingQuestionnaires />
-      <ClientJourneyReadOnly />
-      <MembershipPurchasesReadOnly />
+      <ClientJourneyPanel />
+      <MembershipPurchasesPanel />
     </div>
   );
 }
