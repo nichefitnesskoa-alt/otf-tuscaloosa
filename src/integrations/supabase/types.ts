@@ -181,6 +181,7 @@ export type Database = {
           created_at: string
           fitness_goal: string | null
           id: string
+          is_legacy: boolean
           is_vip: boolean
           lead_id: string | null
           person_name: string
@@ -199,6 +200,7 @@ export type Database = {
           created_at?: string
           fitness_goal?: string | null
           id?: string
+          is_legacy?: boolean
           is_vip?: boolean
           lead_id?: string | null
           person_name: string
@@ -217,6 +219,7 @@ export type Database = {
           created_at?: string
           fitness_goal?: string | null
           id?: string
+          is_legacy?: boolean
           is_vip?: boolean
           lead_id?: string | null
           person_name?: string
