@@ -102,6 +102,19 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     setCopied(true);
     toast({ title: 'Copied!', description: 'Message copied to clipboard' });
     setTimeout(() => setCopied(false), 2000);
+
+    // Part 5: Log script_actions for completion tracking
+    try {
+      await supabase.from('script_actions').insert({
+        booking_id: bookingId || null,
+        lead_id: leadId || null,
+        action_type: 'script_sent',
+        script_category: template.category,
+        completed_by: user?.name || 'Unknown',
+      });
+    } catch (e) {
+      console.error('Failed to log script action:', e);
+    }
   };
 
   const handleLog = async () => {
