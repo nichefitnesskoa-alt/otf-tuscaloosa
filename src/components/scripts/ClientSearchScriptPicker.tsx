@@ -19,6 +19,7 @@ interface ClientSearchScriptPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preSelectedPerson?: SearchResult;
+  relevantCategories?: string[];
 }
 
 export type SearchResult = {
@@ -130,7 +131,7 @@ function getSuggestedCategories(result: SearchResult, sendLogCount: number, prim
   } else {
     cats.push('booking_confirmation');
   }
-  cats.push('referral_ask', 'birthday_milestone');
+  cats.push('referral_ask');
   return cats;
 }
 
@@ -147,7 +148,7 @@ function getObjectionVariantLabel(objection: string | null | undefined): string 
   return map[objection] || null;
 }
 
-export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson }: ClientSearchScriptPickerProps & { primaryObjection?: string | null }) {
+export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson, relevantCategories }: ClientSearchScriptPickerProps & { primaryObjection?: string | null }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<SearchResult | null>(preSelectedPerson || null);
