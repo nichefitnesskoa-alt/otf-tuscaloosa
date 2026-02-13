@@ -13,12 +13,13 @@ interface DayAfterBooking {
   intro_time: string | null;
   coach_name: string;
   questionnaire_status: string | null;
+  lead_source?: string;
 }
 
 interface UpcomingFollowUp {
   date: string;
   count: number;
-  names: string[];
+  names: { name: string; leadSource: string | null }[];
 }
 
 interface WeeklySnapshot {
@@ -59,7 +60,7 @@ export function SoonLayer() {
       // Day-after-tomorrow bookings
       supabase
         .from('intros_booked')
-        .select('id, member_name, intro_time, coach_name')
+        .select('id, member_name, intro_time, coach_name, lead_source')
         .eq('class_date', dat)
         .is('deleted_at', null)
         .is('vip_class_name', null)
@@ -69,7 +70,7 @@ export function SoonLayer() {
       // Upcoming follow-ups (next 3 days excluding today)
       supabase
         .from('follow_up_queue')
-        .select('scheduled_date, person_name')
+        .select('scheduled_date, person_name, booking_id')
         .eq('status', 'pending')
         .eq('is_vip', false)
         .gt('scheduled_date', format(today, 'yyyy-MM-dd'))
@@ -132,7 +133,6 @@ export function SoonLayer() {
 
     // Day-after-tomorrow
     if (datBookings.data) {
-      // Fetch Q statuses
       const ids = datBookings.data.map(b => b.id);
       const { data: qs } = ids.length > 0
         ? await supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids)
@@ -140,17 +140,34 @@ export function SoonLayer() {
       const qMap = new Map((qs || []).map(q => [q.booking_id, q.status]));
       setDayAfterBookings(datBookings.data.map(b => ({
         ...b,
+        lead_source: (b as any).lead_source || undefined,
         questionnaire_status: qMap.get(b.id) || null,
       })));
     }
 
-    // Upcoming follow-ups grouped by day
+    // Upcoming follow-ups grouped by day with lead source
     if (followUps.data) {
-      const grouped = new Map<string, string[]>();
-      for (const fu of followUps.data) {
+      // Fetch lead_source from intros_booked for booking IDs
+      const fuBookingIds = [...new Set(followUps.data.map((f: any) => f.booking_id).filter(Boolean))] as string[];
+      let fuLeadSourceMap = new Map<string, string>();
+      if (fuBookingIds.length > 0) {
+        const { data: fuBookings } = await supabase
+          .from('intros_booked')
+          .select('id, lead_source')
+          .in('id', fuBookingIds);
+        if (fuBookings) {
+          fuLeadSourceMap = new Map(fuBookings.map(b => [b.id, b.lead_source]));
+        }
+      }
+
+      const grouped = new Map<string, { name: string; leadSource: string | null }[]>();
+      for (const fu of followUps.data as any[]) {
         const date = fu.scheduled_date;
         if (!grouped.has(date)) grouped.set(date, []);
-        grouped.get(date)!.push(fu.person_name);
+        grouped.get(date)!.push({
+          name: fu.person_name,
+          leadSource: fu.booking_id ? fuLeadSourceMap.get(fu.booking_id) || null : null,
+        });
       }
       setUpcomingFollowUps(
         Array.from(grouped.entries()).map(([date, names]) => ({
@@ -221,9 +238,14 @@ export function SoonLayer() {
               <CollapsibleContent>
                 <div className="space-y-1.5 mt-2">
                   {dayAfterBookings.map(b => (
-                    <div key={b.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-muted/30">
-                      <span className="font-medium">{b.member_name}</span>
-                      <span className="text-muted-foreground">
+                    <div key={b.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-muted/30 gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium truncate">{b.member_name}</span>
+                        {b.lead_source && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 shrink-0">{b.lead_source}</Badge>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground shrink-0">
                         {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'TBD'} · {b.coach_name}
                       </span>
                     </div>
@@ -262,8 +284,13 @@ export function SoonLayer() {
                   {upcomingFollowUps.map(fu => (
                     <div key={fu.date + '-names'}>
                       <p className="text-[10px] font-medium text-muted-foreground">{format(parseISO(fu.date), 'EEEE MMM d')}</p>
-                      {fu.names.map((name, i) => (
-                        <p key={i} className="text-xs pl-2">{name}</p>
+                      {fu.names.map((item, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs pl-2">
+                          <span>{item.name}</span>
+                          {item.leadSource && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{item.leadSource}</Badge>
+                          )}
+                        </div>
                       ))}
                     </div>
                   ))}
