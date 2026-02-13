@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users } from 'lucide-react';
+import { Users, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -26,6 +27,7 @@ export default function ReferralTracker() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'friend_purchased' | 'qualified' | 'applied'>('all');
   const [purchasedMembers, setPurchasedMembers] = useState<Set<string>>(new Set());
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,6 +78,18 @@ export default function ReferralTracker() {
       );
       toast.success(!currentValue ? 'Discount marked as applied' : 'Discount unmarked');
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from('referrals').delete().eq('id', deleteId);
+    if (error) {
+      toast.error('Failed to delete referral');
+    } else {
+      setReferrals(prev => prev.filter(r => r.id !== deleteId));
+      toast.success('Referral deleted');
+    }
+    setDeleteId(null);
   };
 
   const filtered = useMemo(() => {
@@ -154,6 +168,14 @@ export default function ReferralTracker() {
                     <Badge className={`text-xs ${config.className}`}>
                       {config.label}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteId(referral.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
                 </div>
               );
@@ -161,6 +183,23 @@ export default function ReferralTracker() {
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Referral</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this referral discount record? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
