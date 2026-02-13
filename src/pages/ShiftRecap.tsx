@@ -264,6 +264,19 @@ export default function ShiftRecap() {
     }
   };
 
+  // Auto-exit: when a 2nd intro is booked, convert all pending follow-ups for that person
+  const autoExitFollowUps = async (memberName: string) => {
+    try {
+      await supabase
+        .from('follow_up_queue')
+        .update({ status: 'converted' })
+        .eq('person_name', memberName)
+        .eq('status', 'pending');
+    } catch (err) {
+      console.error('Auto-exit follow-ups error:', err);
+    }
+  };
+
   // Instant submit a single booking entry
   const handleInstantBooking = async (index: number) => {
     const booking = introsBooked[index];
@@ -304,6 +317,11 @@ export default function ShiftRecap() {
             referred_name: booking.memberName,
             referred_booking_id: insertedBooking.id,
           });
+        }
+
+        // Auto-exit follow-ups when 2nd intro is booked
+        if (booking.originatingBookingId) {
+          await autoExitFollowUps(booking.memberName);
         }
       }
 
@@ -371,6 +389,10 @@ export default function ShiftRecap() {
             referrer_name: booking.memberName,
             referred_name: friendName,
           } as any);
+          // Auto-exit follow-ups for friend when 2nd intro is booked
+          if (friendOriginatingId) {
+            await autoExitFollowUps(friendName);
+          }
         }
       }
 
@@ -526,6 +548,11 @@ export default function ShiftRecap() {
             }
           }
 
+          // Auto-exit follow-ups when 2nd intro is booked
+          if (booking.originatingBookingId) {
+            await autoExitFollowUps(booking.memberName);
+          }
+
           // Link questionnaire to the newly created booking
           if (booking.questionnaireId && insertedBooking) {
             await supabase.from('intro_questionnaires')
@@ -595,6 +622,11 @@ export default function ShiftRecap() {
                 referrer_name: booking.memberName,
                 referred_name: friendName,
               } as any);
+
+              // Auto-exit follow-ups for friend when 2nd intro is booked
+              if (friendOriginatingId) {
+                await autoExitFollowUps(friendName);
+              }
             }
           }
 
