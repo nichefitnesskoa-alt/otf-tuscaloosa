@@ -11,8 +11,6 @@ import { toast } from 'sonner';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 
-import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
-import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 // CoachPerformance removed from Overview - available in Coaching tab and Studio
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
@@ -168,11 +166,7 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
-          {/* Unified Client Journey View - Primary data management */}
-          <ClientJourneyPanel />
-          
           <VipBulkImport />
-          <MembershipPurchasesPanel />
           <ShiftRecapsEditor />
         </TabsContent>
       </Tabs>
