@@ -852,6 +852,51 @@ export type Database = {
           },
         ]
       }
+      script_actions: {
+        Row: {
+          action_type: string
+          booking_id: string | null
+          completed_at: string
+          completed_by: string
+          id: string
+          lead_id: string | null
+          script_category: string | null
+        }
+        Insert: {
+          action_type: string
+          booking_id?: string | null
+          completed_at?: string
+          completed_by: string
+          id?: string
+          lead_id?: string | null
+          script_category?: string | null
+        }
+        Update: {
+          action_type?: string
+          booking_id?: string | null
+          completed_at?: string
+          completed_by?: string
+          id?: string
+          lead_id?: string | null
+          script_category?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_actions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_actions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       script_send_log: {
         Row: {
           booking_id: string | null
