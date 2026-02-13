@@ -321,6 +321,20 @@ export default function ShiftRecap() {
           : `${booking.leadSource} (Friend)`;
         const friendBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
 
+        // Check if friend has a prior booking (for 2nd intro detection)
+        let friendOriginatingId: string | null = null;
+        const friendKey = friendName.toLowerCase().replace(/\s+/g, '');
+        const friendPhone = booking.friendPhone?.trim() || null;
+        const { data: priorFriendBookings } = await supabase.from('intros_booked')
+          .select('id')
+          .is('deleted_at', null)
+          .or(`member_name.ilike.%${friendName}%${friendPhone ? `,phone.eq.${friendPhone}` : ''}`)
+          .order('class_date', { ascending: true })
+          .limit(1);
+        if (priorFriendBookings && priorFriendBookings.length > 0) {
+          friendOriginatingId = priorFriendBookings[0].id;
+        }
+
         const { data: friendBooking, error: friendError } = await supabase.from('intros_booked').insert({
           booking_id: friendBookingId,
           member_name: friendName,
@@ -334,7 +348,10 @@ export default function ShiftRecap() {
           intro_owner: null,
           intro_owner_locked: false,
           paired_booking_id: insertedBooking.id,
-        }).select().single();
+          originating_booking_id: friendOriginatingId,
+          phone: friendPhone,
+          email: booking.friendEmail?.trim() || null,
+        } as any).select().single();
 
         if (!friendError && friendBooking) {
           await supabase.from('intros_booked')
@@ -523,6 +540,19 @@ export default function ShiftRecap() {
               : `${booking.leadSource} (Friend)`;
             const friendBookingId = `booking_${crypto.randomUUID().substring(0, 8)}`;
 
+            // Check if friend has a prior booking (for 2nd intro detection)
+            let friendOriginatingId: string | null = null;
+            const friendPhone = booking.friendPhone?.trim() || null;
+            const { data: priorFriendBookings } = await supabase.from('intros_booked')
+              .select('id')
+              .is('deleted_at', null)
+              .or(`member_name.ilike.%${friendName}%${friendPhone ? `,phone.eq.${friendPhone}` : ''}`)
+              .order('class_date', { ascending: true })
+              .limit(1);
+            if (priorFriendBookings && priorFriendBookings.length > 0) {
+              friendOriginatingId = priorFriendBookings[0].id;
+            }
+
             const { data: friendBooking, error: friendError } = await supabase.from('intros_booked').insert({
               booking_id: friendBookingId,
               member_name: friendName,
@@ -537,7 +567,10 @@ export default function ShiftRecap() {
               intro_owner: null,
               intro_owner_locked: false,
               paired_booking_id: insertedBooking.id,
-            }).select().single();
+              originating_booking_id: friendOriginatingId,
+              phone: friendPhone,
+              email: booking.friendEmail?.trim() || null,
+            } as any).select().single();
 
             if (friendError) {
               console.error('Error creating friend booking:', friendError);
