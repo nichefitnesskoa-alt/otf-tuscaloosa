@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers, Filter, ArrowUpDown } from 'lucide-react';
+import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers, Filter, ArrowUpDown, Phone, AlertTriangle } from 'lucide-react';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
@@ -15,6 +15,7 @@ import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { CardGuidance, getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
 import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialog';
 import { History } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface FollowUpItem {
   id: string;
@@ -34,6 +35,7 @@ interface FollowUpItem {
   fitness_goal: string | null;
   is_legacy: boolean;
   lead_source?: string | null;
+  phone?: string | null;
 }
 
 interface FollowUpsDueTodayProps {
@@ -68,7 +70,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         .lte('scheduled_date', today)
         .eq('is_vip', false)
         .order('scheduled_date', { ascending: true })
-        .limit(30);
+        .limit(50);
 
       if (error) throw error;
 
@@ -76,25 +78,53 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         const personNames = [...new Set(data.map(d => d.person_name))];
         const bookingIds = [...new Set(data.map(d => d.booking_id).filter(Boolean))] as string[];
         const sixDaysAgo = format(addDays(new Date(), -6), 'yyyy-MM-dd');
+        const thirtyDaysAgo = format(addDays(new Date(), -30), 'yyyy-MM-dd');
         
-        // Parallel: fetch lead_source, check cooling guardrail, check purchases
-        const [leadSourceRes, recentSentRes, recentActionsRes, purchasedRes] = await Promise.all([
-          // Fetch lead_source from intros_booked
+        // Parallel: fetch all exit-condition data
+        const [
+          leadSourceRes,
+          recentSentRes,
+          recentActionsRes,
+          purchasedRunsRes,
+          futureBookingsRes,
+          leadStagesRes,
+          salesRes,
+          vipOnlyRes,
+          phoneRes,
+        ] = await Promise.all([
+          // 1. Lead source + phone from intros_booked
           bookingIds.length > 0
-            ? supabase.from('intros_booked').select('id, lead_source').in('id', bookingIds)
+            ? supabase.from('intros_booked').select('id, lead_source, phone, member_name').in('id', bookingIds)
             : Promise.resolve({ data: [] }),
-          // 6-day cooling guardrail
+          // 2. 6-day cooling guardrail
           supabase.from('follow_up_queue').select('person_name')
             .eq('status', 'sent').gte('sent_at', sixDaysAgo + 'T00:00:00').in('person_name', personNames),
-          // Script_actions for manual contacts
+          // 3. Script_actions for manual contacts
           supabase.from('script_actions').select('booking_id').gte('completed_at', sixDaysAgo + 'T00:00:00'),
-          // AUTO-EXIT: Check if person purchased via ANY intro run (name match)
-          supabase.from('intros_run').select('member_name, result')
-            .in('member_name', personNames),
+          // 4. EXIT: Check if person purchased via ANY intro run (name match)
+          supabase.from('intros_run').select('member_name, result').in('member_name', personNames),
+          // 5. EXIT: Check for future bookings (2nd intro booked)
+          supabase.from('intros_booked').select('member_name, class_date, is_vip, deleted_at, booking_status')
+            .in('member_name', personNames)
+            .gte('class_date', today)
+            .is('deleted_at', null),
+          // 6. EXIT: Check lead stages for DNC/won
+          supabase.from('leads').select('first_name, last_name, stage'),
+          // 7. EXIT: Check sales_outside_intro for purchased members
+          supabase.from('sales_outside_intro').select('member_name').in('member_name', personNames),
+          // 8. EXIT: Check if VIP-only (all bookings are VIP)
+          supabase.from('intros_booked').select('member_name, is_vip, deleted_at')
+            .in('member_name', personNames)
+            .is('deleted_at', null),
+          // 9. Phone from ALL bookings for these people (not just linked booking)
+          supabase.from('intros_booked').select('member_name, phone')
+            .in('member_name', personNames)
+            .is('deleted_at', null),
         ]);
 
-        const leadSourceMap = new Map(
-          ((leadSourceRes as any).data || []).map((b: any) => [b.id, b.lead_source])
+        // Build lookup maps
+        const bookingDataMap = new Map<string, { lead_source: string | null; phone: string | null }>(
+          ((leadSourceRes as any).data || []).map((b: any) => [b.id, { lead_source: b.lead_source, phone: b.phone }])
         );
 
         const recentlySentNames = new Set(
@@ -105,33 +135,116 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           ((recentActionsRes as any).data || []).map((a: any) => a.booking_id).filter(Boolean)
         );
 
-        // Build set of names who purchased (Premier/Elite/Basic in result)
+        // EXIT CONDITION 1: Purchased via intro run
         const purchasedNames = new Set<string>();
-        for (const run of ((purchasedRes as any).data || []) as { member_name: string; result: string }[]) {
+        for (const run of ((purchasedRunsRes as any).data || []) as { member_name: string; result: string }[]) {
           const r = run.result?.toLowerCase() || '';
           if (r.includes('premier') || r.includes('elite') || r.includes('basic')) {
             purchasedNames.add(run.member_name);
           }
         }
 
-        // Auto-convert purchased members in DB (fire and forget)
-        if (purchasedNames.size > 0) {
+        // EXIT CONDITION 2: Purchased via sales_outside_intro
+        for (const sale of ((salesRes as any).data || []) as { member_name: string }[]) {
+          purchasedNames.add(sale.member_name);
+        }
+
+        // EXIT CONDITION 3: Future bookings (2nd intro booked)
+        const futureBookedNames = new Set<string>();
+        for (const b of ((futureBookingsRes as any).data || []) as { member_name: string; booking_status: string | null; is_vip: boolean }[]) {
+          if (b.booking_status === 'Cancelled') continue;
+          if (b.is_vip) continue; // VIP future bookings don't count
+          futureBookedNames.add(b.member_name);
+        }
+
+        // EXIT CONDITION 4: DNC / won leads
+        const dncNames = new Set<string>();
+        for (const l of ((leadStagesRes as any).data || []) as { first_name: string; last_name: string; stage: string }[]) {
+          const stage = l.stage?.toLowerCase() || '';
+          if (stage === 'lost' || stage === 'won' || stage === 'dnc') {
+            dncNames.add(`${l.first_name} ${l.last_name}`);
+          }
+        }
+
+        // EXIT CONDITION 5: VIP-only people (ALL their bookings are VIP)
+        const vipOnlyNames = new Set<string>();
+        const allBookingsForPerson = new Map<string, { vip: number; nonVip: number }>();
+        for (const b of ((vipOnlyRes as any).data || []) as { member_name: string; is_vip: boolean }[]) {
+          const existing = allBookingsForPerson.get(b.member_name) || { vip: 0, nonVip: 0 };
+          if (b.is_vip) existing.vip++;
+          else existing.nonVip++;
+          allBookingsForPerson.set(b.member_name, existing);
+        }
+        for (const [name, counts] of allBookingsForPerson) {
+          if (counts.vip > 0 && counts.nonVip === 0) {
+            vipOnlyNames.add(name);
+          }
+        }
+
+        // Phone lookup: find best phone for each person
+        const phoneMap = new Map<string, string | null>();
+        for (const b of ((phoneRes as any).data || []) as { member_name: string; phone: string | null }[]) {
+          if (b.phone && b.phone.trim()) {
+            phoneMap.set(b.member_name, b.phone);
+          } else if (!phoneMap.has(b.member_name)) {
+            phoneMap.set(b.member_name, null);
+          }
+        }
+
+        // Collect all names to auto-convert/dormant in DB
+        const autoConvertNames = new Set<string>();
+        const autoDormantNames = new Set<string>();
+
+        for (const name of personNames) {
+          if (purchasedNames.has(name) || futureBookedNames.has(name) || dncNames.has(name) || vipOnlyNames.has(name)) {
+            autoConvertNames.add(name);
+          }
+        }
+
+        // EXIT CONDITION 6: Legacy items older than 30 days with no contact
+        for (const d of data) {
+          if (d.is_legacy && d.trigger_date < thirtyDaysAgo) {
+            autoDormantNames.add(d.person_name);
+          }
+        }
+
+        // Fire-and-forget DB cleanup
+        if (autoConvertNames.size > 0) {
           supabase.from('follow_up_queue')
             .update({ status: 'converted' })
             .eq('status', 'pending')
-            .in('person_name', Array.from(purchasedNames))
+            .in('person_name', Array.from(autoConvertNames))
+            .then(() => {});
+        }
+        if (autoDormantNames.size > 0) {
+          supabase.from('follow_up_queue')
+            .update({ status: 'dormant' })
+            .eq('status', 'pending')
+            .in('person_name', Array.from(autoDormantNames))
             .then(() => {});
         }
         
         const filtered = data.filter(d => {
+          // All exit conditions
           if (purchasedNames.has(d.person_name)) return false;
+          if (futureBookedNames.has(d.person_name)) return false;
+          if (dncNames.has(d.person_name)) return false;
+          if (vipOnlyNames.has(d.person_name)) return false;
+          if (autoConvertNames.has(d.person_name)) return false;
+          if (autoDormantNames.has(d.person_name)) return false;
+          // Cooling guardrail
           if (recentlySentNames.has(d.person_name)) return false;
           if (d.booking_id && recentActionBookingIds.has(d.booking_id)) return false;
           return true;
-        }).map(d => ({
-          ...d,
-          lead_source: d.booking_id ? leadSourceMap.get(d.booking_id) || null : null,
-        }));
+        }).map(d => {
+          const bookingData = d.booking_id ? bookingDataMap.get(d.booking_id) : null;
+          const personPhone = phoneMap.get(d.person_name) || bookingData?.phone || null;
+          return {
+            ...d,
+            lead_source: bookingData?.lead_source || null,
+            phone: personPhone,
+          };
+        });
 
         setItems(filtered as FollowUpItem[]);
         onCountChange?.(filtered.length);
@@ -239,7 +352,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   };
 
   const handleStartSequence = async (item: FollowUpItem) => {
-    // Convert legacy to active by leaving it pending, just remove the legacy flag
     await supabase
       .from('follow_up_queue')
       .update({ is_legacy: false } as any)
@@ -288,18 +400,39 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     return 'bg-muted text-muted-foreground border-border';
   };
 
+  const hasPhone = (item: FollowUpItem) => !!(item.phone && item.phone.trim());
+
+  const isIgLead = (source?: string | null) => {
+    if (!source) return false;
+    const s = source.toLowerCase();
+    return s.includes('instagram') || s.includes('ig');
+  };
+
+  const getPhoneGuidance = (item: FollowUpItem) => {
+    if (isIgLead(item.lead_source)) {
+      return "IG lead with no phone. Consider reaching out via DM instead. Or tap Prep to add their phone number.";
+    }
+    return "Can't send follow-up without a phone number. Get their number first → tap Prep to add it.";
+  };
+
   // Batch mode
   const handleBatchStart = () => {
+    const sendableItems = regularItems.filter(i => hasPhone(i));
+    if (sendableItems.length === 0) {
+      toast.info('No items with phone numbers to batch send');
+      return;
+    }
     setBatchMode(true);
     setBatchIndex(0);
-    if (regularItems.length > 0) handleSend(regularItems[0]);
+    handleSend(sendableItems[0]);
   };
 
   const handleBatchNext = () => {
+    const sendableItems = regularItems.filter(i => hasPhone(i));
     const nextIdx = batchIndex + 1;
-    if (nextIdx < regularItems.length) {
+    if (nextIdx < sendableItems.length) {
       setBatchIndex(nextIdx);
-      handleSend(regularItems[nextIdx]);
+      handleSend(sendableItems[nextIdx]);
     } else {
       setBatchMode(false);
       toast.success('Batch complete!');
@@ -317,19 +450,26 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     const typeBadgeColor = item.person_type === 'no_show' 
       ? 'bg-destructive/10 text-destructive border-destructive/20' 
       : 'bg-amber-100 text-amber-800 border-amber-200';
-    const guidance = getFollowUpGuidance({
-      touchNumber: item.touch_number,
-      personType: item.person_type,
-      isLegacy,
-      leadSource: item.lead_source,
-    });
+    
+    const noPhone = !hasPhone(item);
+    const igNoPhone = noPhone && isIgLead(item.lead_source);
+
+    const guidance = noPhone
+      ? getPhoneGuidance(item)
+      : getFollowUpGuidance({
+          touchNumber: item.touch_number,
+          personType: item.person_type,
+          isLegacy,
+          leadSource: item.lead_source,
+        });
 
     const leadSourceColor = getLeadSourceBadgeColor(item.lead_source);
 
     return (
       <div key={item.id} className={cn(
         'rounded-lg border bg-card p-3 space-y-2',
-        isLegacy && 'border-muted bg-muted/20'
+        isLegacy && 'border-muted bg-muted/20',
+        noPhone && 'border-destructive/30'
       )}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -346,6 +486,12 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               {item.lead_source && (
                 <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', leadSourceColor)}>
                   {item.lead_source}
+                </Badge>
+              )}
+              {noPhone && (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 border bg-destructive/15 text-destructive border-destructive/30">
+                  <Phone className="w-2.5 h-2.5 mr-0.5" />
+                  No Phone
                 </Badge>
               )}
               {isLegacy && (
@@ -366,10 +512,28 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
         {isLegacy ? (
           <div className="flex items-center gap-1 flex-wrap">
-            <Button size="sm" className="h-7 text-[11px] flex-1 gap-1" onClick={() => handleStartSequence(item)}>
-              <Send className="w-3 h-3" />
-              Start Sequence
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      size="sm"
+                      className="h-7 text-[11px] w-full gap-1"
+                      onClick={() => handleStartSequence(item)}
+                      disabled={noPhone}
+                    >
+                      <Send className="w-3 h-3" />
+                      Start Sequence
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {noPhone && (
+                  <TooltipContent>
+                    <p>Add a phone number first before starting the follow-up sequence.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
               <History className="w-3 h-3" />
               Log Past Contact
@@ -384,10 +548,28 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           </div>
         ) : (
           <div className="flex items-center gap-1 flex-wrap">
-            <Button size="sm" className="h-7 text-[11px] flex-1 gap-1" onClick={() => handleSend(item)}>
-              <Send className="w-3 h-3" />
-              Send
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex-1">
+                    <Button
+                      size="sm"
+                      className="h-7 text-[11px] w-full gap-1"
+                      onClick={() => handleSend(item)}
+                      disabled={noPhone}
+                    >
+                      <Send className="w-3 h-3" />
+                      Send
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {noPhone && (
+                  <TooltipContent>
+                    <p>Add a phone number first before starting the follow-up sequence.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
             <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
               <History className="w-3 h-3" />
               Log Contact
