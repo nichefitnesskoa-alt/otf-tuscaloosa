@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Clock, MessageSquare, Send } from 'lucide-react';
-import { ScriptTemplate, SCRIPT_CATEGORIES, useUpdateTemplate } from '@/hooks/useScriptTemplates';
+import { Button } from '@/components/ui/button';
+import { Clock, MessageSquare, Send, Trash2 } from 'lucide-react';
+import { ScriptTemplate, SCRIPT_CATEGORIES, useUpdateTemplate, useDeleteTemplate } from '@/hooks/useScriptTemplates';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { toast } from '@/hooks/use-toast';
 
 interface TemplateCardProps {
   template: ScriptTemplate;
@@ -11,6 +15,8 @@ interface TemplateCardProps {
 
 export function TemplateCard({ template, isAdmin, onClick }: TemplateCardProps) {
   const updateTemplate = useUpdateTemplate();
+  const deleteTemplate = useDeleteTemplate();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const categoryLabel = SCRIPT_CATEGORIES.find(c => c.value === template.category)?.label || template.category;
 
   const handleToggle = (e: React.MouseEvent) => {
@@ -21,7 +27,23 @@ export function TemplateCard({ template, isAdmin, onClick }: TemplateCardProps) 
     updateTemplate.mutate({ id: template.id, is_active: checked });
   };
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteTemplate.mutateAsync(template.id);
+      toast({ title: 'Template deleted' });
+    } catch (err: any) {
+      toast({ title: 'Error deleting', description: err.message, variant: 'destructive' });
+    }
+    setConfirmOpen(false);
+  };
+
   return (
+    <>
     <div
       onClick={onClick}
       className="rounded-lg border bg-card p-3 cursor-pointer hover:shadow-md transition-all space-y-2"
@@ -33,11 +55,16 @@ export function TemplateCard({ template, isAdmin, onClick }: TemplateCardProps) 
         </div>
         <div className="flex items-center gap-2 shrink-0" onClick={handleToggle}>
           {isAdmin && (
-            <Switch
-              checked={template.is_active}
-              onCheckedChange={onToggleActive}
-              className="scale-75"
-            />
+            <>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={handleDeleteClick}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+              <Switch
+                checked={template.is_active}
+                onCheckedChange={onToggleActive}
+                className="scale-75"
+              />
+            </>
           )}
         </div>
       </div>
@@ -73,5 +100,23 @@ export function TemplateCard({ template, isAdmin, onClick }: TemplateCardProps) 
         </p>
       )}
     </div>
+
+    <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Template</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete "{template.name}"? This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

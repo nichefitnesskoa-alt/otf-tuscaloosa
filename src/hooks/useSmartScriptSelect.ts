@@ -41,7 +41,7 @@ export function selectBestScript(
   ctx: ScriptContext,
   templates: ScriptTemplate[]
 ): SmartScriptResult {
-  const active = templates.filter(t => t.is_active && t.category !== 'birthday_milestone');
+  const active = templates.filter(t => t.is_active);
   const now = new Date();
   const today = getLocalDateString();
   const tomorrow = getLocalDateString(addDays(now, 1));
