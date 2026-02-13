@@ -8,6 +8,7 @@ import { TrendingUp, Target, Users, BarChart3, RefreshCw } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
+import FollowUpDigest from './FollowUpDigest';
 
 interface SAMetrics {
   name: string;
@@ -346,6 +347,9 @@ export default function CoachingView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Follow-Up System Health */}
+      <FollowUpDigest preset={preset} />
     </div>
   );
 }
