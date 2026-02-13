@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,17 +19,15 @@ interface LeadAlert {
 export function LeadAlertBell() {
   const [alerts, setAlerts] = useState<LeadAlert[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [followUpsDue, setFollowUpsDue] = useState(0);
   const [lastSeen, setLastSeen] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load last seen timestamp
     const saved = localStorage.getItem('leadAlertLastSeen');
     setLastSeen(saved);
-
-    // Fetch recent leads
     fetchRecentLeads(saved);
+    fetchFollowUpsDue();
 
-    // Subscribe to realtime
     const channel = supabase
       .channel('lead-alerts')
       .on(
@@ -43,29 +41,37 @@ export function LeadAlertBell() {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchRecentLeads = async (seen: string | null) => {
-    let query = supabase
+    const { data } = await supabase
       .from('leads')
       .select('id, first_name, last_name, source, created_at')
       .order('created_at', { ascending: false })
       .limit(10);
 
-    const { data } = await query;
     if (data) {
       setAlerts(data);
       if (seen) {
-        const unseenCount = data.filter(l => new Date(l.created_at) > new Date(seen)).length;
-        setUnreadCount(unseenCount);
+        setUnreadCount(data.filter(l => new Date(l.created_at) > new Date(seen)).length);
       } else {
-        setUnreadCount(data.length > 0 ? data.length : 0);
+        setUnreadCount(data.length);
       }
     }
   };
+
+  const fetchFollowUpsDue = async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const { count } = await supabase
+      .from('follow_up_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .lte('scheduled_date', today);
+    setFollowUpsDue(count || 0);
+  };
+
+  const totalBadge = unreadCount + followUpsDue;
 
   const handleOpen = (open: boolean) => {
     if (open) {
@@ -81,14 +87,20 @@ export function LeadAlertBell() {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative text-background hover:bg-background/10">
           <Bell className="w-4 h-4" />
-          {unreadCount > 0 && (
+          {totalBadge > 0 && (
             <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {totalBadge > 9 ? '9+' : totalBadge}
             </span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
+        {followUpsDue > 0 && (
+          <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded bg-warning/10 text-warning text-xs font-medium">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+            {followUpsDue} follow-up{followUpsDue !== 1 ? 's' : ''} due today
+          </div>
+        )}
         <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">Recent Leads</p>
         {alerts.length === 0 ? (
           <p className="text-xs text-muted-foreground px-1 py-2">No leads yet</p>
