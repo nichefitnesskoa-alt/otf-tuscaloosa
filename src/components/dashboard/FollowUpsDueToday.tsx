@@ -489,15 +489,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
                   {item.lead_source}
                 </Badge>
               )}
-              {noPhone && <NoPhoneBadge compact />}
-              {noPhone && (
-                <InlinePhoneInput
-                  personName={item.person_name}
-                  bookingId={item.booking_id}
-                  onSaved={fetchQueue}
-                  compact
-                />
-              )}
               {isLegacy && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
                   Legacy
@@ -510,6 +501,17 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
                 <Clock className="w-2.5 h-2.5 inline mr-0.5" />
                 {daysSinceTrigger}d since intro
               </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {noPhone && <NoPhoneBadge compact />}
+            {noPhone && (
+              <InlinePhoneInput
+                personName={item.person_name}
+                bookingId={item.booking_id}
+                onSaved={fetchQueue}
+                compact
+              />
             )}
           </div>
         </div>
