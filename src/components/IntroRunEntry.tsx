@@ -5,10 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, UserCheck, Calendar, Info, AlertTriangle, Phone } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Trash2, UserCheck, Calendar, Info, AlertTriangle, Phone, Lightbulb } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { COACHES } from '@/types';
+import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
+import { EirmaPlaybook } from '@/components/dashboard/EirmaPlaybook';
 
 // Lead Sources (alphabetized)
 const LEAD_SOURCES = [
@@ -23,6 +27,17 @@ const LEAD_SOURCES = [
   'Online Intro Offer (self-booked)',
   'Source Not Found',
   'VIP Class',
+] as const;
+
+const OBJECTION_CATEGORIES = [
+  'Pricing',
+  'Time',
+  'Shopping Around',
+  'Spousal/Parental',
+  'Think About It',
+  'Out of Town',
+  'None/Closed',
+  'Other',
 ] as const;
 
 const OUTCOMES = [
@@ -50,6 +65,7 @@ export interface IntroRunData {
   leadSource: string;
   coachName: string;
   outcome: string;
+  primaryObjection: string;
   // New lead measures (spec-compliant)
   goalWhyCaptured: string;
   relationshipExperience: string;
@@ -366,7 +382,16 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
         </Select>
       </div>
 
-      {/* 2nd Intro Date/Time Prompt */}
+      {/* Primary Objection (for non-sale outcomes) */}
+      {intro.outcome && !['Premier', 'Elite', 'Basic'].some(t => intro.outcome.includes(t)) && intro.outcome !== 'No-show' && (
+        <PrimaryObjectionSection
+          intro={intro}
+          index={index}
+          onUpdate={onUpdate}
+        />
+      )}
+
+
       {show2ndIntroPrompt && (
         <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg space-y-3">
           <div className="flex items-center gap-2 text-warning">
@@ -457,5 +482,75 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
         />
       </div>
     </div>
+  );
+}
+
+function PrimaryObjectionSection({ intro, index, onUpdate }: {
+  intro: IntroRunData;
+  index: number;
+  onUpdate: (index: number, updates: Partial<IntroRunData>) => void;
+}) {
+  const [showEirma, setShowEirma] = useState(false);
+  const { data: playbooks = [] } = useObjectionPlaybooks();
+
+  // Map objection to obstacle trigger for EIRMA lookup
+  const objectionToObstacle: Record<string, string> = {
+    'Pricing': 'Too expensive / budget concerns',
+    'Time': 'Schedule is too busy',
+    'Shopping Around': 'comparing options',
+    'Spousal/Parental': 'need to talk to spouse',
+    'Think About It': 'think about it',
+    'Out of Town': 'out of town',
+  };
+
+  const obstacleForEirma = intro.primaryObjection ? objectionToObstacle[intro.primaryObjection] || null : null;
+
+  return (
+    <>
+      <div>
+        <Label className="text-xs">Primary Objection</Label>
+        <Select
+          value={intro.primaryObjection || ''}
+          onValueChange={(v) => onUpdate(index, { primaryObjection: v })}
+        >
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="What was the main objection?" />
+          </SelectTrigger>
+          <SelectContent>
+            {OBJECTION_CATEGORIES.map((obj) => (
+              <SelectItem key={obj} value={obj}>{obj}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {intro.primaryObjection && intro.primaryObjection !== 'None/Closed' && intro.primaryObjection !== 'Other' && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+          onClick={() => setShowEirma(true)}
+        >
+          <Lightbulb className="w-3.5 h-3.5 mr-1" />
+          Review EIRMA Playbook: {intro.primaryObjection}
+        </Button>
+      )}
+
+      <Dialog open={showEirma} onOpenChange={setShowEirma}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="text-sm">EIRMA Playbook: {intro.primaryObjection}</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] px-4 pb-4">
+            <EirmaPlaybook
+              obstacles={obstacleForEirma}
+              fitnessLevel={null}
+              emotionalDriver={null}
+              clientName={intro.memberName}
+            />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

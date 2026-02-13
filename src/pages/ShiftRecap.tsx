@@ -176,6 +176,7 @@ export default function ShiftRecap() {
       leadSource: '',
       coachName: '',
       outcome: '',
+      primaryObjection: '',
       goalWhyCaptured: '',
       relationshipExperience: '',
       madeAFriend: false,
@@ -728,6 +729,7 @@ export default function ShiftRecap() {
             relationship_experience: run.relationshipExperience || null,
             made_a_friend: run.madeAFriend,
             notes: run.notes || null,
+            primary_objection: run.primaryObjection || null,
             sa_name: user?.name || null,
             commission_amount: commissionAmount,
             linked_intro_booked_id: linkedBookingId || null, // Use the potentially updated linkedBookingId
@@ -857,7 +859,8 @@ export default function ShiftRecap() {
                   goal_why_captured: run.goalWhyCaptured,
                   relationship_experience: run.relationshipExperience,
                   made_a_friend: run.madeAFriend,
-                  notes: run.notes,
+                   notes: run.notes,
+                   primary_objection: run.primaryObjection || null,
                 },
               },
             });
