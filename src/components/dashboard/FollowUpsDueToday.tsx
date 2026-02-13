@@ -4,13 +4,15 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers } from 'lucide-react';
+import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers, Filter, ArrowUpDown } from 'lucide-react';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { selectBestScript } from '@/hooks/useSmartScriptSelect';
 import { cn } from '@/lib/utils';
+import { SectionHelp } from '@/components/dashboard/SectionHelp';
+import { CardGuidance, getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
 
 interface FollowUpItem {
   id: string;
@@ -45,6 +47,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const [batchMode, setBatchMode] = useState(false);
   const [batchIndex, setBatchIndex] = useState(0);
+  const [sortBy, setSortBy] = useState<'date' | 'type'>('date');
+  const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy'>('all');
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -108,8 +112,25 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     }
   };
 
-  const regularItems = useMemo(() => items.filter(i => !i.is_legacy), [items]);
-  const legacyItems = useMemo(() => items.filter(i => i.is_legacy), [items]);
+  const filteredItems = useMemo(() => {
+    let filtered = items;
+    if (filterType !== 'all') {
+      filtered = filtered.filter(i => i.person_type === filterType);
+    }
+    if (sortBy === 'type') {
+      filtered = [...filtered].sort((a, b) => {
+        if (a.person_type !== b.person_type) return a.person_type === 'no_show' ? -1 : 1;
+        return new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime();
+      });
+    }
+    return filtered;
+  }, [items, filterType, sortBy]);
+
+  const regularItems = useMemo(() => filteredItems.filter(i => !i.is_legacy), [filteredItems]);
+  const legacyItems = useMemo(() => filteredItems.filter(i => i.is_legacy), [filteredItems]);
+  
+  const noShowCount = useMemo(() => items.filter(i => i.person_type === 'no_show').length, [items]);
+  const didntBuyCount = useMemo(() => items.filter(i => i.person_type === 'didnt_buy').length, [items]);
 
   const handleSend = (item: FollowUpItem) => {
     const scriptResult = selectBestScript({
@@ -248,6 +269,14 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     const typeLabel = item.person_type === 'no_show' ? 'No Show' :
       item.person_type === 'didnt_buy' ? "Didn't Buy" : 'Unknown outcome';
     const triggerLabel = `${typeLabel} on ${format(parseISO(item.trigger_date), 'MMM d')}`;
+    const typeBadgeColor = item.person_type === 'no_show' 
+      ? 'bg-destructive/10 text-destructive border-destructive/20' 
+      : 'bg-amber-100 text-amber-800 border-amber-200';
+    const guidance = getFollowUpGuidance({
+      touchNumber: item.touch_number,
+      personType: item.person_type,
+      isLegacy,
+    });
 
     return (
       <div key={item.id} className={cn(
@@ -258,6 +287,9 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-semibold text-sm">{item.person_name}</span>
+              <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', typeBadgeColor)}>
+                {typeLabel}
+              </Badge>
               {!isLegacy && (
                 <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
                   Touch {item.touch_number} of 3
@@ -312,6 +344,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             </Button>
           </div>
         )}
+        <CardGuidance text={guidance} />
       </div>
     );
   };
@@ -323,6 +356,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           <CardTitle className="text-base flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-primary" />
             Follow-Ups Due
+            <SectionHelp text="These people need a follow-up text today. The script is already written for you. Tap Send to review and copy it. If the timing feels off, tap Snooze to push it a couple days. Legacy cards are people from before this system existed who still need outreach." />
             <Badge variant="default" className="ml-1 text-[10px]">{items.length}</Badge>
             {regularItems.length >= 5 && !batchMode && (
               <Button
@@ -336,6 +370,44 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               </Button>
             )}
           </CardTitle>
+          {/* Sort & Filter controls */}
+          {items.length > 1 && (
+            <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+              <Button
+                variant={filterType === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setFilterType('all')}
+              >
+                All ({items.length})
+              </Button>
+              <Button
+                variant={filterType === 'no_show' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setFilterType('no_show')}
+              >
+                No Show ({noShowCount})
+              </Button>
+              <Button
+                variant={filterType === 'didnt_buy' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setFilterType('didnt_buy')}
+              >
+                Didn't Buy ({didntBuyCount})
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2 ml-auto gap-1"
+                onClick={() => setSortBy(sortBy === 'date' ? 'type' : 'date')}
+              >
+                <ArrowUpDown className="w-3 h-3" />
+                {sortBy === 'date' ? 'By Date' : 'By Type'}
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-2">
           {regularItems.map(item => renderFollowUpCard(item, false))}

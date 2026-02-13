@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -73,6 +74,7 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
         <CardTitle className="text-base flex items-center gap-2 text-destructive">
           <AlertTriangle className="w-4 h-4 animate-pulse" />
           Unresolved Intros ({intros.length})
+          <SectionHelp text="These intros already happened but nobody logged whether they showed up. Tap 'They Showed' or 'No Show' for each one so we can follow up properly." />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">

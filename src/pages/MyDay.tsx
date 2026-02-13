@@ -31,6 +31,9 @@ import { UnresolvedIntros } from '@/components/dashboard/UnresolvedIntros';
 import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
 import { SoonLayer } from '@/components/dashboard/SoonLayer';
 import { ShiftScanOverlay } from '@/components/dashboard/ShiftScanOverlay';
+import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
+import { SectionHelp } from '@/components/dashboard/SectionHelp';
+import { CardGuidance, getIntroGuidance, getLeadGuidance, getTomorrowGuidance } from '@/components/dashboard/CardGuidance';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -411,7 +414,7 @@ export default function MyDay() {
       classTimePassed = new Date() > ct;
       hoursSinceClass = Math.max(0, (Date.now() - ct.getTime()) / 3600000);
     }
-    const showLogButton = isClassToday && classTimePassed && !b.intro_result && hoursSinceClass < 1;
+    const showLogButton = isClassToday && classTimePassed && !b.intro_result;
     const isLoggingThis = loggingOpenId === b.id;
 
     return (
@@ -531,6 +534,13 @@ export default function MyDay() {
                 onLogged={() => { setLoggingOpenId(null); fetchMyDayData(); }}
               />
             )}
+            <CardGuidance text={getIntroGuidance({
+              classTimePassed,
+              introResult: b.intro_result,
+              qCompleted: b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted',
+              confirmationSent: confirmationSentMap.has(b.id),
+              isSecondIntro: is2nd,
+            })} />
           </>
         )}
       </div>
@@ -552,9 +562,9 @@ export default function MyDay() {
     return null;
   };
 
-  return (
+    return (
     <div className="p-4 pb-8 space-y-4">
-      {/* Greeting */}
+      <OnboardingOverlay />
       <div className="mb-2">
         <h1 className="text-xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋</h1>
         <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
@@ -592,6 +602,7 @@ export default function MyDay() {
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="w-4 h-4 text-primary" />
             Today's Intros ({pendingIntros.length})
+            <SectionHelp text="Everyone coming in for a class today. Use Prep to review their info before they arrive. Use Script to send them a message. After their class, tap Log Intro to record what happened." />
             {completedTodayBookings.length > 0 && (
               <Badge variant="secondary" className="text-[10px] ml-auto">{completedTodayBookings.length} completed</Badge>
             )}
@@ -631,6 +642,7 @@ export default function MyDay() {
             <CardTitle className="text-base flex items-center gap-2">
               <UserPlus className="w-4 h-4 text-info" />
               New Leads ({sortedLeads.length})
+              <SectionHelp text="New people who haven't been contacted yet. Tap Script to get a personalized opener based on where they came from. Work the green ones first (they just came in), red ones have been waiting too long." />
             </CardTitle>
             {emphasisLabel('leads') && (
               <p className="text-[10px] text-primary font-medium">{emphasisLabel('leads')}</p>
@@ -690,7 +702,8 @@ export default function MyDay() {
                     onBookIntro={() => setBookIntroLead(lead)}
                     onMarkContacted={() => handleMarkContacted(lead.id)}
                     onMarkAlreadyBooked={() => handleMarkAlreadyBooked(lead.id)}
-                  />
+                   />
+                  <CardGuidance text={getLeadGuidance(minutesAgo)} />
                 </div>
               );
             })}
@@ -749,6 +762,7 @@ export default function MyDay() {
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarCheck className="w-4 h-4 text-info" />
             Tomorrow's Intros ({tomorrowBookings.length})
+            <SectionHelp text="Intros booked for tomorrow. Send confirmation texts today. Everything else is just awareness so nothing surprises you." />
           </CardTitle>
           {emphasisLabel('tomorrow') && (
             <p className="text-[10px] text-primary font-medium">{emphasisLabel('tomorrow')}</p>
@@ -779,6 +793,7 @@ export default function MyDay() {
                   {completedExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   Completed Today ({completedTodayBookings.length})
+                  <SectionHelp text="Everything that's been handled today. Check this when you start your shift to see what the last SA already did." />
                 </CardTitle>
               </CardHeader>
             </CollapsibleTrigger>
