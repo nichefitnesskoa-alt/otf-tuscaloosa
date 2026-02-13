@@ -3,8 +3,8 @@ import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LabelList } from 'recharts';
-import { TrendingUp, Target, Users } from 'lucide-react';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LabelList, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, Target, Users, BarChart3, RefreshCw } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
@@ -16,6 +16,9 @@ interface SAMetrics {
   friendRate: number;
   totalRuns: number;
   totalSales: number;
+  secondIntroBookingRate: number;
+  secondIntroCloseRate: number;
+  objections: Record<string, number>;
 }
 
 type CoachingPreset = 'this_week' | '7_days' | '30_days' | 'this_month' | 'last_month' | 'all';
@@ -65,7 +68,14 @@ export default function CoachingView() {
     const vipBookingIds = new Set(
       introsBooked.filter(b => (b as any).is_vip === true).map(b => b.id)
     );
-    const byStaff = new Map<string, { runs: number; sales: number; goalWhy: number; friend: number }>();
+    const byStaff = new Map<string, { runs: number; sales: number; goalWhy: number; friend: number; nonCloseRuns: number; secondBookings: number; secondCloses: number; objections: Record<string, number> }>();
+
+    // Build set of booking IDs that ARE 2nd intros
+    const secondIntroBookingIds = new Set(
+      introsBooked
+        .filter(b => (b as any).originating_booking_id)
+        .map(b => b.id)
+    );
 
     for (const run of introsRun) {
       const sa = run.intro_owner || run.sa_name || 'Unknown';
@@ -85,13 +95,33 @@ export default function CoachingView() {
         }
       }
       
-      const m = byStaff.get(sa) || { runs: 0, sales: 0, goalWhy: 0, friend: 0 };
-      m.runs++;
-      if (isMembershipSale(run.result)) m.sales++;
+      const m = byStaff.get(sa) || { runs: 0, sales: 0, goalWhy: 0, friend: 0, nonCloseRuns: 0, secondBookings: 0, secondCloses: 0, objections: {} };
+      
+      const isSecondIntroRun = run.linked_intro_booked_id && secondIntroBookingIds.has(run.linked_intro_booked_id);
+      
+      if (isSecondIntroRun) {
+        m.secondBookings++;
+        if (isMembershipSale(run.result)) m.secondCloses++;
+      } else {
+        m.runs++;
+        if (isMembershipSale(run.result)) {
+          m.sales++;
+        } else {
+          m.nonCloseRuns++;
+          // Track objection
+          const objection = (run as any).primary_objection;
+          if (objection && objection !== 'None/Closed') {
+            m.objections[objection] = (m.objections[objection] || 0) + 1;
+          }
+        }
+      }
       if ((run as any).goal_why_captured === 'Yes') m.goalWhy++;
       if ((run as any).made_a_friend) m.friend++;
       byStaff.set(sa, m);
     }
+
+    // Count 2nd intro bookings per SA from non-close 1st intros
+    // "2nd Intro Booking Rate" = secondBookings / nonCloseRuns
 
     const metrics: SAMetrics[] = [];
     for (const [name, m] of byStaff) {
@@ -99,10 +129,13 @@ export default function CoachingView() {
       metrics.push({
         name,
         closeRate: Math.round((m.sales / m.runs) * 100),
-        goalWhyRate: Math.round((m.goalWhy / m.runs) * 100),
-        friendRate: Math.round((m.friend / m.runs) * 100),
+        goalWhyRate: Math.round((m.goalWhy / (m.runs + m.secondBookings)) * 100),
+        friendRate: Math.round((m.friend / (m.runs + m.secondBookings)) * 100),
         totalRuns: m.runs,
         totalSales: m.sales,
+        secondIntroBookingRate: m.nonCloseRuns > 0 ? Math.round((m.secondBookings / m.nonCloseRuns) * 100) : 0,
+        secondIntroCloseRate: m.secondBookings > 0 ? Math.round((m.secondCloses / m.secondBookings) * 100) : 0,
+        objections: m.objections,
       });
     }
     return metrics.sort((a, b) => b.closeRate - a.closeRate);
@@ -215,6 +248,73 @@ export default function CoachingView() {
           )}
         </CardContent>
       </Card>
+
+      {/* 6E: 2nd Intro Conversion Tracking */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <RefreshCw className="w-4 h-4" />
+            2nd Intro Conversion
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {saMetrics.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Not enough data</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="font-semibold text-muted-foreground">SA</div>
+                <div className="font-semibold text-muted-foreground">2nd Booking Rate</div>
+                <div className="font-semibold text-muted-foreground">2nd Close Rate</div>
+              </div>
+              {saMetrics.map(sa => (
+                <div key={sa.name} className="grid grid-cols-3 gap-2 text-center text-xs p-2 rounded bg-muted/30">
+                  <span className="font-medium text-left">{sa.name}</span>
+                  <span className={sa.secondIntroBookingRate > 50 ? 'text-success font-bold' : ''}>{sa.secondIntroBookingRate}%</span>
+                  <span className={sa.secondIntroCloseRate > 40 ? 'text-success font-bold' : ''}>{sa.secondIntroCloseRate}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 6D: Objection Distribution */}
+      {(() => {
+        const allObjections: Record<string, number> = {};
+        saMetrics.forEach(sa => {
+          Object.entries(sa.objections).forEach(([obj, count]) => {
+            allObjections[obj] = (allObjections[obj] || 0) + count;
+          });
+        });
+        const total = Object.values(allObjections).reduce((s, v) => s + v, 0);
+        if (total === 0) return null;
+        const COLORS = ['hsl(0, 70%, 50%)', 'hsl(30, 80%, 50%)', 'hsl(200, 70%, 50%)', 'hsl(280, 60%, 50%)', 'hsl(160, 60%, 40%)', 'hsl(50, 80%, 45%)'];
+        const pieData = Object.entries(allObjections).map(([name, value]) => ({ name, value, pct: Math.round((value / total) * 100) })).sort((a, b) => b.value - a.value);
+        return (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                Objection Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, pct }) => `${name} ${pct}%`} fontSize={10}>
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => [`${value} (${Math.round((value / total) * 100)}%)`, 'Count']} />
+                </PieChart>
+              </ResponsiveContainer>
+              <p className="text-[10px] text-muted-foreground text-center mt-1">{total} non-close intros with objection logged</p>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Coaching Suggestions */}
       {suggestions.length > 0 && (

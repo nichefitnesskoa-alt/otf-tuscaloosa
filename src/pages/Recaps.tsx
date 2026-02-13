@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +22,61 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { IntroBooked } from '@/context/DataContext';
+
+// 6B: Wrapper that fetches Q completion rate and passes it to StudioScoreboard
+function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee }: {
+  scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number; goalWhyRate: number; relationshipRate: number; madeAFriendRate: number };
+  introsBooked: IntroBooked[];
+  dateRange: DateRange | null;
+  selectedEmployee: string | null;
+}) {
+  const [qRate, setQRate] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    (async () => {
+      const firstIntros = introsBooked.filter(b => {
+        const isVip = (b as any).is_vip === true;
+        const originatingId = (b as any).originating_booking_id;
+        if (isVip || originatingId) return false;
+        if (selectedEmployee) {
+          const owner = (b as any).intro_owner || b.sa_working_shift;
+          if (owner !== selectedEmployee) return false;
+        }
+        if (!dateRange) return true;
+        try {
+          const d = new Date(b.class_date);
+          return d >= dateRange.start && d <= dateRange.end;
+        } catch { return false; }
+      });
+      if (firstIntros.length === 0) { setQRate(undefined); return; }
+      
+      const ids = firstIntros.map(b => b.id);
+      const { data: qs } = await supabase
+        .from('intro_questionnaires')
+        .select('booking_id, status')
+        .in('booking_id', ids.slice(0, 500));
+      
+      const completed = new Set(
+        (qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
+      );
+      setQRate((completed.size / firstIntros.length) * 100);
+    })();
+  }, [introsBooked, dateRange, selectedEmployee]);
+
+  return (
+    <StudioScoreboard
+      introsRun={scoreboardMetrics.introsRun}
+      introSales={scoreboardMetrics.introSales}
+      closingRate={scoreboardMetrics.closingRate}
+      goalWhyRate={scoreboardMetrics.goalWhyRate}
+      relationshipRate={scoreboardMetrics.relationshipRate}
+      madeAFriendRate={scoreboardMetrics.madeAFriendRate}
+      qCompletionRate={qRate}
+    />
+  );
+}
 
 export default function Recaps() {
   const { user } = useAuth();
@@ -39,6 +94,26 @@ export default function Recaps() {
   
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
   const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps);
+
+  // 6B: Q Completion Rate - % of 1st intro bookings with completed questionnaire
+  const qCompletionRate = useMemo(() => {
+    const firstIntros = introsBooked.filter(b => {
+      const isVip = (b as any).is_vip === true;
+      const originatingId = (b as any).originating_booking_id;
+      const isFirst = !originatingId;
+      if (isVip || !isFirst) return false;
+      if (!dateRange) return true;
+      try {
+        const d = new Date(b.class_date);
+        return d >= dateRange.start && d <= dateRange.end;
+      } catch { return false; }
+    });
+    if (firstIntros.length === 0) return undefined;
+    // We need questionnaire data - use a simple query approach via state
+    // For now we count bookings that have a questionnaire completed by checking DataContext
+    // This is a placeholder until we can fetch questionnaire status in bulk
+    return undefined; // Will be populated below
+  }, [introsBooked, dateRange]);
 
   // Use leaderboard data from metrics
   const { topBookers, topClosing, topShowRate } = metrics.leaderboards;
@@ -292,13 +367,11 @@ export default function Recaps() {
       <WeeklySchedule />
 
       {/* Studio Scoreboard */}
-      <StudioScoreboard
-        introsRun={scoreboardMetrics.introsRun}
-        introSales={scoreboardMetrics.introSales}
-        closingRate={scoreboardMetrics.closingRate}
-        goalWhyRate={scoreboardMetrics.goalWhyRate}
-        relationshipRate={scoreboardMetrics.relationshipRate}
-        madeAFriendRate={scoreboardMetrics.madeAFriendRate}
+      <QCompletionScoreboard
+        scoreboardMetrics={scoreboardMetrics}
+        introsBooked={introsBooked}
+        dateRange={dateRange}
+        selectedEmployee={selectedEmployee}
       />
 
       {/* Conversion Funnel with 1st/2nd Intro toggle */}
