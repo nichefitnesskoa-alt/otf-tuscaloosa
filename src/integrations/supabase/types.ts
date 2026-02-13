@@ -497,6 +497,7 @@ export type Database = {
           notes: string | null
           premobility_encouragement: boolean | null
           pricing_engagement: string | null
+          primary_objection: string | null
           process_checklist: string[] | null
           ran_by: string | null
           relationship_experience: string | null
@@ -538,6 +539,7 @@ export type Database = {
           notes?: string | null
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
+          primary_objection?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
           relationship_experience?: string | null
@@ -579,6 +581,7 @@ export type Database = {
           notes?: string | null
           premobility_encouragement?: boolean | null
           pricing_engagement?: string | null
+          primary_objection?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
           relationship_experience?: string | null
@@ -690,6 +693,63 @@ export type Database = {
           phone?: string
           source?: string
           stage?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      objection_playbooks: {
+        Row: {
+          ask_line: string
+          created_at: string
+          empathize_line: string
+          expert_principles: string
+          full_script: string
+          id: string
+          is_active: boolean
+          isolate_question: string
+          objection_name: string
+          redirect_discovery_question: string
+          redirect_framework: string
+          sort_order: number
+          suggestion_framework: string
+          training_notes: string
+          trigger_obstacles: string[]
+          updated_at: string
+        }
+        Insert: {
+          ask_line?: string
+          created_at?: string
+          empathize_line?: string
+          expert_principles?: string
+          full_script?: string
+          id?: string
+          is_active?: boolean
+          isolate_question?: string
+          objection_name: string
+          redirect_discovery_question?: string
+          redirect_framework?: string
+          sort_order?: number
+          suggestion_framework?: string
+          training_notes?: string
+          trigger_obstacles?: string[]
+          updated_at?: string
+        }
+        Update: {
+          ask_line?: string
+          created_at?: string
+          empathize_line?: string
+          expert_principles?: string
+          full_script?: string
+          id?: string
+          is_active?: boolean
+          isolate_question?: string
+          objection_name?: string
+          redirect_discovery_question?: string
+          redirect_framework?: string
+          sort_order?: number
+          suggestion_framework?: string
+          training_notes?: string
+          trigger_obstacles?: string[]
           updated_at?: string
         }
         Relationships: []

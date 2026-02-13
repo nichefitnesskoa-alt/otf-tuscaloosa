@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,9 +18,10 @@ import { format, parseISO, differenceInDays, isToday, isTomorrow } from 'date-fn
 interface ClientSearchScriptPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preSelectedPerson?: SearchResult;
 }
 
-type SearchResult = {
+export type SearchResult = {
   type: 'lead' | 'booking';
   id: string;
   name: string;
@@ -133,15 +134,22 @@ function getSuggestedCategories(result: SearchResult, sendLogCount: number): str
   return cats;
 }
 
-export function ClientSearchScriptPicker({ open, onOpenChange }: ClientSearchScriptPickerProps) {
+export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson }: ClientSearchScriptPickerProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPerson, setSelectedPerson] = useState<SearchResult | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<SearchResult | null>(preSelectedPerson || null);
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const [manualMode, setManualMode] = useState(false);
   const [manualFirstName, setManualFirstName] = useState('');
   const [manualLastName, setManualLastName] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+
+  // Sync preSelectedPerson when dialog opens
+  useEffect(() => {
+    if (preSelectedPerson && open) {
+      setSelectedPerson(preSelectedPerson);
+    }
+  }, [open, preSelectedPerson]);
 
   const { data: searchResults = [], isLoading: searching } = useSearchPeople(searchQuery);
   const { data: templates = [] } = useScriptTemplates();

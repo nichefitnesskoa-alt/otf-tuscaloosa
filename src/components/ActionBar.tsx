@@ -1,20 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, MessageSquare, FileText, User, Phone, Copy, CalendarPlus, CalendarCheck, CheckCircle, Eye } from 'lucide-react';
+import { ClipboardList, MessageSquare, FileText, Phone, Copy, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClientProfileSheet } from '@/components/dashboard/ClientProfileSheet';
-import { IntroPrepCard } from '@/components/dashboard/IntroPrepCard';
-import { useNavigate } from 'react-router-dom';
+import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
+import { ClientSearchScriptPicker } from '@/components/scripts/ClientSearchScriptPicker';
 import { supabase } from '@/integrations/supabase/client';
-
-interface ActionBarButton {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  hidden?: boolean;
-  variant?: 'default' | 'outline' | 'ghost';
-}
 
 // ─── Intro Action Bar (for booking cards) ───────────────────────────────────
 
@@ -29,6 +19,7 @@ interface IntroActionBarProps {
   isSecondIntro: boolean;
   firstBookingId?: string | null;
   phone?: string | null;
+  email?: string | null;
   bookings?: Array<{
     id: string;
     class_date: string;
@@ -62,12 +53,12 @@ export function IntroActionBar({
   isSecondIntro,
   firstBookingId,
   phone,
+  email,
   bookings,
   runs,
 }: IntroActionBarProps) {
-  const [profileOpen, setProfileOpen] = useState(false);
   const [prepOpen, setPrepOpen] = useState(false);
-  const navigate = useNavigate();
+  const [scriptOpen, setScriptOpen] = useState(false);
 
   const prepBookingId = firstBookingId || bookingId;
 
@@ -87,7 +78,6 @@ export function IntroActionBar({
       await navigator.clipboard.writeText(phone);
       toast.success('Phone copied!');
     } else {
-      // Try to find phone from leads table
       const nameParts = memberName.trim().split(/\s+/);
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ');
@@ -108,7 +98,6 @@ export function IntroActionBar({
   };
 
   const handleSendQ = async () => {
-    // Generate questionnaire link and copy
     const nameParts = memberName.trim().split(/\s+/);
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -131,7 +120,6 @@ export function IntroActionBar({
       }
       toast.success('Q link copied!');
     } else {
-      // Try by name
       const { data: byName } = await supabase
         .from('intro_questionnaires')
         .select('id, slug, status' as any)
@@ -157,39 +145,56 @@ export function IntroActionBar({
     <>
       <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
         <ActionButton icon={<ClipboardList className="w-3.5 h-3.5" />} label="Prep" onClick={() => setPrepOpen(true)} />
-        <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Script" onClick={() => navigate('/scripts')} />
+        <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Script" onClick={() => setScriptOpen(true)} />
         {!isSecondIntro ? (
           <ActionButton icon={<FileText className="w-3.5 h-3.5" />} label="Send Q" onClick={handleSendQ} />
         ) : (
           <ActionButton icon={<Eye className="w-3.5 h-3.5" />} label="View Q" onClick={() => setPrepOpen(true)} />
         )}
-        <ActionButton icon={<User className="w-3.5 h-3.5" />} label="Profile" onClick={() => setProfileOpen(true)} />
         <ActionButton icon={<Phone className="w-3.5 h-3.5" />} label="Phone" onClick={handleCopyPhone} />
       </div>
 
-      <ClientProfileSheet
-        open={profileOpen}
-        onOpenChange={setProfileOpen}
-        memberName={memberName}
-        memberKey={memberKey}
-        bookings={defaultBookings}
-        runs={runs || []}
-      />
-
-      <IntroPrepCard
+      <PrepDrawer
         open={prepOpen}
         onOpenChange={setPrepOpen}
         memberName={memberName}
+        memberKey={memberKey}
+        bookingId={prepBookingId}
         classDate={classDate}
         classTime={classTime}
         coachName={coachName}
-        bookingId={prepBookingId}
+        leadSource={leadSource}
+        isSecondIntro={isSecondIntro}
+        phone={phone}
+        email={email}
+        bookings={defaultBookings}
+        runs={runs}
+        onGenerateScript={() => { setPrepOpen(false); setScriptOpen(true); }}
+        onSendQ={handleSendQ}
+      />
+
+      <ClientSearchScriptPicker
+        open={scriptOpen}
+        onOpenChange={setScriptOpen}
+        preSelectedPerson={{
+          type: 'booking',
+          id: bookingId,
+          name: memberName,
+          firstName: memberName.split(' ')[0] || '',
+          lastName: memberName.split(' ').slice(1).join(' ') || '',
+          classDate,
+          classTime: classTime || undefined,
+          source: leadSource,
+          detail: `Booking · ${classDate}${classTime ? ' at ' + classTime : ''} · Active`,
+        }}
       />
     </>
   );
 }
 
 // ─── Lead Action Bar ────────────────────────────────────────────────────────
+
+import { CalendarPlus, CalendarCheck, CheckCircle, User } from 'lucide-react';
 
 interface LeadActionBarProps {
   leadId: string;
@@ -216,7 +221,7 @@ export function LeadActionBar({
   onMarkContacted,
   onMarkAlreadyBooked,
 }: LeadActionBarProps) {
-  const navigate = useNavigate();
+  const [scriptOpen, setScriptOpen] = useState(false);
 
   const handleCopyPhone = async () => {
     if (phone) {
@@ -227,34 +232,47 @@ export function LeadActionBar({
     }
   };
 
-  const handleContact = () => {
-    navigate('/scripts');
-  };
-
   return (
-    <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
-      <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Contact" onClick={handleContact} />
-      <ActionButton icon={<CalendarPlus className="w-3.5 h-3.5" />} label="Book" onClick={onBookIntro} />
-      <ActionButton icon={<User className="w-3.5 h-3.5" />} label="Profile" onClick={onOpenDetail} />
-      <ActionButton icon={<Phone className="w-3.5 h-3.5" />} label="Phone" onClick={handleCopyPhone} />
-      {stage === 'new' && onMarkContacted && (
-        <ActionButton icon={<CheckCircle className="w-3.5 h-3.5" />} label="Contacted" onClick={onMarkContacted} />
-      )}
-      {(stage === 'new' || stage === 'contacted') && onMarkAlreadyBooked && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0 border-warning text-warning hover:bg-warning/10"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMarkAlreadyBooked();
-          }}
-        >
-          <CalendarCheck className="w-3.5 h-3.5" />
-          Already Booked
-        </Button>
-      )}
-    </div>
+    <>
+      <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
+        <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Contact" onClick={() => setScriptOpen(true)} />
+        <ActionButton icon={<CalendarPlus className="w-3.5 h-3.5" />} label="Book" onClick={onBookIntro} />
+        <ActionButton icon={<User className="w-3.5 h-3.5" />} label="Profile" onClick={onOpenDetail} />
+        <ActionButton icon={<Phone className="w-3.5 h-3.5" />} label="Phone" onClick={handleCopyPhone} />
+        {stage === 'new' && onMarkContacted && (
+          <ActionButton icon={<CheckCircle className="w-3.5 h-3.5" />} label="Contacted" onClick={onMarkContacted} />
+        )}
+        {(stage === 'new' || stage === 'contacted') && onMarkAlreadyBooked && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0 border-warning text-warning hover:bg-warning/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkAlreadyBooked();
+            }}
+          >
+            <CalendarCheck className="w-3.5 h-3.5" />
+            Already Booked
+          </Button>
+        )}
+      </div>
+
+      <ClientSearchScriptPicker
+        open={scriptOpen}
+        onOpenChange={setScriptOpen}
+        preSelectedPerson={{
+          type: 'lead',
+          id: leadId,
+          name: `${firstName} ${lastName}`,
+          firstName,
+          lastName,
+          stage,
+          source,
+          detail: `Lead · ${stage} · ${source}`,
+        }}
+      />
+    </>
   );
 }
 
