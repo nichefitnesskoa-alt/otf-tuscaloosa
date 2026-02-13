@@ -175,6 +175,78 @@ export type Database = {
           },
         ]
       }
+      follow_up_queue: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          fitness_goal: string | null
+          id: string
+          is_vip: boolean
+          lead_id: string | null
+          person_name: string
+          person_type: string
+          primary_objection: string | null
+          scheduled_date: string
+          sent_at: string | null
+          sent_by: string | null
+          snoozed_until: string | null
+          status: string
+          touch_number: number
+          trigger_date: string
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          fitness_goal?: string | null
+          id?: string
+          is_vip?: boolean
+          lead_id?: string | null
+          person_name: string
+          person_type: string
+          primary_objection?: string | null
+          scheduled_date: string
+          sent_at?: string | null
+          sent_by?: string | null
+          snoozed_until?: string | null
+          status?: string
+          touch_number?: number
+          trigger_date: string
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          fitness_goal?: string | null
+          id?: string
+          is_vip?: boolean
+          lead_id?: string | null
+          person_name?: string
+          person_type?: string
+          primary_objection?: string | null
+          scheduled_date?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          snoozed_until?: string | null
+          status?: string
+          touch_number?: number
+          trigger_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_queue_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ig_leads: {
         Row: {
           created_at: string

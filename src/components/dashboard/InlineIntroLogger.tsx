@@ -9,6 +9,7 @@ import { useData } from '@/context/DataContext';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
@@ -134,6 +135,33 @@ export function InlineIntroLogger({
         script_category: result,
         completed_by: saName,
       });
+
+      // Generate follow-up queue entries for no-show and didn't-buy (Part 6)
+      if (outcome === 'no_show' || outcome === 'didnt_buy') {
+        const personType = outcome === 'no_show' ? 'no_show' : 'didnt_buy';
+        // Check if booking is VIP
+        const { data: bookingData } = await supabase
+          .from('intros_booked')
+          .select('is_vip')
+          .eq('id', bookingId)
+          .maybeSingle();
+        const isVip = bookingData?.is_vip || false;
+
+        // Only create follow-ups for non-VIP (Part 7)
+        if (!isVip) {
+          const entries = generateFollowUpEntries(
+            memberName,
+            personType as 'no_show' | 'didnt_buy',
+            classDate,
+            bookingId,
+            null,
+            false,
+            outcome === 'didnt_buy' ? objection : null,
+            null,
+          );
+          await supabase.from('follow_up_queue').insert(entries);
+        }
+      }
 
       toast.success(`Intro logged: ${result}`);
       await refreshData();

@@ -24,6 +24,7 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { InlineIntroLogger } from '@/components/dashboard/InlineIntroLogger';
 import { ReadyForIntroChecklist } from '@/components/dashboard/ReadyForIntroChecklist';
+import { FollowUpQueue, generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -95,6 +96,7 @@ export default function MyDay() {
   const [isLoading, setIsLoading] = useState(true);
   const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
   const [confirmationSentMap, setConfirmationSentMap] = useState<Set<string>>(new Set());
+  const [scriptActionsMap, setScriptActionsMap] = useState<Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>>(new Map());
   const [loggingOpenId, setLoggingOpenId] = useState<string | null>(null);
   const [completedExpanded, setCompletedExpanded] = useState(false);
 
@@ -232,6 +234,29 @@ export default function MyDay() {
           setReminderSentMap(sentSet);
           // For today's cards, confirmation sent = any script log for this booking
           setConfirmationSentMap(sentSet);
+        }
+
+        // Fetch script_actions for today (Part 5: action completion tracking)
+        const todayStart = today + 'T00:00:00';
+        const { data: actionsData } = await supabase
+          .from('script_actions')
+          .select('booking_id, action_type, script_category, completed_by, completed_at')
+          .gte('completed_at', todayStart)
+          .not('booking_id', 'is', null);
+
+        if (actionsData) {
+          const map = new Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>();
+          for (const a of actionsData) {
+            if (a.booking_id && (a.action_type === 'script_sent' || a.action_type === 'intro_logged')) {
+              map.set(a.booking_id, {
+                action_type: a.action_type,
+                script_category: a.script_category,
+                completed_by: a.completed_by,
+                completed_at: a.completed_at,
+              });
+            }
+          }
+          setScriptActionsMap(map);
         }
       }
 
@@ -432,6 +457,21 @@ export default function MyDay() {
           />
         )}
 
+        {/* Part 5: Action completion summary */}
+        {scriptActionsMap.has(b.id) && (() => {
+          const action = scriptActionsMap.get(b.id)!;
+          const timeStr = format(new Date(action.completed_at), 'h:mm a');
+          const label = action.action_type === 'script_sent'
+            ? `${action.completed_by} sent ${action.script_category === 'booking_confirmation' ? 'confirmation' : 'script'}`
+            : `${action.completed_by} logged intro`;
+          return (
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1">
+              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+              {label} at {timeStr}
+            </div>
+          );
+        })()}
+
         {/* Inline action bar - VIP cards get "Book Real Intro" instead of script generate */}
         {isVipCard ? (
           <div className="flex items-center gap-1.5">
@@ -524,6 +564,11 @@ export default function MyDay() {
                           linked_intro_booked_id: b.id,
                           shift_recap_id: shiftRecapId,
                         });
+                        // Generate follow-up queue entries for no-show (Part 6 + Part 7 VIP exclusion)
+                        const entries = generateFollowUpEntries(
+                          b.member_name, 'no_show', b.class_date, b.id, null, false, null, null,
+                        );
+                        await supabase.from('follow_up_queue').insert(entries);
                         toast.success('Logged as No-show');
                         fetchMyDayData();
                       }}
@@ -709,13 +754,16 @@ export default function MyDay() {
         </CardContent>
       </Card>
 
-      {/* Overdue Follow-Ups */}
+      {/* Structured Follow-Up Queue (Part 6) */}
+      <FollowUpQueue onRefresh={fetchMyDayData} />
+
+      {/* Legacy Overdue Follow-Ups (script_send_log based) */}
       {overdueFollowUps.length > 0 && (
         <Card className="border-warning/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-warning" />
-              Overdue Follow-Ups ({overdueFollowUps.length})
+              Other Follow-Ups ({overdueFollowUps.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
