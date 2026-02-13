@@ -13,6 +13,8 @@ import { selectBestScript } from '@/hooks/useSmartScriptSelect';
 import { cn } from '@/lib/utils';
 import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { CardGuidance, getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
+import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialog';
+import { History } from 'lucide-react';
 
 interface FollowUpItem {
   id: string;
@@ -45,6 +47,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [loading, setLoading] = useState(true);
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
+  const [pastContactItem, setPastContactItem] = useState<FollowUpItem | null>(null);
   const [batchMode, setBatchMode] = useState(false);
   const [batchIndex, setBatchIndex] = useState(0);
   const [sortBy, setSortBy] = useState<'date' | 'type'>('date');
@@ -312,10 +315,14 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         </div>
 
         {isLegacy ? (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <Button size="sm" className="h-7 text-[11px] flex-1 gap-1" onClick={() => handleStartSequence(item)}>
               <Send className="w-3 h-3" />
               Start Sequence
+            </Button>
+            <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
+              <History className="w-3 h-3" />
+              Log Past Contact
             </Button>
             <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleMarkDone(item)}>
               <CheckCircle className="w-3 h-3" />
@@ -440,6 +447,20 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             setScriptItem(null);
             setSelectedTemplate(null);
             if (batchMode) handleBatchNext();
+          }}
+        />
+      )}
+      {pastContactItem && (
+        <LogPastContactDialog
+          open={true}
+          onOpenChange={(o) => { if (!o) setPastContactItem(null); }}
+          personName={pastContactItem.person_name}
+          bookingId={pastContactItem.booking_id}
+          leadId={pastContactItem.lead_id}
+          onDone={() => {
+            setPastContactItem(null);
+            fetchQueue();
+            onRefresh();
           }}
         />
       )}
