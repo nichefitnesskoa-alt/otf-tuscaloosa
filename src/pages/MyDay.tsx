@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isToday, parseISO, addDays, differenceInMinutes } from 'date-fns';
+import { format, isToday, parseISO, addDays, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
   Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus
@@ -32,6 +32,7 @@ interface DayBooking {
   coach_name: string;
   lead_source: string;
   questionnaire_status: string | null;
+  questionnaire_slug: string | null;
   originating_booking_id: string | null;
   class_date: string;
   created_at: string;
@@ -39,6 +40,8 @@ interface DayBooking {
   email: string | null;
   vip_class_name?: string | null;
   vip_session_id?: string | null;
+  intro_result?: string | null;
+  primary_objection?: string | null;
 }
 
 interface VipGroup {
@@ -61,6 +64,18 @@ interface OverdueFollowUp {
   personName: string;
   nextAction: string;
   daysOverdue: number;
+}
+
+function formatBookedTime(createdAt: string): string {
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffHrs = differenceInHours(now, created);
+  const diffDays = differenceInDays(now, created);
+  if (diffHrs < 1) return `Booked ${differenceInMinutes(now, created)}m ago`;
+  if (diffHrs < 24 && isToday(created)) return `Booked today at ${format(created, 'h:mm a')}`;
+  if (diffDays < 2) return 'Booked yesterday';
+  if (diffDays < 7) return `Booked ${diffDays} days ago`;
+  return `Booked ${format(created, 'MMM d')}`;
 }
 
 export default function MyDay() {
@@ -167,18 +182,32 @@ export default function MyDay() {
 
       if (bookings) {
         const bookingIds = bookings.map(b => b.id);
-        const { data: questionnaires } = await supabase
-          .from('intro_questionnaires')
-          .select('booking_id, status')
-          .in('booking_id', bookingIds.length > 0 ? bookingIds : ['none']);
+        const [qRes, runRes] = await Promise.all([
+          supabase
+            .from('intro_questionnaires')
+            .select('booking_id, status, slug')
+            .in('booking_id', bookingIds.length > 0 ? bookingIds : ['none']),
+          supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, result, primary_objection')
+            .in('linked_intro_booked_id', bookingIds.length > 0 ? bookingIds : ['none'])
+            .limit(200),
+        ]);
 
-        const qMap = new Map(questionnaires?.map(q => [q.booking_id, q.status]) || []);
+        const questionnaires = qRes.data;
+        const runsData = runRes.data;
+
+        const qMap = new Map(questionnaires?.map(q => [q.booking_id, { status: q.status, slug: (q as any).slug }]) || []);
+        const runMap = new Map((runsData || []).map((r: any) => [r.linked_intro_booked_id, { result: r.result, primary_objection: r.primary_objection }]));
         
         const enriched = bookings.map(b => ({
           ...b,
-          questionnaire_status: qMap.get(b.id) || null,
+          questionnaire_status: qMap.get(b.id)?.status || null,
+          questionnaire_slug: qMap.get(b.id)?.slug || null,
           phone: (b as any).phone || null,
           email: (b as any).email || null,
+          intro_result: runMap.get(b.id)?.result || null,
+          primary_objection: runMap.get(b.id)?.primary_objection || null,
         }));
 
         setTodayBookings(enriched.filter(b => b.class_date === today));
@@ -340,6 +369,9 @@ export default function MyDay() {
             <p className="text-xs text-muted-foreground mt-0.5">
               {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
             </p>
+            <p className="text-[10px] text-muted-foreground/70">
+              {formatBookedTime(b.created_at)}
+            </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {!b.phone && (
@@ -395,6 +427,12 @@ export default function MyDay() {
             isSecondIntro={is2nd}
             firstBookingId={firstId}
             phone={b.phone}
+            email={b.email}
+            questionnaireStatus={b.questionnaire_status}
+            questionnaireSlug={b.questionnaire_slug}
+            introResult={b.intro_result}
+            primaryObjection={b.primary_objection}
+            bookingCreatedAt={b.created_at}
           />
         )}
       </div>

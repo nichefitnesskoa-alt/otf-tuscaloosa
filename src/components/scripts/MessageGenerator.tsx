@@ -37,6 +37,9 @@ interface MessageGeneratorProps {
   friendQuestionnaireId?: string;
   onQuestionnaireSent?: () => void;
   onFriendQuestionnaireSent?: () => void;
+  contextNote?: string;
+  bodyOverride?: string;
+  onChangeScript?: () => void;
 }
 
 const MERGE_FIELD_REGEX = /\{([a-z\-\/]+)\}/g;
@@ -63,7 +66,7 @@ function applyMergeFields(body: string, context: MergeContext, manual: Record<st
   });
 }
 
-export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent }: MessageGeneratorProps) {
+export function MessageGenerator({ open, onOpenChange, template, mergeContext = {}, leadId, bookingId, onLogged, questionnaireId, friendQuestionnaireId, onQuestionnaireSent, onFriendQuestionnaireSent, contextNote, bodyOverride, onChangeScript }: MessageGeneratorProps) {
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
@@ -73,24 +76,25 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     ...mergeContext,
   }), [mergeContext, user]);
 
-  const unfilledFields = useMemo(() => extractUnfilledFields(template.body, fullContext), [template.body, fullContext]);
+  const templateBody = bodyOverride || template.body;
+  const unfilledFields = useMemo(() => extractUnfilledFields(templateBody, fullContext), [templateBody, fullContext]);
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [editedMessage, setEditedMessage] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (open) {
-      const applied = applyMergeFields(template.body, fullContext, {});
+      const applied = applyMergeFields(templateBody, fullContext, {});
       setEditedMessage(applied);
       setManualFields({});
       setCopied(false);
     }
-  }, [open, template.body, fullContext]);
+  }, [open, templateBody, fullContext]);
 
   const handleManualChange = (field: string, value: string) => {
     const newManual = { ...manualFields, [field]: value };
     setManualFields(newManual);
-    setEditedMessage(applyMergeFields(template.body, fullContext, newManual));
+    setEditedMessage(applyMergeFields(templateBody, fullContext, newManual));
   };
 
   const handleCopy = async () => {
@@ -165,6 +169,13 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Context note banner */}
+          {contextNote && (
+            <div className="rounded-lg bg-warning/15 border border-warning/30 p-3 text-sm text-warning-foreground">
+              {contextNote}
+            </div>
+          )}
+
           {/* Chat bubble preview */}
           <div className="rounded-2xl rounded-tl-sm bg-muted p-4 text-sm leading-relaxed whitespace-pre-wrap">
             {renderHighlightedPreview()}
@@ -208,6 +219,16 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
               <Send className="w-4 h-4 mr-1" /> Log as Sent
             </Button>
           </div>
+
+          {/* Change Script link */}
+          {onChangeScript && (
+            <button
+              onClick={onChangeScript}
+              className="w-full text-center text-xs text-muted-foreground hover:text-foreground underline py-1"
+            >
+              Change Script
+            </button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

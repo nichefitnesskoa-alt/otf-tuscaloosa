@@ -28,7 +28,6 @@ export const SCRIPT_CATEGORIES = [
   { value: 'post_class_joined', label: 'Post-Class (Joined)' },
   { value: 'referral_ask', label: 'Referral Ask' },
   { value: 'cancel_freeze', label: 'Cancel/Freeze Save' },
-  { value: 'birthday_milestone', label: 'Birthday & Milestones' },
   { value: 'promo', label: 'Promos' },
 ] as const;
 
