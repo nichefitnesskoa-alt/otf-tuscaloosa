@@ -439,7 +439,15 @@ export default function MyDay() {
             <p className="text-[10px] text-muted-foreground/70">{formatBookedTime(b.created_at)}</p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {!b.phone && <NoPhoneBadge />}
+            {!b.phone && <NoPhoneBadge compact />}
+            {!b.phone && (
+              <InlinePhoneInput
+                personName={b.member_name}
+                bookingId={b.id}
+                onSaved={fetchMyDayData}
+                compact
+              />
+            )}
             {b.phone && !b.email && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">No Email</Badge>}
             {!isVipCard && getQBadge(b.questionnaire_status, is2nd)}
             {showReminderStatus && !reminderSent && (
@@ -449,14 +457,6 @@ export default function MyDay() {
             )}
           </div>
         </div>
-
-        {!b.phone && (
-          <InlinePhoneInput
-            personName={b.member_name}
-            bookingId={b.id}
-            onSaved={fetchMyDayData}
-          />
-        )}
 
         {showReadyChecklist && !b.intro_result && (
           <ReadyForIntroChecklist
