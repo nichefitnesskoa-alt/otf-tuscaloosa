@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { FollowUpStatusBadge } from '@/components/dashboard/FollowUpStatusBadge';
 
 interface LeadDetailSheetProps {
   lead: Tables<'leads'> | null;
@@ -146,6 +147,7 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                 <Badge className={STAGE_COLORS[lead.stage] || ''}>{STAGE_LABELS[lead.stage] || lead.stage}</Badge>
                 {isBooked && <Badge className="bg-success text-success-foreground">Booked</Badge>}
                 <span className="text-xs text-muted-foreground">{lead.source}</span>
+                <FollowUpStatusBadge personName={`${lead.first_name} ${lead.last_name}`} />
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-primary">
