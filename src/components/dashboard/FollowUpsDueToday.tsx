@@ -4,8 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers, Filter, ArrowUpDown, Phone, AlertTriangle, Plus } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Layers, ArrowUpDown, Phone } from 'lucide-react';
+import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
@@ -56,9 +56,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [batchIndex, setBatchIndex] = useState(0);
   const [sortBy, setSortBy] = useState<'date' | 'type'>('date');
   const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy'>('all');
-  const [phoneEditId, setPhoneEditId] = useState<string | null>(null);
-  const [phoneValue, setPhoneValue] = useState('');
-  const [savingPhone, setSavingPhone] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -375,31 +372,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     fetchQueue();
     onRefresh();
   };
-  const handleSavePhone = async (item: FollowUpItem) => {
-    if (!phoneValue.trim()) return;
-    setSavingPhone(true);
-    try {
-      // Update phone on the linked booking
-      if (item.booking_id) {
-        await supabase.from('intros_booked').update({ phone: phoneValue.trim() }).eq('id', item.booking_id);
-      }
-      // Also update all bookings for this person name that lack a phone
-      await supabase.from('intros_booked')
-        .update({ phone: phoneValue.trim() })
-        .eq('member_name', item.person_name)
-        .is('phone', null);
-      
-      toast.success('Phone number saved');
-      setPhoneEditId(null);
-      setPhoneValue('');
-      fetchQueue();
-    } catch (err) {
-      console.error('Save phone error:', err);
-      toast.error('Failed to save phone number');
-    } finally {
-      setSavingPhone(false);
-    }
-  };
 
   const mergeContext = useMemo(() => {
     if (!scriptItem) return {};
@@ -517,12 +489,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
                   {item.lead_source}
                 </Badge>
               )}
-              {noPhone && (
-                <Badge className="text-[10px] px-1.5 py-0 h-4 border bg-destructive/15 text-destructive border-destructive/30">
-                  <Phone className="w-2.5 h-2.5 mr-0.5" />
-                  No Phone
-                </Badge>
-              )}
+              {noPhone && <NoPhoneBadge />}
               {isLegacy && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
                   Legacy
@@ -541,44 +508,11 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
         {/* Inline phone input for missing phone */}
         {noPhone && (
-          phoneEditId === item.id ? (
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="tel"
-                placeholder="(205) 555-1234"
-                value={phoneValue}
-                onChange={(e) => setPhoneValue(e.target.value)}
-                className="h-7 text-xs flex-1"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                className="h-7 text-[11px] gap-1"
-                onClick={() => handleSavePhone(item)}
-                disabled={savingPhone || !phoneValue.trim()}
-              >
-                {savingPhone ? '...' : 'Save'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-[11px] px-1.5"
-                onClick={() => { setPhoneEditId(null); setPhoneValue(''); }}
-              >
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-[11px] gap-1 w-full border-destructive/30 text-destructive hover:bg-destructive/5"
-              onClick={() => { setPhoneEditId(item.id); setPhoneValue(''); }}
-            >
-              <Plus className="w-3 h-3" />
-              Add Phone Number
-            </Button>
-          )
+          <InlinePhoneInput
+            personName={item.person_name}
+            bookingId={item.booking_id}
+            onSaved={fetchQueue}
+          />
         )}
 
         {isLegacy ? (
