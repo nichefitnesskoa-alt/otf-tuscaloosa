@@ -33,6 +33,7 @@ interface FollowUpItem {
   primary_objection: string | null;
   fitness_goal: string | null;
   is_legacy: boolean;
+  lead_source?: string | null;
 }
 
 interface FollowUpsDueTodayProps {
@@ -73,8 +74,21 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
       if (data && data.length > 0) {
         const personNames = [...new Set(data.map(d => d.person_name))];
+        const bookingIds = [...new Set(data.map(d => d.booking_id).filter(Boolean))] as string[];
         const sixDaysAgo = format(addDays(new Date(), -6), 'yyyy-MM-dd');
         
+        // Fetch lead_source from intros_booked for all booking IDs
+        let leadSourceMap = new Map<string, string>();
+        if (bookingIds.length > 0) {
+          const { data: bookings } = await supabase
+            .from('intros_booked')
+            .select('id, lead_source')
+            .in('id', bookingIds);
+          if (bookings) {
+            leadSourceMap = new Map(bookings.map(b => [b.id, b.lead_source]));
+          }
+        }
+
         // 6-day cooling guardrail
         const { data: recentSent } = await supabase
           .from('follow_up_queue')
@@ -100,7 +114,10 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           if (recentlySentNames.has(d.person_name)) return false;
           if (d.booking_id && recentActionBookingIds.has(d.booking_id)) return false;
           return true;
-        });
+        }).map(d => ({
+          ...d,
+          lead_source: d.booking_id ? leadSourceMap.get(d.booking_id) || null : null,
+        }));
 
         setItems(filtered as FollowUpItem[]);
         onCountChange?.(filtered.length);
@@ -246,6 +263,17 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     return 'bg-orange-100 text-orange-800 border-orange-200';
   };
 
+  const getLeadSourceBadgeColor = (source?: string | null) => {
+    if (!source) return 'bg-muted text-muted-foreground border-border';
+    const s = source.toLowerCase();
+    if (s.includes('instagram') || s.includes('ig')) return 'bg-pink-100 text-pink-800 border-pink-200';
+    if (s.includes('facebook') || s.includes('fb')) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (s.includes('referral') || s.includes('friend')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (s.includes('web') || s.includes('website')) return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+    if (s.includes('walk')) return 'bg-green-100 text-green-800 border-green-200';
+    return 'bg-muted text-muted-foreground border-border';
+  };
+
   // Batch mode
   const handleBatchStart = () => {
     setBatchMode(true);
@@ -279,7 +307,10 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
       touchNumber: item.touch_number,
       personType: item.person_type,
       isLegacy,
+      leadSource: item.lead_source,
     });
+
+    const leadSourceColor = getLeadSourceBadgeColor(item.lead_source);
 
     return (
       <div key={item.id} className={cn(
@@ -296,6 +327,11 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               {!isLegacy && (
                 <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
                   Touch {item.touch_number} of 3
+                </Badge>
+              )}
+              {item.lead_source && (
+                <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', leadSourceColor)}>
+                  {item.lead_source}
                 </Badge>
               )}
               {isLegacy && (
@@ -333,10 +369,14 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <Button size="sm" className="h-7 text-[11px] flex-1 gap-1" onClick={() => handleSend(item)}>
               <Send className="w-3 h-3" />
               Send
+            </Button>
+            <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
+              <History className="w-3 h-3" />
+              Log Contact
             </Button>
             <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleSnooze(item)}>
               <Clock className="w-3 h-3" />
