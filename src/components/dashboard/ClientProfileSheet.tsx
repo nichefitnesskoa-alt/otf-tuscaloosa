@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { User, Calendar, Target, ClipboardList, DollarSign, Heart } from 'lucide-react';
+import { FollowUpStatusBadge } from './FollowUpStatusBadge';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -97,6 +98,7 @@ export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, 
             )}
             <Badge variant="secondary">{bookings.length} booking{bookings.length !== 1 ? 's' : ''}</Badge>
             <Badge variant="secondary">{runs.length} run{runs.length !== 1 ? 's' : ''}</Badge>
+            <FollowUpStatusBadge personName={memberName} bookingId={bookings[0]?.id} />
           </SheetDescription>
         </SheetHeader>
 

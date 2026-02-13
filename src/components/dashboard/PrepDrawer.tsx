@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { EirmaPlaybook } from './EirmaPlaybook';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
+import { FollowUpStatusBadge } from './FollowUpStatusBadge';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -163,6 +164,7 @@ export function PrepDrawer({
                 <DollarSign className="w-3 h-3 mr-0.5" />${totalCommission.toFixed(0)}
               </Badge>
             )}
+            <FollowUpStatusBadge personName={memberName} bookingId={bookingId} />
           </div>
         </SheetHeader>
 
