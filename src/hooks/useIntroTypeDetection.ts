@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 
 /**
- * Determines if a booking is a 2nd intro by checking if the same person
- * (matched by member_key) has another booking in the system.
- * Uses originating_booking_id first, then falls back to name matching.
+ * Determines if a booking is a 2nd intro by checking:
+ * 1. originating_booking_id (definitive)
+ * 2. Name or phone matching against other bookings
+ * 3. booking_status containing "2nd" (fallback)
  */
 export function useIntroTypeDetection(
   allBookings: Array<{
@@ -13,14 +14,17 @@ export function useIntroTypeDetection(
     class_date: string;
     created_at?: string;
     is_vip?: boolean | null;
+    booking_status?: string | null;
+    phone?: string | null;
   }>
 ) {
-  // Build a map: booking_id -> isSecondIntro
   const introTypeMap = useMemo(() => {
     const map = new Map<string, boolean>();
     
     // Group bookings by member_key, excluding VIP bookings from intro type logic
     const nonVipBookings = allBookings.filter(b => !b.is_vip);
+    
+    // Group by name key
     const memberGroups = new Map<string, typeof nonVipBookings>();
     nonVipBookings.forEach(b => {
       const key = b.member_name.toLowerCase().replace(/\s+/g, '');
@@ -28,29 +32,59 @@ export function useIntroTypeDetection(
       memberGroups.get(key)!.push(b);
     });
 
+    // Group by phone (secondary matching)
+    const phoneGroups = new Map<string, typeof nonVipBookings>();
+    nonVipBookings.forEach(b => {
+      const phone = b.phone?.replace(/\D/g, '');
+      if (phone && phone.length >= 7) {
+        if (!phoneGroups.has(phone)) phoneGroups.set(phone, []);
+        phoneGroups.get(phone)!.push(b);
+      }
+    });
+
     allBookings.forEach(b => {
-      // VIP bookings are never 1st/2nd intros - skip them
+      // VIP bookings are never 1st/2nd intros
       if (b.is_vip) {
         map.set(b.id, false);
         return;
       }
-      // If it has an originating_booking_id, it's definitively a 2nd intro
+      // 1) originating_booking_id is definitive
       if (b.originating_booking_id) {
         map.set(b.id, true);
         return;
       }
 
-      // Check if this person has other bookings (by name match)
+      // 2) Check name-based grouping
       const key = b.member_name.toLowerCase().replace(/\s+/g, '');
-      const group = memberGroups.get(key) || [];
+      const nameGroup = memberGroups.get(key) || [];
       
-      if (group.length <= 1) {
-        map.set(b.id, false);
+      // 3) Check phone-based grouping
+      const phone = b.phone?.replace(/\D/g, '');
+      const phoneGroup = (phone && phone.length >= 7) ? (phoneGroups.get(phone) || []) : [];
+      
+      // Merge unique bookings from both groups
+      const seenIds = new Set<string>();
+      const combined: typeof nonVipBookings = [];
+      for (const booking of [...nameGroup, ...phoneGroup]) {
+        if (!seenIds.has(booking.id)) {
+          seenIds.add(booking.id);
+          combined.push(booking);
+        }
+      }
+
+      if (combined.length <= 1) {
+        // 4) Fallback: booking_status contains "2nd"
+        const status = (b.booking_status || '').toUpperCase();
+        if (status.includes('2ND')) {
+          map.set(b.id, true);
+        } else {
+          map.set(b.id, false);
+        }
         return;
       }
 
       // Sort by class_date, then created_at to find earliest
-      const sorted = [...group].sort((a, c) => {
+      const sorted = [...combined].sort((a, c) => {
         const dateCompare = a.class_date.localeCompare(c.class_date);
         if (dateCompare !== 0) return dateCompare;
         return (a.created_at || '').localeCompare(c.created_at || '');
@@ -65,7 +99,6 @@ export function useIntroTypeDetection(
 
   const isSecondIntro = (bookingId: string) => introTypeMap.get(bookingId) ?? false;
   
-  // For a member name, check if they have any previous booking
   const isSecondIntroByName = (memberName: string, currentBookingId?: string) => {
     const key = memberName.toLowerCase().replace(/\s+/g, '');
     const group = allBookings.filter(b => b.member_name.toLowerCase().replace(/\s+/g, '') === key);
@@ -75,7 +108,6 @@ export function useIntroTypeDetection(
     return sorted[0].id !== currentBookingId;
   };
 
-  // Get the first booking for a member (for pulling questionnaire data from 1st intro)
   const getFirstBookingId = (memberName: string): string | null => {
     const key = memberName.toLowerCase().replace(/\s+/g, '');
     const group = allBookings
