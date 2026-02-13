@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, parseISO, addDays, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
-  Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus
+  Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus, CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -22,6 +22,8 @@ import { IntroActionBar, LeadActionBar } from '@/components/ActionBar';
 import { useIntroTypeDetection } from '@/hooks/useIntroTypeDetection';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
+import { InlineIntroLogger } from '@/components/dashboard/InlineIntroLogger';
+import { ReadyForIntroChecklist } from '@/components/dashboard/ReadyForIntroChecklist';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 
@@ -92,6 +94,9 @@ export default function MyDay() {
   const [expandedVipGroups, setExpandedVipGroups] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
+  const [confirmationSentMap, setConfirmationSentMap] = useState<Set<string>>(new Set());
+  const [loggingOpenId, setLoggingOpenId] = useState<string | null>(null);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
 
   // Lead actions state
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
@@ -215,14 +220,18 @@ export default function MyDay() {
 
         // Check reminder sent status for tomorrow's bookings
         const tomorrowIds = enriched.filter(b => b.class_date === tomorrow).map(b => b.id);
-        if (tomorrowIds.length > 0) {
+        const todayIds = enriched.filter(b => b.class_date === today).map(b => b.id);
+        const allSendCheckIds = [...tomorrowIds, ...todayIds].filter(Boolean);
+        if (allSendCheckIds.length > 0) {
           const { data: sendLogs } = await supabase
             .from('script_send_log')
             .select('booking_id')
-            .in('booking_id', tomorrowIds);
+            .in('booking_id', allSendCheckIds);
           
           const sentSet = new Set((sendLogs || []).map(l => l.booking_id).filter(Boolean) as string[]);
           setReminderSentMap(sentSet);
+          // For today's cards, confirmation sent = any script log for this booking
+          setConfirmationSentMap(sentSet);
         }
       }
 
@@ -342,16 +351,40 @@ export default function MyDay() {
     return <Badge variant="outline" className="text-muted-foreground text-[10px]">Not Sent</Badge>;
   };
 
-  const renderIntroCard = (b: DayBooking, showReminderStatus = false, isVipCard = false) => {
+  const renderIntroCard = (b: DayBooking, showReminderStatus = false, isVipCard = false, showReadyChecklist = false) => {
     const is2nd = isVipCard ? false : isSecondIntro(b.id);
     const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
     const reminderSent = reminderSentMap.has(b.id);
+    const isClassToday = b.class_date === format(new Date(), 'yyyy-MM-dd');
+
+    // Needs-update alert: class time passed 1+ hours, no outcome
+    let classTimePassed = false;
+    let hoursSinceClass = 0;
+    if (b.intro_time && isClassToday) {
+      const parts = b.intro_time.split(':').map(Number);
+      const ct = new Date();
+      ct.setHours(parts[0], parts[1], 0, 0);
+      classTimePassed = new Date() > ct;
+      hoursSinceClass = Math.max(0, (Date.now() - ct.getTime()) / 3600000);
+    }
+    const needsUpdate = isClassToday && classTimePassed && hoursSinceClass >= 1 && !b.intro_result;
+    const showLogButton = isClassToday && classTimePassed && !b.intro_result;
+    const isLoggingThis = loggingOpenId === b.id;
 
     return (
       <div key={b.id} className={cn(
         'rounded-lg border bg-card p-3 space-y-2',
-        isVipCard && 'border-purple-200 bg-purple-50/30'
+        isVipCard && 'border-purple-200 bg-purple-50/30',
+        needsUpdate && 'border-destructive ring-2 ring-destructive/30 animate-pulse'
       )}>
+        {/* Needs Update Alert Banner */}
+        {needsUpdate && (
+          <div className="flex items-center gap-2 text-xs bg-destructive/10 text-destructive rounded px-2 py-1.5 font-medium">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            Class ended {Math.round(hoursSinceClass)}h ago. Did {b.member_name.split(' ')[0]} show up?
+          </div>
+        )}
+
         {/* Main row */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -389,6 +422,16 @@ export default function MyDay() {
           </div>
         </div>
 
+        {/* Ready for Intro checklist (Today's cards only) */}
+        {showReadyChecklist && !b.intro_result && (
+          <ReadyForIntroChecklist
+            hasPhone={!!b.phone}
+            qCompleted={b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted'}
+            confirmationSent={confirmationSentMap.has(b.id)}
+            isSecondIntro={is2nd}
+          />
+        )}
+
         {/* Inline action bar - VIP cards get "Book Real Intro" instead of script generate */}
         {isVipCard ? (
           <div className="flex items-center gap-1.5">
@@ -416,28 +459,116 @@ export default function MyDay() {
             </Button>
           </div>
         ) : (
-          <IntroActionBar
-            memberName={b.member_name}
-            memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
-            bookingId={b.id}
-            classDate={b.class_date}
-            classTime={b.intro_time}
-            coachName={b.coach_name}
-            leadSource={b.lead_source}
-            isSecondIntro={is2nd}
-            firstBookingId={firstId}
-            phone={b.phone}
-            email={b.email}
-            questionnaireStatus={b.questionnaire_status}
-            questionnaireSlug={b.questionnaire_slug}
-            introResult={b.intro_result}
-            primaryObjection={b.primary_objection}
-            bookingCreatedAt={b.created_at}
-          />
+          <>
+            <IntroActionBar
+              memberName={b.member_name}
+              memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+              bookingId={b.id}
+              classDate={b.class_date}
+              classTime={b.intro_time}
+              coachName={b.coach_name}
+              leadSource={b.lead_source}
+              isSecondIntro={is2nd}
+              firstBookingId={firstId}
+              phone={b.phone}
+              email={b.email}
+              questionnaireStatus={b.questionnaire_status}
+              questionnaireSlug={b.questionnaire_slug}
+              introResult={b.intro_result}
+              primaryObjection={b.primary_objection}
+              bookingCreatedAt={b.created_at}
+            />
+            {/* Log Intro button for past-time today's intros */}
+            {showLogButton && !isLoggingThis && (
+              <div className="flex gap-1.5">
+                {needsUpdate ? (
+                  <>
+                    <Button
+                      size="sm"
+                      className="h-7 text-[11px] flex-1 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => setLoggingOpenId(b.id)}
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      They Showed
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-7 text-[11px] flex-1"
+                      onClick={async () => {
+                        // Quick no-show log
+                        const saName = user?.name || 'Unknown';
+                        const today = format(new Date(), 'yyyy-MM-dd');
+                        let shiftRecapId: string | null = null;
+                        const { data: recap } = await supabase
+                          .from('shift_recaps').select('id')
+                          .eq('staff_name', saName).eq('shift_date', today)
+                          .limit(1).maybeSingle();
+                        if (recap) shiftRecapId = recap.id;
+                        else {
+                          const { data: nr } = await supabase
+                            .from('shift_recaps')
+                            .insert({ staff_name: saName, shift_date: today, shift_type: 'AM' })
+                            .select('id').single();
+                          if (nr) shiftRecapId = nr.id;
+                        }
+                        await supabase.from('intros_run').insert({
+                          member_name: b.member_name,
+                          run_date: b.class_date,
+                          class_time: b.intro_time || '00:00',
+                          lead_source: b.lead_source,
+                          result: 'No-show',
+                          coach_name: b.coach_name,
+                          sa_name: saName,
+                          intro_owner: saName,
+                          linked_intro_booked_id: b.id,
+                          shift_recap_id: shiftRecapId,
+                        });
+                        toast.success('Logged as No-show');
+                        fetchMyDayData();
+                      }}
+                    >
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      No Show
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px] w-full"
+                    onClick={() => setLoggingOpenId(b.id)}
+                  >
+                    <FileText className="w-3 h-3 mr-1" />
+                    Log Intro
+                  </Button>
+                )}
+              </div>
+            )}
+            {/* Inline intro logger expanded */}
+            {isLoggingThis && (
+              <InlineIntroLogger
+                bookingId={b.id}
+                memberName={b.member_name}
+                classDate={b.class_date}
+                classTime={b.intro_time}
+                coachName={b.coach_name}
+                leadSource={b.lead_source}
+                onLogged={() => {
+                  setLoggingOpenId(null);
+                  fetchMyDayData();
+                }}
+              />
+            )}
+          </>
         )}
       </div>
     );
   };
+
+  // Split today's bookings into active (no outcome) and completed (has outcome)
+  const activeTodayBookings = useMemo(() => todayBookings.filter(b => !b.intro_result), [todayBookings]);
+  const completedTodayBookings = useMemo(() => todayBookings.filter(b => !!b.intro_result), [todayBookings]);
 
   return (
     <div className="p-4 pb-8 space-y-4">
@@ -456,24 +587,67 @@ export default function MyDay() {
         Start Shift Recap
       </Button>
 
-      {/* Today's Intros */}
+      {/* Today's Intros (Active) */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="w-4 h-4 text-primary" />
-            Today's Intros ({todayBookings.length})
+            Today's Intros ({activeTodayBookings.length})
+            {completedTodayBookings.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] ml-auto">{completedTodayBookings.length} completed</Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
-          ) : todayBookings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No intros scheduled today</p>
+          ) : activeTodayBookings.length === 0 && completedTodayBookings.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No intros scheduled today</p>
+          ) : activeTodayBookings.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              All intros logged! Great work.
+            </div>
           ) : (
-            todayBookings.map(b => renderIntroCard(b))
+            activeTodayBookings.map(b => renderIntroCard(b, false, false, true))
           )}
         </CardContent>
       </Card>
+
+      {/* Completed Today (collapsed) */}
+      {completedTodayBookings.length > 0 && (
+        <Collapsible open={completedExpanded} onOpenChange={setCompletedExpanded}>
+          <Card className="border-emerald-200/60">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
+                  {completedExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Completed Today ({completedTodayBookings.length})
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-2 pt-0">
+                {completedTodayBookings.map(b => {
+                  const resultLabel = b.intro_result || 'Logged';
+                  return (
+                    <div key={b.id} className="rounded-lg border bg-muted/30 p-3 space-y-1 opacity-80">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{b.member_name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{resultLabel}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''} · {b.coach_name}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* Today's VIP Classes */}
       {vipGroups.length > 0 && vipGroups.map((group, gi) => {
