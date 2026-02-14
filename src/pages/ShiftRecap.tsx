@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { incrementAmcOnSale } from '@/lib/amc-auto';
 import { ShiftRecapAutoBuild } from '@/components/dashboard/ShiftRecapAutoBuild';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -830,6 +831,9 @@ export default function ShiftRecap() {
               linkedBookingId,
               user?.name || 'System'
             );
+
+            // Auto-increment AMC
+            await incrementAmcOnSale(run.memberName, run.outcome, user?.name || 'System');
           }
 
           // Handle "Booked 2nd intro" outcome - UPDATE existing booking instead of creating duplicate
@@ -916,8 +920,11 @@ export default function ShiftRecap() {
             commission_amount: sale.commissionAmount,
             intro_owner: user?.name || null,
             shift_recap_id: shiftData.id,
-            date_closed: date, // Use shift date as date_closed for pay period filtering
+            date_closed: date,
           });
+
+          // Auto-increment AMC for outside-intro sale
+          await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System');
 
           // Auto-link matching lead as won
           await matchLeadByName(sale.memberName, null, 'won', sale.leadSource);

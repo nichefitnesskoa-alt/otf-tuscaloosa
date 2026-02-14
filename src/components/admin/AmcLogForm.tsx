@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Target, Plus, Trash2, TrendingDown, Calendar } from 'lucide-react';
 import { format, subDays, parseISO, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
+import { decrementAmcOnChurn } from '@/lib/amc-auto';
 
 const AMC_TARGET = 400;
 
@@ -107,20 +108,33 @@ export default function AmcLogForm() {
       return;
     }
     setIsChurnSubmitting(true);
-    const { error } = await supabase.from('churn_log').insert({
-      churn_count: Number(churnCount),
+    const count = Number(churnCount);
+    const { data: newChurn, error } = await supabase.from('churn_log').insert({
+      churn_count: count,
       effective_date: churnDate,
       note: churnNote || null,
       created_by: user?.name || 'Admin',
-    } as any);
+    } as any).select('id').maybeSingle();
     if (error) {
       toast.error('Failed to log churn');
     } else {
+      // If effective date is today or past, auto-decrement AMC
+      const today = format(new Date(), 'yyyy-MM-dd');
+      if (churnDate <= today && newChurn) {
+        const churnId = (newChurn as any).id?.substring(0, 8) || '';
+        await decrementAmcOnChurn(
+          count,
+          `Auto: Churn logged (${count} members) [${churnId}]`,
+          user?.name || 'Admin',
+          churnDate,
+        );
+      }
       toast.success('Churn logged!');
       setChurnCount('');
       setChurnNote('');
       setShowChurnForm(false);
       fetchChurnEntries();
+      fetchEntries(); // Refresh AMC entries to show auto-decrement
     }
     setIsChurnSubmitting(false);
   };
