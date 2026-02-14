@@ -295,31 +295,66 @@ export default function MyDay() {
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .eq('stage', 'new')
+        .in('stage', ['new', 'contacted'])
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(30);
 
-      if (leads) {
-        setNewLeads(leads);
-        if (leads.length > 0) {
-          const { data: matchingBookings } = await supabase
-            .from('intros_booked')
-            .select('member_name, phone')
-            .is('deleted_at', null)
-            .neq('booking_status', 'Closed – Bought');
-          if (matchingBookings) {
-            const bookedNames = new Set(matchingBookings.map(b => b.member_name.toLowerCase()));
-            const bookedPhones = new Set(matchingBookings.map(b => (b as any).phone?.toLowerCase()).filter(Boolean));
-            const bookedLeadIds = new Set<string>();
-            for (const lead of leads) {
-              const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase();
-              if (bookedNames.has(fullName) || (lead.phone && bookedPhones.has(lead.phone.toLowerCase()))) {
-                bookedLeadIds.add(lead.id);
-              }
+      if (leads && leads.length > 0) {
+        const { data: matchingBookings } = await supabase
+          .from('intros_booked')
+          .select('member_name, phone')
+          .is('deleted_at', null)
+          .neq('booking_status', 'Closed – Bought');
+
+        if (matchingBookings) {
+          const bookedNames = new Set(matchingBookings.map(b => b.member_name.toLowerCase().trim()));
+          const bookedPhones = new Set(matchingBookings.map(b => (b as any).phone?.replace(/\D/g, '')).filter(Boolean));
+
+          const autoRemoveIds: string[] = [];
+          const ambiguousIds = new Set<string>();
+          const remaining: Tables<'leads'>[] = [];
+
+          for (const lead of leads) {
+            const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase().trim();
+            const cleanPhone = lead.phone?.replace(/\D/g, '') || '';
+            const nameMatch = bookedNames.has(fullName);
+            const phoneMatch = cleanPhone.length >= 7 && bookedPhones.has(cleanPhone);
+
+            if (nameMatch && phoneMatch) {
+              // Unambiguous match: both name AND phone match → auto-remove
+              autoRemoveIds.push(lead.id);
+            } else if (nameMatch || phoneMatch) {
+              // Ambiguous: only one matches → show badge for manual confirm
+              ambiguousIds.add(lead.id);
+              remaining.push(lead);
+            } else {
+              remaining.push(lead);
             }
-            setAlreadyBookedLeadIds(bookedLeadIds);
           }
+
+          // Auto-move unambiguous matches to 'booked' in background
+          if (autoRemoveIds.length > 0) {
+            await supabase.from('leads').update({ stage: 'booked' }).in('id', autoRemoveIds);
+            const activities = autoRemoveIds.map(id => ({
+              lead_id: id,
+              activity_type: 'stage_change',
+              performed_by: 'System',
+              notes: 'Auto-moved to Booked (matched booking by name + phone)',
+            }));
+            await supabase.from('lead_activities').insert(activities);
+          }
+
+          // Only show genuinely new/contacted leads (exclude won, booked, lost, etc.)
+          const actualNewLeads = remaining.filter(l => l.stage === 'new');
+          setNewLeads(actualNewLeads);
+          setAlreadyBookedLeadIds(ambiguousIds);
+        } else {
+          setNewLeads(leads.filter(l => l.stage === 'new'));
+          setAlreadyBookedLeadIds(new Set());
         }
+      } else {
+        setNewLeads([]);
+        setAlreadyBookedLeadIds(new Set());
       }
     } catch (err) {
       console.error('MyDay fetch error:', err);
@@ -662,7 +697,7 @@ export default function MyDay() {
 
         {/* Compact action icons (when collapsed, non-VIP only) */}
         {!isExpanded && !isVipCard && (
-          <div className="px-2.5 pb-2 -mt-0.5">
+          <div className="px-3 md:px-2.5 pb-2.5 -mt-0.5">
             <IntroActionBar
               memberName={b.member_name}
               memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
@@ -703,7 +738,7 @@ export default function MyDay() {
   };
 
   return (
-    <div className="p-4 pb-8 space-y-4">
+    <div className="px-4 md:px-4 pb-24 space-y-3 md:space-y-4 max-w-full overflow-x-hidden">
       <OnboardingOverlay />
 
       {/* 1. Greeting (always visible) */}
@@ -882,19 +917,26 @@ export default function MyDay() {
                   return (
                     <div key={lead.id} className="rounded-lg border bg-card transition-all">
                       <div
-                        className="p-2.5 cursor-pointer"
+                        className="p-3 md:p-2.5 cursor-pointer min-h-[44px]"
                         onClick={() => toggleCard(`lead-${lead.id}`)}
                       >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-semibold text-sm truncate">{lead.first_name} {lead.last_name}</span>
-                          <LeadSourceTag source={lead.source} />
+                        {/* Row 1: Name + source */}
+                        <div className="flex items-start gap-1.5 min-w-0 flex-wrap">
+                          <span className="font-semibold text-base md:text-sm break-words leading-tight">{lead.first_name} {lead.last_name}</span>
+                          <LeadSourceTag source={lead.source} className="flex-shrink-0" />
                           {isAlreadyBooked && (
-                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
-                              Already Booked
+                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent flex-shrink-0">
+                              Already Booked?
                             </Badge>
                           )}
-                          <Badge className={`text-[10px] px-1.5 py-0 h-4 ml-auto flex-shrink-0 ${speedColor}`}>
-                            {minutesAgo < 60 ? `${minutesAgo}m` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
+                        </div>
+                        {/* Row 2: Timing */}
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-sm md:text-[11px] text-muted-foreground">
+                            {minutesAgo < 60 ? `${minutesAgo}m ago` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
+                          </span>
+                          <Badge className={`text-[10px] px-1.5 py-0 h-4 flex-shrink-0 ${speedColor}`}>
+                            {minutesAgo < 5 ? 'Just now' : minutesAgo < 30 ? 'Act fast' : 'Overdue'}
                           </Badge>
                         </div>
                       </div>
@@ -908,7 +950,7 @@ export default function MyDay() {
                           <CardGuidance text={getLeadGuidance(minutesAgo)} />
                         </div>
                       )}
-                      <div className="px-2.5 pb-2">
+                      <div className="px-3 md:px-2.5 pb-2.5">
                         <LeadActionBar
                           leadId={lead.id}
                           firstName={lead.first_name}
