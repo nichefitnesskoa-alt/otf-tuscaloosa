@@ -111,7 +111,7 @@ export function IntroActionBar({
     }, templates);
   }, [templates, classDate, classTime, isSecondIntro, bookingCreatedAt, qCompleted, questionnaireSlug, introResult, primaryObjection]);
 
-  // Build merge context
+  // Build merge context - uses booking_id for Q link (never name)
   const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
   const mergeContext = useMemo(() => {
     const ctx: Record<string, string | undefined> = {
@@ -132,25 +132,41 @@ export function IntroActionBar({
       catch { ctx.time = classTime; }
     }
     ctx.coach = coachName;
-    // Part 8A: Include Q link only if Q not completed and not 2nd intro
+    // Q link only if NOT completed AND NOT 2nd intro AND slug exists
     if (!qCompleted && !isSecondIntro && questionnaireSlug) {
       ctx['questionnaire-link'] = `${PUBLISHED_URL}/q/${questionnaireSlug}`;
     }
     return ctx;
   }, [firstName, lastName, user?.name, classDate, classTime, coachName, qCompleted, isSecondIntro, questionnaireSlug]);
 
-  // Part 8A: Strip Q link lines from body when Q is done
+  // Strip Q link lines from body when Q is done or 2nd intro
   const bodyOverride = useMemo(() => {
-    if (!qCompleted || !smartResult.template) return undefined;
+    if (!smartResult.template) return undefined;
     const body = smartResult.template.body;
-    if (!body.includes('{questionnaire-link}')) return undefined;
-    return body
-      .split('\n')
-      .filter(line => !line.includes('{questionnaire-link}') && !line.includes('{friend-questionnaire-link}'))
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  }, [qCompleted, smartResult.template]);
+    const hasQLink = body.includes('{questionnaire-link}');
+
+    // For 2nd intros, strip all Q-related lines
+    if (isSecondIntro && hasQLink) {
+      return body
+        .split('\n')
+        .filter(line => !line.includes('{questionnaire-link}') && !line.includes('{friend-questionnaire-link}'))
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    // For completed Q, strip Q link and optionally reference goal
+    if (qCompleted && hasQLink) {
+      return body
+        .split('\n')
+        .filter(line => !line.includes('{questionnaire-link}') && !line.includes('{friend-questionnaire-link}'))
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    return undefined;
+  }, [qCompleted, isSecondIntro, smartResult.template]);
 
   const handleCopyPhone = async () => {
     if (phone) {

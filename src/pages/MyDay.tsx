@@ -43,6 +43,12 @@ import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
 import { SectionReorderButton, getSectionOrder } from '@/components/dashboard/SectionReorder';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
+import { NextActionCard } from '@/components/dashboard/NextActionCard';
+import { IntroCountdown } from '@/components/dashboard/IntroCountdown';
+import { ConversionSignal } from '@/components/dashboard/ConversionSignal';
+import { PostPurchaseActions } from '@/components/dashboard/PostPurchaseActions';
+import { NoShowWarning } from '@/components/dashboard/NoShowWarning';
+import { DailyInsight } from '@/components/dashboard/DailyInsight';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
@@ -502,10 +508,21 @@ export default function MyDay() {
               ) : b.coach_name}
             </span>
             {!b.phone && <PhoneIcon className="w-3 h-3 text-destructive flex-shrink-0" />}
+            {!isVipCard && isClassToday && !classTimePassed && (
+              <IntroCountdown classTime={b.intro_time} classDate={b.class_date} />
+            )}
             {showReminderStatus && !reminderSent && (
               <Badge variant="outline" className="text-[9px] px-1 py-0 bg-warning/15 text-warning border-warning/30 flex-shrink-0">!</Badge>
             )}
             {!isVipCard && !isExpanded && getQBadge(b.questionnaire_status, is2nd)}
+            {!isVipCard && !isExpanded && (
+              <ConversionSignal
+                isSecondIntro={is2nd}
+                qCompleted={b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted'}
+                hasPhone={!!b.phone}
+                leadSource={b.lead_source}
+              />
+            )}
           </div>
 
           {/* Script action indicator */}
@@ -537,6 +554,9 @@ export default function MyDay() {
               {!isVipCard && getQBadge(b.questionnaire_status, is2nd)}
             </div>
 
+            {/* No-show warning */}
+            {!isVipCard && <NoShowWarning memberName={b.member_name} />}
+
             {/* Ready checklist */}
             {!b.intro_result && !isVipCard && (
               <ReadyForIntroChecklist
@@ -545,6 +565,11 @@ export default function MyDay() {
                 confirmationSent={confirmationSentMap.has(b.id)}
                 isSecondIntro={is2nd}
               />
+            )}
+
+            {/* Post-purchase actions */}
+            {b.intro_result && isMembershipSale(b.intro_result) && (
+              <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
             )}
 
             {scriptActionsMap.has(b.id) && (() => {
@@ -692,11 +717,33 @@ export default function MyDay() {
         </div>
       </div>
 
+      {/* Daily Insight */}
+      <DailyInsight />
+
       {/* Offline Banner */}
       <OfflineBanner />
 
       {/* 2. Sticky Day Score */}
       <StickyDayScore completedActions={completedActions} totalActions={totalActions} />
+
+      {/* 3. Next Action Card */}
+      <NextActionCard
+        unresolvedIntros={unresolvedIntros}
+        newLeads={sortedLeads}
+        followUpsDueCount={followUpsDueCount}
+        tomorrowUnconfirmedCount={tomorrowBookings.filter(b => !reminderSentMap.has(b.id)).length}
+        allHandled={completedActions >= totalActions && totalActions > 0}
+        onLogIntro={(id) => { setExpandedCardId(id); setLoggingOpenId(id); }}
+        onContactLead={(id) => { setExpandedCardId(`lead-${id}`); }}
+        onOpenFollowUps={() => {
+          const el = document.getElementById('section-followups-due');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenTomorrow={() => {
+          const el = document.getElementById('section-tomorrows-intros');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
 
       {/* Shift Scan Overlay */}
       <ShiftScanOverlay

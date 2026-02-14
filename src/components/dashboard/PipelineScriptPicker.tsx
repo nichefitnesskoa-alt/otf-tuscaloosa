@@ -174,26 +174,30 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
     const fetchQLinks = async () => {
       const booking = journey.bookings[0];
 
-      // Primary questionnaire link
+      // Always use booking_id to fetch Q (never by name)
       const { data } = await supabase
         .from('intro_questionnaires')
-        .select('slug')
+        .select('slug, status, q1_fitness_goal')
         .eq('booking_id', booking.id)
         .maybeSingle();
 
       if (data?.slug) {
-        setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
+        // Only include link if Q is not completed
+        if (data.status !== 'submitted' && data.status !== 'completed') {
+          setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
+        }
+        // If Q is completed, we could add goal to context
       }
 
       // Friend questionnaire link via paired_booking_id
       if (booking.paired_booking_id) {
         const { data: friendData } = await supabase
           .from('intro_questionnaires')
-          .select('slug')
+          .select('slug, status')
           .eq('booking_id', booking.paired_booking_id)
           .maybeSingle();
 
-        if (friendData?.slug) {
+        if (friendData?.slug && friendData.status !== 'submitted' && friendData.status !== 'completed') {
           setFriendQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${friendData.slug}`);
         }
       }
@@ -202,10 +206,13 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
     fetchQLinks();
   }, [open, journey.bookings]);
 
+  // Check if this is a 2nd intro - if so, skip Q link entirely
+  const is2ndIntro = !!journey.bookings[0]?.originating_booking_id;
+
   const fullMergeContext = {
     ...mergeContext,
-    ...(questionnaireLink ? { 'questionnaire-link': questionnaireLink } : {}),
-    ...(friendQuestionnaireLink ? { 'friend-questionnaire-link': friendQuestionnaireLink } : {}),
+    ...(!is2ndIntro && questionnaireLink ? { 'questionnaire-link': questionnaireLink } : {}),
+    ...(!is2ndIntro && friendQuestionnaireLink ? { 'friend-questionnaire-link': friendQuestionnaireLink } : {}),
   };
 
   return (
