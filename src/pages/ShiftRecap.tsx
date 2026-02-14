@@ -833,7 +833,7 @@ export default function ShiftRecap() {
             );
 
             // Auto-increment AMC
-            await incrementAmcOnSale(run.memberName, run.outcome, user?.name || 'System');
+            await incrementAmcOnSale(run.memberName, run.outcome, user?.name || 'System', date);
           }
 
           // Handle "Booked 2nd intro" outcome - UPDATE existing booking instead of creating duplicate
@@ -924,7 +924,7 @@ export default function ShiftRecap() {
           });
 
           // Auto-increment AMC for outside-intro sale
-          await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System');
+          await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System', date);
 
           // Auto-link matching lead as won
           await matchLeadByName(sale.memberName, null, 'won', sale.leadSource);

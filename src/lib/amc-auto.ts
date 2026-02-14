@@ -9,14 +9,15 @@ export async function incrementAmcOnSale(
   personName: string,
   membershipType: string,
   createdBy: string,
+  saleDate?: string,
 ): Promise<void> {
   try {
     const currentValue = await getLatestAmcValue();
     if (currentValue === null) return; // No AMC history yet, skip
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const logDate = saleDate || format(new Date(), 'yyyy-MM-dd');
     await supabase.from('amc_log').insert({
-      logged_date: today,
+      logged_date: logDate,
       amc_value: currentValue + 1,
       note: `Auto: ${personName} purchased ${membershipType}`,
       created_by: createdBy,

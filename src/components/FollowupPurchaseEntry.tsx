@@ -151,7 +151,7 @@ export default function FollowupPurchaseEntry({
       if (runError) throw runError;
 
       // Auto-increment AMC for this sale
-      await incrementAmcOnSale(client.memberName, membershipType, staffName);
+      await incrementAmcOnSale(client.memberName, membershipType, staffName, purchaseDate);
 
       // Close the linked booking if exists
       if (client.linkedBookingId) {
