@@ -243,22 +243,20 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
 
             return (
               <div key={item.id} className="rounded-lg border bg-card p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-sm">{item.person_name}</span>
-                      <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
-                        Touch {item.touch_number} of {maxTouches(item.person_type)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{triggerLabel}</p>
-                    {daysSinceTrigger > 0 && (
-                      <p className="text-[10px] text-muted-foreground/70">
-                        <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                        {daysSinceTrigger}d since last contact
-                      </p>
-                    )}
-                  </div>
+                {/* Row 1: Full name */}
+                <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
+                {/* Row 2: Type badge + source + date */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
+                    Touch {item.touch_number} of {maxTouches(item.person_type)}
+                  </Badge>
+                  <span className="text-[13px] md:text-xs text-muted-foreground">{triggerLabel}</span>
+                  {daysSinceTrigger > 0 && (
+                    <span className="text-[11px] md:text-[10px] text-muted-foreground/70">
+                      <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+                      {daysSinceTrigger}d ago
+                    </span>
+                  )}
                 </div>
 
                 {alreadySent ? (
@@ -267,40 +265,40 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
                     Sent by {item.sent_by} at {item.sent_at ? format(new Date(item.sent_at), 'h:mm a') : ''}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 md:gap-1">
                     <Button
                       size="sm"
-                      className="h-7 text-[11px] flex-1 gap-1"
+                      className="h-9 md:h-7 text-[13px] md:text-[11px] flex-1 gap-1 min-h-[44px] md:min-h-0"
                       onClick={() => handleSend(item)}
                     >
-                      <Send className="w-3 h-3" />
+                      <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
                       Send
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-[11px] gap-1"
+                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 md:flex-initial min-h-[44px] md:min-h-0"
                       onClick={() => handleSnooze(item)}
                     >
-                      <Clock className="w-3 h-3" />
+                      <Clock className="w-3.5 h-3.5 md:w-3 md:h-3" />
                       Snooze
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-[11px] gap-1"
+                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 md:flex-initial min-h-[44px] md:min-h-0"
                       onClick={() => handleSkip(item)}
                     >
-                      <SkipForward className="w-3 h-3" />
+                      <SkipForward className="w-3.5 h-3.5 md:w-3 md:h-3" />
                       Skip
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 text-[11px] gap-1 text-muted-foreground"
+                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 text-muted-foreground min-h-[44px] md:min-h-0"
                       onClick={() => handleRemove(item)}
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-3.5 h-3.5 md:w-3 md:h-3" />
                     </Button>
                   </div>
                 )}
