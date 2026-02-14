@@ -79,7 +79,7 @@ export function CollapsibleSection({
   };
 
   return (
-    <Card className={cn(emphasis, className)}>
+    <Card id={`section-${id}`} className={cn(emphasis, className)}>
       <CardHeader
         className="pb-2 cursor-pointer select-none"
         onClick={toggle}
