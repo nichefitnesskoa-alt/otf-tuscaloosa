@@ -841,6 +841,7 @@ export default function ClientJourneyPanel() {
         purchasingBooking.member_name,
         purchaseData.membership_type,
         user?.name || 'Admin',
+        purchaseData.date_closed,
       );
 
       toast.success('Sale recorded and booking closed');
