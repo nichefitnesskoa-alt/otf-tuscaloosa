@@ -458,7 +458,7 @@ export default function AmcLogForm() {
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-2">
             <div className="space-y-1 max-h-60 overflow-y-auto">
-              {entries.map(e => (
+              {[...entries].sort((a, b) => b.logged_date.localeCompare(a.logged_date) || b.created_at.localeCompare(a.created_at)).map(e => (
                 <div key={e.id} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-medium shrink-0">{format(parseISO(e.logged_date), 'MMM d')}</span>
