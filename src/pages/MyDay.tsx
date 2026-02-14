@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +39,10 @@ import { CardGuidance, getIntroGuidance, getLeadGuidance, getTomorrowGuidance } 
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
+import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
+import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
+import { SectionReorderButton, getSectionOrder } from '@/components/dashboard/SectionReorder';
+import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
@@ -127,8 +131,19 @@ export default function MyDay() {
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
 
+  // Section reorder
+  const [sectionOrder, setSectionOrder] = useState<string[]>(getSectionOrder());
+
   const { isSecondIntro, getFirstBookingId } = useIntroTypeDetection(allBookings);
   const shiftEmphasis = getShiftEmphasis();
+
+  // Realtime subscriptions - debounce to avoid rapid-fire reloads
+  const handleRealtimeUpdate = useCallback(() => {
+    // Small delay to batch multiple rapid updates
+    const timer = setTimeout(() => fetchMyDayData(), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+  useRealtimeMyDay(handleRealtimeUpdate);
 
   useEffect(() => {
     fetchMyDayData();
@@ -668,9 +683,17 @@ export default function MyDay() {
 
       {/* 1. Greeting (always visible) */}
       <div className="mb-2">
-        <h1 className="text-xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋</h1>
-        <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋</h1>
+            <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+          </div>
+          <SectionReorderButton onReorder={setSectionOrder} />
+        </div>
       </div>
+
+      {/* Offline Banner */}
+      <OfflineBanner />
 
       {/* 2. Sticky Day Score */}
       <StickyDayScore completedActions={completedActions} totalActions={totalActions} />
@@ -693,152 +716,12 @@ export default function MyDay() {
         Start Shift Recap
       </Button>
 
-      {/* ═══════════════ SECTION ORDER PER SPEC ═══════════════ */}
+      {/* ═══════════════ REORDERABLE SECTIONS ═══════════════ */}
 
-      {/* 3. Unresolved Intros (not collapsible, urgent) */}
+      {/* Unresolved Intros always first (not reorderable, urgent) */}
       <UnresolvedIntros intros={unresolvedIntros} onRefresh={fetchMyDayData} />
 
-      {/* 4. Today's Intros */}
-      <CollapsibleSection
-        id="todays-intros"
-        title="Today's Intros"
-        icon={<Calendar className="w-4 h-4 text-primary" />}
-        count={pendingIntros.length}
-        defaultOpen={true}
-        forceOpen={pendingIntros.length > 0}
-        emphasis={sectionEmphasis('intros')}
-        subLabel={emphasisLabel('intros') || undefined}
-        headerRight={
-          completedTodayBookings.length > 0 ? (
-            <Badge variant="secondary" className="text-[10px]">{completedTodayBookings.length} done</Badge>
-          ) : undefined
-        }
-      >
-        <SectionHelp text="Everyone coming in for a class today. Tap any card to expand for details. Use Prep to review, Script to message, Log Intro after class." />
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : pendingIntros.length === 0 && completedTodayBookings.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No intros scheduled today</p>
-        ) : pendingIntros.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            All intros logged! Great work.
-          </div>
-        ) : (
-          pendingIntros.map(b => renderCompactIntroCard(b, false, false))
-        )}
-      </CollapsibleSection>
-
-      {/* 5. New Leads */}
-      {sortedLeads.length > 0 && (
-        <CollapsibleSection
-          id="new-leads"
-          title="New Leads"
-          icon={<UserPlus className="w-4 h-4 text-info" />}
-          count={sortedLeads.length}
-          defaultOpen={sortedLeads.length > 0}
-          emphasis={sectionEmphasis('leads')}
-          subLabel={emphasisLabel('leads') || undefined}
-        >
-          <SectionHelp text="New people who haven't been contacted yet. Tap Script to get a personalized opener. Green = just came in, red = waiting too long." />
-          {sortedLeads.map(lead => {
-            const minutesAgo = differenceInMinutes(new Date(), new Date(lead.created_at));
-            const speedColor = minutesAgo < 5 ? 'bg-success text-success-foreground' 
-              : minutesAgo < 30 ? 'bg-warning text-warning-foreground' 
-              : 'bg-destructive text-destructive-foreground';
-            const isAlreadyBooked = alreadyBookedLeadIds.has(lead.id);
-            const isExpanded = expandedCardId === `lead-${lead.id}`;
-
-            const handleDismissBooked = async () => {
-              try {
-                await supabase.from('leads').update({ stage: 'booked' }).eq('id', lead.id);
-                await supabase.from('lead_activities').insert({
-                  lead_id: lead.id, activity_type: 'stage_change',
-                  performed_by: user?.name || 'Unknown', notes: 'Auto-dismissed: already booked',
-                });
-                toast.success('Lead moved to Booked');
-                fetchMyDayData();
-              } catch { toast.error('Failed to update'); }
-            };
-
-            return (
-              <div key={lead.id} className="rounded-lg border bg-card transition-all">
-                {/* Compact lead header */}
-                <div
-                  className="p-2.5 cursor-pointer"
-                  onClick={() => toggleCard(`lead-${lead.id}`)}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-semibold text-sm truncate">{lead.first_name} {lead.last_name}</span>
-                    <LeadSourceTag source={lead.source} />
-                    {isAlreadyBooked && (
-                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
-                        Already Booked
-                      </Badge>
-                    )}
-                    <Badge className={`text-[10px] px-1.5 py-0 h-4 ml-auto flex-shrink-0 ${speedColor}`}>
-                      {minutesAgo < 60 ? `${minutesAgo}m` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Expanded lead content */}
-                {isExpanded && (
-                  <div className="px-2.5 pb-2.5 space-y-2 border-t pt-2">
-                    {isAlreadyBooked && (
-                      <Button variant="outline" size="sm" className="w-full h-7 text-[11px]" onClick={handleDismissBooked}>
-                        Dismiss – Move to Booked
-                      </Button>
-                    )}
-                    <CardGuidance text={getLeadGuidance(minutesAgo)} />
-                  </div>
-                )}
-
-                {/* Action bar always visible */}
-                <div className="px-2.5 pb-2">
-                  <LeadActionBar
-                    leadId={lead.id}
-                    firstName={lead.first_name}
-                    lastName={lead.last_name}
-                    phone={lead.phone}
-                    source={lead.source}
-                    stage={lead.stage}
-                    onOpenDetail={() => setDetailLead(lead)}
-                    onBookIntro={() => setBookIntroLead(lead)}
-                    onMarkContacted={() => handleMarkContacted(lead.id)}
-                    onMarkAlreadyBooked={() => handleMarkAlreadyBooked(lead.id)}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <Button variant="ghost" size="sm" className="w-full text-primary" onClick={() => navigate('/leads')}>
-            View all leads →
-          </Button>
-        </CollapsibleSection>
-      )}
-
-      {/* 6. Tomorrow's Intros */}
-      <CollapsibleSection
-        id="tomorrows-intros"
-        title="Tomorrow's Intros"
-        icon={<CalendarCheck className="w-4 h-4 text-info" />}
-        count={tomorrowBookings.length}
-        defaultOpen={tomorrowBookings.length > 0}
-        emphasis={sectionEmphasis('tomorrow')}
-        subLabel={emphasisLabel('tomorrow') || undefined}
-      >
-        <SectionHelp text="Intros booked for tomorrow. Send confirmation texts today." />
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : tomorrowBookings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No intros scheduled for tomorrow</p>
-        ) : (
-          tomorrowBookings.map(b => renderCompactIntroCard(b, true))
-        )}
-      </CollapsibleSection>
-
-      {/* Today's VIP Classes */}
+      {/* Today's VIP Classes always after unresolved */}
       {vipGroups.length > 0 && vipGroups.map((group, gi) => {
         const groupKey = `${group.groupName}__${group.sessionLabel || gi}`;
         const isExpanded = expandedVipGroups.has(groupKey);
@@ -878,76 +761,236 @@ export default function MyDay() {
         );
       })}
 
-      {/* 7. Coming Up (SOON layer) */}
-      <CollapsibleSection
-        id="coming-up"
-        title="Coming Up"
-        icon={<Clock className="w-4 h-4 text-muted-foreground" />}
-        defaultOpen={false}
-      >
-        <SoonLayer />
-      </CollapsibleSection>
-
-      {/* 8. Follow-Ups Due (collapsed by default, count in header) */}
-      <CollapsibleSection
-        id="followups-due"
-        title="Follow-Ups Due"
-        icon={<Clock className="w-4 h-4 text-warning" />}
-        count={followUpsDueCount}
-        defaultOpen={false}
-        emphasis={sectionEmphasis('followups')}
-        subLabel={emphasisLabel('followups') || undefined}
-      >
-        <FollowUpsDueToday onRefresh={fetchMyDayData} onCountChange={setFollowUpsDueCount} />
-      </CollapsibleSection>
-
-      {/* 9. This Week snapshot - handled inside SoonLayer's Coming Up */}
-
-      {/* 10. Completed Today */}
-      {completedTodayBookings.length > 0 && (
-        <CollapsibleSection
-          id="completed-today"
-          title="Completed Today"
-          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-          count={completedTodayBookings.length}
-          defaultOpen={false}
-          className="border-emerald-200/60"
-        >
-          <SectionHelp text="Everything that's been handled today. Check this when you start your shift to see what the last SA already did." />
-          {completedTodayBookings.map(b => {
-            const resultLabel = b.intro_result || 'Logged';
-            const actionInfo = scriptActionsMap.get(b.id);
+      {/* Reorderable sections */}
+      {sectionOrder.map(sectionId => {
+        switch (sectionId) {
+          case 'todays-intros':
             return (
-              <div key={b.id} className="rounded-lg border bg-muted/30 p-3 space-y-1 opacity-80">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{b.member_name}</span>
-                  <Badge variant="secondary" className="text-[10px]">{resultLabel}</Badge>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''} · {b.coach_name}
-                  {actionInfo && ` · Logged by ${actionInfo.completed_by} at ${format(new Date(actionInfo.completed_at), 'h:mm a')}`}
-                </p>
-              </div>
+              <CollapsibleSection
+                key="todays-intros"
+                id="todays-intros"
+                title="Today's Intros"
+                icon={<Calendar className="w-4 h-4 text-primary" />}
+                count={pendingIntros.length}
+                defaultOpen={true}
+                forceOpen={pendingIntros.length > 0}
+                emphasis={sectionEmphasis('intros')}
+                subLabel={emphasisLabel('intros') || undefined}
+                headerRight={
+                  completedTodayBookings.length > 0 ? (
+                    <Badge variant="secondary" className="text-[10px]">{completedTodayBookings.length} done</Badge>
+                  ) : undefined
+                }
+              >
+                <SectionHelp text="Everyone coming in for a class today. Tap any card to expand for details. Use Prep to review, Script to message, Log Intro after class." />
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : pendingIntros.length === 0 && completedTodayBookings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No intros scheduled today</p>
+                ) : pendingIntros.length === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    All intros logged! Great work.
+                  </div>
+                ) : (
+                  pendingIntros.map(b => renderCompactIntroCard(b, false, false))
+                )}
+              </CollapsibleSection>
             );
-          })}
-        </CollapsibleSection>
-      )}
 
-      {/* 11. Shift Handoff Summary */}
-      <CollapsibleSection
-        id="shift-handoff"
-        title="Shift Summary"
-        icon={<FileText className="w-4 h-4 text-primary" />}
-        defaultOpen={false}
-      >
-        <ShiftHandoffSummary
-          todayCompletedCount={completedTodayBookings.length}
-          todayActiveCount={activeTodayBookings.length}
-          scriptsSentCount={todayScriptsSent}
-          followUpsSentCount={todayFollowUpsSent}
-          userName={user?.name || ''}
-        />
-      </CollapsibleSection>
+          case 'new-leads':
+            if (sortedLeads.length === 0) return null;
+            return (
+              <CollapsibleSection
+                key="new-leads"
+                id="new-leads"
+                title="New Leads"
+                icon={<UserPlus className="w-4 h-4 text-info" />}
+                count={sortedLeads.length}
+                defaultOpen={sortedLeads.length > 0}
+                emphasis={sectionEmphasis('leads')}
+                subLabel={emphasisLabel('leads') || undefined}
+              >
+                <SectionHelp text="New people who haven't been contacted yet. Tap Script to get a personalized opener. Green = just came in, red = waiting too long." />
+                {sortedLeads.map(lead => {
+                  const minutesAgo = differenceInMinutes(new Date(), new Date(lead.created_at));
+                  const speedColor = minutesAgo < 5 ? 'bg-success text-success-foreground' 
+                    : minutesAgo < 30 ? 'bg-warning text-warning-foreground' 
+                    : 'bg-destructive text-destructive-foreground';
+                  const isAlreadyBooked = alreadyBookedLeadIds.has(lead.id);
+                  const isExpanded = expandedCardId === `lead-${lead.id}`;
+
+                  const handleDismissBooked = async () => {
+                    try {
+                      await supabase.from('leads').update({ stage: 'booked' }).eq('id', lead.id);
+                      await supabase.from('lead_activities').insert({
+                        lead_id: lead.id, activity_type: 'stage_change',
+                        performed_by: user?.name || 'Unknown', notes: 'Auto-dismissed: already booked',
+                      });
+                      toast.success('Lead moved to Booked');
+                      fetchMyDayData();
+                    } catch { toast.error('Failed to update'); }
+                  };
+
+                  return (
+                    <div key={lead.id} className="rounded-lg border bg-card transition-all">
+                      <div
+                        className="p-2.5 cursor-pointer"
+                        onClick={() => toggleCard(`lead-${lead.id}`)}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-semibold text-sm truncate">{lead.first_name} {lead.last_name}</span>
+                          <LeadSourceTag source={lead.source} />
+                          {isAlreadyBooked && (
+                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
+                              Already Booked
+                            </Badge>
+                          )}
+                          <Badge className={`text-[10px] px-1.5 py-0 h-4 ml-auto flex-shrink-0 ${speedColor}`}>
+                            {minutesAgo < 60 ? `${minutesAgo}m` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
+                          </Badge>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-2.5 pb-2.5 space-y-2 border-t pt-2">
+                          {isAlreadyBooked && (
+                            <Button variant="outline" size="sm" className="w-full h-7 text-[11px]" onClick={handleDismissBooked}>
+                              Dismiss – Move to Booked
+                            </Button>
+                          )}
+                          <CardGuidance text={getLeadGuidance(minutesAgo)} />
+                        </div>
+                      )}
+                      <div className="px-2.5 pb-2">
+                        <LeadActionBar
+                          leadId={lead.id}
+                          firstName={lead.first_name}
+                          lastName={lead.last_name}
+                          phone={lead.phone}
+                          source={lead.source}
+                          stage={lead.stage}
+                          onOpenDetail={() => setDetailLead(lead)}
+                          onBookIntro={() => setBookIntroLead(lead)}
+                          onMarkContacted={() => handleMarkContacted(lead.id)}
+                          onMarkAlreadyBooked={() => handleMarkAlreadyBooked(lead.id)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                <Button variant="ghost" size="sm" className="w-full text-primary" onClick={() => navigate('/leads')}>
+                  View all leads →
+                </Button>
+              </CollapsibleSection>
+            );
+
+          case 'tomorrows-intros':
+            return (
+              <CollapsibleSection
+                key="tomorrows-intros"
+                id="tomorrows-intros"
+                title="Tomorrow's Intros"
+                icon={<CalendarCheck className="w-4 h-4 text-info" />}
+                count={tomorrowBookings.length}
+                defaultOpen={tomorrowBookings.length > 0}
+                emphasis={sectionEmphasis('tomorrow')}
+                subLabel={emphasisLabel('tomorrow') || undefined}
+              >
+                <SectionHelp text="Intros booked for tomorrow. Send confirmation texts today." />
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : tomorrowBookings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No intros scheduled for tomorrow</p>
+                ) : (
+                  tomorrowBookings.map(b => renderCompactIntroCard(b, true))
+                )}
+              </CollapsibleSection>
+            );
+
+          case 'coming-up':
+            return (
+              <CollapsibleSection
+                key="coming-up"
+                id="coming-up"
+                title="Coming Up"
+                icon={<Clock className="w-4 h-4 text-muted-foreground" />}
+                defaultOpen={false}
+              >
+                <SoonLayer />
+              </CollapsibleSection>
+            );
+
+          case 'followups-due':
+            return (
+              <CollapsibleSection
+                key="followups-due"
+                id="followups-due"
+                title="Follow-Ups Due"
+                icon={<Clock className="w-4 h-4 text-warning" />}
+                count={followUpsDueCount}
+                defaultOpen={false}
+                emphasis={sectionEmphasis('followups')}
+                subLabel={emphasisLabel('followups') || undefined}
+              >
+                <FollowUpsDueToday onRefresh={fetchMyDayData} onCountChange={setFollowUpsDueCount} />
+              </CollapsibleSection>
+            );
+
+          case 'completed-today':
+            if (completedTodayBookings.length === 0) return null;
+            return (
+              <CollapsibleSection
+                key="completed-today"
+                id="completed-today"
+                title="Completed Today"
+                icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                count={completedTodayBookings.length}
+                defaultOpen={false}
+                className="border-emerald-200/60"
+              >
+                <SectionHelp text="Everything that's been handled today. Check this when you start your shift to see what the last SA already did." />
+                {completedTodayBookings.map(b => {
+                  const resultLabel = b.intro_result || 'Logged';
+                  const actionInfo = scriptActionsMap.get(b.id);
+                  return (
+                    <div key={b.id} className="rounded-lg border bg-muted/30 p-3 space-y-1 opacity-80">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{b.member_name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{resultLabel}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''} · {b.coach_name}
+                        {actionInfo && ` · Logged by ${actionInfo.completed_by} at ${format(new Date(actionInfo.completed_at), 'h:mm a')}`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CollapsibleSection>
+            );
+
+          case 'shift-handoff':
+            return (
+              <CollapsibleSection
+                key="shift-handoff"
+                id="shift-handoff"
+                title="Shift Summary"
+                icon={<FileText className="w-4 h-4 text-primary" />}
+                defaultOpen={false}
+              >
+                <ShiftHandoffSummary
+                  todayCompletedCount={completedTodayBookings.length}
+                  todayActiveCount={activeTodayBookings.length}
+                  scriptsSentCount={todayScriptsSent}
+                  followUpsSentCount={todayFollowUpsSent}
+                  userName={user?.name || ''}
+                />
+              </CollapsibleSection>
+            );
+
+          default:
+            return null;
+        }
+      })}
 
       {/* Close Out Shift */}
       <CloseOutShift
@@ -959,6 +1002,9 @@ export default function MyDay() {
         noShowCount={noShowCount}
         didntBuyCount={didntBuyCount}
       />
+
+      {/* Quick-Add FAB */}
+      <QuickAddFAB onRefresh={fetchMyDayData} />
 
       {/* Dialogs */}
       {bookIntroLead && (

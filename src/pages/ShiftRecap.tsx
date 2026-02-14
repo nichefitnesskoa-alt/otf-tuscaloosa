@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ShiftRecapAutoBuild } from '@/components/dashboard/ShiftRecapAutoBuild';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ export default function ShiftRecap() {
   const { loadDraft, saveDraft, clearDraft, lastSaved } = useFormAutoSave(user?.name);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  const [autoCapturedCount, setAutoCapturedCount] = useState(0);
 
   // Basic Info
   const [shiftType, setShiftType] = useState<ShiftType>('AM Shift');
@@ -1096,6 +1098,9 @@ export default function ShiftRecap() {
           Log your shift in under 3 minutes
         </p>
       </div>
+
+      {/* Auto-captured from My Day */}
+      <ShiftRecapAutoBuild onItemCount={setAutoCapturedCount} />
 
       {/* Shift Basics */}
       <Card>
