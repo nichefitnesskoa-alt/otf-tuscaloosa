@@ -1,48 +1,67 @@
 
 
-## AMC Auto-Increment: Follow-up Fixes
+## Fix AMC Date Accuracy and Future-Proof the Logic
 
-After reviewing all sale paths in the codebase, there are **3 places where sales are recorded but AMC is NOT incremented**, plus a display bug on the Studio AMC card.
+### Problem
 
----
+Three date issues in the `amc_log` table, plus a systemic bug in `incrementAmcOnSale` that causes all entries to use "today" instead of the actual sale date:
 
-### Fix 1: Follow-up Purchase Entry (biggest gap)
+| Entry | Current logged_date | Correct date | Source field |
+|---|---|---|---|
+| Initial AMC entry | 2025-02-11 | 2026-02-11 | Typo (wrong year) |
+| Abby Foster | 2026-02-11 | 2026-02-10 | `date_closed = 2026-02-10` |
+| Hannah Glasscock | 2026-02-12 | 2026-02-13 | `buy_date = 2026-02-13` |
 
-**File:** `src/components/FollowupPurchaseEntry.tsx`
+### Root Cause
 
-When a follow-up purchase is logged via Shift Recap, the `intros_run` record is updated with the sale result and `buy_date`, but `incrementAmcOnSale` is never called. This is why Parthkumar Modi, Sunayana Chejara, and Grace Forman were missing from the AMC log.
+`incrementAmcOnSale` always uses `format(new Date(), 'yyyy-MM-dd')` as the `logged_date`. This means the AMC entry gets today's date rather than the actual sale date. For real-time logging this is usually fine, but for follow-up purchases (where `buy_date` may differ from today) or backfills, it produces wrong dates.
 
-**Change:** Import `incrementAmcOnSale` and call it in `handleSubmit` after the successful run update, passing `client.memberName`, `membershipType`, and `staffName`.
+### Plan
 
----
+**Step 1: Fix the 3 incorrect dates in the database**
 
-### Fix 2: Admin "Mark as Purchased" in Client Journey Panel
+Run SQL updates to correct:
+- Initial entry: `2025-02-11` to `2026-02-11`
+- Abby Foster: `2026-02-11` to `2026-02-10`
+- Hannah Glasscock: `2026-02-12` to `2026-02-13`
 
-**File:** `src/components/admin/ClientJourneyPanel.tsx`
+**Step 2: Add optional `saleDate` parameter to `incrementAmcOnSale`**
 
-The Admin Client Journey panel has a "Mark as Purchased" dialog that creates a `sales_outside_intro` record and closes the booking. It does not increment AMC.
+Update `src/lib/amc-auto.ts` to accept an optional 4th parameter `saleDate?: string`. When provided, use it as `logged_date` instead of today. This ensures follow-up purchases log under their actual `buy_date`.
 
-**Change:** Import `incrementAmcOnSale` and call it after the successful sale insert, passing the member name, membership type, and the admin user's name.
+**Step 3: Pass the actual sale date from all call sites**
 
----
-
-### Fix 3: Studio AMC Tracker display bug
-
-**File:** `src/components/dashboard/AmcTracker.tsx`
-
-The Studio AMC card calculates `pendingChurn` by looking at all `churn_log` entries within the current month. But churn entries that have already been processed into `amc_log` (effective date in the past) are already reflected in the current AMC value. Subtracting them again double-counts the churn, making the "Projected" number too low.
-
-**Change:** Filter `pendingChurn` to only include churn entries with `effective_date > today` (future churn that hasn't been applied yet), matching the logic already used in the Admin AMC form.
-
----
-
-### Summary of files to change
-
-| File | Change |
+| File | What to pass |
 |---|---|
-| `src/components/FollowupPurchaseEntry.tsx` | Add `incrementAmcOnSale` call on purchase |
-| `src/components/admin/ClientJourneyPanel.tsx` | Add `incrementAmcOnSale` call on "Mark as Purchased" |
-| `src/components/dashboard/AmcTracker.tsx` | Fix pending churn filter to future-only |
+| `src/components/FollowupPurchaseEntry.tsx` | `purchaseDate` (the buy_date from the form) |
+| `src/pages/ShiftRecap.tsx` (intro runs) | `shiftDate` (the shift recap date) |
+| `src/pages/ShiftRecap.tsx` (outside-intro sales) | `shiftDate` |
+| `src/components/admin/ClientJourneyPanel.tsx` | `purchaseData.date_closed` or today |
+| `src/components/dashboard/InlineIntroLogger.tsx` | Today (real-time logging, no change needed) |
 
-No database changes, no new files, no changes to existing AMC logic in `amc-auto.ts`.
+### Technical Details
+
+**`src/lib/amc-auto.ts`** - Add optional `saleDate` param:
+```typescript
+export async function incrementAmcOnSale(
+  personName: string,
+  membershipType: string,
+  createdBy: string,
+  saleDate?: string, // NEW: optional, falls back to today
+): Promise<void> {
+  const logDate = saleDate || format(new Date(), 'yyyy-MM-dd');
+  // ... use logDate instead of today
+}
+```
+
+**`src/components/FollowupPurchaseEntry.tsx`** - Pass `purchaseDate`:
+```typescript
+await incrementAmcOnSale(client.memberName, membershipType, staffName, purchaseDate);
+```
+
+**`src/pages/ShiftRecap.tsx`** - Pass `shiftDate` for both intro runs and outside-intro sales (the shift date is the date the sale actually occurred).
+
+**`src/components/admin/ClientJourneyPanel.tsx`** - Pass the `date_closed` from the purchase form.
+
+No other files or database schema changes needed. The 3 SQL date corrections are one-time fixes; the code changes prevent future mismatches.
 
