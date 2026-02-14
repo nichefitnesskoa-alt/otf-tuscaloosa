@@ -263,10 +263,10 @@ export function IntroActionBar({
 
   return (
     <>
-      <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
-        <ActionButton icon={<ClipboardList className="w-3.5 h-3.5" />} label="Prep" onClick={() => setPrepOpen(true)} />
-        <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Script" onClick={handleScriptTap} />
-        <ActionButton icon={<Copy className="w-3.5 h-3.5" />} label="Copy #" onClick={handleCopyPhone} />
+      <div className="flex items-center gap-1.5 md:gap-1 py-1">
+        <ActionButton icon={<ClipboardList className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Prep" onClick={() => setPrepOpen(true)} />
+        <ActionButton icon={<MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Script" onClick={handleScriptTap} />
+        <ActionButton icon={<Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Copy #" onClick={handleCopyPhone} />
       </div>
 
       {/* Smart Script → MessageGenerator */}
@@ -393,11 +393,11 @@ export function LeadActionBar({
 
   return (
     <>
-      <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-1">
-        <ActionButton icon={<MessageSquare className="w-3.5 h-3.5" />} label="Script" onClick={handleScriptTap} />
-        <ActionButton icon={<CalendarPlus className="w-3.5 h-3.5" />} label="Book" onClick={onBookIntro} />
-        <ActionButton icon={<User className="w-3.5 h-3.5" />} label="Profile" onClick={onOpenDetail} />
-        <ActionButton icon={<Copy className="w-3.5 h-3.5" />} label="Copy #" onClick={handleCopyPhone} />
+      <div className="flex items-center gap-1.5 md:gap-1 flex-wrap py-1">
+        <ActionButton icon={<MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Script" onClick={handleScriptTap} />
+        <ActionButton icon={<CalendarPlus className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Book" onClick={onBookIntro} />
+        <ActionButton icon={<User className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Profile" onClick={onOpenDetail} />
+        <ActionButton icon={<Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Copy #" onClick={handleCopyPhone} />
         {stage === 'new' && onMarkContacted && (
           <ActionButton icon={<CheckCircle className="w-3.5 h-3.5" />} label="Contacted" onClick={onMarkContacted} />
         )}
@@ -449,14 +449,14 @@ function ActionButton({ icon, label, onClick }: { icon: React.ReactNode; label: 
     <Button
       variant="outline"
       size="sm"
-      className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0"
+      className="h-9 md:h-7 px-3 md:px-2 text-[13px] md:text-[11px] gap-1.5 md:gap-1 flex-1 md:flex-initial min-w-[44px] min-h-[44px] md:min-h-0"
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
     >
       {icon}
-      {label}
+      <span className="md:inline">{label}</span>
     </Button>
   );
 }

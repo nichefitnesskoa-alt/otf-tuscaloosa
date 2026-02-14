@@ -81,7 +81,7 @@ export function CollapsibleSection({
   return (
     <Card id={`section-${id}`} className={cn(emphasis, className)}>
       <CardHeader
-        className="pb-2 cursor-pointer select-none"
+        className="pb-2 cursor-pointer select-none sticky top-0 z-10 bg-card rounded-t-lg"
         onClick={toggle}
       >
         <CardTitle className="text-base flex items-center gap-2">
