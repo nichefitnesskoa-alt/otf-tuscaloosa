@@ -54,11 +54,9 @@ export function AmcTracker() {
   const now = new Date();
   const currentMonthStart = startOfMonth(now);
   const currentMonthEnd = endOfMonth(now);
+  const today = format(now, 'yyyy-MM-dd');
   const pendingChurn = churnEntries
-    .filter(e => {
-      const d = parseISO(e.effective_date);
-      return isAfter(d, subDays(currentMonthStart, 1)) && isBefore(d, currentMonthEnd);
-    })
+    .filter(e => e.effective_date > today)
     .reduce((sum, e) => sum + e.churn_count, 0);
 
   const projectedAmc = latest.amc_value - pendingChurn;

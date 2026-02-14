@@ -73,6 +73,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { capitalizeName, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { incrementAmcOnSale } from '@/lib/amc-auto';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
@@ -835,6 +836,13 @@ export default function ClientJourneyPanel() {
 
       if (bookingError) throw bookingError;
       
+      // Auto-increment AMC for this sale
+      await incrementAmcOnSale(
+        purchasingBooking.member_name,
+        purchaseData.membership_type,
+        user?.name || 'Admin',
+      );
+
       toast.success('Sale recorded and booking closed');
       setShowPurchaseDialog(false);
       setPurchasingBooking(null);

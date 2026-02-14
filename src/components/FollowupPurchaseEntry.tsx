@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { capitalizeName } from '@/lib/utils';
 import { MEMBERSHIP_TYPES } from '@/types';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { incrementAmcOnSale } from '@/lib/amc-auto';
 
 interface EligibleFollowup {
   runId: string;
@@ -148,6 +149,9 @@ export default function FollowupPurchaseEntry({
         .eq('id', client.runId);
 
       if (runError) throw runError;
+
+      // Auto-increment AMC for this sale
+      await incrementAmcOnSale(client.memberName, membershipType, staffName);
 
       // Close the linked booking if exists
       if (client.linkedBookingId) {
