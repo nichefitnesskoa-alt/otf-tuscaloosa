@@ -1,30 +1,48 @@
 
 
-# Promote Client Pipeline to Full Edit Mode and Remove Admin Redundancy
+## AMC Auto-Increment: Follow-up Fixes
 
-## Summary
-Replace the read-only `ClientJourneyReadOnly` component on the Pipeline page with the full-featured `ClientJourneyPanel` (currently Admin-only), giving all staff editing capabilities. Then remove `ClientJourneyPanel` from the Admin Data tab to eliminate redundancy.
+After reviewing all sale paths in the codebase, there are **3 places where sales are recorded but AMC is NOT incremented**, plus a display bug on the Studio AMC card.
 
-## Changes
+---
 
-### 1. Pipeline page (`src/pages/Pipeline.tsx`)
-- Replace `ClientJourneyReadOnly` import with `ClientJourneyPanel` from `src/components/admin/ClientJourneyPanel.tsx`
-- Replace `MembershipPurchasesReadOnly` with `MembershipPurchasesPanel` from `src/components/admin/MembershipPurchasesPanel.tsx`
-- Keep `PastBookingQuestionnaires` as-is
+### Fix 1: Follow-up Purchase Entry (biggest gap)
 
-### 2. Admin page (`src/pages/Admin.tsx`)
-- Remove `ClientJourneyPanel` from the Data tab
-- Remove the import for `ClientJourneyPanel`
-- The Data tab will retain: `VipBulkImport`, `MembershipPurchasesPanel`, and `ShiftRecapsEditor`
+**File:** `src/components/FollowupPurchaseEntry.tsx`
 
-### 3. Cleanup (optional)
-- `ClientJourneyReadOnly` (951 lines) and `MembershipPurchasesReadOnly` (321 lines) become unused and can be deleted to reduce code bloat
+When a follow-up purchase is logged via Shift Recap, the `intros_run` record is updated with the sale result and `buy_date`, but `incrementAmcOnSale` is never called. This is why Parthkumar Modi, Sunayana Chejara, and Grace Forman were missing from the AMC log.
 
-## Technical Notes
-- `ClientJourneyPanel` already has all the editing dialogs (edit booking, edit run, mark as purchased, set intro owner, hard delete, link run, create booking/run, bulk VIP scheduling)
-- No auth guard needed since the Pipeline page is already behind `ProtectedRoute` and the component doesn't check for admin role internally
-- `MembershipPurchasesPanel` in Admin Data tab stays since it has admin-specific editing features beyond what the pipeline needs -- actually, since we're giving everyone edit access, we should remove it from Admin too to avoid redundancy. The Pipeline page will have both `ClientJourneyPanel` and `MembershipPurchasesPanel`.
+**Change:** Import `incrementAmcOnSale` and call it in `handleSubmit` after the successful run update, passing `client.memberName`, `membershipType`, and `staffName`.
 
-### Revised Admin Data tab cleanup
-- Remove both `ClientJourneyPanel` AND `MembershipPurchasesPanel` from Admin Data tab (both now live on Pipeline)
-- Admin Data tab keeps: `VipBulkImport` and `ShiftRecapsEditor`
+---
+
+### Fix 2: Admin "Mark as Purchased" in Client Journey Panel
+
+**File:** `src/components/admin/ClientJourneyPanel.tsx`
+
+The Admin Client Journey panel has a "Mark as Purchased" dialog that creates a `sales_outside_intro` record and closes the booking. It does not increment AMC.
+
+**Change:** Import `incrementAmcOnSale` and call it after the successful sale insert, passing the member name, membership type, and the admin user's name.
+
+---
+
+### Fix 3: Studio AMC Tracker display bug
+
+**File:** `src/components/dashboard/AmcTracker.tsx`
+
+The Studio AMC card calculates `pendingChurn` by looking at all `churn_log` entries within the current month. But churn entries that have already been processed into `amc_log` (effective date in the past) are already reflected in the current AMC value. Subtracting them again double-counts the churn, making the "Projected" number too low.
+
+**Change:** Filter `pendingChurn` to only include churn entries with `effective_date > today` (future churn that hasn't been applied yet), matching the logic already used in the Admin AMC form.
+
+---
+
+### Summary of files to change
+
+| File | Change |
+|---|---|
+| `src/components/FollowupPurchaseEntry.tsx` | Add `incrementAmcOnSale` call on purchase |
+| `src/components/admin/ClientJourneyPanel.tsx` | Add `incrementAmcOnSale` call on "Mark as Purchased" |
+| `src/components/dashboard/AmcTracker.tsx` | Fix pending churn filter to future-only |
+
+No database changes, no new files, no changes to existing AMC logic in `amc-auto.ts`.
+
