@@ -71,7 +71,7 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="font-semibold text-sm truncate">
+            <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">
               {lead.first_name} {lead.last_name}
             </p>
             {isNew && !isLost && (

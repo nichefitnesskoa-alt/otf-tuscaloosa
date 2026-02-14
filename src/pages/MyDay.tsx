@@ -498,11 +498,12 @@ export default function MyDay() {
       <div key={b.id} className="rounded-lg border bg-card transition-all">
         {/* Compact header - always visible */}
         <div
-          className="p-2.5 cursor-pointer"
+          className="p-3 md:p-2.5 cursor-pointer"
           onClick={() => toggleCard(b.id)}
         >
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-semibold text-sm truncate">
+          {/* Row 1: Name only on mobile, name+badges on desktop */}
+          <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1.5 min-w-0">
+            <span className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">
               {isExpanded ? (
                 <InlineEditField
                   value={b.member_name}
@@ -510,54 +511,65 @@ export default function MyDay() {
                 />
               ) : b.member_name}
             </span>
-            {isVipCard ? (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
-            ) : (
-              <>
-                <IntroTypeBadge isSecondIntro={is2nd} />
-                <LeadSourceTag source={b.lead_source} />
-              </>
-            )}
-            <span className="text-[11px] text-muted-foreground ml-auto flex-shrink-0">
-              {isExpanded ? (
-                <InlineEditField
-                  value={b.intro_time || ''}
-                  displayValue={b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'}
-                  onSave={v => handleUpdateBookingField(b.id, 'intro_time', v)}
-                  type="time"
-                  muted
-                />
+
+            {/* Row 2 on mobile: badges + time + coach */}
+            <div className="flex items-center gap-1.5 flex-wrap text-[13px] md:text-[11px]">
+              {isVipCard ? (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
               ) : (
-                b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'
+                <>
+                  <IntroTypeBadge isSecondIntro={is2nd} />
+                  <LeadSourceTag source={b.lead_source} />
+                </>
               )}
-            </span>
-            <span className="text-[11px] text-muted-foreground">·</span>
-            <span className="text-[11px] text-muted-foreground flex-shrink-0">
-              {isExpanded ? (
-                <InlineEditField
-                  value={b.coach_name}
-                  onSave={v => handleUpdateBookingField(b.id, 'coach_name', v)}
-                  options={COACHES.map(c => ({ label: c, value: c }))}
-                  muted
-                />
-              ) : b.coach_name}
-            </span>
-            {!b.phone && <PhoneIcon className="w-3 h-3 text-destructive flex-shrink-0" />}
-            {!isVipCard && isClassToday && !classTimePassed && (
-              <IntroCountdown classTime={b.intro_time} classDate={b.class_date} />
-            )}
-            {showReminderStatus && !reminderSent && (
-              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-warning/15 text-warning border-warning/30 flex-shrink-0">!</Badge>
-            )}
-            {!isVipCard && !isExpanded && getQBadge(b.questionnaire_status, is2nd)}
-            {!isVipCard && !isExpanded && (
-              <ConversionSignal
-                isSecondIntro={is2nd}
-                qCompleted={b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted'}
-                hasPhone={!!b.phone}
-                leadSource={b.lead_source}
-              />
-            )}
+              <span className="text-muted-foreground">
+                {isExpanded ? (
+                  <InlineEditField
+                    value={b.intro_time || ''}
+                    displayValue={b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'}
+                    onSave={v => handleUpdateBookingField(b.id, 'intro_time', v)}
+                    type="time"
+                    muted
+                  />
+                ) : (
+                  b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'
+                )}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">
+                {isExpanded ? (
+                  <InlineEditField
+                    value={b.coach_name}
+                    onSave={v => handleUpdateBookingField(b.id, 'coach_name', v)}
+                    options={COACHES.map(c => ({ label: c, value: c }))}
+                    muted
+                  />
+                ) : b.coach_name}
+              </span>
+            </div>
+
+            {/* Row 3 on mobile: status badges */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5 md:mt-0 md:ml-auto">
+              {!b.phone && <NoPhoneBadge />}
+              {!isVipCard && isClassToday && !classTimePassed && (
+                <IntroCountdown classTime={b.intro_time} classDate={b.class_date} />
+              )}
+              {showReminderStatus && !reminderSent && (
+                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-warning/15 text-warning border-warning/30">Not Confirmed</Badge>
+              )}
+              {!isVipCard && !isExpanded && getQBadge(b.questionnaire_status, is2nd)}
+              {/* ConversionSignal: desktop only */}
+              {!isVipCard && !isExpanded && (
+                <span className="hidden md:inline-flex">
+                  <ConversionSignal
+                    isSecondIntro={is2nd}
+                    qCompleted={b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted'}
+                    hasPhone={!!b.phone}
+                    leadSource={b.lead_source}
+                  />
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Script action indicator */}
@@ -920,25 +932,26 @@ export default function MyDay() {
                         className="p-3 md:p-2.5 cursor-pointer min-h-[44px]"
                         onClick={() => toggleCard(`lead-${lead.id}`)}
                       >
-                        {/* Row 1: Name + source */}
-                        <div className="flex items-start gap-1.5 min-w-0 flex-wrap">
-                          <span className="font-semibold text-base md:text-sm break-words leading-tight">{lead.first_name} {lead.last_name}</span>
+                        {/* Row 1: Full name (never truncate) */}
+                        <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{lead.first_name} {lead.last_name}</p>
+                        {/* Row 2: Source + timing */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <LeadSourceTag source={lead.source} className="flex-shrink-0" />
-                          {isAlreadyBooked && (
-                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent flex-shrink-0">
-                              Already Booked?
-                            </Badge>
-                          )}
-                        </div>
-                        {/* Row 2: Timing */}
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-sm md:text-[11px] text-muted-foreground">
+                          <span className="text-[13px] md:text-[11px] text-muted-foreground">
                             {minutesAgo < 60 ? `${minutesAgo}m ago` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
                           </span>
                           <Badge className={`text-[10px] px-1.5 py-0 h-4 flex-shrink-0 ${speedColor}`}>
                             {minutesAgo < 5 ? 'Just now' : minutesAgo < 30 ? 'Act fast' : 'Overdue'}
                           </Badge>
                         </div>
+                        {/* Row 3: Already booked badge if applicable */}
+                        {isAlreadyBooked && (
+                          <div className="mt-1">
+                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
+                              Already Booked?
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                       {isExpanded && (
                         <div className="px-2.5 pb-2.5 space-y-2 border-t pt-2">
