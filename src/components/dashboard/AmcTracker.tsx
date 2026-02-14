@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { TrendingUp, TrendingDown, Target } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, subDays } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, isAfter, isBefore, subDays, formatDistanceToNow } from 'date-fns';
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis } from 'recharts';
+import { processEffectiveChurn } from '@/lib/amc-auto';
 
 const AMC_TARGET = 400;
 
@@ -14,6 +15,7 @@ interface AmcEntry {
   logged_date: string;
   amc_value: number;
   note: string | null;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -29,7 +31,7 @@ export function AmcTracker() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchEntries();
+    processEffectiveChurn().then(() => fetchEntries());
   }, []);
 
   const fetchEntries = async () => {
@@ -132,10 +134,11 @@ export function AmcTracker() {
           </div>
         )}
 
-        {/* Latest note */}
-        {latest.note && (
-          <p className="text-xs text-muted-foreground italic">"{latest.note}"</p>
-        )}
+        {/* Latest note / last updated */}
+        <p className="text-[11px] text-muted-foreground">
+          Last updated: {latest.note || 'Manual entry'} · {formatDistanceToNow(parseISO(latest.created_at), { addSuffix: true })}
+          {latest.created_by ? ` by ${latest.created_by}` : ''}
+        </p>
       </CardContent>
     </Card>
   );

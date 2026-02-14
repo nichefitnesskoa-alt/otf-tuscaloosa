@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
+import { incrementAmcOnSale } from '@/lib/amc-auto';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
@@ -126,6 +127,9 @@ export function InlineIntroLogger({
           .from('intros_booked')
           .update({ booking_status: 'Closed – Bought', closed_at: new Date().toISOString(), closed_by: saName })
           .eq('id', bookingId);
+
+        // Auto-increment AMC
+        await incrementAmcOnSale(memberName, membershipType, saName);
       }
 
       // Log the action
