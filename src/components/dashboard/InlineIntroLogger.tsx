@@ -19,7 +19,7 @@ interface InlineIntroLoggerProps {
   classTime: string | null;
   coachName: string;
   leadSource: string;
-  onLogged: () => void;
+  onLogged: (undoData?: { introRunId: string; followUpIds: string[]; bookingId: string; previousStatus: string }) => void;
 }
 
 const OBJECTIONS = [
@@ -99,7 +99,7 @@ export function InlineIntroLogger({
       }
 
       // Create the intros_run record
-      const { error: runError } = await supabase
+      const { data: runData, error: runError } = await supabase
         .from('intros_run')
         .insert({
           member_name: memberName,
@@ -115,11 +115,16 @@ export function InlineIntroLogger({
           commission_amount: commissionAmount,
           primary_objection: outcome === 'didnt_buy' ? objection || null : null,
           notes: notes.trim() || null,
-          // Mark submitted so shift recap knows it's already done
           created_at: new Date().toISOString(),
-        });
+        })
+        .select('id')
+        .single();
 
       if (runError) throw runError;
+      const introRunId = runData?.id || '';
+
+      // Track previous booking status for undo
+      const previousStatus = 'Active';
 
       // Update booking status
       if (outcome === 'purchased') {
@@ -140,10 +145,10 @@ export function InlineIntroLogger({
         completed_by: saName,
       });
 
-      // Generate follow-up queue entries for no-show and didn't-buy (Part 6)
+      // Generate follow-up queue entries for no-show and didn't-buy
+      let followUpIds: string[] = [];
       if (outcome === 'no_show' || outcome === 'didnt_buy') {
         const personType = outcome === 'no_show' ? 'no_show' : 'didnt_buy';
-        // Check if booking is VIP
         const { data: bookingData } = await supabase
           .from('intros_booked')
           .select('is_vip')
@@ -151,7 +156,6 @@ export function InlineIntroLogger({
           .maybeSingle();
         const isVip = bookingData?.is_vip || false;
 
-        // Only create follow-ups for non-VIP (Part 7)
         if (!isVip) {
           const entries = generateFollowUpEntries(
             memberName,
@@ -163,13 +167,14 @@ export function InlineIntroLogger({
             outcome === 'didnt_buy' ? objection : null,
             null,
           );
-          await supabase.from('follow_up_queue').insert(entries);
+          const { data: fuData } = await supabase.from('follow_up_queue').insert(entries).select('id');
+          followUpIds = (fuData || []).map((f: any) => f.id);
         }
       }
 
       toast.success(`Intro logged: ${result}`);
       await refreshData();
-      onLogged();
+      onLogged({ introRunId, followUpIds, bookingId, previousStatus });
     } catch (err: any) {
       console.error('Inline intro log error:', err);
       toast.error('Failed to log intro');

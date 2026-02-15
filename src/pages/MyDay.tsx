@@ -129,6 +129,8 @@ export default function MyDay() {
   const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
   const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
   const [loggingOpenId, setLoggingOpenId] = useState<string | null>(null);
+  const [followUpVerifiedMap, setFollowUpVerifiedMap] = useState<Map<string, boolean>>(new Map());
+  const [completedRunsMap, setCompletedRunsMap] = useState<Map<string, { sa_name: string; created_at: string }>>(new Map());
 
   // Accordion: only one card expanded at a time
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -163,14 +165,25 @@ export default function MyDay() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
-      const { data: bookings } = await supabase
-        .from('intros_booked')
-        .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email')
-        .in('class_date', [today, tomorrow])
-        .is('deleted_at', null)
-        .is('vip_class_name', null)
-        .neq('booking_status', 'Closed – Bought')
-        .order('intro_time', { ascending: true });
+      // Fetch today (include Closed-Bought so completed intros remain visible) and tomorrow (exclude Closed-Bought)
+      const [todayRes, tomorrowRes] = await Promise.all([
+        supabase
+          .from('intros_booked')
+          .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email')
+          .eq('class_date', today)
+          .is('deleted_at', null)
+          .is('vip_class_name', null)
+          .order('intro_time', { ascending: true }),
+        supabase
+          .from('intros_booked')
+          .select('id, member_name, intro_time, coach_name, lead_source, originating_booking_id, class_date, created_at, phone, email')
+          .eq('class_date', tomorrow)
+          .is('deleted_at', null)
+          .is('vip_class_name', null)
+          .neq('booking_status', 'Closed – Bought')
+          .order('intro_time', { ascending: true }),
+      ]);
+      const bookings = [...(todayRes.data || []), ...(tomorrowRes.data || [])];
 
       const { data: vipBookings } = await supabase
         .from('intros_booked')
@@ -222,7 +235,7 @@ export default function MyDay() {
         .is('deleted_at', null);
       if (allBookingsData) setAllBookings(allBookingsData as AllBookingMinimal[]);
 
-      if (bookings) {
+      if (bookings && bookings.length > 0) {
         const bookingIds = bookings.map(b => b.id);
         const [qRes, runRes] = await Promise.all([
           supabase.from('intro_questionnaires')
@@ -289,6 +302,38 @@ export default function MyDay() {
           .eq('status', 'sent')
           .gte('sent_at', todayStart);
         setTodayFollowUpsSent(fuSentCount || 0);
+
+        // Fetch completed run details (who logged, when) and follow-up verification
+        const completedBookingIds = enriched.filter(b => b.class_date === today && b.intro_result).map(b => b.id);
+        if (completedBookingIds.length > 0) {
+          const [runsDetail, fuVerify] = await Promise.all([
+            supabase.from('intros_run')
+              .select('linked_intro_booked_id, sa_name, created_at')
+              .in('linked_intro_booked_id', completedBookingIds),
+            supabase.from('follow_up_queue')
+              .select('booking_id')
+              .in('booking_id', completedBookingIds)
+              .limit(200),
+          ]);
+          const runsMap = new Map<string, { sa_name: string; created_at: string }>();
+          (runsDetail.data || []).forEach((r: any) => {
+            if (r.linked_intro_booked_id) runsMap.set(r.linked_intro_booked_id, { sa_name: r.sa_name || 'Unknown', created_at: r.created_at });
+          });
+          setCompletedRunsMap(runsMap);
+
+          const verifiedSet = new Set((fuVerify.data || []).map((f: any) => f.booking_id).filter(Boolean));
+          const verifyMap = new Map<string, boolean>();
+          completedBookingIds.forEach(id => {
+            const result = enriched.find(b => b.id === id)?.intro_result;
+            if (result === 'No-show' || result === "Didn't Buy") {
+              verifyMap.set(id, verifiedSet.has(id));
+            }
+          });
+          setFollowUpVerifiedMap(verifyMap);
+        } else {
+          setCompletedRunsMap(new Map());
+          setFollowUpVerifiedMap(new Map());
+        }
       }
 
       // New leads
@@ -403,6 +448,12 @@ export default function MyDay() {
   const purchaseCount = useMemo(() => completedTodayBookings.filter(b => isMembershipSale(b.intro_result || '')).length, [completedTodayBookings]);
   const noShowCount = useMemo(() => completedTodayBookings.filter(b => b.intro_result === 'No-show').length, [completedTodayBookings]);
   const didntBuyCount = useMemo(() => completedTodayBookings.filter(b => b.intro_result === "Didn't Buy").length, [completedTodayBookings]);
+  const topObjection = useMemo(() => {
+    const objections = completedTodayBookings.map(b => b.primary_objection).filter(Boolean) as string[];
+    if (objections.length === 0) return null;
+    const counts = objections.reduce((acc, o) => { acc[o] = (acc[o] || 0) + 1; return acc; }, {} as Record<string, number>);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }, [completedTodayBookings]);
 
   // Unresolved intros: class time passed 1+ hours, no outcome
   const unresolvedIntros = useMemo(() => {
@@ -692,7 +743,38 @@ export default function MyDay() {
                     classTime={b.intro_time}
                     coachName={b.coach_name}
                     leadSource={b.lead_source}
-                    onLogged={() => { setLoggingOpenId(null); fetchMyDayData(); }}
+                    onLogged={(undoData) => {
+                      setLoggingOpenId(null);
+                      fetchMyDayData();
+                      if (undoData) {
+                        toast.success(`Intro logged`, {
+                          action: {
+                            label: 'Undo',
+                            onClick: async () => {
+                              try {
+                                // Delete the intro run
+                                await supabase.from('intros_run').delete().eq('id', undoData.introRunId);
+                                // Delete follow-up entries
+                                if (undoData.followUpIds.length > 0) {
+                                  await supabase.from('follow_up_queue').delete().in('id', undoData.followUpIds);
+                                }
+                                // Restore booking status
+                                await supabase.from('intros_booked')
+                                  .update({ booking_status: undoData.previousStatus, closed_at: null, closed_by: null })
+                                  .eq('id', undoData.bookingId);
+                                // Delete the script_action
+                                await supabase.from('script_actions').delete()
+                                  .eq('booking_id', undoData.bookingId)
+                                  .eq('action_type', 'intro_logged');
+                                toast.success('Intro log undone');
+                                fetchMyDayData();
+                              } catch { toast.error('Undo failed'); }
+                            },
+                          },
+                          duration: 5000,
+                        });
+                      }
+                    }}
                   />
                 )}
                 <CardGuidance text={getIntroGuidance({
@@ -866,6 +948,7 @@ export default function MyDay() {
                 title="Today's Intros"
                 icon={<Calendar className="w-4 h-4 text-primary" />}
                 count={pendingIntros.length}
+                countLabel="remaining"
                 defaultOpen={true}
                 forceOpen={pendingIntros.length > 0}
                 emphasis={sectionEmphasis('intros')}
@@ -1038,8 +1121,9 @@ export default function MyDay() {
               </CollapsibleSection>
             );
 
-          case 'completed-today':
+          case 'completed-today': {
             if (completedTodayBookings.length === 0) return null;
+            const allIntrosDone = pendingIntros.length === 0 && completedTodayBookings.length > 0;
             return (
               <CollapsibleSection
                 key="completed-today"
@@ -1047,28 +1131,132 @@ export default function MyDay() {
                 title="Completed Today"
                 icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                 count={completedTodayBookings.length}
-                defaultOpen={false}
+                defaultOpen={allIntrosDone}
+                forceOpen={allIntrosDone}
                 className="border-emerald-200/60"
               >
                 <SectionHelp text="Everything that's been handled today. Check this when you start your shift to see what the last SA already did." />
                 {completedTodayBookings.map(b => {
                   const resultLabel = b.intro_result || 'Logged';
-                  const actionInfo = scriptActionsMap.get(b.id);
+                  const isPurchased = isMembershipSale(resultLabel);
+                  const isNoShow = resultLabel === 'No-show';
+                  const isDidntBuy = resultLabel === "Didn't Buy";
+                  const runInfo = completedRunsMap.get(b.id);
+                  const is2nd = isSecondIntro(b.id);
+                  const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
+
+                  // Outcome badge color
+                  const badgeClass = isPurchased
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : isDidntBuy
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : isNoShow
+                    ? 'bg-destructive/15 text-destructive border-destructive/30'
+                    : '';
+
+                  // Follow-up verification
+                  const needsFollowUp = isNoShow || isDidntBuy;
+                  const followUpVerified = followUpVerifiedMap.get(b.id);
+
                   return (
-                    <div key={b.id} className="rounded-lg border bg-muted/30 p-3 space-y-1 opacity-80">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{b.member_name}</span>
-                        <Badge variant="secondary" className="text-[10px]">{resultLabel}</Badge>
+                    <div key={b.id} className="rounded-lg border bg-card animate-fade-in">
+                      {/* Header */}
+                      <div className="p-3 cursor-pointer" onClick={() => toggleCard(b.id)}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-[15px] md:text-sm">{b.member_name}</span>
+                          <Badge className={cn('text-[10px] border', badgeClass)}>
+                            {isPurchased ? `Purchased – ${resultLabel}` : resultLabel}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
+                          <span>{b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''}</span>
+                          <span>·</span>
+                          <span>{b.coach_name}</span>
+                          {runInfo && (
+                            <>
+                              <span>·</span>
+                              <span>Logged by {runInfo.sa_name} at {format(new Date(runInfo.created_at), 'h:mm a')}</span>
+                            </>
+                          )}
+                        </div>
+                        {isDidntBuy && b.primary_objection && (
+                          <div className="mt-1">
+                            <Badge variant="outline" className="text-[10px] text-amber-700">Objection: {b.primary_objection}</Badge>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''} · {b.coach_name}
-                        {actionInfo && ` · Logged by ${actionInfo.completed_by} at ${format(new Date(actionInfo.completed_at), 'h:mm a')}`}
-                      </p>
+
+                      {/* Expanded details */}
+                      {expandedCardId === b.id && (
+                        <div className="px-3 pb-3 space-y-2 border-t pt-2">
+                          {/* Post-purchase actions */}
+                          {isPurchased && (
+                            <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
+                          )}
+
+                          {/* Follow-up status notes */}
+                          {needsFollowUp && followUpVerified === true && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1.5">
+                              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                              {isNoShow ? 'No-show follow-up due today' : 'Follow-up scheduled: Touch 1 due today'}
+                            </div>
+                          )}
+                          {needsFollowUp && followUpVerified === false && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-destructive bg-destructive/10 rounded px-2 py-1.5">
+                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                              <span>Follow-up queue not created.</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 px-1.5 text-[10px] text-destructive underline"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const { generateFollowUpEntries } = await import('@/components/dashboard/FollowUpQueue');
+                                    const personType = isNoShow ? 'no_show' : 'didnt_buy';
+                                    const entries = generateFollowUpEntries(
+                                      b.member_name, personType as 'no_show' | 'didnt_buy',
+                                      b.class_date, b.id, null, false,
+                                      isDidntBuy ? b.primary_objection : null, null,
+                                    );
+                                    await supabase.from('follow_up_queue').insert(entries);
+                                    toast.success('Follow-up queue created');
+                                    fetchMyDayData();
+                                  } catch { toast.error('Failed to create follow-ups'); }
+                                }}
+                              >
+                                Tap to retry
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          <IntroActionBar
+                            memberName={b.member_name}
+                            memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+                            bookingId={b.id}
+                            classDate={b.class_date}
+                            classTime={b.intro_time}
+                            coachName={b.coach_name}
+                            leadSource={b.lead_source}
+                            isSecondIntro={is2nd}
+                            firstBookingId={firstId}
+                            phone={b.phone}
+                            email={b.email}
+                            questionnaireStatus={b.questionnaire_status}
+                            questionnaireSlug={b.questionnaire_slug}
+                            introResult={b.intro_result}
+                            primaryObjection={b.primary_objection}
+                            bookingCreatedAt={b.created_at}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </CollapsibleSection>
             );
+          }
 
           case 'shift-handoff':
             return (
@@ -1103,6 +1291,7 @@ export default function MyDay() {
         purchaseCount={purchaseCount}
         noShowCount={noShowCount}
         didntBuyCount={didntBuyCount}
+        topObjection={topObjection}
       />
 
       {/* Quick-Add FAB */}
