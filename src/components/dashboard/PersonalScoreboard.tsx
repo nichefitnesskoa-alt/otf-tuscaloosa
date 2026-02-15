@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart
+  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart, Info
 } from 'lucide-react';
 import {
   Tooltip,
@@ -76,11 +76,14 @@ export function PersonalScoreboard({
                 <div className="text-center">
                   <Target className="w-4 h-4 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold text-success">{closingRate.toFixed(0)}%</p>
-                  <p className="text-xs opacity-70">Closing %</p>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <p className="text-xs opacity-70">Close Rate</p>
+                    <Info className="w-3 h-3 opacity-50" />
+                  </div>
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Your Sales ÷ Intros Run</p>
+              <TooltipContent className="max-w-[220px]">
+                <p>Sales ÷ intros who showed up. Measures your selling effectiveness.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
