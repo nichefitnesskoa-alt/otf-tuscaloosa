@@ -1,67 +1,69 @@
 
 
-## Fix AMC Date Accuracy and Future-Proof the Logic
+## Fix: Keep Completed Intro Cards Visible in Today's Intros
 
 ### Problem
+Currently, logged intros are removed from "Today's Intros" and placed in a separate "Completed Today" collapsible section. The user wants all intro cards to stay in one unified section, with logged ones visually marked but never hidden.
 
-Three date issues in the `amc_log` table, plus a systemic bug in `incrementAmcOnSale` that causes all entries to use "today" instead of the actual sale date:
+### Changes (single file: `src/pages/MyDay.tsx`)
 
-| Entry | Current logged_date | Correct date | Source field |
-|---|---|---|---|
-| Initial AMC entry | 2025-02-11 | 2026-02-11 | Typo (wrong year) |
-| Abby Foster | 2026-02-11 | 2026-02-10 | `date_closed = 2026-02-10` |
-| Hannah Glasscock | 2026-02-12 | 2026-02-13 | `buy_date = 2026-02-13` |
+**1. Merge all cards into Today's Intros**
+- Replace the current split logic that renders only `pendingIntros` in Today's Intros
+- Render ALL `todayBookings` in the Today's Intros section, sorted: unlogged first, then logged
+- Remove the separate `completed-today` case from the section renderer
 
-### Root Cause
+**2. Update section header**
+- Change count display to: "Today's Intros (5) - 3 logged, 2 remaining"
+- Add mini outcome summary badges next to header (colored dots: "2 purchased, 1 didn't buy")
 
-`incrementAmcOnSale` always uses `format(new Date(), 'yyyy-MM-dd')` as the `logged_date`. This means the AMC entry gets today's date rather than the actual sale date. For real-time logging this is usually fine, but for follow-up purchases (where `buy_date` may differ from today) or backfills, it produces wrong dates.
+**3. Visual treatment for logged cards**
+- Add a left border color on logged cards: green for purchased, amber for didn't buy, red for no-show
+- Show outcome badge inline on the card header row
+- Show "Logged by [name] at [time]" in small muted text
+- Show objection for didn't-buy, membership type for purchased
+- Keep all action buttons functional (Prep, Script, Copy #)
 
-### Plan
+**4. Follow-up confirmation notes on logged cards**
+- For no-show/didn't-buy: show "Follow-up Touch 1 queued for today" confirmation
+- For failed follow-up creation: show "Tap to retry" warning (existing logic, moved inline)
 
-**Step 1: Fix the 3 incorrect dates in the database**
+**5. Post-purchase actions on logged cards**
+- Show PostPurchaseActions component (Welcome Text, Referral Ask) for purchased outcomes
 
-Run SQL updates to correct:
-- Initial entry: `2025-02-11` to `2026-02-11`
-- Abby Foster: `2026-02-11` to `2026-02-10`
-- Hannah Glasscock: `2026-02-12` to `2026-02-13`
+**6. "All intros logged" message**
+- When all are logged, show a small "All intros logged! Great work." note below the last card instead of replacing the cards
 
-**Step 2: Add optional `saleDate` parameter to `incrementAmcOnSale`**
-
-Update `src/lib/amc-auto.ts` to accept an optional 4th parameter `saleDate?: string`. When provided, use it as `logged_date` instead of today. This ensures follow-up purchases log under their actual `buy_date`.
-
-**Step 3: Pass the actual sale date from all call sites**
-
-| File | What to pass |
-|---|---|
-| `src/components/FollowupPurchaseEntry.tsx` | `purchaseDate` (the buy_date from the form) |
-| `src/pages/ShiftRecap.tsx` (intro runs) | `shiftDate` (the shift recap date) |
-| `src/pages/ShiftRecap.tsx` (outside-intro sales) | `shiftDate` |
-| `src/components/admin/ClientJourneyPanel.tsx` | `purchaseData.date_closed` or today |
-| `src/components/dashboard/InlineIntroLogger.tsx` | Today (real-time logging, no change needed) |
+**7. Keep the `completed-today` section case but skip rendering it**
+- Remove it from `sectionOrder` rendering so it no longer appears as a separate section
+- All the completed card rendering logic moves into the `todays-intros` case
 
 ### Technical Details
 
-**`src/lib/amc-auto.ts`** - Add optional `saleDate` param:
-```typescript
-export async function incrementAmcOnSale(
-  personName: string,
-  membershipType: string,
-  createdBy: string,
-  saleDate?: string, // NEW: optional, falls back to today
-): Promise<void> {
-  const logDate = saleDate || format(new Date(), 'yyyy-MM-dd');
-  // ... use logDate instead of today
-}
+The `todays-intros` section case (lines ~943-976) will be rewritten to:
+
+```text
+// Sort: unlogged first, then logged
+const sortedTodayBookings = [...todayBookings].sort((a, b) => {
+  if (!a.intro_result && b.intro_result) return -1;
+  if (a.intro_result && !b.intro_result) return 1;
+  return 0; // preserve original time order within each group
+});
 ```
 
-**`src/components/FollowupPurchaseEntry.tsx`** - Pass `purchaseDate`:
-```typescript
-await incrementAmcOnSale(client.memberName, membershipType, staffName, purchaseDate);
+Each card gets conditional styling:
+```text
+// Left border tint for logged cards
+const borderClass = isPurchased ? 'border-l-4 border-l-emerald-500'
+  : isDidntBuy ? 'border-l-4 border-l-amber-500'
+  : isNoShow ? 'border-l-4 border-l-red-500' : '';
 ```
 
-**`src/pages/ShiftRecap.tsx`** - Pass `shiftDate` for both intro runs and outside-intro sales (the shift date is the date the sale actually occurred).
+The `renderCompactIntroCard` function already handles both logged and unlogged states (it shows PostPurchaseActions, action bars, etc.), so the main change is ensuring logged cards render there with the added visual treatment (outcome badge, logged-by text, border tint, follow-up confirmation).
 
-**`src/components/admin/ClientJourneyPanel.tsx`** - Pass the `date_closed` from the purchase form.
+### Files to modify
+| File | Change |
+|---|---|
+| `src/pages/MyDay.tsx` | Merge completed cards into Today's Intros section, add outcome visuals, remove separate Completed Today section |
 
-No other files or database schema changes needed. The 3 SQL date corrections are one-time fixes; the code changes prevent future mismatches.
+No database changes. No new files. No changes to other components.
 
