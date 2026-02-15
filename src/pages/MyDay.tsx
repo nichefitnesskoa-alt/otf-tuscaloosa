@@ -50,6 +50,7 @@ import { PostPurchaseActions } from '@/components/dashboard/PostPurchaseActions'
 import { NoShowWarning } from '@/components/dashboard/NoShowWarning';
 import { DailyInsight } from '@/components/dashboard/DailyInsight';
 import { toast } from 'sonner';
+import { OutcomeEditor } from '@/components/dashboard/OutcomeEditor';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
 
@@ -131,6 +132,7 @@ export default function MyDay() {
   const [loggingOpenId, setLoggingOpenId] = useState<string | null>(null);
   const [followUpVerifiedMap, setFollowUpVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [completedRunsMap, setCompletedRunsMap] = useState<Map<string, { sa_name: string; created_at: string }>>(new Map());
+  const [editingOutcomeId, setEditingOutcomeId] = useState<string | null>(null);
 
   // Accordion: only one card expanded at a time
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
@@ -964,7 +966,7 @@ export default function MyDay() {
                 title="Today's Intros"
                 icon={<Calendar className="w-4 h-4 text-primary" />}
                 count={todayBookings.length}
-                countLabel={loggedCount > 0 ? `· ${loggedCount} logged, ${remainingCount} remaining` : undefined}
+                countLabel={loggedCount > 0 ? (allLogged ? `· ${loggedCount} logged ✓` : `· ${loggedCount} logged · ${remainingCount} remaining`) : undefined}
                 defaultOpen={true}
                 forceOpen={true}
                 emphasis={sectionEmphasis('intros')}
@@ -993,109 +995,153 @@ export default function MyDay() {
                         return renderCompactIntroCard(b, false, false);
                       }
 
-                      // Logged card with outcome visuals
-                      const borderClass = isPurchased ? 'border-l-4 border-l-emerald-500'
-                        : isDidntBuy ? 'border-l-4 border-l-amber-500'
-                        : isNoShow ? 'border-l-4 border-l-red-500' : '';
+                      // Logged card - ALWAYS VISIBLE with all rows shown
+                      const borderClass = isPurchased ? 'border-l-4 border-l-[#2E7D32]'
+                        : isDidntBuy ? 'border-l-4 border-l-[#F59E0B]'
+                        : isNoShow ? 'border-l-4 border-l-[#DC2626]' : '';
                       const badgeClass = isPurchased
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        ? 'bg-emerald-600 text-white border-transparent'
                         : isDidntBuy
-                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        ? 'bg-amber-400 text-amber-950 border-transparent'
                         : isNoShow
-                        ? 'bg-destructive/15 text-destructive border-destructive/30'
+                        ? 'bg-red-600 text-white border-transparent'
                         : '';
+                      const badgeLabel = isPurchased ? 'Purchased'
+                        : isDidntBuy ? "Didn't Buy"
+                        : isNoShow ? 'No Show' : resultLabel;
                       const runInfo = completedRunsMap.get(b.id);
                       const is2nd = isSecondIntro(b.id);
                       const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
-                      const needsFollowUp = isNoShow || isDidntBuy;
                       const followUpVerified = followUpVerifiedMap.get(b.id);
+                      const isEditingOutcome = editingOutcomeId === b.id;
+
+                      // Row 3: outcome detail line
+                      const loggedByText = runInfo
+                        ? `Logged by ${runInfo.sa_name} at ${format(new Date(runInfo.created_at), 'h:mm a')}`
+                        : '';
+                      let detailLine = '';
+                      if (isPurchased) {
+                        detailLine = `${resultLabel} membership. ${loggedByText}`;
+                      } else if (isDidntBuy) {
+                        detailLine = b.primary_objection
+                          ? `Objection: ${b.primary_objection}. ${loggedByText}`
+                          : `No objection recorded. ${loggedByText}`;
+                      } else if (isNoShow) {
+                        detailLine = `No show. ${loggedByText}`;
+                      }
 
                       return (
                         <div key={b.id} className={cn('rounded-lg border bg-card transition-all', borderClass)}>
-                          <div className="p-3 cursor-pointer" onClick={() => toggleCard(b.id)}>
+                          {/* Row 1: Name + Outcome Badge */}
+                          <div className="p-3 pb-0">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-semibold text-[15px] md:text-sm">{b.member_name}</span>
-                              <Badge className={cn('text-[10px] border', badgeClass)}>
-                                {isPurchased ? `Purchased – ${resultLabel}` : resultLabel}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
-                              <span>{b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''}</span>
-                              <span>·</span>
-                              <span>{b.coach_name}</span>
-                              {runInfo && (
-                                <>
-                                  <span>·</span>
-                                  <span>Logged by {runInfo.sa_name} at {format(new Date(runInfo.created_at), 'h:mm a')}</span>
-                                </>
+                              <span className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">
+                                {b.member_name}
+                              </span>
+                              {!isEditingOutcome && (
+                                <Badge
+                                  className={cn('text-[10px] cursor-pointer hover:opacity-80 shrink-0', badgeClass)}
+                                  onClick={(e) => { e.stopPropagation(); setEditingOutcomeId(b.id); }}
+                                  title="Tap to edit outcome"
+                                >
+                                  {badgeLabel}
+                                </Badge>
                               )}
                             </div>
-                            {isDidntBuy && b.primary_objection && (
-                              <div className="mt-1">
-                                <Badge variant="outline" className="text-[10px] text-amber-700">Objection: {b.primary_objection}</Badge>
-                              </div>
+
+                            {/* Inline outcome editor */}
+                            {isEditingOutcome && (
+                              <OutcomeEditor
+                                bookingId={b.id}
+                                memberName={b.member_name}
+                                classDate={b.class_date}
+                                currentResult={resultLabel}
+                                currentObjection={b.primary_objection}
+                                onDone={() => { setEditingOutcomeId(null); fetchMyDayData(); }}
+                              />
+                            )}
+
+                            {/* Row 2: Intro type + Lead source + Time · Coach (unchanged from pre-log) */}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[13px] md:text-[11px]">
+                              <IntroTypeBadge isSecondIntro={is2nd} />
+                              <LeadSourceTag source={b.lead_source} />
+                              <span className="text-muted-foreground">
+                                {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'}
+                              </span>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="text-muted-foreground">{b.coach_name}</span>
+                            </div>
+
+                            {/* Row 3: Outcome details in small gray text */}
+                            {detailLine && (
+                              <p className="text-[11px] text-muted-foreground mt-1">{detailLine}</p>
                             )}
                           </div>
 
-                          {expandedCardId === b.id && (
-                            <div className="px-3 pb-3 space-y-2 border-t pt-2">
-                              {isPurchased && (
-                                <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
-                              )}
-                              {needsFollowUp && followUpVerified === true && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1.5">
-                                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-                                  {isNoShow ? 'No-show follow-up due today' : 'Follow-up scheduled: Touch 1 due today'}
-                                </div>
-                              )}
-                              {needsFollowUp && followUpVerified === false && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-destructive bg-destructive/10 rounded px-2 py-1.5">
-                                  <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                                  <span>Follow-up queue not created.</span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-5 px-1.5 text-[10px] text-destructive underline"
-                                    onClick={async (e) => {
+                          {/* Row 4: Action buttons - ALWAYS visible */}
+                          <div className="px-3 pt-2 pb-1">
+                            <IntroActionBar
+                              memberName={b.member_name}
+                              memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+                              bookingId={b.id}
+                              classDate={b.class_date}
+                              classTime={b.intro_time}
+                              coachName={b.coach_name}
+                              leadSource={b.lead_source}
+                              isSecondIntro={is2nd}
+                              firstBookingId={firstId}
+                              phone={b.phone}
+                              email={b.email}
+                              questionnaireStatus={b.questionnaire_status}
+                              questionnaireSlug={b.questionnaire_slug}
+                              introResult={b.intro_result}
+                              primaryObjection={b.primary_objection}
+                              bookingCreatedAt={b.created_at}
+                            />
+                          </div>
+
+                          {/* Row 5: Contextual actions - ALWAYS visible */}
+                          <div className="px-3 pb-3">
+                            {isPurchased && (
+                              <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
+                            )}
+                            {isDidntBuy && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-amber-50 rounded px-2 py-1.5 mt-1">
+                                <CheckCircle2 className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                                {followUpVerified === false
+                                  ? <span className="text-destructive">Follow-up queue not created. <button className="underline" onClick={async (e) => {
                                       e.stopPropagation();
                                       try {
                                         const { generateFollowUpEntries } = await import('@/components/dashboard/FollowUpQueue');
-                                        const personType = isNoShow ? 'no_show' : 'didnt_buy';
-                                        const entries = generateFollowUpEntries(
-                                          b.member_name, personType as 'no_show' | 'didnt_buy',
-                                          b.class_date, b.id, null, false,
-                                          isDidntBuy ? b.primary_objection : null, null,
-                                        );
+                                        const entries = generateFollowUpEntries(b.member_name, 'didnt_buy', b.class_date, b.id, null, false, b.primary_objection, null);
                                         await supabase.from('follow_up_queue').insert(entries);
                                         toast.success('Follow-up queue created');
                                         fetchMyDayData();
-                                      } catch { toast.error('Failed to create follow-ups'); }
-                                    }}
-                                  >
-                                    Tap to retry
-                                  </Button>
-                                </div>
-                              )}
-                              <IntroActionBar
-                                memberName={b.member_name}
-                                memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
-                                bookingId={b.id}
-                                classDate={b.class_date}
-                                classTime={b.intro_time}
-                                coachName={b.coach_name}
-                                leadSource={b.lead_source}
-                                isSecondIntro={is2nd}
-                                firstBookingId={firstId}
-                                phone={b.phone}
-                                email={b.email}
-                                questionnaireStatus={b.questionnaire_status}
-                                questionnaireSlug={b.questionnaire_slug}
-                                introResult={b.intro_result}
-                                primaryObjection={b.primary_objection}
-                                bookingCreatedAt={b.created_at}
-                              />
-                            </div>
-                          )}
+                                      } catch { toast.error('Failed'); }
+                                    }}>Tap to retry</button></span>
+                                  : "Follow-up Touch 1 queued for today. Tap Script to send."
+                                }
+                              </div>
+                            )}
+                            {isNoShow && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-red-50 rounded px-2 py-1.5 mt-1">
+                                <CheckCircle2 className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                {followUpVerified === false
+                                  ? <span className="text-destructive">Follow-up queue not created. <button className="underline" onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const { generateFollowUpEntries } = await import('@/components/dashboard/FollowUpQueue');
+                                        const entries = generateFollowUpEntries(b.member_name, 'no_show', b.class_date, b.id, null, false, null, null);
+                                        await supabase.from('follow_up_queue').insert(entries);
+                                        toast.success('Follow-up queue created');
+                                        fetchMyDayData();
+                                      } catch { toast.error('Failed'); }
+                                    }}>Tap to retry</button></span>
+                                  : "No-show follow-up queued. Tap Script to send rebook text."
+                                }
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
