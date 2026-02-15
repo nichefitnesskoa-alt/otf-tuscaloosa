@@ -9,14 +9,14 @@ export interface BookerMetrics {
   introsBooked: number;
   introsShowed: number;
   showRate: number;
-  pipelineValue: number; // potential commission if all converted
+  pipelineValue: number; // kept for interface compat but not displayed
 }
 
 interface BookerStatsTableProps {
   data: BookerMetrics[];
 }
 
-type SortColumn = 'saName' | 'introsBooked' | 'introsShowed' | 'showRate' | 'pipelineValue';
+type SortColumn = 'saName' | 'introsBooked' | 'introsShowed' | 'showRate';
 type SortDirection = 'asc' | 'desc';
 
 export function BookerStatsTable({ data }: BookerStatsTableProps) {
@@ -102,7 +102,6 @@ export function BookerStatsTable({ data }: BookerStatsTableProps) {
                 <SortableHeader column="introsBooked">Booked</SortableHeader>
                 <SortableHeader column="introsShowed">Showed</SortableHeader>
                 <SortableHeader column="showRate">Show %</SortableHeader>
-                <SortableHeader column="pipelineValue">Pipeline</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -113,14 +112,11 @@ export function BookerStatsTable({ data }: BookerStatsTableProps) {
                   <TableCell className="text-center text-sm">{row.introsShowed}</TableCell>
                   <TableCell className="text-center text-sm">
                     <span className={cn(
-                      row.showRate >= 75 ? 'text-success' : 
+                      row.showRate >= 70 ? 'text-success' : 
                       row.showRate >= 50 ? 'text-warning' : 'text-destructive'
                     )}>
                       {row.showRate.toFixed(0)}%
                     </span>
-                  </TableCell>
-                  <TableCell className="text-right text-sm text-muted-foreground">
-                    ~${row.pipelineValue.toFixed(0)}
                   </TableCell>
                 </TableRow>
               ))}
