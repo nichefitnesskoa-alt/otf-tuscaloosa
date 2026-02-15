@@ -940,40 +940,176 @@ export default function MyDay() {
       {/* Reorderable sections */}
       {sectionOrder.map(sectionId => {
         switch (sectionId) {
-          case 'todays-intros':
+          case 'todays-intros': {
+            // Sort: unlogged first, then logged (preserve time order within each group)
+            const sortedTodayBookings = [...todayBookings].sort((a, b) => {
+              if (!a.intro_result && b.intro_result) return -1;
+              if (a.intro_result && !b.intro_result) return 1;
+              return 0;
+            });
+            const loggedCount = completedTodayBookings.length;
+            const remainingCount = activeTodayBookings.length;
+            const allLogged = remainingCount === 0 && loggedCount > 0;
+
+            // Mini outcome summary
+            const outcomeDots = [];
+            if (purchaseCount > 0) outcomeDots.push(<span key="p" className="flex items-center gap-0.5 text-[10px] text-emerald-700"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />{purchaseCount} purchased</span>);
+            if (didntBuyCount > 0) outcomeDots.push(<span key="d" className="flex items-center gap-0.5 text-[10px] text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />{didntBuyCount} didn't buy</span>);
+            if (noShowCount > 0) outcomeDots.push(<span key="n" className="flex items-center gap-0.5 text-[10px] text-destructive"><span className="w-1.5 h-1.5 rounded-full bg-destructive inline-block" />{noShowCount} no-show</span>);
+
             return (
               <CollapsibleSection
                 key="todays-intros"
                 id="todays-intros"
                 title="Today's Intros"
                 icon={<Calendar className="w-4 h-4 text-primary" />}
-                count={pendingIntros.length}
-                countLabel="remaining"
+                count={todayBookings.length}
+                countLabel={loggedCount > 0 ? `· ${loggedCount} logged, ${remainingCount} remaining` : undefined}
                 defaultOpen={true}
-                forceOpen={pendingIntros.length > 0}
+                forceOpen={true}
                 emphasis={sectionEmphasis('intros')}
                 subLabel={emphasisLabel('intros') || undefined}
                 headerRight={
-                  completedTodayBookings.length > 0 ? (
-                    <Badge variant="secondary" className="text-[10px]">{completedTodayBookings.length} done</Badge>
+                  outcomeDots.length > 0 ? (
+                    <div className="flex items-center gap-2 flex-wrap">{outcomeDots}</div>
                   ) : undefined
                 }
               >
                 <SectionHelp text="Everyone coming in for a class today. Tap any card to expand for details. Use Prep to review, Script to message, Log Intro after class." />
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground">Loading...</p>
-                ) : pendingIntros.length === 0 && completedTodayBookings.length === 0 ? (
+                ) : sortedTodayBookings.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">No intros scheduled today</p>
-                ) : pendingIntros.length === 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    All intros logged! Great work.
-                  </div>
                 ) : (
-                  pendingIntros.map(b => renderCompactIntroCard(b, false, false))
+                  <>
+                    {sortedTodayBookings.map(b => {
+                      const resultLabel = b.intro_result || '';
+                      const isPurchased = isMembershipSale(resultLabel);
+                      const isNoShow = resultLabel === 'No-show';
+                      const isDidntBuy = resultLabel === "Didn't Buy";
+                      const isLogged = !!b.intro_result;
+
+                      if (!isLogged) {
+                        return renderCompactIntroCard(b, false, false);
+                      }
+
+                      // Logged card with outcome visuals
+                      const borderClass = isPurchased ? 'border-l-4 border-l-emerald-500'
+                        : isDidntBuy ? 'border-l-4 border-l-amber-500'
+                        : isNoShow ? 'border-l-4 border-l-red-500' : '';
+                      const badgeClass = isPurchased
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : isDidntBuy
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : isNoShow
+                        ? 'bg-destructive/15 text-destructive border-destructive/30'
+                        : '';
+                      const runInfo = completedRunsMap.get(b.id);
+                      const is2nd = isSecondIntro(b.id);
+                      const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
+                      const needsFollowUp = isNoShow || isDidntBuy;
+                      const followUpVerified = followUpVerifiedMap.get(b.id);
+
+                      return (
+                        <div key={b.id} className={cn('rounded-lg border bg-card transition-all', borderClass)}>
+                          <div className="p-3 cursor-pointer" onClick={() => toggleCard(b.id)}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-[15px] md:text-sm">{b.member_name}</span>
+                              <Badge className={cn('text-[10px] border', badgeClass)}>
+                                {isPurchased ? `Purchased – ${resultLabel}` : resultLabel}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
+                              <span>{b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''}</span>
+                              <span>·</span>
+                              <span>{b.coach_name}</span>
+                              {runInfo && (
+                                <>
+                                  <span>·</span>
+                                  <span>Logged by {runInfo.sa_name} at {format(new Date(runInfo.created_at), 'h:mm a')}</span>
+                                </>
+                              )}
+                            </div>
+                            {isDidntBuy && b.primary_objection && (
+                              <div className="mt-1">
+                                <Badge variant="outline" className="text-[10px] text-amber-700">Objection: {b.primary_objection}</Badge>
+                              </div>
+                            )}
+                          </div>
+
+                          {expandedCardId === b.id && (
+                            <div className="px-3 pb-3 space-y-2 border-t pt-2">
+                              {isPurchased && (
+                                <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
+                              )}
+                              {needsFollowUp && followUpVerified === true && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1.5">
+                                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                                  {isNoShow ? 'No-show follow-up due today' : 'Follow-up scheduled: Touch 1 due today'}
+                                </div>
+                              )}
+                              {needsFollowUp && followUpVerified === false && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-destructive bg-destructive/10 rounded px-2 py-1.5">
+                                  <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                                  <span>Follow-up queue not created.</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 px-1.5 text-[10px] text-destructive underline"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        const { generateFollowUpEntries } = await import('@/components/dashboard/FollowUpQueue');
+                                        const personType = isNoShow ? 'no_show' : 'didnt_buy';
+                                        const entries = generateFollowUpEntries(
+                                          b.member_name, personType as 'no_show' | 'didnt_buy',
+                                          b.class_date, b.id, null, false,
+                                          isDidntBuy ? b.primary_objection : null, null,
+                                        );
+                                        await supabase.from('follow_up_queue').insert(entries);
+                                        toast.success('Follow-up queue created');
+                                        fetchMyDayData();
+                                      } catch { toast.error('Failed to create follow-ups'); }
+                                    }}
+                                  >
+                                    Tap to retry
+                                  </Button>
+                                </div>
+                              )}
+                              <IntroActionBar
+                                memberName={b.member_name}
+                                memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
+                                bookingId={b.id}
+                                classDate={b.class_date}
+                                classTime={b.intro_time}
+                                coachName={b.coach_name}
+                                leadSource={b.lead_source}
+                                isSecondIntro={is2nd}
+                                firstBookingId={firstId}
+                                phone={b.phone}
+                                email={b.email}
+                                questionnaireStatus={b.questionnaire_status}
+                                questionnaireSlug={b.questionnaire_slug}
+                                introResult={b.intro_result}
+                                primaryObjection={b.primary_objection}
+                                bookingCreatedAt={b.created_at}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {allLogged && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        All intros logged! Great work.
+                      </div>
+                    )}
+                  </>
                 )}
               </CollapsibleSection>
             );
+          }
 
           case 'new-leads':
             if (sortedLeads.length === 0) return null;
@@ -1121,142 +1257,9 @@ export default function MyDay() {
               </CollapsibleSection>
             );
 
-          case 'completed-today': {
-            if (completedTodayBookings.length === 0) return null;
-            const allIntrosDone = pendingIntros.length === 0 && completedTodayBookings.length > 0;
-            return (
-              <CollapsibleSection
-                key="completed-today"
-                id="completed-today"
-                title="Completed Today"
-                icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                count={completedTodayBookings.length}
-                defaultOpen={allIntrosDone}
-                forceOpen={allIntrosDone}
-                className="border-emerald-200/60"
-              >
-                <SectionHelp text="Everything that's been handled today. Check this when you start your shift to see what the last SA already did." />
-                {completedTodayBookings.map(b => {
-                  const resultLabel = b.intro_result || 'Logged';
-                  const isPurchased = isMembershipSale(resultLabel);
-                  const isNoShow = resultLabel === 'No-show';
-                  const isDidntBuy = resultLabel === "Didn't Buy";
-                  const runInfo = completedRunsMap.get(b.id);
-                  const is2nd = isSecondIntro(b.id);
-                  const firstId = is2nd ? getFirstBookingId(b.member_name) : null;
-
-                  // Outcome badge color
-                  const badgeClass = isPurchased
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : isDidntBuy
-                    ? 'bg-amber-100 text-amber-800 border-amber-300'
-                    : isNoShow
-                    ? 'bg-destructive/15 text-destructive border-destructive/30'
-                    : '';
-
-                  // Follow-up verification
-                  const needsFollowUp = isNoShow || isDidntBuy;
-                  const followUpVerified = followUpVerifiedMap.get(b.id);
-
-                  return (
-                    <div key={b.id} className="rounded-lg border bg-card animate-fade-in">
-                      {/* Header */}
-                      <div className="p-3 cursor-pointer" onClick={() => toggleCard(b.id)}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-[15px] md:text-sm">{b.member_name}</span>
-                          <Badge className={cn('text-[10px] border', badgeClass)}>
-                            {isPurchased ? `Purchased – ${resultLabel}` : resultLabel}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-muted-foreground">
-                          <span>{b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : ''}</span>
-                          <span>·</span>
-                          <span>{b.coach_name}</span>
-                          {runInfo && (
-                            <>
-                              <span>·</span>
-                              <span>Logged by {runInfo.sa_name} at {format(new Date(runInfo.created_at), 'h:mm a')}</span>
-                            </>
-                          )}
-                        </div>
-                        {isDidntBuy && b.primary_objection && (
-                          <div className="mt-1">
-                            <Badge variant="outline" className="text-[10px] text-amber-700">Objection: {b.primary_objection}</Badge>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Expanded details */}
-                      {expandedCardId === b.id && (
-                        <div className="px-3 pb-3 space-y-2 border-t pt-2">
-                          {/* Post-purchase actions */}
-                          {isPurchased && (
-                            <PostPurchaseActions memberName={b.member_name} bookingId={b.id} />
-                          )}
-
-                          {/* Follow-up status notes */}
-                          {needsFollowUp && followUpVerified === true && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1.5">
-                              <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-                              {isNoShow ? 'No-show follow-up due today' : 'Follow-up scheduled: Touch 1 due today'}
-                            </div>
-                          )}
-                          {needsFollowUp && followUpVerified === false && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-destructive bg-destructive/10 rounded px-2 py-1.5">
-                              <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                              <span>Follow-up queue not created.</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-5 px-1.5 text-[10px] text-destructive underline"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const { generateFollowUpEntries } = await import('@/components/dashboard/FollowUpQueue');
-                                    const personType = isNoShow ? 'no_show' : 'didnt_buy';
-                                    const entries = generateFollowUpEntries(
-                                      b.member_name, personType as 'no_show' | 'didnt_buy',
-                                      b.class_date, b.id, null, false,
-                                      isDidntBuy ? b.primary_objection : null, null,
-                                    );
-                                    await supabase.from('follow_up_queue').insert(entries);
-                                    toast.success('Follow-up queue created');
-                                    fetchMyDayData();
-                                  } catch { toast.error('Failed to create follow-ups'); }
-                                }}
-                              >
-                                Tap to retry
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Action buttons */}
-                          <IntroActionBar
-                            memberName={b.member_name}
-                            memberKey={b.member_name.toLowerCase().replace(/\s+/g, '')}
-                            bookingId={b.id}
-                            classDate={b.class_date}
-                            classTime={b.intro_time}
-                            coachName={b.coach_name}
-                            leadSource={b.lead_source}
-                            isSecondIntro={is2nd}
-                            firstBookingId={firstId}
-                            phone={b.phone}
-                            email={b.email}
-                            questionnaireStatus={b.questionnaire_status}
-                            questionnaireSlug={b.questionnaire_slug}
-                            introResult={b.intro_result}
-                            primaryObjection={b.primary_objection}
-                            bookingCreatedAt={b.created_at}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CollapsibleSection>
-            );
-          }
+          case 'completed-today':
+            // No longer rendered as separate section - completed cards are shown inline in todays-intros
+            return null;
 
           case 'shift-handoff':
             return (
