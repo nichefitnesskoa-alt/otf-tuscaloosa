@@ -26,11 +26,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { IntroBooked } from '@/context/DataContext';
 
 // 6B: Wrapper that fetches Q completion rate and passes it to StudioScoreboard
-function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee }: {
+function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee, pipeline }: {
   scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number; goalWhyRate: number; relationshipRate: number; madeAFriendRate: number };
   introsBooked: IntroBooked[];
   dateRange: DateRange | null;
   selectedEmployee: string | null;
+  pipeline: { booked: number; showed: number; sold: number; revenue: number };
 }) {
   const [qRate, setQRate] = useState<number | undefined>(undefined);
 
@@ -74,6 +75,8 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
       relationshipRate={scoreboardMetrics.relationshipRate}
       madeAFriendRate={scoreboardMetrics.madeAFriendRate}
       qCompletionRate={qRate}
+      introsBooked={pipeline.booked}
+      introsShowed={pipeline.showed}
     />
   );
 }
@@ -213,7 +216,7 @@ export default function Recaps() {
     if (userMetrics) {
       text += `🎯 My Stats:\n`;
       text += `• Intros Run: ${userMetrics.introsRun}\n`;
-      text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate)\n`;
+      text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate of showed)\n`;
       text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
       text += `• Goal+Why: ${userMetrics.goalWhyRate.toFixed(0)}%\n`;
       text += `• Peak Exp: ${userMetrics.relationshipRate.toFixed(0)}%\n`;
@@ -232,7 +235,7 @@ export default function Recaps() {
     
     text += `🎯 Studio Totals:\n`;
     text += `• Intros Run: ${metrics.studio.introsRun}\n`;
-    text += `• Sales: ${metrics.studio.introSales} (${metrics.studio.closingRate.toFixed(0)}% close rate)\n`;
+    text += `• Sales: ${metrics.studio.introSales} (${metrics.studio.closingRate.toFixed(0)}% close rate of showed)\n`;
     text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n`;
     text += `• Goal+Why: ${metrics.studio.goalWhyRate.toFixed(0)}%\n`;
     text += `• Peak Exp: ${metrics.studio.relationshipRate.toFixed(0)}%\n`;
@@ -372,6 +375,7 @@ export default function Recaps() {
         introsBooked={introsBooked}
         dateRange={dateRange}
         selectedEmployee={selectedEmployee}
+        pipeline={filteredPipeline}
       />
 
       {/* Conversion Funnel with 1st/2nd Intro toggle */}

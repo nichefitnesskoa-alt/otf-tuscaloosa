@@ -2,13 +2,19 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, Users, UserCheck, Target, Filter } from 'lucide-react';
+import { ArrowDown, Users, UserCheck, Target, Filter, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData, IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ConversionFunnelProps {
   dateRange?: DateRange | null;
@@ -94,12 +100,12 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
 
   const showRate = funnelData.booked > 0 ? (funnelData.showed / funnelData.booked) * 100 : 0;
   const closeRate = funnelData.showed > 0 ? (funnelData.sold / funnelData.showed) * 100 : 0;
-  const overallRate = funnelData.booked > 0 ? (funnelData.sold / funnelData.booked) * 100 : 0;
+  const bookingToSaleRate = funnelData.booked > 0 ? (funnelData.sold / funnelData.booked) * 100 : 0;
 
   const stages = [
-    { label: 'Booked', value: funnelData.booked, icon: Users, color: 'bg-info/20 text-info border-info/30', rate: null as number | null },
-    { label: 'Showed', value: funnelData.showed, icon: UserCheck, color: 'bg-warning/20 text-warning border-warning/30', rate: showRate },
-    { label: 'Sold', value: funnelData.sold, icon: Target, color: 'bg-success/20 text-success border-success/30', rate: closeRate },
+    { label: 'Booked', value: funnelData.booked, icon: Users, color: 'bg-info/20 text-info border-info/30', rate: null as number | null, rateLabel: '' },
+    { label: 'Showed', value: funnelData.showed, icon: UserCheck, color: 'bg-warning/20 text-warning border-warning/30', rate: showRate, rateLabel: 'Show Rate' },
+    { label: 'Sold', value: funnelData.sold, icon: Target, color: 'bg-success/20 text-success border-success/30', rate: closeRate, rateLabel: 'Close Rate (showed)' },
   ];
 
   return (
@@ -144,13 +150,26 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
                 <div className="flex items-center justify-center my-1">
                   <ArrowDown className="w-4 h-4 text-muted-foreground" />
                   {stages[index + 1].rate !== null && (
-                    <span className={cn(
-                      'ml-2 text-xs font-medium',
-                      (stages[index + 1].rate ?? 0) >= 75 ? 'text-success' :
-                      (stages[index + 1].rate ?? 0) >= 50 ? 'text-warning' : 'text-destructive'
-                    )}>
-                      {(stages[index + 1].rate ?? 0).toFixed(0)}%
-                    </span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={cn(
+                            'ml-2 text-xs font-medium cursor-help',
+                            (stages[index + 1].rate ?? 0) >= 75 ? 'text-success' :
+                            (stages[index + 1].rate ?? 0) >= 50 ? 'text-warning' : 'text-destructive'
+                          )}>
+                            {(stages[index + 1].rate ?? 0).toFixed(0)}% {stages[index + 1].rateLabel}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[220px]">
+                          {stages[index + 1].rateLabel === 'Show Rate' ? (
+                            <p>Showed ÷ Booked. Measures booking-to-attendance conversion.</p>
+                          ) : (
+                            <p>Sales ÷ intros who showed up. Measures selling effectiveness. Same as Scoreboard close rate.</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
               )}
@@ -159,9 +178,19 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
         </div>
         
         <div className="mt-4 pt-3 border-t space-y-1">
-          <div className="flex justify-center text-xs text-muted-foreground">
-            <span>Overall Conversion: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex justify-center items-center gap-1 text-xs text-muted-foreground cursor-help">
+                  <span>Booking-to-Sale Rate: <span className="font-medium text-foreground">{bookingToSaleRate.toFixed(0)}%</span></span>
+                  <Info className="w-3 h-3 opacity-60" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[240px]">
+                <p>Sales ÷ total booked intros (including no-shows). Measures full pipeline efficiency from booking to purchase.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events</p>
         </div>
 

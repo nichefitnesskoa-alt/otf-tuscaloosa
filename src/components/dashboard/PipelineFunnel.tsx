@@ -98,7 +98,7 @@ export function PipelineFunnel({
         
         {/* Overall Stats */}
         <div className="mt-4 pt-3 border-t flex justify-center text-xs text-muted-foreground">
-          <span>Overall Conversion: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
+          <span>Booking-to-Sale Rate: <span className="font-medium text-foreground">{overallRate.toFixed(0)}%</span></span>
         </div>
       </CardContent>
     </Card>

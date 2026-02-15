@@ -205,11 +205,11 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger className="flex items-center gap-1 justify-center">
-                      <Target className="w-3 h-3" />
-                      Close %
+                       <Target className="w-3 h-3" />
+                      Close % (showed)
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Closing rate for intros with this coach</p>
+                      <p>Sales ÷ intros who showed up with this coach. Measures coaching effectiveness.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

@@ -204,7 +204,7 @@ export default function CoachingView() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Target className="w-4 h-4" />
-            Close Rate vs Goal/Why Capture
+            Close Rate (showed) vs Goal/Why Capture
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -229,7 +229,7 @@ export default function CoachingView() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
-            Close Rate by SA
+            Close Rate (showed) by SA
           </CardTitle>
         </CardHeader>
         <CardContent>

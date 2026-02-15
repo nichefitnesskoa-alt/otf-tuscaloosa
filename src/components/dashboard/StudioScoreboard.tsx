@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart, ClipboardList, AlertTriangle
+  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart, ClipboardList, AlertTriangle, Info, CalendarCheck
 } from 'lucide-react';
 import {
   Tooltip,
@@ -17,6 +17,8 @@ interface StudioScoreboardProps {
   relationshipRate: number;
   madeAFriendRate: number;
   qCompletionRate?: number;
+  introsBooked?: number;
+  introsShowed?: number;
 }
 
 export function StudioScoreboard({
@@ -27,7 +29,16 @@ export function StudioScoreboard({
   relationshipRate,
   madeAFriendRate,
   qCompletionRate,
+  introsBooked,
+  introsShowed,
 }: StudioScoreboardProps) {
+  const showRate = (introsBooked && introsBooked > 0 && introsShowed !== undefined)
+    ? (introsShowed / introsBooked) * 100
+    : undefined;
+  const noShows = (introsBooked !== undefined && introsShowed !== undefined)
+    ? introsBooked - introsShowed
+    : undefined;
+
   return (
     <Card className="bg-foreground text-background">
       <CardContent className="p-4">
@@ -48,7 +59,7 @@ export function StudioScoreboard({
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Total first intros run (not 2nd intros)</p>
+                <p>Total first intros run (people who showed up, not 2nd intros)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -74,15 +85,82 @@ export function StudioScoreboard({
                 <div className="text-center">
                   <Target className="w-4 h-4 mx-auto mb-1 text-success" />
                   <p className="text-2xl font-bold text-success">{closingRate.toFixed(0)}%</p>
-                  <p className="text-xs opacity-70">Closing %</p>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <p className="text-xs opacity-70">Close Rate</p>
+                    <Info className="w-3 h-3 opacity-50" />
+                  </div>
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Sales ÷ Intros Run</p>
+              <TooltipContent className="max-w-[220px]">
+                <p>Sales ÷ intros who showed up. Measures selling effectiveness.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
+
+        {/* Show Rate Row */}
+        {showRate !== undefined && (
+          <div className="border-t border-background/20 pt-3 mb-3">
+            <div className="grid grid-cols-3 gap-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 bg-background/10 rounded-lg">
+                      <CalendarCheck className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                      <p className="text-xl font-bold">{introsBooked}</p>
+                      <p className="text-xs opacity-70">Booked</p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total 1st intro bookings (excludes VIP, 2nd intros)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 bg-background/10 rounded-lg">
+                      <Users className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                      <p className="text-xl font-bold">
+                        <span className={showRate >= 75 ? 'text-success' : showRate >= 50 ? 'text-warning' : 'text-destructive'}>
+                          {showRate.toFixed(0)}%
+                        </span>
+                      </p>
+                      <div className="flex items-center justify-center gap-0.5">
+                        <p className="text-xs opacity-70">Show Rate</p>
+                        <Info className="w-3 h-3 opacity-50" />
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[220px]">
+                    <p>Showed ÷ Booked. Measures booking-to-attendance conversion.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-center p-2 bg-background/10 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                      <p className="text-xl font-bold text-destructive">{noShows}</p>
+                      <p className="text-xs opacity-70">No-Shows</p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Booked intros who never showed up</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            {/* Compact pipeline row */}
+            <p className="text-[10px] opacity-50 text-center mt-2">
+              {introsBooked} Booked → {introsShowed} Showed ({showRate.toFixed(0)}%) → {introSales} Sold ({closingRate.toFixed(0)}%)
+            </p>
+          </div>
+        )}
 
         {/* Lead Measures Row */}
         <div className="border-t border-background/20 pt-3">
