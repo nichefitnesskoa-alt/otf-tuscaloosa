@@ -20,6 +20,7 @@ interface CloseOutShiftProps {
   purchaseCount: number;
   noShowCount: number;
   didntBuyCount: number;
+  topObjection?: string | null;
 }
 
 export function CloseOutShift({
@@ -30,6 +31,7 @@ export function CloseOutShift({
   purchaseCount,
   noShowCount,
   didntBuyCount,
+  topObjection,
 }: CloseOutShiftProps) {
   const { user } = useAuth();
   const { refreshData } = useData();
@@ -102,6 +104,7 @@ export function CloseOutShift({
           `Intros: ${completedIntros} logged (${purchaseCount} purchased, ${didntBuyCount} didn't buy, ${noShowCount} no-show)`,
           `Follow-ups: ${followUpsSent} sent`,
           `Scripts: ${scriptsSent} sent`,
+          topObjection ? `Top objection: ${topObjection}` : '',
           notes ? `\nNotes: ${notes}` : '',
         ].filter(Boolean).join('\n');
 
@@ -190,6 +193,18 @@ export function CloseOutShift({
                   <Badge variant="outline" className="text-[10px]">{activeIntros}</Badge>
                 </div>
               )}
+              {topObjection && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Top objection</span>
+                  <span className="font-medium">{topObjection}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Auto-generated summary */}
+            <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              Today's Results: {completedIntros} intros ran ({purchaseCount} purchased, {didntBuyCount} didn't buy, {noShowCount} no-show).
+              {topObjection && ` Top objection: ${topObjection}.`}
             </div>
 
             {/* Notes */}
