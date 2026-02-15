@@ -35,7 +35,7 @@ import { SoonLayer } from '@/components/dashboard/SoonLayer';
 import { ShiftScanOverlay } from '@/components/dashboard/ShiftScanOverlay';
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { SectionHelp } from '@/components/dashboard/SectionHelp';
-import { CardGuidance, getIntroGuidance, getLeadGuidance, getTomorrowGuidance } from '@/components/dashboard/CardGuidance';
+import { CardGuidance, getIntroGuidance, getLeadGuidance, getTomorrowGuidance, getJourneyGuidance, JourneyContext } from '@/components/dashboard/CardGuidance';
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
@@ -349,32 +349,51 @@ export default function MyDay() {
       if (leads && leads.length > 0) {
         const { data: matchingBookings } = await supabase
           .from('intros_booked')
-          .select('member_name, phone')
-          .is('deleted_at', null)
-          .neq('booking_status', 'Closed – Bought');
+          .select('id, member_name, phone, class_date')
+          .is('deleted_at', null);
 
         if (matchingBookings) {
-          const bookedNames = new Set(matchingBookings.map(b => b.member_name.toLowerCase().trim()));
-          const bookedPhones = new Set(matchingBookings.map(b => (b as any).phone?.replace(/\D/g, '')).filter(Boolean));
+          // Build lookup maps for unambiguous matching
+          const bookedByFullName = new Map<string, { id: string; class_date: string }>();
+          const bookedByPhone = new Map<string, { id: string; class_date: string }>();
+          matchingBookings.forEach(b => {
+            const name = b.member_name.toLowerCase().trim();
+            if (!bookedByFullName.has(name)) bookedByFullName.set(name, { id: b.id, class_date: b.class_date });
+            const phone = (b as any).phone?.replace(/\D/g, '') || '';
+            if (phone.length >= 7 && !bookedByPhone.has(phone)) bookedByPhone.set(phone, { id: b.id, class_date: b.class_date });
+          });
 
           const autoRemoveIds: string[] = [];
+          const autoRemoveNotes: { id: string; note: string }[] = [];
           const ambiguousIds = new Set<string>();
           const remaining: Tables<'leads'>[] = [];
 
           for (const lead of leads) {
             const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase().trim();
             const cleanPhone = lead.phone?.replace(/\D/g, '') || '';
-            const nameMatch = bookedNames.has(fullName);
-            const phoneMatch = cleanPhone.length >= 7 && bookedPhones.has(cleanPhone);
-
-            if (nameMatch && phoneMatch) {
-              // Unambiguous match: both name AND phone match → auto-remove
+            
+            // Unambiguous: full name (first+last) matches exactly, OR phone matches
+            const fullNameMatch = bookedByFullName.get(fullName);
+            const phoneMatch = cleanPhone.length >= 7 ? bookedByPhone.get(cleanPhone) : undefined;
+            
+            if (fullNameMatch || phoneMatch) {
+              // Unambiguous match → auto-remove
+              const matchedBooking = fullNameMatch || phoneMatch!;
               autoRemoveIds.push(lead.id);
-            } else if (nameMatch || phoneMatch) {
-              // Ambiguous: only one matches → show badge for manual confirm
-              ambiguousIds.add(lead.id);
-              remaining.push(lead);
+              autoRemoveNotes.push({
+                id: lead.id,
+                note: `Auto-moved to Booked. Matched booking ${matchedBooking.id.substring(0, 8)} for ${matchedBooking.class_date}`,
+              });
             } else {
+              // Check partial match (first name only) → ambiguous
+              const firstNameLower = lead.first_name.toLowerCase().trim();
+              const partialMatch = matchingBookings.some(b => {
+                const bFirst = b.member_name.split(' ')[0]?.toLowerCase().trim();
+                return bFirst === firstNameLower && b.member_name.toLowerCase().trim() !== fullName;
+              });
+              if (partialMatch) {
+                ambiguousIds.add(lead.id);
+              }
               remaining.push(lead);
             }
           }
@@ -382,11 +401,11 @@ export default function MyDay() {
           // Auto-move unambiguous matches to 'booked' in background
           if (autoRemoveIds.length > 0) {
             await supabase.from('leads').update({ stage: 'booked' }).in('id', autoRemoveIds);
-            const activities = autoRemoveIds.map(id => ({
-              lead_id: id,
+            const activities = autoRemoveNotes.map(n => ({
+              lead_id: n.id,
               activity_type: 'stage_change',
               performed_by: 'System',
-              notes: 'Auto-moved to Booked (matched booking by name + phone)',
+              notes: n.note,
             }));
             await supabase.from('lead_activities').insert(activities);
           }
@@ -634,6 +653,21 @@ export default function MyDay() {
                 {action.completed_by} · {format(new Date(action.completed_at), 'h:mm a')}
               </div>
             );
+          })()}
+
+          {/* Journey guidance - always visible */}
+          {!isExpanded && !b.intro_result && (() => {
+            const guidance = getJourneyGuidance({
+              isBooked: true,
+              classDate: b.class_date,
+              classTime: b.intro_time,
+              introResult: b.intro_result,
+              isSecondIntro: is2nd,
+              confirmationSent: confirmationSentMap.has(b.id),
+              qCompleted: b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted',
+              qSent: b.questionnaire_status === 'sent',
+            });
+            return guidance ? <CardGuidance text={guidance} className="mx-3 mb-2 mt-1" /> : null;
           })()}
         </div>
 
@@ -1076,9 +1110,24 @@ export default function MyDay() {
                             {detailLine && (
                               <p className="text-[11px] text-muted-foreground mt-1">{detailLine}</p>
                             )}
-                          </div>
 
-                          {/* Row 4: Action buttons - ALWAYS visible */}
+                            {/* Journey guidance for logged cards */}
+                            {(() => {
+                              const guidance = getJourneyGuidance({
+                                isBooked: true,
+                                classDate: b.class_date,
+                                classTime: b.intro_time,
+                                introResult: b.intro_result,
+                                primaryObjection: b.primary_objection,
+                                isSecondIntro: is2nd,
+                                confirmationSent: true,
+                                qCompleted: true,
+                                welcomeSent: scriptActionsMap.has(b.id) && scriptActionsMap.get(b.id)?.script_category === 'welcome_congrats',
+                                followUpSent: followUpVerifiedMap.get(b.id) === true,
+                              });
+                              return guidance ? <CardGuidance text={guidance} className="mt-1.5" /> : null;
+                            })()}
+                          </div>
                           <div className="px-3 pt-2 pb-1">
                             <IntroActionBar
                               memberName={b.member_name}
@@ -1217,6 +1266,8 @@ export default function MyDay() {
                             </Badge>
                           </div>
                         )}
+                        {/* Journey guidance - always visible on lead cards */}
+                        <CardGuidance text={getLeadGuidance(minutesAgo)} className="mt-1.5" />
                       </div>
                       {isExpanded && (
                         <div className="px-2.5 pb-2.5 space-y-2 border-t pt-2">
