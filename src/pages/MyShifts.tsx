@@ -85,19 +85,13 @@ export default function MyPerformance() {
   // Coaching insights for this SA
   const coachingInsight = useMemo(() => {
     if (!personalStats) return null;
-    const { closingRate, goalWhyRate, madeAFriendRate, relationshipRate } = personalStats;
+    const { closingRate } = personalStats;
     
-    if (goalWhyRate < 50 && closingRate < 40) {
-      return { tip: `Your Goal/Why capture is at ${goalWhyRate.toFixed(0)}% — deeper discovery conversations could boost your close rate.`, priority: 'high' as const };
-    }
-    if (madeAFriendRate < 30 && closingRate < 50) {
-      return { tip: `"Made a Friend" rate is ${madeAFriendRate.toFixed(0)}% — building rapport before pricing may help conversions.`, priority: 'medium' as const };
-    }
     if (closingRate >= 60) {
       return { tip: `Strong ${closingRate.toFixed(0)}% close rate! You're performing above average.`, priority: 'low' as const };
     }
-    if (relationshipRate < 50) {
-      return { tip: `Peak Experience at ${relationshipRate.toFixed(0)}% — focus on creating memorable class moments.`, priority: 'medium' as const };
+    if (closingRate < 40) {
+      return { tip: `Your close rate is ${closingRate.toFixed(0)}% — focus on discovery and building rapport to boost conversions.`, priority: 'high' as const };
     }
     return null;
   }, [personalStats]);
@@ -109,7 +103,7 @@ export default function MyPerformance() {
       .map(m => ({
         name: m.saName,
         closeRate: m.closingRate,
-        goalWhyRate: m.goalWhyRate,
+        sales: m.sales,
         isMe: m.saName === userName,
       }));
   }, [metrics.perSA, userName]);
@@ -260,11 +254,11 @@ export default function MyPerformance() {
               rawPrev={prevStats?.commission}
             />
             <StatCard
-              label="Goal+Why"
-              value={`${(personalStats?.goalWhyRate ?? 0).toFixed(0)}%`}
-              prev={prevStats ? `${prevStats.goalWhyRate.toFixed(0)}%` : undefined}
-              rawCurrent={personalStats?.goalWhyRate ?? 0}
-              rawPrev={prevStats?.goalWhyRate}
+              label="Close%"
+              value={`${(personalStats?.closingRate ?? 0).toFixed(0)}%`}
+              prev={prevStats ? `${prevStats.closingRate.toFixed(0)}%` : undefined}
+              rawCurrent={personalStats?.closingRate ?? 0}
+              rawPrev={prevStats?.closingRate}
             />
           </div>
         </CardContent>
@@ -282,8 +276,8 @@ export default function MyPerformance() {
           {coachingInsight ? (
             <div className={`p-3 rounded-lg text-sm border-l-4 ${
               coachingInsight.priority === 'high' ? 'border-l-destructive bg-destructive/5' :
-              coachingInsight.priority === 'medium' ? 'border-l-warning bg-warning/5' :
-              'border-l-success bg-success/5'
+              coachingInsight.priority === 'low' ? 'border-l-success bg-success/5' :
+              'border-l-warning bg-warning/5'
             }`}>
               {coachingInsight.tip}
             </div>
@@ -294,15 +288,15 @@ export default function MyPerformance() {
           {/* Scatter: Close Rate vs Goal/Why */}
           {scatterData.length > 0 && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Close Rate vs Goal/Why (you = highlighted)</p>
+              <p className="text-xs text-muted-foreground mb-1">Close Rate vs Sales (you = highlighted)</p>
               <div className="h-32">
                 <ResponsiveContainer width="100%" height="100%">
                   <ScatterChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="goalWhyRate" type="number" domain={[0, 100]} tick={{ fontSize: 10 }} name="Goal/Why %" />
+                    <XAxis dataKey="sales" type="number" tick={{ fontSize: 10 }} name="Sales" />
                     <YAxis dataKey="closeRate" type="number" domain={[0, 100]} tick={{ fontSize: 10 }} name="Close %" />
                     <RechartsTooltip
-                      formatter={(value: number, name: string) => [`${value}%`, name === 'goalWhyRate' ? 'Goal/Why' : 'Close Rate']}
+                      formatter={(value: number, name: string) => [name === 'sales' ? value : `${value}%`, name === 'sales' ? 'Sales' : 'Close Rate']}
                       labelFormatter={(_, payload: any) => payload?.[0]?.payload?.name || ''}
                     />
                     <Scatter

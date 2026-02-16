@@ -9,9 +9,6 @@ export interface PerSAMetrics {
   introsRun: number;
   sales: number;
   closingRate: number;
-  goalWhyRate: number;
-  relationshipRate: number;
-  madeAFriendRate: number;
   commission: number;
 }
 
@@ -19,7 +16,7 @@ interface PerSATableProps {
   data: PerSAMetrics[];
 }
 
-type SortColumn = 'saName' | 'introsRun' | 'sales' | 'closingRate' | 'goalWhyRate' | 'relationshipRate' | 'madeAFriendRate';
+type SortColumn = 'saName' | 'introsRun' | 'sales' | 'closingRate' | 'commission';
 type SortDirection = 'asc' | 'desc';
 
 export function PerSATable({ data }: PerSATableProps) {
@@ -104,10 +101,8 @@ export function PerSATable({ data }: PerSATableProps) {
                 <SortableHeader column="saName" className="text-left">SA</SortableHeader>
                 <SortableHeader column="introsRun">Run</SortableHeader>
                 <SortableHeader column="sales">Sales</SortableHeader>
-                <SortableHeader column="closingRate">Close% (showed)</SortableHeader>
-                <SortableHeader column="goalWhyRate">Goal</SortableHeader>
-                <SortableHeader column="relationshipRate">Peak</SortableHeader>
-                <SortableHeader column="madeAFriendRate">Friend</SortableHeader>
+                <SortableHeader column="closingRate">Close%</SortableHeader>
+                <SortableHeader column="commission">Commission</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -121,9 +116,7 @@ export function PerSATable({ data }: PerSATableProps) {
                       {row.closingRate.toFixed(0)}%
                     </span>
                   </TableCell>
-                  <TableCell className="text-center text-sm">{row.goalWhyRate.toFixed(0)}%</TableCell>
-                  <TableCell className="text-center text-sm">{row.relationshipRate.toFixed(0)}%</TableCell>
-                  <TableCell className="text-center text-sm">{row.madeAFriendRate.toFixed(0)}%</TableCell>
+                  <TableCell className="text-center text-sm">${row.commission.toFixed(0)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

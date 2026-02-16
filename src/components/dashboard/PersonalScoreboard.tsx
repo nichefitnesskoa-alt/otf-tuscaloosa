@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  TrendingUp, DollarSign, Target, Users, Heart, MessageSquareHeart, Info
+  TrendingUp, DollarSign, Target, Users, ClipboardList, CalendarCheck, CheckCircle2, Info
 } from 'lucide-react';
 import {
   Tooltip,
@@ -15,9 +15,9 @@ interface PersonalScoreboardProps {
   introSales: number;
   closingRate: number;
   totalCommission: number;
-  goalWhyRate: number;
-  relationshipRate: number;
-  madeAFriendRate: number;
+  qCompletionRate?: number;
+  confirmationRate?: number;
+  followUpCompletionRate?: number;
 }
 
 export function PersonalScoreboard({
@@ -26,9 +26,9 @@ export function PersonalScoreboard({
   introSales,
   closingRate,
   totalCommission,
-  goalWhyRate,
-  relationshipRate,
-  madeAFriendRate,
+  qCompletionRate = 0,
+  confirmationRate = 0,
+  followUpCompletionRate = 0,
 }: PersonalScoreboardProps) {
   return (
     <Card className="bg-foreground text-background">
@@ -112,13 +112,13 @@ export function PersonalScoreboard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-2 bg-background/10 rounded-lg">
-                    <Target className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                    <p className="text-xl font-bold">{goalWhyRate.toFixed(0)}%</p>
-                    <p className="text-xs opacity-70">Goal + Why</p>
+                    <ClipboardList className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{qCompletionRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Q Completion</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Main fitness goal + why captured (Yes/Partial)</p>
+                  <p>Questionnaires completed for 1st intros (excludes 2nd intros & VIP)</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -127,13 +127,13 @@ export function PersonalScoreboard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-2 bg-background/10 rounded-lg">
-                    <Heart className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                    <p className="text-xl font-bold">{relationshipRate.toFixed(0)}%</p>
-                    <p className="text-xs opacity-70">Peak Exp.</p>
+                    <CalendarCheck className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{confirmationRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Confirmations</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Peak Gym Experience executed (Yes/Partial)</p>
+                  <p>Confirmation scripts sent vs intros booked for tomorrow</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -142,13 +142,13 @@ export function PersonalScoreboard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="text-center p-2 bg-background/10 rounded-lg">
-                    <MessageSquareHeart className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                    <p className="text-xl font-bold">{madeAFriendRate.toFixed(0)}%</p>
-                    <p className="text-xs opacity-70">Made Friend</p>
+                    <CheckCircle2 className="w-4 h-4 mx-auto mb-1 opacity-70" />
+                    <p className="text-xl font-bold">{followUpCompletionRate.toFixed(0)}%</p>
+                    <p className="text-xs opacity-70">Follow-Up</p>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Made a friend (great relationship & natural conversation)</p>
+                  <p>Follow-ups sent on time vs total due</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
