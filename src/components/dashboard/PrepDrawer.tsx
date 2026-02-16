@@ -21,8 +21,10 @@ import {
 import { toast } from 'sonner';
 import { EirmaPlaybook } from './EirmaPlaybook';
 import { TransformationClose } from './TransformationClose';
+import { getObstacleConnector } from './TransformationClose';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
+import { useObjectionPlaybooks, matchObstaclesToPlaybooks } from '@/hooks/useObjectionPlaybooks';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -89,6 +91,7 @@ export function PrepDrawer({
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const { data: playbooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
     id: bookingId,
@@ -155,6 +158,16 @@ export function PrepDrawer({
   const emotionalDriver = questionnaire?.q5_emotional_driver;
   const commitment = questionnaire?.q6_weekly_commitment;
 
+  const individualObstacles = obstacle?.split(' | ').map(o => o.trim()).filter(Boolean) || [];
+  const individualGoals = goal?.split(' | ').map(g => g.trim()).filter(Boolean) || [];
+
+  const getPlaybooksForObstacle = (obs: string) =>
+    playbooks.filter(pb =>
+      pb.trigger_obstacles.some(trigger =>
+        obs.toLowerCase().includes(trigger.toLowerCase()) || trigger.toLowerCase().includes(obs.toLowerCase())
+      )
+    );
+
   const p = (text: string) =>
     text
       .replace(/\[name\]/g, firstName)
@@ -217,16 +230,62 @@ export function PrepDrawer({
                 {loading ? (
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : hasQ ? (
-                  <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
-                    <QRow label="What is your fitness goal?" value={goal} />
-                    <QRow label="Current fitness level (1-5)" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
-                    <QRow label="Biggest obstacle?" value={obstacle} />
-                    <QRow label="What have you tried before?" value={questionnaire.q4_past_experience} />
-                    <QRow label="What would reaching your goal mean to you?" value={emotionalDriver} />
-                    <QRow label="Days per week you can commit?" value={commitment} />
-                    <QRow label="Which days work best?" value={questionnaire.q6b_available_days} />
-                    {questionnaire.q7_coach_notes && (
-                      <QRow label="Coach notes" value={questionnaire.q7_coach_notes} />
+                  <div className="space-y-3">
+                    {/* Quick Q Summary */}
+                    <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
+                      <QRow label="Fitness level (1-5)" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
+                      <QRow label="What have you tried before?" value={questionnaire.q4_past_experience} />
+                      <QRow label="What would reaching your goal mean to you?" value={emotionalDriver} />
+                      <QRow label="Days per week you can commit?" value={commitment} />
+                      <QRow label="Which days work best?" value={questionnaire.q6b_available_days} />
+                      {questionnaire.q7_coach_notes && (
+                        <QRow label="Coach notes" value={questionnaire.q7_coach_notes} />
+                      )}
+                    </div>
+
+                    {/* Individual Goal Cards */}
+                    {individualGoals.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">🎯 Goals</p>
+                        {individualGoals.map((g, i) => (
+                          <PrepCollapsible key={`goal-${i}`} title={g} icon="🎯" defaultOpen={i === 0} accentColor="blue">
+                            <p className="leading-relaxed italic">
+                              {p(`"${firstName}, you said you want to ${g.toLowerCase()}. Today's class was step one toward that. Let me show you how we build a plan around this specific goal."`)}
+                            </p>
+                          </PrepCollapsible>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Individual Obstacle Cards with EIRMA */}
+                    {individualObstacles.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">⚠️ Obstacles</p>
+                        {individualObstacles.map((obs, i) => {
+                          const connector = getObstacleConnector(obs);
+                          const matched = getPlaybooksForObstacle(obs);
+                          return (
+                            <PrepCollapsible key={`obs-${i}`} title={obs} icon="⚠️" defaultOpen={i === 0} accentColor="amber">
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">SA Response</p>
+                                  <p className="leading-relaxed italic">"{connector}"</p>
+                                </div>
+                                {matched.length > 0 && matched.map(pb => (
+                                  <div key={pb.id} className="rounded bg-muted/40 p-2 space-y-1">
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">EIRMA: {pb.objection_name}</p>
+                                    <EirmaStep letter="E" label="Empathize" text={p(pb.empathize_line)} />
+                                    <EirmaStep letter="I" label="Isolate" text={p(pb.isolate_question)} />
+                                    <EirmaStep letter="R" label="Redirect" text={p(pb.redirect_framework)} />
+                                    <EirmaStep letter="S" label="Suggest" text={p(pb.suggestion_framework)} />
+                                    <EirmaStep letter="A" label="Ask" text={p(pb.ask_line)} />
+                                  </div>
+                                ))}
+                              </div>
+                            </PrepCollapsible>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -431,8 +490,8 @@ function PrepCollapsible({ title, icon, children, defaultOpen = false, accentCol
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : 'border-l-primary';
-  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'bg-primary/5';
+  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : accentColor === 'amber' ? 'border-l-amber-500' : 'border-l-primary';
+  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : accentColor === 'amber' ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-primary/5';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -449,5 +508,15 @@ function PrepCollapsible({ title, icon, children, defaultOpen = false, accentCol
         </CollapsibleContent>
       </div>
     </Collapsible>
+  );
+}
+
+function EirmaStep({ letter, label, text }: { letter: string; label: string; text: string }) {
+  return (
+    <div className="flex gap-1.5 text-xs">
+      <span className="font-bold text-primary shrink-0 w-4">{letter}</span>
+      <span className="text-muted-foreground shrink-0 w-16">{label}</span>
+      <span className="italic leading-relaxed">"{text}"</span>
+    </div>
   );
 }
