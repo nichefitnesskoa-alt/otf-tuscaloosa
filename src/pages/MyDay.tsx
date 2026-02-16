@@ -882,6 +882,22 @@ export default function MyDay() {
         </div>
       </div>
 
+      {/* Monday Meeting Card */}
+      {new Date().getDay() === 1 && !sessionStorage.getItem('meeting-card-dismissed') && (
+        <Card className="border-2 border-primary bg-primary/5">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="font-bold text-lg flex items-center gap-2">📋 Team Meeting Today</p>
+              <p className="text-sm text-muted-foreground">View the agenda before the meeting</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => navigate('/meeting')}>View Agenda</Button>
+              <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem('meeting-card-dismissed', '1'); fetchMyDayData(); }}>✕</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Daily Insight */}
       <DailyInsight />
 
