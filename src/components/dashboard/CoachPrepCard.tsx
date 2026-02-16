@@ -27,6 +27,7 @@ export function CoachPrepCard({ memberName, classTime, bookingId }: CoachPrepCar
       .from('intro_questionnaires')
       .select('q1_fitness_goal, q3_obstacle, q6_weekly_commitment, status' as any)
       .eq('booking_id', bookingId)
+      .order('submitted_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
