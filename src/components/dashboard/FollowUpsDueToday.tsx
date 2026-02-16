@@ -468,131 +468,145 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
     return (
       <div key={item.id} className={cn(
-        'rounded-lg border bg-card p-3 space-y-2',
+        'rounded-lg border bg-card p-3 flex flex-col gap-2',
         isLegacy && 'border-muted bg-muted/20',
         noPhone && 'border-destructive/30'
       )}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-sm">{item.person_name}</span>
-              <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', typeBadgeColor)}>
-                {typeLabel}
-              </Badge>
-              {!isLegacy && (
-                <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
-                  Touch {item.touch_number} of 3
-                </Badge>
-              )}
-              {item.lead_source && (
-                <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', leadSourceColor)}>
-                  {item.lead_source}
-                </Badge>
-              )}
-              {isLegacy && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
-                  Legacy
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{triggerLabel}</p>
-            {daysSinceTrigger > 0 && (
-              <p className="text-[10px] text-muted-foreground/70">
-                <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                {daysSinceTrigger}d since intro
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {noPhone && <NoPhoneBadge compact />}
-            {noPhone && (
-              <InlinePhoneInput
-                personName={item.person_name}
-                bookingId={item.booking_id}
-                onSaved={fetchQueue}
-                compact
-              />
-            )}
-          </div>
+        {/* Row 1: Name + No Phone badge/button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
+          {noPhone && <NoPhoneBadge compact />}
+          {noPhone && (
+            <InlinePhoneInput
+              personName={item.person_name}
+              bookingId={item.booking_id}
+              onSaved={fetchQueue}
+              compact
+            />
+          )}
         </div>
 
+        {/* Row 2: Badges */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', typeBadgeColor)}>
+            {typeLabel}
+          </Badge>
+          {!isLegacy && (
+            <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', touchColor(item.touch_number))}>
+              Touch {item.touch_number} of 3
+            </Badge>
+          )}
+          {item.lead_source && (
+            <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', leadSourceColor)}>
+              {item.lead_source}
+            </Badge>
+          )}
+          {isLegacy && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap">
+              Legacy
+            </Badge>
+          )}
+        </div>
+
+        {/* Row 3: Context (trigger date + days since) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] md:text-xs text-muted-foreground">{triggerLabel}</span>
+          {daysSinceTrigger > 0 && (
+            <span className="text-[11px] md:text-[10px] text-muted-foreground/70">
+              <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+              {daysSinceTrigger}d since intro
+            </span>
+          )}
+        </div>
+
+        {/* Row 4 & 5: Action buttons - stacked on mobile */}
         {isLegacy ? (
-          <div className="flex items-center gap-1 flex-wrap">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex-1">
-                    <Button
-                      size="sm"
-                      className="h-7 text-[11px] w-full gap-1"
-                      onClick={() => handleStartSequence(item)}
-                      disabled={false}
-                    >
-                      <Send className="w-3 h-3" />
-                      Start Sequence
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {noPhone && (
-                  <TooltipContent>
-                    <p>Add a phone number first before starting the follow-up sequence.</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-            <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
-              <History className="w-3 h-3" />
-              Log Past Contact
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleMarkDone(item)}>
-              <CheckCircle className="w-3 h-3" />
-              Done
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1 text-muted-foreground" onClick={() => handleRemove(item)}>
-              <X className="w-3 h-3" />
-            </Button>
+          <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:gap-1">
+            <div className="flex gap-1.5 md:gap-1 w-full">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-1">
+                      <Button
+                        size="sm"
+                        className="h-9 md:h-7 text-[13px] md:text-[11px] w-full gap-1 min-h-[44px] md:min-h-0"
+                        onClick={() => handleStartSequence(item)}
+                      >
+                        <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                        Start Sequence
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {noPhone && (
+                    <TooltipContent>
+                      <p>Add a phone number first before starting the follow-up sequence.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              <Button size="sm" variant="secondary" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 min-h-[44px] md:min-h-0" onClick={() => setPastContactItem(item)}>
+                <History className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Log Past Contact
+              </Button>
+            </div>
+            <div className="flex gap-1.5 md:gap-1">
+              <Button size="sm" variant="outline" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 md:flex-initial min-h-[44px] md:min-h-0" onClick={() => handleMarkDone(item)}>
+                <CheckCircle className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Done
+              </Button>
+              <Button size="sm" variant="ghost" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 text-muted-foreground min-h-[44px] md:min-h-0" onClick={() => handleRemove(item)}>
+                <X className="w-3.5 h-3.5 md:w-3 md:h-3" />
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1 flex-wrap">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex-1">
-                    <Button
-                      size="sm"
-                      className="h-7 text-[11px] w-full gap-1"
-                      onClick={() => handleSend(item)}
-                      disabled={false}
-                    >
-                      <Send className="w-3 h-3" />
-                      Send
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {noPhone && (
-                  <TooltipContent>
-                    <p>Add a phone number first before starting the follow-up sequence.</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
-            <Button size="sm" variant="secondary" className="h-7 text-[11px] gap-1" onClick={() => setPastContactItem(item)}>
-              <History className="w-3 h-3" />
-              Log Contact
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleSnooze(item)}>
-              <Clock className="w-3 h-3" />
-              Snooze
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => handleSkip(item)}>
-              <SkipForward className="w-3 h-3" />
-              Skip
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1 text-muted-foreground" onClick={() => handleRemove(item)}>
-              <X className="w-3 h-3" />
-            </Button>
+          <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:gap-1">
+            {/* Primary actions row */}
+            <div className="flex gap-1.5 md:gap-1 w-full">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex-1">
+                      <Button
+                        size="sm"
+                        className="h-9 md:h-7 text-[13px] md:text-[11px] w-full gap-1 min-h-[44px] md:min-h-0"
+                        onClick={() => handleSend(item)}
+                      >
+                        <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                        Send
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {noPhone && (
+                    <TooltipContent>
+                      <p>Add a phone number first before starting the follow-up sequence.</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+              <Button size="sm" variant="secondary" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 min-h-[44px] md:min-h-0" onClick={() => setPastContactItem(item)}>
+                <History className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Log Contact
+              </Button>
+              <Button size="sm" variant="outline" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 min-h-[44px] md:min-h-0" onClick={() => handleSnooze(item)}>
+                <Clock className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Snooze
+              </Button>
+            </div>
+            {/* Secondary actions row */}
+            <div className="flex gap-1.5 md:gap-1">
+              <Button size="sm" variant="outline" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 flex-1 md:flex-initial min-h-[44px] md:min-h-0" onClick={() => handleSkip(item)}>
+                <SkipForward className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                Skip
+              </Button>
+              <Button size="sm" variant="ghost" className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 text-muted-foreground min-h-[44px] md:min-h-0" onClick={() => handleRemove(item)}>
+                <X className="w-3.5 h-3.5 md:w-3 md:h-3" />
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Row 6: Guidance */}
         <CardGuidance text={guidance} />
       </div>
     );
