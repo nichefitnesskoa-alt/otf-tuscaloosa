@@ -291,6 +291,8 @@ export default function ClientJourneyPanel() {
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [creatingBookingFromRun, setCreatingBookingFromRun] = useState<ClientRun | null>(null);
   const [secondIntroOriginatingId, setSecondIntroOriginatingId] = useState<string | null>(null);
+  const [pickFromPipeline, setPickFromPipeline] = useState(false);
+  const [pipelineSearch, setPipelineSearch] = useState('');
   const [newBooking, setNewBooking] = useState({
     member_name: '',
     class_date: getLocalDateString(),
@@ -1060,6 +1062,8 @@ export default function ClientJourneyPanel() {
     setIsSelfBooked(false);
     setCreatingBookingFromRun(null);
     setSecondIntroOriginatingId(null);
+    setPickFromPipeline(false);
+    setPipelineSearch('');
     setShowCreateBookingDialog(true);
   };
 
@@ -2751,6 +2755,94 @@ export default function ClientJourneyPanel() {
             )}
             
             <div className="space-y-3">
+            {/* Pick from pipeline or enter manually */}
+            {!creatingBookingFromRun && !secondIntroOriginatingId && (
+              <div className="flex items-center gap-2 pb-1">
+                <Switch
+                  checked={pickFromPipeline}
+                  onCheckedChange={(checked) => {
+                    setPickFromPipeline(checked);
+                    setPipelineSearch('');
+                    if (!checked) {
+                      setNewBooking(prev => ({ ...prev, member_name: '', lead_source: '', coach_name: '', fitness_goal: '' }));
+                    }
+                  }}
+                />
+                <Label className="text-sm">Pick from existing pipeline</Label>
+              </div>
+            )}
+
+            {pickFromPipeline && !creatingBookingFromRun && !secondIntroOriginatingId ? (
+              <div className="space-y-2">
+                <Label className="text-xs">Search Pipeline</Label>
+                <Input
+                  value={pipelineSearch}
+                  onChange={(e) => setPipelineSearch(e.target.value)}
+                  placeholder="Type a name to search..."
+                  autoFocus
+                />
+                {pipelineSearch.length >= 2 && (
+                  <ScrollArea className="max-h-48 border rounded-md">
+                    {journeys
+                      .filter(j => j.memberName.toLowerCase().includes(pipelineSearch.toLowerCase()))
+                      .slice(0, 15)
+                      .map(j => {
+                        const latestBooking = j.bookings[0];
+                        return (
+                          <button
+                            key={j.memberKey}
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-muted/80 border-b last:border-b-0 transition-colors"
+                            onClick={() => {
+                              setNewBooking(prev => ({
+                                ...prev,
+                                member_name: j.memberName,
+                                lead_source: latestBooking?.lead_source || '',
+                                coach_name: latestBooking?.coach_name || '',
+                                fitness_goal: latestBooking?.fitness_goal || '',
+                              }));
+                              setPipelineSearch('');
+                              setPickFromPipeline(false);
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">{j.memberName}</span>
+                              <Badge variant={j.status === 'purchased' ? 'default' : j.status === 'no_show' ? 'destructive' : 'secondary'} className="text-[10px] py-0">
+                                {j.status}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                              {latestBooking && (
+                                <>
+                                  <span>{latestBooking.class_date}</span>
+                                  <span>•</span>
+                                  <span>{latestBooking.lead_source}</span>
+                                </>
+                              )}
+                              {j.bookings.length > 1 && <span>• {j.bookings.length} bookings</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    {journeys.filter(j => j.memberName.toLowerCase().includes(pipelineSearch.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-4 text-center text-sm text-muted-foreground">No matches found</div>
+                    )}
+                  </ScrollArea>
+                )}
+                {newBooking.member_name && (
+                  <div className="p-2 bg-primary/10 rounded-lg text-xs flex items-center gap-2 border border-primary/20">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    <span className="font-medium">Selected: {newBooking.member_name}</span>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => {
+                      setNewBooking(prev => ({ ...prev, member_name: '', lead_source: '', coach_name: '', fitness_goal: '' }));
+                      setPickFromPipeline(true);
+                    }}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <div>
                 <Label className="text-xs">Member Name *</Label>
                 <Input
@@ -2760,6 +2852,7 @@ export default function ClientJourneyPanel() {
                   disabled={!!creatingBookingFromRun || !!secondIntroOriginatingId}
                 />
               </div>
+            )}
               <div className="flex items-center gap-2">
                 <Switch
                   checked={isSelfBooked}
