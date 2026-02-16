@@ -310,19 +310,27 @@ export function useGenerateAgenda() {
       const prevFirstIntroBookingIds = new Set(prevFilteredBooked.map((b: any) => b.id));
 
       // Filter runs to first-intro bookings only (or unlinked), matching dashboard
-      const firstIntroRuns = runs.filter((r: any) =>
-        !r.linked_intro_booked_id || firstIntroBookingIds.has(r.linked_intro_booked_id)
-      );
-      const prevFirstIntroRuns = prevRuns.filter((r: any) =>
-        !r.linked_intro_booked_id || prevFirstIntroBookingIds.has(r.linked_intro_booked_id)
-      );
+      // Dashboard also excludes runs with null/excluded intro_owner from studio metrics
+      const firstIntroRuns = runs.filter((r: any) => {
+        const owner = r.intro_owner || '';
+        if (!owner || EXCLUDED_SA_NAMES.includes(owner)) return false;
+        return !r.linked_intro_booked_id || firstIntroBookingIds.has(r.linked_intro_booked_id);
+      });
+      const prevFirstIntroRuns = prevRuns.filter((r: any) => {
+        const owner = r.intro_owner || '';
+        if (!owner || EXCLUDED_SA_NAMES.includes(owner)) return false;
+        return !r.linked_intro_booked_id || prevFirstIntroBookingIds.has(r.linked_intro_booked_id);
+      });
 
       // Deduplicate showed by booking (one "showed" per booking, matching dashboard)
-      // Unlinked runs each count as one showed
+      // Dashboard pre-filters no-shows before grouping, so we do the same
       const countShowedAndSales = (filteredRuns: any[], start: string, end: string) => {
+        // Pre-filter no-shows (matching dashboard's saAllRuns filter)
+        const nonNoShowRuns = filteredRuns.filter((r: any) => !isNoShow(r.result));
+
         const byBooking = new Map<string, any[]>();
         const unlinked: any[] = [];
-        filteredRuns.forEach((r: any) => {
+        nonNoShowRuns.forEach((r: any) => {
           if (r.linked_intro_booked_id) {
             const existing = byBooking.get(r.linked_intro_booked_id) || [];
             existing.push(r);
@@ -341,7 +349,7 @@ export function useGenerateAgenda() {
             new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
           const first = sorted[0];
-          if (first && !isNoShow(first.result) && isRunDateInStrRange(first.run_date, start, end)) {
+          if (first && isRunDateInStrRange(first.run_date, start, end)) {
             showedCount++;
           }
           const saleRun = bookingRuns.find((r: any) => isSaleInStrRange(r, start, end));
@@ -350,7 +358,7 @@ export function useGenerateAgenda() {
 
         // Unlinked: each counts individually
         unlinked.forEach((r: any) => {
-          if (!isNoShow(r.result) && isRunDateInStrRange(r.run_date, start, end)) showedCount++;
+          if (isRunDateInStrRange(r.run_date, start, end)) showedCount++;
           if (isSaleInStrRange(r, start, end)) salesCount++;
         });
 
