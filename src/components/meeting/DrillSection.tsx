@@ -21,10 +21,10 @@ export function DrillSection({ topObjection, drillOverride, onOverrideChange, is
       {isAdmin && !isPresentMode && (
         <div className="mb-4">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">Override drill objection</label>
-          <Select value={drillOverride || ''} onValueChange={v => onOverrideChange(v)}>
+          <Select value={drillOverride || '__auto__'} onValueChange={v => onOverrideChange(v === '__auto__' ? '' : v)}>
             <SelectTrigger className="w-full"><SelectValue placeholder={`Auto: ${topObjection}`} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Auto: {topObjection}</SelectItem>
+              <SelectItem value="__auto__">Auto: {topObjection}</SelectItem>
               {playbooks?.map(p => (
                 <SelectItem key={p.id} value={p.objection_name}>{p.objection_name}</SelectItem>
               ))}
