@@ -100,11 +100,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Limit initial fetch to 120 days for performance.
+      // Components needing older data (MembershipPurchasesPanel, yearly views) do their own scoped queries.
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 120);
+      const cutoff = cutoffDate.toISOString();
+
       const [recapsResult, bookingsResult, runsResult, salesResult] = await Promise.all([
-        supabase.from('shift_recaps').select('*').order('created_at', { ascending: false }),
-        supabase.from('intros_booked').select('*').order('created_at', { ascending: false }),
-        supabase.from('intros_run').select('*').order('created_at', { ascending: false }),
-        supabase.from('sales_outside_intro').select('*').order('created_at', { ascending: false }),
+        supabase.from('shift_recaps').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
+        supabase.from('intros_booked').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
+        supabase.from('intros_run').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
+        supabase.from('sales_outside_intro').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
       ]);
 
       if (recapsResult.data) setShiftRecaps(recapsResult.data as ShiftRecap[]);

@@ -26,6 +26,7 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { InlineIntroLogger } from '@/components/dashboard/InlineIntroLogger';
 import { ReadyForIntroChecklist } from '@/components/dashboard/ReadyForIntroChecklist';
+import { PrepScoreDot } from '@/components/dashboard/PrepScoreDot';
 import { ShiftHandoffSummary } from '@/components/dashboard/ShiftHandoffSummary';
 import { WinStreak } from '@/components/dashboard/WinStreak';
 import { StickyDayScore } from '@/components/dashboard/StickyDayScore';
@@ -575,7 +576,15 @@ export default function MyDay() {
         >
           {/* Row 1: Name only on mobile, name+badges on desktop */}
           <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1.5 min-w-0">
-            <span className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">
+            <span className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight flex items-center gap-1.5">
+              {!isVipCard && !b.intro_result && (
+                <PrepScoreDot
+                  hasPhone={!!b.phone}
+                  qCompleted={b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted'}
+                  confirmationSent={confirmationSentMap.has(b.id)}
+                  isSecondIntro={is2nd}
+                />
+              )}
               {isExpanded ? (
                 <InlineEditField
                   value={b.member_name}
@@ -623,6 +632,11 @@ export default function MyDay() {
             {/* Row 3 on mobile: status badges */}
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5 md:mt-0 md:ml-auto">
               {!b.phone && <NoPhoneBadge />}
+              {!isVipCard && !isClassToday && b.class_date === format(addDays(new Date(), 1), 'yyyy-MM-dd') && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-warning/15 text-warning border-warning/30">
+                  TOMORROW
+                </Badge>
+              )}
               {!isVipCard && isClassToday && !classTimePassed && (
                 <IntroCountdown classTime={b.intro_time} classDate={b.class_date} />
               )}

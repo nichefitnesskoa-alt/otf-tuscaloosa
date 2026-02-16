@@ -113,7 +113,7 @@ export function InlineIntroLogger({
           linked_intro_booked_id: bookingId,
           shift_recap_id: shiftRecapId,
           commission_amount: commissionAmount,
-          primary_objection: outcome === 'didnt_buy' ? objection || null : null,
+          primary_objection: outcome === 'didnt_buy' ? objection || null : outcome === 'purchased' ? objection || null : null,
           notes: notes.trim() || null,
           created_at: new Date().toISOString(),
         })
@@ -218,16 +218,34 @@ export function InlineIntroLogger({
       </div>
 
       {outcome === 'purchased' && (
-        <Select value={membershipType} onValueChange={setMembershipType}>
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Membership type" />
-          </SelectTrigger>
-          <SelectContent>
-            {MEMBERSHIP_TYPES.map(t => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <>
+          <Select value={membershipType} onValueChange={setMembershipType}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Membership type" />
+            </SelectTrigger>
+            <SelectContent>
+              {MEMBERSHIP_TYPES.map(t => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Required: capture objection even on purchase */}
+          <div className="p-2 bg-primary/5 border border-primary/20 rounded-md">
+            <Label className="text-xs font-medium">Objection handled (or first-ask close)?</Label>
+            <Select value={objection} onValueChange={setObjection}>
+              <SelectTrigger className="h-8 text-xs mt-1">
+                <SelectValue placeholder="Select objection or None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="None - First Ask Close">None – First Ask Close</SelectItem>
+                {OBJECTIONS.map(o => (
+                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
 
       {outcome === 'didnt_buy' && (
@@ -256,7 +274,7 @@ export function InlineIntroLogger({
             size="sm"
             className="w-full h-8 text-xs"
             onClick={handleSubmit}
-            disabled={saving || (outcome === 'didnt_buy' && !objection)}
+            disabled={saving || (outcome === 'didnt_buy' && !objection) || (outcome === 'purchased' && !objection)}
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
             {saving ? 'Saving...' : 'Submit'}
