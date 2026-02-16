@@ -1,72 +1,120 @@
 
 
-# Fix: Sales Count Mismatch Between Scoreboard and Members Who Bought
+# Unify Sales Date Logic Across the Entire App
 
 ## Problem
-The Studio Scoreboard shows fewer sales than "Members Who Bought" because of a filtering bug in `useDashboardMetrics.ts`. The code filters runs by `run_date` first, which drops follow-up purchases where the intro was run in a previous period but the sale closed in the current period. Three of Sophie's sales are invisible to the scoreboard for this reason.
+Three places calculate sales metrics independently with diverging logic:
+1. `useDashboardMetrics.ts` -- recently fixed with dual-date filtering (inline)
+2. `useMeetingAgenda.ts` -- still queries `intros_run` filtered by `run_date` only (SQL-level), missing follow-up purchases
+3. `src/lib/sales-detection.ts` -- already has shared `getSaleDate()` and `isDateInRange()` but neither hook uses them
 
-## Root Cause
-Line 183-186 of `useDashboardMetrics.ts`:
-```
-const saRuns = activeRuns.filter(run => {
-  const runDateInRange = isDateInRange(run.run_date, dateRange);
-  return run.intro_owner === saName && runDateInRange && run.result !== 'No-show';
-});
-```
-This pre-filter by `run_date` means any run whose `run_date` is outside the period is excluded entirely, even if `buy_date` falls inside the period.
+## Changes
 
-## Solution: Dual-Pass Approach
+### 1. Extend `src/lib/sales-detection.ts` with new shared utilities
 
-Implement the documented dual-date filtering logic: booking-based metrics (intros run) use `run_date`, while conversion-based metrics (sales, close rate, commission) use the purchase date fallback chain (`buy_date > run_date > created_at`).
-
-### Changes to `src/hooks/useDashboardMetrics.ts`
-
-**Per-SA Metrics (lines ~180-278):**
-1. Expand the initial run filter to include runs where EITHER `run_date` is in range OR `buy_date` is in range (so follow-up purchases are not dropped).
-2. When counting `introsRunCount`, only count runs whose `run_date` is in range (booking-based metric).
-3. When counting `salesCount`, use the sale date (`buy_date || run_date`) to determine if the sale falls in the period (conversion-based metric).
-4. This means a run with `run_date` outside the range but `buy_date` inside the range contributes to sales count but NOT to intros run count -- which is the correct behavior per the documented rules.
-
-**Pipeline Metrics (lines ~354-379):**
-Apply the same dual-date logic: filter bookings by `class_date` for the "booked" count, but check sale date for the "sold" count.
-
-**Lead Source Metrics (lines ~326-350):**
-Same fix: sale date check uses `buy_date || run_date`.
-
-**Studio Metrics (lines ~413-417):**
-These aggregate from perSA, so they inherit the fix automatically.
-
-### Specific Code Change
-
-Replace the single `saRuns` filter with a broader filter, then apply the date distinction inside the counting loops:
+Add three new exported functions alongside the existing `getSaleDate` and `isDateInRange`:
 
 ```typescript
-// Get ALL runs by this SA (filter by owner, exclude no-shows, exclude VIP)
-const saAllRuns = activeRuns.filter(run => {
-  return run.intro_owner === saName && run.result !== 'No-show';
-});
+import { DateRange } from '@/lib/pay-period';
+import { parseLocalDate } from '@/lib/utils';
+import { isWithinInterval } from 'date-fns';
 
-// Separate: runs whose run_date is in range (for intros-run count)
-// AND runs whose sale date is in range (for sales count)
-const saRunDateInRange = saAllRuns.filter(r => isDateInRange(r.run_date, dateRange));
-const saSaleDateInRange = saAllRuns.filter(r => {
-  const saleDate = r.buy_date || r.run_date;
-  return isMembershipSale(r.result) && isDateInRange(saleDate, dateRange);
-});
+// Existing getSaleDate stays as-is (4-param version for components)
+
+// New: simplified version for IntroRun objects
+export function getRunSaleDate(run: { buy_date?: string | null; run_date?: string | null; created_at: string }): string {
+  return run.buy_date || run.run_date || run.created_at.split('T')[0];
+}
+
+// New: check if a run's run_date falls in a DateRange
+export function isRunInRange(
+  run: { run_date?: string | null },
+  dateRange: DateRange | null
+): boolean {
+  if (!dateRange) return true;
+  if (!run.run_date) return false;
+  const date = parseLocalDate(run.run_date);
+  return isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+}
+
+// New: check if a run qualifies as a sale in a DateRange
+export function isSaleInRange(
+  run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at: string },
+  dateRange: DateRange | null
+): boolean {
+  if (!dateRange) return true;
+  if (!isMembershipSale(run.result || '')) return false;
+  const saleDate = getRunSaleDate(run);
+  const date = parseLocalDate(saleDate);
+  return isWithinInterval(date, { start: dateRange.start, end: dateRange.end });
+}
 ```
 
-Then group by booking using the union of both sets, count intros run from `saRunDateInRange`, and count sales from `saSaleDateInRange`.
+### 2. Refactor `src/hooks/useDashboardMetrics.ts`
 
-### Close Rate Calculation
+Replace all inline date-fallback logic with imports from `sales-detection.ts`:
+- Remove the local `isMembershipSaleLocal` function -- import `isMembershipSale` from `sales-detection.ts`
+- Replace `run.buy_date || run.run_date` patterns with `getRunSaleDate(run)`
+- Replace inline sale-date checks with `isSaleInRange(run, dateRange)`
+- Replace inline run-date checks with `isRunInRange(run, dateRange)`
+- Add the close rate edge case comment at the close rate calculation
 
-Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered). This is correct: it answers "of the people who showed up in this period, how many eventually bought (including follow-up purchases whose buy_date falls in this period)."
+### 3. Fix `src/hooks/useMeetingAgenda.ts` (the critical bug)
 
-Note: This means close rate can theoretically exceed 100% in edge cases where many follow-up purchases land in a period with few new intros. This is acceptable and accurate -- it reflects real revenue attribution.
+**Problem**: The SQL query on line 214 filters `intros_run` by `run_date` range, so follow-up purchases with `buy_date` in range but `run_date` outside are never fetched.
 
-### No Other Files Need Changes
+**Fix**: Broaden the `intros_run` query to also fetch runs where `buy_date` falls in the date range. Change:
+```sql
+.gte('run_date', startStr).lte('run_date', endStr)
+```
+to fetch runs where EITHER `run_date` is in range OR `buy_date` is in range (using an `.or()` filter):
+```typescript
+supabase.from('intros_run')
+  .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, commission_amount, lead_source, ignore_from_metrics')
+  .or(`and(run_date.gte.${startStr},run_date.lte.${endStr}),and(buy_date.gte.${startStr},buy_date.lte.${endStr})`)
+```
 
-- `MembershipPurchasesPanel.tsx` already uses `getSaleDate()` correctly
-- `StudioScoreboard.tsx` receives props from the hook, no changes needed
-- `useMeetingAgenda.ts` does its own query but uses similar logic; will verify and align if needed
-- `studio-metrics.ts` has shared constants only, no changes needed
+Then update the metrics calculations:
+- `showed` count: filter by `run_date` in range and not no-show (booking metric)
+- `sales` count: filter by `isSaleInRange` using `buy_date` fallback (conversion metric)
+- `closeRate`: Sales (purchase-date) / Showed (run-date)
+- Same fix for previous period query
+
+Also update `generateShoutoutCategories` to use the same dual-date logic:
+- "Intros Showed" and "Show Rate" use `run_date`
+- "Total Sales" and "Close Rate" use `isSaleInRange`
+
+### 4. Add close rate edge case comment
+
+In both `useDashboardMetrics.ts` and `useMeetingAgenda.ts`, add near the close rate calculation:
+```
+// Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
+// This can exceed 100% when follow-up purchases from previous periods
+// land in a period with fewer new intros. This is correct behavior:
+// it reflects real revenue attribution for the selected period.
+```
+
+### 5. AMC auto-increment verification (no changes needed)
+
+Verified: `FollowupPurchaseEntry.tsx` already passes `purchaseDate` (the buy_date) to `incrementAmcOnSale`. `ShiftRecap.tsx` passes the shift date. The AMC logic correctly uses whatever date is passed to it. No changes required.
+
+### 6. Verification checklist (post-implementation)
+
+After changes, verify:
+- Sophie shows correct sales count on Studio Scoreboard
+- Team Meeting agenda shows same sales count as Scoreboard for the same date range
+- Changing to "Last Pay Period" does not double-count sales
+- Conversion funnel (Booked / Showed / Sold) is internally consistent
+- Members Who Bought panel matches Scoreboard sales count
+
+### Files to modify
+1. `src/lib/sales-detection.ts` -- add `getRunSaleDate`, `isRunInRange`, `isSaleInRange`
+2. `src/hooks/useDashboardMetrics.ts` -- replace inline logic with shared utilities
+3. `src/hooks/useMeetingAgenda.ts` -- broaden SQL query + use shared utilities for counting
+
+### Files verified, no changes needed
+- `src/lib/amc-auto.ts` -- AMC increment already uses passed date correctly
+- `src/components/FollowupPurchaseEntry.tsx` -- passes buy_date to AMC
+- `src/components/admin/MembershipPurchasesPanel.tsx` -- already uses `getSaleDate` correctly
+- `src/lib/studio-metrics.ts` -- shared constants only
 
