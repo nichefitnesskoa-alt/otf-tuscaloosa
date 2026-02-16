@@ -15,7 +15,7 @@ interface TransformationCloseProps {
   availableDays: string | null;
 }
 
-const OBSTACLE_CONNECTORS: { keywords: string[]; response: string }[] = [
+export const OBSTACLE_CONNECTORS: { keywords: string[]; response: string }[] = [
   {
     keywords: ['dont know', "don't know", 'structure', 'what to do'],
     response: 'You just did a 50-minute workout that was completely structured for you. The coach told you exactly what to do. You didnt have to think about it.',
@@ -42,7 +42,7 @@ const OBSTACLE_CONNECTORS: { keywords: string[]; response: string }[] = [
   },
 ];
 
-function getObstacleConnector(obstacle: string | null): string {
+export function getObstacleConnector(obstacle: string | null): string {
   if (!obstacle) return '';
   const lower = obstacle.toLowerCase();
   for (const entry of OBSTACLE_CONNECTORS) {
