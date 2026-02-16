@@ -1302,6 +1302,75 @@ export type Database = {
         }
         Relationships: []
       }
+      success_stories: {
+        Row: {
+          created_at: string
+          favorite_aspect: string | null
+          featured: boolean | null
+          fitness_health_improvement: string | null
+          id: string
+          member_first_name: string
+          member_last_name: string
+          membership_duration: string | null
+          motivation: string | null
+          other_comments: string | null
+          overall_experience: string | null
+          photo_url: string | null
+          proud_moment: string | null
+          slug: string | null
+          social_media_permission: boolean | null
+          specific_changes: string | null
+          status: string
+          studio_location: string | null
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          favorite_aspect?: string | null
+          featured?: boolean | null
+          fitness_health_improvement?: string | null
+          id?: string
+          member_first_name?: string
+          member_last_name?: string
+          membership_duration?: string | null
+          motivation?: string | null
+          other_comments?: string | null
+          overall_experience?: string | null
+          photo_url?: string | null
+          proud_moment?: string | null
+          slug?: string | null
+          social_media_permission?: boolean | null
+          specific_changes?: string | null
+          status?: string
+          studio_location?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          favorite_aspect?: string | null
+          featured?: boolean | null
+          fitness_health_improvement?: string | null
+          id?: string
+          member_first_name?: string
+          member_last_name?: string
+          membership_duration?: string | null
+          motivation?: string | null
+          other_comments?: string | null
+          overall_experience?: string | null
+          photo_url?: string | null
+          proud_moment?: string | null
+          slug?: string | null
+          social_media_permission?: boolean | null
+          specific_changes?: string | null
+          status?: string
+          studio_location?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
