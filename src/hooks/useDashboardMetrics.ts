@@ -104,7 +104,7 @@ export function useDashboardMetrics(
       'DEAD',
     ];
     
-    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry'];
+    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry', 'Bulk Import', 'Self (VIP Form)', 'VIP Registration'];
     
     // Filter out bookings with excluded status, ignored from metrics, or VIP
     const activeBookings = introsBooked.filter(b => {
@@ -282,11 +282,11 @@ export function useDashboardMetrics(
     // BOOKER STATS (attributed to booked_by)
     // Excludes "Online Intro Offer (self-booked)" lead source from booker stats
     // =========================================
-    const EXCLUDED_LEAD_SOURCE = 'Online Intro Offer (self-booked)';
+    const EXCLUDED_LEAD_SOURCES_BOOKER = ['Online Intro Offer (self-booked)', 'VIP Class'];
     
     const bookerCounts = new Map<string, { booked: number; showed: number }>();
     firstIntroBookings
-      .filter(b => b.lead_source !== EXCLUDED_LEAD_SOURCE) // Exclude self-booked lead source
+      .filter(b => !EXCLUDED_LEAD_SOURCES_BOOKER.includes(b.lead_source)) // Exclude self-booked & VIP lead sources
       .forEach(b => {
         const bookedBy = (b as any).booked_by || b.sa_working_shift;
         if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {

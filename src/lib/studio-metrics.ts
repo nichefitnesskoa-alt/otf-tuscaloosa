@@ -8,6 +8,7 @@ export const EXCLUDED_LEAD_SOURCES = [
   'Online Intro Offer (self-booked)',
   'Run-first entry',
   'Orangebook',
+  'VIP Class',
 ];
 
 /** SA names excluded from leaderboards / attribution */
@@ -15,6 +16,8 @@ export const EXCLUDED_SA_NAMES = [
   'TBD', 'Unknown', '', 'N/A',
   'Self Booked', 'Self-Booked', 'self booked', 'Self-booked',
   'Run-first entry',
+  'Bulk Import', 'Self (VIP Form)',
+  'VIP Registration',
 ];
 
 /** Membership result strings (case-insensitive partial match) */
