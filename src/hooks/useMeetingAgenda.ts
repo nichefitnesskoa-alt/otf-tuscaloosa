@@ -353,7 +353,7 @@ export function useGenerateAgenda() {
       });
 
       // Shoutouts — top 3 per category
-      const shoutoutCategories = generateShoutoutCategories(runs, allBooked, shiftRecaps, followUps);
+      const shoutoutCategories = generateShoutoutCategories(runs, allBooked, shiftRecaps, followUps, salesOutside);
 
       // Flatten for backward compat
       const shoutouts: Shoutout[] = shoutoutCategories.flatMap(cat =>
@@ -451,7 +451,7 @@ export function useGenerateAgenda() {
 const MIN_INTROS = 2;
 
 function generateShoutoutCategories(
-  runs: any[], booked: any[], recaps: any[], followUps: any[],
+  runs: any[], booked: any[], recaps: any[], followUps: any[], salesOutside: any[],
 ): ShoutoutCategory[] {
   const categories: ShoutoutCategory[] = [];
   const ok = (n: string) => !!n && !EXCLUDED_SA_NAMES.includes(n);
@@ -466,6 +466,14 @@ function generateShoutoutCategories(
     s.total++;
     if (!isNoShow(r.result)) s.showed++;
     if (isPurchased(r.result)) s.sales++;
+  });
+
+  // Add sales_outside_intro to per-SA sales count
+  (salesOutside || []).forEach((so: any) => {
+    const name = so.intro_owner || '';
+    if (!ok(name)) return;
+    if (!saRun.has(name)) saRun.set(name, { sales: 0, showed: 0, total: 0 });
+    saRun.get(name)!.sales++;
   });
 
   // 1) Contacts Made
