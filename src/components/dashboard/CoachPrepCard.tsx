@@ -27,11 +27,12 @@ export function CoachPrepCard({ memberName, classTime, bookingId }: CoachPrepCar
       .from('intro_questionnaires')
       .select('q1_fitness_goal, q3_obstacle, q6_weekly_commitment, status' as any)
       .eq('booking_id', bookingId)
-      .order('submitted_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data: row }) => setData(row as unknown as QData | null));
+      .then(({ data: rows }) => {
+        const all = (rows || []) as unknown as QData[];
+        const completed = all.find(q => q.status === 'completed' || q.status === 'submitted');
+        setData(completed || all[0] || null);
+      });
   }, [bookingId]);
 
   const firstName = memberName.split(' ')[0];
