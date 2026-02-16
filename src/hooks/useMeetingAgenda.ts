@@ -119,7 +119,7 @@ function isRunDateInStrRange(runDate: string | null | undefined, startStr: strin
 
 /** Check if a run qualifies as a sale within start/end date strings */
 function isSaleInStrRange(run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at?: string }, startStr: string, endStr: string): boolean {
-  if (!isPurchased(run.result || '')) return false;
+  if (!isMembershipSale(run.result || '')) return false;
   const saleDate = run.buy_date || run.run_date || (run.created_at || '').split('T')[0];
   if (!saleDate) return false;
   return saleDate >= startStr && saleDate <= endStr;
@@ -303,22 +303,71 @@ export function useGenerateAgenda() {
       const runs = filterRuns(allRuns);
       const prevRuns = filterRuns(prevAllRuns);
 
-      // DUAL-DATE LOGIC: "showed" uses run_date, "sales" uses purchase date fallback
+      // Build first-intro booking ID sets (matching dashboard logic)
+      const firstIntroBookingIds = new Set(filteredBooked.map((b: any) => b.id));
+      const prevFirstIntroBookingIds = new Set(prevFilteredBooked.map((b: any) => b.id));
+
+      // Filter runs to first-intro bookings only (or unlinked), matching dashboard
+      const firstIntroRuns = runs.filter((r: any) =>
+        !r.linked_intro_booked_id || firstIntroBookingIds.has(r.linked_intro_booked_id)
+      );
+      const prevFirstIntroRuns = prevRuns.filter((r: any) =>
+        !r.linked_intro_booked_id || prevFirstIntroBookingIds.has(r.linked_intro_booked_id)
+      );
+
+      // Deduplicate showed by booking (one "showed" per booking, matching dashboard)
+      // Unlinked runs each count as one showed
+      const countShowedAndSales = (filteredRuns: any[], start: string, end: string) => {
+        const byBooking = new Map<string, any[]>();
+        const unlinked: any[] = [];
+        filteredRuns.forEach((r: any) => {
+          if (r.linked_intro_booked_id) {
+            const existing = byBooking.get(r.linked_intro_booked_id) || [];
+            existing.push(r);
+            byBooking.set(r.linked_intro_booked_id, existing);
+          } else {
+            unlinked.push(r);
+          }
+        });
+
+        let showedCount = 0;
+        let salesCount = 0;
+
+        // Linked: one showed per booking, check any run for sale
+        byBooking.forEach((bookingRuns) => {
+          const sorted = [...bookingRuns].sort((a: any, b: any) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          const first = sorted[0];
+          if (first && !isNoShow(first.result) && isRunDateInStrRange(first.run_date, start, end)) {
+            showedCount++;
+          }
+          const saleRun = bookingRuns.find((r: any) => isSaleInStrRange(r, start, end));
+          if (saleRun) salesCount++;
+        });
+
+        // Unlinked: each counts individually
+        unlinked.forEach((r: any) => {
+          if (!isNoShow(r.result) && isRunDateInStrRange(r.run_date, start, end)) showedCount++;
+          if (isSaleInStrRange(r, start, end)) salesCount++;
+        });
+
+        return { showedCount, salesCount };
+      };
+
+      const { showedCount: showedLen, salesCount: salesLen } = countShowedAndSales(firstIntroRuns, startStr, endStr);
+      const { showedCount: prevShowedLen, salesCount: prevSalesLen } = countShowedAndSales(prevFirstIntroRuns, prevStartStr, prevEndStr);
+
+      // Keep arrays for downstream use (objections, shoutouts still need full run list)
       const showed = runs.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr));
       const sales = runs.filter((r: any) => isSaleInStrRange(r, startStr, endStr));
-      const totalSales = sales.length + salesOutside.length;
+      const totalSales = salesLen + salesOutside.length;
 
-      const prevShowed = prevRuns.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, prevStartStr, prevEndStr));
-      const prevSales = prevRuns.filter((r: any) => isSaleInStrRange(r, prevStartStr, prevEndStr));
-
-      // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
-      // This can exceed 100% when follow-up purchases from previous periods
-      // land in a period with fewer new intros. This is correct behavior:
-      // it reflects real revenue attribution for the selected period.
-      const closeRate = showed.length > 0 ? (sales.length / showed.length) * 100 : 0;
-      const prevCloseRate = prevShowed.length > 0 ? (prevSales.length / prevShowed.length) * 100 : 0;
-      const showRate = filteredBooked.length > 0 ? (showed.length / filteredBooked.length) * 100 : 0;
-      const prevShowRate = prevFilteredBooked.length > 0 ? (prevShowed.length / prevFilteredBooked.length) * 100 : 0;
+      // Close Rate = Sales / Showed (both deduplicated to first-intro bookings)
+      const closeRate = showedLen > 0 ? (salesLen / showedLen) * 100 : 0;
+      const prevCloseRate = prevShowedLen > 0 ? (prevSalesLen / prevShowedLen) * 100 : 0;
+      const showRate = filteredBooked.length > 0 ? (showedLen / filteredBooked.length) * 100 : 0;
+      const prevShowRate = prevFilteredBooked.length > 0 ? (prevShowedLen / prevFilteredBooked.length) * 100 : 0;
 
       // AMC
       const amc = amcRes.data?.[0]?.amc_value || 0;
@@ -386,10 +435,10 @@ export function useGenerateAgenda() {
       );
 
       // Biggest opportunity
-      const noShowRate = filteredBooked.length > 0 ? ((filteredBooked.length - showed.length) / filteredBooked.length) * 100 : 0;
+      const noShowRate = filteredBooked.length > 0 ? ((filteredBooked.length - showedLen) / filteredBooked.length) * 100 : 0;
       let biggestOpportunity = '';
       if (noShowRate > 25) {
-        const extra = Math.round((filteredBooked.length * 0.85 - showed.length) * (closeRate / 100));
+        const extra = Math.round((filteredBooked.length * 0.85 - showedLen) * (closeRate / 100));
         biggestOpportunity = `${filteredBooked.length - showed.length} no-shows this week. Improving show rate to 85% could mean ~${Math.max(extra, 1)} more sales.`;
       } else if (closeRate < prevCloseRate - 3) {
         biggestOpportunity = `Close rate dropped ${(prevCloseRate - closeRate).toFixed(0)}% from last week. Focus on "${topObjection}" handling.`;
@@ -415,11 +464,11 @@ export function useGenerateAgenda() {
 
       const metrics: MeetingMetrics = {
         amc, amcChange: amc - prevAmc,
-        sales: totalSales, salesPrev: prevSales.length,
+        sales: totalSales, salesPrev: prevSalesLen,
         closeRate, closeRatePrev: prevCloseRate,
         showRate, showRatePrev: prevShowRate,
-        booked: filteredBooked.length, showed: showed.length,
-        noShows: filteredBooked.length - showed.length, noShowRate,
+        booked: filteredBooked.length, showed: showedLen,
+        noShows: filteredBooked.length - showedLen, noShowRate,
         qCompletion, qCompletionPrev: prevQCompletion,
         confirmationRate,
         followUpCompletionRate,
