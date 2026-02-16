@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { 
   RefreshCw, ChevronLeft, ChevronRight, Presentation, X, Sparkles, 
-  Trophy, BarChart3, ShieldAlert, Swords, CalendarDays, ClipboardList, Target
+  Trophy, BarChart3, ShieldAlert, Swords, CalendarDays, ClipboardList, Target, GripVertical
 } from 'lucide-react';
 
 import { ShoutoutsSection } from '@/components/meeting/ShoutoutsSection';
@@ -24,8 +24,16 @@ import { WeekAheadSection } from '@/components/meeting/WeekAheadSection';
 import { HousekeepingSection } from '@/components/meeting/HousekeepingSection';
 import { WigSection } from '@/components/meeting/WigSection';
 
-const SECTION_IDS = ['welcome', 'shoutouts', 'scoreboard', 'objections', 'drill', 'week-ahead', 'housekeeping', 'wig'];
-const SECTION_ICONS = [Sparkles, Trophy, BarChart3, ShieldAlert, Swords, CalendarDays, ClipboardList, Target];
+const SECTION_IDS = ['shoutouts', 'scoreboard', 'objections', 'drill', 'week-ahead', 'housekeeping', 'wig'];
+const SECTION_LABELS = ['Shoutouts', 'Scoreboard', 'Objections', 'Skill Drill', "What's Coming", 'Housekeeping', 'WIG'];
+const SECTION_ICONS_MAP: Record<string, any> = {
+  shoutouts: Trophy, scoreboard: BarChart3, objections: ShieldAlert,
+  drill: Swords, 'week-ahead': CalendarDays, housekeeping: ClipboardList, wig: Target,
+};
+const PRESENT_SECTION_IDS = ['welcome', ...SECTION_IDS];
+const PRESENT_SECTION_ICONS = [Sparkles, Trophy, BarChart3, ShieldAlert, Swords, CalendarDays, ClipboardList, Target];
+
+const STORAGE_KEY = 'meeting-section-order';
 
 export default function Meeting() {
   const { user } = useAuth();
@@ -34,6 +42,34 @@ export default function Meeting() {
   const isAdmin = user?.role === 'Admin';
   const [isPresentMode, setIsPresentMode] = useState(!isAdmin || searchParams.get('mode') === 'present');
   const [currentSection, setCurrentSection] = useState(0);
+
+  // Section order (draggable in prep mode)
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as string[];
+        // Validate all sections present
+        if (SECTION_IDS.every(id => parsed.includes(id)) && parsed.length === SECTION_IDS.length) return parsed;
+      }
+    } catch {}
+    return SECTION_IDS;
+  });
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+
+  const handleDragStart = (index: number) => { dragItem.current = index; };
+  const handleDragEnter = (index: number) => { dragOver.current = index; };
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOver.current === null) return;
+    const reordered = [...sectionOrder];
+    const [removed] = reordered.splice(dragItem.current, 1);
+    reordered.splice(dragOver.current, 0, removed);
+    setSectionOrder(reordered);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reordered));
+    dragItem.current = null;
+    dragOver.current = null;
+  };
 
   // Meeting date navigation
   const [meetingMonday, setMeetingMonday] = useState(getCurrentMeetingMonday());
@@ -86,7 +122,7 @@ export default function Meeting() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        setCurrentSection(s => Math.min(s + 1, SECTION_IDS.length - 1));
+        setCurrentSection(s => Math.min(s + 1, PRESENT_SECTION_IDS.length - 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         setCurrentSection(s => Math.max(s - 1, 0));
@@ -101,7 +137,7 @@ export default function Meeting() {
   // Scroll to section in present mode
   useEffect(() => {
     if (isPresentMode) {
-      document.getElementById(SECTION_IDS[currentSection])?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById(PRESENT_SECTION_IDS[currentSection])?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [currentSection, isPresentMode]);
 
@@ -135,6 +171,29 @@ export default function Meeting() {
     return `💪 AMC: ${metrics.amc}. ${Math.max(400 - metrics.amc, 0)} away from 400.`;
   }, [metrics]);
 
+  // Render a section by ID
+  const renderSection = (sectionId: string, presentMode: boolean) => {
+    if (!metrics) return null;
+    switch (sectionId) {
+      case 'shoutouts':
+        return <ShoutoutsSection shoutouts={metrics.shoutouts} manualShoutouts={manualShoutouts} onManualChange={presentMode ? () => {} : v => { setManualShoutouts(v); saveField('manual_shoutouts', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+      case 'scoreboard':
+        return <ScoreboardSection metrics={metrics} dateLabel={dateLabel} isPresentMode={presentMode} />;
+      case 'objections':
+        return <ObjectionSection metrics={metrics} isPresentMode={presentMode} />;
+      case 'drill':
+        return <DrillSection topObjection={metrics.topObjection} drillOverride={drillOverride} onOverrideChange={presentMode ? () => {} : v => { setDrillOverride(v || null); saveField('drill_override', v || null); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+      case 'week-ahead':
+        return <WeekAheadSection weekAhead={metrics.weekAhead} eventsNotes={eventsNotes} onEventsChange={presentMode ? () => {} : v => { setEventsNotes(v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+      case 'housekeeping':
+        return <HousekeepingSection notes={housekeeping} onChange={presentMode ? () => {} : v => { setHousekeeping(v); saveField('housekeeping_notes', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+      case 'wig':
+        return <WigSection closeRate={metrics.closeRate} wigTarget={wigTarget} wigCommitments={wigCommitments} previousCommitments={prevAgenda?.wig_commitments || null} onTargetChange={presentMode ? () => {} : v => { setWigTarget(v); saveField('wig_target', v); }} onCommitmentsChange={presentMode ? () => {} : v => { setWigCommitments(v); saveField('wig_commitments', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+      default:
+        return null;
+    }
+  };
+
   if (isLoading && !agenda) {
     return <div className="flex items-center justify-center min-h-screen"><RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -145,8 +204,8 @@ export default function Meeting() {
       <div className="bg-gray-950 text-white min-h-screen relative">
         {/* Section sidebar */}
         <div className="fixed left-2 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
-          {SECTION_IDS.map((id, i) => {
-            const Icon = SECTION_ICONS[i];
+          {PRESENT_SECTION_IDS.map((id, i) => {
+            const Icon = PRESENT_SECTION_ICONS[i];
             return (
               <button
                 key={id}
@@ -174,7 +233,7 @@ export default function Meeting() {
           <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.max(s - 1, 0))} disabled={currentSection === 0} className="bg-white/20 border-white/30 text-white hover:bg-white/30">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.min(s + 1, SECTION_IDS.length - 1))} disabled={currentSection === SECTION_IDS.length - 1} className="bg-white/20 border-white/30 text-white hover:bg-white/30">
+          <Button variant="outline" size="sm" onClick={() => setCurrentSection(s => Math.min(s + 1, PRESENT_SECTION_IDS.length - 1))} disabled={currentSection === PRESENT_SECTION_IDS.length - 1} className="bg-white/20 border-white/30 text-white hover:bg-white/30">
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
@@ -193,26 +252,9 @@ export default function Meeting() {
           )}
         </div>
 
-        {metrics && (
-          <>
-            <ShoutoutsSection shoutouts={metrics.shoutouts} manualShoutouts={manualShoutouts} onManualChange={() => {}} isAdmin={false} isPresentMode />
-            <ScoreboardSection metrics={metrics} dateLabel={dateLabel} isPresentMode />
-            <ObjectionSection metrics={metrics} isPresentMode />
-            <DrillSection topObjection={metrics.topObjection} drillOverride={drillOverride} onOverrideChange={() => {}} isAdmin={false} isPresentMode />
-            <WeekAheadSection weekAhead={metrics.weekAhead} eventsNotes={eventsNotes} onEventsChange={() => {}} isAdmin={false} isPresentMode />
-            <HousekeepingSection notes={housekeeping} onChange={() => {}} isAdmin={false} isPresentMode />
-            <WigSection
-              closeRate={metrics.closeRate}
-              wigTarget={wigTarget}
-              wigCommitments={wigCommitments}
-              previousCommitments={prevAgenda?.wig_commitments || null}
-              onTargetChange={() => {}}
-              onCommitmentsChange={() => {}}
-              isAdmin={false}
-              isPresentMode
-            />
-          </>
-        )}
+        {metrics && sectionOrder.map(id => (
+          <React.Fragment key={id}>{renderSection(id, true)}</React.Fragment>
+        ))}
       </div>
     );
   }
@@ -269,47 +311,29 @@ export default function Meeting() {
       )}
 
       {metrics ? (
-        <>
-          <ShoutoutsSection
-            shoutouts={metrics.shoutouts}
-            manualShoutouts={manualShoutouts}
-            onManualChange={v => { setManualShoutouts(v); saveField('manual_shoutouts', v); }}
-            isAdmin={isAdmin}
-            isPresentMode={false}
-          />
-          <ScoreboardSection metrics={metrics} dateLabel={dateLabel} isPresentMode={false} />
-          <ObjectionSection metrics={metrics} isPresentMode={false} />
-          <DrillSection
-            topObjection={metrics.topObjection}
-            drillOverride={drillOverride}
-            onOverrideChange={v => { setDrillOverride(v || null); saveField('drill_override', v || null); }}
-            isAdmin={isAdmin}
-            isPresentMode={false}
-          />
-          <WeekAheadSection
-            weekAhead={metrics.weekAhead}
-            eventsNotes={eventsNotes}
-            onEventsChange={v => { setEventsNotes(v); }}
-            isAdmin={isAdmin}
-            isPresentMode={false}
-          />
-          <HousekeepingSection
-            notes={housekeeping}
-            onChange={v => { setHousekeeping(v); saveField('housekeeping_notes', v); }}
-            isAdmin={isAdmin}
-            isPresentMode={false}
-          />
-          <WigSection
-            closeRate={metrics.closeRate}
-            wigTarget={wigTarget}
-            wigCommitments={wigCommitments}
-            previousCommitments={prevAgenda?.wig_commitments || null}
-            onTargetChange={v => { setWigTarget(v); saveField('wig_target', v); }}
-            onCommitmentsChange={v => { setWigCommitments(v); saveField('wig_commitments', v); }}
-            isAdmin={isAdmin}
-            isPresentMode={false}
-          />
-        </>
+        <div className="space-y-4">
+          {sectionOrder.map((id, index) => (
+            <div
+              key={id}
+              draggable={isAdmin}
+              onDragStart={() => handleDragStart(index)}
+              onDragEnter={() => handleDragEnter(index)}
+              onDragEnd={handleDragEnd}
+              onDragOver={e => e.preventDefault()}
+              className={cn(
+                'relative group',
+                isAdmin && 'cursor-grab active:cursor-grabbing'
+              )}
+            >
+              {isAdmin && (
+                <div className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-60 transition-opacity">
+                  <GripVertical className="w-5 h-5 text-muted-foreground" />
+                </div>
+              )}
+              {renderSection(id, false)}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
           {generateMutation.isPending ? 'Generating meeting agenda...' : 'No agenda for this week yet.'}
