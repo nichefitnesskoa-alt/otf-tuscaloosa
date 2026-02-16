@@ -137,7 +137,14 @@ export function SoonLayer() {
       const { data: qs } = ids.length > 0
         ? await supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids)
         : { data: [] };
-      const qMap = new Map((qs || []).map(q => [q.booking_id, q.status]));
+      // Prioritize completed/submitted status per booking
+      const qMap = new Map<string, string>();
+      for (const q of (qs || [])) {
+        const existing = qMap.get(q.booking_id);
+        if (!existing || q.status === 'completed' || q.status === 'submitted') {
+          qMap.set(q.booking_id, q.status);
+        }
+      }
       setDayAfterBookings(datBookings.data.map(b => ({
         ...b,
         lead_source: (b as any).lead_source || undefined,

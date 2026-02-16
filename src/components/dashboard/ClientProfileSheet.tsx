@@ -67,10 +67,10 @@ export function ClientProfileSheet({ open, onOpenChange, memberName, memberKey, 
       .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
       .in('booking_id', bookingIds)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        setQuestionnaire(data as unknown as QuestionnaireData | null);
+      .then(({ data: rows }) => {
+        const all = (rows || []) as unknown as QuestionnaireData[];
+        const completed = all.find(q => q.status === 'completed' || q.status === 'submitted');
+        setQuestionnaire(completed || all[0] || null);
         setLoading(false);
       });
   }, [open, bookings]);

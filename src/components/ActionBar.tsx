@@ -196,13 +196,14 @@ export function IntroActionBar({
 
     try {
       // Check by booking_id first
-      const { data: byBooking } = await supabase
+      const { data: byBookingAll } = await supabase
         .from('intro_questionnaires')
         .select('id, slug, status, booking_id' as any)
         .eq('booking_id', bookingId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
+
+      const byBookingList = (byBookingAll || []) as any[];
+      const byBooking = byBookingList.find(q => q.status === 'completed' || q.status === 'submitted') || byBookingList[0] || null;
 
       const byBookingAny = byBooking as any;
       if (byBookingAny) {
@@ -299,13 +300,12 @@ export function IntroActionBar({
         const link = `${PUBLISHED_URL}/q/${slug}`;
         await navigator.clipboard.writeText(link);
         // Mark as sent if it was not_sent
-        const { data: qRecord } = await supabase
+        const { data: qRecords } = await supabase
           .from('intro_questionnaires')
           .select('id, status')
           .eq('booking_id', bookingId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order('created_at', { ascending: false });
+        const qRecord = (qRecords || []).find(q => q.status === 'not_sent') || null;
         if (qRecord && qRecord.status === 'not_sent') {
           await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', qRecord.id);
         }

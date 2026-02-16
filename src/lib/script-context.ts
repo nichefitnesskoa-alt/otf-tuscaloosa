@@ -78,11 +78,15 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
 
   // Step 2: Fetch questionnaire by BOOKING ID (never by name)
   if (!isSecondIntro) {
-    const { data: qRecord } = await supabase
+    const { data: qRecords } = await supabase
       .from('intro_questionnaires')
       .select('id, slug, status, q1_fitness_goal, booking_id')
       .eq('booking_id', bookingId)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
+
+    // Pick completed record first, then fall back to most recent
+    const allQ = qRecords || [];
+    const qRecord = allQ.find(q => q.status === 'completed' || q.status === 'submitted') || allQ[0] || null;
 
     if (qRecord) {
       questionnaireId = qRecord.id;
