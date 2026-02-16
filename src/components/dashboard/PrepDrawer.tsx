@@ -19,13 +19,13 @@ import {
   MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EirmaPlaybook, ThinkAboutItHandler } from './EirmaPlaybook';
+import { EirmaPlaybook } from './EirmaPlaybook';
 import { TransformationClose } from './TransformationClose';
-import { getObstacleConnector } from './TransformationClose';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
-import { useObjectionPlaybooks, matchObstaclesToPlaybooks } from '@/hooks/useObjectionPlaybooks';
+import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { LinkQuestionnaireDialog } from './LinkQuestionnaireDialog';
+import { Separator } from '@/components/ui/separator';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -93,7 +93,6 @@ export function PrepDrawer({
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [linkQOpen, setLinkQOpen] = useState(false);
-  const { data: playbooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
     id: bookingId,
@@ -126,7 +125,6 @@ export function PrepDrawer({
         .order('sent_at', { ascending: false })
         .limit(20),
     ]).then(([qRes, logRes]) => {
-      // Pick the completed questionnaire if one exists, otherwise the most recent
       const allQ = (qRes.data || []) as unknown as QuestionnaireData[];
       const completed = allQ.find(q => q.status === 'completed' || q.status === 'submitted');
       setQuestionnaire(completed || allQ[0] || null);
@@ -154,22 +152,16 @@ export function PrepDrawer({
     if (phone) window.open(`tel:${phone}`);
   };
 
+  const handleEmailClick = () => {
+    if (email) window.open(`mailto:${email}`);
+  };
+
   const firstName = memberName.split(' ')[0];
   const hasQ = questionnaire?.status === 'completed';
   const goal = questionnaire?.q1_fitness_goal;
   const obstacle = questionnaire?.q3_obstacle;
   const emotionalDriver = questionnaire?.q5_emotional_driver;
   const commitment = questionnaire?.q6_weekly_commitment;
-
-  const individualObstacles = obstacle?.split(' | ').map(o => o.trim()).filter(Boolean) || [];
-  const individualGoals = goal?.split(' | ').map(g => g.trim()).filter(Boolean) || [];
-
-  const getPlaybooksForObstacle = (obs: string) =>
-    playbooks.filter(pb =>
-      pb.trigger_obstacles.some(trigger =>
-        obs.toLowerCase().includes(trigger.toLowerCase()) || trigger.toLowerCase().includes(obs.toLowerCase())
-      )
-    );
 
   const p = (text: string) =>
     text
@@ -216,80 +208,35 @@ export function PrepDrawer({
                 </div>
               )}
               {email && (
-                <InfoRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={email} />
+                <div className="flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground text-xs w-16">Email</span>
+                  <button onClick={handleEmailClick} className="text-primary underline text-xs font-medium">{email}</button>
+                </div>
               )}
             </div>
 
-            {/* Tabbed Prep Content */}
-            <Tabs defaultValue="prep" className="w-full">
-              <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="prep" className="text-xs">Prep</TabsTrigger>
-                <TabsTrigger value="close" className="text-xs">The Close</TabsTrigger>
-                <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
+            {/* Tabbed Prep Content — 2 Tabs */}
+            <Tabs defaultValue="before" className="w-full">
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="before" className="text-xs">Before Class</TabsTrigger>
+                <TabsTrigger value="after" className="text-xs">After Class</TabsTrigger>
               </TabsList>
 
-              {/* TAB 1: Prep + Pre-Class */}
-              <TabsContent value="prep" className="space-y-3 mt-3">
+              {/* TAB 1: Before Class */}
+              <TabsContent value="before" className="space-y-3 mt-3">
                 {loading ? (
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : hasQ ? (
-                  <div className="space-y-3">
-                    {/* Full Questionnaire Answers */}
-                    <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
-                      <QRow label="What is your primary fitness goal?" value={goal} />
-                      <QRow label="How would you rate your current fitness level (1-5)?" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
-                      <QRow label="What has been the biggest obstacle to reaching your fitness goals?" value={obstacle} />
-                      <QRow label="What have you tried before for fitness?" value={questionnaire.q4_past_experience} />
-                      <QRow label="What would reaching your goal mean to you emotionally?" value={emotionalDriver} />
-                      <QRow label="How many days per week can you realistically commit?" value={commitment} />
-                      <QRow label="Which days work best for you?" value={questionnaire.q6b_available_days} />
-                      <QRow label="Anything else the coach should know?" value={questionnaire.q7_coach_notes} />
-                    </div>
-
-                    {/* Individual Goal Cards */}
-                    {individualGoals.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">🎯 Goals</p>
-                        {individualGoals.map((g, i) => (
-                          <PrepCollapsible key={`goal-${i}`} title={g} icon="🎯" defaultOpen={i === 0} accentColor="blue">
-                            <p className="leading-relaxed italic">
-                              {p(`"${firstName}, you said you want to ${g.toLowerCase()}. Today's class was step one toward that. Let me show you how we build a plan around this specific goal."`)}
-                            </p>
-                          </PrepCollapsible>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Individual Obstacle Cards with EIRMA */}
-                    {individualObstacles.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">⚠️ Obstacles</p>
-                        {individualObstacles.map((obs, i) => {
-                          const connector = getObstacleConnector(obs);
-                          const matched = getPlaybooksForObstacle(obs);
-                          return (
-                            <PrepCollapsible key={`obs-${i}`} title={obs} icon="⚠️" defaultOpen={i === 0} accentColor="amber">
-                              <div className="space-y-2">
-                                <div>
-                                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">SA Response</p>
-                                  <p className="leading-relaxed italic">"{connector}"</p>
-                                </div>
-                                {matched.length > 0 && matched.map(pb => (
-                                  <div key={pb.id} className="rounded bg-muted/40 p-2 space-y-1">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">EIRMA: {pb.objection_name}</p>
-                                    <EirmaStep letter="E" label="Empathize" text={p(pb.empathize_line)} />
-                                    <EirmaStep letter="I" label="Isolate" text={p(pb.isolate_question)} />
-                                    <EirmaStep letter="R" label="Redirect" text={p(pb.redirect_framework)} />
-                                    <EirmaStep letter="S" label="Suggest" text={p(pb.suggestion_framework)} />
-                                    <EirmaStep letter="A" label="Ask" text={p(pb.ask_line)} />
-                                  </div>
-                                ))}
-                              </div>
-                            </PrepCollapsible>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
+                    <QRow label="What is your primary fitness goal?" value={goal} />
+                    <QRow label="How would you rate your current fitness level (1-5)?" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
+                    <QRow label="What has been the biggest obstacle to reaching your fitness goals?" value={obstacle} />
+                    <QRow label="What have you tried before for fitness?" value={questionnaire.q4_past_experience} />
+                    <QRow label="What would reaching your goal mean to you emotionally?" value={emotionalDriver} />
+                    <QRow label="How many days per week can you realistically commit?" value={commitment} />
+                    <QRow label="Which days work best for you?" value={questionnaire.q6b_available_days} />
+                    <QRow label="Anything else the coach should know?" value={questionnaire.q7_coach_notes} />
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground italic flex flex-col gap-2 p-2 rounded border">
@@ -360,87 +307,56 @@ export function PrepDrawer({
                 </div>
               </TabsContent>
 
-              {/* TAB 2: The Close */}
-              <TabsContent value="close" className="mt-3">
-                {hasQ ? (
-                  <TransformationClose
-                    clientName={memberName}
-                    coachName={coachName}
-                    fitnessGoal={goal}
-                    obstacle={obstacle}
-                    pastExperience={questionnaire.q4_past_experience}
-                    emotionalDriver={emotionalDriver}
-                    weeklyCommitment={commitment}
-                    availableDays={questionnaire.q6b_available_days}
-                  />
-                ) : (
-                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
-                    <ClipboardList className="w-3 h-3" />
-                    Complete the questionnaire to generate a personalized close script.
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* TAB 3: Objections */}
-              <TabsContent value="objections" className="mt-3">
-                <div className="space-y-4">
-                  {/* Section 1: Matched Objections (if Q data exists) */}
-                  {hasQ && (
-                    <EirmaPlaybook
-                      obstacles={obstacle}
-                      fitnessLevel={questionnaire?.q2_fitness_level ?? null}
-                      emotionalDriver={emotionalDriver}
-                      clientName={memberName}
-                      fitnessGoal={goal}
-                      pastExperience={questionnaire?.q4_past_experience ?? null}
-                    />
-                  )}
-
-                  {/* Section 2: "Think About It" Handler — prominent */}
-                  <ThinkAboutItHandler />
-
-                  {/* Section 3: Common Objections Quick Reference — always visible */}
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">📋 Common Objections Quick Reference</p>
-                    <CommonObjectionCard
-                      name="Price / Cost"
-                      empathize="I hear you. Nobody wants to waste money on something that won't work."
-                      isolate="Is it the monthly cost, or is it more about whether you'll actually use it?"
-                      redirect="Most people spend more on things that don't make them feel this good. This is an investment in how you feel every day."
-                    />
-                    <CommonObjectionCard
-                      name="Time / Schedule"
-                      empathize="I totally get it. Time is the #1 reason people say they can't work out."
-                      isolate="Is it that you don't have time, or that you haven't found something worth making time for?"
-                      redirect="It's 50 minutes, 3x a week. You just did it. The class does the thinking for you."
-                    />
-                    <CommonObjectionCard
-                      name="Spouse / Partner"
-                      empathize="That makes total sense. Big decisions should be shared."
-                      isolate="Is it more about the money, or do they need to see it to believe it?"
-                      redirect="Bring them to your next class — their first one is free. Let them experience it."
-                    />
-                    <CommonObjectionCard
-                      name="Not Sure It's For Me"
-                      empathize="I understand. It's hard to commit to something new."
-                      isolate="What part are you unsure about — the workout, the schedule, or the investment?"
-                      redirect="You just crushed a class and you're still standing. That's exactly who this is for."
-                    />
-                  </div>
-
-                  {/* Section 4: Accusation Audit */}
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">🛡️ Accusation Audit</p>
-                    <div className="rounded-lg border border-muted p-3 text-xs leading-relaxed">
-                      <p className="italic">
-                        "Now I know what you are probably thinking right now. This is where the sales pitch starts. I am about to pressure you into buying something you can't afford. It's gonna be way more expensive than you thought. You are going to get locked into some contract you can't get out of. If you say no it's going to be awkward. I am not going to let you leave without signing up. And honestly, you probably think this is just going to be like the other times you have tried."
-                      </p>
-                      <p className="mt-2 text-muted-foreground">
-                        ⏸ Pause. Let them process. Then transition to the Identity Close.
-                      </p>
+              {/* TAB 2: After Class */}
+              <TabsContent value="after" className="mt-3 space-y-4">
+                {/* Quick Q Reference for After Class context */}
+                {hasQ && (
+                  <div className="rounded-lg p-2.5 text-xs border border-muted bg-muted/20 space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">📋 Quick Reference</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      <span className="text-muted-foreground">Goal:</span>
+                      <span className="font-medium">{goal || '—'}</span>
+                      <span className="text-muted-foreground">Obstacle:</span>
+                      <span className="font-medium">{obstacle || '—'}</span>
+                      <span className="text-muted-foreground">Why:</span>
+                      <span className="font-medium">{emotionalDriver || '—'}</span>
+                      <span className="text-muted-foreground">Commit:</span>
+                      <span className="font-medium">{commitment || '—'}</span>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Transformation Close — always render */}
+                <TransformationClose
+                  clientName={memberName}
+                  coachName={coachName}
+                  fitnessGoal={goal || null}
+                  obstacle={obstacle || null}
+                  pastExperience={questionnaire?.q4_past_experience || null}
+                  emotionalDriver={emotionalDriver || null}
+                  weeklyCommitment={commitment || null}
+                  availableDays={questionnaire?.q6b_available_days || null}
+                />
+
+                {!hasQ && (
+                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 p-2 rounded border border-dashed">
+                    <ClipboardList className="w-3 h-3" />
+                    Complete the questionnaire for a personalized close script. Bracketed placeholders shown above.
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Full EIRMA Playbooks — show ALL */}
+                <EirmaPlaybook
+                  obstacles={obstacle || null}
+                  fitnessLevel={questionnaire?.q2_fitness_level ?? null}
+                  emotionalDriver={emotionalDriver || null}
+                  clientName={memberName}
+                  fitnessGoal={goal || null}
+                  pastExperience={questionnaire?.q4_past_experience ?? null}
+                  showAll
+                />
               </TabsContent>
             </Tabs>
 
@@ -507,7 +423,6 @@ export function PrepDrawer({
         bookingId={bookingId}
         memberName={memberName}
         onLinked={() => {
-          // Re-fetch questionnaire data
           const bookingIds = defaultBookings.map(b => b.id);
           supabase
             .from('intro_questionnaires')
@@ -579,42 +494,6 @@ function PrepCollapsible({ title, icon, children, defaultOpen = false, accentCol
         <CollapsibleContent>
           <div className="px-3 pb-3 text-xs">
             {children}
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
-  );
-}
-
-function EirmaStep({ letter, label, text }: { letter: string; label: string; text: string }) {
-  return (
-    <div className="flex gap-1.5 text-xs">
-      <span className="font-bold text-primary shrink-0 w-4">{letter}</span>
-      <span className="text-muted-foreground shrink-0 w-16">{label}</span>
-      <span className="italic leading-relaxed">"{text}"</span>
-    </div>
-  );
-}
-
-function CommonObjectionCard({ name, empathize, isolate, redirect }: {
-  name: string;
-  empathize: string;
-  isolate: string;
-  redirect: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="rounded-lg border border-muted overflow-hidden">
-        <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-left text-xs">
-          {isOpen ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
-          <span className="font-semibold">{name}</span>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-3 pb-3 text-xs space-y-1.5">
-            <div><span className="font-bold text-amber-800">E:</span> <span className="text-muted-foreground italic">"{empathize}"</span></div>
-            <div><span className="font-bold text-amber-800">I:</span> <span className="text-muted-foreground italic">"{isolate}"</span></div>
-            <div><span className="font-bold text-amber-800">R:</span> <span className="text-muted-foreground italic">"{redirect}"</span></div>
           </div>
         </CollapsibleContent>
       </div>

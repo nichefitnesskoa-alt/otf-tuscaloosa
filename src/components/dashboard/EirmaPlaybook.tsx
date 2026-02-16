@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Lightbulb, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Lightbulb } from 'lucide-react';
 import { ObjectionPlaybookEntry, matchObstaclesToPlaybooks, useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 
 interface EirmaPlaybookProps {
@@ -12,15 +12,15 @@ interface EirmaPlaybookProps {
   clientName?: string;
   fitnessGoal?: string | null;
   pastExperience?: string | null;
+  showAll?: boolean;
 }
 
-export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, clientName, fitnessGoal, pastExperience }: EirmaPlaybookProps) {
+export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, clientName, fitnessGoal, pastExperience, showAll }: EirmaPlaybookProps) {
   const { data: playbooks = [] } = useObjectionPlaybooks();
   const matched = matchObstaclesToPlaybooks(obstacles, playbooks);
+  const matchedIds = new Set(matched.map(m => m.id));
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showFullScript, setShowFullScript] = useState<Set<string>>(new Set());
-
-  // No early return — let parent control visibility
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
@@ -48,17 +48,24 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
     return result;
   };
 
-  if (matched.length === 0) return null;
+  // Determine which playbooks to show
+  const displayPlaybooks = showAll
+    ? [...matched, ...playbooks.filter(pb => !matchedIds.has(pb.id))]
+    : matched;
+
+  if (displayPlaybooks.length === 0 && !showAll) return null;
+  if (displayPlaybooks.length === 0) return null;
 
   return (
     <div className="space-y-3">
       <h3 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 uppercase tracking-wide">
         <Lightbulb className="w-3.5 h-3.5" />
-        Matched Objection Playbooks
+        {showAll ? 'Objection Playbooks' : 'Matched Objection Playbooks'}
       </h3>
 
-      {matched.map((pb, i) => {
-        const isFirst = i === 0;
+      {displayPlaybooks.map((pb, i) => {
+        const isMatched = matchedIds.has(pb.id);
+        const isFirst = i === 0 && isMatched;
         const isExpanded = isFirst || expandedIds.has(pb.id);
         const showFull = showFullScript.has(pb.id);
 
@@ -70,7 +77,13 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
                 <Badge className="bg-amber-600 text-white text-[10px] border-transparent">
                   {pb.objection_name}
                 </Badge>
-                <span className="text-xs text-amber-700 font-medium">Likely Objection</span>
+                {isMatched && showAll && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-emerald-700 border-emerald-300 bg-emerald-50">
+                    Matched
+                  </Badge>
+                )}
+                {!isMatched && <span className="text-xs text-amber-700 font-medium">Reference</span>}
+                {isMatched && !showAll && <span className="text-xs text-amber-700 font-medium">Likely Objection</span>}
               </CollapsibleTrigger>
 
               <CollapsibleContent>
@@ -137,19 +150,6 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
           <span className="font-medium">Low fitness level ({fitnessLevel}/5):</span> Emphasize modifications, heart-rate zones, and "go at your own pace" messaging.
         </div>
       )}
-    </div>
-  );
-}
-
-/** "I need to think about it" handler — exported so parent can position it */
-export function ThinkAboutItHandler() {
-  return (
-    <div className="text-xs p-2 rounded border border-orange-200 bg-orange-50 text-orange-700 flex items-start gap-1.5">
-      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-      <div>
-        <span className="font-semibold">"I need to think about it"</span> is NEVER the real objection.
-        If they say this, ask: <span className="italic">"What specifically do you need to think about?"</span> Then pivot to the matching EIRMA script.
-      </div>
     </div>
   );
 }

@@ -643,16 +643,16 @@ export default function MyDay() {
             {/* Row 3 on mobile: contact info + status badges */}
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5 md:mt-0 md:ml-auto">
               {b.phone && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal">
+                <a href={`tel:${b.phone}`} onClick={e => e.stopPropagation()} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal cursor-pointer hover:text-primary">
                   <PhoneIcon className="w-2.5 h-2.5" />
                   {b.phone}
-                </Badge>
+                </a>
               )}
               {!b.phone && <NoPhoneBadge />}
               {b.email && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal truncate max-w-[160px]">
+                <a href={`mailto:${b.email}`} onClick={e => e.stopPropagation()} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal truncate max-w-[160px] cursor-pointer hover:text-primary">
                   {b.email}
-                </Badge>
+                </a>
               )}
               {!isVipCard && !isClassToday && b.class_date === format(addDays(new Date(), 1), 'yyyy-MM-dd') && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-warning/15 text-warning border-warning/30">
@@ -680,14 +680,16 @@ export default function MyDay() {
             </div>
           </div>
 
-          {/* Script action indicator */}
+          {/* Script action indicator — prominent badge */}
           {scriptActionsMap.has(b.id) && !isExpanded && (() => {
             const actions = scriptActionsMap.get(b.id)!;
             const latest = actions[actions.length - 1];
             return (
-              <div className="flex items-center gap-1 text-[9px] text-emerald-700 mt-0.5">
-                <CheckCircle2 className="w-2.5 h-2.5" />
-                {latest.completed_by} · {format(new Date(latest.completed_at), 'h:mm a')}
+              <div className="mt-1 px-3">
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 border font-normal">
+                  <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
+                  {latest.completed_by} · {format(new Date(latest.completed_at), 'h:mm a')}
+                </Badge>
               </div>
             );
           })()}
@@ -1351,6 +1353,26 @@ export default function MyDay() {
                           <Badge className={`text-[10px] px-1.5 py-0 h-4 flex-shrink-0 ${speedColor}`}>
                             {minutesAgo < 5 ? 'Just now' : minutesAgo < 30 ? 'Act fast' : 'Overdue'}
                           </Badge>
+                        </div>
+                        {/* Row 2b: Phone/Email */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          {lead.phone && (
+                            <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary" onClick={e => e.stopPropagation()}>
+                              <PhoneIcon className="w-2.5 h-2.5" />
+                              {lead.phone}
+                            </a>
+                          )}
+                          {!lead.phone && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-destructive border-destructive/30">
+                              <PhoneIcon className="w-2.5 h-2.5" />
+                              No Phone
+                            </Badge>
+                          )}
+                          {lead.email && (
+                            <a href={`mailto:${lead.email}`} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal truncate max-w-[160px] hover:text-primary" onClick={e => e.stopPropagation()}>
+                              {lead.email}
+                            </a>
+                          )}
                         </div>
                         {/* Row 3: Already booked badge if applicable */}
                         {isAlreadyBooked && (

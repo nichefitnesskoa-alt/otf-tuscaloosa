@@ -472,9 +472,15 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         isLegacy && 'border-muted bg-muted/20',
         noPhone && 'border-destructive/30'
       )}>
-        {/* Row 1: Name + No Phone badge/button */}
+        {/* Row 1: Name + Phone badge/button */}
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
+          {!noPhone && item.phone && (
+            <a href={`tel:${item.phone}`} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary" onClick={e => e.stopPropagation()}>
+              <Phone className="w-2.5 h-2.5" />
+              {item.phone}
+            </a>
+          )}
           {noPhone && <NoPhoneBadge compact />}
           {noPhone && (
             <InlinePhoneInput
