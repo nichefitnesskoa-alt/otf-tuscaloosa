@@ -6,7 +6,7 @@ import { ArrowDown, Users, UserCheck, Target, Filter, Info } from 'lucide-react'
 import { cn } from '@/lib/utils';
 import { useData, IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import {
@@ -73,10 +73,11 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
       let sold = 0;
 
       activeBookings.forEach(b => {
-        const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id && r.result !== 'No-show');
-        if (runs.length > 0) {
+        const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
+        const showedRuns = runs.filter(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
+        if (showedRuns.length > 0) {
           showed++;
-          if (runs.some(r => isMembershipSale(r.result))) sold++;
+          if (runs.some(r => isSaleInRange(r, dateRange || null))) sold++;
         }
       });
 
