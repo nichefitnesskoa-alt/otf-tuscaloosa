@@ -5,6 +5,7 @@ import {
   EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
   isPurchased, isNoShow,
 } from '@/lib/studio-metrics';
+import { isMembershipSale, getRunSaleDate } from '@/lib/sales-detection';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -44,7 +45,7 @@ export interface MeetingMetrics {
   followUpCompletionRate: number;
   followUpTotal: number;
   followUpCompleted: number;
-  speedToLead: number; // data point, not formal lead measure
+  speedToLead: number;
   confirmationsSent: number;
   confirmationsTotal: number;
   /* Leads */
@@ -99,16 +100,29 @@ export interface MeetingAgenda {
 export function getCurrentMeetingMonday(): Date {
   const now = new Date();
   const monday = startOfWeek(now, { weekStartsOn: 1 });
-  // If today IS Monday, use it. Otherwise next Monday.
   if (now.getDay() === 1) return startOfDay(monday);
   return startOfDay(addDays(monday, 7));
 }
 
 /** 7-day range ending the day before the meeting Monday. */
 export function getMeetingDateRange(meetingMonday: Date) {
-  const end = subDays(meetingMonday, 1);   // Sunday
-  const start = subDays(end, 6);           // Previous Monday
+  const end = subDays(meetingMonday, 1);
+  const start = subDays(end, 6);
   return { start, end };
+}
+
+/** Check if a run_date string falls within start/end date strings */
+function isRunDateInStrRange(runDate: string | null | undefined, startStr: string, endStr: string): boolean {
+  if (!runDate) return false;
+  return runDate >= startStr && runDate <= endStr;
+}
+
+/** Check if a run qualifies as a sale within start/end date strings */
+function isSaleInStrRange(run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at?: string }, startStr: string, endStr: string): boolean {
+  if (!isPurchased(run.result || '')) return false;
+  const saleDate = run.buy_date || run.run_date || (run.created_at || '').split('T')[0];
+  if (!saleDate) return false;
+  return saleDate >= startStr && saleDate <= endStr;
 }
 
 /* ------------------------------------------------------------------ */
@@ -175,7 +189,6 @@ export function useGenerateAgenda() {
 
   return useMutation({
     mutationFn: async (opts: GenerateOpts | Date) => {
-      // Support both old (Date) and new ({ meetingMonday, customStart, customEnd }) signatures
       const meetingMonday = opts instanceof Date ? opts : opts.meetingMonday;
       const meetingStr = format(meetingMonday, 'yyyy-MM-dd');
 
@@ -189,7 +202,7 @@ export function useGenerateAgenda() {
         endStr = format(end, 'yyyy-MM-dd');
       }
 
-      // Previous period for comparison (same length, immediately prior)
+      // Previous period for comparison
       const prevEnd = subDays(new Date(startStr + 'T12:00:00'), 1);
       const dayCount = Math.round(
         (new Date(endStr + 'T12:00:00').getTime() - new Date(startStr + 'T12:00:00').getTime()) / 86400000
@@ -199,6 +212,8 @@ export function useGenerateAgenda() {
       const prevEndStr = format(prevEnd, 'yyyy-MM-dd');
 
       // ---- Parallel data fetch ----
+      // CRITICAL: intros_run query broadened to fetch runs where EITHER run_date OR buy_date
+      // falls in range, so follow-up purchases are not missed.
       const [
         introsBookedRes, introsRunRes,
         prevIntrosBookedRes, prevIntrosRunRes,
@@ -210,15 +225,17 @@ export function useGenerateAgenda() {
         supabase.from('intros_booked')
           .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics')
           .gte('class_date', startStr).lte('class_date', endStr),
+        // Dual-date query: fetch runs where run_date OR buy_date is in range
         supabase.from('intros_run')
-          .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, lead_source, ignore_from_metrics')
-          .gte('run_date', startStr).lte('run_date', endStr),
+          .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, commission_amount, lead_source, ignore_from_metrics, created_at')
+          .or(`and(run_date.gte.${startStr},run_date.lte.${endStr}),and(buy_date.gte.${startStr},buy_date.lte.${endStr})`),
         supabase.from('intros_booked')
           .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source')
           .gte('class_date', prevStartStr).lte('class_date', prevEndStr),
+        // Dual-date query for previous period too
         supabase.from('intros_run')
-          .select('id, result, primary_objection, ignore_from_metrics, linked_intro_booked_id')
-          .gte('run_date', prevStartStr).lte('run_date', prevEndStr),
+          .select('id, result, primary_objection, ignore_from_metrics, linked_intro_booked_id, run_date, buy_date, created_at')
+          .or(`and(run_date.gte.${prevStartStr},run_date.lte.${prevEndStr}),and(buy_date.gte.${prevStartStr},buy_date.lte.${prevEndStr})`),
         supabase.from('follow_up_queue')
           .select('id, status, sent_by, scheduled_date, sent_at')
           .gte('scheduled_date', startStr).lte('scheduled_date', endStr),
@@ -286,13 +303,18 @@ export function useGenerateAgenda() {
       const runs = filterRuns(allRuns);
       const prevRuns = filterRuns(prevAllRuns);
 
-      const showed = runs.filter((r: any) => !isNoShow(r.result));
-      const sales = runs.filter((r: any) => isPurchased(r.result));
+      // DUAL-DATE LOGIC: "showed" uses run_date, "sales" uses purchase date fallback
+      const showed = runs.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr));
+      const sales = runs.filter((r: any) => isSaleInStrRange(r, startStr, endStr));
       const totalSales = sales.length + salesOutside.length;
 
-      const prevShowed = prevRuns.filter((r: any) => !isNoShow(r.result));
-      const prevSales = prevRuns.filter((r: any) => isPurchased(r.result));
+      const prevShowed = prevRuns.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, prevStartStr, prevEndStr));
+      const prevSales = prevRuns.filter((r: any) => isSaleInStrRange(r, prevStartStr, prevEndStr));
 
+      // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
+      // This can exceed 100% when follow-up purchases from previous periods
+      // land in a period with fewer new intros. This is correct behavior:
+      // it reflects real revenue attribution for the selected period.
       const closeRate = showed.length > 0 ? (sales.length / showed.length) * 100 : 0;
       const prevCloseRate = prevShowed.length > 0 ? (prevSales.length / prevShowed.length) * 100 : 0;
       const showRate = filteredBooked.length > 0 ? (showed.length / filteredBooked.length) * 100 : 0;
@@ -318,7 +340,7 @@ export function useGenerateAgenda() {
       const fuCompleted = followUps.filter((f: any) => f.status === 'sent' || f.status === 'completed').length;
       const followUpCompletionRate = followUps.length > 0 ? (fuCompleted / followUps.length) * 100 : 0;
 
-      // Speed-to-lead (data point, not formal lead measure on scoreboard)
+      // Speed-to-lead
       const firstContacts = scriptActions.filter((a: any) => a.script_category === 'first_contact' && a.lead_id);
       let speedSum = 0, speedCount = 0;
       for (const contact of firstContacts) {
@@ -334,9 +356,9 @@ export function useGenerateAgenda() {
       leads.forEach((l: any) => { leadsBySource[l.source] = (leadsBySource[l.source] || 0) + 1; });
       const contacted = leads.filter((l: any) => l.stage !== 'new').length;
 
-      // Objections
+      // Objections — only from runs whose run_date is in range (booking metric)
       const objections: Record<string, number> = {};
-      const nonCloses = runs.filter((r: any) => !isPurchased(r.result) && !isNoShow(r.result));
+      const nonCloses = runs.filter((r: any) => !isPurchased(r.result) && !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr));
       nonCloses.forEach((r: any) => {
         const obj = r.primary_objection || 'Unknown';
         objections[obj] = (objections[obj] || 0) + 1;
@@ -352,8 +374,8 @@ export function useGenerateAgenda() {
         outreach.emails += sr.emails_sent || 0;
       });
 
-      // Shoutouts — top 3 per category
-      const shoutoutCategories = generateShoutoutCategories(runs, allBooked, shiftRecaps, followUps, salesOutside);
+      // Shoutouts — top 3 per category, using dual-date logic
+      const shoutoutCategories = generateShoutoutCategories(runs, allBooked, shiftRecaps, followUps, salesOutside, startStr, endStr);
 
       // Flatten for backward compat
       const shoutouts: Shoutout[] = shoutoutCategories.flatMap(cat =>
@@ -446,26 +468,35 @@ export function useGenerateAgenda() {
 
 /* ------------------------------------------------------------------ */
 /*  Shoutout generation — top 3 per category                           */
+/*  Uses dual-date logic: "showed" uses run_date, "sales" uses         */
+/*  purchase date fallback (buy_date > run_date > created_at)          */
 /* ------------------------------------------------------------------ */
 
 const MIN_INTROS = 2;
 
 function generateShoutoutCategories(
   runs: any[], booked: any[], recaps: any[], followUps: any[], salesOutside: any[],
+  startStr: string, endStr: string,
 ): ShoutoutCategory[] {
   const categories: ShoutoutCategory[] = [];
   const ok = (n: string) => !!n && !EXCLUDED_SA_NAMES.includes(n);
 
-  // Per-SA run stats
+  // Per-SA run stats — dual-date: "showed" by run_date, "sales" by sale date
   const saRun = new Map<string, { sales: number; showed: number; total: number }>();
   runs.forEach(r => {
     const name = r.sa_name || r.intro_owner || '';
     if (!ok(name)) return;
     if (!saRun.has(name)) saRun.set(name, { sales: 0, showed: 0, total: 0 });
     const s = saRun.get(name)!;
-    s.total++;
-    if (!isNoShow(r.result)) s.showed++;
-    if (isPurchased(r.result)) s.sales++;
+    // Only count as "showed" if run_date is in range
+    if (!isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr)) {
+      s.showed++;
+      s.total++;
+    }
+    // Count as "sale" if sale date is in range
+    if (isSaleInStrRange(r, startStr, endStr)) {
+      s.sales++;
+    }
   });
 
   // Add sales_outside_intro to per-SA sales count
@@ -505,7 +536,7 @@ function generateShoutoutCategories(
   });
   runs.forEach(r => {
     const linked = booked.find((b: any) => b.id === r.linked_intro_booked_id);
-    if (linked && !isNoShow(r.result)) {
+    if (linked && !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr)) {
       const n = linked.intro_owner || linked.sa_working_shift || '';
       if (showStat.has(n)) showStat.get(n)!.s++;
     }
@@ -521,17 +552,21 @@ function generateShoutoutCategories(
     });
   }
 
-  // 4) Intros Showed
+  // 4) Intros Showed — only count runs whose run_date is in range
   const showedBy = new Map<string, number>();
   runs.forEach(r => {
     if (isNoShow(r.result)) return;
+    if (!isRunDateInStrRange(r.run_date, startStr, endStr)) return;
     const n = r.sa_name || r.intro_owner || '';
     if (!ok(n)) return;
     showedBy.set(n, (showedBy.get(n) || 0) + 1);
   });
   addCategory(categories, 'Intros Showed', '🏃', showedBy, (_, v) => `${v} showed`);
 
-  // 5) Close Rate
+  // 5) Close Rate — uses dual-date: sales by sale date, showed by run_date
+  // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
+  // This can exceed 100% when follow-up purchases from previous periods
+  // land in a period with fewer new intros. This is correct behavior.
   const crEntries = Array.from(saRun.entries())
     .filter(([_, s]) => s.showed >= MIN_INTROS)
     .map(([n, s]) => ({ name: n, rate: (s.sales / s.showed) * 100, sales: s.sales, showed: s.showed }))
@@ -543,7 +578,7 @@ function generateShoutoutCategories(
     });
   }
 
-  // 6) Total Sales
+  // 6) Total Sales — uses sale date for counting
   const salesEntries = Array.from(saRun.entries())
     .filter(([_, s]) => s.sales > 0)
     .sort((a, b) => b[1].sales - a[1].sales).slice(0, 3);
