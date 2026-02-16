@@ -20,7 +20,7 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showFullScript, setShowFullScript] = useState<Set<string>>(new Set());
 
-  if (matched.length === 0 && (!fitnessLevel || fitnessLevel > 2)) return null;
+  // No early return — let parent control visibility
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
@@ -48,11 +48,13 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
     return result;
   };
 
+  if (matched.length === 0) return null;
+
   return (
     <div className="space-y-3">
       <h3 className="text-xs font-bold flex items-center gap-1.5 text-amber-700 uppercase tracking-wide">
         <Lightbulb className="w-3.5 h-3.5" />
-        EIRMA Objection Playbook
+        Matched Objection Playbooks
       </h3>
 
       {matched.map((pb, i) => {
@@ -73,7 +75,6 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
 
               <CollapsibleContent>
                 <div className="px-3 pb-3 space-y-2 text-xs">
-                  {/* EIRMA Quick Reference */}
                   <div className="space-y-1.5">
                     <EirmaStep letter="E" label="Empathize" content={personalize(pb.empathize_line)} />
                     <EirmaStep letter="I" label="Isolate" content={personalize(pb.isolate_question)} />
@@ -87,7 +88,6 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
                     <EirmaStep letter="A" label="Ask/Close" content={personalize(pb.ask_line)} />
                   </div>
 
-                  {/* Personalized note */}
                   {(fitnessGoal || emotionalDriver || pastExperience) && (
                     <div className="p-2 rounded bg-blue-50 border border-blue-200 text-blue-700">
                       <span className="font-semibold">Remember:</span>{' '}
@@ -99,7 +99,6 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
                     </div>
                   )}
 
-                  {/* Full Script Toggle */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -138,14 +137,18 @@ export function EirmaPlaybook({ obstacles, fitnessLevel, emotionalDriver, client
           <span className="font-medium">Low fitness level ({fitnessLevel}/5):</span> Emphasize modifications, heart-rate zones, and "go at your own pace" messaging.
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Hidden Objections Note */}
-      <div className="text-xs p-2 rounded border border-orange-200 bg-orange-50 text-orange-700 flex items-start gap-1.5">
-        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-        <div>
-          <span className="font-semibold">"I need to think about it"</span> is NEVER the real objection. 
-          If they say this, ask: <span className="italic">"What specifically do you need to think about?"</span> Then pivot to the matching EIRMA script.
-        </div>
+/** "I need to think about it" handler — exported so parent can position it */
+export function ThinkAboutItHandler() {
+  return (
+    <div className="text-xs p-2 rounded border border-orange-200 bg-orange-50 text-orange-700 flex items-start gap-1.5">
+      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+      <div>
+        <span className="font-semibold">"I need to think about it"</span> is NEVER the real objection.
+        If they say this, ask: <span className="italic">"What specifically do you need to think about?"</span> Then pivot to the matching EIRMA script.
       </div>
     </div>
   );
