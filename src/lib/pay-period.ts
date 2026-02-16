@@ -91,13 +91,13 @@ export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRang
     
     case 'this_week':
       return {
-        start: startOfWeek(today, { weekStartsOn: 0 }), // Sunday
-        end: endOfWeek(today, { weekStartsOn: 0 }),
+        start: startOfWeek(today, { weekStartsOn: 1 }), // Monday
+        end: endOfWeek(today, { weekStartsOn: 1 }),
       };
     
     case 'last_week':
-      const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
-      const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 0 });
+      const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+      const lastWeekEnd = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
       return {
         start: lastWeekStart,
         end: lastWeekEnd,
