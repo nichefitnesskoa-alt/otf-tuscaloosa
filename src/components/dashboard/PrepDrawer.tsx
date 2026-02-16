@@ -116,10 +116,7 @@ export function PrepDrawer({
         .from('intro_questionnaires')
         .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
         .in('booking_id', bookingIds)
-        .order('submitted_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .order('created_at', { ascending: false }),
       supabase
         .from('script_send_log')
         .select('id, sent_at, sent_by, message_body_sent')
@@ -127,7 +124,10 @@ export function PrepDrawer({
         .order('sent_at', { ascending: false })
         .limit(20),
     ]).then(([qRes, logRes]) => {
-      setQuestionnaire(qRes.data as unknown as QuestionnaireData | null);
+      // Pick the completed questionnaire if one exists, otherwise the most recent
+      const allQ = (qRes.data || []) as unknown as QuestionnaireData[];
+      const completed = allQ.find(q => q.status === 'completed' || q.status === 'submitted');
+      setQuestionnaire(completed || allQ[0] || null);
       setSendLogs((logRes.data || []) as SendLogEntry[]);
       setLoading(false);
     });
