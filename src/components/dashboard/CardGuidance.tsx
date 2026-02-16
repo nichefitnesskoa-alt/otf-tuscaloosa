@@ -1,4 +1,8 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Check, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 
 interface CardGuidanceProps {
   text: string;
@@ -14,6 +18,77 @@ export function CardGuidance({ text, className }: CardGuidanceProps) {
     )}>
       👉 {text}
     </p>
+  );
+}
+
+// ─── CardGuidanceWithAction: guidance + "Mark Done" button ─────────
+
+interface CardGuidanceWithActionProps {
+  text: string;
+  actionType: string;
+  bookingId: string;
+  completedBy: string;
+  /** Already completed info (if step was done) */
+  completedInfo?: { by: string; at: string } | null;
+  onCompleted?: () => void;
+  className?: string;
+}
+
+export function CardGuidanceWithAction({
+  text, actionType, bookingId, completedBy, completedInfo, onCompleted, className,
+}: CardGuidanceWithActionProps) {
+  const [saving, setSaving] = useState(false);
+
+  if (!text) return null;
+
+  if (completedInfo) {
+    return (
+      <div className={cn(
+        'text-[13px] font-medium leading-snug rounded-md px-2.5 py-1.5 border flex items-center gap-2',
+        'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300',
+        className
+      )}>
+        <Check className="w-4 h-4 shrink-0" />
+        <span className="flex-1 line-through opacity-70">{text}</span>
+        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 shrink-0">
+          {completedInfo.by} · {format(new Date(completedInfo.at), 'h:mm a')}
+        </span>
+      </div>
+    );
+  }
+
+  const handleMarkDone = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSaving(true);
+    try {
+      await supabase.from('script_actions').insert({
+        booking_id: bookingId,
+        action_type: actionType,
+        completed_by: completedBy,
+      });
+      onCompleted?.();
+    } catch {
+      // silent fail
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={cn(
+      'text-[13px] font-medium text-foreground/80 leading-snug bg-amber-50 dark:bg-amber-950/30 rounded-md px-2.5 py-1.5 border border-amber-200 dark:border-amber-800/50 flex items-center gap-2',
+      className
+    )}>
+      <span className="flex-1">👉 {text}</span>
+      <button
+        onClick={handleMarkDone}
+        disabled={saving}
+        className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 transition-colors disabled:opacity-50"
+      >
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+        Done
+      </button>
+    </div>
   );
 }
 
@@ -36,7 +111,6 @@ export interface JourneyContext {
   
   // Status checks
   confirmationSent?: boolean;
-  askAFriendSent?: boolean;
   qSent?: boolean;
   qCompleted?: boolean;
   welcomeSent?: boolean;
@@ -54,36 +128,40 @@ export interface JourneyContext {
   nextTouchDate?: string;
 }
 
-export function getJourneyGuidance(ctx: JourneyContext): string {
+/** Returns { text, actionType } for the current step */
+export function getJourneyGuidanceWithAction(ctx: JourneyContext): { text: string; actionType: string | null } {
   // ── Follow-up cards ──
   if (ctx.isFollowUp) {
-    return getFollowUpGuidance({
-      touchNumber: ctx.touchNumber || 1,
-      personType: ctx.personType || 'didnt_buy',
-      isLegacy: ctx.isLegacy || false,
-      leadSource: ctx.leadSource,
-      inCoolingPeriod: ctx.inCoolingPeriod,
-      coolingDaysAgo: ctx.coolingDaysAgo,
-      nextAvailableDate: ctx.nextAvailableDate,
-    });
+    return {
+      text: getFollowUpGuidance({
+        touchNumber: ctx.touchNumber || 1,
+        personType: ctx.personType || 'didnt_buy',
+        isLegacy: ctx.isLegacy || false,
+        leadSource: ctx.leadSource,
+        inCoolingPeriod: ctx.inCoolingPeriod,
+        coolingDaysAgo: ctx.coolingDaysAgo,
+        nextAvailableDate: ctx.nextAvailableDate,
+      }),
+      actionType: null,
+    };
   }
 
   // ── Lead cards (no booking) ──
   if (ctx.isLead && !ctx.isBooked) {
     if (ctx.leadStage === 'new' || !ctx.leadStage) {
-      return `Step 1: Contact them now → tap Script for ${ctx.leadSource || 'lead'} opener`;
+      return { text: `Step 1: Contact them now → tap Script for ${ctx.leadSource || 'lead'} opener`, actionType: 'first_contact' };
     }
     if (ctx.leadStage === 'contacted') {
-      return 'Step 2: Book their intro → tap Book';
+      return { text: 'Step 2: Book their intro → tap Book', actionType: null };
     }
-    return '';
+    return { text: '', actionType: null };
   }
 
   // ── Booked intro cards ──
   if (ctx.isBooked) {
     // Post-log stages
     if (ctx.introResult) {
-      return getPostLogGuidance(ctx);
+      return getPostLogGuidanceWithAction(ctx);
     }
 
     // Pre-log stages
@@ -97,76 +175,84 @@ export function getJourneyGuidance(ctx: JourneyContext): string {
     }
 
     if (classTimePassed) {
-      return 'Step 8: Log what happened → tap Log Intro';
+      return { text: 'Step 7: Log what happened → tap Log Intro', actionType: null };
     }
 
     if (ctx.isSecondIntro) {
       return ctx.confirmationSent
-        ? 'Ready for 2nd intro. No questionnaire needed.'
-        : 'Send confirmation for their 2nd visit → tap Script';
+        ? { text: 'Ready for 2nd intro. No questionnaire needed.', actionType: null }
+        : { text: 'Send confirmation for their 2nd visit → tap Script', actionType: 'confirmation_sent' };
     }
 
-    // Sequential pre-class steps
-    if (!ctx.askAFriendSent && !ctx.confirmationSent) {
-      return "Step 3: Send 'Ask a Friend' script → tap Script";
-    }
-    if (ctx.askAFriendSent && !ctx.confirmationSent) {
-      return 'Step 4: Send confirmation with questionnaire link → tap Script';
+    // Sequential pre-class steps (Ask a Friend removed, renumbered)
+    if (!ctx.confirmationSent) {
+      return { text: 'Step 3: Send confirmation with questionnaire link → tap Script', actionType: 'confirmation_sent' };
     }
     if (ctx.confirmationSent && !ctx.qCompleted) {
       if (ctx.qSent) {
-        return 'Step 5: Waiting for questionnaire. Follow up if needed.';
+        return { text: 'Step 4: Waiting for questionnaire. Follow up if needed.', actionType: 'q_reminder_sent' };
       }
-      return 'Step 4: Questionnaire is included in confirmation text → tap Script to send confirmation';
+      return { text: 'Step 3: Questionnaire is included in confirmation text → tap Script to send confirmation', actionType: 'confirmation_sent' };
     }
     if (ctx.qCompleted && isClassToday) {
-      return 'Step 7: Intro today! Review answers before they arrive → tap Prep';
+      return { text: 'Step 6: Intro today! Review answers before they arrive → tap Prep', actionType: 'prep_reviewed' };
     }
     if (ctx.qCompleted) {
-      return 'Step 6: Ready for intro. Review their answers → tap Prep';
+      return { text: 'Step 5: Ready for intro. Review their answers → tap Prep', actionType: 'prep_reviewed' };
     }
     if (!ctx.qCompleted && ctx.confirmationSent) {
-      return 'Step 5: Questionnaire not completed yet. Send a reminder → tap Script';
+      return { text: 'Step 4: Questionnaire not completed yet. Send a reminder → tap Script', actionType: 'q_reminder_sent' };
     }
 
-    return 'Review their info before they arrive → tap Prep';
+    return { text: 'Review their info before they arrive → tap Prep', actionType: 'prep_reviewed' };
   }
 
-  return '';
+  return { text: '', actionType: null };
 }
 
-function getPostLogGuidance(ctx: JourneyContext): string {
+function getPostLogGuidanceWithAction(ctx: JourneyContext): { text: string; actionType: string | null } {
   const result = (ctx.introResult || '').toLowerCase();
   const isPurchased = ['premier', 'elite', 'basic'].some(m => result.includes(m));
   const isNoShow = result === 'no-show';
 
   if (isPurchased) {
     if (!ctx.welcomeSent) {
-      return 'Step 9: Send welcome text, then ask for a referral → tap Script';
+      return { text: 'Step 8: Send welcome text, then ask for a referral → tap Script', actionType: 'welcome_sent' };
     }
     if (!ctx.referralAskSent) {
-      return 'Step 10: Ask for a referral → tap Script';
+      return { text: 'Step 9: Ask for a referral → tap Script', actionType: 'referral_ask_sent' };
     }
-    return `All steps complete for ${ctx.isBooked ? 'this member' : 'this person'}! ✓`;
+    return { text: `All steps complete for ${ctx.isBooked ? 'this member' : 'this person'}! ✓`, actionType: null };
   }
 
   if (isNoShow) {
     if (!ctx.followUpSent) {
-      return 'Step 9: Send rebook text → tap Script';
+      return { text: 'Step 8: Send rebook text → tap Script', actionType: 'follow_up_sent' };
     }
-    return ctx.nextTouchDate
-      ? `Rebook text sent. Touch 2 scheduled for ${ctx.nextTouchDate}.`
-      : 'Rebook text sent. Follow-up queued.';
+    return {
+      text: ctx.nextTouchDate
+        ? `Rebook text sent. Touch 2 scheduled for ${ctx.nextTouchDate}.`
+        : 'Rebook text sent. Follow-up queued.',
+      actionType: null,
+    };
   }
 
   // Didn't Buy
   const objection = ctx.primaryObjection ? ` about their ${ctx.primaryObjection} concern` : '';
   if (!ctx.followUpSent) {
-    return `Step 9: Send follow-up text${objection} → tap Script`;
+    return { text: `Step 8: Send follow-up text${objection} → tap Script`, actionType: 'follow_up_sent' };
   }
-  return ctx.nextTouchDate
-    ? `Follow-up sent. Touch 2 scheduled for ${ctx.nextTouchDate}.`
-    : 'Follow-up sent. Next touch queued.';
+  return {
+    text: ctx.nextTouchDate
+      ? `Follow-up sent. Touch 2 scheduled for ${ctx.nextTouchDate}.`
+      : 'Follow-up sent. Next touch queued.',
+    actionType: null,
+  };
+}
+
+// Keep backward-compat wrapper
+export function getJourneyGuidance(ctx: JourneyContext): string {
+  return getJourneyGuidanceWithAction(ctx).text;
 }
 
 // ─── Existing guidance generators (preserved for backward compat) ───

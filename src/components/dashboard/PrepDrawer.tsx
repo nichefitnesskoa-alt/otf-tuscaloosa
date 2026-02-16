@@ -19,7 +19,7 @@ import {
   MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EirmaPlaybook } from './EirmaPlaybook';
+import { EirmaPlaybook, ThinkAboutItHandler } from './EirmaPlaybook';
 import { TransformationClose } from './TransformationClose';
 import { getObstacleConnector } from './TransformationClose';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
@@ -231,16 +231,16 @@ export function PrepDrawer({
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : hasQ ? (
                   <div className="space-y-3">
-                    {/* Quick Q Summary */}
+                    {/* Full Questionnaire Answers */}
                     <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
-                      <QRow label="Fitness level (1-5)" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
-                      <QRow label="What have you tried before?" value={questionnaire.q4_past_experience} />
-                      <QRow label="What would reaching your goal mean to you?" value={emotionalDriver} />
-                      <QRow label="Days per week you can commit?" value={commitment} />
-                      <QRow label="Which days work best?" value={questionnaire.q6b_available_days} />
-                      {questionnaire.q7_coach_notes && (
-                        <QRow label="Coach notes" value={questionnaire.q7_coach_notes} />
-                      )}
+                      <QRow label="What is your primary fitness goal?" value={goal} />
+                      <QRow label="How would you rate your current fitness level (1-5)?" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
+                      <QRow label="What has been the biggest obstacle to reaching your fitness goals?" value={obstacle} />
+                      <QRow label="What have you tried before for fitness?" value={questionnaire.q4_past_experience} />
+                      <QRow label="What would reaching your goal mean to you emotionally?" value={emotionalDriver} />
+                      <QRow label="How many days per week can you realistically commit?" value={commitment} />
+                      <QRow label="Which days work best for you?" value={questionnaire.q6b_available_days} />
+                      <QRow label="Anything else the coach should know?" value={questionnaire.q7_coach_notes} />
                     </div>
 
                     {/* Individual Goal Cards */}
@@ -372,21 +372,64 @@ export function PrepDrawer({
 
               {/* TAB 3: Objections */}
               <TabsContent value="objections" className="mt-3">
-                {hasQ ? (
-                  <EirmaPlaybook
-                    obstacles={obstacle}
-                    fitnessLevel={questionnaire.q2_fitness_level}
-                    emotionalDriver={emotionalDriver}
-                    clientName={memberName}
-                    fitnessGoal={goal}
-                    pastExperience={questionnaire.q4_past_experience}
-                  />
-                ) : (
-                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
-                    <ClipboardList className="w-3 h-3" />
-                    Complete the questionnaire to see matched objection playbooks.
+                <div className="space-y-4">
+                  {/* Section 1: Matched Objections (if Q data exists) */}
+                  {hasQ && (
+                    <EirmaPlaybook
+                      obstacles={obstacle}
+                      fitnessLevel={questionnaire?.q2_fitness_level ?? null}
+                      emotionalDriver={emotionalDriver}
+                      clientName={memberName}
+                      fitnessGoal={goal}
+                      pastExperience={questionnaire?.q4_past_experience ?? null}
+                    />
+                  )}
+
+                  {/* Section 2: "Think About It" Handler — prominent */}
+                  <ThinkAboutItHandler />
+
+                  {/* Section 3: Common Objections Quick Reference — always visible */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">📋 Common Objections Quick Reference</p>
+                    <CommonObjectionCard
+                      name="Price / Cost"
+                      empathize="I hear you. Nobody wants to waste money on something that won't work."
+                      isolate="Is it the monthly cost, or is it more about whether you'll actually use it?"
+                      redirect="Most people spend more on things that don't make them feel this good. This is an investment in how you feel every day."
+                    />
+                    <CommonObjectionCard
+                      name="Time / Schedule"
+                      empathize="I totally get it. Time is the #1 reason people say they can't work out."
+                      isolate="Is it that you don't have time, or that you haven't found something worth making time for?"
+                      redirect="It's 50 minutes, 3x a week. You just did it. The class does the thinking for you."
+                    />
+                    <CommonObjectionCard
+                      name="Spouse / Partner"
+                      empathize="That makes total sense. Big decisions should be shared."
+                      isolate="Is it more about the money, or do they need to see it to believe it?"
+                      redirect="Bring them to your next class — their first one is free. Let them experience it."
+                    />
+                    <CommonObjectionCard
+                      name="Not Sure It's For Me"
+                      empathize="I understand. It's hard to commit to something new."
+                      isolate="What part are you unsure about — the workout, the schedule, or the investment?"
+                      redirect="You just crushed a class and you're still standing. That's exactly who this is for."
+                    />
                   </div>
-                )}
+
+                  {/* Section 4: Accusation Audit */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">🛡️ Accusation Audit</p>
+                    <div className="rounded-lg border border-muted p-3 text-xs leading-relaxed">
+                      <p className="italic">
+                        "Now I know what you are probably thinking right now. This is where the sales pitch starts. I am about to pressure you into buying something you can't afford. It's gonna be way more expensive than you thought. You are going to get locked into some contract you can't get out of. If you say no it's going to be awkward. I am not going to let you leave without signing up. And honestly, you probably think this is just going to be like the other times you have tried."
+                      </p>
+                      <p className="mt-2 text-muted-foreground">
+                        ⏸ Pause. Let them process. Then transition to the Identity Close.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
 
@@ -518,5 +561,31 @@ function EirmaStep({ letter, label, text }: { letter: string; label: string; tex
       <span className="text-muted-foreground shrink-0 w-16">{label}</span>
       <span className="italic leading-relaxed">"{text}"</span>
     </div>
+  );
+}
+
+function CommonObjectionCard({ name, empathize, isolate, redirect }: {
+  name: string;
+  empathize: string;
+  isolate: string;
+  redirect: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-lg border border-muted overflow-hidden">
+        <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-left text-xs">
+          {isOpen ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+          <span className="font-semibold">{name}</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-3 pb-3 text-xs space-y-1.5">
+            <div><span className="font-bold text-amber-800">E:</span> <span className="text-muted-foreground italic">"{empathize}"</span></div>
+            <div><span className="font-bold text-amber-800">I:</span> <span className="text-muted-foreground italic">"{isolate}"</span></div>
+            <div><span className="font-bold text-amber-800">R:</span> <span className="text-muted-foreground italic">"{redirect}"</span></div>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }

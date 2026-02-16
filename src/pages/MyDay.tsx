@@ -36,7 +36,7 @@ import { SoonLayer } from '@/components/dashboard/SoonLayer';
 import { ShiftScanOverlay } from '@/components/dashboard/ShiftScanOverlay';
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { SectionHelp } from '@/components/dashboard/SectionHelp';
-import { CardGuidance, getIntroGuidance, getLeadGuidance, getTomorrowGuidance, getJourneyGuidance, JourneyContext } from '@/components/dashboard/CardGuidance';
+import { CardGuidance, CardGuidanceWithAction, getIntroGuidance, getLeadGuidance, getTomorrowGuidance, getJourneyGuidance, getJourneyGuidanceWithAction, JourneyContext } from '@/components/dashboard/CardGuidance';
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
@@ -126,7 +126,7 @@ export default function MyDay() {
   const [isLoading, setIsLoading] = useState(true);
   const [reminderSentMap, setReminderSentMap] = useState<Set<string>>(new Set());
   const [confirmationSentMap, setConfirmationSentMap] = useState<Set<string>>(new Set());
-  const [scriptActionsMap, setScriptActionsMap] = useState<Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>>(new Map());
+  const [scriptActionsMap, setScriptActionsMap] = useState<Map<string, Array<{ action_type: string; script_category: string | null; completed_by: string; completed_at: string }>>>(new Map());
   const [todayScriptsSent, setTodayScriptsSent] = useState(0);
   const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
   const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
@@ -287,11 +287,13 @@ export default function MyDay() {
           .not('booking_id', 'is', null);
 
         if (actionsData) {
-          const map = new Map<string, { action_type: string; script_category: string | null; completed_by: string; completed_at: string }>();
+          const map = new Map<string, Array<{ action_type: string; script_category: string | null; completed_by: string; completed_at: string }>>();
           let scriptsCount = 0;
           for (const a of actionsData) {
-            if (a.booking_id && (a.action_type === 'script_sent' || a.action_type === 'intro_logged')) {
-              map.set(a.booking_id, { action_type: a.action_type, script_category: a.script_category, completed_by: a.completed_by, completed_at: a.completed_at });
+            if (a.booking_id) {
+              const existing = map.get(a.booking_id) || [];
+              existing.push({ action_type: a.action_type, script_category: a.script_category, completed_by: a.completed_by, completed_at: a.completed_at });
+              map.set(a.booking_id, existing);
             }
             if (a.action_type === 'script_sent' && a.completed_by === user?.name) scriptsCount++;
           }
@@ -660,28 +662,50 @@ export default function MyDay() {
 
           {/* Script action indicator */}
           {scriptActionsMap.has(b.id) && !isExpanded && (() => {
-            const action = scriptActionsMap.get(b.id)!;
+            const actions = scriptActionsMap.get(b.id)!;
+            const latest = actions[actions.length - 1];
             return (
               <div className="flex items-center gap-1 text-[9px] text-emerald-700 mt-0.5">
                 <CheckCircle2 className="w-2.5 h-2.5" />
-                {action.completed_by} · {format(new Date(action.completed_at), 'h:mm a')}
+                {latest.completed_by} · {format(new Date(latest.completed_at), 'h:mm a')}
               </div>
             );
           })()}
 
-          {/* Journey guidance - always visible */}
+          {/* Journey guidance with action button - always visible */}
           {!isExpanded && !b.intro_result && (() => {
-            const guidance = getJourneyGuidance({
+            const bookingActions = scriptActionsMap.get(b.id) || [];
+            const hasAction = (type: string) => bookingActions.some(a => a.action_type === type);
+            const getActionInfo = (type: string) => {
+              const a = bookingActions.find(a => a.action_type === type);
+              return a ? { by: a.completed_by, at: a.completed_at } : null;
+            };
+            const ctx: JourneyContext = {
               isBooked: true,
               classDate: b.class_date,
               classTime: b.intro_time,
               introResult: b.intro_result,
               isSecondIntro: is2nd,
-              confirmationSent: confirmationSentMap.has(b.id),
+              confirmationSent: confirmationSentMap.has(b.id) || hasAction('confirmation_sent'),
               qCompleted: b.questionnaire_status === 'completed' || b.questionnaire_status === 'submitted',
               qSent: b.questionnaire_status === 'sent',
-            });
-            return guidance ? <CardGuidance text={guidance} className="mx-3 mb-2 mt-1" /> : null;
+            };
+            const { text, actionType } = getJourneyGuidanceWithAction(ctx);
+            if (!text) return null;
+            if (actionType) {
+              return (
+                <CardGuidanceWithAction
+                  text={text}
+                  actionType={actionType}
+                  bookingId={b.id}
+                  completedBy={user?.name || 'Unknown'}
+                  completedInfo={getActionInfo(actionType)}
+                  onCompleted={fetchMyDayData}
+                  className="mx-3 mb-2 mt-1"
+                />
+              );
+            }
+            return <CardGuidance text={text} className="mx-3 mb-2 mt-1" />;
           })()}
         </div>
 
@@ -721,15 +745,23 @@ export default function MyDay() {
             )}
 
             {scriptActionsMap.has(b.id) && (() => {
-              const action = scriptActionsMap.get(b.id)!;
-              const timeStr = format(new Date(action.completed_at), 'h:mm a');
-              const label = action.action_type === 'script_sent'
-                ? `${action.completed_by} sent ${action.script_category === 'booking_confirmation' ? 'confirmation' : 'script'}`
-                : `${action.completed_by} logged intro`;
+              const actions = scriptActionsMap.get(b.id)!;
               return (
-                <div className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1">
-                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-                  {label} at {timeStr}
+                <div className="space-y-1">
+                  {actions.map((action, i) => {
+                    const timeStr = format(new Date(action.completed_at), 'h:mm a');
+                    const label = action.action_type === 'script_sent'
+                      ? `${action.completed_by} sent ${action.script_category === 'booking_confirmation' ? 'confirmation' : 'script'}`
+                      : action.action_type === 'intro_logged'
+                        ? `${action.completed_by} logged intro`
+                        : `${action.completed_by} completed ${action.action_type.replace(/_/g, ' ')}`;
+                    return (
+                      <div key={i} className="flex items-center gap-1.5 text-[10px] text-emerald-700 bg-emerald-50 rounded px-2 py-1">
+                        <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                        {label} at {timeStr}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -1160,7 +1192,7 @@ export default function MyDay() {
                                 isSecondIntro: is2nd,
                                 confirmationSent: true,
                                 qCompleted: true,
-                                welcomeSent: scriptActionsMap.has(b.id) && scriptActionsMap.get(b.id)?.script_category === 'welcome_congrats',
+                                welcomeSent: (scriptActionsMap.get(b.id) || []).some(a => a.action_type === 'welcome_sent' || a.script_category === 'welcome_congrats'),
                                 followUpSent: followUpVerifiedMap.get(b.id) === true,
                               });
                               return guidance ? <CardGuidance text={guidance} className="mt-1.5" /> : null;
