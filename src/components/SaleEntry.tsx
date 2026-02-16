@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2 } from 'lucide-react';
 
 const LEAD_SOURCES = [
+  'HRM Add-on',
   'Member Referral',
   'Upgrade',
   'Walk in',
@@ -18,6 +19,7 @@ const MEMBERSHIP_TYPES = [
   { label: 'Elite w/o OTBeat', commission: 6.00 },
   { label: 'Basic + OTBeat', commission: 9.00 },
   { label: 'Basic w/o OTBeat', commission: 3.00 },
+  { label: 'HRM Add-on (OTBeat)', commission: 7.50 },
 ] as const;
 
 export interface SaleData {
@@ -38,10 +40,15 @@ interface SaleEntryProps {
 export default function SaleEntry({ sale, index, onUpdate, onRemove }: SaleEntryProps) {
   const handleMembershipChange = (value: string) => {
     const membership = MEMBERSHIP_TYPES.find(m => m.label === value);
-    onUpdate(index, { 
+    const updates: Partial<SaleData> = { 
       membershipType: value,
       commissionAmount: membership?.commission || 0
-    });
+    };
+    // Auto-set lead source for HRM add-ons
+    if (value === 'HRM Add-on (OTBeat)') {
+      updates.leadSource = 'HRM Add-on';
+    }
+    onUpdate(index, updates);
   };
 
   return (

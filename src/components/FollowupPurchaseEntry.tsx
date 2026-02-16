@@ -43,6 +43,7 @@ const COMMISSION_RATES: Record<string, number> = {
   'Elite w/o OTBeat': 6,
   'Basic + OTBeat': 9,
   'Basic w/o OTBeat': 3,
+  'HRM Add-on (OTBeat)': 7.5,
 };
 
 export default function FollowupPurchaseEntry({ 
@@ -134,7 +135,34 @@ export default function FollowupPurchaseEntry({
 
     setIsSubmitting(true);
     try {
-      // Update the existing run record with the sale
+      // HRM Add-on: insert as a separate sales_outside_intro record, don't modify existing run
+      if (membershipType === 'HRM Add-on (OTBeat)') {
+        const saleId = `sale_${crypto.randomUUID().substring(0, 8)}`;
+        const { error: saleError } = await supabase.from('sales_outside_intro').insert({
+          sale_id: saleId,
+          sale_type: 'hrm_addon',
+          member_name: client.memberName,
+          lead_source: client.leadSource || 'HRM Add-on',
+          membership_type: 'HRM Add-on (OTBeat)',
+          commission_amount: commission,
+          intro_owner: staffName,
+          date_closed: purchaseDate,
+        });
+
+        if (saleError) throw saleError;
+
+        toast.success(`${capitalizeName(client.memberName)} purchased HRM!`, {
+          description: `$${commission.toFixed(2)} commission for ${capitalizeName(staffName)}`,
+        });
+
+        setSelectedClient('');
+        setMembershipType('');
+        onPurchaseComplete?.();
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Normal membership purchase: update existing run record
       const { error: runError } = await supabase
         .from('intros_run')
         .update({
