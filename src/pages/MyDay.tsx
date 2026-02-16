@@ -250,7 +250,16 @@ export default function MyDay() {
             .limit(200),
         ]);
 
-        const qMap = new Map(qRes.data?.map(q => [q.booking_id, { status: q.status, slug: (q as any).slug }]) || []);
+        // Prioritize completed/submitted questionnaires over not_sent/sent ones
+        const qByBooking = new Map<string, { status: string; slug: string | null }>();
+        for (const q of (qRes.data || [])) {
+          const existing = qByBooking.get(q.booking_id);
+          const isCompleted = q.status === 'completed' || q.status === 'submitted';
+          if (!existing || isCompleted) {
+            qByBooking.set(q.booking_id, { status: q.status, slug: (q as any).slug });
+          }
+        }
+        const qMap = qByBooking;
         const runMap = new Map((runRes.data || []).map((r: any) => [r.linked_intro_booked_id, { result: r.result, primary_objection: r.primary_objection }]));
         
         const enriched = bookings.map(b => ({
