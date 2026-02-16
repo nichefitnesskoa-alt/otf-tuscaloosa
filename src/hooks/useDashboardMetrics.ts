@@ -11,9 +11,6 @@ interface StudioMetrics {
   introSales: number;
   closingRate: number;
   totalCommission: number;
-  goalWhyRate: number;
-  relationshipRate: number;
-  madeAFriendRate: number;
 }
 
 interface LeaderEntry {
@@ -271,30 +268,11 @@ export function useDashboardMetrics(
       
       const commission = introCommission + outsideCommission;
 
-      // Lead measures (from SA's first runs only)
-      // Goal + Why captured: Yes or Partial
-      const withGoalWhy = saFirstRuns.filter(r => (r as any).goal_why_captured);
-      const goalWhyYes = withGoalWhy.filter(r => ['Yes', 'Partial'].includes((r as any).goal_why_captured));
-      const goalWhyRate = withGoalWhy.length > 0 ? (goalWhyYes.length / withGoalWhy.length) * 100 : 0;
-
-      // Relationship experience: Yes or Partial
-      const withRelationship = saFirstRuns.filter(r => (r as any).relationship_experience);
-      const relationshipYes = withRelationship.filter(r => ['Yes', 'Partial'].includes((r as any).relationship_experience));
-      const relationshipRate = withRelationship.length > 0 ? (relationshipYes.length / withRelationship.length) * 100 : 0;
-
-      // Made a friend: Yes
-      const withFriend = saFirstRuns.filter(r => (r as any).made_a_friend !== undefined && (r as any).made_a_friend !== null);
-      const friendYes = withFriend.filter(r => (r as any).made_a_friend === true);
-      const madeAFriendRate = withFriend.length > 0 ? (friendYes.length / withFriend.length) * 100 : 0;
-
       return {
         saName,
         introsRun: introsRunCount,
         sales: salesCount,
         closingRate,
-        goalWhyRate,
-        relationshipRate,
-        madeAFriendRate,
         commission,
       };
     }).filter(m => m.introsRun > 0 || m.sales > 0 || m.commission > 0)
@@ -438,17 +416,6 @@ export function useDashboardMetrics(
     const studioClosingRate = studioIntrosRun > 0 ? (studioIntroSales / studioIntrosRun) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + m.commission, 0);
 
-    // Studio lead measures - weighted average
-    const totalRuns = perSAData.reduce((sum, m) => sum + m.introsRun, 0);
-    const studioGoalWhyRate = totalRuns > 0 
-      ? perSAData.reduce((sum, m) => sum + (m.goalWhyRate * m.introsRun), 0) / totalRuns 
-      : 0;
-    const studioRelationshipRate = totalRuns > 0 
-      ? perSAData.reduce((sum, m) => sum + (m.relationshipRate * m.introsRun), 0) / totalRuns 
-      : 0;
-    const studioMadeAFriendRate = totalRuns > 0 
-      ? perSAData.reduce((sum, m) => sum + (m.madeAFriendRate * m.introsRun), 0) / totalRuns 
-      : 0;
 
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
@@ -537,9 +504,6 @@ export function useDashboardMetrics(
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
         totalCommission: studioCommission,
-        goalWhyRate: studioGoalWhyRate,
-        relationshipRate: studioRelationshipRate,
-        madeAFriendRate: studioMadeAFriendRate,
       },
       perSA: perSAData,
       bookerStats,

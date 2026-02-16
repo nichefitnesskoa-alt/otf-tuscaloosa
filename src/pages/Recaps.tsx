@@ -27,7 +27,7 @@ import { IntroBooked } from '@/context/DataContext';
 
 // 6B: Wrapper that fetches Q completion rate and passes it to StudioScoreboard
 function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee, pipeline }: {
-  scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number; goalWhyRate: number; relationshipRate: number; madeAFriendRate: number };
+  scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number };
   introsBooked: IntroBooked[];
   dateRange: DateRange | null;
   selectedEmployee: string | null;
@@ -71,9 +71,6 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
       introsRun={scoreboardMetrics.introsRun}
       introSales={scoreboardMetrics.introSales}
       closingRate={scoreboardMetrics.closingRate}
-      goalWhyRate={scoreboardMetrics.goalWhyRate}
-      relationshipRate={scoreboardMetrics.relationshipRate}
-      madeAFriendRate={scoreboardMetrics.madeAFriendRate}
       qCompletionRate={qRate}
       introsBooked={pipeline.booked}
       introsShowed={pipeline.showed}
@@ -137,15 +134,12 @@ export default function Recaps() {
   const scoreboardMetrics = useMemo(() => {
     if (!selectedEmployee) return metrics.studio;
     const sa = metrics.perSA.find(m => m.saName === selectedEmployee);
-    if (!sa) return { introsRun: 0, introSales: 0, closingRate: 0, totalCommission: 0, goalWhyRate: 0, relationshipRate: 0, madeAFriendRate: 0 };
+    if (!sa) return { introsRun: 0, introSales: 0, closingRate: 0, totalCommission: 0 };
     return {
       introsRun: sa.introsRun,
       introSales: sa.sales,
       closingRate: sa.closingRate,
       totalCommission: sa.commission,
-      goalWhyRate: sa.goalWhyRate,
-      relationshipRate: sa.relationshipRate,
-      madeAFriendRate: sa.madeAFriendRate,
     };
   }, [selectedEmployee, metrics]);
 
@@ -218,9 +212,7 @@ export default function Recaps() {
       text += `• Intros Run: ${userMetrics.introsRun}\n`;
       text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate of showed)\n`;
       text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
-      text += `• Goal+Why: ${userMetrics.goalWhyRate.toFixed(0)}%\n`;
-      text += `• Peak Exp: ${userMetrics.relationshipRate.toFixed(0)}%\n`;
-      text += `• Made Friend: ${userMetrics.madeAFriendRate.toFixed(0)}%\n`;
+      text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
     } else {
       text += `No intros recorded for this period yet.\n`;
     }
@@ -237,9 +229,7 @@ export default function Recaps() {
     text += `• Intros Run: ${metrics.studio.introsRun}\n`;
     text += `• Sales: ${metrics.studio.introSales} (${metrics.studio.closingRate.toFixed(0)}% close rate of showed)\n`;
     text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n`;
-    text += `• Goal+Why: ${metrics.studio.goalWhyRate.toFixed(0)}%\n`;
-    text += `• Peak Exp: ${metrics.studio.relationshipRate.toFixed(0)}%\n`;
-    text += `• Made Friend: ${metrics.studio.madeAFriendRate.toFixed(0)}%\n\n`;
+    text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n\n`;
 
     if (topBookers.length > 0) {
       text += `🏆 Top Bookers:\n`;
@@ -283,18 +273,13 @@ export default function Recaps() {
     csv += `Studio,All,Sales,${metrics.studio.introSales}\n`;
     csv += `Studio,All,Close Rate,${metrics.studio.closingRate.toFixed(1)}%\n`;
     csv += `Studio,All,Commission,$${metrics.studio.totalCommission.toFixed(2)}\n`;
-    csv += `Studio,All,Goal+Why Rate,${metrics.studio.goalWhyRate.toFixed(1)}%\n`;
-    csv += `Studio,All,Peak Exp Rate,${metrics.studio.relationshipRate.toFixed(1)}%\n`;
-    csv += `Studio,All,Made Friend Rate,${metrics.studio.madeAFriendRate.toFixed(1)}%\n`;
     
     // Per-SA data
     metrics.perSA.forEach(m => {
       csv += `Per-SA,${m.saName},Intros Run,${m.introsRun}\n`;
       csv += `Per-SA,${m.saName},Sales,${m.sales}\n`;
       csv += `Per-SA,${m.saName},Close Rate,${m.closingRate.toFixed(1)}%\n`;
-      csv += `Per-SA,${m.saName},Goal+Why Rate,${m.goalWhyRate.toFixed(1)}%\n`;
-      csv += `Per-SA,${m.saName},Peak Exp Rate,${m.relationshipRate.toFixed(1)}%\n`;
-      csv += `Per-SA,${m.saName},Made Friend Rate,${m.madeAFriendRate.toFixed(1)}%\n`;
+      csv += `Per-SA,${m.saName},Commission,$${m.commission.toFixed(2)}\n`;
       csv += `Per-SA,${m.saName},Commission,$${m.commission.toFixed(2)}\n`;
     });
 
