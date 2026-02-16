@@ -18,6 +18,7 @@ import SettingsPage from "./pages/Settings";
 import Pipeline from "./pages/Pipeline";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
+import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -125,6 +126,7 @@ function AppRoutes() {
         }
       />
       <Route path="/q/:id" element={<Questionnaire />} />
+      <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route
