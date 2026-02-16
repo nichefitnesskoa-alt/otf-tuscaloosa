@@ -923,26 +923,29 @@ export default function ShiftRecap() {
             date_closed: date,
           });
 
-          // Auto-increment AMC for outside-intro sale
-          await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System', date);
+          // Skip AMC increment, lead matching, and booking close for HRM add-ons
+          if (sale.membershipType !== 'HRM Add-on (OTBeat)') {
+            // Auto-increment AMC for outside-intro sale
+            await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System', date);
 
-          // Auto-link matching lead as won
-          await matchLeadByName(sale.memberName, null, 'won', sale.leadSource);
+            // Auto-link matching lead as won
+            await matchLeadByName(sale.memberName, null, 'won', sale.leadSource);
 
-          // Auto-close any matching active bookings
-          if (sale.commissionAmount > 0 || sale.membershipType) {
-            const closeResult = await closeBookingOnSale(
-              sale.memberName,
-              sale.commissionAmount,
-              sale.membershipType,
-              saleId,
-              undefined, // no specific booking ID
-              user?.name || 'System'
-            );
+            // Auto-close any matching active bookings
+            if (sale.commissionAmount > 0 || sale.membershipType) {
+              const closeResult = await closeBookingOnSale(
+                sale.memberName,
+                sale.commissionAmount,
+                sale.membershipType,
+                saleId,
+                undefined, // no specific booking ID
+                user?.name || 'System'
+              );
 
-            // If multiple matches, show confirmation dialog
-            if (closeResult.requiresConfirmation && closeResult.matches) {
-              setShowConfirmDialog(true);
+              // If multiple matches, show confirmation dialog
+              if (closeResult.requiresConfirmation && closeResult.matches) {
+                setShowConfirmDialog(true);
+              }
             }
           }
 

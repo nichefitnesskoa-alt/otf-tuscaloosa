@@ -75,6 +75,7 @@ export const MEMBERSHIP_TYPES = [
   { label: 'Elite w/o OTBeat', commission: 6.00 },
   { label: 'Basic + OTBeat', commission: 9.00 },
   { label: 'Basic w/o OTBeat', commission: 3.00 },
+  { label: 'HRM Add-on (OTBeat)', commission: 7.50 },
   { label: 'Follow-up needed (no sale yet)', commission: 0 },
   { label: 'No-show (didn\'t attend)', commission: 0 },
 ] as const;
