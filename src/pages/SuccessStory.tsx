@@ -10,7 +10,7 @@ import otfLogo from '@/assets/otf-logo.jpg';
 import { toast } from 'sonner';
 
 const OTF_ORANGE = '#FF6900';
-const TOTAL_STEPS = 12; // 0=welcome, 1-10=questions, 11=completion
+// Steps: 0=welcome, 1=name (skippable), 2=studio/duration, ..., 10=permission, 11=completion
 
 const DURATION_OPTIONS = [
   'Less than 3 months',
@@ -48,6 +48,7 @@ export default function SuccessStory() {
   const [submitting, setSubmitting] = useState(false);
   const [direction, setDirection] = useState(1);
   const [showError, setShowError] = useState(false);
+  const [namePreFilled, setNamePreFilled] = useState(false);
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -81,6 +82,9 @@ export default function SuccessStory() {
       setFirstName(row.member_first_name || '');
       setLastName(row.member_last_name || '');
       setStudioLocation(row.studio_location || 'Tuscaloosa');
+      if (row.member_first_name && row.member_first_name.trim() !== '') {
+        setNamePreFilled(true);
+      }
       setLoading(false);
     })();
   }, [id]);
@@ -95,18 +99,30 @@ export default function SuccessStory() {
     }
   }, [step, firstName, duration, motivation, socialPermission]);
 
+  const getNextStep = (current: number) => {
+    const next = current + 1;
+    if (next === 1 && namePreFilled) return 2;
+    return next;
+  };
+
+  const getPrevStep = (current: number) => {
+    const prev = current - 1;
+    if (prev === 1 && namePreFilled) return 0;
+    return prev;
+  };
+
   const goNext = () => {
     if (!canProceed()) { setShowError(true); return; }
     setShowError(false);
     setDirection(1);
     if (step === 10) { handleSubmit(); return; }
-    setStep(s => s + 1);
+    setStep(s => getNextStep(s));
   };
 
   const goBack = () => {
     setShowError(false);
     setDirection(-1);
-    setStep(s => Math.max(0, s - 1));
+    setStep(s => Math.max(0, getPrevStep(s)));
   };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
