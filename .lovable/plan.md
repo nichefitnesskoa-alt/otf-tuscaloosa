@@ -1,41 +1,28 @@
 
-# Fix: Dashboard vs Meeting Close Rate Mismatch
 
-## Root Cause
+# Fix: Per-SA Close Rate Shoutout Inflated by Non-Intro Sales
 
-The Studio Scoreboard (dashboard) and Team Meeting agenda calculate "showed" differently, leading to different close rates even with the same sales count:
+## Problem
 
-**Dashboard** (`useDashboardMetrics.ts`):
-- Only counts runs linked to **1st intro bookings** (or unlinked runs)
-- Groups runs by booking to deduplicate (one "showed" per booking)
-- Uses `isMembershipSale()` for sale detection
+In the Team Meeting shoutouts, the "Close Rate" category uses a `saRun` map that includes both intro-based sales AND `sales_outside_intro` records (lines 562-567). So if Sophie showed 5 intros and closed 3, but also had 3 `sales_outside_intro`, her close rate shows as 6/5 = 120%.
 
-**Meeting** (`useMeetingAgenda.ts`):
-- Counts **ALL** non-no-show runs with run_date in range -- including runs linked to 2nd intros, excluded bookings, etc.
-- No deduplication by booking
-- Uses `isPurchased()` for sale detection (slightly different function, though not causing issues today)
-
-Since the meeting includes more "showed" entries in the denominator (2nd intros, etc.), the close rate is lower: same sales / more showed = lower %.
+The "Total Sales" shoutout should still include all sales (intro + outside). But "Close Rate" should only reflect intro-run conversions.
 
 ## Fix
 
-Update `useMeetingAgenda.ts` to match the dashboard's logic:
+In `src/hooks/useMeetingAgenda.ts`, in `generateShoutoutCategories`:
 
-1. **Filter runs to first-intro bookings only**: After fetching runs, filter out any run linked to a booking that has an `originating_booking_id` (i.e., a 2nd intro booking). Unlinked runs remain counted.
-
-2. **Deduplicate by booking**: Group linked runs by `linked_intro_booked_id` and count one "showed" per booking, same as the dashboard.
-
-3. **Standardize sale detection**: Replace `isPurchased()` with `isMembershipSale()` in `isSaleInStrRange()` so both views use the exact same definition of a sale.
-
-## Files to Modify
-
-- `src/hooks/useMeetingAgenda.ts`
-  - In the metrics computation section (~lines 297-318):
-    - Build a set of first-intro booking IDs from `filteredBooked`
-    - Filter `runs` to only include those linked to first-intro bookings (or unlinked)
-    - Group by booking for deduplication when counting "showed"
-  - In `isSaleInStrRange()` (~line 122): replace `isPurchased()` with `isMembershipSale()`
+1. Stop adding `sales_outside_intro` into the `saRun` map's `sales` field.
+2. Instead, track outside sales in a separate counter for the "Total Sales" shoutout.
+3. "Close Rate" shoutout uses only intro-run sales from `saRun`.
+4. "Total Sales" shoutout combines intro sales + outside sales.
 
 ## Technical Details
 
-The dashboard correctly restricts its funnel to first-intro bookings because 2nd intros are follow-up visits for the same prospect and should not inflate the "showed" denominator. The meeting agenda was built separately and missed this filtering step. After this fix, both views will use identical logic for showed/sales/close-rate.
+**File**: `src/hooks/useMeetingAgenda.ts`
+
+- Lines 544-567: Split `saRun` so it only tracks intro-run sales/showed. Create a separate `saOutsideSales` map for `sales_outside_intro`.
+- Lines 629-637: Close Rate shoutout stays as-is (already uses `saRun.sales`, which will now only be intro sales).
+- Lines 640-649: Total Sales shoutout combines `saRun.sales + saOutsideSales` per SA.
+
+This is a ~10-line change in one file.
