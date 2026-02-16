@@ -12,6 +12,7 @@ import ShiftRecap from "./pages/ShiftRecap";
 import MyShifts from "./pages/MyShifts";
 import Recaps from "./pages/Recaps";
 import Leads from "./pages/Leads";
+import Meeting from "./pages/Meeting";
 import Admin from "./pages/Admin";
 import SettingsPage from "./pages/Settings";
 import Pipeline from "./pages/Pipeline";
@@ -112,6 +113,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/meeting"
+        element={
+          <ProtectedRoute>
+            <Meeting />
           </ProtectedRoute>
         }
       />

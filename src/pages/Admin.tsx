@@ -3,8 +3,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -21,6 +23,8 @@ import AmcLogForm from '@/components/admin/AmcLogForm';
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
+import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
+import { format, addDays } from 'date-fns';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
 
@@ -36,6 +40,7 @@ interface SyncLog {
 export default function Admin() {
   const { user } = useAuth();
   const { introsBooked, introsRun, refreshData } = useData();
+  const navigate = useNavigate();
   const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(getSpreadsheetId() || '');
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,6 +150,20 @@ export default function Admin() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
+          {/* Team Meeting Card */}
+          <Card className="cursor-pointer hover:bg-muted/50 transition" onClick={() => navigate('/meeting')}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CalendarDays className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="font-semibold">Team Meeting</p>
+                  <p className="text-sm text-muted-foreground">Next: {format(getCurrentMeetingMonday(), 'EEEE, MMM d')}</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline">Open Meeting Prep</Button>
+            </CardContent>
+          </Card>
+
           {/* Global Date Filter */}
           <DateRangeFilter
             preset={datePreset}

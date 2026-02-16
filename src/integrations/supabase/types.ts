@@ -772,6 +772,75 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_agendas: {
+        Row: {
+          created_at: string
+          date_range_end: string
+          date_range_start: string
+          drill_override: string | null
+          housekeeping_notes: string | null
+          id: string
+          manual_shoutouts: string | null
+          meeting_date: string
+          metrics_snapshot: Json | null
+          status: string
+          updated_at: string
+          wig_commitments: string | null
+          wig_target: string | null
+        }
+        Insert: {
+          created_at?: string
+          date_range_end: string
+          date_range_start: string
+          drill_override?: string | null
+          housekeeping_notes?: string | null
+          id?: string
+          manual_shoutouts?: string | null
+          meeting_date: string
+          metrics_snapshot?: Json | null
+          status?: string
+          updated_at?: string
+          wig_commitments?: string | null
+          wig_target?: string | null
+        }
+        Update: {
+          created_at?: string
+          date_range_end?: string
+          date_range_start?: string
+          drill_override?: string | null
+          housekeeping_notes?: string | null
+          id?: string
+          manual_shoutouts?: string | null
+          meeting_date?: string
+          metrics_snapshot?: Json | null
+          status?: string
+          updated_at?: string
+          wig_commitments?: string | null
+          wig_target?: string | null
+        }
+        Relationships: []
+      }
+      meeting_settings: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_day: number
+          meeting_time: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_day?: number
+          meeting_time?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_day?: number
+          meeting_time?: string
+        }
+        Relationships: []
+      }
       objection_playbooks: {
         Row: {
           ask_line: string
