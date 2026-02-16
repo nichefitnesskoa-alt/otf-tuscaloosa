@@ -558,12 +558,12 @@ function generateShoutoutCategories(
     }
   });
 
-  // Add sales_outside_intro to per-SA sales count
+  // Track sales_outside_intro separately (used for Total Sales, NOT Close Rate)
+  const saOutsideSales = new Map<string, number>();
   (salesOutside || []).forEach((so: any) => {
     const name = so.intro_owner || '';
     if (!ok(name)) return;
-    if (!saRun.has(name)) saRun.set(name, { sales: 0, showed: 0, total: 0 });
-    saRun.get(name)!.sales++;
+    saOutsideSales.set(name, (saOutsideSales.get(name) || 0) + 1);
   });
 
   // 1) Contacts Made
@@ -637,14 +637,17 @@ function generateShoutoutCategories(
     });
   }
 
-  // 6) Total Sales — uses sale date for counting
-  const salesEntries = Array.from(saRun.entries())
-    .filter(([_, s]) => s.sales > 0)
-    .sort((a, b) => b[1].sales - a[1].sales).slice(0, 3);
-  if (salesEntries.length) {
+  // 6) Total Sales — intro sales + outside sales combined
+  const allSANames = new Set([...saRun.keys(), ...saOutsideSales.keys()]);
+  const totalSalesMap = Array.from(allSANames).map(n => {
+    const introSales = saRun.get(n)?.sales || 0;
+    const outsideSales = saOutsideSales.get(n) || 0;
+    return { name: n, total: introSales + outsideSales };
+  }).filter(e => e.total > 0).sort((a, b) => b.total - a.total).slice(0, 3);
+  if (totalSalesMap.length) {
     categories.push({
       category: 'Total Sales', icon: '💰',
-      entries: salesEntries.map(([n, s]) => ({ name: n, metric: `${s.sales} sales` })),
+      entries: totalSalesMap.map(e => ({ name: e.name, metric: `${e.total} sales` })),
     });
   }
 
