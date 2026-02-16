@@ -276,6 +276,11 @@ export default function ClientJourneyPanel() {
   const [deletingBooking, setDeletingBooking] = useState<ClientBooking | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
+  // Hard Delete run dialog
+  const [showHardDeleteRunDialog, setShowHardDeleteRunDialog] = useState(false);
+  const [deletingRun, setDeletingRun] = useState<ClientRun | null>(null);
+  const [deleteRunConfirmText, setDeleteRunConfirmText] = useState('');
+  
   // Link run to booking dialog
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [linkingRun, setLinkingRun] = useState<ClientRun | null>(null);
@@ -999,6 +1004,43 @@ export default function ClientJourneyPanel() {
     } catch (error) {
       console.error('Error deleting booking:', error);
       toast.error('Failed to delete booking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // === RUN DELETE ===
+  const handleOpenHardDeleteRunDialog = (run: ClientRun) => {
+    setDeletingRun(run);
+    setDeleteRunConfirmText('');
+    setShowHardDeleteRunDialog(true);
+  };
+
+  const handleConfirmHardDeleteRun = async () => {
+    if (!deletingRun || deleteRunConfirmText !== 'DELETE') return;
+    
+    setIsSaving(true);
+    try {
+      // Also clean up any follow_up_queue entries linked to this run's booking
+      if (deletingRun.linked_intro_booked_id) {
+        // Don't delete the booking, just unlink
+      }
+
+      const { error } = await supabase
+        .from('intros_run')
+        .delete()
+        .eq('id', deletingRun.id);
+
+      if (error) throw error;
+      
+      toast.success('Intro run permanently deleted');
+      setShowHardDeleteRunDialog(false);
+      setDeletingRun(null);
+      await fetchData();
+      await refreshGlobalData();
+    } catch (error) {
+      console.error('Error deleting run:', error);
+      toast.error('Failed to delete run');
     } finally {
       setIsSaving(false);
     }
@@ -1991,6 +2033,13 @@ export default function ClientJourneyPanel() {
                                             <UserX className="w-3 h-3 mr-2" /> Mark Not Interested
                                           </DropdownMenuItem>
                                         )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem 
+                                          onClick={() => handleOpenHardDeleteRunDialog(r)}
+                                          className="text-destructive"
+                                        >
+                                          <Trash2 className="w-3 h-3 mr-2" /> Delete Permanently
+                                        </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>
@@ -2528,6 +2577,37 @@ export default function ClientJourneyPanel() {
                 variant="destructive" 
                 onClick={handleConfirmHardDelete} 
                 disabled={isSaving || deleteConfirmText !== 'DELETE'}
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                Delete Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Hard Delete Run Confirm Dialog */}
+        <Dialog open={showHardDeleteRunDialog} onOpenChange={setShowHardDeleteRunDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">Permanently Delete Intro Run</DialogTitle>
+              <DialogDescription>
+                This will permanently delete the intro run for {deletingRun?.member_name} ({deletingRun?.run_date || 'no date'} — {deletingRun?.result}). 
+                This action cannot be undone. Type DELETE to confirm.
+              </DialogDescription>
+            </DialogHeader>
+            <div>
+              <Input
+                value={deleteRunConfirmText}
+                onChange={(e) => setDeleteRunConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowHardDeleteRunDialog(false)}>Cancel</Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleConfirmHardDeleteRun} 
+                disabled={isSaving || deleteRunConfirmText !== 'DELETE'}
               >
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
                 Delete Permanently
