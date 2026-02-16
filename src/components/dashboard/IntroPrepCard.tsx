@@ -8,9 +8,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Copy, ClipboardList } from 'lucide-react';
+import { Copy, ClipboardList, ChevronDown, ChevronRight, HandMetal, BookOpen, MessageSquare, CheckCircle2 } from 'lucide-react';
 import { EirmaPlaybook } from './EirmaPlaybook';
 import { TransformationClose } from './TransformationClose';
 
@@ -51,21 +52,40 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
       .then(({ data: row }) => setData(row as unknown as QData | null));
   }, [open, bookingId]);
 
+  const firstName = memberName.split(' ')[0];
+  const hasQ = data?.status === 'completed';
+  const goal = data?.q1_fitness_goal;
+  const obstacle = data?.q3_obstacle;
+  const emotionalDriver = data?.q5_emotional_driver;
+  const commitment = data?.q6_weekly_commitment;
+
   const copyToClipboard = () => {
     const lines = [
       `CLIENT: ${memberName}`,
       `DATE: ${classDate}${classTime ? ` @ ${classTime.substring(0, 5)}` : ''}`,
       `COACH: ${coachName}`,
     ];
-    if (data?.q1_fitness_goal) lines.push(`GOAL: ${data.q1_fitness_goal}`);
-    if (data?.q3_obstacle) lines.push(`OBSTACLE: ${data.q3_obstacle}`);
-    if (data?.q5_emotional_driver) lines.push(`EMOTIONAL WHY: ${data.q5_emotional_driver}`);
-    if (data?.q6_weekly_commitment) lines.push(`COMMITMENT: ${data.q6_weekly_commitment}`);
+    if (goal) lines.push(`GOAL: ${goal}`);
+    if (obstacle) lines.push(`OBSTACLE: ${obstacle}`);
+    if (emotionalDriver) lines.push(`EMOTIONAL WHY: ${emotionalDriver}`);
+    if (commitment) lines.push(`COMMITMENT: ${commitment}`);
     if (data?.q7_coach_notes) lines.push(`COACH NOTES: ${data.q7_coach_notes}`);
 
     navigator.clipboard.writeText(lines.join('\n'));
     toast.success('Copied to clipboard!');
   };
+
+  const p = (text: string) =>
+    text
+      .replace(/\[name\]/g, firstName)
+      .replace(/\[goal\]/g, goal || '[their goal]')
+      .replace(/\[obstacle\]/g, obstacle || '[their obstacle]')
+      .replace(/\[commitment\]/g, commitment || '[their commitment]')
+      .replace(/\[coach\]/g, coachName || '[coach]');
+
+  const Placeholder = ({ text }: { text: string }) => (
+    <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1 rounded text-[10px] font-medium">{text}</span>
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -79,21 +99,21 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
 
         <Tabs defaultValue="prep" className="mt-2">
           <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="prep" className="text-xs">Quick Prep</TabsTrigger>
-            <TabsTrigger value="close" className="text-xs">Close Script</TabsTrigger>
+            <TabsTrigger value="prep" className="text-xs">Prep</TabsTrigger>
+            <TabsTrigger value="close" className="text-xs">The Close</TabsTrigger>
             <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
           </TabsList>
 
-          {/* TAB 1: Quick Prep */}
+          {/* TAB 1: Prep + Pre-Class */}
           <TabsContent value="prep" className="space-y-3 mt-3">
-            {data?.status === 'completed' ? (
+            {hasQ ? (
               <div className="rounded-lg p-3 text-xs space-y-1.5 border-l-4 border-l-primary bg-primary/5">
-                <PrepRow label="Goal" value={data.q1_fitness_goal} />
+                <PrepRow label="Goal" value={goal} />
                 <PrepRow label="Level" value={data.q2_fitness_level ? `${data.q2_fitness_level}/5` : null} />
                 <PrepRow label="Past Fitness" value={data.q4_past_experience} />
-                <PrepRow label="Obstacle" value={data.q3_obstacle} />
-                <PrepRow label="Why" value={data.q5_emotional_driver} />
-                <PrepRow label="Commitment" value={data.q6_weekly_commitment} />
+                <PrepRow label="Obstacle" value={obstacle} />
+                <PrepRow label="Why" value={emotionalDriver} />
+                <PrepRow label="Commitment" value={commitment} />
                 {data.q7_coach_notes && <PrepRow label="Coach Notes" value={data.q7_coach_notes} />}
               </div>
             ) : (
@@ -103,22 +123,69 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
               </div>
             )}
 
-            <Button onClick={copyToClipboard} className="w-full" variant="outline">
+            <Button onClick={copyToClipboard} className="w-full" variant="outline" size="sm">
               <Copy className="w-4 h-4 mr-2" />
               Copy to Clipboard
             </Button>
+
+            {/* SA Mental Framework */}
+            <div className="rounded-lg p-3 text-xs border border-muted bg-muted/30 space-y-1">
+              <p className="font-bold uppercase tracking-wide text-muted-foreground text-[10px]">🧠 SA Mindset</p>
+              <p className="leading-relaxed">You are not selling a membership. You are helping someone become the person they told you they want to be. Your job is to connect every moment of this visit back to their goal.</p>
+            </div>
+
+            {/* Pre-Class Scripts Section */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-green-700 dark:text-green-400">📋 Pre-Class Scripts</p>
+
+              <PrepCollapsible title="Greeting + Q Acknowledgment" icon="👋" defaultOpen accentColor="green">
+                <p className="leading-relaxed">
+                  {p(`"Hey [name]! Welcome to Orangetheory. I'm so glad you're here. I read through your questionnaire — you said you want to [goal], and I love that. Today's class is going to be a great first step toward that. Let me walk you through what to expect."`)}
+                </p>
+                {!hasQ && (
+                  <div className="mt-1.5">
+                    <Placeholder text="Questionnaire not completed — use a general greeting and ask about their goal in person" />
+                  </div>
+                )}
+              </PrepCollapsible>
+
+              <PrepCollapsible title="Flipbook Talking Points" icon="📖" accentColor="green">
+                <ul className="space-y-1 list-disc pl-4">
+                  <li><span className="font-medium">Heart Rate Zones:</span> "We use a heart rate monitor so you can see your effort in real time. You'll aim for the Orange Zone — that's where the magic happens."</li>
+                  <li><span className="font-medium">Coaching:</span> "There's a coach leading the entire class. They'll tell you every move, every transition. You don't have to figure anything out."</li>
+                  <li><span className="font-medium">Afterburn:</span> "The workout is designed so you keep burning calories for up to 36 hours after class. It's called the afterburn effect."</li>
+                  <li><span className="font-medium">Community:</span> "Everyone in that room was a first-timer once. This is one of the most supportive workout communities you'll find."</li>
+                </ul>
+              </PrepCollapsible>
+
+              <PrepCollapsible title="Set Expectations" icon="⏱️" accentColor="green">
+                <p className="leading-relaxed">
+                  {p(`"After class, we'll sit down for about 5-10 minutes. I'll ask you how you felt, and if it's a fit, I'll show you how to keep this going. No pressure, no awkward pitch. Sound good?"`)}
+                </p>
+              </PrepCollapsible>
+
+              <PrepCollapsible title="Mid-Class Check-In" icon="💪" accentColor="green">
+                <p className="leading-relaxed">
+                  {p(`Walk into the studio at the ~25 minute mark. Make eye contact with [name], give a thumbs up or a quick "You're crushing it!" This creates a bond and shows you are invested in their experience.`)}
+                </p>
+                <p className="mt-1.5 text-muted-foreground italic">
+                  Tip: Note which station they're at and what they're doing well — use this in the post-class sit-down.
+                </p>
+              </PrepCollapsible>
+            </div>
           </TabsContent>
 
-          {/* TAB 2: Close Script */}
+          {/* TAB 2: The Close (full post-class flow) */}
           <TabsContent value="close" className="mt-3">
-            {data?.status === 'completed' ? (
+            {hasQ ? (
               <TransformationClose
                 clientName={memberName}
-                fitnessGoal={data.q1_fitness_goal}
-                obstacle={data.q3_obstacle}
+                coachName={coachName}
+                fitnessGoal={goal}
+                obstacle={obstacle}
                 pastExperience={data.q4_past_experience}
-                emotionalDriver={data.q5_emotional_driver}
-                weeklyCommitment={data.q6_weekly_commitment}
+                emotionalDriver={emotionalDriver}
+                weeklyCommitment={commitment}
                 availableDays={data.q6b_available_days}
               />
             ) : (
@@ -131,13 +198,13 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
 
           {/* TAB 3: Objections */}
           <TabsContent value="objections" className="mt-3">
-            {data?.status === 'completed' ? (
+            {hasQ ? (
               <EirmaPlaybook
-                obstacles={data.q3_obstacle}
+                obstacles={obstacle}
                 fitnessLevel={data.q2_fitness_level}
-                emotionalDriver={data.q5_emotional_driver}
+                emotionalDriver={emotionalDriver}
                 clientName={memberName}
-                fitnessGoal={data.q1_fitness_goal}
+                fitnessGoal={goal}
                 pastExperience={data.q4_past_experience}
               />
             ) : (
@@ -159,5 +226,35 @@ function PrepRow({ label, value }: { label: string; value: string | null }) {
       <span className="font-bold text-muted-foreground w-24 shrink-0">{label.toUpperCase()}:</span>
       <span>{value || '—'}</span>
     </div>
+  );
+}
+
+function PrepCollapsible({ title, icon, children, defaultOpen = false, accentColor = 'green' }: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  accentColor?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : 'border-l-primary';
+  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'bg-primary/5';
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className={`rounded-lg border-l-4 ${borderColor} ${bgColor} overflow-hidden`}>
+        <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-left text-xs">
+          {isOpen ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+          <span>{icon}</span>
+          <span className="font-semibold">{title}</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-3 pb-3 text-xs">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
