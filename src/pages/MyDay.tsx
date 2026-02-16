@@ -773,6 +773,10 @@ export default function MyDay() {
                   introResult={b.intro_result}
                   primaryObjection={b.primary_objection}
                   bookingCreatedAt={b.created_at}
+                  onQuestionnaireCreated={(slug) => {
+                    setTodayBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+                    setTomorrowBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+                  }}
                 />
                 {showLogButton && !isLoggingThis && (
                   <Button
@@ -859,6 +863,10 @@ export default function MyDay() {
               introResult={b.intro_result}
               primaryObjection={b.primary_objection}
               bookingCreatedAt={b.created_at}
+              onQuestionnaireCreated={(slug) => {
+                setTodayBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+                setTomorrowBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+              }}
             />
           </div>
         )}
@@ -1176,6 +1184,10 @@ export default function MyDay() {
                               introResult={b.intro_result}
                               primaryObjection={b.primary_objection}
                               bookingCreatedAt={b.created_at}
+                              onQuestionnaireCreated={(slug) => {
+                                setTodayBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+                                setTomorrowBookings(prev => prev.map(bk => bk.id === b.id ? {...bk, questionnaire_slug: slug, questionnaire_status: 'not_sent'} : bk));
+                              }}
                             />
                           </div>
 
