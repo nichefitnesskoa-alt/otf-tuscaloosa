@@ -46,6 +46,7 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
       .from('intro_questionnaires')
       .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
       .eq('booking_id', bookingId)
+      .order('submitted_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
