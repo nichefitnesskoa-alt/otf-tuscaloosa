@@ -1,6 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfWeek, endOfWeek, subWeeks, addDays } from 'date-fns';
+import { format, startOfWeek, addDays, subWeeks, subDays, startOfDay } from 'date-fns';
+import {
+  EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
+  isPurchased, isNoShow,
+} from '@/lib/studio-metrics';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface ShoutoutCategory {
+  category: string;
+  icon: string;
+  entries: { name: string; metric: string }[];
+}
+
+/** Kept for backward-compat with old JSONB snapshots */
+export interface Shoutout {
+  category: string;
+  name: string;
+  metric: string;
+  icon: string;
+}
 
 export interface MeetingMetrics {
   amc: number;
@@ -15,32 +37,34 @@ export interface MeetingMetrics {
   showed: number;
   noShows: number;
   noShowRate: number;
+  /* Lead measures */
   qCompletion: number;
   qCompletionPrev: number;
-  followUpCompletion: number;
+  confirmationRate: number;
+  followUpCompletionRate: number;
   followUpTotal: number;
   followUpCompleted: number;
-  speedToLead: number;
+  speedToLead: number; // data point, not formal lead measure
   confirmationsSent: number;
   confirmationsTotal: number;
+  /* Leads */
   newLeads: number;
   leadsContacted: number;
   leadsUncontacted: number;
   leadsBySource: Record<string, number>;
+  /* Objections */
   objections: Record<string, number>;
   totalNonCloses: number;
   topObjection: string;
+  /* Outreach */
   outreach: { calls: number; texts: number; dms: number; emails: number };
+  /* Shoutouts */
+  shoutoutCategories: ShoutoutCategory[];
+  /** @deprecated kept for backward compat */
   shoutouts: Shoutout[];
+  /* Insights */
   biggestOpportunity: string;
   weekAhead: WeekAhead;
-}
-
-export interface Shoutout {
-  category: string;
-  name: string;
-  metric: string;
-  icon: string;
 }
 
 export interface WeekAhead {
@@ -67,31 +91,38 @@ export interface MeetingAgenda {
   updated_at: string;
 }
 
-/** Get the Monday for the current meeting week */
+/* ------------------------------------------------------------------ */
+/*  Date helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+/** Return the Monday that represents the upcoming (or current) meeting. */
 export function getCurrentMeetingMonday(): Date {
   const now = new Date();
-  // startOfWeek with weekStartsOn: 1 gives Monday
-  return startOfWeek(now, { weekStartsOn: 1 });
+  const monday = startOfWeek(now, { weekStartsOn: 1 });
+  // If today IS Monday, use it. Otherwise next Monday.
+  if (now.getDay() === 1) return startOfDay(monday);
+  return startOfDay(addDays(monday, 7));
 }
 
-/** Get the date range: previous Monday to Sunday */
+/** 7-day range ending the day before the meeting Monday. */
 export function getMeetingDateRange(meetingMonday: Date) {
-  const start = subWeeks(meetingMonday, 1); // previous Monday
-  const end = addDays(start, 6); // Sunday
+  const end = subDays(meetingMonday, 1);   // Sunday
+  const start = subDays(end, 6);           // Previous Monday
   return { start, end };
 }
 
+/* ------------------------------------------------------------------ */
+/*  Hooks                                                              */
+/* ------------------------------------------------------------------ */
+
 export function useMeetingAgenda(meetingDate?: string) {
   const monday = meetingDate || format(getCurrentMeetingMonday(), 'yyyy-MM-dd');
-
   return useQuery({
     queryKey: ['meeting_agenda', monday],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('meeting_agendas')
-        .select('*')
-        .eq('meeting_date', monday)
-        .maybeSingle();
+        .from('meeting_agendas').select('*')
+        .eq('meeting_date', monday).maybeSingle();
       if (error) throw error;
       return data as unknown as MeetingAgenda | null;
     },
@@ -104,10 +135,7 @@ export function useMeetingSettings() {
     queryKey: ['meeting_settings'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('meeting_settings')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+        .from('meeting_settings').select('*').limit(1).maybeSingle();
       if (error) throw error;
       return data as { id: string; meeting_day: number; meeting_time: string } | null;
     },
@@ -124,8 +152,7 @@ export function usePreviousMeetingAgenda(currentMeetingDate: string) {
         .select('meeting_date, metrics_snapshot, wig_commitments')
         .lt('meeting_date', currentMeetingDate)
         .order('meeting_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1).maybeSingle();
       if (error) throw error;
       return data as unknown as { meeting_date: string; metrics_snapshot: MeetingMetrics; wig_commitments: string | null } | null;
     },
@@ -133,67 +160,86 @@ export function usePreviousMeetingAgenda(currentMeetingDate: string) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/*  Generate mutation                                                  */
+/* ------------------------------------------------------------------ */
+
+interface GenerateOpts {
+  meetingMonday: Date;
+  customStart?: string;
+  customEnd?: string;
+}
+
 export function useGenerateAgenda() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (meetingMonday: Date) => {
-      const { start, end } = getMeetingDateRange(meetingMonday);
-      const startStr = format(start, 'yyyy-MM-dd');
-      const endStr = format(end, 'yyyy-MM-dd');
+    mutationFn: async (opts: GenerateOpts | Date) => {
+      // Support both old (Date) and new ({ meetingMonday, customStart, customEnd }) signatures
+      const meetingMonday = opts instanceof Date ? opts : opts.meetingMonday;
       const meetingStr = format(meetingMonday, 'yyyy-MM-dd');
 
-      // Previous week for comparison
-      const prevStart = subWeeks(start, 1);
-      const prevEnd = subWeeks(end, 1);
+      let startStr: string, endStr: string;
+      if (!(opts instanceof Date) && opts.customStart && opts.customEnd) {
+        startStr = opts.customStart;
+        endStr = opts.customEnd;
+      } else {
+        const { start, end } = getMeetingDateRange(meetingMonday);
+        startStr = format(start, 'yyyy-MM-dd');
+        endStr = format(end, 'yyyy-MM-dd');
+      }
+
+      // Previous period for comparison (same length, immediately prior)
+      const prevEnd = subDays(new Date(startStr + 'T12:00:00'), 1);
+      const dayCount = Math.round(
+        (new Date(endStr + 'T12:00:00').getTime() - new Date(startStr + 'T12:00:00').getTime()) / 86400000
+      );
+      const prevStart = subDays(prevEnd, dayCount);
       const prevStartStr = format(prevStart, 'yyyy-MM-dd');
       const prevEndStr = format(prevEnd, 'yyyy-MM-dd');
 
-      // Parallel data fetch
+      // ---- Parallel data fetch ----
       const [
-        introsBookedRes,
-        introsRunRes,
-        prevIntrosBookedRes,
-        prevIntrosRunRes,
-        followUpsRes,
-        questionnairesRes,
-        prevQuestionnairesRes,
-        amcRes,
-        prevAmcRes,
-        shiftRecapsRes,
-        leadsRes,
-        scriptActionsRes,
-        salesOutsideRes,
-        nextWeekBookingsRes,
-        nextWeekFollowUpsRes,
-        nextWeekLeadsRes,
-        vipEventsRes,
+        introsBookedRes, introsRunRes,
+        prevIntrosBookedRes, prevIntrosRunRes,
+        followUpsRes, questionnairesRes, prevQuestionnairesRes,
+        amcRes, prevAmcRes,
+        shiftRecapsRes, leadsRes, scriptActionsRes, salesOutsideRes,
+        nextWeekBookingsRes, nextWeekFollowUpsRes, nextWeekLeadsRes, vipEventsRes,
       ] = await Promise.all([
-        supabase.from('intros_booked').select('id, member_name, lead_source, sa_working_shift, intro_owner, phone, class_date')
-          .gte('class_date', startStr).lte('class_date', endStr).is('deleted_at', null).is('ignore_from_metrics', false),
-        supabase.from('intros_run').select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, lead_source')
-          .gte('run_date', startStr).lte('run_date', endStr).is('ignore_from_metrics', false),
-        supabase.from('intros_booked').select('id')
-          .gte('class_date', prevStartStr).lte('class_date', prevEndStr).is('deleted_at', null).is('ignore_from_metrics', false),
-        supabase.from('intros_run').select('id, result, primary_objection')
-          .gte('run_date', prevStartStr).lte('run_date', prevEndStr).is('ignore_from_metrics', false),
-        supabase.from('follow_up_queue').select('id, status, sent_by, scheduled_date')
+        supabase.from('intros_booked')
+          .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics')
+          .gte('class_date', startStr).lte('class_date', endStr),
+        supabase.from('intros_run')
+          .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, lead_source, ignore_from_metrics')
+          .gte('run_date', startStr).lte('run_date', endStr),
+        supabase.from('intros_booked')
+          .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source')
+          .gte('class_date', prevStartStr).lte('class_date', prevEndStr),
+        supabase.from('intros_run')
+          .select('id, result, primary_objection, ignore_from_metrics, linked_intro_booked_id')
+          .gte('run_date', prevStartStr).lte('run_date', prevEndStr),
+        supabase.from('follow_up_queue')
+          .select('id, status, sent_by, scheduled_date, sent_at')
           .gte('scheduled_date', startStr).lte('scheduled_date', endStr),
-        supabase.from('intro_questionnaires').select('id, status, booking_id')
+        supabase.from('intro_questionnaires')
+          .select('id, status, booking_id')
           .gte('scheduled_class_date', startStr).lte('scheduled_class_date', endStr),
-        supabase.from('intro_questionnaires').select('id, status')
+        supabase.from('intro_questionnaires')
+          .select('id, status')
           .gte('scheduled_class_date', prevStartStr).lte('scheduled_class_date', prevEndStr),
         supabase.from('amc_log').select('amc_value').order('created_at', { ascending: false }).limit(1),
         supabase.from('amc_log').select('amc_value').lte('logged_date', prevEndStr).order('created_at', { ascending: false }).limit(1),
-        supabase.from('shift_recaps').select('staff_name, calls_made, texts_sent, dms_sent, emails_sent')
+        supabase.from('shift_recaps')
+          .select('staff_name, calls_made, texts_sent, dms_sent, emails_sent')
           .gte('shift_date', startStr).lte('shift_date', endStr),
         supabase.from('leads').select('id, source, created_at, stage')
           .gte('created_at', startStr + 'T00:00:00').lte('created_at', endStr + 'T23:59:59'),
-        supabase.from('script_actions').select('action_type, completed_by, completed_at, booking_id, lead_id, script_category')
+        supabase.from('script_actions')
+          .select('action_type, completed_by, completed_at, booking_id, lead_id, script_category')
           .gte('completed_at', startStr + 'T00:00:00').lte('completed_at', endStr + 'T23:59:59'),
         supabase.from('sales_outside_intro').select('id, intro_owner, date_closed')
           .gte('date_closed', startStr).lte('date_closed', endStr),
-        // Next week data
         supabase.from('intros_booked').select('id, class_date')
           .gte('class_date', meetingStr).lte('class_date', format(addDays(meetingMonday, 6), 'yyyy-MM-dd'))
           .is('deleted_at', null),
@@ -201,14 +247,16 @@ export function useGenerateAgenda() {
           .gte('scheduled_date', meetingStr).lte('scheduled_date', format(addDays(meetingMonday, 6), 'yyyy-MM-dd'))
           .eq('status', 'pending'),
         supabase.from('leads').select('id').in('stage', ['new', 'contacted']),
-        supabase.from('vip_sessions').select('vip_class_name, session_date, capacity')
-          .gte('session_date', meetingStr).lte('session_date', format(addDays(meetingMonday, 13), 'yyyy-MM-dd')),
+        supabase.from('vip_sessions')
+          .select('vip_class_name, session_date, capacity')
+          .gte('session_date', meetingStr)
+          .lte('session_date', format(addDays(meetingMonday, 13), 'yyyy-MM-dd')),
       ]);
 
-      const booked = introsBookedRes.data || [];
-      const runs = introsRunRes.data || [];
-      const prevBooked = prevIntrosBookedRes.data || [];
-      const prevRuns = prevIntrosRunRes.data || [];
+      const allBooked = introsBookedRes.data || [];
+      const allRuns = introsRunRes.data || [];
+      const prevAllBooked = prevIntrosBookedRes.data || [];
+      const prevAllRuns = prevIntrosRunRes.data || [];
       const followUps = followUpsRes.data || [];
       const questionnaires = questionnairesRes.data || [];
       const prevQuestionnaires = prevQuestionnairesRes.data || [];
@@ -217,37 +265,61 @@ export function useGenerateAgenda() {
       const scriptActions = scriptActionsRes.data || [];
       const salesOutside = salesOutsideRes.data || [];
 
-      // Core metrics
-      const EXCLUDED_SOURCES = ['Online Intro Offer (self-booked)', 'Run-first entry', 'Orangebook'];
-      const filteredBooked = booked.filter(b => !EXCLUDED_SOURCES.includes(b.lead_source));
-      const showed = runs.filter(r => r.result !== 'No-show');
-      const sales = runs.filter(r => r.result === 'Purchased' || r.result === 'purchased');
+      // ---- Filter using shared constants ----
+      const filterBookings = (arr: any[]) => arr.filter((b: any) =>
+        !b.is_vip &&
+        !b.deleted_at &&
+        !b.ignore_from_metrics &&
+        !b.originating_booking_id &&
+        !EXCLUDED_LEAD_SOURCES.includes(b.lead_source)
+      );
+
+      const filteredBooked = filterBookings(allBooked);
+      const prevFilteredBooked = filterBookings(prevAllBooked);
+
+      const vipIds = new Set(allBooked.filter((b: any) => b.is_vip).map((b: any) => b.id));
+      const filterRuns = (arr: any[]) => arr.filter((r: any) =>
+        !r.ignore_from_metrics &&
+        !(r.linked_intro_booked_id && vipIds.has(r.linked_intro_booked_id))
+      );
+
+      const runs = filterRuns(allRuns);
+      const prevRuns = filterRuns(prevAllRuns);
+
+      const showed = runs.filter((r: any) => !isNoShow(r.result));
+      const sales = runs.filter((r: any) => isPurchased(r.result));
       const totalSales = sales.length + salesOutside.length;
 
-      const prevShowed = prevRuns.filter(r => r.result !== 'No-show');
-      const prevSales = prevRuns.filter(r => r.result === 'Purchased' || r.result === 'purchased');
+      const prevShowed = prevRuns.filter((r: any) => !isNoShow(r.result));
+      const prevSales = prevRuns.filter((r: any) => isPurchased(r.result));
 
       const closeRate = showed.length > 0 ? (sales.length / showed.length) * 100 : 0;
       const prevCloseRate = prevShowed.length > 0 ? (prevSales.length / prevShowed.length) * 100 : 0;
       const showRate = filteredBooked.length > 0 ? (showed.length / filteredBooked.length) * 100 : 0;
-      const prevFilteredBooked = prevBooked.length;
-      const prevShowRate = prevFilteredBooked > 0 ? (prevShowed.length / prevFilteredBooked) * 100 : 0;
+      const prevShowRate = prevFilteredBooked.length > 0 ? (prevShowed.length / prevFilteredBooked.length) * 100 : 0;
 
       // AMC
       const amc = amcRes.data?.[0]?.amc_value || 0;
       const prevAmc = prevAmcRes.data?.[0]?.amc_value || amc;
 
       // Q completion
-      const qSubmitted = questionnaires.filter(q => q.status === 'submitted').length;
+      const qSubmitted = questionnaires.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const qCompletion = questionnaires.length > 0 ? (qSubmitted / questionnaires.length) * 100 : 0;
-      const prevQSubmitted = prevQuestionnaires.filter((q: any) => q.status === 'submitted').length;
+      const prevQSubmitted = prevQuestionnaires.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const prevQCompletion = prevQuestionnaires.length > 0 ? (prevQSubmitted / prevQuestionnaires.length) * 100 : 0;
 
-      // Follow-up completion
-      const fuCompleted = followUps.filter(f => f.status === 'sent' || f.status === 'completed').length;
+      // Confirmation rate
+      const confirmationActions = scriptActions.filter((a: any) =>
+        a.action_type === 'script_sent' && (a.script_category === 'booking_confirmation' || a.script_category === 'confirmation')
+      );
+      const confirmationRate = filteredBooked.length > 0 ? (confirmationActions.length / filteredBooked.length) * 100 : 0;
 
-      // Speed-to-lead
-      const firstContacts = scriptActions.filter(a => a.script_category === 'first_contact' && a.lead_id);
+      // Follow-up completion
+      const fuCompleted = followUps.filter((f: any) => f.status === 'sent' || f.status === 'completed').length;
+      const followUpCompletionRate = followUps.length > 0 ? (fuCompleted / followUps.length) * 100 : 0;
+
+      // Speed-to-lead (data point, not formal lead measure on scoreboard)
+      const firstContacts = scriptActions.filter((a: any) => a.script_category === 'first_contact' && a.lead_id);
       let speedSum = 0, speedCount = 0;
       for (const contact of firstContacts) {
         const lead = leads.find((l: any) => l.id === contact.lead_id);
@@ -257,10 +329,6 @@ export function useGenerateAgenda() {
         }
       }
 
-      // Confirmations
-      const confirmations = scriptActions.filter(a => a.script_category === 'booking_confirmation');
-      const confirmationsTotal = booked.length;
-
       // Lead sources
       const leadsBySource: Record<string, number> = {};
       leads.forEach((l: any) => { leadsBySource[l.source] = (leadsBySource[l.source] || 0) + 1; });
@@ -268,8 +336,8 @@ export function useGenerateAgenda() {
 
       // Objections
       const objections: Record<string, number> = {};
-      const nonCloses = runs.filter(r => r.result !== 'Purchased' && r.result !== 'purchased' && r.result !== 'No-show');
-      nonCloses.forEach(r => {
+      const nonCloses = runs.filter((r: any) => !isPurchased(r.result) && !isNoShow(r.result));
+      nonCloses.forEach((r: any) => {
         const obj = r.primary_objection || 'Unknown';
         objections[obj] = (objections[obj] || 0) + 1;
       });
@@ -284,21 +352,29 @@ export function useGenerateAgenda() {
         outreach.emails += sr.emails_sent || 0;
       });
 
-      // Shoutouts
-      const shoutouts = generateShoutouts(runs, followUps, shiftRecaps, questionnaires, booked, scriptActions, leads);
+      // Shoutouts — top 3 per category
+      const shoutoutCategories = generateShoutoutCategories(runs, allBooked, shiftRecaps, followUps);
+
+      // Flatten for backward compat
+      const shoutouts: Shoutout[] = shoutoutCategories.flatMap(cat =>
+        cat.entries.map((e, i) => ({
+          category: cat.category, name: e.name, metric: e.metric,
+          icon: i === 0 ? cat.icon : (i === 1 ? '🥈' : '🥉'),
+        }))
+      );
 
       // Biggest opportunity
       const noShowRate = filteredBooked.length > 0 ? ((filteredBooked.length - showed.length) / filteredBooked.length) * 100 : 0;
       let biggestOpportunity = '';
       if (noShowRate > 25) {
-        const potentialExtra = Math.round((filteredBooked.length * 0.85 - showed.length) * (closeRate / 100));
-        biggestOpportunity = `${filteredBooked.length - showed.length} no-shows this week. Improving show rate to 85% could mean ~${Math.max(potentialExtra, 1)} more sales at current close rate.`;
+        const extra = Math.round((filteredBooked.length * 0.85 - showed.length) * (closeRate / 100));
+        biggestOpportunity = `${filteredBooked.length - showed.length} no-shows this week. Improving show rate to 85% could mean ~${Math.max(extra, 1)} more sales.`;
       } else if (closeRate < prevCloseRate - 3) {
         biggestOpportunity = `Close rate dropped ${(prevCloseRate - closeRate).toFixed(0)}% from last week. Focus on "${topObjection}" handling.`;
       } else if (qCompletion < 70) {
         biggestOpportunity = `Only ${qCompletion.toFixed(0)}% of intros had completed questionnaires. Prepped intros close at a significantly higher rate.`;
-      } else if (speedCount > 0 && speedSum / speedCount > 30) {
-        biggestOpportunity = `Average speed-to-lead is ${Math.round(speedSum / speedCount)} minutes. Leads contacted within 5 minutes book at a much higher rate.`;
+      } else if (confirmationRate < 90) {
+        biggestOpportunity = `Confirmation rate is ${confirmationRate.toFixed(0)}%. Confirmed intros show up more reliably — aim for 90%+.`;
       } else {
         biggestOpportunity = `Keep pushing! Studio is at ${amc} AMC. ${Math.max(400 - amc, 0)} away from 400.`;
       }
@@ -312,9 +388,7 @@ export function useGenerateAgenda() {
       });
 
       const vipEvents = (vipEventsRes.data || []).map((v: any) => ({
-        name: v.vip_class_name,
-        date: v.session_date,
-        count: v.capacity,
+        name: v.vip_class_name, date: v.session_date, count: v.capacity,
       }));
 
       const metrics: MeetingMetrics = {
@@ -325,15 +399,18 @@ export function useGenerateAgenda() {
         booked: filteredBooked.length, showed: showed.length,
         noShows: filteredBooked.length - showed.length, noShowRate,
         qCompletion, qCompletionPrev: prevQCompletion,
-        followUpCompletion: followUps.length > 0 ? (fuCompleted / followUps.length) * 100 : 0,
+        confirmationRate,
+        followUpCompletionRate,
         followUpTotal: followUps.length, followUpCompleted: fuCompleted,
         speedToLead: speedCount > 0 ? Math.round(speedSum / speedCount) : 0,
-        confirmationsSent: confirmations.length, confirmationsTotal,
-        newLeads: leads.length,
-        leadsContacted: contacted,
+        confirmationsSent: confirmationActions.length,
+        confirmationsTotal: filteredBooked.length,
+        newLeads: leads.length, leadsContacted: contacted,
         leadsUncontacted: leads.length - contacted,
         leadsBySource, objections, totalNonCloses: nonCloses.length,
-        topObjection, outreach, shoutouts, biggestOpportunity,
+        topObjection, outreach,
+        shoutoutCategories, shoutouts,
+        biggestOpportunity,
         weekAhead: {
           introsByDay, totalIntros: nextWeekBookings.length,
           followUpsDue: nextWeekFollowUpsRes.data?.length || 0,
@@ -344,133 +421,142 @@ export function useGenerateAgenda() {
 
       // Upsert
       const { data: existing } = await supabase
-        .from('meeting_agendas')
-        .select('id')
-        .eq('meeting_date', meetingStr)
-        .maybeSingle();
+        .from('meeting_agendas').select('id')
+        .eq('meeting_date', meetingStr).maybeSingle();
 
       if (existing) {
-        const { error } = await supabase
-          .from('meeting_agendas')
+        const { error } = await supabase.from('meeting_agendas')
           .update({ metrics_snapshot: metrics as any, date_range_start: startStr, date_range_end: endStr, updated_at: new Date().toISOString() })
           .eq('id', existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('meeting_agendas')
+        const { error } = await supabase.from('meeting_agendas')
           .insert({ meeting_date: meetingStr, date_range_start: startStr, date_range_end: endStr, metrics_snapshot: metrics as any, status: 'draft' });
         if (error) throw error;
       }
 
       return metrics;
     },
-    onSuccess: (_, meetingMonday) => {
-      queryClient.invalidateQueries({ queryKey: ['meeting_agenda', format(meetingMonday, 'yyyy-MM-dd')] });
+    onSuccess: (_, opts) => {
+      const monday = opts instanceof Date ? opts : opts.meetingMonday;
+      queryClient.invalidateQueries({ queryKey: ['meeting_agenda', format(monday, 'yyyy-MM-dd')] });
     },
   });
 }
 
-function generateShoutouts(
-  runs: any[], followUps: any[], recaps: any[], questionnaires: any[], booked: any[], scriptActions: any[], leads: any[]
-): Shoutout[] {
-  const shoutouts: Shoutout[] = [];
-  const usedNames = new Set<string>();
+/* ------------------------------------------------------------------ */
+/*  Shoutout generation — top 3 per category                           */
+/* ------------------------------------------------------------------ */
 
-  // Per-SA stats from runs
-  const saStats = new Map<string, { sales: number; showed: number; total: number }>();
+const MIN_INTROS = 2;
+
+function generateShoutoutCategories(
+  runs: any[], booked: any[], recaps: any[], followUps: any[],
+): ShoutoutCategory[] {
+  const categories: ShoutoutCategory[] = [];
+  const ok = (n: string) => !!n && !EXCLUDED_SA_NAMES.includes(n);
+
+  // Per-SA run stats
+  const saRun = new Map<string, { sales: number; showed: number; total: number }>();
   runs.forEach(r => {
-    const name = r.sa_name || r.intro_owner || 'Unknown';
-    if (!saStats.has(name)) saStats.set(name, { sales: 0, showed: 0, total: 0 });
-    const s = saStats.get(name)!;
+    const name = r.sa_name || r.intro_owner || '';
+    if (!ok(name)) return;
+    if (!saRun.has(name)) saRun.set(name, { sales: 0, showed: 0, total: 0 });
+    const s = saRun.get(name)!;
     s.total++;
-    if (r.result !== 'No-show') s.showed++;
-    if (r.result === 'Purchased' || r.result === 'purchased') s.sales++;
+    if (!isNoShow(r.result)) s.showed++;
+    if (isPurchased(r.result)) s.sales++;
   });
 
-  // Top closer (min 2 intros)
-  let topCloser = { name: '', rate: 0, sales: 0, total: 0 };
-  saStats.forEach((stats, name) => {
-    if (stats.showed >= 2) {
-      const rate = (stats.sales / stats.showed) * 100;
-      if (rate > topCloser.rate) topCloser = { name, rate, sales: stats.sales, total: stats.showed };
-    }
+  // 1) Contacts Made
+  const outreach = new Map<string, number>();
+  recaps.forEach((sr: any) => {
+    const n = sr.staff_name;
+    if (!ok(n)) return;
+    const t = (sr.calls_made || 0) + (sr.texts_sent || 0) + (sr.dms_sent || 0) + (sr.emails_sent || 0);
+    outreach.set(n, (outreach.get(n) || 0) + t);
   });
-  if (topCloser.name && !usedNames.has(topCloser.name)) {
-    shoutouts.push({ category: 'Top Closer', name: topCloser.name, metric: `${topCloser.rate.toFixed(0)}% close rate (${topCloser.sales} of ${topCloser.total})`, icon: '🎯' });
-    usedNames.add(topCloser.name);
-  }
+  addCategory(categories, 'Contacts Made', '📱', outreach, (n, v) => `${v} contacts`);
 
-  // Most sales
-  let topSales = { name: '', count: 0 };
-  saStats.forEach((stats, name) => {
-    if (stats.sales > topSales.count && !usedNames.has(name)) topSales = { name, count: stats.sales };
-  });
-  if (topSales.name && topSales.count > 0) {
-    shoutouts.push({ category: 'Most Sales', name: topSales.name, metric: `${topSales.count} memberships sold`, icon: '💰' });
-    usedNames.add(topSales.name);
-  }
-
-  // Best show rate from bookers
-  const bookerStats = new Map<string, { booked: number; showed: number }>();
+  // 2) Booked
+  const bookerC = new Map<string, number>();
   booked.forEach((b: any) => {
-    const name = b.intro_owner || b.sa_working_shift || 'Unknown';
-    if (!bookerStats.has(name)) bookerStats.set(name, { booked: 0, showed: 0 });
-    bookerStats.get(name)!.booked++;
+    const n = b.booked_by || b.sa_working_shift || b.intro_owner || '';
+    if (!ok(n)) return;
+    bookerC.set(n, (bookerC.get(n) || 0) + 1);
+  });
+  addCategory(categories, 'Booked', '📅', bookerC, (_, v) => `${v} booked`);
+
+  // 3) Show Rate
+  const showStat = new Map<string, { b: number; s: number }>();
+  booked.forEach((bk: any) => {
+    const n = bk.intro_owner || bk.sa_working_shift || '';
+    if (!ok(n)) return;
+    if (!showStat.has(n)) showStat.set(n, { b: 0, s: 0 });
+    showStat.get(n)!.b++;
   });
   runs.forEach(r => {
-    const linkedBooking = booked.find((b: any) => b.id === r.linked_intro_booked_id);
-    if (linkedBooking) {
-      const name = linkedBooking.intro_owner || linkedBooking.sa_working_shift || 'Unknown';
-      if (r.result !== 'No-show' && bookerStats.has(name)) bookerStats.get(name)!.showed++;
+    const linked = booked.find((b: any) => b.id === r.linked_intro_booked_id);
+    if (linked && !isNoShow(r.result)) {
+      const n = linked.intro_owner || linked.sa_working_shift || '';
+      if (showStat.has(n)) showStat.get(n)!.s++;
     }
   });
-  let bestShowRate = { name: '', rate: 0, showed: 0, total: 0 };
-  bookerStats.forEach((stats, name) => {
-    if (stats.booked >= 2 && !usedNames.has(name)) {
-      const rate = (stats.showed / stats.booked) * 100;
-      if (rate > bestShowRate.rate) bestShowRate = { name, rate, showed: stats.showed, total: stats.booked };
-    }
-  });
-  if (bestShowRate.name) {
-    shoutouts.push({ category: 'Best Show Rate', name: bestShowRate.name, metric: `${bestShowRate.rate.toFixed(0)}% (${bestShowRate.showed} of ${bestShowRate.total} showed)`, icon: '📈' });
-    usedNames.add(bestShowRate.name);
+  const showEntries = Array.from(showStat.entries())
+    .filter(([_, s]) => s.b >= MIN_INTROS)
+    .map(([n, s]) => ({ name: n, rate: (s.s / s.b) * 100, s: s.s, b: s.b }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 3);
+  if (showEntries.length) {
+    categories.push({
+      category: 'Show Rate', icon: '📈',
+      entries: showEntries.map(e => ({ name: e.name, metric: `${e.rate.toFixed(0)}% (${e.s} of ${e.b})` })),
+    });
   }
 
-  // Follow-up machine
-  const fuBySa = new Map<string, { total: number; done: number }>();
-  followUps.forEach((f: any) => {
-    const name = f.sent_by || 'Unknown';
-    if (!fuBySa.has(name)) fuBySa.set(name, { total: 0, done: 0 });
-    fuBySa.get(name)!.total++;
-    if (f.status === 'sent' || f.status === 'completed') fuBySa.get(name)!.done++;
+  // 4) Intros Showed
+  const showedBy = new Map<string, number>();
+  runs.forEach(r => {
+    if (isNoShow(r.result)) return;
+    const n = r.sa_name || r.intro_owner || '';
+    if (!ok(n)) return;
+    showedBy.set(n, (showedBy.get(n) || 0) + 1);
   });
-  let bestFu = { name: '', rate: 0, done: 0, total: 0 };
-  fuBySa.forEach((stats, name) => {
-    if (stats.total >= 2 && !usedNames.has(name)) {
-      const rate = (stats.done / stats.total) * 100;
-      if (rate > bestFu.rate) bestFu = { name, rate, done: stats.done, total: stats.total };
-    }
-  });
-  if (bestFu.name && bestFu.done > 0) {
-    shoutouts.push({ category: 'Follow-Up Machine', name: bestFu.name, metric: `${bestFu.done} of ${bestFu.total} follow-ups on time`, icon: '🔥' });
-    usedNames.add(bestFu.name);
+  addCategory(categories, 'Intros Showed', '🏃', showedBy, (_, v) => `${v} showed`);
+
+  // 5) Close Rate
+  const crEntries = Array.from(saRun.entries())
+    .filter(([_, s]) => s.showed >= MIN_INTROS)
+    .map(([n, s]) => ({ name: n, rate: (s.sales / s.showed) * 100, sales: s.sales, showed: s.showed }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 3);
+  if (crEntries.length) {
+    categories.push({
+      category: 'Close Rate', icon: '🎯',
+      entries: crEntries.map(e => ({ name: e.name, metric: `${e.rate.toFixed(0)}% (${e.sales} of ${e.showed})` })),
+    });
   }
 
-  // Outreach leader
-  const outreachBySa = new Map<string, number>();
-  recaps.forEach((sr: any) => {
-    const name = sr.staff_name;
-    const total = (sr.calls_made || 0) + (sr.texts_sent || 0) + (sr.dms_sent || 0) + (sr.emails_sent || 0);
-    outreachBySa.set(name, (outreachBySa.get(name) || 0) + total);
-  });
-  let topOutreach = { name: '', count: 0 };
-  outreachBySa.forEach((count, name) => {
-    if (count > topOutreach.count && !usedNames.has(name)) topOutreach = { name, count };
-  });
-  if (topOutreach.name && topOutreach.count > 0) {
-    shoutouts.push({ category: 'Outreach Leader', name: topOutreach.name, metric: `${topOutreach.count} outreach touches`, icon: '📱' });
-    usedNames.add(topOutreach.name);
+  // 6) Total Sales
+  const salesEntries = Array.from(saRun.entries())
+    .filter(([_, s]) => s.sales > 0)
+    .sort((a, b) => b[1].sales - a[1].sales).slice(0, 3);
+  if (salesEntries.length) {
+    categories.push({
+      category: 'Total Sales', icon: '💰',
+      entries: salesEntries.map(([n, s]) => ({ name: n, metric: `${s.sales} sales` })),
+    });
   }
 
-  return shoutouts.slice(0, 5);
+  return categories;
+}
+
+function addCategory(
+  cats: ShoutoutCategory[], name: string, icon: string,
+  map: Map<string, number>, fmt: (n: string, v: number) => string,
+) {
+  const sorted = Array.from(map.entries())
+    .filter(([_, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3);
+  if (sorted.length) {
+    cats.push({ category: name, icon, entries: sorted.map(([n, v]) => ({ name: n, metric: fmt(n, v) })) });
+  }
 }
