@@ -74,8 +74,8 @@ export function isSaleInRange(
   run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at: string },
   dateRange: DateRange | null
 ): boolean {
-  if (!dateRange) return true; // All time
   if (!isMembershipSale(run.result || '')) return false;
+  if (!dateRange) return true; // All time
   const saleDate = getRunSaleDate(run);
   try {
     const date = parseLocalDate(saleDate);
