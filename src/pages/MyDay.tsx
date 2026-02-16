@@ -640,9 +640,20 @@ export default function MyDay() {
               </span>
             </div>
 
-            {/* Row 3 on mobile: status badges */}
+            {/* Row 3 on mobile: contact info + status badges */}
             <div className="flex items-center gap-1.5 flex-wrap mt-0.5 md:mt-0 md:ml-auto">
+              {b.phone && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal">
+                  <PhoneIcon className="w-2.5 h-2.5" />
+                  {b.phone}
+                </Badge>
+              )}
               {!b.phone && <NoPhoneBadge />}
+              {b.email && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal truncate max-w-[160px]">
+                  {b.email}
+                </Badge>
+              )}
               {!isVipCard && !isClassToday && b.class_date === format(addDays(new Date(), 1), 'yyyy-MM-dd') && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 bg-warning/15 text-warning border-warning/30">
                   TOMORROW

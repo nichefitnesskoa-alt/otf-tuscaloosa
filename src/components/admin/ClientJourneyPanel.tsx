@@ -118,6 +118,8 @@ interface ClientBooking {
   intro_owner_locked: boolean | null;
   originating_booking_id: string | null;
   vip_class_name: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
 interface ClientRun {
@@ -336,7 +338,7 @@ export default function ClientJourneyPanel() {
       const [bookingsRes, runsRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name')
+          .select('id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email')
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
@@ -1810,15 +1812,26 @@ export default function ClientJourneyPanel() {
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
-                              <span>{journey.bookings.length} booking(s)</span>
-                              <span>{journey.runs.length} run(s)</span>
-                              {journey.latestIntroOwner && (
-                                <span>Owner: {journey.latestIntroOwner}</span>
-                              )}
-                              {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
-                                <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
-                              )}
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+                        <span>{journey.bookings.length} booking(s)</span>
+                        <span>{journey.runs.length} run(s)</span>
+                        {journey.latestIntroOwner && (
+                          <span>Owner: {journey.latestIntroOwner}</span>
+                        )}
+                        {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
+                          <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
+                        )}
+                        {(() => {
+                          const phone = journey.bookings.find(b => b.phone)?.phone;
+                          const email = journey.bookings.find(b => b.email)?.email;
+                          return (
+                            <>
+                              {phone && <span>📱 {phone}</span>}
+                              {email && <span className="truncate max-w-[180px]">✉️ {email}</span>}
+                              {!phone && <span className="text-destructive">📱 No Phone</span>}
+                            </>
+                          );
+                        })()}
                               {(() => {
                                 const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
                                 if (!vip) return null;
@@ -1891,6 +1904,17 @@ export default function ClientJourneyPanel() {
                         {journey.bookings[0]?.coach_name && journey.bookings[0].coach_name !== 'TBD' && (
                           <span>🏋️ Coach: {journey.bookings[0].coach_name}</span>
                         )}
+                        {(() => {
+                          const phone = journey.bookings.find(b => b.phone)?.phone;
+                          const email = journey.bookings.find(b => b.email)?.email;
+                          return (
+                            <>
+                              {phone && <span>📱 {phone}</span>}
+                              {email && <span className="truncate max-w-[180px]">✉️ {email}</span>}
+                              {!phone && <span className="text-destructive">📱 No Phone</span>}
+                            </>
+                          );
+                        })()}
                         {/* VIP info badges */}
                         {activeTab === 'vip_class' && (() => {
                           const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
