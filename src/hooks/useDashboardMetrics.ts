@@ -5,6 +5,7 @@ import { isWithinInterval, isToday } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
+import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
 
 interface StudioMetrics {
   introsRun: number;
@@ -126,7 +127,6 @@ export function useDashboardMetrics(
     });
     
     // FIRST INTRO BOOKINGS ONLY (for leaderboards - show rate)
-    // Also exclude self-booked for studio metrics
     const firstIntroBookings = activeBookings.filter(b => {
       const originatingId = (b as any).originating_booking_id;
       const isFirstIntro = originatingId === null || originatingId === undefined;
@@ -177,12 +177,11 @@ export function useDashboardMetrics(
 
     // =========================================
     // PER-SA METRICS (attributed to intro_owner)
+    // Uses shared utilities from sales-detection.ts:
+    //   - isRunInRange() for intros-run count (booking metric)
+    //   - isSaleInRange() for sales count (conversion metric)
+    //   - getRunSaleDate() for purchase date fallback
     // =========================================
-    const MEMBERSHIP_RESULTS_LOCAL = ['premier', 'elite', 'basic'];
-    const isMembershipSaleLocal = (result: string) => {
-      const lower = (result || '').toLowerCase();
-      return MEMBERSHIP_RESULTS_LOCAL.some(m => lower.includes(m));
-    };
 
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
       // Get ALL runs by this SA (no date filter yet - we apply date logic per-metric)
@@ -192,10 +191,9 @@ export function useDashboardMetrics(
 
       // Dual-date filtering: include runs where EITHER run_date OR buy_date is in range
       const saRuns = saAllRuns.filter(run => {
-        const runDateInRange = isDateInRange(run.run_date, dateRange);
-        const saleDate = run.buy_date || run.run_date;
-        const saleDateInRange = isMembershipSaleLocal(run.result) && isDateInRange(saleDate, dateRange);
-        return runDateInRange || saleDateInRange;
+        const runInRange = isRunInRange(run, dateRange);
+        const saleInRange = isSaleInRange(run, dateRange);
+        return runInRange || saleInRange;
       });
 
       // For linked runs, group by booking to get first runs only
@@ -205,26 +203,20 @@ export function useDashboardMetrics(
       
       saRuns.forEach(run => {
         if (run.linked_intro_booked_id) {
-          // Check if it's linked to a first intro booking
           if (firstIntroBookingIds.has(run.linked_intro_booked_id)) {
             const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
             existing.push(run);
             runsByBooking.set(run.linked_intro_booked_id, existing);
           }
         } else {
-          // Unlinked runs count directly
           unlinkedRuns.push(run);
         }
       });
 
-      // Count intros run: unique bookings where SA ran any non-no-show intro + unlinked runs
-      // Intros run uses run_date; sales uses buy_date || run_date
       let introsRunCount = 0;
       let salesCount = 0;
       let salesCommission = 0;
       const saFirstRuns: IntroRun[] = [];
-      
-      const isMembershipSale = isMembershipSaleLocal;
       
       // Count linked runs - use run_date for intros, sale date for sales
       runsByBooking.forEach((runs) => {
@@ -233,18 +225,14 @@ export function useDashboardMetrics(
         );
         const firstValidRun = sortedRuns[0];
         if (firstValidRun) {
-          // Only count as "intro run" if run_date is in range
-          if (isDateInRange(firstValidRun.run_date, dateRange)) {
+          // Only count as "intro run" if run_date is in range (booking metric)
+          if (isRunInRange(firstValidRun, dateRange)) {
             introsRunCount++;
             saFirstRuns.push(firstValidRun);
           }
           
-          // Check if ANY run for this booking has a sale with sale date in range
-          const saleRun = runs.find(r => {
-            const saleDate = r.buy_date || r.run_date;
-            const saleDateInRange = isDateInRange(saleDate, dateRange);
-            return isMembershipSale(r.result) && saleDateInRange;
-          });
+          // Check if ANY run for this booking has a sale with sale date in range (conversion metric)
+          const saleRun = runs.find(r => isSaleInRange(r, dateRange));
           
           if (saleRun) {
             salesCount++;
@@ -255,22 +243,23 @@ export function useDashboardMetrics(
       
       // Add unlinked runs - same dual-date logic
       unlinkedRuns.forEach(run => {
-        // Only count as "intro run" if run_date is in range
-        if (isDateInRange(run.run_date, dateRange)) {
+        if (isRunInRange(run, dateRange)) {
           introsRunCount++;
           saFirstRuns.push(run);
         }
-        const saleDate = run.buy_date || run.run_date;
-        const saleDateInRange = isDateInRange(saleDate, dateRange);
-        if (isMembershipSale(run.result) && saleDateInRange) {
+        if (isSaleInRange(run, dateRange)) {
           salesCount++;
           salesCommission += run.commission_amount || 0;
         }
       });
 
+      // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
+      // This can exceed 100% when follow-up purchases from previous periods
+      // land in a period with fewer new intros. This is correct behavior:
+      // it reflects real revenue attribution for the selected period.
       const closingRate = introsRunCount > 0 ? (salesCount / introsRunCount) * 100 : 0;
 
-      // Commission from intros (already calculated in salesCommission from any-run-with-sale logic)
+      // Commission from intros
       const introCommission = salesCommission;
       
       // Commission from outside sales
@@ -295,20 +284,18 @@ export function useDashboardMetrics(
 
     // =========================================
     // BOOKER STATS (attributed to booked_by)
-    // Excludes "Online Intro Offer (self-booked)" lead source from booker stats
     // =========================================
     const EXCLUDED_LEAD_SOURCES_BOOKER = ['Online Intro Offer (self-booked)', 'VIP Class'];
     
     const bookerCounts = new Map<string, { booked: number; showed: number }>();
     firstIntroBookings
-      .filter(b => !EXCLUDED_LEAD_SOURCES_BOOKER.includes(b.lead_source)) // Exclude self-booked & VIP lead sources
+      .filter(b => !EXCLUDED_LEAD_SOURCES_BOOKER.includes(b.lead_source))
       .forEach(b => {
         const bookedBy = (b as any).booked_by || b.sa_working_shift;
         if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
           const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0 };
           existing.booked++;
           
-          // Check if this booking has a non-no-show run
           const runs = bookingToRuns.get(b.id) || [];
           if (runs.some(run => run.result !== 'No-show')) {
             existing.showed++;
@@ -324,25 +311,18 @@ export function useDashboardMetrics(
         introsBooked: counts.booked,
         introsShowed: counts.showed,
         showRate: counts.booked > 0 ? (counts.showed / counts.booked) * 100 : 0,
-        pipelineValue: counts.booked * 10, // Estimate ~$10 avg commission per booking
+        pipelineValue: counts.booked * 10,
       }))
       .filter(m => m.introsBooked > 0)
       .sort((a, b) => b.introsBooked - a.introsBooked);
 
     // =========================================
     // LEAD SOURCE METRICS
+    // Uses isSaleInRange for conversion-based sale detection
     // =========================================
-    const MEMBERSHIP_RESULTS_GLOBAL = ['premier', 'elite', 'basic'];
-    const isMembershipSaleGlobal = (result: string) => {
-      const lower = (result || '').toLowerCase();
-      return MEMBERSHIP_RESULTS_GLOBAL.some(m => lower.includes(m));
-    };
-
-    // Lead sources - include ALL first intros for complete studio/marketing analytics
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
-      // Include ALL lead sources including self-booked for complete marketing analysis
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
       existing.booked++;
       
@@ -350,11 +330,7 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         existing.showed++;
-        // Check if ANY run has a sale result with sale date in range
-        const saleRun = runs.find(r => {
-          const saleDate = r.buy_date || r.run_date;
-          return isMembershipSaleGlobal(r.result) && isDateInRange(saleDate, dateRange);
-        });
+        const saleRun = runs.find(r => isSaleInRange(r, dateRange));
         if (saleRun) {
           existing.sold++;
           existing.revenue += saleRun.commission_amount || 0;
@@ -368,7 +344,7 @@ export function useDashboardMetrics(
       .sort((a, b) => b.booked - a.booked);
 
     // =========================================
-    // PIPELINE METRICS - include ALL first intros for complete studio view
+    // PIPELINE METRICS - uses isSaleInRange for conversion-based sale detection
     // =========================================
     const pipelineBooked = firstIntroBookings.length;
     let pipelineShowed = 0;
@@ -380,11 +356,7 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         pipelineShowed++;
-        // Check if ANY run has a sale result with sale date in range
-        const saleRun = runs.find(r => {
-          const saleDate = r.buy_date || r.run_date;
-          return isMembershipSaleGlobal(r.result) && isDateInRange(saleDate, dateRange);
-        });
+        const saleRun = runs.find(r => isSaleInRange(r, dateRange));
         if (saleRun) {
           pipelineSold++;
           pipelineRevenue += saleRun.commission_amount || 0;
@@ -400,7 +372,7 @@ export function useDashboardMetrics(
     };
 
     // =========================================
-    // TODAY'S RACE
+    // TODAY'S RACE - uses isMembershipSale from shared utilities
     // =========================================
     const todaysRuns = activeRuns.filter(r => r.run_date && isToday(parseLocalDate(r.run_date)));
     const todaysRaceMap = new Map<string, { introsRun: number; sales: number }>();
@@ -411,8 +383,7 @@ export function useDashboardMetrics(
         const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
         if (run.result !== 'No-show') {
           existing.introsRun++;
-          // FIX: Use result string to detect sales, not commission_amount
-          if (isMembershipSaleGlobal(run.result)) {
+          if (isMembershipSale(run.result)) {
             existing.sales++;
           }
         }
@@ -430,13 +401,16 @@ export function useDashboardMetrics(
       .sort((a, b) => b.introsRun - a.introsRun);
 
     // =========================================
-    // STUDIO METRICS (aggregated)
+    // STUDIO METRICS (aggregated from perSA)
     // =========================================
     const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsRun, 0);
     const studioIntroSales = perSAData.reduce((sum, m) => sum + m.sales, 0);
+    // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
+    // This can exceed 100% when follow-up purchases from previous periods
+    // land in a period with fewer new intros. This is correct behavior:
+    // it reflects real revenue attribution for the selected period.
     const studioClosingRate = studioIntrosRun > 0 ? (studioIntroSales / studioIntrosRun) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + m.commission, 0);
-
 
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
@@ -469,19 +443,19 @@ export function useDashboardMetrics(
     // LEADERBOARDS
     // =========================================
     
-    // Top Bookers (by booking count, credited to booked_by first, fallback to sa_working_shift)
+    // Top Bookers
     const topBookers: LeaderEntry[] = Array.from(bookerCounts.entries())
       .map(([name, counts]) => ({ name, value: counts.booked }))
       .sort((a, b) => b.value - a.value);
 
-    // Top Commission (include all participants for ranking)
+    // Top Commission
     const allCommissionEntries: LeaderEntry[] = perSAData
       .map(m => ({ name: m.saName, value: m.commission }))
       .sort((a, b) => b.value - a.value);
 
     const topCommission = allCommissionEntries.slice(0, 3);
 
-    // Best Closing % (minimum 3 intros to qualify)
+    // Best Closing %
     const MIN_INTROS_FOR_CLOSING = 1;
     const allClosingEntries: LeaderEntry[] = perSAData
       .filter(m => m.introsRun >= MIN_INTROS_FOR_CLOSING)
@@ -494,7 +468,7 @@ export function useDashboardMetrics(
 
     const topClosing = allClosingEntries.slice(0, 3);
 
-    // Best Show Rate (booking-based, credited to booked_by)
+    // Best Show Rate
     const MIN_BOOKINGS_FOR_SHOWRATE = 3;
     const allShowRateEntries: LeaderEntry[] = [];
     bookerCounts.forEach((counts, saName) => {
