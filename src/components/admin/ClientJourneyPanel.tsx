@@ -285,6 +285,7 @@ export default function ClientJourneyPanel() {
   const [showCreateBookingDialog, setShowCreateBookingDialog] = useState(false);
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [creatingBookingFromRun, setCreatingBookingFromRun] = useState<ClientRun | null>(null);
+  const [secondIntroOriginatingId, setSecondIntroOriginatingId] = useState<string | null>(null);
   const [newBooking, setNewBooking] = useState({
     member_name: '',
     class_date: getLocalDateString(),
@@ -1016,12 +1017,33 @@ export default function ClientJourneyPanel() {
     });
     setIsSelfBooked(false);
     setCreatingBookingFromRun(null);
+    setSecondIntroOriginatingId(null);
+    setShowCreateBookingDialog(true);
+  };
+
+  // Book 2nd Intro — pre-populate from the first booking in the journey
+  const handleBook2ndIntro = (journey: ClientJourney) => {
+    // Find the first (originating) booking — the one without originating_booking_id
+    const firstBooking = journey.bookings.find(b => !b.originating_booking_id) || journey.bookings[0];
+    if (!firstBooking) return;
+
+    setNewBooking({
+      member_name: journey.memberName,
+      class_date: getLocalDateString(),
+      intro_time: '',
+      coach_name: firstBooking.coach_name || '',
+      sa_working_shift: '',
+      lead_source: firstBooking.lead_source || '',
+      fitness_goal: firstBooking.fitness_goal || '',
+    });
+    setIsSelfBooked(false);
+    setCreatingBookingFromRun(null);
+    setSecondIntroOriginatingId(firstBooking.id);
     setShowCreateBookingDialog(true);
   };
 
   // Create matching booking from an unlinked run
   const handleCreateMatchingBooking = (run: ClientRun) => {
-    // Pre-populate with run data
     setNewBooking({
       member_name: run.member_name,
       class_date: run.run_date || getLocalDateString(),
@@ -1031,10 +1053,10 @@ export default function ClientJourneyPanel() {
       lead_source: run.lead_source || '',
       fitness_goal: '',
     });
-    // Check if lead source indicates self-booked
     const isSelfBookedSource = run.lead_source === 'Online Intro Offer (self-booked)';
     setIsSelfBooked(isSelfBookedSource);
     setCreatingBookingFromRun(run);
+    setSecondIntroOriginatingId(null);
     setShowCreateBookingDialog(true);
   };
 
@@ -1070,9 +1092,10 @@ export default function ClientJourneyPanel() {
           booked_by: bookedBy,
           lead_source: leadSource,
           fitness_goal: newBooking.fitness_goal || null,
-          booking_status: creatingBookingFromRun ? 'Active' : 'Active',
+          booking_status: 'Active',
           intro_owner: introOwner,
           intro_owner_locked: !!introOwner,
+          originating_booking_id: secondIntroOriginatingId || null,
         })
         .select()
         .single();
@@ -1097,12 +1120,15 @@ export default function ClientJourneyPanel() {
         } else {
           toast.success('Booking created and linked to run');
         }
+      } else if (secondIntroOriginatingId) {
+        toast.success('2nd intro booked successfully');
       } else {
         toast.success('Booking created');
       }
       
       setShowCreateBookingDialog(false);
       setCreatingBookingFromRun(null);
+      setSecondIntroOriginatingId(null);
       await fetchData();
       await refreshGlobalData();
     } catch (error) {
@@ -1826,6 +1852,9 @@ export default function ClientJourneyPanel() {
                                         <DropdownMenuItem onClick={() => handleOpenSetOwnerDialog(b)}>
                                           <UserCheck className="w-3 h-3 mr-2" /> Set Intro Owner
                                         </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleBook2ndIntro(journey)}>
+                                          <CalendarPlus className="w-3 h-3 mr-2" /> Book 2nd Intro
+                                        </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleOpenPurchaseDialog(b)}>
                                           <DollarSign className="w-3 h-3 mr-2" /> Mark as Purchased
@@ -1972,16 +2001,25 @@ export default function ClientJourneyPanel() {
                         </div>
                       )}
 
-                      {/* Add Run Button - always show */}
-                      <div className="pt-2 border-t border-dashed">
+                      {/* Action buttons */}
+                      <div className="pt-2 border-t border-dashed flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs"
+                          className="flex-1 text-xs"
                           onClick={() => handleOpenCreateRunDialog(journey)}
                         >
                           <Plus className="w-3 h-3 mr-1" />
                           Add Intro Run
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleBook2ndIntro(journey)}
+                        >
+                          <CalendarPlus className="w-3 h-3 mr-1" />
+                          Book 2nd Intro
                         </Button>
                       </div>
                     </div>
@@ -2536,21 +2574,37 @@ export default function ClientJourneyPanel() {
         {/* Create Booking Dialog */}
         <Dialog open={showCreateBookingDialog} onOpenChange={(open) => {
           setShowCreateBookingDialog(open);
-          if (!open) setCreatingBookingFromRun(null);
+          if (!open) {
+            setCreatingBookingFromRun(null);
+            setSecondIntroOriginatingId(null);
+          }
         }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {creatingBookingFromRun ? 'Create Matching Booking' : 'Create New Booking'}
+                {secondIntroOriginatingId ? 'Book 2nd Intro' : creatingBookingFromRun ? 'Create Matching Booking' : 'Create New Booking'}
               </DialogTitle>
               <DialogDescription>
-                {creatingBookingFromRun 
-                  ? `Create a booking record to match the intro run for ${creatingBookingFromRun.member_name}. The booking will be automatically linked to this run.`
-                  : 'Add a new intro booking to the system'
+                {secondIntroOriginatingId
+                  ? `Schedule a follow-up intro for ${newBooking.member_name}. This will be linked to their original booking.`
+                  : creatingBookingFromRun 
+                    ? `Create a booking record to match the intro run for ${creatingBookingFromRun.member_name}. The booking will be automatically linked to this run.`
+                    : 'Add a new intro booking to the system'
                 }
               </DialogDescription>
             </DialogHeader>
             
+            {/* Show 2nd intro info banner */}
+            {secondIntroOriginatingId && (
+              <div className="p-3 bg-primary/10 rounded-lg text-xs space-y-1 border border-primary/20">
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <CalendarPlus className="w-4 h-4 text-primary" />
+                  2nd Intro — linked to original booking
+                </div>
+                <div className="text-muted-foreground">Client details auto-copied. Set the new date, time, and who booked it.</div>
+              </div>
+            )}
+
             {/* Show run info if creating from run */}
             {creatingBookingFromRun && (
               <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
@@ -2569,7 +2623,7 @@ export default function ClientJourneyPanel() {
                   value={newBooking.member_name}
                   onChange={(e) => setNewBooking({...newBooking, member_name: e.target.value})}
                   placeholder="Full name"
-                  disabled={!!creatingBookingFromRun}
+                  disabled={!!creatingBookingFromRun || !!secondIntroOriginatingId}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -2648,10 +2702,11 @@ export default function ClientJourneyPanel() {
               <Button variant="outline" onClick={() => {
                 setShowCreateBookingDialog(false);
                 setCreatingBookingFromRun(null);
+                setSecondIntroOriginatingId(null);
               }}>Cancel</Button>
               <Button onClick={handleCreateBooking} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                {creatingBookingFromRun ? 'Create & Link' : 'Create Booking'}
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : (secondIntroOriginatingId ? <CalendarPlus className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />)}
+                {secondIntroOriginatingId ? 'Book 2nd Intro' : creatingBookingFromRun ? 'Create & Link' : 'Create Booking'}
               </Button>
             </DialogFooter>
           </DialogContent>
