@@ -16,7 +16,7 @@ import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import {
   User, Calendar, Target, ClipboardList, DollarSign, Phone, Mail,
-  MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight,
+  MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight, Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EirmaPlaybook, ThinkAboutItHandler } from './EirmaPlaybook';
@@ -25,6 +25,7 @@ import { getObstacleConnector } from './TransformationClose';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
 import { useObjectionPlaybooks, matchObstaclesToPlaybooks } from '@/hooks/useObjectionPlaybooks';
+import { LinkQuestionnaireDialog } from './LinkQuestionnaireDialog';
 
 interface QuestionnaireData {
   q1_fitness_goal: string | null;
@@ -91,6 +92,7 @@ export function PrepDrawer({
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [linkQOpen, setLinkQOpen] = useState(false);
   const { data: playbooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
@@ -290,14 +292,22 @@ export function PrepDrawer({
                     )}
                   </div>
                 ) : (
-                  <div className="text-xs text-muted-foreground italic flex items-center gap-2 p-2 rounded border">
-                    <ClipboardList className="w-3.5 h-3.5" />
-                    {questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
-                    {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
-                      <Button variant="outline" size="sm" className="h-6 text-[10px] ml-auto" onClick={onSendQ}>
-                        Send Q
+                  <div className="text-xs text-muted-foreground italic flex flex-col gap-2 p-2 rounded border">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      {questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
+                    </div>
+                    <div className="flex gap-2">
+                      {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
+                        <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={onSendQ}>
+                          Send Q
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setLinkQOpen(true)}>
+                        <Link2 className="w-3 h-3 mr-1" />
+                        Link Existing Q
                       </Button>
-                    )}
+                    </div>
                   </div>
                 )}
 
@@ -490,6 +500,27 @@ export function PrepDrawer({
           </div>
         </ScrollArea>
       </SheetContent>
+
+      <LinkQuestionnaireDialog
+        open={linkQOpen}
+        onOpenChange={setLinkQOpen}
+        bookingId={bookingId}
+        memberName={memberName}
+        onLinked={() => {
+          // Re-fetch questionnaire data
+          const bookingIds = defaultBookings.map(b => b.id);
+          supabase
+            .from('intro_questionnaires')
+            .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
+            .in('booking_id', bookingIds)
+            .order('created_at', { ascending: false })
+            .then(({ data: rows }) => {
+              const allQ = (rows || []) as unknown as QuestionnaireData[];
+              const completed = allQ.find(q => q.status === 'completed' || q.status === 'submitted');
+              setQuestionnaire(completed || allQ[0] || null);
+            });
+        }}
+      />
     </Sheet>
   );
 }
