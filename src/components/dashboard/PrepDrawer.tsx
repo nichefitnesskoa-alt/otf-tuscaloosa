@@ -6,18 +6,21 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import {
   User, Calendar, Target, ClipboardList, DollarSign, Phone, Mail,
-  MessageSquare, FileText, Copy, History,
+  MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EirmaPlaybook } from './EirmaPlaybook';
+import { TransformationClose } from './TransformationClose';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
 
@@ -105,7 +108,6 @@ export function PrepDrawer({
 
     const bookingIds = defaultBookings.map(b => b.id);
 
-    // Fetch questionnaire + send logs in parallel
     Promise.all([
       supabase
         .from('intro_questionnaires')
@@ -146,6 +148,21 @@ export function PrepDrawer({
     if (phone) window.open(`tel:${phone}`);
   };
 
+  const firstName = memberName.split(' ')[0];
+  const hasQ = questionnaire?.status === 'completed';
+  const goal = questionnaire?.q1_fitness_goal;
+  const obstacle = questionnaire?.q3_obstacle;
+  const emotionalDriver = questionnaire?.q5_emotional_driver;
+  const commitment = questionnaire?.q6_weekly_commitment;
+
+  const p = (text: string) =>
+    text
+      .replace(/\[name\]/g, firstName)
+      .replace(/\[goal\]/g, goal || '[their goal]')
+      .replace(/\[obstacle\]/g, obstacle || '[their obstacle]')
+      .replace(/\[commitment\]/g, commitment || '[their commitment]')
+      .replace(/\[coach\]/g, coachName || '[coach]');
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md p-0">
@@ -170,7 +187,7 @@ export function PrepDrawer({
 
         <ScrollArea className="h-[calc(100vh-120px)]">
           <div className="p-4 space-y-4">
-            {/* Section 1: Quick Info */}
+            {/* Quick Info */}
             <div className="rounded-lg bg-muted/30 p-3 text-sm space-y-1.5">
               <InfoRow icon={<Calendar className="w-3.5 h-3.5" />} label="Date" value={`${classDate}${classTime ? ` @ ${classTime.substring(0, 5)}` : ''}`} />
               <InfoRow icon={<User className="w-3.5 h-3.5" />} label="Coach" value={coachName} />
@@ -187,53 +204,134 @@ export function PrepDrawer({
               )}
             </div>
 
-            {/* Section 2: Full Questionnaire Responses */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold flex items-center gap-1.5 uppercase tracking-wide text-muted-foreground">
-                <ClipboardList className="w-3.5 h-3.5 text-primary" />
-                Questionnaire Responses
-              </h3>
-              {loading ? (
-                <p className="text-xs text-muted-foreground">Loading...</p>
-              ) : questionnaire?.status === 'completed' ? (
-                <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
-                  <QRow label="What is your fitness goal?" value={questionnaire.q1_fitness_goal} />
-                  <QRow label="Current fitness level (1-5)" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
-                  <QRow label="Biggest obstacle?" value={questionnaire.q3_obstacle} />
-                  <QRow label="What have you tried before?" value={questionnaire.q4_past_experience} />
-                  <QRow label="What would reaching your goal mean to you?" value={questionnaire.q5_emotional_driver} />
-                  <QRow label="Days per week you can commit?" value={questionnaire.q6_weekly_commitment} />
-                  <QRow label="Which days work best?" value={questionnaire.q6b_available_days} />
-                  {questionnaire.q7_coach_notes && (
-                    <QRow label="Coach notes" value={questionnaire.q7_coach_notes} />
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground italic flex items-center gap-2 p-2 rounded border">
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  {questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
-                  {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
-                    <Button variant="outline" size="sm" className="h-6 text-[10px] ml-auto" onClick={onSendQ}>
-                      Send Q
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Tabbed Prep Content */}
+            <Tabs defaultValue="prep" className="w-full">
+              <TabsList className="w-full grid grid-cols-3">
+                <TabsTrigger value="prep" className="text-xs">Prep</TabsTrigger>
+                <TabsTrigger value="close" className="text-xs">The Close</TabsTrigger>
+                <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
+              </TabsList>
 
-            {/* Section 3: EIRMA Objection Playbook */}
-            {questionnaire?.status === 'completed' && (
-              <EirmaPlaybook
-                obstacles={questionnaire.q3_obstacle}
-                fitnessLevel={questionnaire.q2_fitness_level}
-                emotionalDriver={questionnaire.q5_emotional_driver}
-                clientName={memberName}
-                fitnessGoal={questionnaire.q1_fitness_goal}
-                pastExperience={questionnaire.q4_past_experience}
-              />
-            )}
+              {/* TAB 1: Prep + Pre-Class */}
+              <TabsContent value="prep" className="space-y-3 mt-3">
+                {loading ? (
+                  <p className="text-xs text-muted-foreground">Loading...</p>
+                ) : hasQ ? (
+                  <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
+                    <QRow label="What is your fitness goal?" value={goal} />
+                    <QRow label="Current fitness level (1-5)" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
+                    <QRow label="Biggest obstacle?" value={obstacle} />
+                    <QRow label="What have you tried before?" value={questionnaire.q4_past_experience} />
+                    <QRow label="What would reaching your goal mean to you?" value={emotionalDriver} />
+                    <QRow label="Days per week you can commit?" value={commitment} />
+                    <QRow label="Which days work best?" value={questionnaire.q6b_available_days} />
+                    {questionnaire.q7_coach_notes && (
+                      <QRow label="Coach notes" value={questionnaire.q7_coach_notes} />
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground italic flex items-center gap-2 p-2 rounded border">
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    {questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
+                    {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
+                      <Button variant="outline" size="sm" className="h-6 text-[10px] ml-auto" onClick={onSendQ}>
+                        Send Q
+                      </Button>
+                    )}
+                  </div>
+                )}
 
-            {/* Section 4: Activity Timeline */}
+                {/* SA Mindset */}
+                <div className="rounded-lg p-3 text-xs border border-muted bg-muted/30 space-y-1">
+                  <p className="font-bold uppercase tracking-wide text-muted-foreground text-[10px]">🧠 SA Mindset</p>
+                  <p className="leading-relaxed">You are not selling a membership. You are helping someone become the person they told you they want to be. Your job is to connect every moment of this visit back to their goal.</p>
+                </div>
+
+                {/* Pre-Class Scripts */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-green-700 dark:text-green-400">📋 Pre-Class Scripts</p>
+
+                  <PrepCollapsible title="Greeting + Q Acknowledgment" icon="👋" defaultOpen accentColor="green">
+                    <p className="leading-relaxed">
+                      {p(`"Hey [name]! Welcome to Orangetheory. I'm so glad you're here. I read through your questionnaire — you said you want to [goal], and I love that. Today's class is going to be a great first step toward that. Let me walk you through what to expect."`)}
+                    </p>
+                    {!hasQ && (
+                      <div className="mt-1.5">
+                        <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1 rounded text-[10px] font-medium">
+                          Questionnaire not completed — use a general greeting and ask about their goal in person
+                        </span>
+                      </div>
+                    )}
+                  </PrepCollapsible>
+
+                  <PrepCollapsible title="Flipbook Talking Points" icon="📖" accentColor="green">
+                    <ul className="space-y-1 list-disc pl-4">
+                      <li><span className="font-medium">Heart Rate Zones:</span> "We use a heart rate monitor so you can see your effort in real time. You'll aim for the Orange Zone — that's where the magic happens."</li>
+                      <li><span className="font-medium">Coaching:</span> "There's a coach leading the entire class. They'll tell you every move, every transition. You don't have to figure anything out."</li>
+                      <li><span className="font-medium">Afterburn:</span> "The workout is designed so you keep burning calories for up to 36 hours after class. It's called the afterburn effect."</li>
+                      <li><span className="font-medium">Community:</span> "Everyone in that room was a first-timer once. This is one of the most supportive workout communities you'll find."</li>
+                    </ul>
+                  </PrepCollapsible>
+
+                  <PrepCollapsible title="Set Expectations" icon="⏱️" accentColor="green">
+                    <p className="leading-relaxed">
+                      {p(`"After class, we'll sit down for about 5-10 minutes. I'll ask you how you felt, and if it's a fit, I'll show you how to keep this going. No pressure, no awkward pitch. Sound good?"`)}
+                    </p>
+                  </PrepCollapsible>
+
+                  <PrepCollapsible title="Mid-Class Check-In" icon="💪" accentColor="green">
+                    <p className="leading-relaxed">
+                      {p(`Walk into the studio at the ~25 minute mark. Make eye contact with [name], give a thumbs up or a quick "You're crushing it!" This creates a bond and shows you are invested in their experience.`)}
+                    </p>
+                    <p className="mt-1.5 text-muted-foreground italic">
+                      Tip: Note which station they're at and what they're doing well — use this in the post-class sit-down.
+                    </p>
+                  </PrepCollapsible>
+                </div>
+              </TabsContent>
+
+              {/* TAB 2: The Close */}
+              <TabsContent value="close" className="mt-3">
+                {hasQ ? (
+                  <TransformationClose
+                    clientName={memberName}
+                    coachName={coachName}
+                    fitnessGoal={goal}
+                    obstacle={obstacle}
+                    pastExperience={questionnaire.q4_past_experience}
+                    emotionalDriver={emotionalDriver}
+                    weeklyCommitment={commitment}
+                    availableDays={questionnaire.q6b_available_days}
+                  />
+                ) : (
+                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
+                    <ClipboardList className="w-3 h-3" />
+                    Complete the questionnaire to generate a personalized close script.
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TAB 3: Objections */}
+              <TabsContent value="objections" className="mt-3">
+                {hasQ ? (
+                  <EirmaPlaybook
+                    obstacles={obstacle}
+                    fitnessLevel={questionnaire.q2_fitness_level}
+                    emotionalDriver={emotionalDriver}
+                    clientName={memberName}
+                    fitnessGoal={goal}
+                    pastExperience={questionnaire.q4_past_experience}
+                  />
+                ) : (
+                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
+                    <ClipboardList className="w-3 h-3" />
+                    Complete the questionnaire to see matched objection playbooks.
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            {/* Activity Timeline */}
             {(sendLogs.length > 0 || defaultRuns.length > 0 || defaultBookings.length > 1) && (
               <div className="space-y-2">
                 <h3 className="text-xs font-bold flex items-center gap-1.5 uppercase tracking-wide text-muted-foreground">
@@ -241,7 +339,6 @@ export function PrepDrawer({
                   Activity Timeline
                 </h3>
                 <div className="space-y-1.5">
-                  {/* Bookings */}
                   {defaultBookings.map(b => (
                     <TimelineItem
                       key={b.id}
@@ -250,7 +347,6 @@ export function PrepDrawer({
                       detail={`${b.coach_name} · ${b.booking_status || 'Active'}${b.booked_by ? ` · By ${capitalizeName(b.booked_by)}` : ''}`}
                     />
                   ))}
-                  {/* Runs */}
                   {defaultRuns.map(r => (
                     <TimelineItem
                       key={r.id}
@@ -260,7 +356,6 @@ export function PrepDrawer({
                       highlight={isMembershipSale(r.result)}
                     />
                   ))}
-                  {/* Scripts sent */}
                   {sendLogs.map(l => (
                     <TimelineItem
                       key={l.id}
@@ -273,7 +368,7 @@ export function PrepDrawer({
               </div>
             )}
 
-            {/* Section 5: Action Buttons */}
+            {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-2 pt-2 border-t">
               {onGenerateScript && (
                 <Button variant="default" size="sm" className="text-xs" onClick={onGenerateScript}>
@@ -324,5 +419,35 @@ function TimelineItem({ icon, label, detail, highlight }: { icon: React.ReactNod
         {detail && <p className="text-muted-foreground">{detail}</p>}
       </div>
     </div>
+  );
+}
+
+function PrepCollapsible({ title, icon, children, defaultOpen = false, accentColor = 'green' }: {
+  title: string;
+  icon: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  accentColor?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : 'border-l-primary';
+  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : 'bg-primary/5';
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className={`rounded-lg border-l-4 ${borderColor} ${bgColor} overflow-hidden`}>
+        <CollapsibleTrigger className="w-full px-3 py-2 flex items-center gap-2 text-left text-xs">
+          {isOpen ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
+          <span>{icon}</span>
+          <span className="font-semibold">{title}</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-3 pb-3 text-xs">
+            {children}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
