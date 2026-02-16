@@ -223,14 +223,14 @@ export function useGenerateAgenda() {
         nextWeekBookingsRes, nextWeekFollowUpsRes, nextWeekLeadsRes, vipEventsRes,
       ] = await Promise.all([
         supabase.from('intros_booked')
-          .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics')
+          .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, booking_status')
           .gte('class_date', startStr).lte('class_date', endStr),
         // Dual-date query: fetch runs where run_date OR buy_date is in range
         supabase.from('intros_run')
           .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, commission_amount, lead_source, ignore_from_metrics, created_at')
           .or(`and(run_date.gte.${startStr},run_date.lte.${endStr}),and(buy_date.gte.${startStr},buy_date.lte.${endStr})`),
         supabase.from('intros_booked')
-          .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source')
+          .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source, booking_status')
           .gte('class_date', prevStartStr).lte('class_date', prevEndStr),
         // Dual-date query for previous period too
         supabase.from('intros_run')
@@ -282,14 +282,16 @@ export function useGenerateAgenda() {
       const scriptActions = scriptActionsRes.data || [];
       const salesOutside = salesOutsideRes.data || [];
 
-      // ---- Filter using shared constants ----
-      const filterBookings = (arr: any[]) => arr.filter((b: any) =>
-        !b.is_vip &&
-        !b.deleted_at &&
-        !b.ignore_from_metrics &&
-        !b.originating_booking_id &&
-        !EXCLUDED_LEAD_SOURCES.includes(b.lead_source)
-      );
+      // ---- Filter using same logic as dashboard (useDashboardMetrics) ----
+      const EXCLUDED_STATUSES = ['Duplicate', 'Deleted (soft)', 'DEAD'];
+      const filterBookings = (arr: any[]) => arr.filter((b: any) => {
+        const status = ((b as any).booking_status || '').toUpperCase();
+        const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
+        return !isExcludedStatus &&
+          !b.ignore_from_metrics &&
+          !b.is_vip &&
+          !b.originating_booking_id;
+      });
 
       const filteredBooked = filterBookings(allBooked);
       const prevFilteredBooked = filterBookings(prevAllBooked);
