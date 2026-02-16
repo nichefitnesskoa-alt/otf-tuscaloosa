@@ -23,7 +23,12 @@ export function WeekAheadSection({ weekAhead, eventsNotes, onEventsChange, isAdm
           </p>
           {Object.keys(w.introsByDay).length > 0 && (
             <div className={isPresentMode ? 'flex gap-6 text-lg text-white/70' : 'flex gap-3 text-xs text-muted-foreground'}>
-              {Object.entries(w.introsByDay).map(([day, count]) => (
+              {Object.entries(w.introsByDay)
+                .sort(([a], [b]) => {
+                  const order = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                  return order.indexOf(a) - order.indexOf(b);
+                })
+                .map(([day, count]) => (
                 <span key={day}>{day}: {count}</span>
               ))}
             </div>
