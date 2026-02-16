@@ -1063,7 +1063,60 @@ export default function ClientJourneyPanel() {
     setShowCreateBookingDialog(true);
   };
 
-  // Book 2nd Intro — pre-populate from the first booking in the journey
+  // Log 2nd Intro Run — auto-create a linked booking, then open run dialog
+  const handleLog2ndIntroRun = async (journey: ClientJourney) => {
+    const firstBooking = journey.bookings.find(b => !b.originating_booking_id) || journey.bookings[0];
+    if (!firstBooking) {
+      toast.error('No original booking found');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const { data: insertedBooking, error } = await supabase
+        .from('intros_booked')
+        .insert({
+          booking_id: bookingId,
+          member_name: journey.memberName,
+          class_date: getLocalDateString(),
+          coach_name: firstBooking.coach_name || 'TBD',
+          sa_working_shift: firstBooking.sa_working_shift,
+          booked_by: firstBooking.booked_by || firstBooking.sa_working_shift,
+          lead_source: firstBooking.lead_source,
+          fitness_goal: firstBooking.fitness_goal || null,
+          booking_status: 'Active',
+          originating_booking_id: firstBooking.id,
+          email: (firstBooking as any).email || null,
+          phone: (firstBooking as any).phone || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Now open the run dialog pre-linked to this new booking
+      setCreatingRunForJourney(journey);
+      setNewRun({
+        member_name: journey.memberName,
+        run_date: getLocalDateString(),
+        class_time: '',
+        ran_by: '',
+        lead_source: firstBooking.lead_source || '',
+        result: '',
+        notes: '',
+        linked_intro_booked_id: insertedBooking.id,
+      });
+      setShowCreateRunDialog(true);
+      toast.info('2nd intro booking created — now log the run details');
+    } catch (err) {
+      console.error('Error creating 2nd intro booking:', err);
+      toast.error('Failed to create 2nd intro booking');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleBook2ndIntro = (journey: ClientJourney) => {
     // Find the first (originating) booking — the one without originating_booking_id
     const firstBooking = journey.bookings.find(b => !b.originating_booking_id) || journey.bookings[0];
@@ -1894,8 +1947,8 @@ export default function ClientJourneyPanel() {
                                         <DropdownMenuItem onClick={() => handleOpenSetOwnerDialog(b)}>
                                           <UserCheck className="w-3 h-3 mr-2" /> Set Intro Owner
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleBook2ndIntro(journey)}>
-                                          <CalendarPlus className="w-3 h-3 mr-2" /> Book 2nd Intro
+                                        <DropdownMenuItem onClick={() => handleLog2ndIntroRun(journey)}>
+                                          <CalendarPlus className="w-3 h-3 mr-2" /> Log 2nd Intro Run
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => handleOpenPurchaseDialog(b)}>
@@ -2065,10 +2118,11 @@ export default function ClientJourneyPanel() {
                           variant="outline"
                           size="sm"
                           className="flex-1 text-xs"
-                          onClick={() => handleBook2ndIntro(journey)}
+                          onClick={() => handleLog2ndIntroRun(journey)}
+                          disabled={isSaving}
                         >
                           <CalendarPlus className="w-3 h-3 mr-1" />
-                          Book 2nd Intro
+                          Log 2nd Intro Run
                         </Button>
                       </div>
                     </div>
