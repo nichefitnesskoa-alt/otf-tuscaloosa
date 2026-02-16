@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Copy, ClipboardList, Lightbulb } from 'lucide-react';
-import { ObjectionPlaybook } from './ObjectionPlaybook';
+import { Copy, ClipboardList } from 'lucide-react';
+import { EirmaPlaybook } from './EirmaPlaybook';
+import { TransformationClose } from './TransformationClose';
 
 interface IntroPrepCardProps {
   open: boolean;
@@ -26,8 +28,10 @@ interface QData {
   q1_fitness_goal: string | null;
   q2_fitness_level: number | null;
   q3_obstacle: string | null;
+  q4_past_experience: string | null;
   q5_emotional_driver: string | null;
   q6_weekly_commitment: string | null;
+  q6b_available_days: string | null;
   q7_coach_notes: string | null;
   status: string;
 }
@@ -39,7 +43,7 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
     if (!open) return;
     supabase
       .from('intro_questionnaires')
-      .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q7_coach_notes, status' as any)
+      .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -64,55 +68,88 @@ export function IntroPrepCard({ open, onOpenChange, memberName, classDate, class
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="text-xl">{memberName}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Date</span>
-              <span className="font-medium">{classDate}{classTime ? ` @ ${classTime.substring(0, 5)}` : ''}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Coach</span>
-              <span className="font-medium">{coachName}</span>
-            </div>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+        <SheetHeader className="pb-2">
+          <SheetTitle className="text-xl">{memberName}</SheetTitle>
+          <div className="text-sm text-muted-foreground">
+            {classDate}{classTime ? ` @ ${classTime.substring(0, 5)}` : ''} · Coach: {coachName}
           </div>
+        </SheetHeader>
 
-          {data?.status === 'completed' ? (
-            <div className="rounded-lg p-3 text-xs space-y-1.5 border-l-4 border-l-primary bg-primary/5">
-              <PrepRow label="Goal" value={data.q1_fitness_goal} />
-              <PrepRow label="Level" value={data.q2_fitness_level ? `${data.q2_fitness_level}/5` : null} />
-              <PrepRow label="Obstacle" value={data.q3_obstacle} />
-              <PrepRow label="Why" value={data.q5_emotional_driver} />
-              <PrepRow label="Commitment" value={data.q6_weekly_commitment} />
-              {data.q7_coach_notes && <PrepRow label="Coach Notes" value={data.q7_coach_notes} />}
-            </div>
-          ) : (
-            <div className="text-xs text-muted-foreground italic flex items-center gap-1">
-              <ClipboardList className="w-3 h-3" />
-              {data ? 'Questionnaire not completed yet' : 'No questionnaire on file'}
-            </div>
-          )}
+        <Tabs defaultValue="prep" className="mt-2">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="prep" className="text-xs">Quick Prep</TabsTrigger>
+            <TabsTrigger value="close" className="text-xs">Close Script</TabsTrigger>
+            <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
+          </TabsList>
 
-          {data?.status === 'completed' && (
-            <ObjectionPlaybook
-              obstacles={data.q3_obstacle}
-              fitnessLevel={data.q2_fitness_level}
-              emotionalDriver={data.q5_emotional_driver}
-            />
-          )}
+          {/* TAB 1: Quick Prep */}
+          <TabsContent value="prep" className="space-y-3 mt-3">
+            {data?.status === 'completed' ? (
+              <div className="rounded-lg p-3 text-xs space-y-1.5 border-l-4 border-l-primary bg-primary/5">
+                <PrepRow label="Goal" value={data.q1_fitness_goal} />
+                <PrepRow label="Level" value={data.q2_fitness_level ? `${data.q2_fitness_level}/5` : null} />
+                <PrepRow label="Past Fitness" value={data.q4_past_experience} />
+                <PrepRow label="Obstacle" value={data.q3_obstacle} />
+                <PrepRow label="Why" value={data.q5_emotional_driver} />
+                <PrepRow label="Commitment" value={data.q6_weekly_commitment} />
+                {data.q7_coach_notes && <PrepRow label="Coach Notes" value={data.q7_coach_notes} />}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground italic flex items-center gap-1">
+                <ClipboardList className="w-3 h-3" />
+                {data ? 'Questionnaire not completed yet' : 'No questionnaire on file'}
+              </div>
+            )}
 
-          <Button onClick={copyToClipboard} className="w-full" variant="outline">
-            <Copy className="w-4 h-4 mr-2" />
-            Copy to Clipboard
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+            <Button onClick={copyToClipboard} className="w-full" variant="outline">
+              <Copy className="w-4 h-4 mr-2" />
+              Copy to Clipboard
+            </Button>
+          </TabsContent>
+
+          {/* TAB 2: Close Script */}
+          <TabsContent value="close" className="mt-3">
+            {data?.status === 'completed' ? (
+              <TransformationClose
+                clientName={memberName}
+                fitnessGoal={data.q1_fitness_goal}
+                obstacle={data.q3_obstacle}
+                pastExperience={data.q4_past_experience}
+                emotionalDriver={data.q5_emotional_driver}
+                weeklyCommitment={data.q6_weekly_commitment}
+                availableDays={data.q6b_available_days}
+              />
+            ) : (
+              <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
+                <ClipboardList className="w-3 h-3" />
+                Complete the questionnaire to generate a personalized close script.
+              </div>
+            )}
+          </TabsContent>
+
+          {/* TAB 3: Objections */}
+          <TabsContent value="objections" className="mt-3">
+            {data?.status === 'completed' ? (
+              <EirmaPlaybook
+                obstacles={data.q3_obstacle}
+                fitnessLevel={data.q2_fitness_level}
+                emotionalDriver={data.q5_emotional_driver}
+                clientName={memberName}
+                fitnessGoal={data.q1_fitness_goal}
+                pastExperience={data.q4_past_experience}
+              />
+            ) : (
+              <div className="text-xs text-muted-foreground italic flex items-center gap-1 py-4">
+                <ClipboardList className="w-3 h-3" />
+                Complete the questionnaire to see matched objection playbooks.
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
   );
 }
 

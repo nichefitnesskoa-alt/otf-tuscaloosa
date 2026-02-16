@@ -20,6 +20,7 @@ import { IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
 import { isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { isMembershipSale } from '@/lib/sales-detection';
 
 interface CoachStats {
   coachName: string;
@@ -46,10 +47,6 @@ function isDateInRange(dateStr: string | null | undefined, range: DateRange | nu
   }
 }
 
-const isMembershipSale = (result: string): boolean => {
-  const lower = (result || '').toLowerCase();
-  return ['premier', 'elite', 'basic'].some(m => lower.includes(m));
-};
 
 export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPerformanceProps) {
   const coachStats = useMemo(() => {

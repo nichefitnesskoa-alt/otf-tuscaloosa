@@ -53,9 +53,12 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         <div className="bg-white/10 rounded-xl p-6 mb-6 text-center">
           <p className="text-2xl text-white">
             <span className="font-bold">{m.booked}</span> Booked → <span className="font-bold">{m.showed}</span> Showed
-            <span className="text-white/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-green-400">{m.sales}</span> Sold
+            <span className="text-white/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-green-400">{m.introSales}</span> Sold
           </p>
           <p className="text-lg text-red-400 mt-2">{m.noShows} No-Shows ({m.noShowRate.toFixed(0)}%)</p>
+          {m.sales - m.introSales > 0 && (
+            <p className="text-sm text-white/60 mt-1">Total Sales: {m.sales} (includes {m.sales - m.introSales} outside-intro)</p>
+          )}
         </div>
 
         {/* Lead Measures */}
@@ -121,7 +124,8 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         </div>
       </div>
       <p className="text-xs text-muted-foreground text-center mb-3">
-        {m.booked} Booked → {m.showed} Showed ({m.showRate.toFixed(0)}%) → {m.sales} Sold · {m.noShows} No-Shows
+        {m.booked} Booked → {m.showed} Showed ({m.showRate.toFixed(0)}%) → {m.introSales} Sold · {m.noShows} No-Shows
+        {m.sales - m.introSales > 0 && ` · Total Sales: ${m.sales} (${m.sales - m.introSales} outside-intro)`}
       </p>
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-2 bg-muted rounded">Q Completion: {m.qCompletion.toFixed(0)}%</div>

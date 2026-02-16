@@ -6,6 +6,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
+import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
 
 interface StudioMetrics {
   introsRun: number;
@@ -105,8 +106,12 @@ export function useDashboardMetrics(
       'DEAD',
     ];
     
-    const EXCLUDED_NAMES = ['TBD', 'Unknown', '', 'N/A', 'Self Booked', 'Self-Booked', 'self booked', 'Self-booked', 'Run-first entry', 'Bulk Import', 'Self (VIP Form)', 'VIP Registration'];
+    // Use EXCLUDED_SA_NAMES from studio-metrics as the single source of truth
+    const EXCLUDED_NAMES = EXCLUDED_SA_NAMES;
     
+    // Intentionally narrower than EXCLUDED_LEAD_SOURCES in studio-metrics.ts.
+    // Booker stats only exclude self-booked and VIP, not Orangebook/Run-first,
+    // because those can still be SA-initiated bookings.
     // Filter out bookings with excluded status, ignored from metrics, or VIP
     const activeBookings = introsBooked.filter(b => {
       const status = ((b as any).booking_status || '').toUpperCase();
@@ -285,6 +290,9 @@ export function useDashboardMetrics(
     // =========================================
     // BOOKER STATS (attributed to booked_by)
     // =========================================
+    // Intentionally narrower than EXCLUDED_LEAD_SOURCES in studio-metrics.ts.
+    // Booker stats only exclude self-booked and VIP, not Orangebook/Run-first,
+    // because those can still be SA-initiated bookings.
     const EXCLUDED_LEAD_SOURCES_BOOKER = ['Online Intro Offer (self-booked)', 'VIP Class'];
     
     const bookerCounts = new Map<string, { booked: number; showed: number }>();

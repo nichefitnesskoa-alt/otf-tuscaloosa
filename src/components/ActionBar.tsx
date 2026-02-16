@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User } from 'lucide-react';
+import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User, Dumbbell } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { CoachPrepCard } from '@/components/dashboard/CoachPrepCard';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ClientSearchScriptPicker } from '@/components/scripts/ClientSearchScriptPicker';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
@@ -76,6 +79,7 @@ export function IntroActionBar({
 }: IntroActionBarProps) {
   const { user } = useAuth();
   const [prepOpen, setPrepOpen] = useState(false);
+  const [coachPrepOpen, setCoachPrepOpen] = useState(false);
   const [scriptMode, setScriptMode] = useState<ScriptMode>('closed');
   const { data: templates = [] } = useScriptTemplates();
 
@@ -266,6 +270,7 @@ export function IntroActionBar({
       <div className="flex items-center gap-1.5 md:gap-1 py-1">
         <ActionButton icon={<ClipboardList className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Prep" onClick={() => setPrepOpen(true)} />
         <ActionButton icon={<MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Script" onClick={handleScriptTap} />
+        <ActionButton icon={<Dumbbell className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Coach" onClick={() => setCoachPrepOpen(true)} className="text-blue-600" />
         <ActionButton icon={<Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />} label="Copy #" onClick={handleCopyPhone} />
       </div>
 
@@ -311,6 +316,15 @@ export function IntroActionBar({
         onGenerateScript={() => { setPrepOpen(false); handleScriptTap(); }}
         onSendQ={handleSendQ}
       />
+
+      <Sheet open={coachPrepOpen} onOpenChange={setCoachPrepOpen}>
+        <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto rounded-t-2xl">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="text-base">Coach View</SheetTitle>
+          </SheetHeader>
+          <CoachPrepCard memberName={memberName} classTime={classTime} bookingId={prepBookingId} />
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
@@ -444,12 +458,12 @@ export function LeadActionBar({
 
 // ─── Shared Button ──────────────────────────────────────────────────────────
 
-function ActionButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function ActionButton({ icon, label, onClick, className }: { icon: React.ReactNode; label: string; onClick: () => void; className?: string }) {
   return (
     <Button
       variant="outline"
       size="sm"
-      className="h-9 md:h-7 px-3 md:px-2 text-[13px] md:text-[11px] gap-1.5 md:gap-1 flex-1 md:flex-initial min-w-[44px] min-h-[44px] md:min-h-0"
+      className={cn("h-9 md:h-7 px-3 md:px-2 text-[13px] md:text-[11px] gap-1.5 md:gap-1 flex-1 md:flex-initial min-w-[44px] min-h-[44px] md:min-h-0", className)}
       onClick={(e) => {
         e.stopPropagation();
         onClick();

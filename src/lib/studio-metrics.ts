@@ -20,13 +20,8 @@ export const EXCLUDED_SA_NAMES = [
   'VIP Registration',
 ];
 
-/** Membership result strings (case-insensitive partial match) */
-const MEMBERSHIP_KEYWORDS = ['premier', 'elite', 'basic'];
-
-export function isMembershipSale(result: string): boolean {
-  const lower = (result || '').toLowerCase();
-  return MEMBERSHIP_KEYWORDS.some(m => lower.includes(m));
-}
+import { isMembershipSale } from '@/lib/sales-detection';
+export { isMembershipSale };
 
 export function isPurchased(result: string): boolean {
   const lower = (result || '').toLowerCase();

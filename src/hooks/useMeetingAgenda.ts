@@ -29,6 +29,7 @@ export interface MeetingMetrics {
   amc: number;
   amcChange: number;
   sales: number;
+  introSales: number;
   salesPrev: number;
   closeRate: number;
   closeRatePrev: number;
@@ -474,7 +475,7 @@ export function useGenerateAgenda() {
 
       const metrics: MeetingMetrics = {
         amc, amcChange: amc - prevAmc,
-        sales: totalSales, salesPrev: prevSalesLen,
+        sales: totalSales, introSales: salesLen, salesPrev: prevSalesLen,
         closeRate, closeRatePrev: prevCloseRate,
         showRate, showRatePrev: prevShowRate,
         booked: filteredBooked.length, showed: showedLen,
