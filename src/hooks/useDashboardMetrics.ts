@@ -178,11 +178,24 @@ export function useDashboardMetrics(
     // =========================================
     // PER-SA METRICS (attributed to intro_owner)
     // =========================================
+    const MEMBERSHIP_RESULTS_LOCAL = ['premier', 'elite', 'basic'];
+    const isMembershipSaleLocal = (result: string) => {
+      const lower = (result || '').toLowerCase();
+      return MEMBERSHIP_RESULTS_LOCAL.some(m => lower.includes(m));
+    };
+
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
-      // Get all runs by this SA within date range (using run_date for booking-based metrics)
-      const saRuns = activeRuns.filter(run => {
+      // Get ALL runs by this SA (no date filter yet - we apply date logic per-metric)
+      const saAllRuns = activeRuns.filter(run => {
+        return run.intro_owner === saName && run.result !== 'No-show';
+      });
+
+      // Dual-date filtering: include runs where EITHER run_date OR buy_date is in range
+      const saRuns = saAllRuns.filter(run => {
         const runDateInRange = isDateInRange(run.run_date, dateRange);
-        return run.intro_owner === saName && runDateInRange && run.result !== 'No-show';
+        const saleDate = run.buy_date || run.run_date;
+        const saleDateInRange = isMembershipSaleLocal(run.result) && isDateInRange(saleDate, dateRange);
+        return runDateInRange || saleDateInRange;
       });
 
       // For linked runs, group by booking to get first runs only
@@ -205,29 +218,28 @@ export function useDashboardMetrics(
       });
 
       // Count intros run: unique bookings where SA ran any non-no-show intro + unlinked runs
-      // FIX: Track whether ANY run for a booking resulted in a sale (not just first run)
+      // Intros run uses run_date; sales uses buy_date || run_date
       let introsRunCount = 0;
       let salesCount = 0;
       let salesCommission = 0;
       const saFirstRuns: IntroRun[] = [];
       
-      const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
-      const isMembershipSale = (result: string) => {
-        const lower = (result || '').toLowerCase();
-        return MEMBERSHIP_RESULTS.some(m => lower.includes(m));
-      };
+      const isMembershipSale = isMembershipSaleLocal;
       
-      // Count linked runs - check ALL runs per booking for sale outcome
+      // Count linked runs - use run_date for intros, sale date for sales
       runsByBooking.forEach((runs) => {
         const sortedRuns = [...runs].sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
-        const firstValidRun = sortedRuns[0]; // First non-no-show run determines "ran"
+        const firstValidRun = sortedRuns[0];
         if (firstValidRun) {
-          introsRunCount++;
-          saFirstRuns.push(firstValidRun);
+          // Only count as "intro run" if run_date is in range
+          if (isDateInRange(firstValidRun.run_date, dateRange)) {
+            introsRunCount++;
+            saFirstRuns.push(firstValidRun);
+          }
           
-          // Check if ANY run for this booking has a sale result
+          // Check if ANY run for this booking has a sale with sale date in range
           const saleRun = runs.find(r => {
             const saleDate = r.buy_date || r.run_date;
             const saleDateInRange = isDateInRange(saleDate, dateRange);
@@ -241,10 +253,13 @@ export function useDashboardMetrics(
         }
       });
       
-      // Add unlinked runs
+      // Add unlinked runs - same dual-date logic
       unlinkedRuns.forEach(run => {
-        introsRunCount++;
-        saFirstRuns.push(run);
+        // Only count as "intro run" if run_date is in range
+        if (isDateInRange(run.run_date, dateRange)) {
+          introsRunCount++;
+          saFirstRuns.push(run);
+        }
         const saleDate = run.buy_date || run.run_date;
         const saleDateInRange = isDateInRange(saleDate, dateRange);
         if (isMembershipSale(run.result) && saleDateInRange) {
@@ -335,8 +350,11 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         existing.showed++;
-        // Check if ANY run has a sale result
-        const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
+        // Check if ANY run has a sale result with sale date in range
+        const saleRun = runs.find(r => {
+          const saleDate = r.buy_date || r.run_date;
+          return isMembershipSaleGlobal(r.result) && isDateInRange(saleDate, dateRange);
+        });
         if (saleRun) {
           existing.sold++;
           existing.revenue += saleRun.commission_amount || 0;
@@ -362,8 +380,11 @@ export function useDashboardMetrics(
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
         pipelineShowed++;
-        // Check if ANY run has a sale result
-        const saleRun = runs.find(r => isMembershipSaleGlobal(r.result));
+        // Check if ANY run has a sale result with sale date in range
+        const saleRun = runs.find(r => {
+          const saleDate = r.buy_date || r.run_date;
+          return isMembershipSaleGlobal(r.result) && isDateInRange(saleDate, dateRange);
+        });
         if (saleRun) {
           pipelineSold++;
           pipelineRevenue += saleRun.commission_amount || 0;
