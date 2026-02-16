@@ -8,7 +8,7 @@ import {
 import { User, ClipboardList, MessageSquare, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClientProfileSheet } from '@/components/dashboard/ClientProfileSheet';
-import { IntroPrepCard } from '@/components/dashboard/IntroPrepCard';
+import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { useNavigate } from 'react-router-dom';
 
 interface ClientActionMenuProps {
@@ -20,6 +20,7 @@ interface ClientActionMenuProps {
   coachName: string;
   leadSource: string;
   phone?: string | null;
+  email?: string | null;
   bookings?: Array<{
     id: string;
     class_date: string;
@@ -42,6 +43,7 @@ interface ClientActionMenuProps {
   }>;
   /** If true, use the first booking's ID for intro prep (2nd intro scenario) */
   firstBookingId?: string | null;
+  isSecondIntro?: boolean;
   children: React.ReactNode;
 }
 
@@ -54,9 +56,11 @@ export function ClientActionMenu({
   coachName,
   leadSource,
   phone,
+  email,
   bookings,
   runs,
   firstBookingId,
+  isSecondIntro = false,
   children,
 }: ClientActionMenuProps) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -85,7 +89,6 @@ export function ClientActionMenu({
     }
   };
 
-  // For 2nd intros, pull questionnaire data from the first booking
   const prepBookingId = firstBookingId || bookingId;
 
   return (
@@ -123,14 +126,21 @@ export function ClientActionMenu({
         runs={defaultRuns}
       />
 
-      <IntroPrepCard
+      <PrepDrawer
         open={prepOpen}
         onOpenChange={setPrepOpen}
         memberName={memberName}
+        memberKey={memberKey}
+        bookingId={prepBookingId}
         classDate={classDate}
         classTime={classTime}
         coachName={coachName}
-        bookingId={prepBookingId}
+        leadSource={leadSource}
+        isSecondIntro={isSecondIntro}
+        phone={phone}
+        email={email}
+        bookings={defaultBookings}
+        runs={defaultRuns}
       />
     </>
   );
