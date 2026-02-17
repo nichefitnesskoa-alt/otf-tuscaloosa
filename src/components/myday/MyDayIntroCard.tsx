@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Copy, Eye, Send, Dumbbell, ClipboardList, Link2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -98,9 +98,7 @@ export function MyDayIntroCard({
     }
   };
 
-  const timeDisplay = booking.intro_time
-    ? format(parseISO(`2000-01-01T${booking.intro_time}`), 'h:mm a')
-    : 'Time TBD';
+  const timeDisplay = formatDisplayTime(booking.intro_time);
 
   return (
     <div className={cn('rounded-lg border bg-card p-3 space-y-2', className)}>

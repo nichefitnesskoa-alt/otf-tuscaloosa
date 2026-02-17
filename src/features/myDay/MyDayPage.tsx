@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, isToday } from 'date-fns';
+import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking, isBookingUnresolved } from '@/lib/time/timeUtils';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -324,13 +325,18 @@ export default function MyDayPage() {
 
       {/* ═══════════════ CORE SECTIONS ═══════════════ */}
 
-      {/* Unresolved Intros – uses its own data fetch */}
+      {/* Unresolved Intros – canonical classification using result_canon + linked runs */}
       <UnresolvedIntros
         intros={introsBooked
-          .filter(b => b.class_date <= todayStr && !introsRun.some(r => r.member_name === b.member_name && r.run_date === b.class_date))
+          .filter(b => {
+            const latestRun = getLatestRunForBooking(b.id, introsRun as any);
+            return isBookingUnresolved(b as any, latestRun as any);
+          })
           .map(b => {
-            const classDateTime = new Date(`${b.class_date}T${b.intro_time || '12:00'}:00`);
-            const hoursSince = Math.max(0, Math.round((Date.now() - classDateTime.getTime()) / 3600000));
+            const badge = formatClassEndedBadge(b.class_date, b.intro_time);
+            // Parse hours from badge or compute safely
+            const badgeMatch = badge?.match(/(\d+)h ago/);
+            const hoursSince = badgeMatch ? parseInt(badgeMatch[1], 10) : 0;
             return {
               id: b.id,
               member_name: b.member_name,
