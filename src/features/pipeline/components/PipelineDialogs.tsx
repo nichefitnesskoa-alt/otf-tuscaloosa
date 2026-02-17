@@ -27,7 +27,7 @@ import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/t
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '../pipelineActions';
-import { normalizeBookingStatus, normalizeIntroResult } from '@/lib/domain/outcomes/types';
+import { normalizeBookingStatus, normalizeIntroResultStrict } from '@/lib/domain/outcomes/types';
 import type { ClientJourney, PipelineBooking, PipelineRun } from '../pipelineTypes';
 
 const BOOKING_STATUSES = ['Active', 'No-show', 'Not interested', 'Closed (Purchased)', 'Duplicate', 'Deleted (soft)'];
@@ -822,7 +822,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner: newRun.ran_by,
                 lead_source: newRun.lead_source || 'Source Not Found',
                 result: newRun.result,
-                result_canon: normalizeIntroResult(newRun.result),
+                result_canon: normalizeIntroResultStrict(newRun.result, 'PipelineDialogs:CreateRun'),
                 notes: newRun.notes || null,
                 linked_intro_booked_id: linkedId,
               });

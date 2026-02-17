@@ -5,6 +5,7 @@ export {
   type IntroResult,
   normalizeBookingStatus,
   normalizeIntroResult,
+  normalizeIntroResultStrict,
   isMembershipSaleResult,
   mapResultToBookingStatus,
   formatBookingStatusForDb,

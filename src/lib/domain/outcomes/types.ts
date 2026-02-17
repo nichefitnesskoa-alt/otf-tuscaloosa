@@ -83,6 +83,24 @@ export function normalizeIntroResult(input: string | null | undefined): IntroRes
   return 'UNRESOLVED';
 }
 
+/**
+ * Strict normalizer that warns on unmapped display outcomes.
+ * Use at write sites (create/edit run) to catch bad data before it hits the DB.
+ * - Dev: throws so the bug is caught immediately.
+ * - Prod: logs + returns 'UNRESOLVED' so the app doesn't crash.
+ */
+export function normalizeIntroResultStrict(input: string, caller: string): IntroResult {
+  const canon = normalizeIntroResult(input);
+  if (canon === 'UNRESOLVED' && input.trim() !== '' && input.toLowerCase().trim() !== 'unresolved') {
+    const msg = `[${caller}] Unmapped intro result display string: "${input}" → defaulting to UNRESOLVED`;
+    if (import.meta.env.DEV) {
+      throw new Error(msg);
+    }
+    console.error(msg);
+  }
+  return canon;
+}
+
 // ── Predicates ──
 
 export function isMembershipSaleResult(result: IntroResult): boolean {
