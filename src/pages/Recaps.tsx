@@ -80,7 +80,7 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
 
 export default function Recaps() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales, shiftRecaps, isLoading, lastUpdated, refreshData } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, followUpQueue, followupTouches, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Date filter state - same as Personal Dashboard
@@ -93,7 +93,7 @@ export default function Recaps() {
   const isAdmin = user?.role === 'Admin';
   
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
-  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps);
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, undefined, followUpQueue, followupTouches);
 
   // 6B: Q Completion Rate - % of 1st intro bookings with completed questionnaire
   const qCompletionRate = useMemo(() => {

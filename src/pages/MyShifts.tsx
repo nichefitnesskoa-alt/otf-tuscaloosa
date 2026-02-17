@@ -47,7 +47,7 @@ interface FollowUpItem {
 
 export default function MyPerformance() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales, shiftRecaps, lastUpdated: globalLastUpdated } = useData();
+  const { introsBooked, introsRun, sales, shiftRecaps, followUpQueue, followupTouches, lastUpdated: globalLastUpdated } = useData();
   const [recaps, setRecaps] = useState<ShiftRecap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRecap, setSelectedRecap] = useState<ShiftRecap | null>(null);
@@ -60,7 +60,7 @@ export default function MyPerformance() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
   const userName = user?.name || '';
-  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, userName);
+  const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, userName, followUpQueue, followupTouches);
 
   // Personal metrics
   const personalStats = useMemo(() => {
@@ -78,7 +78,7 @@ export default function MyPerformance() {
     };
   }, [dateRange]);
   
-  const prevMetrics = useDashboardMetrics(introsBooked, introsRun, sales, prevDateRange, shiftRecaps, userName);
+  const prevMetrics = useDashboardMetrics(introsBooked, introsRun, sales, prevDateRange, shiftRecaps, userName, followUpQueue, followupTouches);
   const prevStats = useMemo(() => {
     return prevMetrics.perSA.find(m => m.saName === userName) || null;
   }, [prevMetrics.perSA, userName]);

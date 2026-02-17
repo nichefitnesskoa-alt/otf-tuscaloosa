@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
+import { Tables } from '@/integrations/supabase/types';
 
 export interface ShiftRecap {
   id: string;
@@ -77,14 +77,21 @@ export interface Sale {
   created_at: string;
 }
 
+export type FollowUpQueueRow = Tables<'follow_up_queue'>;
+export type FollowupTouchRow = Tables<'followup_touches'>;
+
 interface DataContextType {
   shiftRecaps: ShiftRecap[];
   introsBooked: IntroBooked[];
   introsRun: IntroRun[];
   sales: Sale[];
+  followUpQueue: FollowUpQueueRow[];
+  followupTouches: FollowupTouchRow[];
   isLoading: boolean;
   lastUpdated: Date | null;
   refreshData: () => Promise<void>;
+  refreshFollowUps: () => Promise<void>;
+  refreshTouches: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -94,29 +101,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [introsBooked, setIntrosBooked] = useState<IntroBooked[]>([]);
   const [introsRun, setIntrosRun] = useState<IntroRun[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [followUpQueue, setFollowUpQueue] = useState<FollowUpQueueRow[]>([]);
+  const [followupTouches, setFollowupTouches] = useState<FollowupTouchRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const getCutoff = () => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 120);
+    return cutoffDate.toISOString();
+  };
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Limit initial fetch to 120 days for performance.
-      // Components needing older data (MembershipPurchasesPanel, yearly views) do their own scoped queries.
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 120);
-      const cutoff = cutoffDate.toISOString();
+      const cutoff = getCutoff();
 
-      const [recapsResult, bookingsResult, runsResult, salesResult] = await Promise.all([
+      const [recapsResult, bookingsResult, runsResult, salesResult, fuQueueResult, touchesResult] = await Promise.all([
         supabase.from('shift_recaps').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
         supabase.from('intros_booked').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
         supabase.from('intros_run').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
         supabase.from('sales_outside_intro').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
+        supabase.from('follow_up_queue').select('*').gte('created_at', cutoff).order('scheduled_date', { ascending: true }),
+        supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
       ]);
 
       if (recapsResult.data) setShiftRecaps(recapsResult.data as ShiftRecap[]);
       if (bookingsResult.data) setIntrosBooked(bookingsResult.data as IntroBooked[]);
       if (runsResult.data) setIntrosRun(runsResult.data as IntroRun[]);
       if (salesResult.data) setSales(salesResult.data as Sale[]);
+      if (fuQueueResult.data) setFollowUpQueue(fuQueueResult.data);
+      if (touchesResult.data) setFollowupTouches(touchesResult.data);
       
       setLastUpdated(new Date());
     } catch (error) {
@@ -134,15 +149,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await fetchData();
   }, [fetchData]);
 
+  const refreshFollowUps = useCallback(async () => {
+    try {
+      const cutoff = getCutoff();
+      const { data } = await supabase.from('follow_up_queue').select('*').gte('created_at', cutoff).order('scheduled_date', { ascending: true });
+      if (data) setFollowUpQueue(data);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error refreshing follow-ups:', error);
+    }
+  }, []);
+
+  const refreshTouches = useCallback(async () => {
+    try {
+      const cutoff = getCutoff();
+      const { data } = await supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false });
+      if (data) setFollowupTouches(data);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error refreshing touches:', error);
+    }
+  }, []);
+
   return (
     <DataContext.Provider value={{
       shiftRecaps,
       introsBooked,
       introsRun,
       sales,
+      followUpQueue,
+      followupTouches,
       isLoading,
       lastUpdated,
       refreshData,
+      refreshFollowUps,
+      refreshTouches,
     }}>
       {children}
     </DataContext.Provider>

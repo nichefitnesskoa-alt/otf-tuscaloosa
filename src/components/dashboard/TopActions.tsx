@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Zap, MessageSquare, Phone, ClipboardList, UserPlus } from 'lucide-react';
-import { differenceInMinutes, isToday, format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
+import { differenceInMinutes, isToday, parseISO } from 'date-fns';
+import { useData } from '@/context/DataContext';
+import { getTodayYMD } from '@/lib/dateUtils';
 
 interface ActionItem {
   id: string;
@@ -48,21 +48,15 @@ export function TopActions({
   completedActions,
   onScrollTo,
 }: TopActionsProps) {
-  const [realFollowUpsDue, setRealFollowUpsDue] = useState(followUpsDueCount);
+  const { followUpQueue } = useData();
 
-  // Fetch real follow-up count from DB
-  useEffect(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    supabase
-      .from('follow_up_queue')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-      .lte('scheduled_date', today)
-      .eq('is_vip', false)
-      .then(({ count }) => {
-        setRealFollowUpsDue(count || followUpsDueCount);
-      });
-  }, [followUpsDueCount]);
+  // Compute real follow-up due count from context
+  const realFollowUpsDue = useMemo(() => {
+    const today = getTodayYMD();
+    return followUpQueue.filter(
+      f => f.status === 'pending' && f.scheduled_date <= today && !f.is_vip
+    ).length || followUpsDueCount;
+  }, [followUpQueue, followUpsDueCount]);
 
   const actions = useMemo(() => {
     const items: ActionItem[] = [];
@@ -102,7 +96,7 @@ export function TopActions({
       }
     });
 
-    // Follow-ups due (real count)
+    // Follow-ups due (real count from context)
     if (realFollowUpsDue > 0) {
       items.push({
         id: 'followups',

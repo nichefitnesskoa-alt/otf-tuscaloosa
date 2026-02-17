@@ -15,7 +15,7 @@ export interface LogTouchParams {
   scriptTemplateId?: string | null;
   channel?: string | null;
   notes?: string | null;
-  meta?: Record<string, any> | null;
+  meta?: Record<string, unknown> | null;
 }
 
 // Throttle: prevent duplicate touches within 30 seconds for same booking+type
@@ -34,7 +34,7 @@ export async function logTouch(params: LogTouchParams): Promise<boolean> {
     }
     recentTouches.set(key, now);
 
-    const { error } = await supabase.from('followup_touches' as any).insert({
+    const row: Record<string, unknown> = {
       created_by: params.createdBy,
       touch_type: params.touchType,
       booking_id: params.bookingId || null,
@@ -43,8 +43,9 @@ export async function logTouch(params: LogTouchParams): Promise<boolean> {
       script_template_id: params.scriptTemplateId || null,
       channel: params.channel || null,
       notes: params.notes || null,
-      meta: params.meta ? JSON.stringify(params.meta) : null,
-    } as any);
+      meta: params.meta || null,
+    };
+    const { error } = await supabase.from('followup_touches').insert(row as any);
 
     if (error) {
       console.error('logTouch error:', error);
@@ -69,14 +70,15 @@ export async function fetchTouchSummaries(
 
   try {
     const { data } = await supabase
-      .from('followup_touches' as any)
+      .from('followup_touches')
       .select('booking_id, created_at')
       .in('booking_id', bookingIds)
       .order('created_at', { ascending: false });
 
     if (data) {
-      for (const row of data as any[]) {
+      for (const row of data) {
         const bid = row.booking_id as string;
+        if (!bid) continue;
         const existing = map.get(bid);
         if (existing) {
           existing.count++;
@@ -101,7 +103,7 @@ export async function countTouchesToday(createdBy: string): Promise<number> {
     todayStart.setHours(0, 0, 0, 0);
     
     const { count } = await supabase
-      .from('followup_touches' as any)
+      .from('followup_touches')
       .select('id', { count: 'exact', head: true })
       .eq('created_by', createdBy)
       .gte('created_at', todayStart.toISOString());
