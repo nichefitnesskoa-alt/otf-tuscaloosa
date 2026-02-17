@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Loader2, Phone, CalendarPlus, MessageCircle, PhoneCall, Voicemail } from 'lucide-react';
-import { format, differenceInDays, parseISO, addDays, formatDistanceToNowStrict } from 'date-fns';
+import { MessageSquare, Clock, X, CheckCircle, Send, Phone, CalendarPlus, MessageCircle, PhoneCall, Voicemail, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react';
+import { format, differenceInDays, parseISO, addDays, formatDistanceToNowStrict, isToday } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
@@ -13,6 +14,9 @@ import { selectBestScript } from '@/hooks/useSmartScriptSelect';
 import { cn } from '@/lib/utils';
 import { logTouch, fetchTouchSummaries } from '@/lib/touchLog';
 import { RebookDialog } from '@/components/dashboard/RebookDialog';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { enqueue } from '@/lib/offline/writeQueue';
+import { TouchQueueItem, FollowupCompleteQueueItem } from '@/lib/offline/types';
 
 interface FollowUpItem {
   id: string;
@@ -33,7 +37,7 @@ interface FollowUpItem {
 }
 
 // Cadence definitions
-const NO_SHOW_CADENCE = [0, 5, 12]; // days after trigger
+const NO_SHOW_CADENCE = [0, 5, 12];
 const DIDNT_BUY_CADENCE = [0, 6, 13];
 
 export function generateFollowUpEntries(
@@ -70,65 +74,149 @@ interface FollowUpQueueProps {
 
 export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
   const { user } = useAuth();
+  const { followUpQueue, followupTouches, refreshFollowUps, refreshTouches } = useData();
+  const isOnline = useOnlineStatus();
   const { data: templates = [] } = useScriptTemplates();
-  const [items, setItems] = useState<FollowUpItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
-  const [touchSummaries, setTouchSummaries] = useState<Map<string, { count: number; lastTouchAt: string | null }>>(new Map());
   const [rebookItem, setRebookItem] = useState<FollowUpItem | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [optimisticallyDone, setOptimisticallyDone] = useState<Set<string>>(new Set());
+  const [touchPulse, setTouchPulse] = useState<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  useEffect(() => {
-    fetchQueue();
-  }, []);
+  // Derive items from DataContext
+  const items = useMemo(() => {
+    return followUpQueue
+      .filter(f =>
+        f.status === 'pending' &&
+        f.scheduled_date <= today &&
+        !f.is_vip &&
+        !optimisticallyDone.has(f.id)
+      )
+      .slice(0, 20) as unknown as FollowUpItem[];
+  }, [followUpQueue, today, optimisticallyDone]);
 
-  const fetchQueue = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('follow_up_queue')
-        .select('*')
-        .eq('status', 'pending')
-        .lte('scheduled_date', today)
-        .eq('is_vip', false)
-        .order('scheduled_date', { ascending: true })
-        .limit(20);
-
-      if (error) throw error;
-
-      // 6-day cooling guardrail
-      if (data && data.length > 0) {
-        const personNames = [...new Set(data.map(d => d.person_name))];
-        const sixDaysAgo = format(addDays(new Date(), -6), 'yyyy-MM-dd');
-        
-        const { data: recentSent } = await supabase
-          .from('follow_up_queue')
-          .select('person_name')
-          .eq('status', 'sent')
-          .gte('sent_at', sixDaysAgo + 'T00:00:00')
-          .in('person_name', personNames);
-
-        const recentlySentNames = new Set((recentSent || []).map(r => r.person_name));
-        const filtered = data.filter(d => !recentlySentNames.has(d.person_name));
-        setItems(filtered as FollowUpItem[]);
-
-        // Fetch touch summaries for all booking IDs
-        const bookingIds = filtered.map(d => d.booking_id).filter(Boolean) as string[];
-        if (bookingIds.length > 0) {
-          const summaries = await fetchTouchSummaries(bookingIds);
-          setTouchSummaries(summaries);
-        }
+  // Touch summaries from context data
+  const touchSummaries = useMemo(() => {
+    const map = new Map<string, { count: number; lastTouchAt: string | null; todayCount: number }>();
+    for (const t of followupTouches) {
+      const bid = t.booking_id;
+      if (!bid) continue;
+      const existing = map.get(bid);
+      const isTodayTouch = isToday(parseISO(t.created_at));
+      if (existing) {
+        existing.count++;
+        if (isTodayTouch) existing.todayCount++;
       } else {
-        setItems([]);
+        map.set(bid, { count: 1, lastTouchAt: t.created_at, todayCount: isTodayTouch ? 1 : 0 });
       }
-    } catch (err) {
-      console.error('FollowUpQueue fetch error:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+    return map;
+  }, [followupTouches]);
+
+  // Helper: execute action online or queue offline
+  const executeTouch = useCallback(async (item: FollowUpItem, touchType: string, channel: string, notes: string) => {
+    const userName = user?.name || 'Unknown';
+    if (isOnline) {
+      await logTouch({
+        createdBy: userName,
+        touchType: touchType as any,
+        bookingId: item.booking_id,
+        channel,
+        notes,
+      });
+      refreshTouches();
+    } else {
+      const queueItem: TouchQueueItem = {
+        id: crypto.randomUUID(),
+        type: 'touch',
+        createdAt: new Date().toISOString(),
+        createdBy: userName,
+        syncStatus: 'pending',
+        retryCount: 0,
+        payload: {
+          touchType,
+          bookingId: item.booking_id,
+          channel,
+          notes,
+        },
+      };
+      enqueue(queueItem);
+    }
+    // Pulse animation
+    setTouchPulse(item.id);
+    setTimeout(() => setTouchPulse(null), 600);
+    toast.success('Touch logged');
+  }, [isOnline, user?.name, refreshTouches]);
+
+  const handleMarkDone = useCallback(async (item: FollowUpItem) => {
+    const userName = user?.name || 'Unknown';
+
+    // Optimistic UI
+    setOptimisticallyDone(prev => new Set(prev).add(item.id));
+
+    if (isOnline) {
+      await supabase
+        .from('follow_up_queue')
+        .update({
+          status: 'sent',
+          sent_by: userName,
+          sent_at: new Date().toISOString(),
+        })
+        .eq('id', item.id);
+
+      await logTouch({
+        createdBy: userName,
+        touchType: 'mark_done',
+        bookingId: item.booking_id,
+        notes: `Follow-up touch ${item.touch_number} marked done`,
+      });
+
+      refreshFollowUps();
+      refreshTouches();
+    } else {
+      const queueItem: FollowupCompleteQueueItem = {
+        id: crypto.randomUUID(),
+        type: 'followup_complete',
+        createdAt: new Date().toISOString(),
+        createdBy: userName,
+        syncStatus: 'pending',
+        retryCount: 0,
+        payload: {
+          followUpId: item.id,
+          sentBy: userName,
+        },
+      };
+      enqueue(queueItem);
+    }
+
+    onRefresh();
+
+    // Undo toast (10 seconds)
+    toast.success('Follow-up complete', {
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          setOptimisticallyDone(prev => {
+            const next = new Set(prev);
+            next.delete(item.id);
+            return next;
+          });
+          if (isOnline) {
+            await supabase
+              .from('follow_up_queue')
+              .update({ status: 'pending', sent_by: null, sent_at: null })
+              .eq('id', item.id);
+            refreshFollowUps();
+          }
+          toast.success('Mark done undone');
+        },
+      },
+      duration: 10000,
+    });
+  }, [isOnline, user?.name, refreshFollowUps, refreshTouches, onRefresh]);
 
   const handleSend = (item: FollowUpItem) => {
     const scriptResult = selectBestScript({
@@ -167,7 +255,6 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
       })
       .eq('id', item.id);
     
-    // Log touch
     await logTouch({
       createdBy: user?.name || 'Unknown',
       touchType: 'script_copy',
@@ -177,65 +264,19 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
     });
 
     toast.success('Follow-up marked as sent');
-    fetchQueue();
+    refreshFollowUps();
+    refreshTouches();
     onRefresh();
-  };
-
-  const handleMarkDone = async (item: FollowUpItem) => {
-    await supabase
-      .from('follow_up_queue')
-      .update({
-        status: 'sent',
-        sent_by: user?.name || 'Unknown',
-        sent_at: new Date().toISOString(),
-      })
-      .eq('id', item.id);
-    
-    await logTouch({
-      createdBy: user?.name || 'Unknown',
-      touchType: 'mark_done',
-      bookingId: item.booking_id,
-      notes: `Follow-up touch ${item.touch_number} marked done`,
-    });
-
-    toast.success('Follow-up marked as done');
-    fetchQueue();
-    onRefresh();
-  };
-
-  const handleCallTap = async (item: FollowUpItem) => {
-    await logTouch({
-      createdBy: user?.name || 'Unknown',
-      touchType: 'call',
-      bookingId: item.booking_id,
-      channel: 'call',
-      notes: `Call initiated for follow-up touch ${item.touch_number}`,
-    });
-    toast.success('Call logged');
   };
 
   const handleSnooze = async (item: FollowUpItem) => {
     const newDate = format(addDays(new Date(), 2), 'yyyy-MM-dd');
     await supabase
       .from('follow_up_queue')
-      .update({
-        scheduled_date: newDate,
-        snoozed_until: newDate,
-      })
+      .update({ scheduled_date: newDate, snoozed_until: newDate })
       .eq('id', item.id);
-
     toast.success('Snoozed for 2 days');
-    fetchQueue();
-  };
-
-  const handleSkip = async (item: FollowUpItem) => {
-    await supabase
-      .from('follow_up_queue')
-      .update({ status: 'skipped' })
-      .eq('id', item.id);
-
-    toast.success('Touch skipped');
-    fetchQueue();
+    refreshFollowUps();
   };
 
   const handleRemove = async (item: FollowUpItem) => {
@@ -244,9 +285,8 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
       .update({ status: 'dormant' })
       .eq('person_name', item.person_name)
       .eq('status', 'pending');
-
     toast.success('Removed from follow-up queue');
-    fetchQueue();
+    refreshFollowUps();
     onRefresh();
   };
 
@@ -267,9 +307,20 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
     return 'bg-orange-100 text-orange-800 border-orange-200';
   };
 
-  const maxTouches = (type: string) => type === 'no_show' ? 3 : 3;
+  const maxTouches = () => 3;
 
-  if (loading) return null;
+  // Next best action hint
+  const getHint = (item: FollowUpItem): string | null => {
+    const touchInfo = item.booking_id ? touchSummaries.get(item.booking_id) : null;
+    const todayCount = touchInfo?.todayCount || 0;
+    const totalCount = touchInfo?.count || 0;
+
+    if (todayCount === 0) return 'Do a touch now';
+    if (todayCount > 0 && item.status === 'pending') return 'Mark done if reached';
+    if (item.person_type === 'no_show' && totalCount >= 2) return 'Try rebook';
+    return null;
+  };
+
   if (items.length === 0) return null;
 
   return (
@@ -280,6 +331,7 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
             <MessageSquare className="w-4 h-4 text-primary" />
             Follow-Ups Due
             <Badge variant="default" className="ml-1 text-[10px]">{items.length}</Badge>
+            {!isOnline && <Badge variant="outline" className="text-[9px] bg-warning/15 text-warning border-warning/30">Offline</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -287,131 +339,152 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
             const daysSinceTrigger = differenceInDays(new Date(), parseISO(item.trigger_date));
             const typeLabel = item.person_type === 'no_show' ? 'No Show' : "Didn't Buy";
             const triggerLabel = `${typeLabel} on ${format(parseISO(item.trigger_date), 'MMM d')}`;
-            const alreadySent = item.sent_by && item.sent_at;
-
-            // Touch summary for this booking
+            const isExpanded = expandedId === item.id;
             const touchInfo = item.booking_id ? touchSummaries.get(item.booking_id) : null;
+            const hint = getHint(item);
+            const showRebook = (item.person_type === 'no_show' || item.person_type === 'didnt_buy') && item.status === 'pending';
+            const isPulsing = touchPulse === item.id;
 
             return (
-              <div key={item.id} className="rounded-lg border bg-card p-3 space-y-2">
-                <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
-                    Touch {item.touch_number} of {maxTouches(item.person_type)}
-                  </Badge>
-                  <span className="text-[13px] md:text-xs text-muted-foreground">{triggerLabel}</span>
-                  {daysSinceTrigger > 0 && (
-                    <span className="text-[11px] md:text-[10px] text-muted-foreground/70">
-                      <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                      {daysSinceTrigger}d ago
-                    </span>
+              <div key={item.id} className="rounded-lg border bg-card space-y-0">
+                {/* Card header - tappable to expand */}
+                <div
+                  className="p-3 cursor-pointer"
+                  onClick={() => setExpandedId(prev => prev === item.id ? null : item.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', touchColor(item.touch_number))}>
+                          Touch {item.touch_number}/{maxTouches()}
+                        </Badge>
+                        <span className="text-[13px] md:text-xs text-muted-foreground">{triggerLabel}</span>
+                        {daysSinceTrigger > 0 && (
+                          <span className="text-[11px] text-muted-foreground/70">
+                            <Clock className="w-2.5 h-2.5 inline mr-0.5" />
+                            {daysSinceTrigger}d
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Touch count badge */}
+                    {touchInfo && (
+                      <div className={cn(
+                        "text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full transition-all",
+                        isPulsing && "animate-pulse bg-primary/20 text-primary"
+                      )}>
+                        {touchInfo.count} touch{touchInfo.count !== 1 ? 'es' : ''}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hint */}
+                  {hint && !isExpanded && (
+                    <div className="flex items-center gap-1 mt-1.5 ml-5 text-[11px] text-muted-foreground">
+                      <Lightbulb className="w-3 h-3 text-warning" />
+                      <span>{hint}</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Touch summary */}
-                {touchInfo && (
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-2">
-                    <span>{touchInfo.count} touch{touchInfo.count !== 1 ? 'es' : ''}</span>
-                    {touchInfo.lastTouchAt && (
-                      <span>· Last: {formatDistanceToNowStrict(new Date(touchInfo.lastTouchAt), { addSuffix: true })}</span>
-                    )}
-                  </div>
-                )}
+                {/* Always-visible Action Row */}
+                <div className="px-3 pb-2.5 flex items-center gap-1 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5 min-h-[40px] md:min-h-0"
+                    onClick={(e) => { e.stopPropagation(); executeTouch(item, 'text_manual', 'sms', 'Quick touch: texted'); }}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Texted
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5 min-h-[40px] md:min-h-0"
+                    onClick={(e) => { e.stopPropagation(); executeTouch(item, 'call', 'call', 'Quick touch: called'); }}
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" />
+                    Called
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5 min-h-[40px] md:min-h-0"
+                    onClick={(e) => { e.stopPropagation(); executeTouch(item, 'call', 'call', 'Quick touch: left voicemail'); }}
+                  >
+                    <Voicemail className="w-3.5 h-3.5" />
+                    VM
+                  </Button>
+                  <div className="w-px h-5 bg-border mx-0.5" />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5 min-h-[40px] md:min-h-0"
+                    onClick={(e) => { e.stopPropagation(); handleMarkDone(item); }}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Done
+                  </Button>
+                  {showRebook && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5 min-h-[40px] md:min-h-0"
+                      onClick={(e) => { e.stopPropagation(); setRebookItem(item); }}
+                    >
+                      <CalendarPlus className="w-3.5 h-3.5" />
+                      Rebook
+                    </Button>
+                  )}
+                </div>
 
-                {alreadySent ? (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Sent by {item.sent_by} at {item.sent_at ? format(new Date(item.sent_at), 'h:mm a') : ''}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {/* Primary actions */}
-                    <div className="flex items-center gap-1.5 md:gap-1">
+                {/* Expanded details */}
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-1 border-t space-y-2">
+                    {touchInfo && touchInfo.lastTouchAt && (
+                      <div className="text-[11px] text-muted-foreground">
+                        Last touch: {formatDistanceToNowStrict(new Date(touchInfo.lastTouchAt), { addSuffix: true })}
+                        {touchInfo.todayCount > 0 && <span className="ml-1 text-primary font-medium">({touchInfo.todayCount} today)</span>}
+                      </div>
+                    )}
+                    {item.primary_objection && (
+                      <div className="text-[11px] text-muted-foreground">
+                        Objection: <span className="font-medium">{item.primary_objection}</span>
+                      </div>
+                    )}
+                    {item.fitness_goal && (
+                      <div className="text-[11px] text-muted-foreground">
+                        Goal: <span className="font-medium">{item.fitness_goal}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
                       <Button
                         size="sm"
-                        className="h-9 md:h-7 text-[13px] md:text-[11px] flex-1 gap-1 min-h-[44px] md:min-h-0"
+                        className="h-8 md:h-7 text-[12px] md:text-[11px] flex-1 gap-1"
                         onClick={() => handleSend(item)}
                       >
-                        <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        Script
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
-                        onClick={() => handleMarkDone(item)}
-                      >
-                        <CheckCircle className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        Done
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
-                        onClick={() => setRebookItem(item)}
-                      >
-                        <CalendarPlus className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                        Rebook
-                      </Button>
-                    </div>
-                    {/* Quick touch row */}
-                    <div className="flex items-center gap-1 md:gap-0.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
-                        onClick={async () => {
-                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'text_manual', bookingId: item.booking_id, channel: 'sms', notes: 'Quick touch: texted' });
-                          toast.success('Touch logged: Texted');
-                          fetchQueue();
-                        }}
-                      >
-                        <MessageCircle className="w-3 h-3" />
-                        Texted
+                        <Send className="w-3.5 h-3.5" />
+                        Open Script
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
-                        onClick={async () => {
-                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'call', bookingId: item.booking_id, channel: 'call', notes: 'Quick touch: called' });
-                          toast.success('Touch logged: Called');
-                          fetchQueue();
-                        }}
-                      >
-                        <PhoneCall className="w-3 h-3" />
-                        Called
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
-                        onClick={async () => {
-                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'call', bookingId: item.booking_id, channel: 'call', notes: 'Quick touch: left voicemail' });
-                          toast.success('Touch logged: Left VM');
-                          fetchQueue();
-                        }}
-                      >
-                        <Voicemail className="w-3 h-3" />
-                        Left VM
-                      </Button>
-                      <div className="flex-1" />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
+                        className="h-8 md:h-7 text-[12px] md:text-[11px] gap-1 px-2.5"
                         onClick={() => handleSnooze(item)}
                       >
-                        <Clock className="w-3 h-3" />
+                        <Clock className="w-3.5 h-3.5" />
                         Snooze
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 md:h-6 text-[11px] md:text-[10px] text-muted-foreground px-1"
+                        className="h-8 md:h-7 text-[11px] text-muted-foreground px-1"
                         onClick={() => handleRemove(item)}
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
