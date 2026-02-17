@@ -1,21 +1,34 @@
 /**
  * PipelinePage — assembled page for /pipeline route.
  *
- * ═══ Pipeline regression checklist (10 min) ═══
- * - Mark Purchased sets booking_status_canon CLOSED_PURCHASED, sets buy_date, clears follow-ups, stamps AMC idempotently.
- * - Edit Run: changing result flows through canonical function (applyIntroOutcomeUpdate); non-outcome edits don't.
- * - Create Run writes correct result_canon (via normalizeIntroResult, NOT normalizeBookingStatus).
- * - Purchase "Intro" does NOT create a row in sales_outside_intro; "Outside Intro" does.
- * - Virtual scroll still renders 300+ rows smoothly.
+ * ═══ Release Gate Checklist (single authoritative source) ═══
  *
- * ACCEPTANCE TESTS (manual):
- * - Edit outcome to Premier → booking closes, buy_date set, AMC idempotency, follow-ups cleared
- * - Edit outcome from Didn't Buy to No-show → follow-up regeneration rules correct
- * - Edit booking date/time/coach → views update, no duplicate records
- * - Record purchase → Pipeline row updates, metrics reflect sale
- * - Scrolling performance: 500+ rows remain smooth
- * - Offline: outcome edits blocked with clear message
- * - Data freshness indicator shows last sync + pending count
+ * Pre-release:
+ * □ vitest run — all pipeline tests pass (corruption guards + behavioral + edge-case)
+ * □ tsc --noEmit — no TypeScript errors
+ *
+ * Manual flows (test env):
+ * □ Create booking → appears in Pipeline, correct canon fields
+ * □ Create run with "No-show" → result_canon is NO_SHOW (not a booking status)
+ * □ Edit run: change result from "Didn't Buy" to "Premier + OTBeat" → booking closes,
+ *   buy_date set, AMC idempotent, follow-ups cleared, commission consistent
+ * □ Edit run: change non-outcome fields only → buy_date/commission NOT overwritten by canonical fn
+ * □ Purchase "Intro" → NO row in sales_outside_intro; booking closes via canonical fn
+ * □ Purchase "Outside Intro" → row inserted in sales_outside_intro; booking closes via canonical fn
+ * □ Auto-fix → syncs intro_owner, fixes corrupted timestamps, audit logged
+ * □ Owner sync → audit entry in outcome_events with action_type "owner_sync"
+ *
+ * Performance & offline:
+ * □ Virtual scroll: 300+ rows remain smooth
+ * □ Offline toggle: outcome edits blocked with clear message
+ * □ Refresh after reconnect: data refreshes
+ *
+ * VIP:
+ * □ VIP bulk schedule: updates intros_booked and intro_questionnaires
+ *
+ * Guardrails:
+ * □ assertNoOutcomeOwnedFields fires in dev if outcome fields leak into direct updates
+ * □ normalizeIntroResultStrict throws in dev for unmapped outcomes
  */
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

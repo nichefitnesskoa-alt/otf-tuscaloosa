@@ -24,6 +24,37 @@ export const OUTCOME_OWNED_FIELDS = [
   'amc_incremented_by',
 ] as const;
 
+type OutcomeOwnedField = typeof OUTCOME_OWNED_FIELDS[number];
+
+/**
+ * Guardrail: asserts that a direct-update payload does not contain
+ * any outcome-owned fields. Called at write sites when resultChanged is true.
+ *
+ * Dev: throws so the bug is caught immediately.
+ * Prod: logs + strips offending keys so the write proceeds safely.
+ */
+export function assertNoOutcomeOwnedFields(
+  payload: Record<string, unknown>,
+  context: string,
+): void {
+  const offending = (OUTCOME_OWNED_FIELDS as readonly string[]).filter(
+    (f) => f in payload,
+  );
+  if (offending.length === 0) return;
+
+  const msg = `[${context}] Direct update payload contains outcome-owned fields: ${offending.join(', ')}. These must be set via applyIntroOutcomeUpdate when result changes.`;
+
+  if (import.meta.env.DEV) {
+    throw new Error(msg);
+  }
+
+  console.error(msg);
+  // Strip offending keys so the write doesn't corrupt data
+  for (const key of offending) {
+    delete payload[key];
+  }
+}
+
 // ── Outcome Update (delegates to canonical function) ──
 
 export interface PipelineOutcomeParams {
@@ -106,7 +137,7 @@ export async function updateBookingFieldsFromPipeline(params: BookingFieldParams
   if (error) throw error;
 }
 
-// ── Sync intro_owner from run to booking ──
+// ── Sync intro_owner from run to booking (with audit) ──
 
 export async function syncIntroOwnerToBooking(
   bookingId: string,
@@ -114,6 +145,19 @@ export async function syncIntroOwnerToBooking(
   editor: string = 'System',
 ): Promise<boolean> {
   try {
+    // Fetch previous owner for audit trail
+    let previousOwner: string | null = null;
+    try {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('intro_owner')
+        .eq('id', bookingId)
+        .maybeSingle();
+      previousOwner = data?.intro_owner ?? null;
+    } catch {
+      // non-critical: proceed with sync even if audit fetch fails
+    }
+
     const { error } = await supabase
       .from('intros_booked')
       .update({
@@ -125,6 +169,26 @@ export async function syncIntroOwnerToBooking(
       })
       .eq('id', bookingId);
     if (error) throw error;
+
+    // Best-effort audit log into outcome_events
+    try {
+      await supabase.from('outcome_events').insert({
+        booking_id: bookingId,
+        old_result: null,
+        new_result: 'owner_sync',
+        edited_by: `${editor} (Auto-Sync)`,
+        source_component: 'Pipeline:syncIntroOwner',
+        edit_reason: `Owner sync: ${previousOwner ?? '(none)'} → ${introOwner}`,
+        metadata: {
+          action_type: 'owner_sync',
+          previous_owner: previousOwner,
+          new_owner: introOwner,
+        },
+      });
+    } catch {
+      console.warn('Audit log for owner sync failed (non-critical)');
+    }
+
     return true;
   } catch (error) {
     console.error('Error syncing intro_owner:', error);
