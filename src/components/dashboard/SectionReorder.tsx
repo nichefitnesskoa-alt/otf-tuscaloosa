@@ -11,6 +11,7 @@ const DEFAULT_SECTION_ORDER = [
   'tomorrows-intros',
   'coming-up',
   'followups-due',
+  'questionnaire-hub',
   'completed-today',
   'shift-handoff',
 ];
@@ -22,6 +23,7 @@ const SECTION_LABELS: Record<string, string> = {
   'tomorrows-intros': "Tomorrow's Intros",
   'coming-up': 'Coming Up',
   'followups-due': 'Follow-Ups Due',
+  'questionnaire-hub': 'Questionnaire Hub',
   'completed-today': 'Completed Today',
   'shift-handoff': 'Shift Summary',
 };

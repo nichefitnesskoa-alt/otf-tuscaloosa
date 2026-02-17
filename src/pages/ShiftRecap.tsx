@@ -309,6 +309,29 @@ export default function ShiftRecap() {
 
       if (bookingInsertError) throw bookingInsertError;
 
+      // Auto-create questionnaire for 1st intros
+      if (insertedBooking && !booking.originatingBookingId) {
+        try {
+          const nameParts = booking.memberName.trim().split(/\s+/);
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          const { generateUniqueSlug } = await import('@/lib/utils');
+          const slug = await generateUniqueSlug(firstName, lastName, supabase);
+          await supabase.from('intro_questionnaires').insert({
+            id: crypto.randomUUID(),
+            booking_id: insertedBooking.id,
+            client_first_name: firstName,
+            client_last_name: lastName,
+            scheduled_class_date: booking.introDate,
+            scheduled_class_time: booking.introTime || null,
+            status: 'not_sent',
+            slug,
+          } as any);
+        } catch (qErr) {
+          console.error('Auto-create Q error:', qErr);
+        }
+      }
+
       // Auto-link matching lead
       if (insertedBooking) {
         await matchLeadByName(booking.memberName, insertedBooking.id, 'booked', booking.leadSource);

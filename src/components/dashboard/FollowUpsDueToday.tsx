@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText } from 'lucide-react';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
 import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialog';
+import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 
 interface FollowUpItem {
   id: string;
@@ -54,6 +55,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [batchIndex, setBatchIndex] = useState(0);
   const [sortBy, setSortBy] = useState<'date' | 'type'>('date');
   const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy'>('all');
+  const [prepOpen, setPrepOpen] = useState(false);
+  const [prepItem, setPrepItem] = useState<FollowUpItem | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -517,6 +520,18 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
         {/* Row 4: Uniform action buttons */}
         <div className="px-3 md:px-2.5 pb-2.5">
           <div className="flex items-center gap-1.5 md:gap-1 py-1">
+            <Button variant="outline" size="sm" className="h-9 md:h-7 px-3 md:px-2 text-[13px] md:text-[11px] gap-1.5 md:gap-1 flex-1 md:flex-initial min-w-[44px] min-h-[44px] md:min-h-0" onClick={(e) => {
+              e.stopPropagation();
+              if (item.booking_id) {
+                setPrepItem(item);
+                setPrepOpen(true);
+              } else {
+                toast.info('No booking linked for prep data.');
+              }
+            }}>
+              <FileText className="w-4 h-4 md:w-3.5 md:h-3.5" />
+              <span>Prep</span>
+            </Button>
             <Button variant="outline" size="sm" className="h-9 md:h-7 px-3 md:px-2 text-[13px] md:text-[11px] gap-1.5 md:gap-1 flex-1 md:flex-initial min-w-[44px] min-h-[44px] md:min-h-0" onClick={(e) => { e.stopPropagation(); handleSend(item); }}>
               <MessageSquare className="w-4 h-4 md:w-3.5 md:h-3.5" />
               <span>Script</span>
@@ -653,6 +668,21 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             fetchQueue();
             onRefresh();
           }}
+        />
+      )}
+      {prepItem && prepItem.booking_id && (
+        <PrepDrawer
+          open={prepOpen}
+          onOpenChange={setPrepOpen}
+          memberName={prepItem.person_name}
+          memberKey={prepItem.person_name.toLowerCase().replace(/\s+/g, '')}
+          bookingId={prepItem.booking_id}
+          classDate={prepItem.trigger_date}
+          classTime={null}
+          coachName=""
+          leadSource={prepItem.lead_source || ''}
+          isSecondIntro={false}
+          phone={prepItem.phone}
         />
       )}
     </>

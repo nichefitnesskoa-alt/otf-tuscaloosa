@@ -1,6 +1,5 @@
 import ClientJourneyPanel from '@/components/admin/ClientJourneyPanel';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
-import PastBookingQuestionnaires from '@/components/PastBookingQuestionnaires';
 import { GitBranch } from 'lucide-react';
 
 export default function Pipeline() {
@@ -16,7 +15,6 @@ export default function Pipeline() {
         </p>
       </div>
 
-      <PastBookingQuestionnaires />
       <ClientJourneyPanel />
       <MembershipPurchasesPanel />
     </div>

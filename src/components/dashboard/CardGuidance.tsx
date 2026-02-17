@@ -189,6 +189,15 @@ export function getJourneyGuidanceWithAction(ctx: JourneyContext): { text: strin
       return { text: 'Step 3: Send confirmation with questionnaire link → tap Script', actionType: 'confirmation_sent' };
     }
     if (ctx.confirmationSent && !ctx.qCompleted) {
+      // Day-before Q reminder: if class is tomorrow and Q sent but not completed
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const isClassTomorrow = ctx.classDate === tomorrowStr;
+
+      if (isClassTomorrow && ctx.qSent) {
+        return { text: 'Step 4: Q not completed yet. Send a quick Q reminder → tap Script', actionType: 'q_reminder_sent' };
+      }
       if (ctx.qSent) {
         return { text: 'Step 4: Waiting for questionnaire. Follow up if needed.', actionType: 'q_reminder_sent' };
       }

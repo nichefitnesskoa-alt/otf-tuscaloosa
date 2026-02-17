@@ -68,6 +68,25 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
 
       if (bookingError) throw bookingError;
 
+      // Auto-create questionnaire for 1st intros
+      try {
+        const firstName = lead.first_name;
+        const lastName = lead.last_name;
+        const slug = await generateUniqueSlug(firstName, lastName, supabase);
+        await supabase.from('intro_questionnaires').insert({
+          id: crypto.randomUUID(),
+          booking_id: booking.id,
+          client_first_name: firstName,
+          client_last_name: lastName,
+          scheduled_class_date: classDate,
+          scheduled_class_time: classTime || null,
+          status: 'not_sent',
+          slug,
+        } as any);
+      } catch (qErr) {
+        console.error('Auto-create Q error:', qErr);
+      }
+
       // Update lead with booked_intro_id
       await supabase.from('leads').update({
         booked_intro_id: booking.id,
