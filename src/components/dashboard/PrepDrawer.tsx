@@ -18,13 +18,13 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import {
   User, Calendar, Target, ClipboardList, DollarSign, Phone, Mail,
   MessageSquare, FileText, Copy, History, ChevronDown, ChevronRight, Link2,
+  Shield, BookOpen, HandMetal, Mic2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { EirmaPlaybook } from './EirmaPlaybook';
 import { TransformationClose } from './TransformationClose';
+import { HumanizedEirma } from './HumanizedEirma';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
-import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { LinkQuestionnaireDialog } from './LinkQuestionnaireDialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -85,6 +85,20 @@ interface PrepDrawerProps {
   onGenerateScript?: () => void;
   onSendQ?: () => void;
 }
+
+// Dig deeper prompts for each Q answer
+const DIG_DEEPER: Record<string, (answer: string) => string> = {
+  goal: () => 'Ask: "How much specifically? By when? What changes in your life when you get there?"',
+  obstacle: (a) => {
+    if (/time|busy|schedule/i.test(a)) return 'Ask: "What does a typical week look like? What time of day could work?"';
+    if (/cost|money|price|expensive/i.test(a)) return 'Ask: "Is it the total cost, or more about whether it\'s worth it?"';
+    if (/motivat|accountab|alone/i.test(a)) return 'Ask: "When was the last time you stuck with something? What made the difference?"';
+    return 'Ask: "Tell me more about that. What has that looked like for you?"';
+  },
+  emotional: (_a: string) => 'Ask: "When did you last feel that way? What was different then?"',
+  past: (_a: string) => 'Ask: "What did you like about it? What made you stop?"',
+  commitment: (_a: string) => '"Great — let\'s talk about which specific days after class."',
+};
 
 export function PrepDrawer({
   open, onOpenChange, memberName, memberKey, bookingId, classDate, classTime,
@@ -159,11 +173,12 @@ export function PrepDrawer({
   };
 
   const firstName = memberName.split(' ')[0];
-  const hasQ = questionnaire?.status === 'completed';
+  const hasQ = questionnaire?.status === 'completed' || questionnaire?.status === 'submitted';
   const goal = questionnaire?.q1_fitness_goal;
   const obstacle = questionnaire?.q3_obstacle;
   const emotionalDriver = questionnaire?.q5_emotional_driver;
   const commitment = questionnaire?.q6_weekly_commitment;
+  const pastExp = questionnaire?.q4_past_experience;
 
   const p = (text: string) =>
     text
@@ -225,95 +240,145 @@ export function PrepDrawer({
                 <TabsTrigger value="after" className="text-xs">After Class</TabsTrigger>
               </TabsList>
 
-              {/* TAB 1: Before Class */}
+              {/* ===== TAB 1: BEFORE CLASS ===== */}
               <TabsContent value="before" className="space-y-3 mt-3">
                 {loading ? (
                   <p className="text-xs text-muted-foreground">Loading...</p>
-                ) : hasQ ? (
-                  <div className="rounded-lg p-3 text-xs space-y-2 border-l-4 border-l-primary bg-primary/5">
-                    <QRow label="What is your primary fitness goal?" value={goal} />
-                    <QRow label="How would you rate your current fitness level (1-5)?" value={questionnaire.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
-                    <QRow label="What has been the biggest obstacle to reaching your fitness goals?" value={obstacle} />
-                    <QRow label="What have you tried before for fitness?" value={questionnaire.q4_past_experience} />
-                    <QRow label="What would reaching your goal mean to you emotionally?" value={emotionalDriver} />
-                    <QRow label="How many days per week can you realistically commit?" value={commitment} />
-                    <QRow label="Which days work best for you?" value={questionnaire.q6b_available_days} />
-                    <QRow label="Anything else the coach should know?" value={questionnaire.q7_coach_notes} />
-                  </div>
                 ) : (
-                  <div className="text-xs text-muted-foreground italic flex flex-col gap-2 p-2 rounded border">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList className="w-3.5 h-3.5" />
-                      {questionnaire?.last_opened_at && questionnaire.status === 'sent'
-                        ? `Questionnaire opened ${formatDistanceToNow(new Date(questionnaire.last_opened_at), { addSuffix: true })} but not completed`
-                        : questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
-                    </div>
-                    <div className="flex gap-2">
-                      {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
-                        <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={onSendQ}>
-                          Send Q
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setLinkQOpen(true)}>
-                        <Link2 className="w-3 h-3 mr-1" />
-                        Link Existing Q
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* SA Mindset */}
-                <div className="rounded-lg p-3 text-xs border border-muted bg-muted/30 space-y-1">
-                  <p className="font-bold uppercase tracking-wide text-muted-foreground text-[10px]">🧠 SA Mindset</p>
-                  <p className="leading-relaxed">You are not selling a membership. You are helping someone become the person they told you they want to be. Your job is to connect every moment of this visit back to their goal.</p>
-                </div>
-
-                {/* Pre-Class Scripts */}
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-green-700 dark:text-green-400">📋 Pre-Class Scripts</p>
-
-                  <PrepCollapsible title="Greeting + Q Acknowledgment" icon="👋" defaultOpen accentColor="green">
-                    <p className="leading-relaxed">
-                      {p(`"Hey [name]! Welcome to Orangetheory. I'm so glad you're here. I read through your questionnaire — you said you want to [goal], and I love that. Today's class is going to be a great first step toward that. Let me walk you through what to expect."`)}
-                    </p>
-                    {!hasQ && (
-                      <div className="mt-1.5">
-                        <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 px-1 rounded text-[10px] font-medium">
-                          Questionnaire not completed — use a general greeting and ask about their goal in person
-                        </span>
+                  <>
+                    {/* SECTION 1: Accusation Audit — always visible, NOT collapsible */}
+                    <div className="rounded-lg p-3.5 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">Your Opening Move — Accusation Audit</h3>
                       </div>
-                    )}
-                  </PrepCollapsible>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 mb-2.5 leading-relaxed">
+                        Before you say anything else, acknowledge what they might be feeling:
+                      </p>
+                      <div className="space-y-2">
+                        {[
+                          "You're probably nervous about being in a new place with people you don't know",
+                          "You might be thinking this is going to be too hard or too intense",
+                          "You might be worried I'm going to try to hard-sell you into something",
+                          "And honestly, you might be wondering if this is even worth your time",
+                        ].map((line, i) => (
+                          <p key={i} className="text-sm text-indigo-900 dark:text-indigo-200 leading-relaxed pl-3 border-l-2 border-indigo-300 dark:border-indigo-600">
+                            "{line}"
+                          </p>
+                        ))}
+                      </div>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-3 italic">
+                        Starting here tells them you GET it. Now they can relax.
+                      </p>
+                    </div>
 
-                  <PrepCollapsible title="Flipbook Talking Points" icon="📖" accentColor="green">
-                    <ul className="space-y-1 list-disc pl-4">
-                      <li><span className="font-medium">Heart Rate Zones:</span> "We use a heart rate monitor so you can see your effort in real time. You'll aim for the Orange Zone — that's where the magic happens."</li>
-                      <li><span className="font-medium">Coaching:</span> "There's a coach leading the entire class. They'll tell you every move, every transition. You don't have to figure anything out."</li>
-                      <li><span className="font-medium">Afterburn:</span> "The workout is designed so you keep burning calories for up to 36 hours after class. It's called the afterburn effect."</li>
-                      <li><span className="font-medium">Community:</span> "Everyone in that room was a first-timer once. This is one of the most supportive workout communities you'll find."</li>
-                    </ul>
-                  </PrepCollapsible>
+                    {/* SECTION 2: Their Story — Q answers with dig deeper */}
+                    <div className="rounded-lg border border-muted overflow-hidden">
+                      <div className="px-3 py-2 bg-muted/30 flex items-center gap-2">
+                        <BookOpen className="w-3.5 h-3.5 text-primary" />
+                        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Their Story</h3>
+                      </div>
+                      <div className="p-3 space-y-3">
+                        {hasQ ? (
+                          <>
+                            {/* Quick Summary */}
+                            <div className="rounded-md bg-primary/5 border border-primary/20 p-2.5 text-xs leading-relaxed">
+                              <span className="font-semibold">{firstName}</span> wants to{' '}
+                              <span className="font-medium text-primary">{goal || '—'}</span> because{' '}
+                              <span className="font-medium text-primary">{emotionalDriver || '—'}</span>.
+                              Their biggest obstacle is{' '}
+                              <span className="font-medium text-primary">{obstacle || '—'}</span>.
+                              They can commit{' '}
+                              <span className="font-medium text-primary">{commitment || '—'}</span> per week.
+                            </div>
 
-                  <PrepCollapsible title="Set Expectations" icon="⏱️" accentColor="green">
-                    <p className="leading-relaxed">
-                      {p(`"After class, we'll sit down for about 5-10 minutes. I'll ask you how you felt, and if it's a fit, I'll show you how to keep this going. No pressure, no awkward pitch. Sound good?"`)}
-                    </p>
-                  </PrepCollapsible>
+                            <StoryRow label="Goal" answer={goal} digDeeper={DIG_DEEPER.goal(goal || '')} />
+                            <StoryRow label="Fitness Level" answer={questionnaire?.q2_fitness_level ? `${questionnaire.q2_fitness_level}/5` : null} />
+                            <StoryRow label="Biggest Obstacle" answer={obstacle} digDeeper={obstacle ? DIG_DEEPER.obstacle(obstacle) : undefined} />
+                            <StoryRow label="Past Experience" answer={pastExp} digDeeper={pastExp ? DIG_DEEPER.past(pastExp) : undefined} />
+                            <StoryRow label="Emotional Driver" answer={emotionalDriver} digDeeper={emotionalDriver ? DIG_DEEPER.emotional(emotionalDriver) : undefined} />
+                            <StoryRow label="Weekly Commitment" answer={commitment} digDeeper={commitment ? DIG_DEEPER.commitment(commitment) : undefined} />
+                            <StoryRow label="Best Days" answer={questionnaire?.q6b_available_days} />
+                            <StoryRow label="Coach Notes" answer={questionnaire?.q7_coach_notes} />
+                          </>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="text-xs text-muted-foreground italic flex items-center gap-2 p-2 rounded border border-dashed">
+                              <ClipboardList className="w-3.5 h-3.5" />
+                              {questionnaire?.last_opened_at && questionnaire.status === 'sent'
+                                ? `Questionnaire opened ${formatDistanceToNow(new Date(questionnaire.last_opened_at), { addSuffix: true })} but not completed`
+                                : questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
+                            </div>
+                            <div className="flex gap-2">
+                              {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
+                                <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={onSendQ}>
+                                  Send Q
+                                </Button>
+                              )}
+                              <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setLinkQOpen(true)}>
+                                <Link2 className="w-3 h-3 mr-1" />
+                                Link Existing Q
+                              </Button>
+                            </div>
+                            <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-2.5 text-xs">
+                              <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1.5">Since the Q isn't completed, ask during the greeting:</p>
+                              <ul className="space-y-1 text-amber-700 dark:text-amber-400">
+                                <li>• "What's your main fitness goal?"</li>
+                                <li>• "What's been the biggest thing holding you back?"</li>
+                                <li>• "How many days a week could you realistically work out?"</li>
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                  <PrepCollapsible title="Mid-Class Check-In" icon="💪" accentColor="green">
-                    <p className="leading-relaxed">
-                      {p(`Walk into the studio at the ~25 minute mark. Make eye contact with [name], give a thumbs up or a quick "You're crushing it!" This creates a bond and shows you are invested in their experience.`)}
-                    </p>
-                    <p className="mt-1.5 text-muted-foreground italic">
-                      Tip: Note which station they're at and what they're doing well — use this in the post-class sit-down.
-                    </p>
-                  </PrepCollapsible>
-                </div>
+                    {/* SECTION 3: Guide Them In */}
+                    <PrepCollapsible title="Guide Them In — Greeting" icon="👋" defaultOpen accentColor="green">
+                      <p className="leading-relaxed">
+                        {p(`"Hey [name]! Welcome to Orangetheory. I'm so glad you're here. I read through your questionnaire — you said you want to [goal], and I love that. Today's class is going to be a great first step toward that. Let me walk you through what to expect."`)}
+                      </p>
+                      {!hasQ && (
+                        <div className="mt-1.5">
+                          <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-1 rounded text-[10px] font-medium">
+                            Q not completed — use a general greeting and ask about their goal in person
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-3 pt-2 border-t border-green-200 dark:border-green-800">
+                        <p className="font-semibold text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Set Expectations</p>
+                        <p className="leading-relaxed">
+                          {p(`"After class, we'll sit down for about 5-10 minutes. I'll ask you how you felt, and if it's a fit, I'll show you how to keep this going. No pressure, no awkward pitch. Sound good?"`)}
+                        </p>
+                      </div>
+                    </PrepCollapsible>
+
+                    {/* SECTION 4: During Class */}
+                    <PrepCollapsible title="During Class — Check-In" icon="💪" accentColor="green">
+                      <p className="leading-relaxed">
+                        {p(`Walk into the studio at the ~25 minute mark. Make eye contact with [name], give a thumbs up or a quick "You're crushing it!" This creates a bond and shows you are invested in their experience.`)}
+                      </p>
+                      <p className="mt-1.5 text-muted-foreground italic">
+                        Tip: Note which station they're at and what they're doing well — use this in the post-class sit-down.
+                      </p>
+                    </PrepCollapsible>
+
+                    {/* Reference — Flipbook (collapsed, low priority) */}
+                    <PrepCollapsible title="Reference — Flipbook Talking Points" icon="📖" accentColor="muted">
+                      <ul className="space-y-1 list-disc pl-4">
+                        <li><span className="font-medium">Heart Rate Zones:</span> "We use a heart rate monitor so you can see your effort in real time. You'll aim for the Orange Zone — that's where the magic happens."</li>
+                        <li><span className="font-medium">Coaching:</span> "There's a coach leading the entire class. They'll tell you every move, every transition. You don't have to figure anything out."</li>
+                        <li><span className="font-medium">Afterburn:</span> "The workout is designed so you keep burning calories for up to 36 hours after class. It's called the afterburn effect."</li>
+                        <li><span className="font-medium">Community:</span> "Everyone in that room was a first-timer once. This is one of the most supportive workout communities you'll find."</li>
+                      </ul>
+                    </PrepCollapsible>
+                  </>
+                )}
               </TabsContent>
 
-              {/* TAB 2: After Class */}
+              {/* ===== TAB 2: AFTER CLASS ===== */}
               <TabsContent value="after" className="mt-3 space-y-4">
-                {/* Quick Q Reference for After Class context */}
+                {/* Quick Q Reference */}
                 {hasQ && (
                   <div className="rounded-lg p-2.5 text-xs border border-muted bg-muted/20 space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">📋 Quick Reference</p>
@@ -330,13 +395,13 @@ export function PrepDrawer({
                   </div>
                 )}
 
-                {/* Transformation Close — always render */}
+                {/* Transformation Close */}
                 <TransformationClose
                   clientName={memberName}
                   coachName={coachName}
                   fitnessGoal={goal || null}
                   obstacle={obstacle || null}
-                  pastExperience={questionnaire?.q4_past_experience || null}
+                  pastExperience={pastExp || null}
                   emotionalDriver={emotionalDriver || null}
                   weeklyCommitment={commitment || null}
                   availableDays={questionnaire?.q6b_available_days || null}
@@ -351,15 +416,14 @@ export function PrepDrawer({
 
                 <Separator />
 
-                {/* Full EIRMA Playbooks — show ALL */}
-                <EirmaPlaybook
+                {/* Humanized EIRMA Objection Cards */}
+                <HumanizedEirma
                   obstacles={obstacle || null}
                   fitnessLevel={questionnaire?.q2_fitness_level ?? null}
                   emotionalDriver={emotionalDriver || null}
                   clientName={memberName}
                   fitnessGoal={goal || null}
-                  pastExperience={questionnaire?.q4_past_experience ?? null}
-                  showAll
+                  pastExperience={pastExp ?? null}
                 />
               </TabsContent>
             </Tabs>
@@ -444,6 +508,8 @@ export function PrepDrawer({
   );
 }
 
+/* ---- Sub-components ---- */
+
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -454,11 +520,19 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-function QRow({ label, value }: { label: string; value: string | null }) {
+function StoryRow({ label, answer, digDeeper }: { label: string; answer: string | null; digDeeper?: string }) {
+  if (!answer) return null;
   return (
-    <div>
-      <p className="font-semibold text-muted-foreground">{label}</p>
-      <p className="mt-0.5">{value || '—'}</p>
+    <div className="text-xs">
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-bold text-foreground">{label}:</span>
+        <span>{answer}</span>
+      </div>
+      {digDeeper && (
+        <p className="mt-0.5 pl-3 text-muted-foreground italic text-[11px] leading-relaxed">
+          → {digDeeper}
+        </p>
+      )}
     </div>
   );
 }
@@ -484,8 +558,8 @@ function PrepCollapsible({ title, icon, children, defaultOpen = false, accentCol
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : accentColor === 'amber' ? 'border-l-amber-500' : 'border-l-primary';
-  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : accentColor === 'amber' ? 'bg-amber-50/50 dark:bg-amber-950/20' : 'bg-primary/5';
+  const borderColor = accentColor === 'green' ? 'border-l-green-500' : accentColor === 'blue' ? 'border-l-blue-500' : accentColor === 'amber' ? 'border-l-amber-500' : accentColor === 'muted' ? 'border-l-muted-foreground/30' : 'border-l-primary';
+  const bgColor = accentColor === 'green' ? 'bg-green-50/50 dark:bg-green-950/20' : accentColor === 'blue' ? 'bg-blue-50/50 dark:bg-blue-950/20' : accentColor === 'amber' ? 'bg-amber-50/50 dark:bg-amber-950/20' : accentColor === 'muted' ? 'bg-muted/20' : 'bg-primary/5';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
