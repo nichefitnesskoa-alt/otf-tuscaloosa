@@ -1,6 +1,13 @@
 /**
  * PipelinePage — assembled page for /pipeline route.
  *
+ * ═══ Pipeline regression checklist (10 min) ═══
+ * - Mark Purchased sets booking_status_canon CLOSED_PURCHASED, sets buy_date, clears follow-ups, stamps AMC idempotently.
+ * - Edit Run: changing result flows through canonical function (applyIntroOutcomeUpdate); non-outcome edits don't.
+ * - Create Run writes correct result_canon (via normalizeIntroResult, NOT normalizeBookingStatus).
+ * - Purchase "Intro" does NOT create a row in sales_outside_intro; "Outside Intro" does.
+ * - Virtual scroll still renders 300+ rows smoothly.
+ *
  * ACCEPTANCE TESTS (manual):
  * - Edit outcome to Premier → booking closes, buy_date set, AMC idempotency, follow-ups cleared
  * - Edit outcome from Didn't Buy to No-show → follow-up regeneration rules correct
