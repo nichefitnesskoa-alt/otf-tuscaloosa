@@ -47,8 +47,14 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowDidntBuy = params.newResult === "Didn't Buy";
     const isNowNoShow = params.newResult === 'No-show';
     const isNowNotInterested = params.newResult === 'Not interested';
+    const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
 
-    // ── STEP 1: FIND / UPDATE intros_run ──
+    // Skip processing for unresolved/empty results
+    if (isNowUnresolved) {
+      return { success: true };
+    }
+
+    // ── STEP 1: FIND / CREATE / UPDATE intros_run ──
     let existingRun: { id: string; result: string; buy_date: string | null; lead_source: string | null; amc_incremented_at: string | null } | null = null;
 
     if (params.runId) {
@@ -69,6 +75,41 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       existingRun = data as any;
     }
 
+    // A2: CREATE RUN IF MISSING
+    if (!existingRun && params.bookingId) {
+      const runDate = params.classDate || getTodayYMD();
+      const { data: newRun, error: createErr } = await supabase
+        .from('intros_run')
+        .insert({
+          linked_intro_booked_id: params.bookingId,
+          member_name: params.memberName,
+          run_date: runDate,
+          class_time: '00:00',
+          result: params.newResult,
+          lead_source: params.leadSource || null,
+          sa_name: params.editedBy,
+          intro_owner: params.editedBy,
+          commission_amount: params.commissionAmount ?? 0,
+          primary_objection: params.objection || null,
+          buy_date: isNowSale ? (getTodayYMD()) : null,
+          created_at: new Date().toISOString(),
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: params.editedBy,
+          edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
+        })
+        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .single();
+
+      if (createErr) {
+        console.error('Failed to create run:', createErr);
+        // Continue without run — still update booking
+      } else {
+        existingRun = newRun as any;
+        params.runId = newRun?.id;
+      }
+    }
+
+    // Update existing run
     if (existingRun) {
       const buyDate = isNowSale
         ? (existingRun.buy_date || getTodayYMD())
@@ -112,14 +153,12 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     // ── STEP 3: AMC (idempotent) ──
     let didIncrementAmc = false;
     if (isNowSale && !wasSale) {
-      // Check idempotency: if already incremented for this run, skip
       const alreadyIncremented = existingRun?.amc_incremented_at != null;
       if (!alreadyIncremented) {
         const leadSource = params.leadSource || existingRun?.lead_source || '';
         if (isAmcEligibleSale({ membershipType: params.newResult, leadSource })) {
           await incrementAmcOnSale(params.memberName, params.newResult, params.editedBy, getTodayYMD());
           didIncrementAmc = true;
-          // Mark idempotency on run
           if (existingRun) {
             await supabase.from('intros_run').update({
               amc_incremented_at: new Date().toISOString(),
@@ -130,13 +169,15 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       }
     }
 
-    // ── STEP 4: FOLLOW-UP QUEUE ──
+    // ── STEP 4: FOLLOW-UP QUEUE (self-cleaning) ──
     let didGenerateFollowups = false;
 
+    // Sale or Not Interested → clear all pending follow-ups
     if (isNowSale && (wasDidntBuy || wasNoShow)) {
       await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
     }
 
+    // Transition TO didn't-buy or no-show → generate follow-ups
     if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
       const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
       const entries = generateFollowUpEntries(
@@ -144,10 +185,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         params.classDate, params.bookingId, null, false,
         isNowDidntBuy ? params.objection || null : null, null,
       );
+      // Use upsert-like behavior: delete existing then insert to respect unique constraint
+      await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
       await supabase.from('follow_up_queue').insert(entries);
       didGenerateFollowups = true;
     }
 
+    // Switching BETWEEN didn't-buy and no-show
     if ((wasDidntBuy && isNowNoShow) || (wasNoShow && isNowDidntBuy)) {
       await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
       const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
@@ -160,7 +204,16 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       didGenerateFollowups = true;
     }
 
+    // Not interested → clear pending only
     if (isNowNotInterested) {
+      await supabase.from('follow_up_queue')
+        .delete()
+        .eq('booking_id', params.bookingId)
+        .eq('status', 'pending');
+    }
+
+    // Sale from any state → clear all pending
+    if (isNowSale && !wasSale) {
       await supabase.from('follow_up_queue')
         .delete()
         .eq('booking_id', params.bookingId)
@@ -178,10 +231,15 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       edited_by: params.editedBy,
       source_component: params.sourceComponent,
       edit_reason: params.editReason || `${params.sourceComponent}: ${params.previousResult || 'unknown'} → ${params.newResult}`,
-      metadata: JSON.stringify({ amc_incremented: didIncrementAmc, commission: params.commissionAmount ?? 0 }),
+      metadata: JSON.stringify({
+        amc_incremented: didIncrementAmc,
+        commission: params.commissionAmount ?? 0,
+        lead_source: params.leadSource || existingRun?.lead_source || null,
+        buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
+      }),
     } as any);
 
-    // Also write to legacy outcome_changes for backward compat
+    // Legacy backward compat
     try {
       await supabase.from('outcome_changes').insert({
         booking_id: params.bookingId,
