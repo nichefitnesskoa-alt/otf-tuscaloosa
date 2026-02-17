@@ -1,8 +1,8 @@
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2 } from 'lucide-react';
+import ClientNameAutocomplete from '@/components/ClientNameAutocomplete';
 
 const LEAD_SOURCES = [
   'HRM Add-on',
@@ -64,12 +64,13 @@ export default function SaleEntry({ sale, index, onUpdate, onRemove }: SaleEntry
 
       <div>
         <Label className="text-xs">Member Name *</Label>
-        <Input
-          value={sale.memberName}
-          onChange={(e) => onUpdate(index, { memberName: e.target.value })}
-          className="mt-1"
-          placeholder="Full name"
-        />
+        <div className="mt-1">
+          <ClientNameAutocomplete
+            value={sale.memberName}
+            onChange={(v) => onUpdate(index, { memberName: v })}
+            onSelectExisting={(client) => onUpdate(index, { memberName: client.member_name })}
+          />
+        </div>
       </div>
 
       <div>
