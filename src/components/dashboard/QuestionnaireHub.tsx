@@ -20,6 +20,7 @@ import { CoachPrepCard } from './CoachPrepCard';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 import { useScriptTemplates } from '@/hooks/useScriptTemplates';
 import { selectBestScript } from '@/hooks/useSmartScriptSelect';
+import { isVipBooking } from '@/lib/vip/vipRules';
 
 const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
@@ -244,14 +245,22 @@ export function QuestionnaireHub() {
     return 'pending';
   };
 
-  // Filter by search
+  // Filter by search and exclude VIP bookings
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return questionnaires;
+    let result = questionnaires.filter(q => {
+      // Exclude questionnaires linked to VIP bookings
+      if (q.booking_id) {
+        const booking = bookingMap.get(q.booking_id);
+        if (booking && isVipBooking(booking as any)) return false;
+      }
+      return true;
+    });
+    if (!searchTerm.trim()) return result;
     const term = searchTerm.toLowerCase();
-    return questionnaires.filter(q =>
+    return result.filter(q =>
       `${q.client_first_name} ${q.client_last_name}`.toLowerCase().includes(term)
     );
-  }, [questionnaires, searchTerm]);
+  }, [questionnaires, searchTerm, bookingMap]);
 
   // Tab categorization
   const pending = filtered.filter(q => q.status === 'not_sent');

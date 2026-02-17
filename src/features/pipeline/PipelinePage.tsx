@@ -60,6 +60,7 @@ export default function PipelinePage() {
   }>({ type: null });
 
   const openDialog = (type: string, data?: { booking?: PipelineBooking; run?: PipelineRun; journey?: ClientJourney }) => {
+    if (type === 'refresh') { pipeline.refreshAll(); return; }
     setDialogState({ type, ...data });
   };
 

@@ -2,7 +2,7 @@
  * Single journey row card for Pipeline.
  * Expandable with booking/run details and action menus.
  */
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,11 +15,12 @@ import {
 import {
   ChevronDown, ChevronRight, AlertTriangle, Calendar, Target,
   MoreVertical, Edit, UserCheck, CalendarPlus, DollarSign, UserX,
-  Archive, Trash2, Link, X, Plus, Copy, Phone,
+  Archive, Trash2, Link, X, Plus, Copy, Phone, ArrowRight,
 } from 'lucide-react';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { isVipBooking } from '@/lib/vip/vipRules';
+import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import type { ClientJourney, PipelineBooking, PipelineRun, VipInfo } from '../pipelineTypes';
 
 interface PipelineRowCardProps {
@@ -48,6 +49,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
   journey, vipInfoMap, isOnline, onOpenDialog,
 }: PipelineRowCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [convertBooking, setConvertBooking] = useState<PipelineBooking | null>(null);
 
   const copyPhone = useCallback((phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -56,6 +58,8 @@ export const PipelineRowCard = memo(function PipelineRowCard({
 
   const phone = journey.bookings.find(b => b.phone)?.phone;
   const email = journey.bookings.find(b => b.email)?.email;
+  const hasVipBooking = journey.bookings.some(b => isVipBooking(b as any));
+  const vipStatus = journey.bookings.find(b => (b as any).vip_status)?.['vip_status' as keyof PipelineBooking] as string | null;
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
@@ -265,7 +269,19 @@ export const PipelineRowCard = memo(function PipelineRowCard({
           )}
 
           {/* Action buttons */}
-          <div className="pt-2 border-t border-dashed flex gap-2">
+          <div className="pt-2 border-t border-dashed flex gap-2 flex-wrap">
+            {hasVipBooking && vipStatus !== 'CONVERTED' && (
+              <Button variant="default" size="sm" className="text-xs gap-1 bg-purple-600 hover:bg-purple-700"
+                onClick={() => {
+                  const vb = journey.bookings.find(b => isVipBooking(b as any));
+                  if (vb) setConvertBooking(vb);
+                }}>
+                <ArrowRight className="w-3 h-3" /> Convert to Real Intro
+              </Button>
+            )}
+            {vipStatus === 'CONVERTED' && (
+              <Badge variant="outline" className="text-[10px] text-purple-600 border-purple-300">✓ Converted</Badge>
+            )}
             <Button variant="outline" size="sm" className="flex-1 text-xs"
               onClick={() => onOpenDialog('create_run', { journey })}>
               <Plus className="w-3 h-3 mr-1" /> Add Intro Run
@@ -283,6 +299,23 @@ export const PipelineRowCard = memo(function PipelineRowCard({
           </div>
         </div>
       </CollapsibleContent>
+
+      {/* VIP Conversion Dialog */}
+      {convertBooking && (
+        <ConvertVipToIntroDialog
+          open={!!convertBooking}
+          onOpenChange={(open) => { if (!open) setConvertBooking(null); }}
+          vipBooking={{
+            id: convertBooking.id,
+            member_name: journey.memberName,
+            phone: convertBooking.phone,
+            email: convertBooking.email,
+            coach_name: convertBooking.coach_name,
+            fitness_goal: convertBooking.fitness_goal,
+          }}
+          onConverted={() => { setConvertBooking(null); onOpenDialog('refresh', {}); }}
+        />
+      )}
     </Collapsible>
   );
 });

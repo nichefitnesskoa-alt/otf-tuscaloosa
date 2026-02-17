@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, CheckCircle2, Calendar, Shield } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle2, Calendar, Shield, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { getTodayYMD, normalizeBookingStatus, mapResultToBookingStatus, normalizeIntroResult, formatBookingStatusForDb } from '@/lib/domain/outcomes/types';
+import { isVipBooking } from '@/lib/vip/vipRules';
 
 interface Anomaly {
-  type: 'orphan_run' | 'sale_no_buydate' | 'closed_no_run' | 'status_mismatch' | 'missing_amc_idempotency';
+  type: 'orphan_run' | 'sale_no_buydate' | 'closed_no_run' | 'status_mismatch' | 'missing_amc_idempotency' | 'vip_followup' | 'vip_questionnaire';
   id: string;
   label: string;
   detail: string;
@@ -114,6 +115,43 @@ export function IntegrityDashboard() {
         }
       });
 
+      // 6. VIP contamination: VIP bookings with follow-up entries
+      const vipBookingIds = (bookings || []).filter(b => isVipBooking(b as any)).map(b => b.id);
+      if (vipBookingIds.length > 0) {
+        const { data: vipFollowUps } = await supabase
+          .from('follow_up_queue')
+          .select('id, person_name, booking_id')
+          .in('booking_id', vipBookingIds)
+          .eq('status', 'pending');
+
+        (vipFollowUps || []).forEach(f => {
+          found.push({
+            type: 'vip_followup',
+            id: f.id,
+            label: f.person_name,
+            detail: `VIP booking has pending follow-up (should not exist)`,
+            extra: { bookingId: f.booking_id },
+          });
+        });
+
+        // VIP bookings with questionnaires
+        const { data: vipQs } = await supabase
+          .from('intro_questionnaires')
+          .select('id, client_first_name, client_last_name, booking_id')
+          .in('booking_id', vipBookingIds)
+          .is('archived_at' as any, null);
+
+        (vipQs || []).forEach(q => {
+          found.push({
+            type: 'vip_questionnaire',
+            id: q.id,
+            label: `${q.client_first_name} ${q.client_last_name}`,
+            detail: `VIP booking has active questionnaire (should be archived)`,
+            extra: { bookingId: q.booking_id },
+          });
+        });
+      }
+
       setAnomalies(found);
     } catch (err) {
       console.error('Integrity scan error:', err);
@@ -200,6 +238,8 @@ export function IntegrityDashboard() {
     closed_no_run: 'Closed No Run',
     status_mismatch: 'Status Mismatch',
     missing_amc_idempotency: 'No AMC Stamp',
+    vip_followup: 'VIP Follow-up',
+    vip_questionnaire: 'VIP Questionnaire',
   };
 
   const typeColor: Record<string, string> = {
@@ -208,6 +248,32 @@ export function IntegrityDashboard() {
     closed_no_run: 'bg-orange-100 text-orange-800',
     status_mismatch: 'bg-blue-100 text-blue-800',
     missing_amc_idempotency: 'bg-purple-100 text-purple-800',
+    vip_followup: 'bg-purple-100 text-purple-800',
+    vip_questionnaire: 'bg-purple-100 text-purple-800',
+  };
+
+  const handleCleanVipFollowUps = async () => {
+    const vipFuIds = anomalies.filter(a => a.type === 'vip_followup').map(a => a.id);
+    if (vipFuIds.length === 0) return;
+    setFixing('vip_followups');
+    try {
+      await supabase.from('follow_up_queue').update({ status: 'dormant' }).in('id', vipFuIds);
+      toast.success(`${vipFuIds.length} VIP follow-ups set to dormant`);
+      setAnomalies(prev => prev.filter(a => a.type !== 'vip_followup'));
+    } catch { toast.error('Failed'); }
+    finally { setFixing(null); }
+  };
+
+  const handleArchiveVipQuestionnaires = async () => {
+    const vipQIds = anomalies.filter(a => a.type === 'vip_questionnaire').map(a => a.id);
+    if (vipQIds.length === 0) return;
+    setFixing('vip_qs');
+    try {
+      await supabase.from('intro_questionnaires').update({ archived_at: new Date().toISOString() } as any).in('id', vipQIds);
+      toast.success(`${vipQIds.length} VIP questionnaires archived`);
+      setAnomalies(prev => prev.filter(a => a.type !== 'vip_questionnaire'));
+    } catch { toast.error('Failed'); }
+    finally { setFixing(null); }
   };
 
   return (
@@ -230,7 +296,27 @@ export function IntegrityDashboard() {
             <CheckCircle2 className="w-4 h-4" /> No integrity issues found
           </div>
         ) : (
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="space-y-2">
+            {/* VIP bulk cleanup buttons */}
+            {(anomalies.some(a => a.type === 'vip_followup') || anomalies.some(a => a.type === 'vip_questionnaire')) && (
+              <div className="flex items-center gap-2 p-2 rounded border border-purple-200 bg-purple-50">
+                <Star className="w-4 h-4 text-purple-600" />
+                <span className="text-xs font-medium text-purple-700">VIP Contamination</span>
+                {anomalies.some(a => a.type === 'vip_followup') && (
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-purple-300"
+                    onClick={handleCleanVipFollowUps} disabled={fixing === 'vip_followups'}>
+                    {fixing === 'vip_followups' ? <Loader2 className="w-3 h-3 animate-spin" /> : `Remove ${anomalies.filter(a => a.type === 'vip_followup').length} VIP Follow-ups`}
+                  </Button>
+                )}
+                {anomalies.some(a => a.type === 'vip_questionnaire') && (
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-purple-300"
+                    onClick={handleArchiveVipQuestionnaires} disabled={fixing === 'vip_qs'}>
+                    {fixing === 'vip_qs' ? <Loader2 className="w-3 h-3 animate-spin" /> : `Archive ${anomalies.filter(a => a.type === 'vip_questionnaire').length} VIP Qs`}
+                  </Button>
+                )}
+              </div>
+            )}
+            <div className="max-h-[400px] overflow-y-auto space-y-2">
             {anomalies.map((a, i) => (
               <div key={`${a.type}-${a.id}-${i}`} className="flex items-start gap-2 p-2 rounded border text-sm">
                 <Badge className={`text-[10px] flex-shrink-0 ${typeColor[a.type]}`}>{typeLabel[a.type]}</Badge>
@@ -264,6 +350,7 @@ export function IntegrityDashboard() {
                 )}
               </div>
             ))}
+            </div>
           </div>
         )}
       </CardContent>
