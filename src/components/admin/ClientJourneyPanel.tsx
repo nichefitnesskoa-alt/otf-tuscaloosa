@@ -73,7 +73,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { capitalizeName, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
-import { incrementAmcOnSale } from '@/lib/amc-auto';
+import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
+import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
@@ -846,13 +847,20 @@ export default function ClientJourneyPanel() {
 
       if (bookingError) throw bookingError;
       
-      // Auto-increment AMC for this sale
-      await incrementAmcOnSale(
-        purchasingBooking.member_name,
-        purchaseData.membership_type,
-        user?.name || 'Admin',
-        purchaseData.date_closed,
-      );
+      // Use canonical outcome update for booking sync, AMC, and audit
+      await applyIntroOutcomeUpdate({
+        bookingId: purchasingBooking.id,
+        memberName: purchasingBooking.member_name,
+        classDate: purchasingBooking.class_date,
+        newResult: purchaseData.membership_type,
+        previousResult: purchasingBooking.booking_status === 'Active' ? null : undefined,
+        membershipType: purchaseData.membership_type,
+        commissionAmount: commissionAmount,
+        leadSource: purchasingBooking.lead_source,
+        editedBy: user?.name || 'Admin',
+        sourceComponent: 'ClientJourneyPanel',
+        editReason: 'Marked as purchased',
+      });
 
       toast.success('Sale recorded and booking closed');
       setShowPurchaseDialog(false);
@@ -1316,8 +1324,11 @@ export default function ClientJourneyPanel() {
     }
   };
   
+  const [originalRunResult, setOriginalRunResult] = useState<string>('');
+
   const handleEditRun = (run: ClientRun) => {
     setEditingRun({ ...run });
+    setOriginalRunResult(run.result);
     setEditRunReason('');
   };
 
@@ -1381,6 +1392,24 @@ export default function ClientJourneyPanel() {
           .eq('id', editingRun.linked_intro_booked_id);
       }
       
+      // If result changed, sync booking + AMC + audit via canonical function
+      if (editingRun.result !== originalRunResult && editingRun.linked_intro_booked_id) {
+        await applyIntroOutcomeUpdate({
+          bookingId: editingRun.linked_intro_booked_id,
+          memberName: editingRun.member_name,
+          classDate: editingRun.run_date || '',
+          newResult: editingRun.result,
+          previousResult: originalRunResult,
+          membershipType: editingRun.result,
+          commissionAmount: editingRun.commission_amount || 0,
+          leadSource: editingRun.lead_source || undefined,
+          editedBy: user?.name || 'Admin',
+          sourceComponent: 'ClientJourneyPanel',
+          runId: editingRun.id,
+          editReason: editRunReason || 'Admin edit',
+        });
+      }
+
       toast.success('Run updated');
       setEditingRun(null);
       await fetchData();

@@ -1073,7 +1073,8 @@ export default function MyDay() {
       })}
 
       {/* Reorderable sections */}
-      {sectionOrder.map(sectionId => {
+      {sectionOrder.map((sectionId, index) => {
+        let section: React.ReactNode = null;
         switch (sectionId) {
           case 'todays-intros': {
             // Sort: unlogged first, then logged (preserve time order within each group)
@@ -1092,13 +1093,14 @@ export default function MyDay() {
             if (didntBuyCount > 0) outcomeDots.push(<span key="d" className="flex items-center gap-0.5 text-[10px] text-amber-700"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />{didntBuyCount} didn't buy</span>);
             if (noShowCount > 0) outcomeDots.push(<span key="n" className="flex items-center gap-0.5 text-[10px] text-destructive"><span className="w-1.5 h-1.5 rounded-full bg-destructive inline-block" />{noShowCount} no-show</span>);
 
-            return (
+            section = (
               <CollapsibleSection
                 key="todays-intros"
                 id="todays-intros"
                 title="Today's Intros"
                 icon={<Calendar className="w-4 h-4 text-primary" />}
                 accentColor="border-l-orange-400"
+                headerBgClass="bg-orange-50 dark:bg-orange-950/30"
                 count={todayBookings.length}
                 countLabel={loggedCount > 0 ? (allLogged ? `· ${loggedCount} logged ✓` : `· ${loggedCount} logged · ${remainingCount} remaining`) : undefined}
                 defaultOpen={true}
@@ -1195,7 +1197,7 @@ export default function MyDay() {
                               />
                             )}
 
-                            {/* Row 2: Intro type + Lead source + Time · Coach (unchanged from pre-log) */}
+                            {/* Row 2: Intro type + Lead source + Time · Coach */}
                             <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[13px] md:text-[11px]">
                               <IntroTypeBadge isSecondIntro={is2nd} />
                               <LeadSourceTag source={b.lead_source} />
@@ -1206,7 +1208,7 @@ export default function MyDay() {
                               <span className="text-muted-foreground">{b.coach_name}</span>
                             </div>
 
-                            {/* Row 3: Outcome details in small gray text */}
+                            {/* Row 3: Outcome details */}
                             {detailLine && (
                               <p className="text-[11px] text-muted-foreground mt-1">{detailLine}</p>
                             )}
@@ -1308,17 +1310,19 @@ export default function MyDay() {
                 )}
               </CollapsibleSection>
             );
+            break;
           }
 
           case 'new-leads':
-            if (sortedLeads.length === 0) return null;
-            return (
+            if (sortedLeads.length === 0) { section = null; break; }
+            section = (
               <CollapsibleSection
                 key="new-leads"
                 id="new-leads"
                 title="New Leads"
                 icon={<UserPlus className="w-4 h-4 text-info" />}
                 accentColor="border-l-blue-400"
+                headerBgClass="bg-blue-50 dark:bg-blue-950/30"
                 count={sortedLeads.length}
                 defaultOpen={sortedLeads.length > 0}
                 emphasis={sectionEmphasis('leads')}
@@ -1351,9 +1355,7 @@ export default function MyDay() {
                         className="p-3 md:p-2.5 cursor-pointer min-h-[44px]"
                         onClick={() => toggleCard(`lead-${lead.id}`)}
                       >
-                        {/* Row 1: Full name (never truncate) */}
                         <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{lead.first_name} {lead.last_name}</p>
-                        {/* Row 2: Source + timing */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <LeadSourceTag source={lead.source} className="flex-shrink-0" />
                           <span className="text-[13px] md:text-[11px] text-muted-foreground">
@@ -1363,7 +1365,6 @@ export default function MyDay() {
                             {minutesAgo < 5 ? 'Just now' : minutesAgo < 30 ? 'Act fast' : 'Overdue'}
                           </Badge>
                         </div>
-                        {/* Row 2b: Phone/Email */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                           {lead.phone && (
                             <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary" onClick={e => e.stopPropagation()}>
@@ -1383,7 +1384,6 @@ export default function MyDay() {
                             </a>
                           )}
                         </div>
-                        {/* Row 3: Already booked badge if applicable */}
                         {isAlreadyBooked && (
                           <div className="mt-1">
                             <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning text-warning-foreground border-transparent">
@@ -1391,7 +1391,6 @@ export default function MyDay() {
                             </Badge>
                           </div>
                         )}
-                        {/* Journey guidance - always visible on lead cards */}
                         <CardGuidance text={getLeadGuidance(minutesAgo)} className="mt-1.5" />
                       </div>
                       {isExpanded && (
@@ -1426,15 +1425,17 @@ export default function MyDay() {
                 </Button>
               </CollapsibleSection>
             );
+            break;
 
           case 'tomorrows-intros':
-            return (
+            section = (
               <CollapsibleSection
                 key="tomorrows-intros"
                 id="tomorrows-intros"
                 title="Tomorrow's Intros"
                 icon={<CalendarCheck className="w-4 h-4 text-info" />}
                 accentColor="border-l-amber-400"
+                headerBgClass="bg-amber-50 dark:bg-amber-950/30"
                 count={tomorrowBookings.length}
                 defaultOpen={tomorrowBookings.length > 0}
                 emphasis={sectionEmphasis('tomorrow')}
@@ -1450,29 +1451,33 @@ export default function MyDay() {
                 )}
               </CollapsibleSection>
             );
+            break;
 
           case 'coming-up':
-            return (
+            section = (
               <CollapsibleSection
                 key="coming-up"
                 id="coming-up"
                 title="This Week's Intros"
                 icon={<Clock className="w-4 h-4 text-muted-foreground" />}
                 accentColor="border-l-purple-400"
+                headerBgClass="bg-purple-50 dark:bg-purple-950/30"
                 defaultOpen={false}
               >
                 <SoonLayer />
               </CollapsibleSection>
             );
+            break;
 
           case 'followups-due':
-            return (
+            section = (
               <CollapsibleSection
                 key="followups-due"
                 id="followups-due"
                 title="Follow-Ups Due"
                 icon={<Clock className="w-4 h-4 text-warning" />}
                 accentColor="border-l-yellow-500"
+                headerBgClass="bg-yellow-50 dark:bg-yellow-950/30"
                 count={followUpsDueCount}
                 defaultOpen={false}
                 emphasis={sectionEmphasis('followups')}
@@ -1481,33 +1486,37 @@ export default function MyDay() {
                 <FollowUpsDueToday onRefresh={fetchMyDayData} onCountChange={setFollowUpsDueCount} />
               </CollapsibleSection>
             );
+            break;
 
           case 'questionnaire-hub':
-            return (
+            section = (
               <CollapsibleSection
                 key="questionnaire-hub"
                 id="questionnaire-hub"
                 title="Questionnaire Hub"
                 icon={<ClipboardList className="w-4 h-4 text-primary" />}
                 accentColor="border-l-teal-400"
+                headerBgClass="bg-teal-50 dark:bg-teal-950/30"
                 defaultOpen={false}
               >
                 <QuestionnaireHub />
               </CollapsibleSection>
             );
+            break;
 
           case 'completed-today':
-            // No longer rendered as separate section - completed cards are shown inline in todays-intros
-            return null;
+            section = null;
+            break;
 
           case 'shift-handoff':
-            return (
+            section = (
               <CollapsibleSection
                 key="shift-handoff"
                 id="shift-handoff"
                 title="Shift Summary"
                 icon={<FileText className="w-4 h-4 text-primary" />}
                 accentColor="border-l-slate-400"
+                headerBgClass="bg-slate-100 dark:bg-slate-900/30"
                 defaultOpen={false}
               >
                 <ShiftHandoffSummary
@@ -1519,10 +1528,19 @@ export default function MyDay() {
                 />
               </CollapsibleSection>
             );
+            break;
 
           default:
-            return null;
+            section = null;
         }
+
+        if (!section) return null;
+        return (
+          <div key={sectionId}>
+            {index > 0 && <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-1" />}
+            {section}
+          </div>
+        );
       })}
 
       {/* Close Out Shift */}

@@ -904,6 +904,51 @@ export type Database = {
         }
         Relationships: []
       }
+      outcome_changes: {
+        Row: {
+          amc_incremented: boolean | null
+          booking_id: string
+          change_reason: string | null
+          changed_at: string | null
+          changed_by: string
+          id: string
+          new_booking_status: string | null
+          new_result: string
+          old_booking_status: string | null
+          old_result: string | null
+          run_id: string | null
+          source_component: string
+        }
+        Insert: {
+          amc_incremented?: boolean | null
+          booking_id: string
+          change_reason?: string | null
+          changed_at?: string | null
+          changed_by: string
+          id?: string
+          new_booking_status?: string | null
+          new_result: string
+          old_booking_status?: string | null
+          old_result?: string | null
+          run_id?: string | null
+          source_component: string
+        }
+        Update: {
+          amc_incremented?: boolean | null
+          booking_id?: string
+          change_reason?: string | null
+          changed_at?: string | null
+          changed_by?: string
+          id?: string
+          new_booking_status?: string | null
+          new_result?: string
+          old_booking_status?: string | null
+          old_result?: string | null
+          run_id?: string | null
+          source_component?: string
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string

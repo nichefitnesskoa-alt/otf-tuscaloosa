@@ -26,6 +26,8 @@ interface CollapsibleSectionProps {
   headerActions?: ReactNode;
   /** Left accent color class */
   accentColor?: string;
+  /** Header background tint class */
+  headerBgClass?: string;
 }
 
 const STORAGE_KEY = 'myday_section_state';
@@ -60,6 +62,7 @@ export function CollapsibleSection({
   children,
   headerActions,
   accentColor,
+  headerBgClass,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(() => {
     const saved = getSavedStates();
@@ -84,7 +87,7 @@ export function CollapsibleSection({
   return (
     <Card id={`section-${id}`} className={cn(emphasis, accentColor && `border-l-4 ${accentColor}`, className)}>
       <CardHeader
-        className="pb-2 cursor-pointer select-none sticky top-0 z-10 bg-card rounded-t-lg"
+        className={cn("pb-2 cursor-pointer select-none sticky top-0 z-10 rounded-t-lg", headerBgClass || 'bg-card')}
         onClick={toggle}
       >
         <CardTitle className="text-base flex items-center gap-2">
