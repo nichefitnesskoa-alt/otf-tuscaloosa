@@ -4,7 +4,7 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, RefreshCw } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -28,7 +28,7 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
   const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showAtRiskOnly, setShowAtRiskOnly] = useState(false);
 
-  const { items, isLoading, lastSyncAt, isOnline, refreshAll } = useUpcomingIntrosData({
+  const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
     customStart,
     customEnd,
@@ -70,7 +70,6 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
   }, [userName, isOnline, refreshAll]);
 
   const handleOpenPrep = useCallback((bookingId: string) => {
-    // Navigate or open prep drawer – for now just toast
     toast.info('Open prep for booking');
   }, []);
 
@@ -79,7 +78,7 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
   }, []);
 
   return (
-    <Card>
+    <Card id="upcoming-intros">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -121,6 +120,14 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
             Focus: <strong>{suggestedFocus}</strong>
           </span>
         </div>
+
+        {/* Capped warning */}
+        {isCapped && (
+          <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>Showing first 200 results. Narrow your date range for complete data.</span>
+          </div>
+        )}
 
         {/* Filters */}
         <UpcomingIntrosFilters

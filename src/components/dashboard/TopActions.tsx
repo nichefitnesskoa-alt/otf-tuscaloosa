@@ -108,7 +108,7 @@ export function TopActions({
       });
     }
 
-    // Tomorrow intros without Q
+    // Tomorrow intros without Q — scroll to canonical upcoming intros queue
     tomorrowBookings.forEach(b => {
       const qMissing = !b.questionnaire_status || b.questionnaire_status === 'not_sent';
       if (qMissing) {
@@ -118,7 +118,7 @@ export function TopActions({
           sublabel: 'Tomorrow — send Q now',
           urgency: 55,
           type: 'q',
-          onClick: () => onScrollTo?.('tomorrows-intros'),
+          onClick: () => onScrollTo?.('upcoming-intros'),
         });
       }
     });

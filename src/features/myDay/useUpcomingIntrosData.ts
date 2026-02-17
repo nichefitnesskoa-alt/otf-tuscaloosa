@@ -20,6 +20,7 @@ interface UseUpcomingIntrosReturn {
   isLoading: boolean;
   lastSyncAt: string | null;
   isOnline: boolean;
+  isCapped: boolean;
   refreshAll: () => Promise<void>;
 }
 
@@ -59,6 +60,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
   const [items, setItems] = useState<UpcomingIntroItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [isCapped, setCapped] = useState(false);
   const isOnline = useOnlineStatus();
 
   const fetchData = useCallback(async () => {
@@ -66,23 +68,26 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
     try {
       const { start, end } = getDateRange(options);
 
-      // Fetch bookings
+      // Fetch bookings (capped at 200 for performance)
       const { data: bookings, error: bErr } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon')
         .is('deleted_at', null)
         .gte('class_date', start)
         .lte('class_date', end)
-        .not('booking_status', 'eq', 'Closed – Bought')
+        .not('booking_status_canon', 'eq', 'PURCHASED')
         .order('class_date', { ascending: true })
-        .order('intro_time', { ascending: true });
+        .order('intro_time', { ascending: true })
+        .limit(200);
 
       if (bErr) throw bErr;
       if (!bookings || bookings.length === 0) {
         setItems([]);
+        setCapped(false);
         setLastSyncAt(new Date().toISOString());
         return;
       }
+      setCapped(bookings.length >= 200);
 
       const bookingIds = bookings.map(b => b.id);
 
@@ -140,9 +145,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       const rawItems: UpcomingIntroItem[] = bookings.map(b => {
         const q = deriveQStatus(qMap.get(b.id) || null);
         const run = runMap.get(b.id);
-        const timeStartISO = b.intro_time
-          ? `${b.class_date}T${b.intro_time}`
-          : `${b.class_date}T23:59:59`;
+        // Ensure valid ISO string with seconds
+        const timePart = b.intro_time
+          ? (b.intro_time.length === 5 ? `${b.intro_time}:00` : b.intro_time)
+          : '23:59:59';
+        const timeStartISO = `${b.class_date}T${timePart}`;
 
         return {
           bookingId: b.id,
@@ -193,5 +200,5 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
     fetchData();
   }, [fetchData]);
 
-  return { items, isLoading, lastSyncAt, isOnline, refreshAll: fetchData };
+  return { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll: fetchData };
 }
