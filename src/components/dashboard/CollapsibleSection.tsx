@@ -24,6 +24,8 @@ interface CollapsibleSectionProps {
   children: ReactNode;
   /** Action buttons on the collapsed header */
   headerActions?: ReactNode;
+  /** Left accent color class */
+  accentColor?: string;
 }
 
 const STORAGE_KEY = 'myday_section_state';
@@ -57,6 +59,7 @@ export function CollapsibleSection({
   subLabel,
   children,
   headerActions,
+  accentColor,
 }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(() => {
     const saved = getSavedStates();
@@ -79,7 +82,7 @@ export function CollapsibleSection({
   };
 
   return (
-    <Card id={`section-${id}`} className={cn(emphasis, className)}>
+    <Card id={`section-${id}`} className={cn(emphasis, accentColor && `border-l-4 ${accentColor}`, className)}>
       <CardHeader
         className="pb-2 cursor-pointer select-none sticky top-0 z-10 bg-card rounded-t-lg"
         onClick={toggle}

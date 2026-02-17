@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import ClientNameAutocomplete from '@/components/ClientNameAutocomplete';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -55,6 +56,7 @@ export default function FollowupPurchaseEntry({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eligibleClients, setEligibleClients] = useState<EligibleFollowup[]>([]);
   const [selectedClient, setSelectedClient] = useState<string>('');
+  const [manualName, setManualName] = useState('');
   const [membershipType, setMembershipType] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState(shiftDate);
 
@@ -246,9 +248,25 @@ export default function FollowupPurchaseEntry({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Client Selector */}
+        {/* Client Search */}
         <div className="space-y-2">
-          <Label>Select Client</Label>
+          <Label>Search Client</Label>
+          <ClientNameAutocomplete
+            value={manualName}
+            onChange={setManualName}
+            onSelectExisting={(client) => {
+              setManualName(client.member_name);
+              const match = eligibleClients.find(c =>
+                c.memberName.toLowerCase() === client.member_name.toLowerCase()
+              );
+              if (match) setSelectedClient(match.runId);
+            }}
+          />
+        </div>
+
+        {/* Or select from eligible list */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Or select from follow-up list</Label>
           <Select value={selectedClient} onValueChange={setSelectedClient}>
             <SelectTrigger>
               <SelectValue placeholder="Choose a follow-up client..." />

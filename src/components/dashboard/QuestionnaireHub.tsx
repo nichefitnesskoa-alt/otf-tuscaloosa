@@ -5,14 +5,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
   Search, Copy, Check, ClipboardList, Calendar, User, Phone, ChevronDown, ChevronRight,
-  MessageSquare, Dumbbell, FileText, ExternalLink, Loader2, Eye, EyeOff, RefreshCw,
+  MessageSquare, Dumbbell, FileText, Loader2, Eye, EyeOff, Trash2, Link2, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, differenceInHours, differenceInDays, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PrepDrawer } from './PrepDrawer';
 import { CoachPrepCard } from './CoachPrepCard';
@@ -42,6 +43,7 @@ interface QRecord {
   q7_coach_notes: string | null;
   scheduled_class_date: string;
   scheduled_class_time: string | null;
+  archived_at?: string | null;
 }
 
 interface BookingInfo {
@@ -73,6 +75,14 @@ export function QuestionnaireHub() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedQ, setExpandedQ] = useState<string | null>(null);
 
+  // Archive dialog
+  const [archiveTarget, setArchiveTarget] = useState<QRecord | null>(null);
+
+  // Link to booking dialog
+  const [linkTarget, setLinkTarget] = useState<QRecord | null>(null);
+  const [linkSearch, setLinkSearch] = useState('');
+  const [linkBookingId, setLinkBookingId] = useState('');
+
   // Prep / Coach / Script state
   const [prepOpen, setPrepOpen] = useState(false);
   const [prepBooking, setPrepBooking] = useState<any>(null);
@@ -86,7 +96,8 @@ export function QuestionnaireHub() {
       const [qRes, bRes, rRes] = await Promise.all([
         supabase
           .from('intro_questionnaires')
-          .select('id, booking_id, client_first_name, client_last_name, status, slug, created_at, submitted_at, last_opened_at, q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, scheduled_class_date, scheduled_class_time' as any)
+          .select('id, booking_id, client_first_name, client_last_name, status, slug, created_at, submitted_at, last_opened_at, q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, scheduled_class_date, scheduled_class_time, archived_at' as any)
+          .is('archived_at' as any, null)
           .order('created_at', { ascending: false })
           .limit(500),
         supabase
@@ -98,9 +109,40 @@ export function QuestionnaireHub() {
           .select('member_name, result, linked_intro_booked_id'),
       ]);
 
-      setQuestionnaires((qRes.data || []) as unknown as QRecord[]);
-      setBookings((bRes.data || []) as BookingInfo[]);
-      setRuns((rRes.data || []) as RunInfo[]);
+      const allQ = (qRes.data || []) as unknown as QRecord[];
+      const allBookings = (bRes.data || []) as BookingInfo[];
+      const allRuns = (rRes.data || []) as RunInfo[];
+
+      setBookings(allBookings);
+      setRuns(allRuns);
+
+      // Auto-link unlinked questionnaires to bookings by name
+      const nameToBooking = new Map<string, string>();
+      allBookings.forEach(b => {
+        const key = b.member_name.toLowerCase().trim();
+        if (!nameToBooking.has(key)) nameToBooking.set(key, b.id);
+      });
+
+      const toLink: { qId: string; bookingId: string }[] = [];
+      const linkedQ = allQ.map(q => {
+        if (q.booking_id) return q;
+        const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
+        const matchedId = nameToBooking.get(fullName);
+        if (matchedId) {
+          toLink.push({ qId: q.id, bookingId: matchedId });
+          return { ...q, booking_id: matchedId };
+        }
+        return q;
+      });
+
+      setQuestionnaires(linkedQ);
+
+      // Fire-and-forget auto-link updates
+      if (toLink.length > 0) {
+        toLink.forEach(({ qId, bookingId }) => {
+          supabase.from('intro_questionnaires').update({ booking_id: bookingId }).eq('id', qId).then(() => {});
+        });
+      }
     } catch (err) {
       console.error('QuestionnaireHub fetch error:', err);
     } finally {
@@ -139,7 +181,26 @@ export function QuestionnaireHub() {
     return s;
   }, [runs]);
 
-  // Get person status
+  // Not interested detection
+  const notInterestedBookingIds = useMemo(() => {
+    const s = new Set<string>();
+    bookings.forEach(b => {
+      if (b.booking_status?.toLowerCase().includes('not interested')) s.add(b.id);
+    });
+    runs.forEach(r => {
+      if (r.result === 'Not interested' && r.linked_intro_booked_id) s.add(r.linked_intro_booked_id);
+    });
+    return s;
+  }, [bookings, runs]);
+
+  const notInterestedNames = useMemo(() => {
+    const s = new Set<string>();
+    runs.forEach(r => {
+      if (r.result === 'Not interested') s.add(r.member_name.toLowerCase().trim());
+    });
+    return s;
+  }, [runs]);
+
   const getPersonStatus = (q: QRecord): string => {
     const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
     if (booking) {
@@ -147,6 +208,7 @@ export function QuestionnaireHub() {
         const run = runs.find(r => r.linked_intro_booked_id === booking.id && ['premier', 'elite', 'basic'].some(k => r.result.toLowerCase().includes(k)));
         return `Purchased (${run?.result || 'Member'})`;
       }
+      if (notInterestedBookingIds.has(booking.id)) return 'Not Interested';
       const noShowRun = runs.find(r => r.linked_intro_booked_id === booking.id && r.result === 'No-show');
       if (noShowRun) return 'No Show';
       const didntBuyRun = runs.find(r => r.linked_intro_booked_id === booking.id && r.result === "Didn't Buy");
@@ -155,6 +217,7 @@ export function QuestionnaireHub() {
     }
     const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
     if (purchasedNames.has(fullName)) return 'Purchased';
+    if (notInterestedNames.has(fullName)) return 'Not Interested';
     return q.booking_id ? 'Booking linked' : 'No booking linked';
   };
 
@@ -163,7 +226,22 @@ export function QuestionnaireHub() {
     if (status === 'Active booking') return 'bg-blue-100 text-blue-800 border-blue-200';
     if (status === 'No Show') return 'bg-destructive/10 text-destructive border-destructive/20';
     if (status === "Didn't Buy") return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (status === 'Not Interested') return 'bg-slate-200 text-slate-700 border-slate-300';
     return 'bg-muted text-muted-foreground border-border';
+  };
+
+  // Get tab category for a Q record
+  const getQCategory = (q: QRecord): string => {
+    const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
+    const isCompleted = q.status === 'completed' || q.status === 'submitted';
+    const isBought = (q.booking_id && purchasedBookingIds.has(q.booking_id)) || purchasedNames.has(fullName);
+    const isNotInterested = (q.booking_id && notInterestedBookingIds.has(q.booking_id)) || notInterestedNames.has(fullName);
+    
+    if (isBought && isCompleted) return 'bought';
+    if (isNotInterested) return 'not-interested';
+    if (isCompleted) return 'completed';
+    if (q.status === 'sent') return 'sent';
+    return 'pending';
   };
 
   // Filter by search
@@ -178,12 +256,9 @@ export function QuestionnaireHub() {
   // Tab categorization
   const pending = filtered.filter(q => q.status === 'not_sent');
   const sent = filtered.filter(q => q.status === 'sent');
-  const completed = filtered.filter(q => q.status === 'completed' || q.status === 'submitted');
-  const bought = completed.filter(q => {
-    if (q.booking_id && purchasedBookingIds.has(q.booking_id)) return true;
-    const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
-    return purchasedNames.has(fullName);
-  });
+  const completed = filtered.filter(q => (q.status === 'completed' || q.status === 'submitted') && getQCategory(q) !== 'bought');
+  const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
+  const bought = filtered.filter(q => getQCategory(q) === 'bought');
 
   // Stats
   const totalQs = questionnaires.length;
@@ -215,6 +290,40 @@ export function QuestionnaireHub() {
     }
   };
 
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    try {
+      await supabase.from('intro_questionnaires').update({ archived_at: new Date().toISOString() } as any).eq('id', archiveTarget.id);
+      setQuestionnaires(prev => prev.filter(q => q.id !== archiveTarget.id));
+      toast.success('Questionnaire archived');
+    } catch {
+      toast.error('Failed to archive');
+    } finally {
+      setArchiveTarget(null);
+    }
+  };
+
+  const handleLinkBooking = async () => {
+    if (!linkTarget || !linkBookingId) return;
+    try {
+      await supabase.from('intro_questionnaires').update({ booking_id: linkBookingId }).eq('id', linkTarget.id);
+      setQuestionnaires(prev => prev.map(q => q.id === linkTarget.id ? { ...q, booking_id: linkBookingId } : q));
+      toast.success('Linked to booking');
+    } catch {
+      toast.error('Failed to link');
+    } finally {
+      setLinkTarget(null);
+      setLinkBookingId('');
+      setLinkSearch('');
+    }
+  };
+
+  const filteredLinkBookings = useMemo(() => {
+    if (!linkSearch.trim()) return bookings.slice(0, 20);
+    const term = linkSearch.toLowerCase();
+    return bookings.filter(b => b.member_name.toLowerCase().includes(term)).slice(0, 20);
+  }, [bookings, linkSearch]);
+
   const openPrep = (q: QRecord) => {
     const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
     if (booking) {
@@ -230,13 +339,11 @@ export function QuestionnaireHub() {
         phone: booking.phone,
         email: booking.email,
       });
-      setPrepOpen(true);
     } else {
-      // No booking - still open prep with Q data
       setPrepBooking({
         memberName: `${q.client_first_name} ${q.client_last_name}`.trim(),
         memberKey: `${q.client_first_name}${q.client_last_name}`.toLowerCase().replace(/\s+/g, ''),
-        bookingId: q.id, // Use Q id as fallback - prep will fetch by this
+        bookingId: q.id,
         classDate: q.scheduled_class_date,
         classTime: q.scheduled_class_time,
         coachName: 'TBD',
@@ -245,25 +352,14 @@ export function QuestionnaireHub() {
         phone: null,
         email: null,
       });
-      setPrepOpen(true);
     }
+    setPrepOpen(true);
   };
 
-  const openCoach = (q: QRecord) => {
-    const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
-    if (booking) {
-      setCoachQ(q.id);
-    } else {
-      setCoachQ(q.id);
-    }
-  };
+  const openCoach = (q: QRecord) => setCoachQ(q.id);
 
   const openScript = (q: QRecord) => {
-    const firstName = q.client_first_name || '';
-    const result = selectBestScript({
-      personType: 'booking',
-      classDate: q.scheduled_class_date,
-    }, templates);
+    const result = selectBestScript({ personType: 'booking', classDate: q.scheduled_class_date }, templates);
     if (result.template) {
       setScriptTemplate(result.template);
       setScriptQ(q);
@@ -282,7 +378,20 @@ export function QuestionnaireHub() {
     }
   };
 
-  const renderQCard = (q: QRecord, showAnswers = false) => {
+  const getCategoryBadge = (q: QRecord) => {
+    const cat = getQCategory(q);
+    const labels: Record<string, { label: string; cls: string }> = {
+      'pending': { label: 'Pending', cls: 'bg-muted text-muted-foreground' },
+      'sent': { label: 'Sent', cls: 'bg-blue-100 text-blue-700' },
+      'completed': { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' },
+      'not-interested': { label: 'Not Interested', cls: 'bg-slate-200 text-slate-700' },
+      'bought': { label: 'Bought', cls: 'bg-emerald-600 text-white' },
+    };
+    const info = labels[cat] || labels['pending'];
+    return <Badge className={cn('text-[9px] px-1 py-0 h-3.5 border-transparent', info.cls)}>{info.label}</Badge>;
+  };
+
+  const renderQCard = (q: QRecord, showAnswers = false, showCategoryBadge = false) => {
     const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
     const fullName = `${q.client_first_name} ${q.client_last_name}`.trim();
     const status = getPersonStatus(q);
@@ -290,12 +399,26 @@ export function QuestionnaireHub() {
 
     return (
       <div key={q.id} className="rounded-lg border bg-card p-3 space-y-2">
-        {/* Row 1: Name + Status */}
+        {/* Row 1: Name + Status + Archive */}
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold text-sm">{fullName}</p>
+          {showCategoryBadge && getCategoryBadge(q)}
           <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border', getStatusColor(status))}>
             {status}
           </Badge>
+          {status === 'No booking linked' && (
+            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] gap-0.5 text-primary" onClick={() => { setLinkTarget(q); setLinkSearch(''); setLinkBookingId(''); }}>
+              <Link2 className="w-3 h-3" /> Link
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 ml-auto text-muted-foreground hover:text-destructive"
+            onClick={() => setArchiveTarget(q)}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
 
         {/* Row 2: Date/Time/Coach/Phone */}
@@ -337,7 +460,7 @@ export function QuestionnaireHub() {
           </div>
         )}
 
-        {q.status === 'completed' && q.submitted_at && (
+        {(q.status === 'completed' || q.status === 'submitted') && q.submitted_at && (
           <div className="text-[11px] text-muted-foreground">
             Completed {format(new Date(q.submitted_at), 'MMM d, yyyy h:mm a')}
           </div>
@@ -366,7 +489,7 @@ export function QuestionnaireHub() {
         )}
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1.5 pt-1">
+        <div className="flex items-center gap-1.5 pt-1 flex-wrap">
           <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1" onClick={() => openPrep(q)}>
             <FileText className="w-3 h-3" /> Prep
           </Button>
@@ -395,6 +518,8 @@ export function QuestionnaireHub() {
 
   if (loading) return <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
 
+  const isSearching = searchTerm.trim().length > 0;
+
   return (
     <div className="space-y-3">
       {/* Stats Banner */}
@@ -416,39 +541,98 @@ export function QuestionnaireHub() {
         />
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="pending">
-        <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger value="pending" className="text-xs">Pending ({pending.length})</TabsTrigger>
-          <TabsTrigger value="sent" className="text-xs">Sent ({sent.length})</TabsTrigger>
-          <TabsTrigger value="completed" className="text-xs">Done ({completed.length})</TabsTrigger>
-          <TabsTrigger value="bought" className="text-xs">Bought ({bought.length})</TabsTrigger>
-        </TabsList>
+      {/* When searching: flat list across all tabs */}
+      {isSearching ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">{filtered.length} result{filtered.length !== 1 ? 's' : ''} across all tabs</p>
+          {filtered.length === 0 ? <EmptyState text="No results found" /> : filtered.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted', true))}
+        </div>
+      ) : (
+        /* Normal tabbed view */
+        <Tabs defaultValue="pending">
+          <TabsList className="w-full grid grid-cols-5">
+            <TabsTrigger value="pending" className="text-xs">Pending ({pending.length})</TabsTrigger>
+            <TabsTrigger value="sent" className="text-xs">Sent ({sent.length})</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs">Completed ({completed.length})</TabsTrigger>
+            <TabsTrigger value="not-interested" className="text-xs">Not Int. ({notInterested.length})</TabsTrigger>
+            <TabsTrigger value="bought" className="text-xs">Bought ({bought.length})</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="pending" className="space-y-2 mt-2">
-          {pending.length === 0 ? <EmptyState text="No pending questionnaires" /> : pending.map(q => renderQCard(q))}
-        </TabsContent>
+          <TabsContent value="pending" className="space-y-2 mt-2">
+            {pending.length === 0 ? <EmptyState text="No pending questionnaires" /> : pending.map(q => renderQCard(q))}
+          </TabsContent>
 
-        <TabsContent value="sent" className="space-y-2 mt-2">
-          {sent.length === 0 ? <EmptyState text="No sent questionnaires" /> : sent.map(q => renderQCard(q))}
-        </TabsContent>
+          <TabsContent value="sent" className="space-y-2 mt-2">
+            {sent.length === 0 ? <EmptyState text="No sent questionnaires" /> : sent.map(q => renderQCard(q))}
+          </TabsContent>
 
-        <TabsContent value="completed" className="space-y-2 mt-2">
-          {completed.length === 0 ? <EmptyState text="No completed questionnaires" /> : completed.map(q => renderQCard(q, true))}
-        </TabsContent>
+          <TabsContent value="completed" className="space-y-2 mt-2">
+            {completed.length === 0 ? <EmptyState text="No completed questionnaires" /> : completed.map(q => renderQCard(q, true))}
+          </TabsContent>
 
-        <TabsContent value="bought" className="space-y-2 mt-2">
-          {bought.length === 0 ? <EmptyState text="No purchased members with questionnaires" /> : bought.map(q => renderQCard(q, true))}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="not-interested" className="space-y-2 mt-2">
+            {notInterested.length === 0 ? <EmptyState text="No 'not interested' questionnaires" /> : notInterested.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted'))}
+          </TabsContent>
+
+          <TabsContent value="bought" className="space-y-2 mt-2">
+            {bought.length === 0 ? <EmptyState text="No purchased members with questionnaires" /> : bought.map(q => renderQCard(q, true))}
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={!!archiveTarget} onOpenChange={o => { if (!o) setArchiveTarget(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Archive Questionnaire</DialogTitle>
+            <DialogDescription>
+              Remove {archiveTarget ? `${archiveTarget.client_first_name} ${archiveTarget.client_last_name}` : ''}'s questionnaire from this list? The data will be archived, not permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setArchiveTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleArchive}>Archive</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Booking Dialog */}
+      <Dialog open={!!linkTarget} onOpenChange={o => { if (!o) setLinkTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Link to Booking</DialogTitle>
+            <DialogDescription>
+              Search for a booking to link {linkTarget ? `${linkTarget.client_first_name} ${linkTarget.client_last_name}` : ''}'s questionnaire to.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Search by name..."
+            value={linkSearch}
+            onChange={e => setLinkSearch(e.target.value)}
+            className="mb-2"
+          />
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            {filteredLinkBookings.map(b => (
+              <div
+                key={b.id}
+                className={cn('px-2 py-1.5 rounded text-sm cursor-pointer hover:bg-muted', linkBookingId === b.id && 'bg-primary/10 ring-1 ring-primary')}
+                onClick={() => setLinkBookingId(b.id)}
+              >
+                <span className="font-medium">{b.member_name}</span>
+                <span className="text-xs text-muted-foreground ml-2">{b.class_date} · {b.coach_name}</span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkTarget(null)}>Cancel</Button>
+            <Button disabled={!linkBookingId} onClick={handleLinkBooking}>Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Prep Drawer */}
       {prepBooking && (
-        <PrepDrawer
-          open={prepOpen}
-          onOpenChange={setPrepOpen}
-          {...prepBooking}
-        />
+        <PrepDrawer open={prepOpen} onOpenChange={setPrepOpen} {...prepBooking} />
       )}
 
       {/* Coach Prep Dialog */}
