@@ -36,6 +36,14 @@ export interface IntroBooked {
   intro_owner_locked?: boolean | null;
   originating_booking_id?: string | null;
   is_vip?: boolean | null;
+  booking_status_canon?: string;
+  booking_status?: string | null;
+  deleted_at?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  vip_session_id?: string | null;
+  vip_class_name?: string | null;
+  converted_to_booking_id?: string | null;
   created_at: string;
 }
 
@@ -49,6 +57,7 @@ export interface IntroRun {
   intro_owner?: string | null;
   intro_owner_locked?: boolean;
   result: string;
+  result_canon?: string;
   goal_quality?: string | null;
   pricing_engagement?: string | null;
   fvc_completed?: boolean;
@@ -62,6 +71,8 @@ export interface IntroRun {
   commission_amount?: number | null;
   linked_intro_booked_id?: string | null;
   buy_date?: string | null;
+  is_vip?: boolean;
+  vip_session_id?: string | null;
   created_at: string;
 }
 
