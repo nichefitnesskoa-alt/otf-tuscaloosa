@@ -7,6 +7,8 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  canAccessAdmin: boolean;
+  canAccessDataTools: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,13 +53,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('currentUser');
   }, []);
 
+  const canAccessAdmin = user?.role === 'Admin';
+  const canAccessDataTools = user?.role === 'Admin';
+
   return (
     <AuthContext.Provider value={{ 
       user, 
       login, 
       logout, 
       isAuthenticated: !!user,
-      isLoading 
+      isLoading,
+      canAccessAdmin,
+      canAccessDataTools,
     }}>
       {children}
     </AuthContext.Provider>

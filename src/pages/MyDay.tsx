@@ -53,6 +53,8 @@ import { DailyInsight } from '@/components/dashboard/DailyInsight';
 import { toast } from 'sonner';
 import { OutcomeEditor } from '@/components/dashboard/OutcomeEditor';
 import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
+import { TopActions } from '@/components/dashboard/TopActions';
+import { DailyProgress } from '@/components/dashboard/DailyProgress';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
 
@@ -1016,6 +1018,28 @@ export default function MyDay() {
         newLeadsCount={newLeads.length}
         unresolvedCount={unresolvedIntros.length}
         userName={user?.name || ''}
+      />
+
+      {/* Top 5 Actions */}
+      <TopActions
+        todayBookings={todayBookings}
+        tomorrowBookings={tomorrowBookings}
+        newLeads={newLeads}
+        followUpsDueCount={followUpsDueCount}
+        completedActions={new Set()}
+        onScrollTo={(id) => {
+          const el = document.getElementById(`section-${id}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      />
+
+      {/* Daily Progress */}
+      <DailyProgress
+        completedIntros={completedTodayBookings.length}
+        totalIntros={todayBookings.length}
+        scriptsSent={todayScriptsSent}
+        followUpsSent={todayFollowUpsSent}
+        followUpsDue={followUpsDueCount}
       />
 
       {/* Win Streaks */}

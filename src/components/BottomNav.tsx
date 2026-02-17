@@ -30,14 +30,15 @@ export function BottomNav() {
   const isMobile = useIsMobile();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const allItems = user?.role === 'Admin'
+  const { canAccessAdmin } = useAuth();
+  const allItems = canAccessAdmin
     ? [...primaryItems, ...secondaryItems, adminItem, settingsItem]
     : [...primaryItems, ...secondaryItems];
 
   // On mobile: show 5 primary + More button. On desktop: show all.
   const visibleItems = isMobile ? primaryItems : allItems;
   const overflowItems = isMobile
-    ? (user?.role === 'Admin' ? [...secondaryItems, adminItem, settingsItem] : secondaryItems)
+    ? (canAccessAdmin ? [...secondaryItems, adminItem, settingsItem] : secondaryItems)
     : [];
 
   const isActiveOverflow = overflowItems.some(i => location.pathname === i.path);

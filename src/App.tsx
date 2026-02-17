@@ -30,11 +30,15 @@ function QuestionnaireRedirect() {
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
+  const { isAuthenticated, canAccessAdmin } = useAuth();
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requireAdmin && !canAccessAdmin) {
+    return <Navigate to="/my-day" replace />;
   }
   
   return <AppLayout>{children}</AppLayout>;
@@ -104,7 +108,7 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireAdmin>
             <Admin />
           </ProtectedRoute>
         }
