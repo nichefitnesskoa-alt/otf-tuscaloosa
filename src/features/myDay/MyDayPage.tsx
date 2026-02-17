@@ -328,13 +328,28 @@ export default function MyDayPage() {
 
       {/* Unresolved Intros – canonical classification using result_canon + linked runs */}
       <UnresolvedIntros
-        intros={introsBooked
-          .filter(b => {
-            // VIP exclusion: never show VIP bookings in Unresolved
-            if (isVipBooking(b as any)) return false;
-            const latestRun = getLatestRunForBooking(b.id, introsRun as any);
-            return isBookingUnresolved(b as any, latestRun as any);
-          })
+        intros={(() => {
+          // Build a set of resolved person+date combos to detect stale duplicates
+          const resolvedPersonDates = new Set<string>();
+          for (const b of introsBooked) {
+            const latestRun = getLatestRunForBooking(b.id, introsRun);
+            const rCanon = latestRun?.result_canon?.toUpperCase() || '';
+            const bCanon = b.booking_status_canon?.toUpperCase() || '';
+            const isResolved = (rCanon && rCanon !== 'UNRESOLVED') ||
+              bCanon === 'CLOSED_PURCHASED' || bCanon === 'NOT_INTERESTED' || bCanon === 'SECOND_INTRO_SCHEDULED';
+            if (isResolved) {
+              resolvedPersonDates.add(`${b.member_name.toLowerCase().trim()}|${b.class_date}`);
+            }
+          }
+          return introsBooked.filter(b => {
+            if (isVipBooking(b)) return false;
+            // Skip if another booking for same person+date is already resolved
+            const key = `${b.member_name.toLowerCase().trim()}|${b.class_date}`;
+            if (resolvedPersonDates.has(key)) return false;
+            const latestRun = getLatestRunForBooking(b.id, introsRun);
+            return isBookingUnresolved(b, latestRun);
+          });
+        })()
           .map(b => {
             const badge = formatClassEndedBadge(b.class_date, b.intro_time);
             // Parse hours from badge or compute safely

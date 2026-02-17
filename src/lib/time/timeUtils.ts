@@ -132,14 +132,14 @@ export function isBookingUnresolved(
     booking_status_canon?: string;
     deleted_at?: string | null;
   },
-  latestRun: { result_canon?: string; result?: string } | null,
+  latestRun: { result_canon?: string; result?: string; [key: string]: any } | null,
 ): boolean {
   // Exclude soft-deleted
   if (booking.deleted_at) return false;
 
   // Exclude already-closed statuses
   const canon = booking.booking_status_canon?.toUpperCase();
-  if (canon === 'PURCHASED' || canon === 'CLOSED_PURCHASED' || canon === 'NOT_INTERESTED') return false;
+  if (canon === 'PURCHASED' || canon === 'CLOSED_PURCHASED' || canon === 'NOT_INTERESTED' || canon === 'SECOND_INTRO_SCHEDULED') return false;
 
   // Must be today or earlier
   const today = new Date();
