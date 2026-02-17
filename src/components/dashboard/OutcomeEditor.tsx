@@ -10,7 +10,15 @@ import { incrementAmcOnSale } from '@/lib/amc-auto';
 import { useAuth } from '@/context/AuthContext';
 
 const OBJECTIONS = ['Pricing', 'Time', 'Shopping Around', 'Spousal/Parental', 'Think About It', 'Out of Town', 'Other'];
-const MEMBERSHIP_TYPES = ['Premier', 'Elite', 'Basic'];
+
+const MEMBERSHIP_OPTIONS = [
+  { label: 'Premier + OTBeat', commission: 15.00 },
+  { label: 'Premier w/o OTBeat', commission: 7.50 },
+  { label: 'Elite + OTBeat', commission: 12.00 },
+  { label: 'Elite w/o OTBeat', commission: 6.00 },
+  { label: 'Basic + OTBeat', commission: 9.00 },
+  { label: 'Basic w/o OTBeat', commission: 3.00 },
+] as const;
 
 interface OutcomeEditorProps {
   bookingId: string;
@@ -30,8 +38,14 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
   const initialOutcome = wasPurchased ? 'purchased' : wasDidntBuy ? 'didnt_buy' : wasNoShow ? 'no_show' : '';
   const [outcome, setOutcome] = useState(initialOutcome);
   const [objection, setObjection] = useState(currentObjection || '');
-  const [membershipType, setMembershipType] = useState(wasPurchased ? currentResult : 'Premier');
+  // Try to match current result to a full option, fall back to first option
+  const initialMembership = wasPurchased
+    ? (MEMBERSHIP_OPTIONS.find(m => m.label === currentResult)?.label || MEMBERSHIP_OPTIONS[0].label)
+    : MEMBERSHIP_OPTIONS[0].label;
+  const [membershipType, setMembershipType] = useState<string>(initialMembership);
   const [saving, setSaving] = useState(false);
+
+  const selectedOption = MEMBERSHIP_OPTIONS.find(m => m.label === membershipType);
 
   const handleSave = async () => {
     if (!outcome) return;
@@ -39,15 +53,25 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
     try {
       const saName = user?.name || 'Unknown';
       let newResult = '';
-      if (outcome === 'purchased') newResult = membershipType || 'Premier';
-      else if (outcome === 'didnt_buy') newResult = "Didn't Buy";
-      else if (outcome === 'no_show') newResult = 'No-show';
+      let newCommission = 0;
+      if (outcome === 'purchased') {
+        newResult = membershipType;
+        newCommission = selectedOption?.commission || 0;
+      } else if (outcome === 'didnt_buy') {
+        newResult = "Didn't Buy";
+      } else if (outcome === 'no_show') {
+        newResult = 'No-show';
+      }
 
       // Update intros_run record
       await supabase.from('intros_run')
         .update({
           result: newResult,
+          commission_amount: newCommission,
           primary_objection: outcome === 'didnt_buy' ? objection || null : null,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: saName,
+          edit_reason: `Outcome changed from ${currentResult} to ${newResult} via MyDay`,
         })
         .eq('linked_intro_booked_id', bookingId);
 
@@ -119,7 +143,11 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         <Select value={membershipType} onValueChange={setMembershipType}>
           <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {MEMBERSHIP_TYPES.map(t => <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>)}
+            {MEMBERSHIP_OPTIONS.map(m => (
+              <SelectItem key={m.label} value={m.label} className="text-xs">
+                {m.label} (${m.commission.toFixed(2)})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       )}
@@ -132,7 +160,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         </Select>
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'didnt_buy' && !objection)}>
+        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection)}>
           {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
           {saving ? 'Saving...' : 'Save'}
         </Button>
