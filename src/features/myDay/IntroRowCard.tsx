@@ -20,11 +20,11 @@ interface IntroRowCardProps {
 function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border text-[10px] px-1.5 py-0 h-4">Q Done</Badge>;
+      return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 border text-[10px] px-1.5 py-0 h-4">Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] px-1.5 py-0 h-4">Q Sent</Badge>;
+      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] px-1.5 py-0 h-4">Not answered</Badge>;
     case 'NO_Q':
-      return <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px] px-1.5 py-0 h-4">Q Missing</Badge>;
+      return <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px] px-1.5 py-0 h-4">Not sent</Badge>;
   }
 }
 
@@ -66,10 +66,11 @@ export default function IntroRowCard({
     <div className={cn(
       'rounded-lg border bg-card p-3 space-y-2',
     )}>
-      {/* Row 1: Name + badges */}
+      {/* Row 1: Name + Q badge + other badges */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {getQBadge(item.questionnaireStatus)}
             <span className="font-semibold text-sm leading-tight">{item.memberName}</span>
             {item.isVip && (
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
@@ -97,10 +98,6 @@ export default function IntroRowCard({
               </>
             )}
           </div>
-        </div>
-        {/* Q badge */}
-        <div className="shrink-0">
-          {getQBadge(item.questionnaireStatus)}
         </div>
       </div>
 
@@ -153,7 +150,7 @@ export default function IntroRowCard({
       )}
       {item.questionnaireStatus === 'Q_SENT' && (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
-          Questionnaire: waiting on response
+          Questionnaire: not answered
         </Badge>
       )}
 

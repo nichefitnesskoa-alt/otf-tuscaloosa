@@ -274,14 +274,37 @@ export default function MyDayPage() {
     if (!scriptBooking) return {};
     const firstName = scriptBooking.member_name.split(' ')[0] || '';
     const lastName = scriptBooking.member_name.split(' ').slice(1).join(' ') || '';
+
+    // Coach name resolution
+    const rawCoach = scriptBooking.coach_name?.trim();
+    const coachResolved = rawCoach && !/^tbd$/i.test(rawCoach) ? rawCoach : null;
+
+    // Today/tomorrow resolution
+    const classDate = scriptBooking.class_date;
+    let todayTomorrow = '';
+    if (classDate === todayStr) {
+      todayTomorrow = 'today';
+    } else {
+      const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+      if (classDate === tomorrow) {
+        todayTomorrow = 'tomorrow';
+      } else {
+        try { todayTomorrow = format(new Date(classDate + 'T12:00:00'), 'EEEE'); } catch { todayTomorrow = ''; }
+      }
+    }
+
     return {
       'first-name': firstName,
       'last-name': lastName,
       'sa-name': user?.name || '',
-      day: format(new Date(), 'EEEE'),
-      time: scriptBooking.intro_time?.substring(0, 5) || '',
+      'coach-name': coachResolved || 'your coach',
+      'coach-first-name': coachResolved ? coachResolved.split(/\s+/)[0] : 'your coach',
+      'today/tomorrow': todayTomorrow,
+      day: (() => { try { return format(new Date(classDate + 'T12:00:00'), 'EEEE, MMMM d'); } catch { return ''; } })(),
+      time: formatDisplayTime(scriptBooking.intro_time),
+      'location-name': 'Tuscaloosa',
     };
-  }, [scriptBooking, user?.name]);
+  }, [scriptBooking, user?.name, todayStr]);
 
   return (
     <div className="px-4 md:px-4 pb-24 space-y-3 md:space-y-4 max-w-full overflow-x-hidden">
