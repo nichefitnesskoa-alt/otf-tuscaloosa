@@ -55,7 +55,8 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     }
 
     // ── STEP 1: FIND / CREATE / UPDATE intros_run ──
-    let existingRun: { id: string; result: string; buy_date: string | null; lead_source: string | null; amc_incremented_at: string | null } | null = null;
+    type RunSnapshot = { id: string; result: string; buy_date: string | null; lead_source: string | null; amc_incremented_at: string | null };
+    let existingRun: RunSnapshot | null = null;
 
     if (params.runId) {
       const { data } = await supabase
@@ -63,7 +64,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .select('id, result, buy_date, lead_source, amc_incremented_at')
         .eq('id', params.runId)
         .maybeSingle();
-      existingRun = data as any;
+      existingRun = data;
     } else if (params.bookingId) {
       const { data } = await supabase
         .from('intros_run')
@@ -72,7 +73,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      existingRun = data as any;
+      existingRun = data;
     }
 
     // A2: CREATE RUN IF MISSING
@@ -102,10 +103,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       if (createErr) {
         console.error('Failed to create run:', createErr);
-        // Continue without run — still update booking
-      } else {
-        existingRun = newRun as any;
-        params.runId = newRun?.id;
+      } else if (newRun) {
+        existingRun = newRun;
+        params.runId = newRun.id;
       }
     }
 
@@ -163,7 +163,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
             await supabase.from('intros_run').update({
               amc_incremented_at: new Date().toISOString(),
               amc_incremented_by: params.editedBy,
-            } as any).eq('id', existingRun.id);
+            }).eq('id', existingRun.id);
           }
         }
       }
@@ -221,7 +221,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     }
 
     // ── STEP 5: AUDIT LOG (outcome_events) ──
-    await supabase.from('outcome_events' as any).insert({
+    await supabase.from('outcome_events').insert({
       booking_id: params.bookingId,
       run_id: params.runId || existingRun?.id || null,
       old_result: params.previousResult || existingRun?.result || null,
@@ -231,13 +231,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       edited_by: params.editedBy,
       source_component: params.sourceComponent,
       edit_reason: params.editReason || `${params.sourceComponent}: ${params.previousResult || 'unknown'} → ${params.newResult}`,
-      metadata: JSON.stringify({
+      metadata: {
         amc_incremented: didIncrementAmc,
         commission: params.commissionAmount ?? 0,
         lead_source: params.leadSource || existingRun?.lead_source || null,
         buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
-      }),
-    } as any);
+      },
+    });
 
     // Legacy backward compat
     try {
@@ -252,7 +252,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         change_reason: params.editReason || `${params.sourceComponent}: ${params.previousResult || 'unknown'} → ${params.newResult}`,
         source_component: params.sourceComponent,
         amc_incremented: didIncrementAmc,
-      } as any);
+      });
     } catch {
       // non-critical
     }

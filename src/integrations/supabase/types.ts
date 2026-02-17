@@ -134,6 +134,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_goal_settings: {
+        Row: {
+          created_at: string
+          followups_done_target: number
+          id: string
+          role: string | null
+          scope: string
+          touches_target: number
+        }
+        Insert: {
+          created_at?: string
+          followups_done_target?: number
+          id?: string
+          role?: string | null
+          scope?: string
+          touches_target?: number
+        }
+        Update: {
+          created_at?: string
+          followups_done_target?: number
+          id?: string
+          role?: string | null
+          scope?: string
+          touches_target?: number
+        }
+        Relationships: []
+      }
       daily_recaps: {
         Row: {
           created_at: string

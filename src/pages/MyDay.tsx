@@ -55,6 +55,8 @@ import { OutcomeEditor } from '@/components/dashboard/OutcomeEditor';
 import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
 import { TopActions } from '@/components/dashboard/TopActions';
 import { DailyProgress } from '@/components/dashboard/DailyProgress';
+import { ExecutionCard } from '@/components/dashboard/ExecutionCard';
+import { TouchLeaderboard } from '@/components/dashboard/TouchLeaderboard';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
 
@@ -118,7 +120,7 @@ const COACHES = ['TBD', 'Elizabeth', 'Corinne', 'Lauren', 'Sophie', 'Faith', 'Ca
 
 export default function MyDay() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, sales } = useData();
+  const { introsBooked, introsRun, sales, lastUpdated, refreshData } = useData();
   const navigate = useNavigate();
   const [todayBookings, setTodayBookings] = useState<DayBooking[]>([]);
   const [tomorrowBookings, setTomorrowBookings] = useState<DayBooking[]>([]);
@@ -1039,6 +1041,12 @@ export default function MyDay() {
         totalIntros={todayBookings.length}
         followUpsDue={followUpsDueCount}
       />
+
+      {/* Execution Card */}
+      <ExecutionCard />
+
+      {/* Touch Leaderboard */}
+      <TouchLeaderboard />
 
       {/* Win Streaks */}
       <WinStreak userName={user?.name || ''} introsRun={introsRun} sales={sales} />

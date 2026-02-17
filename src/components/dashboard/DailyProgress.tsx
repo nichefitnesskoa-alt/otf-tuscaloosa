@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
-import { format } from 'date-fns';
+import { isToday, parseISO } from 'date-fns';
 
 interface DailyProgressProps {
   /** Count of intros with outcomes logged today */
@@ -21,30 +21,22 @@ export function DailyProgress({
   followUpsDue,
 }: DailyProgressProps) {
   const { user } = useAuth();
-  const [touchesToday, setTouchesToday] = useState(0);
-  const [followUpsDoneToday, setFollowUpsDoneToday] = useState(0);
+  const { followUpQueue, followupTouches } = useData();
 
-  useEffect(() => {
-    if (!user?.name) return;
-    const todayStart = format(new Date(), 'yyyy-MM-dd') + 'T00:00:00';
+  const { touchesToday, followUpsDoneToday } = useMemo(() => {
+    const userName = user?.name;
+    if (!userName) return { touchesToday: 0, followUpsDoneToday: 0 };
 
-    // Fetch real touch count and follow-up completion count
-    Promise.all([
-      supabase
-        .from('followup_touches' as any)
-        .select('id', { count: 'exact', head: true })
-        .eq('created_by', user.name)
-        .gte('created_at', todayStart),
-      supabase
-        .from('follow_up_queue')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'sent')
-        .gte('sent_at', todayStart),
-    ]).then(([touchRes, fuRes]) => {
-      setTouchesToday((touchRes as any).count || 0);
-      setFollowUpsDoneToday((fuRes as any).count || 0);
-    }).catch(console.error);
-  }, [user?.name, completedIntros]); // re-fetch when intros change
+    const touches = followupTouches.filter(
+      t => t.created_by === userName && isToday(parseISO(t.created_at))
+    ).length;
+
+    const fuDone = followUpQueue.filter(
+      f => f.status === 'sent' && f.sent_at && isToday(parseISO(f.sent_at))
+    ).length;
+
+    return { touchesToday: touches, followUpsDoneToday: fuDone };
+  }, [user?.name, followupTouches, followUpQueue]);
 
   const tasks = [
     { done: completedIntros >= totalIntros && totalIntros > 0, label: 'Intros logged' },

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { IntroBooked, IntroRun, Sale, ShiftRecap } from '@/context/DataContext';
+import { IntroBooked, IntroRun, Sale, ShiftRecap, FollowUpQueueRow, FollowupTouchRow } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval, isToday } from 'date-fns';
+import { isWithinInterval, isToday, parseISO } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
@@ -73,6 +73,13 @@ export interface DashboardMetrics {
     closing: number;
     showRate: number;
   };
+  // Touch-based execution metrics
+  touchesTodayTotal: number;
+  followupsDoneToday: number;
+  followupsDueToday: number;
+  touchesTodayBySa: Map<string, number>;
+  followupsDoneTodayBySa: Map<string, number>;
+  followUpConversionsInRange: number;
 }
 
 /**
@@ -95,7 +102,9 @@ export function useDashboardMetrics(
   sales: Sale[],
   dateRange: DateRange | null,
   shiftRecaps: ShiftRecap[] = [],
-  currentUserName?: string
+  currentUserName?: string,
+  followUpQueue: FollowUpQueueRow[] = [],
+  followupTouches: FollowupTouchRow[] = [],
 ): DashboardMetrics {
   return useMemo(() => {
     // Status values that should be excluded from metrics (bad data, duplicates, etc.)
@@ -501,6 +510,52 @@ export function useDashboardMetrics(
       showRate: allShowRateEntries.length,
     };
 
+    // =========================================
+    // TOUCH-BASED EXECUTION METRICS
+    // =========================================
+    const today = new Date().toISOString().substring(0, 10);
+
+    // Touches today total
+    const touchesTodayTotal = followupTouches.filter(
+      t => t.created_at && isToday(parseISO(t.created_at))
+    ).length;
+
+    // Follow-ups done today
+    const followupsDoneToday = followUpQueue.filter(
+      f => f.status === 'sent' && f.sent_at && isToday(parseISO(f.sent_at))
+    ).length;
+
+    // Follow-ups due today
+    const followupsDueToday = followUpQueue.filter(
+      f => f.status === 'pending' && f.scheduled_date <= today
+    ).length;
+
+    // Per-SA touches today
+    const touchesTodayBySa = new Map<string, number>();
+    for (const t of followupTouches) {
+      if (t.created_at && isToday(parseISO(t.created_at))) {
+        touchesTodayBySa.set(t.created_by, (touchesTodayBySa.get(t.created_by) || 0) + 1);
+      }
+    }
+
+    // Per-SA follow-ups done today
+    const followupsDoneTodayBySa = new Map<string, number>();
+    for (const f of followUpQueue) {
+      if (f.status === 'sent' && f.sent_at && f.sent_by && isToday(parseISO(f.sent_at))) {
+        followupsDoneTodayBySa.set(f.sent_by, (followupsDoneTodayBySa.get(f.sent_by) || 0) + 1);
+      }
+    }
+
+    // Follow-up conversions: sales where buy_date != run_date
+    const followUpConversionsInRange = activeRuns.filter(r => {
+      if (!isMembershipSale(r.result)) return false;
+      const buyDate = (r as any).buy_date;
+      const runDate = r.run_date;
+      if (!buyDate || !runDate) return false;
+      if (buyDate === runDate) return false;
+      return isSaleInRange(r, dateRange);
+    }).length;
+
     return {
       studio: {
         introsRun: studioIntrosRun,
@@ -521,6 +576,12 @@ export function useDashboardMetrics(
         topShowRate,
       },
       participantCounts,
+      touchesTodayTotal,
+      followupsDoneToday,
+      followupsDueToday,
+      touchesTodayBySa,
+      followupsDoneTodayBySa,
+      followUpConversionsInRange,
     };
-  }, [introsBooked, introsRun, sales, dateRange, shiftRecaps, currentUserName]);
+  }, [introsBooked, introsRun, sales, dateRange, shiftRecaps, currentUserName, followUpQueue, followupTouches]);
 }
