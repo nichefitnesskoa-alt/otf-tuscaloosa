@@ -10,7 +10,7 @@ import { format, isToday, parseISO, addDays, differenceInMinutes, differenceInHo
 import { 
   Calendar, AlertTriangle, UserPlus, 
   Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus, CheckCircle2,
-  Phone as PhoneIcon
+  Phone as PhoneIcon, ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
@@ -52,6 +52,7 @@ import { NoShowWarning } from '@/components/dashboard/NoShowWarning';
 import { DailyInsight } from '@/components/dashboard/DailyInsight';
 import { toast } from 'sonner';
 import { OutcomeEditor } from '@/components/dashboard/OutcomeEditor';
+import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
 import { Tables } from '@/integrations/supabase/types';
 import { isMembershipSale } from '@/lib/sales-detection';
 
@@ -1473,6 +1474,19 @@ export default function MyDay() {
                 subLabel={emphasisLabel('followups') || undefined}
               >
                 <FollowUpsDueToday onRefresh={fetchMyDayData} onCountChange={setFollowUpsDueCount} />
+              </CollapsibleSection>
+            );
+
+          case 'questionnaire-hub':
+            return (
+              <CollapsibleSection
+                key="questionnaire-hub"
+                id="questionnaire-hub"
+                title="Questionnaire Hub"
+                icon={<ClipboardList className="w-4 h-4 text-primary" />}
+                defaultOpen={false}
+              >
+                <QuestionnaireHub />
               </CollapsibleSection>
             );
 
