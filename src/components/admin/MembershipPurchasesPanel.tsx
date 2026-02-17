@@ -82,7 +82,7 @@ export default function MembershipPurchasesPanel() {
           lead_source,
           linked_intro_booked_id
         `)
-        .gt('commission_amount', 0);
+        .gte('commission_amount', 0);
 
       // Fetch outside intro sales
       const { data: outsideSales } = await supabase
