@@ -1,9 +1,10 @@
 /**
- * Single intro row card with risk indicators, contact info, and "Next Action" button.
+ * Single intro row card with Prep | Script | Coach buttons (3-button muscle memory).
+ * Plus questionnaire status, contact info, and secondary actions.
  */
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, FileText, Send, Copy, User, Eye } from 'lucide-react';
+import { Phone, Send, Copy, User, Eye, Dumbbell } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -14,8 +15,6 @@ interface IntroRowCardProps {
   isOnline: boolean;
   onSendQ: (bookingId: string) => void;
   onConfirm: (bookingId: string) => void;
-  onOpenPrep: (bookingId: string) => void;
-  onOpenScript: (bookingId: string) => void;
 }
 
 function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
@@ -25,15 +24,8 @@ function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
     case 'Q_SENT':
       return <Badge className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] px-1.5 py-0 h-4">Q Sent</Badge>;
     case 'NO_Q':
-      return <Badge variant="outline" className="text-muted-foreground text-[10px] px-1.5 py-0 h-4">No Q</Badge>;
+      return <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px] px-1.5 py-0 h-4">Q Missing</Badge>;
   }
-}
-
-function getNextAction(item: UpcomingIntroItem): { label: string; action: 'sendQ' | 'nudgeQ' | 'confirm' | 'prep' } {
-  if (item.questionnaireStatus === 'NO_Q') return { label: 'Send Q', action: 'sendQ' };
-  if (item.questionnaireStatus === 'Q_SENT') return { label: 'Nudge Q', action: 'nudgeQ' };
-  if (!item.confirmedAt) return { label: 'Confirm', action: 'confirm' };
-  return { label: 'Prep', action: 'prep' };
 }
 
 export default function IntroRowCard({
@@ -41,10 +33,7 @@ export default function IntroRowCard({
   isOnline,
   onSendQ,
   onConfirm,
-  onOpenPrep,
-  onOpenScript,
 }: IntroRowCardProps) {
-  const nextAction = getNextAction(item);
   const hasAnyRisk = item.riskScore > 0;
 
   const handleCopyPhone = () => {
@@ -62,18 +51,9 @@ export default function IntroRowCard({
     fn();
   };
 
-  const handleNextAction = guardOnline(() => {
-    switch (nextAction.action) {
-      case 'sendQ': onSendQ(item.bookingId); break;
-      case 'nudgeQ': onOpenScript(item.bookingId); break;
-      case 'confirm': onConfirm(item.bookingId); break;
-      case 'prep': onOpenPrep(item.bookingId); break;
-    }
-  });
-
   return (
     <div className={cn(
-      'rounded-lg border bg-card p-3 transition-all',
+      'rounded-lg border bg-card p-3 space-y-2',
       hasAnyRisk && 'border-l-4 border-l-destructive/50',
     )}>
       {/* Row 1: Name + badges */}
@@ -88,7 +68,7 @@ export default function IntroRowCard({
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
             )}
           </div>
-          {/* Row 2: Time + Coach + Owner */}
+          {/* Time + Coach + Owner */}
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs text-muted-foreground">
             <span>
               {item.introTime
@@ -108,15 +88,6 @@ export default function IntroRowCard({
                 </span>
               </>
             )}
-            {!item.introOwner && (
-              <>
-                <span>·</span>
-                <span className="text-destructive flex items-center gap-0.5">
-                  <User className="w-3 h-3" />
-                  No owner
-                </span>
-              </>
-            )}
           </div>
         </div>
         {/* Q badge */}
@@ -125,8 +96,8 @@ export default function IntroRowCard({
         </div>
       </div>
 
-      {/* Row 3: Contact + Risk flags */}
-      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+      {/* Row 2: Contact + lead source */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         {item.phone && (
           <a
             href={`tel:${item.phone}`}
@@ -153,59 +124,71 @@ export default function IntroRowCard({
         )}
       </div>
 
-      {/* Row 4: Action buttons */}
-      <div className="flex items-center gap-1.5 mt-2">
-        {/* Next Action (primary) */}
-        <Button
-          size="sm"
-          className="h-7 text-[11px] flex-1"
-          onClick={handleNextAction}
-        >
-          {nextAction.label}
-        </Button>
+      {/* Row 3: Q action (small, contextual) */}
+      {item.questionnaireStatus === 'NO_Q' && (
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[10px] gap-1"
+            onClick={guardOnline(() => onSendQ(item.bookingId))}
+          >
+            <Send className="w-2.5 h-2.5" />
+            Send Q
+          </Button>
+        </div>
+      )}
 
-        {/* Secondary actions */}
+      {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach (always visible, same order) */}
+      <div className="flex items-center gap-1.5">
         <Button
-          variant="outline"
           size="sm"
-          className="h-7 w-7 p-0"
-          title="Send Script"
-          onClick={guardOnline(() => onOpenScript(item.bookingId))}
-        >
-          <Send className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 w-7 p-0"
-          title="Prep"
-          onClick={() => onOpenPrep(item.bookingId)}
+          className="h-8 flex-1 text-xs gap-1"
+          onClick={() => {
+            // Dispatch custom event that MyDayPage listens to
+            window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId: item.bookingId } }));
+          }}
         >
           <Eye className="w-3.5 h-3.5" />
+          Prep
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-8 flex-1 text-xs gap-1"
+          onClick={guardOnline(() => {
+            window.dispatchEvent(new CustomEvent('myday:open-script', { detail: { bookingId: item.bookingId } }));
+          })}
+        >
+          <Send className="w-3.5 h-3.5" />
+          Script
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 flex-1 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('myday:open-coach', { detail: { bookingId: item.bookingId } }));
+          }}
+        >
+          <Dumbbell className="w-3.5 h-3.5" />
+          Coach
+        </Button>
+      </div>
+
+      {/* Row 5: Secondary actions */}
+      <div className="flex items-center gap-1.5">
         {item.phone && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title="Copy Phone"
-            onClick={handleCopyPhone}
-          >
-            <Copy className="w-3.5 h-3.5" />
-          </Button>
-        )}
-        {item.phone && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title="Call"
-            asChild
-          >
-            <a href={`tel:${item.phone}`}>
-              <Phone className="w-3.5 h-3.5" />
-            </a>
-          </Button>
+          <>
+            <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Copy Phone" onClick={handleCopyPhone}>
+              <Copy className="w-2.5 h-2.5" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Call" asChild>
+              <a href={`tel:${item.phone}`}>
+                <Phone className="w-2.5 h-2.5" />
+              </a>
+            </Button>
+          </>
         )}
       </div>
     </div>

@@ -1,9 +1,9 @@
 /**
  * Day group: header with date label, count, Q ratio, and bulk actions.
- * Renders intro row cards for that day.
+ * Renders intro row cards for that day with Prep/Script/Coach buttons.
  */
 import { Badge } from '@/components/ui/badge';
-import type { DayGroup, UpcomingIntroItem } from './myDayTypes';
+import type { DayGroup } from './myDayTypes';
 import IntroRowCard from './IntroRowCard';
 import BulkActionsBar from './BulkActionsBar';
 
@@ -13,8 +13,6 @@ interface IntroDayGroupProps {
   userName: string;
   onSendQ: (bookingId: string) => void;
   onConfirm: (bookingId: string) => void;
-  onOpenPrep: (bookingId: string) => void;
-  onOpenScript: (bookingId: string) => void;
   onRefresh: () => void;
 }
 
@@ -24,8 +22,6 @@ export default function IntroDayGroup({
   userName,
   onSendQ,
   onConfirm,
-  onOpenPrep,
-  onOpenScript,
   onRefresh,
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
@@ -71,8 +67,6 @@ export default function IntroDayGroup({
             isOnline={isOnline}
             onSendQ={onSendQ}
             onConfirm={onConfirm}
-            onOpenPrep={onOpenPrep}
-            onOpenScript={onOpenScript}
           />
         ))}
       </div>

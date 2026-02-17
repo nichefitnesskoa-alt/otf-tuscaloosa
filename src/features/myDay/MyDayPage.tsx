@@ -1,18 +1,21 @@
 /**
- * My Day Page – Canonical single-queue intros experience.
+ * My Day Page – Simple, card-based workflow.
+ *
+ * Sections (visible cards, no nudges):
+ * 1. Unresolved Intros
+ * 2. Today's Intros (Upcoming Intros queue for today)
+ * 3. New Leads
+ * 4. Tomorrow & Coming Up (Upcoming Intros queue for future)
+ * 5. Follow-Ups Due
+ * 6. Questionnaire Hub
+ *
+ * Every intro card shows: Prep | Script | Coach (3-button muscle memory)
  *
  * ── Regression Checklist ──
- * - Verify no duplicate intro lists are rendered.
- * - Verify filters change the same list, not swap to a second list.
- * - Verify bulk actions are idempotent.
- * - Verify no writes bypass Pipeline canonical outcome logic.
- *
- * ── Release Gate ──
- * - vitest run
- * - typecheck
- * - manual flows: create booking, create run, edit run result change, purchase intro/outside intro, auto-fix
- * - offline toggle: block edits when offline, refresh after reconnect
- * - VIP bulk schedule: updates intros_booked and intro_questionnaires
+ * - No duplicate intro lists rendered.
+ * - Filters change the same list, not swap.
+ * - No writes bypass Pipeline canonical outcome logic.
+ * - Prep/Script/Coach always visible on every card.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -21,24 +24,15 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, isToday } from 'date-fns';
-import { FileText, UserPlus, Clock, CalendarCheck, ClipboardList } from 'lucide-react';
+import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { isMembershipSale } from '@/lib/sales-detection';
 
-// Existing My Day components (non-intro sections)
+// Existing dashboard components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
 import { StickyDayScore } from '@/components/dashboard/StickyDayScore';
-import { NextActionCard } from '@/components/dashboard/NextActionCard';
-import { ShiftScanOverlay } from '@/components/dashboard/ShiftScanOverlay';
-import { TopActions } from '@/components/dashboard/TopActions';
-import { DailyProgress } from '@/components/dashboard/DailyProgress';
-import { ExecutionCard } from '@/components/dashboard/ExecutionCard';
-import { TouchLeaderboard } from '@/components/dashboard/TouchLeaderboard';
-import { WinStreak } from '@/components/dashboard/WinStreak';
-import { DailyInsight } from '@/components/dashboard/DailyInsight';
 import { UnresolvedIntros } from '@/components/dashboard/UnresolvedIntros';
 import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
 import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
@@ -55,9 +49,22 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { Badge } from '@/components/ui/badge';
-import { Phone as PhoneIcon } from 'lucide-react';
+import { Phone as PhoneIcon, Calendar } from 'lucide-react';
 
-// New canonical intros queue
+// Prep, Script, Coach drawers
+import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
+import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { CoachDrawer } from '@/components/myday/CoachDrawer';
+
+// Collapsible optional tools
+import { DailyProgress } from '@/components/dashboard/DailyProgress';
+import { ExecutionCard } from '@/components/dashboard/ExecutionCard';
+import { TouchLeaderboard } from '@/components/dashboard/TouchLeaderboard';
+import { WinStreak } from '@/components/dashboard/WinStreak';
+import { DailyInsight } from '@/components/dashboard/DailyInsight';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+// Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 
 export default function MyDayPage() {
@@ -75,9 +82,22 @@ export default function MyDayPage() {
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
   const [sectionOrder, setSectionOrder] = useState<string[]>(getSectionOrder());
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [optionalToolsOpen, setOptionalToolsOpen] = useState(false);
 
-  // Today's completed intros for scoring (from DataContext)
+  // Prep/Script/Coach drawer state
+  const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
+  const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
+  const [coachBookingId, setCoachBookingId] = useState<string | null>(null);
+
+  // Derived booking data for drawers
+  const getBookingById = useCallback((id: string) =>
+    introsBooked.find(b => b.id === id), [introsBooked]);
+
+  const prepBooking = prepBookingId ? getBookingById(prepBookingId) : null;
+  const scriptBooking = scriptBookingId ? getBookingById(scriptBookingId) : null;
+  const coachBooking = coachBookingId ? getBookingById(coachBookingId) : null;
+
+  // Today's stats
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayBookingsCount = useMemo(() =>
     introsBooked.filter(b => b.class_date === todayStr).length,
@@ -94,6 +114,21 @@ export default function MyDayPage() {
     return () => clearTimeout(timer);
   }, []);
   useRealtimeMyDay(handleRealtimeUpdate);
+
+  // Listen for Prep/Script/Coach events from IntroRowCard
+  useEffect(() => {
+    const onPrep = (e: Event) => setPrepBookingId((e as CustomEvent).detail.bookingId);
+    const onScript = (e: Event) => setScriptBookingId((e as CustomEvent).detail.bookingId);
+    const onCoach = (e: Event) => setCoachBookingId((e as CustomEvent).detail.bookingId);
+    window.addEventListener('myday:open-prep', onPrep);
+    window.addEventListener('myday:open-script', onScript);
+    window.addEventListener('myday:open-coach', onCoach);
+    return () => {
+      window.removeEventListener('myday:open-prep', onPrep);
+      window.removeEventListener('myday:open-script', onScript);
+      window.removeEventListener('myday:open-coach', onCoach);
+    };
+  }, []);
 
   useEffect(() => {
     fetchNonIntroData();
@@ -203,6 +238,19 @@ export default function MyDayPage() {
     return { completedActions: completed, totalActions: total };
   }, [todayBookingsCount, completedTodayCount, followUpsDueCount, todayFollowUpsSent, newLeads, todayScriptsSent]);
 
+  // Handlers for Prep/Script/Coach
+  const handleOpenPrep = useCallback((bookingId: string) => {
+    setPrepBookingId(bookingId);
+  }, []);
+
+  const handleOpenScript = useCallback((bookingId: string) => {
+    setScriptBookingId(bookingId);
+  }, []);
+
+  const handleOpenCoach = useCallback((bookingId: string) => {
+    setCoachBookingId(bookingId);
+  }, []);
+
   const handleMarkContacted = async (leadId: string) => {
     try {
       await supabase.from('leads').update({ stage: 'contacted' }).eq('id', leadId);
@@ -218,6 +266,20 @@ export default function MyDayPage() {
       fetchNonIntroData();
     } catch { toast.error('Failed to update'); }
   };
+
+  // Build script merge context for ScriptPickerSheet
+  const scriptMergeContext = useMemo(() => {
+    if (!scriptBooking) return {};
+    const firstName = scriptBooking.member_name.split(' ')[0] || '';
+    const lastName = scriptBooking.member_name.split(' ').slice(1).join(' ') || '';
+    return {
+      'first-name': firstName,
+      'last-name': lastName,
+      'sa-name': user?.name || '',
+      day: format(new Date(), 'EEEE'),
+      time: scriptBooking.intro_time?.substring(0, 5) || '',
+    };
+  }, [scriptBooking, user?.name]);
 
   return (
     <div className="px-4 md:px-4 pb-24 space-y-3 md:space-y-4 max-w-full overflow-x-hidden">
@@ -260,25 +322,37 @@ export default function MyDayPage() {
         Start Shift Recap
       </Button>
 
-      <DailyProgress
-        completedIntros={completedTodayCount}
-        totalIntros={todayBookingsCount}
-        followUpsDue={followUpsDueCount}
+      {/* ═══════════════ CORE SECTIONS ═══════════════ */}
+
+      {/* Unresolved Intros – uses its own data fetch */}
+      <UnresolvedIntros
+        intros={introsBooked
+          .filter(b => b.class_date <= todayStr && !introsRun.some(r => r.member_name === b.member_name && r.run_date === b.class_date))
+          .map(b => {
+            const classDateTime = new Date(`${b.class_date}T${b.intro_time || '12:00'}:00`);
+            const hoursSince = Math.max(0, Math.round((Date.now() - classDateTime.getTime()) / 3600000));
+            return {
+              id: b.id,
+              member_name: b.member_name,
+              class_date: b.class_date,
+              intro_time: b.intro_time || null,
+              coach_name: b.coach_name,
+              lead_source: b.lead_source,
+              hoursSinceClass: hoursSince,
+            };
+          })}
+        onRefresh={fetchNonIntroData}
       />
 
-      <ExecutionCard />
-      <TouchLeaderboard />
-      <WinStreak userName={user?.name || ''} introsRun={introsRun} sales={sales} />
-
-      {/* ═══════════════ CANONICAL UPCOMING INTROS QUEUE ═══════════════ */}
+      {/* Canonical Upcoming Intros Queue (Today + Tomorrow + Coming Up) */}
       <UpcomingIntrosCard userName={user?.name || ''} />
 
-      {/* ═══════════════ OTHER SECTIONS ═══════════════ */}
+      {/* Sections driven by sectionOrder */}
       {sectionOrder.map((sectionId) => {
         switch (sectionId) {
           case 'todays-intros':
           case 'tomorrows-intros':
-            // Removed: replaced by UpcomingIntrosCard
+            // Handled by UpcomingIntrosCard
             return null;
 
           case 'new-leads':
@@ -412,6 +486,25 @@ export default function MyDayPage() {
         }
       })}
 
+      {/* ═══════════════ OPTIONAL TOOLS (collapsed by default, no nudges) ═══════════════ */}
+      <Collapsible open={optionalToolsOpen} onOpenChange={setOptionalToolsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
+            {optionalToolsOpen ? '▾ Hide Optional Tools' : '▸ Optional Tools (Progress, Streaks, Leaderboard)'}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 mt-2">
+          <DailyProgress
+            completedIntros={completedTodayCount}
+            totalIntros={todayBookingsCount}
+            followUpsDue={followUpsDueCount}
+          />
+          <ExecutionCard />
+          <TouchLeaderboard />
+          <WinStreak userName={user?.name || ''} introsRun={introsRun} sales={sales} />
+        </CollapsibleContent>
+      </Collapsible>
+
       {/* Close Out Shift */}
       <CloseOutShift
         completedIntros={completedTodayCount}
@@ -426,7 +519,51 @@ export default function MyDayPage() {
 
       <QuickAddFAB onRefresh={fetchNonIntroData} />
 
-      {/* Dialogs */}
+      {/* ═══════════════ DRAWERS / DIALOGS ═══════════════ */}
+
+      {/* Prep Drawer */}
+      {prepBooking && (
+        <PrepDrawer
+          open={!!prepBookingId}
+          onOpenChange={(open) => { if (!open) setPrepBookingId(null); }}
+          memberName={prepBooking.member_name}
+          memberKey={prepBooking.member_name}
+          bookingId={prepBooking.id}
+          classDate={prepBooking.class_date}
+          classTime={prepBooking.intro_time}
+          coachName={prepBooking.coach_name}
+          leadSource={prepBooking.lead_source}
+          isSecondIntro={!!prepBooking.originating_booking_id}
+          phone={null}
+          email={null}
+        />
+      )}
+
+      {/* Script Picker */}
+      {scriptBooking && (
+        <ScriptPickerSheet
+          open={!!scriptBookingId}
+          onOpenChange={(open) => { if (!open) setScriptBookingId(null); }}
+          suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}
+          mergeContext={scriptMergeContext}
+          bookingId={scriptBooking.id}
+          onLogged={() => { setScriptBookingId(null); fetchNonIntroData(); }}
+        />
+      )}
+
+      {/* Coach Drawer */}
+      {coachBooking && (
+        <CoachDrawer
+          open={!!coachBookingId}
+          onOpenChange={(open) => { if (!open) setCoachBookingId(null); }}
+          memberName={coachBooking.member_name}
+          bookingId={coachBooking.id}
+          classTime={coachBooking.intro_time}
+          coachName={coachBooking.coach_name}
+        />
+      )}
+
+      {/* Lead Dialogs */}
       {bookIntroLead && (
         <BookIntroDialog
           open={!!bookIntroLead}
