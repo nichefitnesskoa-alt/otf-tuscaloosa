@@ -510,7 +510,9 @@ export type Database = {
           booking_id: string | null
           booking_status: string | null
           booking_status_canon: string
+          booking_type_canon: string
           class_date: string
+          class_start_at: string | null
           closed_at: string | null
           closed_by: string | null
           coach_name: string
@@ -536,6 +538,12 @@ export type Database = {
           originating_booking_id: string | null
           paired_booking_id: string | null
           phone: string | null
+          phone_e164: string | null
+          phone_source: string | null
+          questionnaire_completed_at: string | null
+          questionnaire_link: string | null
+          questionnaire_sent_at: string | null
+          questionnaire_status_canon: string
           rebook_reason: string | null
           rebooked_at: string | null
           rebooked_from_booking_id: string | null
@@ -552,7 +560,9 @@ export type Database = {
           booking_id?: string | null
           booking_status?: string | null
           booking_status_canon?: string
+          booking_type_canon?: string
           class_date: string
+          class_start_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           coach_name: string
@@ -578,6 +588,12 @@ export type Database = {
           originating_booking_id?: string | null
           paired_booking_id?: string | null
           phone?: string | null
+          phone_e164?: string | null
+          phone_source?: string | null
+          questionnaire_completed_at?: string | null
+          questionnaire_link?: string | null
+          questionnaire_sent_at?: string | null
+          questionnaire_status_canon?: string
           rebook_reason?: string | null
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
@@ -594,7 +610,9 @@ export type Database = {
           booking_id?: string | null
           booking_status?: string | null
           booking_status_canon?: string
+          booking_type_canon?: string
           class_date?: string
+          class_start_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
           coach_name?: string
@@ -620,6 +638,12 @@ export type Database = {
           originating_booking_id?: string | null
           paired_booking_id?: string | null
           phone?: string | null
+          phone_e164?: string | null
+          phone_source?: string | null
+          questionnaire_completed_at?: string | null
+          questionnaire_link?: string | null
+          questionnaire_sent_at?: string | null
+          questionnaire_status_canon?: string
           rebook_reason?: string | null
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
@@ -1336,6 +1360,7 @@ export type Database = {
         Row: {
           body: string
           category: string
+          category_canon: string | null
           channel: string
           created_at: string
           id: string
@@ -1351,6 +1376,7 @@ export type Database = {
         Insert: {
           body?: string
           category: string
+          category_canon?: string | null
           channel?: string
           created_at?: string
           id?: string
@@ -1366,6 +1392,7 @@ export type Database = {
         Update: {
           body?: string
           category?: string
+          category_canon?: string | null
           channel?: string
           created_at?: string
           id?: string
@@ -1747,6 +1774,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
       get_staff_name: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

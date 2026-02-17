@@ -47,10 +47,17 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     if (!t.is_active) return false;
     if (selectedCategory) {
       // Use normalized matching so tab "confirmation" matches DB "booking_confirmation", etc.
+      // Also check category_canon from DB if available
       const normalizedTab = normalizeCategory(selectedCategory);
       const normalizedCat = normalizeCategory(t.category);
-      if (normalizedTab !== 'other' && normalizedCat !== normalizedTab) return false;
-      if (normalizedTab === 'other' && t.category !== selectedCategory) return false;
+      const dbCanon = (t as any).category_canon as string | undefined;
+      if (normalizedTab !== 'other') {
+        const matchesNormalized = normalizedCat === normalizedTab;
+        const matchesDbCanon = dbCanon === normalizedTab;
+        if (!matchesNormalized && !matchesDbCanon) return false;
+      } else if (normalizedTab === 'other' && t.category !== selectedCategory) {
+        return false;
+      }
     }
     if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && !t.body.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
