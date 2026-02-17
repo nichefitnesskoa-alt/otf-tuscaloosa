@@ -7,6 +7,7 @@ import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/u
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
 import { TemplateCategoryTabs } from './TemplateCategoryTabs';
+import { normalizeCategory } from '@/lib/scripts/normalizeCategory';
 
 interface MergeContext {
   'first-name'?: string;
@@ -44,7 +45,13 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
 
   const filtered = templates.filter((t) => {
     if (!t.is_active) return false;
-    if (selectedCategory && t.category !== selectedCategory) return false;
+    if (selectedCategory) {
+      // Use normalized matching so tab "confirmation" matches DB "booking_confirmation", etc.
+      const normalizedTab = normalizeCategory(selectedCategory);
+      const normalizedCat = normalizeCategory(t.category);
+      if (normalizedTab !== 'other' && normalizedCat !== normalizedTab) return false;
+      if (normalizedTab === 'other' && t.category !== selectedCategory) return false;
+    }
     if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && !t.body.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });

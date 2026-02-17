@@ -76,15 +76,15 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
   };
 
   return (
-    <Card className="border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-950/10">
+    <Card className="border-muted">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
+        <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
           <AlertTriangle className="w-4 h-4" />
-          Past-Due Intros ({filteredIntros.length})
-          <SectionHelp text="These intros are from before today and still need an outcome logged. Tap 'They Showed' or 'No Show' for each one." />
+          Past intros to resolve ({filteredIntros.length})
+          <SectionHelp text="These intros are from before today and still need an outcome logged." />
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-0.5">
-          These dates are before today and still need an outcome
+          Log an outcome for each one below
         </p>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -110,7 +110,7 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
           <p className="text-sm text-muted-foreground italic">No past-due intros in last 7 days</p>
         ) : (
           filteredIntros.map(b => (
-            <div key={b.id} className="rounded-lg border border-amber-200 dark:border-amber-800 bg-card p-3 space-y-2">
+            <div key={b.id} className="rounded-lg border bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="font-semibold text-sm">{b.member_name}</span>
