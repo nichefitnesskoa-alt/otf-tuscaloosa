@@ -1784,6 +1784,7 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      to_intro_time_canonical: { Args: { p: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "coach" | "sa"
