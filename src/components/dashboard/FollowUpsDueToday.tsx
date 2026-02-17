@@ -272,7 +272,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     return filtered;
   }, [items, filterType, sortBy]);
   
-  const sendableItems = useMemo(() => filteredItems.filter(i => hasPhone(i)), [filteredItems]);
+  const sendableItems = useMemo(() => filteredItems.filter(i => !!(i.phone && i.phone.trim())), [filteredItems]);
   
   const noShowCount = useMemo(() => items.filter(i => i.person_type === 'no_show').length, [items]);
   const didntBuyCount = useMemo(() => items.filter(i => i.person_type === 'didnt_buy').length, [items]);
