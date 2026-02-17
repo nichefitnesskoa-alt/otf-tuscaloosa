@@ -21,6 +21,7 @@ import CoachingView from '@/components/admin/CoachingView';
 import CampaignsPanel from '@/components/admin/CampaignsPanel';
 import AmcLogForm from '@/components/admin/AmcLogForm';
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
+import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -190,6 +191,7 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
+          <IntegrityDashboard />
           <VipBulkImport />
           <ShiftRecapsEditor />
         </TabsContent>

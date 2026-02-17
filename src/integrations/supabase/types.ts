@@ -549,6 +549,8 @@ export type Database = {
       }
       intros_run: {
         Row: {
+          amc_incremented_at: string | null
+          amc_incremented_by: string | null
           booking_source: string | null
           buy_date: string | null
           choice_architecture: boolean | null
@@ -591,6 +593,8 @@ export type Database = {
           shift_recap_id: string | null
         }
         Insert: {
+          amc_incremented_at?: string | null
+          amc_incremented_by?: string | null
           booking_source?: string | null
           buy_date?: string | null
           choice_architecture?: boolean | null
@@ -633,6 +637,8 @@ export type Database = {
           shift_recap_id?: string | null
         }
         Update: {
+          amc_incremented_at?: string | null
+          amc_incremented_by?: string | null
           booking_source?: string | null
           buy_date?: string | null
           choice_architecture?: boolean | null
@@ -940,6 +946,51 @@ export type Database = {
           changed_at?: string | null
           changed_by?: string
           id?: string
+          new_booking_status?: string | null
+          new_result?: string
+          old_booking_status?: string | null
+          old_result?: string | null
+          run_id?: string | null
+          source_component?: string
+        }
+        Relationships: []
+      }
+      outcome_events: {
+        Row: {
+          booking_id: string
+          edit_reason: string | null
+          edited_at: string
+          edited_by: string
+          id: string
+          metadata: Json | null
+          new_booking_status: string | null
+          new_result: string
+          old_booking_status: string | null
+          old_result: string | null
+          run_id: string | null
+          source_component: string
+        }
+        Insert: {
+          booking_id: string
+          edit_reason?: string | null
+          edited_at?: string
+          edited_by: string
+          id?: string
+          metadata?: Json | null
+          new_booking_status?: string | null
+          new_result: string
+          old_booking_status?: string | null
+          old_result?: string | null
+          run_id?: string | null
+          source_component: string
+        }
+        Update: {
+          booking_id?: string
+          edit_reason?: string | null
+          edited_at?: string
+          edited_by?: string
+          id?: string
+          metadata?: Json | null
           new_booking_status?: string | null
           new_result?: string
           old_booking_status?: string | null
@@ -1350,6 +1401,30 @@ export type Database = {
           name?: string
           role?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      staff_achievements: {
+        Row: {
+          badge_key: string
+          earned_at: string
+          id: string
+          metadata: Json | null
+          staff_name: string
+        }
+        Insert: {
+          badge_key: string
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          staff_name: string
+        }
+        Update: {
+          badge_key?: string
+          earned_at?: string
+          id?: string
+          metadata?: Json | null
+          staff_name?: string
         }
         Relationships: []
       }
