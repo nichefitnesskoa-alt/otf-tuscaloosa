@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { writeCache, readCache, getLastCacheTime } from '@/lib/offline/cache';
+import { getPendingCount } from '@/lib/offline/writeQueue';
+import { runSync, SyncResult } from '@/lib/offline/sync';
 
 export interface ShiftRecap {
   id: string;
@@ -89,9 +92,13 @@ interface DataContextType {
   followupTouches: FollowupTouchRow[];
   isLoading: boolean;
   lastUpdated: Date | null;
+  lastSyncAt: string | null;
+  pendingQueueCount: number;
+  usingCachedData: boolean;
   refreshData: () => Promise<void>;
   refreshFollowUps: () => Promise<void>;
   refreshTouches: () => Promise<void>;
+  runSyncNow: () => Promise<SyncResult>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -105,12 +112,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [followupTouches, setFollowupTouches] = useState<FollowupTouchRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(getLastCacheTime());
+  const [pendingQueueCount, setPendingQueueCount] = useState(getPendingCount());
+  const [usingCachedData, setUsingCachedData] = useState(false);
 
   const getCutoff = () => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 120);
     return cutoffDate.toISOString();
   };
+
+  // Load cached data on mount (instant UI)
+  useEffect(() => {
+    const cached = {
+      intros_booked: readCache<IntroBooked[]>('intros_booked'),
+      intros_run: readCache<IntroRun[]>('intros_run'),
+      follow_up_queue: readCache<FollowUpQueueRow[]>('follow_up_queue'),
+      followup_touches: readCache<FollowupTouchRow[]>('followup_touches'),
+      shift_recaps: readCache<ShiftRecap[]>('shift_recaps'),
+      sales: readCache<Sale[]>('sales'),
+    };
+
+    let hasCached = false;
+    if (cached.intros_booked?.data) { setIntrosBooked(cached.intros_booked.data); hasCached = true; }
+    if (cached.intros_run?.data) { setIntrosRun(cached.intros_run.data); hasCached = true; }
+    if (cached.follow_up_queue?.data) { setFollowUpQueue(cached.follow_up_queue.data); hasCached = true; }
+    if (cached.followup_touches?.data) { setFollowupTouches(cached.followup_touches.data); hasCached = true; }
+    if (cached.shift_recaps?.data) { setShiftRecaps(cached.shift_recaps.data); hasCached = true; }
+    if (cached.sales?.data) { setSales(cached.sales.data); hasCached = true; }
+
+    if (hasCached) {
+      setUsingCachedData(true);
+      setIsLoading(false);
+    }
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -126,16 +161,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
       ]);
 
-      if (recapsResult.data) setShiftRecaps(recapsResult.data as ShiftRecap[]);
-      if (bookingsResult.data) setIntrosBooked(bookingsResult.data as IntroBooked[]);
-      if (runsResult.data) setIntrosRun(runsResult.data as IntroRun[]);
-      if (salesResult.data) setSales(salesResult.data as Sale[]);
-      if (fuQueueResult.data) setFollowUpQueue(fuQueueResult.data);
-      if (touchesResult.data) setFollowupTouches(touchesResult.data);
+      if (recapsResult.data) { setShiftRecaps(recapsResult.data as ShiftRecap[]); writeCache('shift_recaps', recapsResult.data); }
+      if (bookingsResult.data) { setIntrosBooked(bookingsResult.data as IntroBooked[]); writeCache('intros_booked', bookingsResult.data); }
+      if (runsResult.data) { setIntrosRun(runsResult.data as IntroRun[]); writeCache('intros_run', runsResult.data); }
+      if (salesResult.data) { setSales(salesResult.data as Sale[]); writeCache('sales', salesResult.data); }
+      if (fuQueueResult.data) { setFollowUpQueue(fuQueueResult.data); writeCache('follow_up_queue', fuQueueResult.data); }
+      if (touchesResult.data) { setFollowupTouches(touchesResult.data); writeCache('followup_touches', touchesResult.data); }
       
-      setLastUpdated(new Date());
+      const now = new Date();
+      setLastUpdated(now);
+      setLastSyncAt(now.toISOString());
+      setUsingCachedData(false);
     } catch (error) {
       console.error('Error fetching data:', error);
+      // If fetch fails and we have no data, the cached data from mount is still showing
+      if (!lastUpdated) {
+        setUsingCachedData(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +185,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Poll pending queue count
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPendingQueueCount(getPendingCount());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-sync when coming back online
+  useEffect(() => {
+    const handleOnline = async () => {
+      if (getPendingCount() > 0) {
+        const result = await runSync();
+        setPendingQueueCount(getPendingCount());
+        if (result.synced > 0) {
+          await fetchData();
+        }
+      } else {
+        await fetchData();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
   }, [fetchData]);
 
   const refreshData = useCallback(async () => {
@@ -153,7 +220,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const cutoff = getCutoff();
       const { data } = await supabase.from('follow_up_queue').select('*').gte('created_at', cutoff).order('scheduled_date', { ascending: true });
-      if (data) setFollowUpQueue(data);
+      if (data) {
+        setFollowUpQueue(data);
+        writeCache('follow_up_queue', data);
+      }
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error refreshing follow-ups:', error);
@@ -164,12 +234,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const cutoff = getCutoff();
       const { data } = await supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false });
-      if (data) setFollowupTouches(data);
+      if (data) {
+        setFollowupTouches(data);
+        writeCache('followup_touches', data);
+      }
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Error refreshing touches:', error);
     }
   }, []);
+
+  const runSyncNow = useCallback(async (): Promise<SyncResult> => {
+    const result = await runSync();
+    setPendingQueueCount(getPendingCount());
+    if (result.synced > 0) {
+      await fetchData();
+    }
+    return result;
+  }, [fetchData]);
 
   return (
     <DataContext.Provider value={{
@@ -181,9 +263,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       followupTouches,
       isLoading,
       lastUpdated,
+      lastSyncAt,
+      pendingQueueCount,
+      usingCachedData,
       refreshData,
       refreshFollowUps,
       refreshTouches,
+      runSyncNow,
     }}>
       {children}
     </DataContext.Provider>
