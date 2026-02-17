@@ -1,6 +1,7 @@
 /**
  * Upcoming Intros Card: the single canonical intros queue.
  * Contains summary strip, filters, at-risk banner, and day-grouped list.
+ * Prep/Script/Coach buttons on each card open drawers in MyDayPage.
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,14 +69,6 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
       refreshAll();
     } catch { toast.error('Failed to confirm'); }
   }, [userName, isOnline, refreshAll]);
-
-  const handleOpenPrep = useCallback((bookingId: string) => {
-    toast.info('Open prep for booking');
-  }, []);
-
-  const handleOpenScript = useCallback((bookingId: string) => {
-    toast.info('Open script for booking');
-  }, []);
 
   return (
     <Card id="upcoming-intros">
@@ -161,8 +154,6 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
                 userName={userName}
                 onSendQ={handleSendQ}
                 onConfirm={handleConfirm}
-                onOpenPrep={handleOpenPrep}
-                onOpenScript={handleOpenScript}
                 onRefresh={refreshAll}
               />
             ))}
