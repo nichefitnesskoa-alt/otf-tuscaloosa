@@ -33,6 +33,50 @@ function parseTime(raw: string): string | null {
   return `${String(hour).padStart(2, "0")}:${min}`;
 }
 
+/**
+ * Extract a US phone number from raw text/HTML content.
+ * Returns 10-digit string or null.
+ */
+function extractPhoneFromContent(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let text = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Pass 1: tel: links
+  const telMatch = text.match(/tel:\s*\+?1?(\d{10})/i);
+  if (telMatch) return telMatch[1];
+
+  const telFmtMatch = text.match(/tel:\s*\+?1?[.\s-]?(\(?\d{3}\)?[.\s-]?\d{3}[.\s-]?\d{4})/i);
+  if (telFmtMatch) {
+    const digits = telFmtMatch[1].replace(/\D/g, "");
+    const clean = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+    if (clean.length === 10) return clean;
+  }
+
+  // Pass 2: standard US formats
+  const patterns = [
+    /\((\d{3})\)\s*(\d{3})[.\s-](\d{4})/,
+    /(?:^|\D)(\d{3})[.\s-](\d{3})[.\s-](\d{4})(?:\D|$)/,
+    /\+1\s*(\d{3})\s*(\d{3})\s*(\d{4})/,
+  ];
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m) {
+      const groups = m.slice(1).filter(Boolean);
+      const digits = groups.join("").replace(/\D/g, "");
+      const clean = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+      if (clean.length === 10) return clean;
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,6 +99,20 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { lead, booking, meta } = body;
+
+    // Try to extract phone from email body/snippet if not provided directly
+    if (!lead.phone && meta?.email_body) {
+      const extracted = extractPhoneFromContent(meta.email_body);
+      if (extracted) lead.phone = extracted;
+    }
+    if (!lead.phone && meta?.email_html) {
+      const extracted = extractPhoneFromContent(meta.email_html);
+      if (extracted) lead.phone = extracted;
+    }
+    if (!lead.phone && meta?.email_snippet) {
+      const extracted = extractPhoneFromContent(meta.email_snippet);
+      if (extracted) lead.phone = extracted;
+    }
 
     // Validate lead object
     if (!lead?.first_name || !lead?.last_name) {
@@ -291,7 +349,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create booking
+      // Create booking — include phone/email if available
       const { data: newBooking, error: bookingError } = await supabase
         .from("intros_booked")
         .insert({
@@ -303,6 +361,8 @@ Deno.serve(async (req) => {
           sa_working_shift: "Online",
           booked_by: "System (Auto-Import)",
           booking_status: "Active",
+          phone: lead.phone || null,
+          email: lead.email || null,
         })
         .select("id")
         .single();

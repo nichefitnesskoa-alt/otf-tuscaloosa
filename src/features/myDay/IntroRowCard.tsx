@@ -34,7 +34,18 @@ export default function IntroRowCard({
   onSendQ,
   onConfirm,
 }: IntroRowCardProps) {
-  const hasAnyRisk = item.riskScore > 0;
+  // "Needs attention" only if today, within 2h or past, AND missing critical prep
+  const needsAttention = (() => {
+    const now = new Date();
+    const todayYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (item.classDate !== todayYmd) return false;
+    // Check if within 2 hours or already passed
+    const introStart = new Date(item.timeStartISO);
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    if (introStart > twoHoursFromNow) return false;
+    // Must have at least one critical gap
+    return (item.questionnaireStatus === 'NO_Q' || !item.confirmedAt || !item.introOwner);
+  })();
 
   const handleCopyPhone = () => {
     if (item.phone) {
@@ -54,7 +65,6 @@ export default function IntroRowCard({
   return (
     <div className={cn(
       'rounded-lg border bg-card p-3 space-y-2',
-      hasAnyRisk && 'border-l-4 border-l-destructive/50',
     )}>
       {/* Row 1: Name + badges */}
       <div className="flex items-start justify-between gap-2">
@@ -94,7 +104,7 @@ export default function IntroRowCard({
         </div>
       </div>
 
-      {/* Row 2: Contact + lead source */}
+      {/* Row 2: Contact + lead source + needs attention */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {item.phone && (
           <a
@@ -106,8 +116,8 @@ export default function IntroRowCard({
           </a>
         )}
         {!item.phone && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-destructive border-destructive/30">
-            No Phone
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-muted-foreground/30">
+            Phone missing
           </Badge>
         )}
         {item.leadSource && (
@@ -118,6 +128,11 @@ export default function IntroRowCard({
         {item.confirmedAt && (
           <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 border">
             Confirmed
+          </Badge>
+        )}
+        {needsAttention && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-300">
+            Needs attention
           </Badge>
         )}
       </div>
@@ -132,9 +147,14 @@ export default function IntroRowCard({
             onClick={guardOnline(() => onSendQ(item.bookingId))}
           >
             <Send className="w-2.5 h-2.5" />
-            Send Q
+            Send Questionnaire
           </Button>
         </div>
+      )}
+      {item.questionnaireStatus === 'Q_SENT' && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+          Questionnaire: waiting on response
+        </Badge>
       )}
 
       {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach (always visible, same order) */}

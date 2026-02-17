@@ -4,7 +4,7 @@
 import { format, parseISO } from 'date-fns';
 import type { UpcomingIntroItem, RiskFlags, DayGroup, RiskCategory } from './myDayTypes';
 
-// ── Risk Weights ──
+// ── Risk Weights (kept for internal "needs attention" pill logic) ──
 
 const RISK_WEIGHTS: Record<keyof RiskFlags, number> = {
   noQ: 100,
@@ -43,23 +43,23 @@ export function enrichWithRisk(items: UpcomingIntroItem[], nowISO: string): Upco
   });
 }
 
-// ── Sorting: risk-first, then date, then time, then name ──
+// ── Sorting: by date then time then name (calm, chronological) ──
 
-export function sortRiskFirst(items: UpcomingIntroItem[]): UpcomingIntroItem[] {
+export function sortByTime(items: UpcomingIntroItem[]): UpcomingIntroItem[] {
   return [...items].sort((a, b) => {
-    // 1. Risk score descending
-    if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
-    // 2. Class date ascending
     if (a.classDate !== b.classDate) return a.classDate.localeCompare(b.classDate);
-    // 3. Intro time ascending (null last)
     if (a.introTime !== b.introTime) {
       if (!a.introTime) return 1;
       if (!b.introTime) return -1;
       return a.introTime.localeCompare(b.introTime);
     }
-    // 4. Member name ascending
     return a.memberName.localeCompare(b.memberName);
   });
+}
+
+/** @deprecated Use sortByTime instead */
+export function sortRiskFirst(items: UpcomingIntroItem[]): UpcomingIntroItem[] {
+  return sortByTime(items);
 }
 
 // ── Grouping by day ──
@@ -74,7 +74,6 @@ export function groupByDay(items: UpcomingIntroItem[]): DayGroup[] {
   }
 
   const result: DayGroup[] = [];
-  // Sort day keys ascending
   const sortedDates = [...groups.keys()].sort();
   for (const date of sortedDates) {
     const dayItems = groups.get(date)!;
@@ -113,15 +112,11 @@ export function filterMissingOwner(items: UpcomingIntroItem[]): UpcomingIntroIte
   return items.filter(i => !i.introOwner || i.introOwner.trim() === '');
 }
 
-// ── Suggested focus ──
+// ── Suggested focus (calm language) ──
 
 export function getSuggestedFocus(items: UpcomingIntroItem[]): string {
   const counts: Record<RiskCategory, number> = {
-    noQ: 0,
-    qIncomplete: 0,
-    unconfirmed: 0,
-    coachTbd: 0,
-    missingOwner: 0,
+    noQ: 0, qIncomplete: 0, unconfirmed: 0, coachTbd: 0, missingOwner: 0,
   };
   for (const item of items) {
     for (const key of Object.keys(counts) as RiskCategory[]) {
@@ -137,16 +132,16 @@ export function getSuggestedFocus(items: UpcomingIntroItem[]): string {
 
   const [topKey, topCount] = sorted[0];
   const labels: Record<RiskCategory, string> = {
-    noQ: `Send ${topCount} questionnaire${topCount > 1 ? 's' : ''} first`,
-    qIncomplete: `Follow up on ${topCount} incomplete Q${topCount > 1 ? 's' : ''}`,
-    unconfirmed: `Confirm ${topCount} intro${topCount > 1 ? 's' : ''} within 24h`,
-    coachTbd: `Assign coaches for ${topCount} intro${topCount > 1 ? 's' : ''}`,
-    missingOwner: `Assign owners for ${topCount} intro${topCount > 1 ? 's' : ''}`,
+    noQ: `Send ${topCount} questionnaire${topCount > 1 ? 's' : ''}`,
+    qIncomplete: `${topCount} Q${topCount > 1 ? 's' : ''} waiting on response`,
+    unconfirmed: `Confirm ${topCount} intro${topCount > 1 ? 's' : ''}`,
+    coachTbd: `Assign coaches (${topCount})`,
+    missingOwner: `Assign owners (${topCount})`,
   };
   return labels[topKey];
 }
 
-// ── At-Risk counts ──
+// ── At-Risk counts (kept for internal use) ──
 
 export function getAtRiskCounts(items: UpcomingIntroItem[]): Record<RiskCategory, number> {
   const counts: Record<RiskCategory, number> = {
