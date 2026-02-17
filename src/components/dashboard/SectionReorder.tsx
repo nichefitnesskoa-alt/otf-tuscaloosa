@@ -6,10 +6,7 @@ import { toast } from 'sonner';
 
 const DEFAULT_SECTION_ORDER = [
   'unresolved-intros',
-  'todays-intros',
   'new-leads',
-  'tomorrows-intros',
-  'coming-up',
   'followups-due',
   'questionnaire-hub',
   'completed-today',
@@ -18,10 +15,7 @@ const DEFAULT_SECTION_ORDER = [
 
 const SECTION_LABELS: Record<string, string> = {
   'unresolved-intros': 'Unresolved Intros',
-  'todays-intros': "Today's Intros",
   'new-leads': 'New Leads',
-  'tomorrows-intros': "Tomorrow's Intros",
-  'coming-up': "This Week's Intros",
   'followups-due': 'Follow-Ups Due',
   'questionnaire-hub': 'Questionnaire Hub',
   'completed-today': 'Completed Today',
