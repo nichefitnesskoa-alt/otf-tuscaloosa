@@ -8,6 +8,7 @@ import { format, addDays } from 'date-fns';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayTypes';
 import { enrichWithRisk, sortRiskFirst } from './myDaySelectors';
+import { normalizeDbTime } from '@/lib/time/timeUtils';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
@@ -145,9 +146,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       const rawItems: UpcomingIntroItem[] = bookings.map(b => {
         const q = deriveQStatus(qMap.get(b.id) || null);
         const run = runMap.get(b.id);
-        // Ensure valid ISO string with seconds
-        const timePart = b.intro_time
-          ? (b.intro_time.length === 5 ? `${b.intro_time}:00` : b.intro_time)
+        // Ensure valid ISO string with canonical HH:mm
+        const normalizedTime = normalizeDbTime(b.intro_time);
+        const timePart = normalizedTime
+          ? `${normalizedTime}:00`
           : '23:59:59';
         const timeStartISO = `${b.class_date}T${timePart}`;
 

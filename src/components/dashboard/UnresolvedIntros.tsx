@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { InlineIntroLogger } from '@/components/dashboard/InlineIntroLogger';
 import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
+import { formatDisplayTime, formatClassEndedBadge, normalizeDbTime } from '@/lib/time/timeUtils';
 
 interface UnresolvedIntro {
   id: string;
@@ -51,7 +52,7 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
     await supabase.from('intros_run').insert({
       member_name: b.member_name,
       run_date: b.class_date,
-      class_time: b.intro_time || '00:00',
+      class_time: normalizeDbTime(b.intro_time) || '00:00',
       lead_source: b.lead_source,
       result: 'No-show',
       coach_name: b.coach_name,
@@ -84,12 +85,15 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
               <div>
                 <span className="font-semibold text-sm">{b.member_name}</span>
                 <p className="text-xs text-muted-foreground">
-                  {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'Time TBD'} · {b.coach_name}
+                  {formatDisplayTime(b.intro_time)} · {b.coach_name}
                 </p>
               </div>
-              <Badge variant="destructive" className="text-[10px]">
-                Class ended {Math.round(b.hoursSinceClass)}h ago
-              </Badge>
+              {(() => {
+                const badge = formatClassEndedBadge(b.class_date, b.intro_time);
+                return badge ? (
+                  <Badge variant="destructive" className="text-[10px]">{badge}</Badge>
+                ) : null;
+              })()}
             </div>
             {loggingOpenId === b.id ? (
               <InlineIntroLogger

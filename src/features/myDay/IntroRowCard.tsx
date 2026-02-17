@@ -5,7 +5,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Send, Copy, User, Eye, Dumbbell } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -71,9 +71,7 @@ export default function IntroRowCard({
           {/* Time + Coach + Owner */}
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs text-muted-foreground">
             <span>
-              {item.introTime
-                ? format(parseISO(`2000-01-01T${item.introTime}`), 'h:mm a')
-                : 'Time TBD'}
+              {formatDisplayTime(item.introTime)}
             </span>
             <span>·</span>
             <span className={cn(!item.coachName || item.coachName === 'TBD' ? 'text-destructive' : '')}>
