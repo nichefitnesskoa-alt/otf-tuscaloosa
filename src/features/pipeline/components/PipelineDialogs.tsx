@@ -27,7 +27,7 @@ import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/t
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '../pipelineActions';
-import { normalizeBookingStatus } from '@/lib/domain/outcomes/types';
+import { normalizeBookingStatus, normalizeIntroResult } from '@/lib/domain/outcomes/types';
 import type { ClientJourney, PipelineBooking, PipelineRun } from '../pipelineTypes';
 
 const BOOKING_STATUSES = ['Active', 'No-show', 'Not interested', 'Closed (Purchased)', 'Duplicate', 'Deleted (soft)'];
@@ -235,8 +235,10 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (!editRun) return;
               const effectiveIntroOwner = editRun.intro_owner || editRun.ran_by || null;
 
-              // Update run fields directly (non-outcome)
-              await supabase.from('intros_run').update({
+              const resultChanged = editRun.result !== originalRunResult;
+
+              // Non-outcome fields: always safe to update directly
+              const nonOutcomeUpdate: Record<string, unknown> = {
                 run_date: editRun.run_date,
                 class_time: editRun.class_time,
                 lead_source: editRun.lead_source,
@@ -249,12 +251,18 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 goal_why_captured: editRun.goal_why_captured,
                 relationship_experience: editRun.relationship_experience,
                 made_a_friend: editRun.made_a_friend,
-                commission_amount: editRun.commission_amount,
-                buy_date: editRun.buy_date,
                 last_edited_at: new Date().toISOString(),
                 last_edited_by: userName,
                 edit_reason: editRunReason || 'Pipeline edit',
-              }).eq('id', editRun.id);
+              };
+
+              // If result is NOT changing, allow direct buy_date/commission edits
+              if (!resultChanged) {
+                nonOutcomeUpdate.buy_date = editRun.buy_date;
+                nonOutcomeUpdate.commission_amount = editRun.commission_amount;
+              }
+
+              await supabase.from('intros_run').update(nonOutcomeUpdate).eq('id', editRun.id);
 
               // Sync intro_owner/coach to linked booking
               if (editRun.linked_intro_booked_id && editRun.result !== 'No-show') {
@@ -268,8 +276,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 await supabase.from('intros_booked').update(updateData).eq('id', editRun.linked_intro_booked_id);
               }
 
-              // If result changed → canonical outcome update
-              if (editRun.result !== originalRunResult && editRun.linked_intro_booked_id) {
+              // If result changed → canonical outcome update owns result, result_canon, buy_date, commission, booking_status
+              if (resultChanged && editRun.linked_intro_booked_id) {
                 await updateOutcomeFromPipeline({
                   bookingId: editRun.linked_intro_booked_id,
                   runId: editRun.id,
@@ -332,18 +340,20 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (purchaseData.sale_type === 'Intro' && !purchaseData.intro_owner) { toast.error('Intro owner is required'); return; }
               const mc = MEMBERSHIP_TYPES.find(m => m.label === purchaseData.membership_type);
               const commission = mc?.commission || 0;
-              // Record outside sale
-              await supabase.from('sales_outside_intro').insert({
-                sale_id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                sale_type: purchaseData.sale_type === 'Intro' ? 'intro' : 'outside_intro',
-                member_name: booking.member_name,
-                lead_source: booking.lead_source,
-                membership_type: purchaseData.membership_type,
-                commission_amount: commission,
-                intro_owner: purchaseData.intro_owner || null,
-                date_closed: purchaseData.date_closed,
-              });
-              // Canonical outcome update
+              // Only record into sales_outside_intro for "Outside Intro" sales
+              if (purchaseData.sale_type === 'Outside Intro') {
+                await supabase.from('sales_outside_intro').insert({
+                  sale_id: `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  sale_type: 'outside_intro',
+                  member_name: booking.member_name,
+                  lead_source: booking.lead_source,
+                  membership_type: purchaseData.membership_type,
+                  commission_amount: commission,
+                  intro_owner: purchaseData.intro_owner || null,
+                  date_closed: purchaseData.date_closed,
+                });
+              }
+              // Canonical outcome update (runs for BOTH sale types)
               await updateOutcomeFromPipeline({
                 bookingId: booking.id,
                 memberName: booking.member_name,
@@ -812,7 +822,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner: newRun.ran_by,
                 lead_source: newRun.lead_source || 'Source Not Found',
                 result: newRun.result,
-                result_canon: normalizeBookingStatus(newRun.result), // Will be normalized properly
+                result_canon: normalizeIntroResult(newRun.result),
                 notes: newRun.notes || null,
                 linked_intro_booked_id: linkedId,
               });
