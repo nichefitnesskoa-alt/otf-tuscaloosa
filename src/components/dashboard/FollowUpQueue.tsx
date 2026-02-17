@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Loader2, Phone } from 'lucide-react';
+import { MessageSquare, Clock, SkipForward, X, CheckCircle, Send, Loader2, Phone, CalendarPlus, MessageCircle, PhoneCall, Voicemail } from 'lucide-react';
 import { format, differenceInDays, parseISO, addDays, formatDistanceToNowStrict } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
@@ -12,6 +12,7 @@ import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { selectBestScript } from '@/hooks/useSmartScriptSelect';
 import { cn } from '@/lib/utils';
 import { logTouch, fetchTouchSummaries } from '@/lib/touchLog';
+import { RebookDialog } from '@/components/dashboard/RebookDialog';
 
 interface FollowUpItem {
   id: string;
@@ -75,6 +76,7 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const [touchSummaries, setTouchSummaries] = useState<Map<string, { count: number; lastTouchAt: string | null }>>(new Map());
+  const [rebookItem, setRebookItem] = useState<FollowUpItem | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -322,41 +324,96 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
                     Sent by {item.sent_by} at {item.sent_at ? format(new Date(item.sent_at), 'h:mm a') : ''}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 md:gap-1">
-                    <Button
-                      size="sm"
-                      className="h-9 md:h-7 text-[13px] md:text-[11px] flex-1 gap-1 min-h-[44px] md:min-h-0"
-                      onClick={() => handleSend(item)}
-                    >
-                      <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                      Script
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
-                      onClick={() => handleMarkDone(item)}
-                    >
-                      <CheckCircle className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                      Done
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
-                      onClick={() => handleSnooze(item)}
-                    >
-                      <Clock className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                      Snooze
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 text-muted-foreground min-h-[44px] md:min-h-0"
-                      onClick={() => handleRemove(item)}
-                    >
-                      <X className="w-3.5 h-3.5 md:w-3 md:h-3" />
-                    </Button>
+                  <div className="space-y-1.5">
+                    {/* Primary actions */}
+                    <div className="flex items-center gap-1.5 md:gap-1">
+                      <Button
+                        size="sm"
+                        className="h-9 md:h-7 text-[13px] md:text-[11px] flex-1 gap-1 min-h-[44px] md:min-h-0"
+                        onClick={() => handleSend(item)}
+                      >
+                        <Send className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                        Script
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
+                        onClick={() => handleMarkDone(item)}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                        Done
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 md:h-7 text-[13px] md:text-[11px] gap-1 min-h-[44px] md:min-h-0"
+                        onClick={() => setRebookItem(item)}
+                      >
+                        <CalendarPlus className="w-3.5 h-3.5 md:w-3 md:h-3" />
+                        Rebook
+                      </Button>
+                    </div>
+                    {/* Quick touch row */}
+                    <div className="flex items-center gap-1 md:gap-0.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
+                        onClick={async () => {
+                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'text_manual', bookingId: item.booking_id, channel: 'sms', notes: 'Quick touch: texted' });
+                          toast.success('Touch logged: Texted');
+                          fetchQueue();
+                        }}
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        Texted
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
+                        onClick={async () => {
+                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'call', bookingId: item.booking_id, channel: 'call', notes: 'Quick touch: called' });
+                          toast.success('Touch logged: Called');
+                          fetchQueue();
+                        }}
+                      >
+                        <PhoneCall className="w-3 h-3" />
+                        Called
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
+                        onClick={async () => {
+                          await logTouch({ createdBy: user?.name || 'Unknown', touchType: 'call', bookingId: item.booking_id, channel: 'call', notes: 'Quick touch: left voicemail' });
+                          toast.success('Touch logged: Left VM');
+                          fetchQueue();
+                        }}
+                      >
+                        <Voicemail className="w-3 h-3" />
+                        Left VM
+                      </Button>
+                      <div className="flex-1" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 md:h-6 text-[11px] md:text-[10px] gap-0.5 text-muted-foreground px-2"
+                        onClick={() => handleSnooze(item)}
+                      >
+                        <Clock className="w-3 h-3" />
+                        Snooze
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 md:h-6 text-[11px] md:text-[10px] text-muted-foreground px-1"
+                        onClick={() => handleRemove(item)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -382,6 +439,16 @@ export function FollowUpQueue({ onRefresh }: FollowUpQueueProps) {
             setScriptItem(null);
             setSelectedTemplate(null);
           }}
+        />
+      )}
+
+      {rebookItem && (
+        <RebookDialog
+          open={!!rebookItem}
+          onOpenChange={(o) => { if (!o) setRebookItem(null); }}
+          personName={rebookItem.person_name}
+          bookingId={rebookItem.booking_id}
+          personType={rebookItem.person_type}
         />
       )}
     </>

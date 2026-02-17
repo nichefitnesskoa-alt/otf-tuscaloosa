@@ -8,10 +8,13 @@ import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
 import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
 import {
   normalizeIntroResult,
+  normalizeBookingStatus,
   isMembershipSaleResult,
   mapResultToBookingStatus,
   formatBookingStatusForDb,
   getTodayYMD,
+  type IntroResult,
+  type BookingStatus,
 } from './types';
 
 export interface OutcomeUpdateParams {
@@ -87,6 +90,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           run_date: runDate,
           class_time: '00:00',
           result: params.newResult,
+          result_canon: normalizeIntroResult(params.newResult),
           lead_source: params.leadSource || null,
           sa_name: params.editedBy,
           intro_owner: params.editedBy,
@@ -117,6 +121,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       await supabase.from('intros_run').update({
         result: params.newResult,
+        result_canon: normalizeIntroResult(params.newResult),
         commission_amount: params.commissionAmount ?? 0,
         primary_objection: params.objection || null,
         buy_date: buyDate,
@@ -142,6 +147,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       await supabase.from('intros_booked').update({
         booking_status: mappedStatus,
+        booking_status_canon: canonicalStatus,
         closed_at: isNowSale ? new Date().toISOString() : null,
         closed_by: isNowSale ? params.editedBy : null,
         last_edited_at: new Date().toISOString(),

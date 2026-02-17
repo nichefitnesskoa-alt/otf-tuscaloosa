@@ -80,6 +80,11 @@ export interface DashboardMetrics {
   touchesTodayBySa: Map<string, number>;
   followupsDoneTodayBySa: Map<string, number>;
   followUpConversionsInRange: number;
+  // Rebook/saves metrics
+  rebooksCreatedInRange: number;
+  noShowSavesInRange: number;
+  savesToday: number;
+  savesBySa: Map<string, number>;
 }
 
 /**
@@ -123,8 +128,12 @@ export function useDashboardMetrics(
     // because those can still be SA-initiated bookings.
     // Filter out bookings with excluded status, ignored from metrics, or VIP
     const activeBookings = introsBooked.filter(b => {
-      const status = ((b as any).booking_status || '').toUpperCase();
-      const isExcludedStatus = EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
+      // Prefer canon field, fall back to legacy
+      const canonStatus = (b as any).booking_status_canon as string | undefined;
+      const legacyStatus = ((b as any).booking_status || '').toUpperCase();
+      const isExcludedStatus = canonStatus 
+        ? ['DELETED_SOFT'].includes(canonStatus) || EXCLUDED_STATUSES.some(s => legacyStatus.includes(s.toUpperCase()))
+        : EXCLUDED_STATUSES.some(s => legacyStatus.includes(s.toUpperCase()));
       const isIgnored = (b as any).ignore_from_metrics === true;
       const isVip = (b as any).is_vip === true;
       return !isExcludedStatus && !isIgnored && !isVip;
@@ -556,6 +565,33 @@ export function useDashboardMetrics(
       return isSaleInRange(r, dateRange);
     }).length;
 
+    // =========================================
+    // REBOOK / SAVES METRICS
+    // =========================================
+    const rebookBookings = introsBooked.filter(b => {
+      const rebookedAt = (b as any).rebooked_at;
+      if (!rebookedAt) return false;
+      if (!dateRange) return true;
+      try {
+        const d = new Date(rebookedAt);
+        return d >= dateRange.start && d <= dateRange.end;
+      } catch { return false; }
+    });
+
+    const rebooksCreatedInRange = rebookBookings.length;
+    const noShowSavesInRange = rebookBookings.filter(b => (b as any).rebook_reason === 'no_show_save').length;
+    
+    const savesToday = rebookBookings.filter(b => {
+      const rebookedAt = (b as any).rebooked_at;
+      return rebookedAt && isToday(parseISO(rebookedAt));
+    }).length;
+
+    const savesBySa = new Map<string, number>();
+    rebookBookings.forEach(b => {
+      const by = (b as any).booked_by || b.sa_working_shift;
+      if (by) savesBySa.set(by, (savesBySa.get(by) || 0) + 1);
+    });
+
     return {
       studio: {
         introsRun: studioIntrosRun,
@@ -582,6 +618,10 @@ export function useDashboardMetrics(
       touchesTodayBySa,
       followupsDoneTodayBySa,
       followUpConversionsInRange,
+      rebooksCreatedInRange,
+      noShowSavesInRange,
+      savesToday,
+      savesBySa,
     };
   }, [introsBooked, introsRun, sales, dateRange, shiftRecaps, currentUserName, followUpQueue, followupTouches]);
 }

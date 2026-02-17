@@ -214,6 +214,8 @@ export type Database = {
           person_name: string
           person_type: string
           primary_objection: string | null
+          saved_to_rebook: boolean
+          saved_to_rebook_at: string | null
           scheduled_date: string
           sent_at: string | null
           sent_by: string | null
@@ -233,6 +235,8 @@ export type Database = {
           person_name: string
           person_type: string
           primary_objection?: string | null
+          saved_to_rebook?: boolean
+          saved_to_rebook_at?: string | null
           scheduled_date: string
           sent_at?: string | null
           sent_by?: string | null
@@ -252,6 +256,8 @@ export type Database = {
           person_name?: string
           person_type?: string
           primary_objection?: string | null
+          saved_to_rebook?: boolean
+          saved_to_rebook_at?: string | null
           scheduled_date?: string
           sent_at?: string | null
           sent_by?: string | null
@@ -503,6 +509,7 @@ export type Database = {
           booked_by: string | null
           booking_id: string | null
           booking_status: string | null
+          booking_status_canon: string
           class_date: string
           closed_at: string | null
           closed_by: string | null
@@ -528,6 +535,9 @@ export type Database = {
           originating_booking_id: string | null
           paired_booking_id: string | null
           phone: string | null
+          rebook_reason: string | null
+          rebooked_at: string | null
+          rebooked_from_booking_id: string | null
           referred_by_member_name: string | null
           sa_working_shift: string
           sheets_row_number: number | null
@@ -539,6 +549,7 @@ export type Database = {
           booked_by?: string | null
           booking_id?: string | null
           booking_status?: string | null
+          booking_status_canon?: string
           class_date: string
           closed_at?: string | null
           closed_by?: string | null
@@ -564,6 +575,9 @@ export type Database = {
           originating_booking_id?: string | null
           paired_booking_id?: string | null
           phone?: string | null
+          rebook_reason?: string | null
+          rebooked_at?: string | null
+          rebooked_from_booking_id?: string | null
           referred_by_member_name?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
@@ -575,6 +589,7 @@ export type Database = {
           booked_by?: string | null
           booking_id?: string | null
           booking_status?: string | null
+          booking_status_canon?: string
           class_date?: string
           closed_at?: string | null
           closed_by?: string | null
@@ -600,6 +615,9 @@ export type Database = {
           originating_booking_id?: string | null
           paired_booking_id?: string | null
           phone?: string | null
+          rebook_reason?: string | null
+          rebooked_at?: string | null
+          rebooked_from_booking_id?: string | null
           referred_by_member_name?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null
@@ -683,6 +701,7 @@ export type Database = {
           ran_by: string | null
           relationship_experience: string | null
           result: string
+          result_canon: string
           rfg_presented: boolean | null
           run_date: string | null
           run_id: string | null
@@ -727,6 +746,7 @@ export type Database = {
           ran_by?: string | null
           relationship_experience?: string | null
           result: string
+          result_canon?: string
           rfg_presented?: boolean | null
           run_date?: string | null
           run_id?: string | null
@@ -771,6 +791,7 @@ export type Database = {
           ran_by?: string | null
           relationship_experience?: string | null
           result?: string
+          result_canon?: string
           rfg_presented?: boolean | null
           run_date?: string | null
           run_id?: string | null
