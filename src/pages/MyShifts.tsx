@@ -70,6 +70,7 @@ export default function MyPerformance() {
 
   // Previous period metrics for comparison
   const prevDateRange = useMemo(() => {
+    if (!dateRange) return null;
     const duration = dateRange.end.getTime() - dateRange.start.getTime();
     return {
       start: new Date(dateRange.start.getTime() - duration),
