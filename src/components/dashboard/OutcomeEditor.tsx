@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
-import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
-import { incrementAmcOnSale } from '@/lib/amc-auto';
+import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 import { useAuth } from '@/context/AuthContext';
 
 const OBJECTIONS = ['Pricing', 'Time', 'Shopping Around', 'Spousal/Parental', 'Think About It', 'Out of Town', 'Other'];
@@ -38,7 +36,6 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
   const initialOutcome = wasPurchased ? 'purchased' : wasDidntBuy ? 'didnt_buy' : wasNoShow ? 'no_show' : '';
   const [outcome, setOutcome] = useState(initialOutcome);
   const [objection, setObjection] = useState(currentObjection || '');
-  // Try to match current result to a full option, fall back to first option
   const initialMembership = wasPurchased
     ? (MEMBERSHIP_OPTIONS.find(m => m.label === currentResult)?.label || MEMBERSHIP_OPTIONS[0].label)
     : MEMBERSHIP_OPTIONS[0].label;
@@ -63,64 +60,21 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         newResult = 'No-show';
       }
 
-      // Update intros_run record
-      await supabase.from('intros_run')
-        .update({
-          result: newResult,
-          commission_amount: newCommission,
-          primary_objection: outcome === 'didnt_buy' ? objection || null : null,
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: saName,
-          edit_reason: `Outcome changed from ${currentResult} to ${newResult} via MyDay`,
-        })
-        .eq('linked_intro_booked_id', bookingId);
+      const result = await applyIntroOutcomeUpdate({
+        bookingId,
+        memberName,
+        classDate,
+        newResult,
+        previousResult: currentResult,
+        membershipType: outcome === 'purchased' ? membershipType : undefined,
+        commissionAmount: newCommission,
+        objection: outcome === 'didnt_buy' ? objection || null : null,
+        editedBy: saName,
+        sourceComponent: 'OutcomeEditor',
+        editReason: `Outcome changed from ${currentResult} to ${newResult} via MyDay`,
+      });
 
-      // Handle downstream effects based on transition
-      const nowPurchased = outcome === 'purchased';
-      const nowDidntBuy = outcome === 'didnt_buy';
-      const nowNoShow = outcome === 'no_show';
-
-      // Remove old follow-ups if transitioning away from no-show/didn't-buy
-      if ((wasDidntBuy || wasNoShow) && nowPurchased) {
-        await supabase.from('follow_up_queue').delete().eq('booking_id', bookingId);
-      }
-
-      // Update booking status
-      if (nowPurchased) {
-        await supabase.from('intros_booked')
-          .update({ booking_status: 'Closed – Bought', closed_at: new Date().toISOString(), closed_by: saName })
-          .eq('id', bookingId);
-        if (!wasPurchased) {
-          await incrementAmcOnSale(memberName, membershipType, saName);
-        }
-      } else {
-        await supabase.from('intros_booked')
-          .update({ booking_status: 'Active', closed_at: null, closed_by: null })
-          .eq('id', bookingId);
-      }
-
-      // Create follow-ups if transitioning TO no-show/didn't-buy
-      if ((nowDidntBuy || nowNoShow) && !wasDidntBuy && !wasNoShow) {
-        const personType = nowNoShow ? 'no_show' : 'didnt_buy';
-        const entries = generateFollowUpEntries(
-          memberName, personType as 'no_show' | 'didnt_buy',
-          classDate, bookingId, null, false,
-          nowDidntBuy ? objection : null, null,
-        );
-        await supabase.from('follow_up_queue').insert(entries);
-      }
-
-      // If switching between didn't-buy and no-show, recreate follow-ups
-      if ((wasDidntBuy && nowNoShow) || (wasNoShow && nowDidntBuy)) {
-        await supabase.from('follow_up_queue').delete().eq('booking_id', bookingId);
-        const personType = nowNoShow ? 'no_show' : 'didnt_buy';
-        const entries = generateFollowUpEntries(
-          memberName, personType as 'no_show' | 'didnt_buy',
-          classDate, bookingId, null, false,
-          nowDidntBuy ? objection : null, null,
-        );
-        await supabase.from('follow_up_queue').insert(entries);
-      }
+      if (!result.success) throw new Error(result.error);
 
       toast.success(`Outcome updated to ${newResult}`);
       onDone();

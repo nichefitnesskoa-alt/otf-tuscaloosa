@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { capitalizeName } from '@/lib/utils';
 import { MEMBERSHIP_TYPES } from '@/types';
 import { isMembershipSale } from '@/lib/sales-detection';
-import { incrementAmcOnSale } from '@/lib/amc-auto';
+import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 
 interface EligibleFollowup {
   runId: string;
@@ -180,27 +180,20 @@ export default function FollowupPurchaseEntry({
 
       if (runError) throw runError;
 
-      // Auto-increment AMC for this sale
-      await incrementAmcOnSale(client.memberName, membershipType, staffName, purchaseDate);
-
-      // Close the linked booking if exists
-      if (client.linkedBookingId) {
-        const { error: bookingError } = await supabase
-          .from('intros_booked')
-          .update({
-            booking_status: 'Closed (Purchased)',
-            closed_at: new Date().toISOString(),
-            closed_by: staffName,
-            last_edited_at: new Date().toISOString(),
-            last_edited_by: staffName,
-            edit_reason: 'Closed via follow-up purchase',
-          })
-          .eq('id', client.linkedBookingId);
-
-        if (bookingError) {
-          console.error('Error closing booking:', bookingError);
-        }
-      }
+      // Sync booking, AMC, follow-ups, and audit via canonical function
+      await applyIntroOutcomeUpdate({
+        bookingId: client.linkedBookingId || '',
+        memberName: client.memberName,
+        classDate: client.introDate || purchaseDate,
+        newResult: membershipType,
+        previousResult: client.result,
+        membershipType,
+        commissionAmount: commission,
+        leadSource: client.leadSource || undefined,
+        editedBy: staffName,
+        sourceComponent: 'FollowupPurchaseEntry',
+        runId: client.runId,
+      });
 
       toast.success(`${capitalizeName(client.memberName)} marked as purchased!`, {
         description: `$${commission.toFixed(2)} commission for ${capitalizeName(client.introOwner)}`,

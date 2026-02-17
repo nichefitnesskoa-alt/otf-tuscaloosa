@@ -10,9 +10,8 @@ import { useData } from '@/context/DataContext';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
-import { incrementAmcOnSale } from '@/lib/amc-auto';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
+import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
@@ -160,24 +159,29 @@ export function InlineIntroLogger({
       // Track previous booking status for undo
       const previousStatus = 'Active';
 
-      // Update booking status + post-sale actions
-      if (outcome === 'purchased') {
-        await supabase
-          .from('intros_booked')
-          .update({ booking_status: 'Closed – Bought', closed_at: new Date().toISOString(), closed_by: saName })
-          .eq('id', bookingId);
+      // Sync booking, AMC, follow-ups, and audit via canonical function
+      await applyIntroOutcomeUpdate({
+        bookingId,
+        memberName,
+        classDate,
+        newResult: result,
+        previousResult: null, // first time logging
+        membershipType: outcome === 'purchased' ? membershipType : undefined,
+        commissionAmount,
+        leadSource,
+        objection: outcome === 'didnt_buy' ? objection : outcome === 'purchased' ? objection : null,
+        editedBy: saName,
+        sourceComponent: 'InlineIntroLogger',
+        runId: introRunId,
+      });
 
-        // Auto-increment AMC
-        await incrementAmcOnSale(memberName, membershipType, saName);
-
-        // Auto-close booking with full sale linking
-        if (commissionAmount > 0) {
-          const saleId = `run_${introRunId}`;
-          try {
-            await closeBookingOnSale(memberName, commissionAmount, membershipType, saleId, bookingId, saName);
-          } catch (e) {
-            console.error('Error in closeBookingOnSale:', e);
-          }
+      // Auto-close booking with full sale linking (Sheets sync, multi-booking matching)
+      if (outcome === 'purchased' && commissionAmount > 0) {
+        const saleId = `run_${introRunId}`;
+        try {
+          await closeBookingOnSale(memberName, commissionAmount, membershipType, saleId, bookingId, saName);
+        } catch (e) {
+          console.error('Error in closeBookingOnSale:', e);
         }
 
         // Match lead as won
@@ -202,40 +206,7 @@ export function InlineIntroLogger({
         }
       }
 
-      // Log the action
-      await supabase.from('script_actions').insert({
-        booking_id: bookingId,
-        action_type: 'intro_logged',
-        script_category: result,
-        completed_by: saName,
-      });
-
-      // Generate follow-up queue entries for no-show and didn't-buy
       let followUpIds: string[] = [];
-      if (outcome === 'no_show' || outcome === 'didnt_buy') {
-        const personType = outcome === 'no_show' ? 'no_show' : 'didnt_buy';
-        const { data: bookingData } = await supabase
-          .from('intros_booked')
-          .select('is_vip')
-          .eq('id', bookingId)
-          .maybeSingle();
-        const isVip = bookingData?.is_vip || false;
-
-        if (!isVip) {
-          const entries = generateFollowUpEntries(
-            memberName,
-            personType as 'no_show' | 'didnt_buy',
-            classDate,
-            bookingId,
-            null,
-            false,
-            outcome === 'didnt_buy' ? objection : null,
-            null,
-          );
-          const { data: fuData } = await supabase.from('follow_up_queue').insert(entries).select('id');
-          followUpIds = (fuData || []).map((f: any) => f.id);
-        }
-      }
 
       // Google Sheets sync (non-blocking)
       try {

@@ -1,5 +1,16 @@
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { isMembershipSale } from '@/lib/sales-detection';
+
+/**
+ * Check if a sale should increment AMC.
+ * HRM add-ons and upgrades are NOT new members.
+ */
+export function isAmcEligibleSale({ membershipType, leadSource }: { membershipType: string; leadSource: string }): boolean {
+  if (membershipType.toLowerCase().includes('hrm') || leadSource === 'HRM Add-on') return false;
+  if (leadSource === 'Upgrade') return false;
+  return isMembershipSale(membershipType);
+}
 
 /**
  * Auto-increment AMC by 1 for each sale.

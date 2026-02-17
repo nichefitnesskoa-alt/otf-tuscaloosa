@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { incrementAmcOnSale } from '@/lib/amc-auto';
+import { isAmcEligibleSale } from '@/lib/amc-auto';
 import { ShiftRecapAutoBuild } from '@/components/dashboard/ShiftRecapAutoBuild';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -855,8 +855,22 @@ export default function ShiftRecap() {
               user?.name || 'System'
             );
 
-            // Auto-increment AMC
-            await incrementAmcOnSale(run.memberName, run.outcome, user?.name || 'System', date);
+            // Auto-increment AMC (only for eligible sales)
+            if (isAmcEligibleSale({ membershipType: run.outcome, leadSource: run.leadSource || '' })) {
+              const { incrementAmcOnSale } = await import('@/lib/amc-auto');
+              await incrementAmcOnSale(run.memberName, run.outcome, user?.name || 'System', date);
+            }
+
+            // Audit log
+            await supabase.from('outcome_changes').insert({
+              booking_id: linkedBookingId,
+              run_id: runId,
+              old_result: null,
+              new_result: run.outcome,
+              changed_by: user?.name || 'System',
+              source_component: 'ShiftRecap',
+              amc_incremented: isAmcEligibleSale({ membershipType: run.outcome, leadSource: run.leadSource || '' }),
+            } as any);
           }
 
           // Handle "Booked 2nd intro" outcome - UPDATE existing booking instead of creating duplicate
@@ -946,9 +960,10 @@ export default function ShiftRecap() {
             date_closed: date,
           });
 
-          // Skip AMC increment, lead matching, and booking close for HRM add-ons
-          if (sale.membershipType !== 'HRM Add-on (OTBeat)') {
+          // Skip AMC increment, lead matching, and booking close for non-eligible sales
+          if (isAmcEligibleSale({ membershipType: sale.membershipType, leadSource: sale.leadSource || '' })) {
             // Auto-increment AMC for outside-intro sale
+            const { incrementAmcOnSale } = await import('@/lib/amc-auto');
             await incrementAmcOnSale(sale.memberName, sale.membershipType, user?.name || 'System', date);
 
             // Auto-link matching lead as won
@@ -961,16 +976,25 @@ export default function ShiftRecap() {
                 sale.commissionAmount,
                 sale.membershipType,
                 saleId,
-                undefined, // no specific booking ID
+                undefined,
                 user?.name || 'System'
               );
 
-              // If multiple matches, show confirmation dialog
               if (closeResult.requiresConfirmation && closeResult.matches) {
                 setShowConfirmDialog(true);
               }
             }
           }
+
+          // Audit log for outside-intro sale
+          await supabase.from('outcome_changes').insert({
+            booking_id: saleId,
+            old_result: null,
+            new_result: sale.membershipType,
+            changed_by: user?.name || 'System',
+            source_component: 'ShiftRecap',
+            amc_incremented: isAmcEligibleSale({ membershipType: sale.membershipType, leadSource: sale.leadSource || '' }),
+          } as any);
 
           // Sync to Google Sheets if configured
           if (spreadsheetId) {
