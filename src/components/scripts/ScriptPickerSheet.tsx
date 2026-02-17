@@ -12,6 +12,8 @@ interface MergeContext {
   'first-name'?: string;
   'last-name'?: string;
   'sa-name'?: string;
+  'coach-name'?: string;
+  'coach-first-name'?: string;
   day?: string;
   time?: string;
   'today/tomorrow'?: string;

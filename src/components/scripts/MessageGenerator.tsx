@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cleanCoachFallbackPhrasing } from '@/lib/script-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,8 @@ interface MergeContext {
   'first-name'?: string;
   'last-name'?: string;
   'sa-name'?: string;
+  'coach-name'?: string;
+  'coach-first-name'?: string;
   day?: string;
   time?: string;
   'today/tomorrow'?: string;
@@ -84,7 +87,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
 
   useEffect(() => {
     if (open) {
-      const applied = applyMergeFields(templateBody, fullContext, {});
+      const applied = cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, {}));
       setEditedMessage(applied);
       setManualFields({});
       setCopied(false);
@@ -94,7 +97,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const handleManualChange = (field: string, value: string) => {
     const newManual = { ...manualFields, [field]: value };
     setManualFields(newManual);
-    setEditedMessage(applyMergeFields(templateBody, fullContext, newManual));
+    setEditedMessage(cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, newManual)));
   };
 
   const handleCopy = async () => {

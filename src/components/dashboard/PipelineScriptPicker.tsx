@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { normalizeCoachName } from '@/lib/script-context';
 
 interface ClientBooking {
   id: string;
@@ -31,6 +32,7 @@ interface ClientRun {
   notes: string | null;
   commission_amount: number | null;
   linked_intro_booked_id: string | null;
+  coach_name: string | null;
 }
 
 interface ClientJourney {
@@ -124,6 +126,13 @@ function buildMergeContext(journey: ClientJourney): Record<string, string> {
     'first-name': firstName,
     'last-name': lastName,
   };
+
+  // Resolve coach name from booking or run
+  const bookingCoach = normalizeCoachName(latestBooking?.coach_name);
+  const runCoach = journey.runs[0] ? normalizeCoachName(journey.runs[0].coach_name ?? null) : null;
+  const resolvedCoach = bookingCoach ?? runCoach;
+  context['coach-name'] = resolvedCoach || 'your coach';
+  context['coach-first-name'] = resolvedCoach ? resolvedCoach.split(/\s+/)[0] : 'your coach';
 
   if (latestBooking) {
     try {
