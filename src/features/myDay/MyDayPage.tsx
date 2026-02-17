@@ -24,7 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, isToday } from 'date-fns';
-import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking, isBookingUnresolved } from '@/lib/time/timeUtils';
+import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
@@ -326,7 +326,8 @@ export default function MyDayPage() {
 
       {/* ═══════════════ CORE SECTIONS ═══════════════ */}
 
-      {/* Unresolved Intros – canonical classification using result_canon + linked runs */}
+      {/* Past-Due Intros – ONLY class_date < today, never today's intros */}
+      {/* GUARDRAIL: Today's intros must NEVER appear here. Only class_date strictly before todayStr. */}
       <UnresolvedIntros
         intros={(() => {
           // Build a set of resolved person+date combos to detect stale duplicates
@@ -342,17 +343,31 @@ export default function MyDayPage() {
             }
           }
           return introsBooked.filter(b => {
+            // VIP exclusion
             if (isVipBooking(b)) return false;
+            // CRITICAL: Only past dates, never today
+            if (b.class_date >= todayStr) return false;
+            // Skip soft-deleted
+            if (b.deleted_at) return false;
+            // Skip closed/not interested
+            const bCanon = b.booking_status_canon?.toUpperCase() || '';
+            if (bCanon === 'CLOSED_PURCHASED' || bCanon === 'NOT_INTERESTED' || bCanon === 'SECOND_INTRO_SCHEDULED') return false;
             // Skip if another booking for same person+date is already resolved
             const key = `${b.member_name.toLowerCase().trim()}|${b.class_date}`;
             if (resolvedPersonDates.has(key)) return false;
+            // Unresolved: no linked run, or run is UNRESOLVED
             const latestRun = getLatestRunForBooking(b.id, introsRun);
-            return isBookingUnresolved(b, latestRun);
+            if (!latestRun) return true;
+            const rCanon = (latestRun.result_canon || '').toUpperCase();
+            if (rCanon && rCanon !== 'UNRESOLVED') return false;
+            // Legacy fallback
+            const legacyResult = (latestRun.result || '').trim().toLowerCase();
+            if (legacyResult && legacyResult !== 'unresolved' && legacyResult !== '') return false;
+            return true;
           });
         })()
           .map(b => {
             const badge = formatClassEndedBadge(b.class_date, b.intro_time);
-            // Parse hours from badge or compute safely
             const badgeMatch = badge?.match(/(\d+)h ago/);
             const hoursSince = badgeMatch ? parseInt(badgeMatch[1], 10) : 0;
             return {
