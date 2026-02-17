@@ -2,10 +2,27 @@
  * Centralized Pipeline editing actions.
  * All outcome changes MUST flow through applyIntroOutcomeUpdate.
  * Booking field edits go through updateBookingFieldsFromPipeline.
+ *
+ * OUTCOME_OWNED_FIELDS: fields that the canonical function owns when result changes.
+ * Direct supabase updates MUST NOT include these when resultChanged is true.
  */
 import { supabase } from '@/integrations/supabase/client';
 import { applyIntroOutcomeUpdate } from '@/lib/domain/outcomes/applyIntroOutcomeUpdate';
 import { normalizeBookingStatus, formatBookingStatusForDb } from '@/lib/domain/outcomes/types';
+
+/**
+ * Fields owned by applyIntroOutcomeUpdate when the result changes.
+ * Direct run updates must exclude these when resultChanged === true.
+ */
+export const OUTCOME_OWNED_FIELDS = [
+  'result',
+  'result_canon',
+  'buy_date',
+  'commission_amount',
+  'primary_objection',
+  'amc_incremented_at',
+  'amc_incremented_by',
+] as const;
 
 // ── Outcome Update (delegates to canonical function) ──
 
