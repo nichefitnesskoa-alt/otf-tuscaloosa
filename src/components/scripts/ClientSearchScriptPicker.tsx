@@ -248,6 +248,25 @@ export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson
     onOpenChange(o);
   };
 
+  // Fetch questionnaireId for the selected person (booking only)
+  const [questionnaireRecordId, setQuestionnaireRecordId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedPerson?.type === 'booking' && selectedPerson.id) {
+      supabase
+        .from('intro_questionnaires')
+        .select('id')
+        .eq('booking_id', selectedPerson.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          setQuestionnaireRecordId(data?.id || null);
+        });
+    } else {
+      setQuestionnaireRecordId(null);
+    }
+  }, [selectedPerson]);
+
   // Message generator (separate dialog)
   if (selectedTemplate) {
     return (
@@ -263,6 +282,8 @@ export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson
         mergeContext={mergeContext}
         leadId={selectedPerson?.type === 'lead' ? selectedPerson.id : undefined}
         bookingId={selectedPerson?.type === 'booking' ? selectedPerson.id : undefined}
+        questionnaireId={questionnaireRecordId || undefined}
+        onQuestionnaireSent={() => {}}
       />
     );
   }

@@ -338,6 +338,7 @@ export type Database = {
           client_last_name: string
           created_at: string
           id: string
+          last_opened_at: string | null
           q1_fitness_goal: string | null
           q2_fitness_level: number | null
           q3_obstacle: string | null
@@ -358,6 +359,7 @@ export type Database = {
           client_last_name?: string
           created_at?: string
           id?: string
+          last_opened_at?: string | null
           q1_fitness_goal?: string | null
           q2_fitness_level?: number | null
           q3_obstacle?: string | null
@@ -378,6 +380,7 @@ export type Database = {
           client_last_name?: string
           created_at?: string
           id?: string
+          last_opened_at?: string | null
           q1_fitness_goal?: string | null
           q2_fitness_level?: number | null
           q3_obstacle?: string | null

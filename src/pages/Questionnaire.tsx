@@ -108,6 +108,16 @@ export default function Questionnaire() {
       if (row.status === 'completed') { setError('already_submitted'); setData(row as QuestionnaireData); setLoading(false); return; }
       setData(row as QuestionnaireData);
       setLoading(false);
+
+      // Track that the questionnaire was opened
+      try {
+        await supabase
+          .from('intro_questionnaires')
+          .update({ last_opened_at: new Date().toISOString() } as any)
+          .eq('id', row.id);
+      } catch (e) {
+        console.error('Failed to track questionnaire open:', e);
+      }
     })();
   }, [id]);
 
