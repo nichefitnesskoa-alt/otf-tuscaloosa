@@ -133,7 +133,7 @@ export function getSuggestedFocus(items: UpcomingIntroItem[]): string {
   const [topKey, topCount] = sorted[0];
   const labels: Record<RiskCategory, string> = {
     noQ: `Send ${topCount} questionnaire${topCount > 1 ? 's' : ''}`,
-    qIncomplete: `${topCount} Q${topCount > 1 ? 's' : ''} waiting on response`,
+    qIncomplete: `${topCount} not answered yet`,
     unconfirmed: `Confirm ${topCount} intro${topCount > 1 ? 's' : ''}`,
     coachTbd: `Assign coaches (${topCount})`,
     missingOwner: `Assign owners (${topCount})`,

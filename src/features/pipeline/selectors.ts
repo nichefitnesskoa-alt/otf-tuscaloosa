@@ -207,12 +207,24 @@ export function filterJourneysByTab(
   tab: JourneyTab,
   selectedLeadSource: string | null,
 ): ClientJourney[] {
-  if (tab === 'vip_class') {
-    return journeyList.filter(j => j.bookings.some(b => b.lead_source === 'VIP Class'));
-  }
-  if (tab === 'all') return journeyList;
+  // VIP detection helper
+  const isVipJourney = (j: ClientJourney) =>
+    j.bookings.some(b =>
+      b.lead_source === 'VIP Class' ||
+      (b as any).is_vip === true ||
+      (b as any).booking_type_canon === 'VIP' ||
+      (b.lead_source && b.lead_source.toLowerCase().includes('vip'))
+    );
 
-  return journeyList.filter(journey => {
+  if (tab === 'vip_class') {
+    return journeyList.filter(j => isVipJourney(j));
+  }
+
+  // All non-VIP tabs: exclude VIP journeys
+  const nonVipJourneys = journeyList.filter(j => !isVipJourney(j));
+  if (tab === 'all') return nonVipJourneys;
+
+  return nonVipJourneys.filter(journey => {
     const latestActiveBooking = journey.bookings.find(
       b => b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active'
     );

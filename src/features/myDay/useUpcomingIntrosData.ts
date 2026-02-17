@@ -70,8 +70,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const { data: bookings, error: bErr } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at')
         .is('deleted_at', null)
+        .eq('booking_type_canon', 'STANDARD')
         .gte('class_date', start)
         .lte('class_date', end)
         .not('booking_status_canon', 'eq', 'PURCHASED')
@@ -138,11 +139,34 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const nowISO = new Date().toISOString();
       const rawItems: UpcomingIntroItem[] = bookings.map(b => {
-        const q = deriveQStatus(qMap.get(b.id) || null);
+        // Use canonical questionnaire status from DB if available, fall back to joined data
+        const bookingQStatus = (b as any).questionnaire_status_canon as string | undefined;
+        let qStatus: QuestionnaireStatus;
+        let qSentAt: string | null = null;
+        let qCompletedAt: string | null = null;
+
+        if (bookingQStatus === 'completed') {
+          qStatus = 'Q_COMPLETED';
+          qSentAt = (b as any).questionnaire_sent_at || null;
+          qCompletedAt = (b as any).questionnaire_completed_at || null;
+        } else if (bookingQStatus === 'sent') {
+          qStatus = 'Q_SENT';
+          qSentAt = (b as any).questionnaire_sent_at || null;
+        } else {
+          // Fall back to joined questionnaire data
+          const q = deriveQStatus(qMap.get(b.id) || null);
+          qStatus = q.status;
+          qSentAt = q.sentAt;
+          qCompletedAt = q.completedAt;
+        }
+
         const run = runMap.get(b.id);
         const normalizedTime = normalizeDbTime(b.intro_time);
         const timePart = normalizedTime ? `${normalizedTime}:00` : '23:59:59';
-        const timeStartISO = `${b.class_date}T${timePart}`;
+        const timeStartISO = (b as any).class_start_at || `${b.class_date}T${timePart}`;
+
+        // Use phone_e164 if available, fall back to legacy phone
+        const displayPhone = (b as any).phone_e164 || b.phone;
 
         return {
           bookingId: b.id,
@@ -152,14 +176,14 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           coachName: b.coach_name,
           introOwner: b.intro_owner,
           introOwnerLocked: b.intro_owner_locked ?? false,
-          phone: b.phone,
+          phone: displayPhone,
           email: b.email,
           leadSource: b.lead_source,
           isVip: b.is_vip ?? false,
           vipClassName: b.vip_class_name,
-          questionnaireStatus: q.status,
-          qSentAt: q.sentAt,
-          qCompletedAt: q.completedAt,
+          questionnaireStatus: qStatus,
+          qSentAt,
+          qCompletedAt,
           confirmedAt: confirmMap.get(b.id) || null,
           hasLinkedRun: !!run,
           latestRunResult: run?.result || null,
@@ -172,8 +196,8 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         };
       });
 
-      // Filter out completed intros and VIP bookings
-      const activeItems = rawItems.filter(i => !i.hasLinkedRun && !i.isVip);
+      // Filter out completed intros (VIP already excluded by query booking_type_canon = 'STANDARD')
+      const activeItems = rawItems.filter(i => !i.hasLinkedRun);
 
       // Enrich with risk (kept internally for "needs attention" logic) and sort by time
       const enriched = enrichWithRisk(activeItems, nowISO);

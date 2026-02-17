@@ -366,8 +366,9 @@ export default function MyDayPage() {
             }
           }
           return introsBooked.filter(b => {
-            // VIP exclusion
+            // VIP exclusion (use canonical field + legacy detection)
             if (isVipBooking(b)) return false;
+            if ((b as any).booking_type_canon === 'VIP') return false;
             // CRITICAL: Only past dates, never today
             if (b.class_date >= todayStr) return false;
             // Skip soft-deleted
@@ -606,7 +607,7 @@ export default function MyDayPage() {
         <ScriptPickerSheet
           open={!!scriptBookingId}
           onOpenChange={(open) => { if (!open) setScriptBookingId(null); }}
-          suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}
+          suggestedCategories={['confirmation', 'follow_up', 'outreach']}
           mergeContext={scriptMergeContext}
           bookingId={scriptBooking.id}
           onLogged={() => { setScriptBookingId(null); fetchNonIntroData(); }}
