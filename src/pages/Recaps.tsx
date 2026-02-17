@@ -449,6 +449,32 @@ export default function Recaps() {
         </Card>
       )}
 
+      {/* Saves & Rebooks Card */}
+      {(metrics.rebooksCreatedInRange > 0 || metrics.followUpConversionsInRange > 0) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              🔄 Saves & Conversions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-2xl font-bold">{metrics.rebooksCreatedInRange}</p>
+                <p className="text-xs text-muted-foreground">Rebooks</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{metrics.noShowSavesInRange}</p>
+                <p className="text-xs text-muted-foreground">No-Show Saves</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{metrics.followUpConversionsInRange}</p>
+                <p className="text-xs text-muted-foreground">FU Conversions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {/* Runner & Booker Stats Tabs */}
       <Tabs defaultValue="runner">
         <TabsList className="grid w-full grid-cols-2">

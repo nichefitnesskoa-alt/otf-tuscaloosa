@@ -79,7 +79,7 @@ import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
 
-// Booking status types
+// Booking status types - legacy display strings kept for UI, canon field used for logic
 const BOOKING_STATUSES = [
   'Active',
   'No-show',
@@ -403,13 +403,21 @@ export default function ClientJourneyPanel() {
           }
         });
 
-        // Determine status
+        // Determine status using canon fields when available
         let status: ClientJourney['status'] = 'unknown';
         const hasSale = data.runs.some(r => isMembershipSale(r.result));
-        const hasNotInterested = data.bookings.some(b => b.booking_status === 'Not interested');
-        const hasClosed = data.bookings.some(b => b.booking_status === 'Closed (Purchased)');
-        const hasActive = data.bookings.some(b => b.booking_status === 'Active' || !b.booking_status);
-        const hasNoShow = data.runs.some(r => r.result === 'No-show');
+        const hasNotInterested = data.bookings.some(b => 
+          (b as any).booking_status_canon === 'NOT_INTERESTED' || b.booking_status === 'Not interested'
+        );
+        const hasClosed = data.bookings.some(b => 
+          (b as any).booking_status_canon === 'CLOSED_PURCHASED' || b.booking_status === 'Closed (Purchased)'
+        );
+        const hasActive = data.bookings.some(b => 
+          (b as any).booking_status_canon === 'ACTIVE' || b.booking_status === 'Active' || !b.booking_status
+        );
+        const hasNoShow = data.runs.some(r => 
+          (r as any).result_canon === 'NO_SHOW' || r.result === 'No-show'
+        );
 
         if (hasSale || hasClosed) {
           status = 'purchased';

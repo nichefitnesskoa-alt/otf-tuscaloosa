@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Flame, Target, CheckCircle2 } from 'lucide-react';
+import { Flame, Target, CheckCircle2, CalendarPlus } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import { isToday, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import { getTodayYMD } from '@/lib/dateUtils';
+import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 
 interface ExecutionCardProps {
   touchesTarget?: number;
@@ -14,7 +15,7 @@ interface ExecutionCardProps {
 
 export function ExecutionCard({ touchesTarget = 25, followupsTarget = 10 }: ExecutionCardProps) {
   const { user } = useAuth();
-  const { followUpQueue, followupTouches } = useData();
+  const { followUpQueue, followupTouches, introsBooked, introsRun, sales, shiftRecaps } = useData();
 
   const stats = useMemo(() => {
     const userName = user?.name;
@@ -79,6 +80,14 @@ export function ExecutionCard({ touchesTarget = 25, followupsTarget = 10 }: Exec
     return { touchesToday, fuDoneToday, fuDueToday, touchStreak, fuStreak };
   }, [user?.name, followupTouches, followUpQueue]);
 
+  // Saves today from rebook data
+  const savesToday = useMemo(() => {
+    return introsBooked.filter(b => {
+      const rebookedAt = (b as any).rebooked_at;
+      return rebookedAt && isToday(parseISO(rebookedAt));
+    }).length;
+  }, [introsBooked]);
+
   const touchPct = Math.min(100, Math.round((stats.touchesToday / touchesTarget) * 100));
   const fuPct = stats.fuDueToday === 0 ? 100 : Math.min(100, Math.round((stats.fuDoneToday / Math.max(stats.fuDueToday, 1)) * 100));
 
@@ -112,6 +121,12 @@ export function ExecutionCard({ touchesTarget = 25, followupsTarget = 10 }: Exec
           </div>
           <Progress value={fuPct} className="h-1.5" />
         </div>
+
+        {savesToday > 0 && (
+          <div className="flex items-center gap-1 text-[11px] text-primary font-medium">
+            <CalendarPlus className="w-3 h-3" /> {savesToday} rebook{savesToday !== 1 ? 's' : ''} today
+          </div>
+        )}
 
         {touchPct >= 100 && fuPct >= 100 && (
           <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
