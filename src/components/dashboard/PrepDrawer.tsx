@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 import { isMembershipSale } from '@/lib/sales-detection';
 import {
   User, Calendar, Target, ClipboardList, DollarSign, Phone, Mail,
@@ -37,6 +38,7 @@ interface QuestionnaireData {
   q6b_available_days: string | null;
   q7_coach_notes: string | null;
   status: string;
+  last_opened_at: string | null;
 }
 
 interface SendLogEntry {
@@ -115,7 +117,7 @@ export function PrepDrawer({
     Promise.all([
       supabase
         .from('intro_questionnaires')
-        .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status' as any)
+        .select('q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, status, last_opened_at' as any)
         .in('booking_id', bookingIds)
         .order('created_at', { ascending: false }),
       supabase
@@ -242,7 +244,9 @@ export function PrepDrawer({
                   <div className="text-xs text-muted-foreground italic flex flex-col gap-2 p-2 rounded border">
                     <div className="flex items-center gap-2">
                       <ClipboardList className="w-3.5 h-3.5" />
-                      {questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
+                      {questionnaire?.last_opened_at && questionnaire.status === 'sent'
+                        ? `Questionnaire opened ${formatDistanceToNow(new Date(questionnaire.last_opened_at), { addSuffix: true })} but not completed`
+                        : questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
                     </div>
                     <div className="flex gap-2">
                       {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (

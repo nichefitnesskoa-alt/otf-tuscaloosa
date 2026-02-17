@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { format, isToday, parseISO, addDays, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
+import { format, isToday, parseISO, addDays, differenceInMinutes, differenceInHours, differenceInDays, formatDistanceToNow } from 'date-fns';
 import { 
   Calendar, AlertTriangle, UserPlus, 
   Clock, FileText, CalendarCheck, Star, ChevronDown, ChevronRight, CalendarPlus, CheckCircle2,
@@ -63,6 +63,7 @@ interface DayBooking {
   lead_source: string;
   questionnaire_status: string | null;
   questionnaire_slug: string | null;
+  questionnaire_last_opened_at: string | null;
   originating_booking_id: string | null;
   class_date: string;
   created_at: string;
@@ -242,7 +243,7 @@ export default function MyDay() {
         const bookingIds = bookings.map(b => b.id);
         const [qRes, runRes] = await Promise.all([
           supabase.from('intro_questionnaires')
-            .select('booking_id, status, slug')
+            .select('booking_id, status, slug, last_opened_at')
             .in('booking_id', bookingIds.length > 0 ? bookingIds : ['none']),
           supabase.from('intros_run')
             .select('linked_intro_booked_id, result, primary_objection')
@@ -251,12 +252,12 @@ export default function MyDay() {
         ]);
 
         // Prioritize completed/submitted questionnaires over not_sent/sent ones
-        const qByBooking = new Map<string, { status: string; slug: string | null }>();
+        const qByBooking = new Map<string, { status: string; slug: string | null; lastOpenedAt: string | null }>();
         for (const q of (qRes.data || [])) {
           const existing = qByBooking.get(q.booking_id);
           const isCompleted = q.status === 'completed' || q.status === 'submitted';
           if (!existing || isCompleted) {
-            qByBooking.set(q.booking_id, { status: q.status, slug: (q as any).slug });
+            qByBooking.set(q.booking_id, { status: q.status, slug: (q as any).slug, lastOpenedAt: (q as any).last_opened_at || null });
           }
         }
         const qMap = qByBooking;
@@ -266,6 +267,7 @@ export default function MyDay() {
           ...b,
           questionnaire_status: qMap.get(b.id)?.status || null,
           questionnaire_slug: qMap.get(b.id)?.slug || null,
+          questionnaire_last_opened_at: qMap.get(b.id)?.lastOpenedAt || null,
           phone: (b as any).phone || null,
           email: (b as any).email || null,
           intro_result: runMap.get(b.id)?.result || null,
@@ -465,10 +467,14 @@ export default function MyDay() {
     } catch { toast.error('Failed to update'); }
   };
 
-  const getQBadge = (status: string | null, is2nd: boolean) => {
+  const getQBadge = (status: string | null, is2nd: boolean, lastOpenedAt?: string | null) => {
     if (is2nd) return null;
     if (!status) return <Badge variant="outline" className="text-muted-foreground text-[10px]">No Q</Badge>;
     if (status === 'submitted' || status === 'completed') return <Badge className="bg-success text-success-foreground text-[10px]">Q Done</Badge>;
+    if (status === 'sent' && lastOpenedAt) {
+      const openedAgo = formatDistanceToNow(new Date(lastOpenedAt), { addSuffix: true });
+      return <Badge className="bg-blue-100 text-blue-700 border-blue-200 border text-[10px]">Opened {openedAgo}</Badge>;
+    }
     if (status === 'sent') return <Badge className="bg-warning text-warning-foreground text-[10px]">Q Sent</Badge>;
     return <Badge variant="outline" className="text-muted-foreground text-[10px]">Not Sent</Badge>;
   };
@@ -665,7 +671,7 @@ export default function MyDay() {
               {showReminderStatus && !reminderSent && (
                 <Badge variant="outline" className="text-[9px] px-1 py-0 bg-warning/15 text-warning border-warning/30">Not Confirmed</Badge>
               )}
-              {!isVipCard && !isExpanded && getQBadge(b.questionnaire_status, is2nd)}
+              {!isVipCard && !isExpanded && getQBadge(b.questionnaire_status, is2nd, b.questionnaire_last_opened_at)}
               {/* ConversionSignal: desktop only */}
               {!isVipCard && !isExpanded && (
                 <span className="hidden md:inline-flex">
@@ -745,7 +751,7 @@ export default function MyDay() {
                 />
               )}
               {b.phone && !b.email && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">No Email</Badge>}
-              {!isVipCard && getQBadge(b.questionnaire_status, is2nd)}
+              {!isVipCard && getQBadge(b.questionnaire_status, is2nd, b.questionnaire_last_opened_at)}
             </div>
 
             {/* No-show warning */}

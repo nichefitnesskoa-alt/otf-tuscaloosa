@@ -88,11 +88,28 @@ export function IntroActionBar({
 
   // Dynamic questionnaire slug — synced from prop, updated on auto-create
   const [dynamicQSlug, setDynamicQSlug] = useState<string | null>(questionnaireSlug || null);
+  const [questionnaireRecordId, setQuestionnaireRecordId] = useState<string | null>(null);
 
   // Sync from prop when it changes
   useEffect(() => {
     if (questionnaireSlug) setDynamicQSlug(questionnaireSlug);
   }, [questionnaireSlug]);
+
+  // Fetch questionnaire record ID on mount if slug exists
+  useEffect(() => {
+    if (questionnaireSlug && !questionnaireRecordId) {
+      supabase
+        .from('intro_questionnaires')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setQuestionnaireRecordId(data.id);
+        });
+    }
+  }, [questionnaireSlug, bookingId]);
 
   const prepBookingId = firstBookingId || bookingId;
   const firstName = memberName.split(' ')[0] || '';
@@ -209,6 +226,7 @@ export function IntroActionBar({
       if (byBookingAny) {
         const slug = byBookingAny.slug || byBookingAny.id;
         setDynamicQSlug(slug);
+        setQuestionnaireRecordId(byBookingAny.id);
         return slug;
       }
 
@@ -233,6 +251,7 @@ export function IntroActionBar({
             .is('booking_id', null);
         }
         setDynamicQSlug(slug);
+        setQuestionnaireRecordId(byNameAny.id);
         return slug;
       }
 
@@ -259,6 +278,7 @@ export function IntroActionBar({
       }
 
       setDynamicQSlug(slug);
+      setQuestionnaireRecordId(newId);
       onQuestionnaireCreated?.(slug);
       return slug;
     } catch (err) {
@@ -371,9 +391,13 @@ export function IntroActionBar({
           template={smartResult.template}
           mergeContext={mergeContext}
           bookingId={bookingId}
+          questionnaireId={questionnaireRecordId || undefined}
           contextNote={smartResult.note || undefined}
           bodyOverride={bodyOverride}
           onChangeScript={() => setScriptMode('picker')}
+          onQuestionnaireSent={() => {
+            onQuestionnaireCreated?.(dynamicQSlug || '');
+          }}
         />
       )}
 

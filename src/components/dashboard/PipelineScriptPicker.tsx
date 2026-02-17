@@ -164,6 +164,8 @@ function buildMergeContext(journey: ClientJourney): Record<string, string> {
 export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineScriptPickerProps) {
   const [questionnaireLink, setQuestionnaireLink] = useState<string | undefined>();
   const [friendQuestionnaireLink, setFriendQuestionnaireLink] = useState<string | undefined>();
+  const [questionnaireRecordId, setQuestionnaireRecordId] = useState<string | undefined>();
+  const [friendQuestionnaireRecordId, setFriendQuestionnaireRecordId] = useState<string | undefined>();
   const suggestedCategories = getSuggestedCategories(journey);
   const mergeContext = buildMergeContext(journey);
 
@@ -177,28 +179,33 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
       // Always use booking_id to fetch Q (never by name)
       const { data } = await supabase
         .from('intro_questionnaires')
-        .select('slug, status, q1_fitness_goal')
+        .select('id, slug, status, q1_fitness_goal')
         .eq('booking_id', booking.id)
         .maybeSingle();
 
-      if (data?.slug) {
-        // Only include link if Q is not completed
-        if (data.status !== 'submitted' && data.status !== 'completed') {
-          setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
+      if (data) {
+        setQuestionnaireRecordId(data.id);
+        if (data.slug) {
+          // Only include link if Q is not completed
+          if (data.status !== 'submitted' && data.status !== 'completed') {
+            setQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${data.slug}`);
+          }
         }
-        // If Q is completed, we could add goal to context
       }
 
       // Friend questionnaire link via paired_booking_id
       if (booking.paired_booking_id) {
         const { data: friendData } = await supabase
           .from('intro_questionnaires')
-          .select('slug, status')
+          .select('id, slug, status')
           .eq('booking_id', booking.paired_booking_id)
           .maybeSingle();
 
-        if (friendData?.slug && friendData.status !== 'submitted' && friendData.status !== 'completed') {
-          setFriendQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${friendData.slug}`);
+        if (friendData) {
+          setFriendQuestionnaireRecordId(friendData.id);
+          if (friendData.slug && friendData.status !== 'submitted' && friendData.status !== 'completed') {
+            setFriendQuestionnaireLink(`https://otf-tuscaloosa.lovable.app/q/${friendData.slug}`);
+          }
         }
       }
     };
@@ -222,6 +229,10 @@ export function PipelineScriptPicker({ journey, open, onOpenChange }: PipelineSc
       suggestedCategories={suggestedCategories}
       mergeContext={fullMergeContext}
       bookingId={journey.bookings[0]?.id}
+      questionnaireId={questionnaireRecordId}
+      friendQuestionnaireId={friendQuestionnaireRecordId}
+      onQuestionnaireSent={() => {}}
+      onFriendQuestionnaireSent={() => {}}
     />
   );
 }
