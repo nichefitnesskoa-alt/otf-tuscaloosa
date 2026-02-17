@@ -1,7 +1,8 @@
 /**
- * Upcoming Intros Card: the single canonical intros queue.
- * Contains summary strip, filters, at-risk banner, and day-grouped list.
- * Prep/Script/Coach buttons on each card open drawers in MyDayPage.
+ * Upcoming Intros Card: calm, positive daily workflow.
+ * Two tabs: Today / Rest of week.
+ * No at-risk banners, no scary styling.
+ * Cards show Prep | Script | Coach buttons.
  */
 import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,36 +13,23 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { TimeRange } from './myDayTypes';
 import { useUpcomingIntrosData } from './useUpcomingIntrosData';
-import { groupByDay, getAtRiskCounts, getSuggestedFocus } from './myDaySelectors';
+import { groupByDay, getSuggestedFocus } from './myDaySelectors';
 import UpcomingIntrosFilters from './UpcomingIntrosFilters';
-import AtRiskBanner from './AtRiskBanner';
 import IntroDayGroup from './IntroDayGroup';
 import { sendQuestionnaire, confirmIntro } from './myDayActions';
-import { format } from 'date-fns';
 
 interface UpcomingIntrosCardProps {
   userName: string;
 }
 
 export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('next24h');
-  const [customStart, setCustomStart] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [showAtRiskOnly, setShowAtRiskOnly] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
 
   const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
-    customStart,
-    customEnd,
   });
 
-  const filteredItems = useMemo(() => {
-    if (!showAtRiskOnly) return items;
-    return items.filter(i => i.riskScore > 0);
-  }, [items, showAtRiskOnly]);
-
-  const dayGroups = useMemo(() => groupByDay(filteredItems), [filteredItems]);
-  const riskCounts = useMemo(() => getAtRiskCounts(items), [items]);
+  const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
 
   const qCompletionPct = useMemo(() => {
@@ -74,10 +62,15 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
     <Card id="upcoming-intros">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            Upcoming Intros
-          </CardTitle>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              Upcoming Intros
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Make these feel welcomed and ready.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             {lastSyncAt && (
               <span className="text-[10px] text-muted-foreground">
@@ -101,17 +94,24 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Summary strip */}
+        {/* Summary strip – calm, neutral */}
         <div className="flex items-center gap-3 flex-wrap text-xs">
           <span className="font-medium">
-            {timeRange === 'next24h' ? 'Next 24h' : timeRange === 'next7d' ? 'Next 7d' : 'Custom'} Intros: <strong>{items.length}</strong>
+            {timeRange === 'today' ? "Today's" : 'This week\'s'} Intros: <strong>{items.length}</strong>
           </span>
           <span className="text-muted-foreground">
-            Q completion: <strong>{qCompletionPct}%</strong>
+            On track: <strong>{qCompletionPct}%</strong>
           </span>
-          <span className="text-muted-foreground">
-            Focus: <strong>{suggestedFocus}</strong>
-          </span>
+          {suggestedFocus !== 'All prepped! 🎉' && (
+            <span className="text-muted-foreground">
+              Quick win: <strong>{suggestedFocus}</strong>
+            </span>
+          )}
+          {suggestedFocus === 'All prepped! 🎉' && (
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              {suggestedFocus}
+            </span>
+          )}
         </div>
 
         {/* Capped warning */}
@@ -122,28 +122,19 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
           </div>
         )}
 
-        {/* Filters */}
+        {/* Tabs: Today / Rest of week */}
         <UpcomingIntrosFilters
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
-          customStart={customStart}
-          customEnd={customEnd}
-          onCustomStartChange={setCustomStart}
-          onCustomEndChange={setCustomEnd}
-        />
-
-        {/* At-risk banner */}
-        <AtRiskBanner
-          counts={riskCounts}
-          showAtRiskOnly={showAtRiskOnly}
-          onToggle={() => setShowAtRiskOnly(v => !v)}
         />
 
         {/* Day groups */}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : dayGroups.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No upcoming intros</p>
+          <p className="text-sm text-muted-foreground italic">
+            {timeRange === 'today' ? 'No intros scheduled for today' : 'No intros for the rest of this week'}
+          </p>
         ) : (
           <div className="space-y-4">
             {dayGroups.map(group => (

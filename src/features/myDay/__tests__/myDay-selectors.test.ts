@@ -75,37 +75,36 @@ describe('computeRiskScore', () => {
   });
 });
 
-describe('sortRiskFirst', () => {
-  it('sorts NO_Q items before Q_COMPLETED', () => {
-    const now = '2026-02-17T12:00:00Z';
-    const items = [
-      makeItem({ bookingId: 'ok', questionnaireStatus: 'Q_COMPLETED' }),
-      makeItem({ bookingId: 'noq', questionnaireStatus: 'NO_Q' }),
-    ];
-    const enriched = enrichWithRisk(items, now);
-    const sorted = sortRiskFirst(enriched);
-    expect(sorted[0].bookingId).toBe('noq');
-  });
-
-  it('sorts Q_SENT before Q_COMPLETED but after NO_Q', () => {
-    const now = '2026-02-17T12:00:00Z';
-    const items = [
-      makeItem({ bookingId: 'done', questionnaireStatus: 'Q_COMPLETED' }),
-      makeItem({ bookingId: 'sent', questionnaireStatus: 'Q_SENT' }),
-      makeItem({ bookingId: 'noq', questionnaireStatus: 'NO_Q' }),
-    ];
-    const enriched = enrichWithRisk(items, now);
-    const sorted = sortRiskFirst(enriched);
-    expect(sorted[0].bookingId).toBe('noq');
-    expect(sorted[1].bookingId).toBe('sent');
-    expect(sorted[2].bookingId).toBe('done');
-  });
-
-  it('within same risk, sorts by date then time', () => {
+describe('sortByTime (via sortRiskFirst)', () => {
+  it('sorts by date then time chronologically', () => {
     const now = '2026-02-17T12:00:00Z';
     const items = [
       makeItem({ bookingId: 'b', classDate: '2026-02-19', introTime: '09:00' }),
       makeItem({ bookingId: 'a', classDate: '2026-02-18', introTime: '14:00' }),
+    ];
+    const enriched = enrichWithRisk(items, now);
+    const sorted = sortRiskFirst(enriched);
+    expect(sorted[0].bookingId).toBe('a');
+    expect(sorted[1].bookingId).toBe('b');
+  });
+
+  it('sorts by time within same date', () => {
+    const now = '2026-02-17T12:00:00Z';
+    const items = [
+      makeItem({ bookingId: 'late', classDate: '2026-02-18', introTime: '16:00' }),
+      makeItem({ bookingId: 'early', classDate: '2026-02-18', introTime: '09:00' }),
+    ];
+    const enriched = enrichWithRisk(items, now);
+    const sorted = sortRiskFirst(enriched);
+    expect(sorted[0].bookingId).toBe('early');
+    expect(sorted[1].bookingId).toBe('late');
+  });
+
+  it('sorts by name when date and time match', () => {
+    const now = '2026-02-17T12:00:00Z';
+    const items = [
+      makeItem({ bookingId: 'z', memberName: 'Zoe', classDate: '2026-02-18', introTime: '10:00' }),
+      makeItem({ bookingId: 'a', memberName: 'Alice', classDate: '2026-02-18', introTime: '10:00' }),
     ];
     const enriched = enrichWithRisk(items, now);
     const sorted = sortRiskFirst(enriched);
