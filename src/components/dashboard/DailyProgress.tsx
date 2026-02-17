@@ -1,27 +1,55 @@
+import { useState, useEffect } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { format } from 'date-fns';
 
 interface DailyProgressProps {
+  /** Count of intros with outcomes logged today */
   completedIntros: number;
+  /** Total intros scheduled today */
   totalIntros: number;
-  scriptsSent: number;
-  followUpsSent: number;
+  /** Follow-ups due today (from parent) */
   followUpsDue: number;
 }
 
 export function DailyProgress({
   completedIntros,
   totalIntros,
-  scriptsSent,
-  followUpsSent,
   followUpsDue,
 }: DailyProgressProps) {
-  // Count total trackable tasks and completed
+  const { user } = useAuth();
+  const [touchesToday, setTouchesToday] = useState(0);
+  const [followUpsDoneToday, setFollowUpsDoneToday] = useState(0);
+
+  useEffect(() => {
+    if (!user?.name) return;
+    const todayStart = format(new Date(), 'yyyy-MM-dd') + 'T00:00:00';
+
+    // Fetch real touch count and follow-up completion count
+    Promise.all([
+      supabase
+        .from('followup_touches' as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', user.name)
+        .gte('created_at', todayStart),
+      supabase
+        .from('follow_up_queue')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent')
+        .gte('sent_at', todayStart),
+    ]).then(([touchRes, fuRes]) => {
+      setTouchesToday((touchRes as any).count || 0);
+      setFollowUpsDoneToday((fuRes as any).count || 0);
+    }).catch(console.error);
+  }, [user?.name, completedIntros]); // re-fetch when intros change
+
   const tasks = [
     { done: completedIntros >= totalIntros && totalIntros > 0, label: 'Intros logged' },
-    { done: scriptsSent > 0, label: 'Scripts sent' },
-    { done: followUpsDue === 0 || followUpsSent > 0, label: 'Follow-ups' },
+    { done: touchesToday > 0, label: 'Scripts/touches' },
+    { done: followUpsDue === 0 || followUpsDoneToday > 0, label: 'Follow-ups' },
   ];
   const doneCount = tasks.filter(t => t.done).length;
   const pct = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;

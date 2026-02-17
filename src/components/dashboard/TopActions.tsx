@@ -1,15 +1,15 @@
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Zap, MessageSquare, Phone, ClipboardList, UserPlus } from 'lucide-react';
-import { differenceInMinutes, isToday } from 'date-fns';
+import { differenceInMinutes, isToday, format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ActionItem {
   id: string;
   label: string;
   sublabel: string;
-  urgency: number; // higher = more urgent
+  urgency: number;
   type: 'intro' | 'followup' | 'lead' | 'prep' | 'q';
   onClick?: () => void;
 }
@@ -48,6 +48,22 @@ export function TopActions({
   completedActions,
   onScrollTo,
 }: TopActionsProps) {
+  const [realFollowUpsDue, setRealFollowUpsDue] = useState(followUpsDueCount);
+
+  // Fetch real follow-up count from DB
+  useEffect(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    supabase
+      .from('follow_up_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .lte('scheduled_date', today)
+      .eq('is_vip', false)
+      .then(({ count }) => {
+        setRealFollowUpsDue(count || followUpsDueCount);
+      });
+  }, [followUpsDueCount]);
+
   const actions = useMemo(() => {
     const items: ActionItem[] = [];
 
@@ -86,11 +102,11 @@ export function TopActions({
       }
     });
 
-    // Follow-ups due
-    if (followUpsDueCount > 0) {
+    // Follow-ups due (real count)
+    if (realFollowUpsDue > 0) {
       items.push({
         id: 'followups',
-        label: `${followUpsDueCount} follow-up${followUpsDueCount > 1 ? 's' : ''} due`,
+        label: `${realFollowUpsDue} follow-up${realFollowUpsDue > 1 ? 's' : ''} due`,
         sublabel: 'Needs attention today',
         urgency: 70,
         type: 'followup',
@@ -114,7 +130,7 @@ export function TopActions({
     });
 
     return items.sort((a, b) => b.urgency - a.urgency).slice(0, 5);
-  }, [todayBookings, tomorrowBookings, newLeads, followUpsDueCount, completedActions, onScrollTo]);
+  }, [todayBookings, tomorrowBookings, newLeads, realFollowUpsDue, completedActions, onScrollTo]);
 
   if (actions.length === 0) return null;
 

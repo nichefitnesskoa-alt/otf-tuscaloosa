@@ -1037,8 +1037,6 @@ export default function MyDay() {
       <DailyProgress
         completedIntros={completedTodayBookings.length}
         totalIntros={todayBookings.length}
-        scriptsSent={todayScriptsSent}
-        followUpsSent={todayFollowUpsSent}
         followUpsDue={followUpsDueCount}
       />
 

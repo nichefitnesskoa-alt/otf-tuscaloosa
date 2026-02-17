@@ -250,6 +250,77 @@ export type Database = {
           },
         ]
       }
+      followup_touches: {
+        Row: {
+          booking_id: string | null
+          channel: string | null
+          created_at: string
+          created_by: string
+          id: string
+          lead_id: string | null
+          meta: Json | null
+          notes: string | null
+          run_id: string | null
+          script_template_id: string | null
+          touch_type: string
+        }
+        Insert: {
+          booking_id?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_id?: string | null
+          meta?: Json | null
+          notes?: string | null
+          run_id?: string | null
+          script_template_id?: string | null
+          touch_type: string
+        }
+        Update: {
+          booking_id?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_id?: string | null
+          meta?: Json | null
+          notes?: string | null
+          run_id?: string | null
+          script_template_id?: string | null
+          touch_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_touches_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "intros_booked"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_touches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_touches_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "intros_run"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_touches_script_template_id_fkey"
+            columns: ["script_template_id"]
+            isOneToOne: false
+            referencedRelation: "script_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ig_leads: {
         Row: {
           created_at: string
