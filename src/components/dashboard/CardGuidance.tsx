@@ -292,7 +292,7 @@ export function getFollowUpGuidance(opts: {
     return `Contacted ${opts.coolingDaysAgo}d ago. Next follow-up available ${opts.nextAvailableDate}. No action needed right now.`;
   }
   if (opts.isLegacy) {
-    return `We don't have contact records for this person. Log when you last reached out → tap Log Past Contact. Or start fresh → tap Send.${channelHint}`;
+    return `No prior contact on file. Send first follow-up → tap Script.${channelHint}`;
   }
   if (opts.personType === 'no_show') {
     if (opts.touchNumber === 1) return `Follow-up Touch 1 of 3. They missed their class. Send a quick rebook text → tap Send.${channelHint}`;
