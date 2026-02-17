@@ -607,7 +607,7 @@ export default function MyDayPage() {
         <ScriptPickerSheet
           open={!!scriptBookingId}
           onOpenChange={(open) => { if (!open) setScriptBookingId(null); }}
-          suggestedCategories={['confirmation', 'follow_up', 'outreach']}
+          suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}
           mergeContext={scriptMergeContext}
           bookingId={scriptBooking.id}
           onLogged={() => { setScriptBookingId(null); fetchNonIntroData(); }}

@@ -10,6 +10,7 @@ interface VipBookingLike {
   vip_session_id?: string | null;
   vip_class_name?: string | null;
   converted_to_booking_id?: string | null;
+  booking_type_canon?: string | null;
 }
 
 interface VipRunLike {
@@ -23,6 +24,7 @@ interface VipRunLike {
  */
 export function isVipBooking(b: VipBookingLike): boolean {
   if (b.is_vip === true) return true;
+  if (b.booking_type_canon === 'VIP') return true;
   if (b.vip_session_id) return true;
   if (b.lead_source && b.lead_source.toLowerCase().includes('vip')) return true;
   return false;
@@ -45,6 +47,5 @@ export function isVipRun(r: VipRunLike): boolean {
  */
 export function shouldExcludeVipFromFunnel(b: VipBookingLike): boolean {
   if (!isVipBooking(b)) return false;
-  // If converted, the original VIP stays excluded; the new booking enters the funnel
   return true;
 }

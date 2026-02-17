@@ -7,7 +7,14 @@ import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/u
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
 import { TemplateCategoryTabs } from './TemplateCategoryTabs';
-import { normalizeCategory } from '@/lib/scripts/normalizeCategory';
+
+// Deterministic tab-to-DB-category mapping
+const TAB_CATEGORY_MAP: Record<string, string[]> = {
+  confirmation: ['booking_confirmation', 'pre_class_reminder', 'day_before_reminder', 'confirmation'],
+  questionnaire: ['booking_confirmation', 'pre_class_reminder', 'questionnaire'],
+  follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up'],
+  outreach: ['web_lead', 'cold_lead', 'ig_dm', 'referral_ask', 'promo', 'outreach'],
+};
 
 interface MergeContext {
   'first-name'?: string;
@@ -43,25 +50,25 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const { data: templates = [] } = useScriptTemplates();
 
-  const filtered = templates.filter((t) => {
-    if (!t.is_active) return false;
+  const allActive = templates.filter(t => t.is_active !== false);
+
+  const filtered = allActive.filter((t) => {
     if (selectedCategory) {
-      // Use normalized matching so tab "confirmation" matches DB "booking_confirmation", etc.
-      // Also check category_canon from DB if available
-      const normalizedTab = normalizeCategory(selectedCategory);
-      const normalizedCat = normalizeCategory(t.category);
-      const dbCanon = (t as any).category_canon as string | undefined;
-      if (normalizedTab !== 'other') {
-        const matchesNormalized = normalizedCat === normalizedTab;
-        const matchesDbCanon = dbCanon === normalizedTab;
-        if (!matchesNormalized && !matchesDbCanon) return false;
-      } else if (normalizedTab === 'other' && t.category !== selectedCategory) {
-        return false;
+      const allowed = TAB_CATEGORY_MAP[selectedCategory];
+      if (allowed && allowed.length) {
+        // Match against DB category, category_canon, or the tab key itself
+        const cat = (t.category || '').toLowerCase();
+        const canon = ((t as any).category_canon || '').toLowerCase();
+        if (!allowed.includes(cat) && !allowed.includes(canon) && cat !== selectedCategory && canon !== selectedCategory) return false;
       }
     }
     if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && !t.body.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  // If tab has 0 results, fall back to showing all active
+  const showFallback = filtered.length === 0 && !!selectedCategory;
+  const displayTemplates = showFallback ? allActive : filtered;
 
   // Show suggested categories as tabs
   const suggestedCatLabels = suggestedCategories.map(
@@ -125,10 +132,13 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
 
           <ScrollArea className="px-4 pb-6 flex-1 mt-3">
             <div className="space-y-2">
-              {filtered.length === 0 ? (
+              {showFallback && (
+                <p className="text-xs text-muted-foreground text-center pb-2">No templates tagged for this tab yet, showing All</p>
+              )}
+              {displayTemplates.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No scripts found</p>
               ) : (
-                filtered.map((t) => (
+                displayTemplates.map((t) => (
                   <TemplateCard
                     key={t.id}
                     template={t}

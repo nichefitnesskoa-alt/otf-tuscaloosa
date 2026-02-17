@@ -24,7 +24,7 @@ function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
     case 'Q_SENT':
       return <Badge className="bg-amber-100 text-amber-700 border-amber-200 border text-[10px] px-1.5 py-0 h-4">Not answered</Badge>;
     case 'NO_Q':
-      return <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px] px-1.5 py-0 h-4">Not sent</Badge>;
+      return <Badge className="bg-red-100 text-red-700 border-red-200 border text-[10px] px-1.5 py-0 h-4">Not sent</Badge>;
   }
 }
 
@@ -128,8 +128,8 @@ export default function IntroRowCard({
           </Badge>
         )}
         {needsAttention && (
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-300">
-            Needs attention
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-muted-foreground/30">
+            In progress
           </Badge>
         )}
       </div>
