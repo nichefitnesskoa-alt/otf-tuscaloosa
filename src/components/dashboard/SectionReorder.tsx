@@ -21,7 +21,7 @@ const SECTION_LABELS: Record<string, string> = {
   'todays-intros': "Today's Intros",
   'new-leads': 'New Leads',
   'tomorrows-intros': "Tomorrow's Intros",
-  'coming-up': 'Coming Up',
+  'coming-up': "This Week's Intros",
   'followups-due': 'Follow-Ups Due',
   'questionnaire-hub': 'Questionnaire Hub',
   'completed-today': 'Completed Today',

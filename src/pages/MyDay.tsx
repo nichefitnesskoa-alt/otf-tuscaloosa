@@ -1098,6 +1098,7 @@ export default function MyDay() {
                 id="todays-intros"
                 title="Today's Intros"
                 icon={<Calendar className="w-4 h-4 text-primary" />}
+                accentColor="border-l-orange-400"
                 count={todayBookings.length}
                 countLabel={loggedCount > 0 ? (allLogged ? `· ${loggedCount} logged ✓` : `· ${loggedCount} logged · ${remainingCount} remaining`) : undefined}
                 defaultOpen={true}
@@ -1317,6 +1318,7 @@ export default function MyDay() {
                 id="new-leads"
                 title="New Leads"
                 icon={<UserPlus className="w-4 h-4 text-info" />}
+                accentColor="border-l-blue-400"
                 count={sortedLeads.length}
                 defaultOpen={sortedLeads.length > 0}
                 emphasis={sectionEmphasis('leads')}
@@ -1432,6 +1434,7 @@ export default function MyDay() {
                 id="tomorrows-intros"
                 title="Tomorrow's Intros"
                 icon={<CalendarCheck className="w-4 h-4 text-info" />}
+                accentColor="border-l-amber-400"
                 count={tomorrowBookings.length}
                 defaultOpen={tomorrowBookings.length > 0}
                 emphasis={sectionEmphasis('tomorrow')}
@@ -1453,8 +1456,9 @@ export default function MyDay() {
               <CollapsibleSection
                 key="coming-up"
                 id="coming-up"
-                title="Coming Up"
+                title="This Week's Intros"
                 icon={<Clock className="w-4 h-4 text-muted-foreground" />}
+                accentColor="border-l-purple-400"
                 defaultOpen={false}
               >
                 <SoonLayer />
@@ -1468,6 +1472,7 @@ export default function MyDay() {
                 id="followups-due"
                 title="Follow-Ups Due"
                 icon={<Clock className="w-4 h-4 text-warning" />}
+                accentColor="border-l-yellow-500"
                 count={followUpsDueCount}
                 defaultOpen={false}
                 emphasis={sectionEmphasis('followups')}
@@ -1484,6 +1489,7 @@ export default function MyDay() {
                 id="questionnaire-hub"
                 title="Questionnaire Hub"
                 icon={<ClipboardList className="w-4 h-4 text-primary" />}
+                accentColor="border-l-teal-400"
                 defaultOpen={false}
               >
                 <QuestionnaireHub />
@@ -1501,6 +1507,7 @@ export default function MyDay() {
                 id="shift-handoff"
                 title="Shift Summary"
                 icon={<FileText className="w-4 h-4 text-primary" />}
+                accentColor="border-l-slate-400"
                 defaultOpen={false}
               >
                 <ShiftHandoffSummary

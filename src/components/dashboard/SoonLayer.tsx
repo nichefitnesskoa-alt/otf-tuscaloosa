@@ -1,314 +1,307 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarCheck, CalendarDays, Clock, ChevronDown, ChevronRight, TrendingUp, Users, Target } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { CalendarDays, ChevronDown, ChevronRight, TrendingUp, Copy, Check, FileText, MessageSquare, Dumbbell, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, addDays, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, parseISO, isBefore, isAfter } from 'date-fns';
+import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import { generateUniqueSlug } from '@/lib/utils';
+import { PrepDrawer } from './PrepDrawer';
+import { useScriptTemplates } from '@/hooks/useScriptTemplates';
+import { selectBestScript } from '@/hooks/useSmartScriptSelect';
+import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 
-interface DayAfterBooking {
+const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
+
+interface WeekBooking {
   id: string;
   member_name: string;
+  class_date: string;
   intro_time: string | null;
   coach_name: string;
-  questionnaire_status: string | null;
-  lead_source?: string;
-}
-
-interface UpcomingFollowUp {
-  date: string;
-  count: number;
-  names: { name: string; leadSource: string | null }[];
+  lead_source: string;
+  phone: string | null;
+  email: string | null;
+  qStatus: string | null;
+  qSlug: string | null;
+  qId: string | null;
 }
 
 interface WeeklySnapshot {
   introsBooked: number;
   introsCompleted: number;
-  introsRemaining: number;
-  leadsReceived: number;
-  leadsContacted: number;
-  followUpsDue: number;
-  followUpsCompleted: number;
   purchases: number;
   noShows: number;
 }
 
 export function SoonLayer() {
-  const [dayAfterBookings, setDayAfterBookings] = useState<DayAfterBooking[]>([]);
-  const [upcomingFollowUps, setUpcomingFollowUps] = useState<UpcomingFollowUp[]>([]);
+  const { user } = useAuth();
+  const { data: templates = [] } = useScriptTemplates();
+  const [weekBookings, setWeekBookings] = useState<WeekBooking[]>([]);
   const [weeklySnapshot, setWeeklySnapshot] = useState<WeeklySnapshot | null>(null);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [prepOpen, setPrepOpen] = useState(false);
+  const [prepBooking, setPrepBooking] = useState<any>(null);
+  const [scriptBooking, setScriptBooking] = useState<WeekBooking | null>(null);
+  const [scriptTemplate, setScriptTemplate] = useState<any>(null);
 
-  const dayAfterTomorrow = format(addDays(new Date(), 2), 'yyyy-MM-dd');
-  const dayAfterTomorrowLabel = format(addDays(new Date(), 2), 'EEEE MMM d');
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     const today = new Date();
-    const tomorrow = format(addDays(today, 1), 'yyyy-MM-dd');
-    const dat = format(addDays(today, 2), 'yyyy-MM-dd');
-    const threeDaysOut = format(addDays(today, 3), 'yyyy-MM-dd');
+    const tomorrow = addDays(today, 1);
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const weekEnd = format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+    const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
 
-    // Parallel fetch
-    const [datBookings, followUps, weekIntros, weekRuns, weekLeads, weekSales, weekNoShows, weekFuDone, weekFuDue] = await Promise.all([
-      // Day-after-tomorrow bookings
+    const [bookingsRes, runsRes, salesRes, noShowRes] = await Promise.all([
       supabase
         .from('intros_booked')
-        .select('id, member_name, intro_time, coach_name, lead_source')
-        .eq('class_date', dat)
+        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email')
+        .gte('class_date', tomorrowStr)
+        .lte('class_date', weekEndStr)
         .is('deleted_at', null)
         .is('vip_class_name', null)
         .neq('booking_status', 'Closed – Bought')
+        .order('class_date', { ascending: true })
         .order('intro_time', { ascending: true }),
-
-      // Upcoming follow-ups (next 3 days excluding today)
-      supabase
-        .from('follow_up_queue')
-        .select('scheduled_date, person_name, booking_id')
-        .eq('status', 'pending')
-        .eq('is_vip', false)
-        .gt('scheduled_date', format(today, 'yyyy-MM-dd'))
-        .lte('scheduled_date', threeDaysOut)
-        .order('scheduled_date', { ascending: true }),
-
-      // Weekly intros booked
-      supabase
-        .from('intros_booked')
-        .select('id, class_date', { count: 'exact' })
-        .gte('class_date', weekStart)
-        .lte('class_date', weekEnd)
-        .is('deleted_at', null)
-        .is('vip_class_name', null),
-
-      // Weekly intros run
-      supabase
-        .from('intros_run')
-        .select('id', { count: 'exact' })
-        .gte('run_date', weekStart)
-        .lte('run_date', weekEnd),
-
-      // Weekly leads
-      supabase
-        .from('leads')
-        .select('id, stage', { count: 'exact' })
-        .gte('created_at', weekStart + 'T00:00:00'),
-
-      // Weekly sales
-      supabase
-        .from('intros_run')
-        .select('id', { count: 'exact' })
-        .gte('run_date', weekStart)
-        .lte('run_date', weekEnd)
-        .not('result', 'in', '("Didn\'t Buy","No-show")'),
-
-      // Weekly no-shows
-      supabase
-        .from('intros_run')
-        .select('id', { count: 'exact' })
-        .gte('run_date', weekStart)
-        .lte('run_date', weekEnd)
-        .eq('result', 'No-show'),
-
-      // Follow-ups completed this week
-      supabase
-        .from('follow_up_queue')
-        .select('id', { count: 'exact' })
-        .in('status', ['sent', 'converted'])
-        .gte('sent_at', weekStart + 'T00:00:00'),
-
-      // Follow-ups due this week
-      supabase
-        .from('follow_up_queue')
-        .select('id', { count: 'exact' })
-        .eq('status', 'pending')
-        .gte('scheduled_date', weekStart)
-        .lte('scheduled_date', weekEnd),
+      supabase.from('intros_run').select('id', { count: 'exact' }).gte('run_date', weekStart).lte('run_date', weekEndStr),
+      supabase.from('intros_run').select('id', { count: 'exact' }).gte('run_date', weekStart).lte('run_date', weekEndStr).not('result', 'in', '("Didn\'t Buy","No-show","Follow-up needed","Booked 2nd intro")'),
+      supabase.from('intros_run').select('id', { count: 'exact' }).gte('run_date', weekStart).lte('run_date', weekEndStr).eq('result', 'No-show'),
     ]);
 
-    // Day-after-tomorrow
-    if (datBookings.data) {
-      const ids = datBookings.data.map(b => b.id);
-      const { data: qs } = ids.length > 0
-        ? await supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids)
-        : { data: [] };
-      // Prioritize completed/submitted status per booking
-      const qMap = new Map<string, string>();
+    const bkgs = bookingsRes.data || [];
+    const ids = bkgs.map(b => b.id);
+
+    // Fetch Q status
+    let qMap = new Map<string, { status: string; slug: string | null; id: string }>();
+    if (ids.length > 0) {
+      const { data: qs } = await supabase.from('intro_questionnaires').select('booking_id, status, slug, id').in('booking_id', ids);
       for (const q of (qs || [])) {
         const existing = qMap.get(q.booking_id);
         if (!existing || q.status === 'completed' || q.status === 'submitted') {
-          qMap.set(q.booking_id, q.status);
+          qMap.set(q.booking_id, { status: q.status, slug: (q as any).slug, id: q.id });
         }
       }
-      setDayAfterBookings(datBookings.data.map(b => ({
-        ...b,
-        lead_source: (b as any).lead_source || undefined,
-        questionnaire_status: qMap.get(b.id) || null,
-      })));
     }
 
-    // Upcoming follow-ups grouped by day with lead source
-    if (followUps.data) {
-      // Fetch lead_source from intros_booked for booking IDs
-      const fuBookingIds = [...new Set(followUps.data.map((f: any) => f.booking_id).filter(Boolean))] as string[];
-      let fuLeadSourceMap = new Map<string, string>();
-      if (fuBookingIds.length > 0) {
-        const { data: fuBookings } = await supabase
-          .from('intros_booked')
-          .select('id, lead_source')
-          .in('id', fuBookingIds);
-        if (fuBookings) {
-          fuLeadSourceMap = new Map(fuBookings.map(b => [b.id, b.lead_source]));
-        }
-      }
+    setWeekBookings(bkgs.map(b => ({
+      ...b,
+      phone: (b as any).phone || null,
+      email: (b as any).email || null,
+      qStatus: qMap.get(b.id)?.status || null,
+      qSlug: qMap.get(b.id)?.slug || null,
+      qId: qMap.get(b.id)?.id || null,
+    })));
 
-      const grouped = new Map<string, { name: string; leadSource: string | null }[]>();
-      for (const fu of followUps.data as any[]) {
-        const date = fu.scheduled_date;
-        if (!grouped.has(date)) grouped.set(date, []);
-        grouped.get(date)!.push({
-          name: fu.person_name,
-          leadSource: fu.booking_id ? fuLeadSourceMap.get(fu.booking_id) || null : null,
-        });
-      }
-      setUpcomingFollowUps(
-        Array.from(grouped.entries()).map(([date, names]) => ({
-          date,
-          count: names.length,
-          names,
-        }))
-      );
-    }
-
-    // Weekly snapshot
-    const leadsData = weekLeads.data || [];
-    const leadsContacted = leadsData.filter(l => l.stage !== 'new').length;
-    const introsBookedCount = weekIntros.count || 0;
-    const introsCompletedCount = weekRuns.count || 0;
+    const weekIntros = await supabase.from('intros_booked').select('id', { count: 'exact' }).gte('class_date', weekStart).lte('class_date', weekEndStr).is('deleted_at', null).is('vip_class_name', null);
 
     setWeeklySnapshot({
-      introsBooked: introsBookedCount,
-      introsCompleted: introsCompletedCount,
-      introsRemaining: Math.max(0, introsBookedCount - introsCompletedCount),
-      leadsReceived: leadsData.length,
-      leadsContacted,
-      followUpsDue: (weekFuDue.count || 0) + (weekFuDone.count || 0),
-      followUpsCompleted: weekFuDone.count || 0,
-      purchases: weekSales.count || 0,
-      noShows: weekNoShows.count || 0,
+      introsBooked: weekIntros.count || 0,
+      introsCompleted: runsRes.count || 0,
+      purchases: salesRes.count || 0,
+      noShows: noShowRes.count || 0,
     });
   };
 
-  const toggleSection = (key: string) => {
-    setExpandedSections(prev => {
+  const toggleDay = (day: string) => {
+    setExpandedDays(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(day)) next.delete(day); else next.add(day);
       return next;
     });
   };
 
-  const qCompletedCount = dayAfterBookings.filter(b =>
-    b.questionnaire_status === 'submitted' || b.questionnaire_status === 'completed'
-  ).length;
-  const qPendingCount = dayAfterBookings.length - qCompletedCount;
+  // Group bookings by day
+  const dayGroups = useMemo(() => {
+    const groups = new Map<string, WeekBooking[]>();
+    weekBookings.forEach(b => {
+      const day = b.class_date;
+      if (!groups.has(day)) groups.set(day, []);
+      groups.get(day)!.push(b);
+    });
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [weekBookings]);
+
+  // Q stats
+  const totalWeekIntros = weekBookings.length;
+  const qSentCount = weekBookings.filter(b => b.qStatus && b.qStatus !== 'not_sent').length;
+  const qSentPct = totalWeekIntros > 0 ? Math.round((qSentCount / totalWeekIntros) * 100) : 0;
+
+  const getQBadge = (status: string | null) => {
+    if (!status) return <Badge variant="outline" className="text-[9px] h-3.5 px-1 text-muted-foreground">No Q</Badge>;
+    if (status === 'completed' || status === 'submitted') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[9px] h-3.5 px-1 border">Q Done</Badge>;
+    if (status === 'sent') return <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[9px] h-3.5 px-1 border">Q Sent</Badge>;
+    return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] h-3.5 px-1 border">Q Pending</Badge>;
+  };
+
+  const handleSendQ = async (b: WeekBooking) => {
+    let slug = b.qSlug;
+    let qId = b.qId;
+
+    // Auto-create Q if none exists
+    if (!qId) {
+      const nameParts = b.member_name.trim().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      slug = await generateUniqueSlug(firstName, lastName, supabase);
+      const newId = crypto.randomUUID();
+      await supabase.from('intro_questionnaires').insert({
+        id: newId,
+        booking_id: b.id,
+        client_first_name: firstName,
+        client_last_name: lastName,
+        scheduled_class_date: b.class_date,
+        scheduled_class_time: b.intro_time || null,
+        status: 'not_sent',
+        slug,
+      } as any);
+      qId = newId;
+    }
+
+    const link = slug ? `${PUBLISHED_URL}/q/${slug}` : `${PUBLISHED_URL}/q/${qId}`;
+    await navigator.clipboard.writeText(link);
+
+    // Mark as sent
+    if (qId) {
+      await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', qId);
+    }
+
+    setCopiedId(b.id);
+    setTimeout(() => setCopiedId(null), 2000);
+
+    setWeekBookings(prev => prev.map(wb => wb.id === b.id ? { ...wb, qStatus: 'sent', qSlug: slug, qId } : wb));
+    toast.success(`Q link copied for ${b.member_name}!`);
+  };
+
+  const handlePrep = (b: WeekBooking) => {
+    setPrepBooking({
+      memberName: b.member_name,
+      memberKey: b.member_name.toLowerCase().replace(/\s+/g, ''),
+      bookingId: b.id,
+      classDate: b.class_date,
+      classTime: b.intro_time,
+      coachName: b.coach_name,
+      leadSource: b.lead_source,
+      isSecondIntro: false,
+      phone: b.phone,
+      email: b.email,
+    });
+    setPrepOpen(true);
+  };
+
+  const handleScript = (b: WeekBooking) => {
+    const result = selectBestScript({ personType: 'booking', classDate: b.class_date }, templates);
+    if (result.template) {
+      setScriptTemplate(result.template);
+      setScriptBooking(b);
+    } else {
+      toast.info('No matching script found');
+    }
+  };
+
+  const handleCopyPhone = (b: WeekBooking) => {
+    if (b.phone) {
+      navigator.clipboard.writeText(b.phone);
+      toast.success('Phone copied!');
+    } else {
+      toast.info('No phone on file');
+    }
+  };
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Coming Up</p>
+      {/* Q Progress Bar */}
+      {totalWeekIntros > 0 && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>Qs sent: {qSentCount}/{totalWeekIntros}</span>
+            <span className="font-medium">{qSentPct}%</span>
+          </div>
+          <Progress value={qSentPct} className="h-2" />
+        </div>
+      )}
 
-      {/* Day After Tomorrow */}
-      {dayAfterBookings.length > 0 && (
-        <Collapsible open={expandedSections.has('dat')} onOpenChange={() => toggleSection('dat')}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="pb-2 cursor-pointer">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  {expandedSections.has('dat') ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                  <CalendarDays className="w-4 h-4 text-info" />
-                  {dayAfterTomorrowLabel}
-                  <Badge variant="secondary" className="text-[10px] ml-auto">
-                    {dayAfterBookings.length} intros
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CardContent className="pt-0 pb-3">
-              <p className="text-xs text-muted-foreground">
-                {qCompletedCount} Q completed, {qPendingCount} pending
-              </p>
+      {/* Day-by-day view */}
+      {dayGroups.map(([day, bkgs]) => {
+        const isExpanded = expandedDays.has(day);
+        const dayLabel = format(parseISO(day), 'EEEE MMM d');
+        const dayQSent = bkgs.filter(b => b.qStatus && b.qStatus !== 'not_sent').length;
+
+        return (
+          <Collapsible key={day} open={isExpanded} onOpenChange={() => toggleDay(day)}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="pb-2 cursor-pointer">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    <CalendarDays className="w-4 h-4 text-purple-600" />
+                    {dayLabel}
+                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                      {bkgs.length} intro{bkgs.length !== 1 ? 's' : ''}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">{dayQSent}/{bkgs.length} Q</span>
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="space-y-1.5 mt-2">
-                  {dayAfterBookings.map(b => (
-                    <div key={b.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-muted/30 gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-medium truncate">{b.member_name}</span>
-                        {b.lead_source && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 shrink-0">{b.lead_source}</Badge>
+                <CardContent className="pt-0 pb-3 space-y-2">
+                  {bkgs.map(b => (
+                    <div key={b.id} className="rounded-lg border bg-card p-2.5 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm">{b.member_name}</span>
+                        {getQBadge(b.qStatus)}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'TBD'}</span>
+                        <span>·</span>
+                        <span>{b.coach_name}</span>
+                        {b.phone && (
+                          <a href={`tel:${b.phone}`} className="hover:text-primary" onClick={e => e.stopPropagation()}>
+                            <Phone className="w-3 h-3" />
+                          </a>
                         )}
                       </div>
-                      <span className="text-muted-foreground shrink-0">
-                        {b.intro_time ? format(parseISO(`2000-01-01T${b.intro_time}`), 'h:mm a') : 'TBD'} · {b.coach_name}
-                      </span>
+                      <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] gap-1"
+                          onClick={() => handleSendQ(b)}
+                        >
+                          {copiedId === b.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          {copiedId === b.id ? 'Copied!' : 'Send Q'}
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => handlePrep(b)}>
+                          <FileText className="w-3 h-3" /> Prep
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => handleScript(b)}>
+                          <MessageSquare className="w-3 h-3" /> Script
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] gap-1" onClick={() => handleCopyPhone(b)}>
+                          <Phone className="w-3 h-3" /> Copy #
+                        </Button>
+                      </div>
                     </div>
                   ))}
-                </div>
+                </CardContent>
               </CollapsibleContent>
-            </CardContent>
-          </Card>
-        </Collapsible>
+            </Card>
+          </Collapsible>
+        );
+      })}
+
+      {dayGroups.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4">No intros scheduled for the rest of this week</p>
       )}
 
-      {/* Upcoming Follow-Ups */}
-      {upcomingFollowUps.length > 0 && (
-        <Collapsible open={expandedSections.has('fu')} onOpenChange={() => toggleSection('fu')}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="pb-2 cursor-pointer">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  {expandedSections.has('fu') ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                  <Clock className="w-4 h-4 text-warning" />
-                  Upcoming Follow-Ups
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CardContent className="pt-0 pb-3 space-y-1">
-              {upcomingFollowUps.map(fu => (
-                <div key={fu.date} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {format(parseISO(fu.date), 'EEEE')}:
-                  </span>
-                  <span className="font-medium">{fu.count} follow-up{fu.count !== 1 ? 's' : ''} due</span>
-                </div>
-              ))}
-              <CollapsibleContent>
-                <div className="space-y-1 mt-1.5 pt-1.5 border-t">
-                  {upcomingFollowUps.map(fu => (
-                    <div key={fu.date + '-names'}>
-                      <p className="text-[10px] font-medium text-muted-foreground">{format(parseISO(fu.date), 'EEEE MMM d')}</p>
-                      {fu.names.map((item, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs pl-2">
-                          <span>{item.name}</span>
-                          {item.leadSource && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">{item.leadSource}</Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleContent>
-            </CardContent>
-          </Card>
-        </Collapsible>
-      )}
-
-      {/* Weekly Pipeline Snapshot */}
+      {/* Weekly Snapshot */}
       {weeklySnapshot && (
         <Card>
           <CardHeader className="pb-2">
@@ -328,24 +321,36 @@ export function SoonLayer() {
                 <span className="font-medium text-emerald-700">{weeklySnapshot.purchases}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Leads</span>
-                <span className="font-medium">{weeklySnapshot.leadsContacted}/{weeklySnapshot.leadsReceived}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">No-shows</span>
                 <span className="font-medium text-destructive">{weeklySnapshot.noShows}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Follow-ups</span>
-                <span className="font-medium">{weeklySnapshot.followUpsCompleted}/{weeklySnapshot.followUpsDue}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Remaining</span>
-                <span className="font-medium">{weeklySnapshot.introsRemaining} intros</span>
+                <span className="font-medium">{Math.max(0, weeklySnapshot.introsBooked - weeklySnapshot.introsCompleted)}</span>
               </div>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Prep Drawer */}
+      {prepBooking && <PrepDrawer open={prepOpen} onOpenChange={setPrepOpen} {...prepBooking} />}
+
+      {/* Script Generator */}
+      {scriptBooking && scriptTemplate && (
+        <MessageGenerator
+          open={true}
+          onOpenChange={o => { if (!o) { setScriptBooking(null); setScriptTemplate(null); } }}
+          template={scriptTemplate}
+          mergeContext={{
+            'first-name': scriptBooking.member_name.split(' ')[0],
+            'last-name': scriptBooking.member_name.split(' ').slice(1).join(' '),
+            'sa-name': user?.name || '',
+            'location-name': 'Tuscaloosa',
+          }}
+          bookingId={scriptBooking.id}
+          onLogged={() => { setScriptBooking(null); setScriptTemplate(null); fetchAll(); }}
+        />
       )}
     </div>
   );

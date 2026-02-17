@@ -1,0 +1,1 @@
+ALTER TABLE public.intro_questionnaires ADD COLUMN IF NOT EXISTS archived_at timestamptz;

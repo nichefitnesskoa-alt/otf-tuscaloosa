@@ -333,6 +333,7 @@ export type Database = {
       }
       intro_questionnaires: {
         Row: {
+          archived_at: string | null
           booking_id: string | null
           client_first_name: string
           client_last_name: string
@@ -354,6 +355,7 @@ export type Database = {
           submitted_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           booking_id?: string | null
           client_first_name: string
           client_last_name?: string
@@ -375,6 +377,7 @@ export type Database = {
           submitted_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           booking_id?: string | null
           client_first_name?: string
           client_last_name?: string
