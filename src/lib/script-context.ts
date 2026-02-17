@@ -28,6 +28,37 @@ interface BuildContextOpts {
 }
 
 /**
+ * Normalize coach name: trim, collapse whitespace, treat TBD variants as null.
+ */
+export function normalizeCoachName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return null;
+  if (/^tbd$/i.test(trimmed)) return null;
+  if (/^to\s*be\s*determined$/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+/**
+ * Resolve coach name from available sources (booking first, then run).
+ */
+export function getCoachName(
+  bookingCoach?: string | null,
+  runCoach?: string | null,
+): string | null {
+  return normalizeCoachName(bookingCoach) ?? normalizeCoachName(runCoach) ?? null;
+}
+
+/**
+ * Post-process a rendered script body to fix awkward coach fallback phrasing.
+ * e.g. "Coach your coach" → "your coach"
+ */
+export function cleanCoachFallbackPhrasing(text: string): string {
+  // "Coach your coach" → "your coach" (case-insensitive)
+  return text.replace(/\bCoach your coach\b/gi, 'your coach');
+}
+
+/**
  * Single unified function to gather ALL merge context for a script.
  * Every script generation path should use this.
  */
@@ -41,12 +72,16 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  const resolvedCoach = normalizeCoachName(coachName);
+
   const ctx: Record<string, string | undefined> = {
     'first-name': firstName,
     'last-name': lastName,
     'sa-name': saName,
     'location-name': 'Tuscaloosa',
-    coach: coachName,
+    coach: resolvedCoach || undefined,
+    'coach-name': resolvedCoach || 'your coach',
+    'coach-first-name': resolvedCoach ? resolvedCoach.split(/\s+/)[0] : 'your coach',
   };
 
   // Date/time merge fields
@@ -99,7 +134,13 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
       } else {
         // Q exists but not completed - include link
         const slug = (qRecord as any).slug || qRecord.id;
-        ctx['questionnaire-link'] = `${PUBLISHED_URL}/q/${slug}`;
+        let link = `${PUBLISHED_URL}/q/${slug}`;
+        // Append coach param for personalization
+        if (resolvedCoach) {
+          const coachFirst = resolvedCoach.split(/\s+/)[0];
+          link += `?coach=${encodeURIComponent(coachFirst)}`;
+        }
+        ctx['questionnaire-link'] = link;
       }
     }
     // If no Q exists, no link (SA needs to create it first)
