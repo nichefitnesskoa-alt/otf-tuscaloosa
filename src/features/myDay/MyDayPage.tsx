@@ -25,6 +25,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, isToday } from 'date-fns';
 import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking, isBookingUnresolved } from '@/lib/time/timeUtils';
+import { isVipBooking } from '@/lib/vip/vipRules';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -329,6 +330,8 @@ export default function MyDayPage() {
       <UnresolvedIntros
         intros={introsBooked
           .filter(b => {
+            // VIP exclusion: never show VIP bookings in Unresolved
+            if (isVipBooking(b as any)) return false;
             const latestRun = getLatestRunForBooking(b.id, introsRun as any);
             return isBookingUnresolved(b as any, latestRun as any);
           })

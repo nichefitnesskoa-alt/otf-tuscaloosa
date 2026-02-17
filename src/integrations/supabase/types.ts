@@ -514,6 +514,7 @@ export type Database = {
           closed_at: string | null
           closed_by: string | null
           coach_name: string
+          converted_to_booking_id: string | null
           created_at: string
           delete_reason: string | null
           deleted_at: string | null
@@ -544,6 +545,7 @@ export type Database = {
           shift_recap_id: string | null
           vip_class_name: string | null
           vip_session_id: string | null
+          vip_status: string | null
         }
         Insert: {
           booked_by?: string | null
@@ -554,6 +556,7 @@ export type Database = {
           closed_at?: string | null
           closed_by?: string | null
           coach_name: string
+          converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
           deleted_at?: string | null
@@ -584,6 +587,7 @@ export type Database = {
           shift_recap_id?: string | null
           vip_class_name?: string | null
           vip_session_id?: string | null
+          vip_status?: string | null
         }
         Update: {
           booked_by?: string | null
@@ -594,6 +598,7 @@ export type Database = {
           closed_at?: string | null
           closed_by?: string | null
           coach_name?: string
+          converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
           deleted_at?: string | null
@@ -624,6 +629,7 @@ export type Database = {
           shift_recap_id?: string | null
           vip_class_name?: string | null
           vip_session_id?: string | null
+          vip_status?: string | null
         }
         Relationships: [
           {
@@ -686,6 +692,7 @@ export type Database = {
           intro_owner: string | null
           intro_owner_locked: boolean | null
           is_self_gen: boolean | null
+          is_vip: boolean
           last_edited_at: string | null
           last_edited_by: string | null
           lead_measures: string[] | null
@@ -708,6 +715,8 @@ export type Database = {
           sa_name: string | null
           sheets_row_number: number | null
           shift_recap_id: string | null
+          vip_converted: boolean
+          vip_session_id: string | null
         }
         Insert: {
           amc_incremented_at?: string | null
@@ -731,6 +740,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
+          is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_measures?: string[] | null
@@ -753,6 +763,8 @@ export type Database = {
           sa_name?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          vip_converted?: boolean
+          vip_session_id?: string | null
         }
         Update: {
           amc_incremented_at?: string | null
@@ -776,6 +788,7 @@ export type Database = {
           intro_owner?: string | null
           intro_owner_locked?: boolean | null
           is_self_gen?: boolean | null
+          is_vip?: boolean
           last_edited_at?: string | null
           last_edited_by?: string | null
           lead_measures?: string[] | null
@@ -798,6 +811,8 @@ export type Database = {
           sa_name?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          vip_converted?: boolean
+          vip_session_id?: string | null
         }
         Relationships: [
           {

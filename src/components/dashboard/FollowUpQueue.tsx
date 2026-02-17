@@ -50,6 +50,9 @@ export function generateFollowUpEntries(
   primaryObjection?: string | null,
   fitnessGoal?: string | null,
 ) {
+  // VIP bookings never generate follow-up entries
+  if (isVip) return [];
+
   const cadence = personType === 'no_show' ? NO_SHOW_CADENCE : DIDNT_BUY_CADENCE;
   const trigger = parseISO(triggerDate);
   

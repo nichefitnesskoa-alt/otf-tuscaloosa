@@ -9,6 +9,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayTypes';
 import { enrichWithRisk, sortRiskFirst } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
+import { isVipBooking } from '@/lib/vip/vipRules';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
@@ -182,8 +183,8 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         };
       });
 
-      // Filter out items that already have a linked run (completed intros)
-      const activeItems = rawItems.filter(i => !i.hasLinkedRun);
+      // Filter out items that already have a linked run (completed intros) and VIP bookings
+      const activeItems = rawItems.filter(i => !i.hasLinkedRun && !i.isVip);
 
       // Enrich with risk and sort
       const enriched = enrichWithRisk(activeItems, nowISO);
