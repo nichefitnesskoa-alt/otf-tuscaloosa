@@ -1,3 +1,4 @@
+// @deprecated — Replaced by src/features/pipeline. Do not import this component in new code.
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
