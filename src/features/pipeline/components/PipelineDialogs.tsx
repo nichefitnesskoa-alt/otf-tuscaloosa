@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
-import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '../pipelineActions';
+import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
 import { normalizeBookingStatus, normalizeIntroResultStrict } from '@/lib/domain/outcomes/types';
 import type { ClientJourney, PipelineBooking, PipelineRun } from '../pipelineTypes';
 
@@ -260,6 +260,9 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (!resultChanged) {
                 nonOutcomeUpdate.buy_date = editRun.buy_date;
                 nonOutcomeUpdate.commission_amount = editRun.commission_amount;
+              } else {
+                // Guardrail: ensure no outcome-owned fields leak into the direct update
+                assertNoOutcomeOwnedFields(nonOutcomeUpdate, 'PipelineDialogs:EditRun');
               }
 
               await supabase.from('intros_run').update(nonOutcomeUpdate).eq('id', editRun.id);
