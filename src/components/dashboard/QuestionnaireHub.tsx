@@ -304,11 +304,11 @@ export function QuestionnaireHub() {
   const openedNotCompleted = questionnaires.filter(q => q.status === 'sent' && q.last_opened_at).length;
 
   const copyLink = async (q: QRecord) => {
-    // Prefer named slug (firstname-lastname-uuid format). Fall back to raw id only for legacy records.
     let slug = q.slug;
-    if (!slug) {
-      // Backfill: generate name-uuid slug for this legacy record
-      const newSlug = `${q.client_first_name.toLowerCase().replace(/[^a-z0-9]/g, '')}-${q.client_last_name.toLowerCase().replace(/[^a-z0-9]/g, '')}-${q.id}`.replace(/^-|-$/, '').replace(/-{2,}/g, '-');
+    if (!slug || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(slug)) {
+      // Backfill to new name-date format
+      const { generateSlug } = await import('@/lib/utils');
+      const newSlug = generateSlug(q.client_first_name, q.client_last_name, q.scheduled_class_date);
       await supabase.from('intro_questionnaires').update({ slug: newSlug } as any).eq('id', q.id);
       slug = newSlug;
       setQuestionnaires(prev => prev.map(x => x.id === q.id ? { ...x, slug: newSlug } : x));

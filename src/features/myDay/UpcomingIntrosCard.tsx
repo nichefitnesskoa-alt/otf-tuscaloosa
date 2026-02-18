@@ -18,7 +18,7 @@ import UpcomingIntrosFilters from './UpcomingIntrosFilters';
 import IntroDayGroup from './IntroDayGroup';
 import { confirmIntro } from './myDayActions';
 import { supabase } from '@/integrations/supabase/client';
-import { generateUniqueSlug } from '@/lib/utils';
+import { generateSlug } from '@/lib/utils';
 
 interface UpcomingIntrosCardProps {
   userName: string;
@@ -65,16 +65,17 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
 
       if (existing) {
         qId = existing.id;
-        // If existing slug already has name-uuid format, use it; else regenerate
+        // If existing slug already has the new name-date format, use it; else regenerate
         const existingSlug = (existing as any).slug;
-        if (existingSlug && existingSlug.includes('-') && existingSlug.split('-').length >= 5) {
+        const hasNewFormat = existingSlug && /[a-z]{3}\d{1,2}(-\d+)?$/.test(existingSlug);
+        if (hasNewFormat) {
           slug = existingSlug;
         } else {
-          // Backfill slug to new format
+          // Backfill slug to new name-date format
           const nameParts = item.memberName.trim().split(/\s+/);
           const firstName = nameParts[0] || item.memberName;
           const lastName = nameParts.slice(1).join(' ') || '';
-          const newSlug = await generateUniqueSlug(firstName, lastName, null, qId);
+          const newSlug = generateSlug(firstName, lastName, item.classDate);
           await supabase.from('intro_questionnaires').update({ slug: newSlug } as any).eq('id', qId);
           slug = newSlug;
         }
@@ -90,7 +91,7 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
         const firstName = nameParts[0] || item.memberName;
         const lastName = nameParts.slice(1).join(' ') || '';
         qId = crypto.randomUUID();
-        const newSlug = await generateUniqueSlug(firstName, lastName, null, qId);
+        const newSlug = generateSlug(firstName, lastName, item.classDate);
         await supabase.from('intro_questionnaires').insert({
           id: qId,
           booking_id: bookingId,

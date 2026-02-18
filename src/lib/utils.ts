@@ -101,31 +101,64 @@ export function getLocalDateString(date: Date = new Date()): string {
 }
 
 /**
- * Generate a URL-friendly slug from a first and last name.
- * e.g. "John Smith" → "john-smith"
+ * Clean a name part for use in a slug: lowercase, strip non-alphanumeric.
  */
-export function generateNameSlug(firstName: string, lastName: string): string {
-  return `${firstName}-${lastName}`
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+function cleanSlugPart(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
- * Generate a unique slug in the format: firstname-lastname-[uuid]
- * The UUID guarantees uniqueness, so no counter suffix is needed.
- * Format: https://otf-tuscaloosa.lovable.app/q/bailie-smith-36033b74-6009-428d-a092-dc05f0bb2d34
+ * Generate a questionnaire slug in the format: firstname-lastname-mmmdd
+ * e.g. "Bailie Smith" on 2026-02-18 → "bailie-smith-feb18"
+ * If no classDate provided, falls back to firstname-lastname.
  */
-export function generateUniqueSlug(
+export function generateSlug(
   firstName: string,
   lastName: string,
-  _supabaseClient?: any,
-  id?: string,
+  classDate?: string | null,
+): string {
+  const first = cleanSlugPart(firstName);
+  const last = cleanSlugPart(lastName);
+  const namePart = last ? `${first}-${last}` : first;
+  if (!classDate) return namePart;
+  // Parse as local midnight to avoid TZ shift
+  const [y, m, d] = classDate.split('T')[0].split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const month = dateObj.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+  const day = dateObj.getDate();
+  return `${namePart}-${month}${day}`;
+}
+
+/**
+ * Generate a slug and check the DB for collisions, appending a counter if needed.
+ * Returns a Promise for backward compatibility with existing call sites.
+ */
+export async function generateUniqueSlug(
+  firstName: string,
+  lastName: string,
+  supabaseClient?: any,
+  _legacyId?: string,
+  classDate?: string | null,
 ): Promise<string> {
-  const nameSlug = generateNameSlug(firstName, lastName);
-  const uuid = id || crypto.randomUUID();
-  // Strip only the hyphens from the UUID to keep it clean when appended
-  const slug = nameSlug ? `${nameSlug}-${uuid}` : uuid;
-  return Promise.resolve(slug);
+  const base = generateSlug(firstName, lastName, classDate);
+  if (!supabaseClient) return base;
+
+  // Check for collisions
+  const { data } = await supabaseClient
+    .from('intro_questionnaires')
+    .select('slug')
+    .like('slug', `${base}%`);
+
+  const existing = new Set<string>((data || []).map((r: any) => r.slug));
+  if (!existing.has(base)) return base;
+
+  // Find next available counter
+  let counter = 2;
+  while (existing.has(`${base}-${counter}`)) counter++;
+  return `${base}-${counter}`;
+}
+
+/** @deprecated Use generateSlug() directly */
+export function generateNameSlug(firstName: string, lastName: string): string {
+  return generateSlug(firstName, lastName);
 }
