@@ -187,8 +187,9 @@ export default function MembershipPurchasesPanel() {
     const withOtbeat = purchases.filter(p => 
       p.membership_type.toLowerCase().includes('+ otbeat')
     ).length;
+    const outsideCount = purchases.filter(p => p.source === 'outside_intro').length;
 
-    return { total, premierCount, eliteCount, basicCount, withOtbeat };
+    return { total, premierCount, eliteCount, basicCount, withOtbeat, outsideCount };
   }, [purchases]);
 
   const getMembershipBadgeVariant = (type: string) => {
@@ -247,6 +248,10 @@ export default function MembershipPurchasesPanel() {
           <div className="bg-muted/50 p-2 rounded text-center">
             <p className="text-lg font-bold">{stats.withOtbeat}</p>
             <p className="text-xs text-muted-foreground">+ OTBeat</p>
+          </div>
+          <div className="bg-muted/50 p-2 rounded text-center">
+            <p className="text-lg font-bold">{stats.outsideCount}</p>
+            <p className="text-xs text-muted-foreground">Outside</p>
           </div>
         </div>
 
