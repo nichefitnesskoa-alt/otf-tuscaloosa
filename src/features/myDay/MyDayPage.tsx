@@ -24,8 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, differenceInMinutes, isToday } from 'date-fns';
-import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking } from '@/lib/time/timeUtils';
-import { isVipBooking } from '@/lib/vip/vipRules';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,7 +34,6 @@ import { toast } from 'sonner';
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
 import { StickyDayScore } from '@/components/dashboard/StickyDayScore';
-import { UnresolvedIntros } from '@/components/dashboard/UnresolvedIntros';
 import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
 import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
 import { ShiftHandoffSummary } from '@/components/dashboard/ShiftHandoffSummary';
@@ -367,65 +365,7 @@ export default function MyDayPage() {
 
       {/* ═══════════════ CORE SECTIONS ═══════════════ */}
 
-      {/* Past-Due Intros – ONLY class_date < today, never today's intros */}
-      {/* GUARDRAIL: Today's intros must NEVER appear here. Only class_date strictly before todayStr. */}
-      <UnresolvedIntros
-        intros={(() => {
-          // Build a set of resolved person+date combos to detect stale duplicates
-          const resolvedPersonDates = new Set<string>();
-          for (const b of introsBooked) {
-            const latestRun = getLatestRunForBooking(b.id, introsRun);
-            const rCanon = latestRun?.result_canon?.toUpperCase() || '';
-            const bCanon = b.booking_status_canon?.toUpperCase() || '';
-            const isResolved = (rCanon && rCanon !== 'UNRESOLVED') ||
-              bCanon === 'CLOSED_PURCHASED' || bCanon === 'NOT_INTERESTED' || bCanon === 'SECOND_INTRO_SCHEDULED';
-            if (isResolved) {
-              resolvedPersonDates.add(`${b.member_name.toLowerCase().trim()}|${b.class_date}`);
-            }
-          }
-          return introsBooked.filter(b => {
-            // VIP exclusion (use canonical field + legacy detection)
-            if (isVipBooking(b)) return false;
-            if ((b as any).booking_type_canon === 'VIP') return false;
-            // CRITICAL: Only past dates, never today
-            if (b.class_date >= todayStr) return false;
-            // Skip soft-deleted
-            if (b.deleted_at) return false;
-            // Skip closed/not interested
-            const bCanon = b.booking_status_canon?.toUpperCase() || '';
-            if (bCanon === 'CLOSED_PURCHASED' || bCanon === 'NOT_INTERESTED' || bCanon === 'SECOND_INTRO_SCHEDULED') return false;
-            // Skip if another booking for same person+date is already resolved
-            const key = `${b.member_name.toLowerCase().trim()}|${b.class_date}`;
-            if (resolvedPersonDates.has(key)) return false;
-            // Unresolved: no linked run, or run is UNRESOLVED
-            const latestRun = getLatestRunForBooking(b.id, introsRun);
-            if (!latestRun) return true;
-            const rCanon = (latestRun.result_canon || '').toUpperCase();
-            if (rCanon && rCanon !== 'UNRESOLVED') return false;
-            // Legacy fallback
-            const legacyResult = (latestRun.result || '').trim().toLowerCase();
-            if (legacyResult && legacyResult !== 'unresolved' && legacyResult !== '') return false;
-            return true;
-          });
-        })()
-          .map(b => {
-            const badge = formatClassEndedBadge(b.class_date, b.intro_time);
-            const badgeMatch = badge?.match(/(\d+)h ago/);
-            const hoursSince = badgeMatch ? parseInt(badgeMatch[1], 10) : 0;
-            return {
-              id: b.id,
-              member_name: b.member_name,
-              class_date: b.class_date,
-              intro_time: b.intro_time || null,
-              coach_name: b.coach_name,
-              lead_source: b.lead_source,
-              hoursSinceClass: hoursSince,
-            };
-          })}
-        onRefresh={fetchNonIntroData}
-      />
-
-      {/* Canonical Upcoming Intros Queue (Today + Tomorrow + Coming Up) */}
+      {/* Canonical Upcoming Intros Queue — Today | Rest of Week | Needs Outcome */}
       <UpcomingIntrosCard userName={user?.name || ''} />
 
       {/* Sections driven by sectionOrder */}
@@ -586,16 +526,16 @@ export default function MyDayPage() {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Close Out Shift */}
+      {/* Close Out Shift — now powered by real today metrics */}
       <CloseOutShift
         completedIntros={completedTodayCount}
         activeIntros={todayBookingsCount - completedTodayCount}
         scriptsSent={todayScriptsSent}
         followUpsSent={todayFollowUpsSent}
-        purchaseCount={0}
-        noShowCount={0}
-        didntBuyCount={0}
-        topObjection={null}
+        purchaseCount={purchaseTodayCount}
+        noShowCount={noShowTodayCount}
+        didntBuyCount={didntBuyTodayCount}
+        topObjection={topObjectionToday}
       />
 
       <QuickAddFAB
