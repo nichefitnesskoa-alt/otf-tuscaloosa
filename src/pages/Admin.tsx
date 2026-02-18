@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -161,6 +161,99 @@ function QuestionnaireSlugBackfillCard() {
             <span className="text-sm text-muted-foreground">Updated {result} rows</span>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WeeklyContactAvgCard() {
+  const [rows, setRows] = useState<{ staff_name: string; days: number; total: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      // Current Mon–today
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0=Sun
+      const diffToMon = (dayOfWeek + 6) % 7;
+      const mon = new Date(now);
+      mon.setDate(now.getDate() - diffToMon);
+      mon.setHours(0, 0, 0, 0);
+      const monStr = mon.toISOString().split('T')[0];
+      const todayStr = now.toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('shift_recaps')
+        .select('staff_name, shift_date, calls_made, texts_sent, dms_sent, emails_sent')
+        .gte('shift_date', monStr)
+        .lte('shift_date', todayStr);
+
+      if (!data) { setLoading(false); return; }
+
+      // Aggregate by staff — sum contacts, count distinct shift days
+      const map: Record<string, { total: number; days: Set<string> }> = {};
+      for (const r of data) {
+        const key = r.staff_name;
+        if (!map[key]) map[key] = { total: 0, days: new Set() };
+        map[key].total += (r.calls_made || 0) + (r.texts_sent || 0) + (r.dms_sent || 0) + (r.emails_sent || 0);
+        map[key].days.add(r.shift_date);
+      }
+
+      const result = Object.entries(map)
+        .map(([staff_name, v]) => ({ staff_name, days: v.days.size, total: v.total }))
+        .sort((a, b) => b.total / b.days - a.total / a.days);
+
+      setRows(result);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const daysElapsed = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    return dayOfWeek === 0 ? 7 : dayOfWeek; // Mon–Sun: days since last Monday including today
+  })();
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <TrendingUp className="w-4 h-4" />
+          Weekly Contact Avg (This Week)
+          <Badge variant="outline" className="ml-auto text-xs font-normal">Day {daysElapsed} of 5</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-xs text-muted-foreground py-2">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">No shift recap data for this week yet.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {rows.map(r => {
+              const avg = r.days > 0 ? (r.total / r.days).toFixed(1) : '—';
+              const pct = Math.min(100, (r.total / (daysElapsed * 25)) * 100); // 25 = rough daily target
+              return (
+                <div key={r.staff_name} className="flex items-center gap-2 text-xs">
+                  <span className="w-20 shrink-0 font-medium truncate">{r.staff_name}</span>
+                  <div className="flex-1 bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right text-muted-foreground">{avg}/day</span>
+                  <span className="w-10 text-right font-semibold">{r.total}</span>
+                </div>
+              );
+            })}
+            <p className="text-[10px] text-muted-foreground pt-1">
+              Avg = total contacts ÷ shifts worked this week · Bar = % toward 25/day target
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -331,6 +424,7 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
+          <WeeklyContactAvgCard />
           <IntegrityDashboard />
           <VipBulkImport />
           <ShiftRecapsEditor />
