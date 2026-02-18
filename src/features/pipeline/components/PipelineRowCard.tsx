@@ -3,6 +3,7 @@
  * Expandable with booking/run details and action menus.
  */
 import { memo, useCallback, useState } from 'react';
+import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +16,7 @@ import {
 import {
   ChevronDown, ChevronRight, AlertTriangle, Calendar, Target,
   MoreVertical, Edit, UserCheck, CalendarPlus, DollarSign, UserX,
-  Archive, Trash2, Link, X, Plus, Copy, Phone, ArrowRight,
+  Archive, Trash2, Link, X, Plus, Copy, Phone, ArrowRight, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isMembershipSale } from '@/lib/sales-detection';
@@ -50,6 +51,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
 }: PipelineRowCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [convertBooking, setConvertBooking] = useState<PipelineBooking | null>(null);
+  const [scriptOpen, setScriptOpen] = useState(false);
 
   const copyPhone = useCallback((phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -290,6 +292,10 @@ export const PipelineRowCard = memo(function PipelineRowCard({
               onClick={() => onOpenDialog('log_2nd_intro', { journey })}>
               <CalendarPlus className="w-3 h-3 mr-1" /> Log 2nd Intro Run
             </Button>
+            <Button variant="outline" size="sm" className="text-xs"
+              onClick={() => setScriptOpen(true)}>
+              <FileText className="w-3 h-3 mr-1" /> Script
+            </Button>
             {phone && (
               <Button variant="outline" size="sm" className="text-xs"
                 onClick={() => window.open(`tel:${phone}`)}>
@@ -316,6 +322,13 @@ export const PipelineRowCard = memo(function PipelineRowCard({
           onConverted={() => { setConvertBooking(null); onOpenDialog('refresh', {}); }}
         />
       )}
+
+      {/* Script Picker */}
+      <PipelineScriptPicker
+        journey={journey as any}
+        open={scriptOpen}
+        onOpenChange={setScriptOpen}
+      />
     </Collapsible>
   );
 });

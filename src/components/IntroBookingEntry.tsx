@@ -574,7 +574,7 @@ export default function IntroBookingEntry({
         onOpenChange={setShowScripts}
         suggestedCategories={['booking_confirmation', 'pre_class_reminder']}
         mergeContext={scriptMergeContext}
-        bookingId={undefined}
+        bookingId={booking.id}
         questionnaireId={booking.questionnaireId}
         friendQuestionnaireId={booking.friendQuestionnaireId}
         onQuestionnaireSent={() => onUpdate(index, { questionnaireStatus: 'sent' })}
