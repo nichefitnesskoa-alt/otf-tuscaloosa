@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { COACHES, LEAD_SOURCES } from '@/types';
+import { FriendReferralDialog, type OriginalBookingInfo } from '@/components/shared/FriendReferralDialog';
 
 interface BookIntroSheetProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [coach, setCoach] = useState('');
   const [leadSource, setLeadSource] = useState('');
   const [saving, setSaving] = useState(false);
+  const [friendDialogBooking, setFriendDialogBooking] = useState<OriginalBookingInfo | null>(null);
 
   const reset = () => {
     setFirstName('');
@@ -59,14 +61,18 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
       const saName = user?.name || '';
       const classStartAt = classTime ? `${classDate}T${classTime}:00` : null;
 
-      const { error } = await supabase.from('intros_booked').insert({
+      // Derive shift label from current time
+      const h = new Date().getHours();
+      const shiftLabel = h < 11 ? 'AM Shift' : h < 16 ? 'Mid Shift' : 'PM Shift';
+
+      const { data: inserted, error } = await supabase.from('intros_booked').insert({
         member_name: memberName,
         class_date: classDate,
         intro_time: classTime || null,
         class_start_at: classStartAt,
         coach_name: coach,
         lead_source: leadSource,
-        sa_working_shift: saName,
+        sa_working_shift: shiftLabel,
         booked_by: saName,
         intro_owner: saName,
         intro_owner_locked: false,
@@ -75,7 +81,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
@@ -83,6 +89,20 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
       window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
       onSaved();
       handleClose(false);
+
+      // Show friend referral dialog after sheet closes
+      if (inserted?.id) {
+        setFriendDialogBooking({
+          id: inserted.id,
+          memberName,
+          classDate,
+          classStartAt,
+          introTime: classTime || null,
+          coachName: coach,
+          saWorkingShift: shiftLabel,
+          bookedBy: saName,
+        });
+      }
     } catch (err: any) {
       console.error('Book intro save error:', err);
       toast.error(err?.message || 'Failed to save booking');
@@ -92,116 +112,126 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   };
 
   return (
-    <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-xl">
-        <SheetHeader className="mb-4">
-          <SheetTitle>Book an Intro</SheetTitle>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={handleClose}>
+        <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-xl">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Book an Intro</SheetTitle>
+          </SheetHeader>
 
-        <div className="space-y-4 pb-4">
-          {/* Name */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4 pb-4">
+            {/* Name */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="book-first">First Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="book-first"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  placeholder="First"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="book-last">Last Name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="book-last"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  placeholder="Last"
+                />
+              </div>
+            </div>
+
+            {/* Phone (optional) */}
             <div className="space-y-1.5">
-              <Label htmlFor="book-first">First Name <span className="text-destructive">*</span></Label>
+              <Label htmlFor="book-phone">Phone <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Input
-                id="book-first"
-                value={firstName}
-                onChange={e => setFirstName(e.target.value)}
-                placeholder="First"
-                autoFocus
+                id="book-phone"
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="(555) 555-5555"
               />
             </div>
+
+            {/* Class Date */}
             <div className="space-y-1.5">
-              <Label htmlFor="book-last">Last Name <span className="text-destructive">*</span></Label>
+              <Label htmlFor="book-date">Class Date <span className="text-destructive">*</span></Label>
               <Input
-                id="book-last"
-                value={lastName}
-                onChange={e => setLastName(e.target.value)}
-                placeholder="Last"
+                id="book-date"
+                type="date"
+                value={classDate}
+                onChange={e => setClassDate(e.target.value)}
               />
             </div>
-          </div>
 
-          {/* Phone (optional) */}
-          <div className="space-y-1.5">
-            <Label htmlFor="book-phone">Phone <span className="text-muted-foreground text-xs">(optional)</span></Label>
-            <Input
-              id="book-phone"
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="(555) 555-5555"
-            />
-          </div>
+            {/* Class Time */}
+            <div className="space-y-1.5">
+              <Label htmlFor="book-time">Class Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input
+                id="book-time"
+                type="time"
+                value={classTime}
+                onChange={e => setClassTime(e.target.value)}
+              />
+            </div>
 
-          {/* Class Date */}
-          <div className="space-y-1.5">
-            <Label htmlFor="book-date">Class Date <span className="text-destructive">*</span></Label>
-            <Input
-              id="book-date"
-              type="date"
-              value={classDate}
-              onChange={e => setClassDate(e.target.value)}
-            />
-          </div>
+            {/* Coach */}
+            <div className="space-y-1.5">
+              <Label>Coach <span className="text-destructive">*</span></Label>
+              <Select value={coach} onValueChange={setCoach}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select coach..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {COACHES.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Class Time */}
-          <div className="space-y-1.5">
-            <Label htmlFor="book-time">Class Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
-            <Input
-              id="book-time"
-              type="time"
-              value={classTime}
-              onChange={e => setClassTime(e.target.value)}
-            />
-          </div>
+            {/* Lead Source */}
+            <div className="space-y-1.5">
+              <Label>Lead Source <span className="text-destructive">*</span></Label>
+              <Select value={leadSource} onValueChange={setLeadSource}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_SOURCES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Coach */}
-          <div className="space-y-1.5">
-            <Label>Coach <span className="text-destructive">*</span></Label>
-            <Select value={coach} onValueChange={setCoach}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select coach..." />
-              </SelectTrigger>
-              <SelectContent>
-                {COACHES.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {/* SA (read-only) */}
+            <div className="space-y-1.5">
+              <Label>SA (auto-filled)</Label>
+              <Input value={user?.name || ''} disabled className="bg-muted" />
+            </div>
 
-          {/* Lead Source */}
-          <div className="space-y-1.5">
-            <Label>Lead Source <span className="text-destructive">*</span></Label>
-            <Select value={leadSource} onValueChange={setLeadSource}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select source..." />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_SOURCES.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full"
+              size="lg"
+            >
+              {saving ? 'Booking...' : 'Book Intro'}
+            </Button>
           </div>
+        </SheetContent>
+      </Sheet>
 
-          {/* SA (read-only) */}
-          <div className="space-y-1.5">
-            <Label>SA (auto-filled)</Label>
-            <Input value={user?.name || ''} disabled className="bg-muted" />
-          </div>
-
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full"
-            size="lg"
-          >
-            {saving ? 'Booking...' : 'Book Intro'}
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      {friendDialogBooking && (
+        <FriendReferralDialog
+          open={!!friendDialogBooking}
+          onOpenChange={(o) => { if (!o) setFriendDialogBooking(null); }}
+          originalBooking={friendDialogBooking}
+        />
+      )}
+    </>
   );
 }
