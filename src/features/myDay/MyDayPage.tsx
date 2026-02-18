@@ -105,7 +105,12 @@ export default function MyDayPage() {
   );
   const completedTodayCount = todayRuns.length;
   const purchaseTodayCount = useMemo(() =>
-    todayRuns.filter(r => r.result_canon === 'PURCHASED').length,
+    todayRuns.filter(r => {
+      const result = r.result || '';
+      return ['Premier + OTbeat', 'Premier', 'Elite + OTbeat', 'Elite', 'Basic + OTbeat', 'Basic'].some(
+        t => result === t
+      );
+    }).length,
     [todayRuns],
   );
   const noShowTodayCount = useMemo(() =>
