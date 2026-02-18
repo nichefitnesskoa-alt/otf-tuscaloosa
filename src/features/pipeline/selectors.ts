@@ -154,7 +154,7 @@ export function buildJourneys(
 export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
   const counts: TabCounts = {
     all: 0, upcoming: 0, today: 0, completed: 0, no_show: 0,
-    missed_guest: 0, second_intro: 0, not_interested: 0, by_lead_source: 0, vip_class: 0,
+    missed_guest: 0, second_intro: 0, not_interested: 0, by_lead_source: 0, vip_class: 0, leads: 0,
   };
 
   journeys.forEach(journey => {

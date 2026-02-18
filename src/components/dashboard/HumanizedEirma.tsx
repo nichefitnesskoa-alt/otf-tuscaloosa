@@ -35,13 +35,31 @@ function getHumanTitle(objectionName: string): string {
   return `If they say "${objectionName}"`;
 }
 
-export function HumanizedEirma({ obstacles, fitnessLevel, emotionalDriver, clientName, fitnessGoal, pastExperience }: HumanizedEirmaProps) {
+interface HumanizedEirmaProps {
+  obstacles: string | null;
+  fitnessLevel: number | null;
+  emotionalDriver: string | null;
+  clientName?: string;
+  fitnessGoal?: string | null;
+  pastExperience?: string | null;
+  weeklyCommitment?: string | null;
+}
+
+function getMembershipRecommendation(commitment: string | null): string {
+  if (!commitment) return 'Elite + OTbeat';
+  if (commitment.includes('5+')) return 'Premier + OTbeat';
+  if (commitment.includes('3') || commitment.includes('4')) return 'Elite + OTbeat';
+  return 'Basic + OTbeat';
+}
+
+export function HumanizedEirma({ obstacles, fitnessLevel, emotionalDriver, clientName, fitnessGoal, pastExperience, weeklyCommitment }: HumanizedEirmaProps) {
   const { data: playbooks = [] } = useObjectionPlaybooks();
   const matched = matchObstaclesToPlaybooks(obstacles, playbooks);
   const matchedIds = new Set(matched.map(m => m.id));
   const unmatched = playbooks.filter(pb => !matchedIds.has(pb.id));
 
   const firstName = clientName?.split(' ')[0] || 'them';
+  const recommendedTier = getMembershipRecommendation(weeklyCommitment || null);
 
   const personalize = (text: string) => {
     let result = text;
@@ -52,6 +70,40 @@ export function HumanizedEirma({ obstacles, fitnessLevel, emotionalDriver, clien
     if (obstacles) result = result.replace(/\[their obstacle\]/gi, obstacles);
     return result;
   };
+
+  // No-obstacle fallback: show a goal-anchored default EIRMA
+  if (matched.length === 0 && fitnessGoal) {
+    const shortGoal = fitnessGoal.split('|')[0].trim().toLowerCase();
+    const shortWhy = emotionalDriver ? emotionalDriver.split('|')[0].trim().toLowerCase() : null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-amber-600" />
+          <h3 className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">Close Framework</h3>
+        </div>
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Goal-Anchored Close</p>
+          {[
+            { step: 'E — Empathize', line: `"I can see how much ${shortGoal} means to you."` },
+            { step: 'I — Isolate', line: `"Is there anything else holding you back, or is it just making sure this is the right fit?"` },
+            { step: 'R — Redirect', line: `"That's exactly why this works — ${shortWhy ? 'because you want ' + shortWhy : "it\u2019s built around your goal"}."` },
+            { step: `M — Suggest`, line: `"Based on what you told me, I'd recommend ${recommendedTier}. It fits your schedule."` },
+            { step: 'A — Ask', line: `"Let's get you started today. Which works better — paying now or setting up monthly?"` },
+          ].map((s, i) => (
+            <div key={i} className="space-y-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">{s.step}</p>
+              <p className="text-sm text-foreground leading-relaxed">{s.line}</p>
+            </div>
+          ))}
+        </div>
+        {fitnessLevel != null && fitnessLevel <= 2 && (
+          <div className="text-xs p-2 rounded border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+            <span className="font-medium">Low fitness level ({fitnessLevel}/5):</span> Emphasize modifications, heart-rate zones, and "go at your own pace" messaging.
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -71,6 +123,7 @@ export function HumanizedEirma({ obstacles, fitnessLevel, emotionalDriver, clien
               firstName={firstName}
               fitnessGoal={fitnessGoal}
               emotionalDriver={emotionalDriver}
+              recommendedTier={recommendedTier}
               defaultOpen={i === 0}
             />
           ))}
@@ -88,6 +141,7 @@ export function HumanizedEirma({ obstacles, fitnessLevel, emotionalDriver, clien
               firstName={firstName}
               fitnessGoal={fitnessGoal}
               emotionalDriver={emotionalDriver}
+              recommendedTier={recommendedTier}
             />
           ))}
         </div>
@@ -108,6 +162,7 @@ function ObjectionCard({
   firstName,
   fitnessGoal,
   emotionalDriver,
+  recommendedTier,
   defaultOpen = false,
 }: {
   pb: ObjectionPlaybookEntry;
@@ -115,16 +170,17 @@ function ObjectionCard({
   firstName: string;
   fitnessGoal?: string | null;
   emotionalDriver?: string | null;
+  recommendedTier?: string;
   defaultOpen?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   const steps = [
-    { step: 'Step 1 — FEEL', label: 'Empathize', content: personalize(pb.empathize_line) },
-    { step: 'Step 2 — ISOLATE', label: 'Ask', content: personalize(pb.isolate_question) },
-    { step: 'Step 3 — REDIRECT', label: 'Reframe', content: personalize(pb.redirect_framework) },
-    { step: 'Step 4 — BRIDGE', label: 'Solution', content: personalize(pb.suggestion_framework) },
-    { step: 'Step 5 — ASK', label: 'Close', content: personalize(pb.ask_line) },
+    { step: 'E — Empathize', content: personalize(pb.empathize_line) },
+    { step: 'I — Isolate', content: personalize(pb.isolate_question) },
+    { step: 'R — Redirect', content: personalize(pb.redirect_framework) },
+    { step: 'M — Suggest', content: `Based on what ${firstName} said, I'd recommend ${recommendedTier || 'Elite + OTbeat'}. It fits their schedule.` },
+    { step: 'A — Ask', content: personalize(pb.ask_line) },
   ];
 
   const copyScript = () => {

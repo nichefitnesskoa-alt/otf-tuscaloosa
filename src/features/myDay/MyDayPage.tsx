@@ -27,7 +27,6 @@ import { format, differenceInMinutes, isToday } from 'date-fns';
 import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
-import { ContactLogger } from '@/components/myday/ContactLogger';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -344,8 +343,8 @@ export default function MyDayPage() {
       <StickyDayScore completedActions={completedActions} totalActions={totalActions} />
 
 
-      {/* Compact Contact Logger */}
-      <ContactLogger userName={user?.name || ''} />
+      {/* Per-shift activity log — writes to shift_recaps, feeds Studio tab */}
+      <MyDayShiftSummary />
 
       {/* ═══════════════ CORE SECTIONS ═══════════════ */}
 
@@ -409,9 +408,6 @@ export default function MyDayPage() {
 
       {/* Canonical Upcoming Intros Queue (Today + Tomorrow + Coming Up) */}
       <UpcomingIntrosCard userName={user?.name || ''} />
-
-      {/* Per-shift activity log — writes to shift_recaps, feeds Studio tab */}
-      <MyDayShiftSummary />
 
       {/* Sections driven by sectionOrder */}
       {sectionOrder.map((sectionId) => {

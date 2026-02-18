@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import {
   Search, AlertTriangle, Users, Clock, Calendar, CalendarCheck,
-  UserX, UserMinus, CalendarPlus, Filter, Star,
+  UserX, UserMinus, CalendarPlus, Filter, Star, UserPlus,
 } from 'lucide-react';
 import type { JourneyTab, TabCounts } from '../pipelineTypes';
 
@@ -63,6 +63,10 @@ export function PipelineFiltersBar({
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as JourneyTab)} className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="leads" className="flex-1 min-w-[80px] text-xs gap-1">
+            <UserPlus className="w-3 h-3" /> New Leads
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.leads}</Badge>
+          </TabsTrigger>
           <TabsTrigger value="all" className="flex-1 min-w-[70px] text-xs gap-1">
             <Users className="w-3 h-3" /> All
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.all}</Badge>
