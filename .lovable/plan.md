@@ -1,192 +1,155 @@
 
-# Three Targeted Fixes
+# Fix: Script Picker — Auto-Pull Questionnaire Data + Script Creation Restoration
 
-## Fix 1: Scoreboard vs Funnel Mismatch — Align Date Filtering
+## What's Broken Today
 
-### Root Cause
-The funnel's "Sold" count and the scoreboard's "Sales" count use different anchoring logic:
+1. Script button on MyDay cards opens ScriptPickerSheet with zero member context — no goal, no obstacle, no why displayed anywhere in the sheet.
+2. Pipeline row cards have no Script button at all. `PipelineScriptPicker` exists as a component but is never triggered from the row.
+3. ScriptPickerSheet does not load or display questionnaire data for the booking.
+4. Script creation is unreachable — the `/scripts` page exists with full admin Create/Edit/Delete, but it is not linked from Admin, not in the bottom nav, and not discoverable.
+5. `IntroBookingEntry.tsx` opens ScriptPickerSheet with `bookingId={undefined}`, meaning copy-on-send logging is unlinked from the booking.
 
-- **Scoreboard** (`useDashboardMetrics.ts`): For each SA, counts all runs where `isSaleInRange(run, dateRange)` is true — this checks `buy_date ?? run_date ?? created_at` against the date range. The run can come from any booking, even one outside the date window.
+---
 
-- **Funnel** (`ConversionFunnel.tsx`): First filters `introsBooked` to those where `class_date` is in the date range, then counts runs linked to those bookings. A sale with `buy_date` in range but linked to a booking where `class_date` is outside range is invisible to the funnel.
+## Part 1: ScriptPickerSheet — Add Member Context Panel
 
-The funnel "Sold" is **booking-anchored**, the scoreboard is **sale-date-anchored**. They will produce different numbers whenever a follow-up sale closes in a period after the original booking.
+**File:** `src/components/scripts/ScriptPickerSheet.tsx`
 
-### Fix
-Change the funnel's `computeFunnel()` function's `sold` calculation from:
+When `bookingId` is provided, the sheet will:
+
+1. Fetch the `intros_booked` row for that booking (to get `member_name`, `lead_source`, `originating_booking_id`).
+2. Fetch the matching `intro_questionnaires` row by `booking_id`.
+3. Display a compact, non-collapsible **MEMBER CONTEXT** section at the top of the drawer, before the script list.
+
+**Context section layout:**
+```text
+MEMBER CONTEXT
+Name:     Sarah T.
+Goal:     Ask before class         ← if no Q
+Obstacle: Ask before class
+Why:      Ask before class
 ```
-booking-anchored: if this booking's linked runs contain a sale in range → sold++
-```
-to:
-```
-sale-date-anchored: count all runs (across all bookings) where isSaleInRange() is true
-```
+If questionnaire data exists:
+- Goal = `q1_fitness_goal` (trimmed to ~40 chars)
+- Obstacle = `q3_obstacle` (trimmed)
+- Why = `q5_emotional_driver` (trimmed)
 
-The `showed` count stays booking-anchored (how many people showed up, filtered by booking date). Only `sold` switches to match the scoreboard's logic.
+If booking exists but no questionnaire: show "Ask before class" for all three.
 
-Specifically, in `ConversionFunnel.tsx` `computeFunnel()`:
-- Remove the per-booking `runs.some(r => isSaleInRange(...))` check
-- Instead, collect all active intros_run records (filtered by the same booking status exclusions and 1st/2nd filter) and count those where `isSaleInRange(r, dateRange)` is true
+If `bookingId` is absent (admin script editing path): show no context panel — existing behavior preserved exactly.
 
-The 1st/2nd filter still applies to `sold` — a sale from a 1st-intro booking still counts toward 1st-intro sold. This is done by only looking at runs linked to filtered bookings (no class_date restriction on the booking, just the 1st/2nd filter), or more precisely: counting `isSaleInRange` runs that are linked to any booking that passes the intro-type filter.
+**New props added to ScriptPickerSheet:**
+- None new — `bookingId` already exists as optional prop. The component will self-fetch when bookingId is present.
 
-**Implementation in `computeFunnel`:**
+**State changes inside ScriptPickerSheet:**
 ```typescript
-const computeFunnel = (filter: IntroFilter) => {
-  // Filter bookings for 1st/2nd type only (no class_date filter for the sold count)
-  const typeFilteredBookingIds = new Set(
-    introsBooked
-      .filter(b => {
-        const status = ((b as any).booking_status || '').toUpperCase();
-        if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        if ((b as any).ignore_from_metrics) return false;
-        if ((b as any).is_vip === true) return false;
-        if (filter === '1st') return isFirstIntro(b);
-        if (filter === '2nd') return !isFirstIntro(b);
-        return true;
-      })
-      .map(b => b.id)
-  );
+const [memberCtx, setMemberCtx] = useState<{
+  name: string;
+  goal: string | null;
+  obstacle: string | null;
+  why: string | null;
+} | null>(null);
+```
+Fetch fires in `useEffect([open, bookingId])`.
 
-  // Booked: bookings in date range (class_date filtered)
-  const activeBookings = introsBooked.filter(b => {
-    if (!typeFilteredBookingIds.has(b.id)) return false;
-    return isInRange(b.class_date, dateRange || null);
-  });
-  const booked = activeBookings.length;
+---
 
-  // Showed: based on bookings in date range (booking metric)
-  let showed = 0;
-  const activeBookingIds = new Set(activeBookings.map(b => b.id));
-  activeBookings.forEach(b => {
-    const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
-    const showedRuns = runs.filter(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
-    if (showedRuns.length > 0) showed++;
-  });
+## Part 2: Pipeline — Add Script Button to PipelineRowCard
 
-  // Sold: sale-date-anchored (matches scoreboard logic)
-  // Count runs from type-filtered bookings where isSaleInRange() is true
-  const sold = introsRun.filter(r =>
-    r.linked_intro_booked_id && typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
-    isSaleInRange(r, dateRange || null)
-  ).length;
+**File:** `src/features/pipeline/components/PipelineRowCard.tsx`
 
-  return { booked, showed, sold };
-};
+Add a **Script** button to the action buttons section at the bottom of the expanded card content (the `pt-2 border-t` div).
+
+The button opens `PipelineScriptPicker` with the current `journey`. `PipelineScriptPicker` already exists and already builds the full merge context + loads questionnaire links — it just needs to be wired into the row card.
+
+**Changes:**
+- Add `import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker'`
+- Add `scriptOpen` state
+- Add `<Button>Script</Button>` next to "Add Intro Run" in the action buttons row
+- Render `<PipelineScriptPicker>` conditionally
+
+Because `PipelineScriptPicker` wraps `ScriptPickerSheet`, the new member context panel from Part 1 will automatically appear for Pipeline scripts too (the `bookingId` is already threaded through).
+
+---
+
+## Part 3: Fix IntroBookingEntry.tsx — Pass bookingId
+
+**File:** `src/components/IntroBookingEntry.tsx`
+
+Line ~577: `bookingId={undefined}` → change to `bookingId={booking.id}` (the booking's actual ID).
+
+This ensures that when an SA copies a script from the booking entry view, the `script_actions` log is correctly linked to the booking.
+
+---
+
+## Part 4: Restore Script Creation Discoverability
+
+The `/scripts` page already has full create/edit/delete for admins via `TemplateEditor`. The problem is no navigation surface leads there.
+
+**Fix:** Add a **Scripts tab** to the Admin page (`src/pages/Admin.tsx`).
+
+- Add a new tab with `value="scripts"` to the existing 6-column `TabsList`
+- Render the `Scripts` page content inline (or import the Scripts page component into the tab content)
+- Alternatively, add a nav card in the Admin Overview that links to `/scripts`
+
+The cleaner approach (minimal change, no restructuring): Add a "Scripts" tab to Admin that embeds the existing `Scripts` page content (already a standalone component — just import and render it).
+
+Admin `TabsList` currently `grid-cols-6` → change to `grid-cols-7` and add the Scripts tab.
+
+**Files:** `src/pages/Admin.tsx`
+
+---
+
+## Part 5: Script Filtering by Lead Source and Intro Type
+
+When `bookingId` is provided and the booking is loaded, use the fetched booking data to also set `suggestedCategories` intelligently based on lead source and intro type:
+
+- **2nd intro** (`originating_booking_id` not null): prefer `['post_class_no_close', 'follow_up']` categories
+- **Walk-In** lead source: prefer `['confirmation', 'questionnaire']`  
+- **Web Lead**: prefer `['confirmation', 'questionnaire']`
+- **Referral**: prefer `['confirmation', 'questionnaire']`
+- **Instagram**: prefer `['outreach', 'confirmation']`
+
+This restores the lead-source-aware filtering that was described as "previously working."
+
+Currently MyDay hardcodes `suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}`. After this fix, categories are derived from the booking data loaded inside ScriptPickerSheet — or passed down by the parent.
+
+The cleanest approach: keep `suggestedCategories` as a prop from the parent (don't change the prop interface) but allow `ScriptPickerSheet` to **override** the initial selected tab based on the fetched booking context. That way the parent's `suggestedCategories` still controls what tabs appear, but the default-selected tab can be set intelligently.
+
+---
+
+## Technical Implementation Order
+
+```text
+1. ScriptPickerSheet.tsx    — add useEffect fetch + member context panel display
+2. PipelineRowCard.tsx      — add Script button + PipelineScriptPicker wiring
+3. IntroBookingEntry.tsx    — fix bookingId={undefined} → bookingId={booking.id}
+4. Admin.tsx                — add Scripts tab (7th column)
 ```
 
-**File:** `src/components/dashboard/ConversionFunnel.tsx`
-
----
-
-## Fix 2: Intro Run Logging — Auto-Populate from Booking Record
-
-### Root Cause
-In `applyIntroOutcomeUpdate`, Step A2 (create run if missing, lines 97–128) inserts a new `intros_run` record with hardcoded values:
-- `class_time: '00:00'` — not the real class time
-- No `coach_name` field populated
-- No `sa_working_shift` field populated
-
-The booking record (`intros_booked`) contains `class_start_at` (the actual class time), `coach_name`, and `sa_working_shift`. These should be read from the booking and written to the run.
-
-### Fix
-In `applyIntroOutcomeUpdate`, before the "CREATE RUN IF MISSING" block, fetch the booking record when `params.bookingId` is available. Then use those values when inserting the run.
-
-**Specifically, modify the CREATE block (lines 97–128) in `applyIntroOutcomeUpdate.ts`:**
-
-```typescript
-// A2: CREATE RUN IF MISSING
-if (!existingRun && params.bookingId) {
-  // Fetch booking to auto-populate run fields
-  const { data: bookingData } = await supabase
-    .from('intros_booked')
-    .select('class_start_at, coach_name, sa_working_shift, class_date')
-    .eq('id', params.bookingId)
-    .maybeSingle();
-
-  const runDate = bookingData?.class_start_at
-    ? bookingData.class_start_at.split('T')[0]
-    : (params.classDate || getTodayYMD());
-
-  // Extract HH:MM from class_start_at if available
-  const classTime = bookingData?.class_start_at
-    ? bookingData.class_start_at.split('T')[1]?.substring(0, 5) || '00:00'
-    : '00:00';
-
-  const { data: newRun, error: createErr } = await supabase
-    .from('intros_run')
-    .insert({
-      linked_intro_booked_id: params.bookingId,
-      member_name: params.memberName,
-      run_date: runDate,
-      class_time: classTime,
-      coach_name: bookingData?.coach_name || null,       // auto-populated from booking
-      sa_working_shift: bookingData?.sa_working_shift || null, // auto-populated from booking
-      result: params.newResult,
-      result_canon: normalizeIntroResult(params.newResult),
-      lead_source: params.leadSource || null,
-      sa_name: params.editedBy,
-      intro_owner: params.editedBy,
-      commission_amount: resolvedCommission,
-      primary_objection: params.objection || null,
-      buy_date: isNowSale ? getTodayYMD() : null,
-      created_at: new Date().toISOString(),
-      last_edited_at: new Date().toISOString(),
-      last_edited_by: params.editedBy,
-      edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
-    })
-    ...
-```
-
-**File:** `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`
-
----
-
-## Fix 3: HRM Add-On — Update Original Record, No Duplicate
-
-### Root Cause
-**Heather Chiarella duplicate:** She has two `intros_run` records:
-- `cf4bc890` — `run_date: 2026-02-09`, `buy_date: null`, `result: Premier w/o OTBeat`, `commission: $7.50`
-- `969d2b46` — `run_date: 2026-02-10`, `buy_date: 2026-02-16`, `result: Premier w/o OTBeat`, `commission: $7.50`
-
-Both appear in Members Who Bought because `isMembershipSale("Premier w/o OTBeat")` is true (contains "premier"). The `cf4bc890` record has no buy_date — its effective date falls back to `run_date: 2026-02-09`, which is in the current pay period. The `969d2b46` record has `buy_date: 2026-02-16`. Both pass the date filter, causing the duplicate appearance.
-
-**Fix:** Delete the record `cf4bc890` (the stale one with no buy_date and the earlier run_date, linked to a different booking). Keep `969d2b46` which has the actual buy_date.
-
-**Future HRM add-on behavior:** Currently, `FollowupPurchaseEntry.tsx` line 141–164 always inserts a new `sales_outside_intro` row for HRM add-ons, regardless of whether the member already has an existing membership. The fix: before inserting, look up `intros_run` for this member where `isMembershipSale(result)` is true and `buy_date` is in the current pay period. If found, update that run's result to the `+ OTbeat` version and update the commission. If not found, proceed with the existing `sales_outside_intro` insert.
-
-**Tier upgrade mapping:**
-- `Premier w/o OTBeat` or `Premier` → `Premier + OTbeat`
-- `Elite w/o OTBeat` or `Elite` → `Elite + OTbeat`
-- `Basic w/o OTBeat` or `Basic` → `Basic + OTbeat`
-
-Note: the `isMembershipSale()` function checks for "premier", "elite", "basic" — "Premier w/o OTBeat" matches because it contains "premier". The same is true of "Premier + OTbeat". So both are already detected as membership sales and will appear in the scoreboard.
-
-**File:** `src/components/FollowupPurchaseEntry.tsx`
-
----
-
-## Data Fix (Heather Chiarella)
-
-Delete run `cf4bc890` from `intros_run` using the Supabase insert tool (DELETE operation). This removes the stale duplicate entry for Heather Chiarella.
-
----
-
-## File Change Summary
+## Files Changed
 
 | File | Change |
 |---|---|
-| `src/components/dashboard/ConversionFunnel.tsx` | Change `sold` count to use sale-date-anchoring (isSaleInRange) over all type-filtered booking runs, matching scoreboard logic |
-| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Fetch booking record before creating run; auto-populate `run_date`, `class_time`, `coach_name`, `sa_working_shift` |
-| `src/components/FollowupPurchaseEntry.tsx` | On HRM add-on submit: check for existing membership run in current period; if found, update to OTbeat version; if not, create outside_intro as before |
-| DB (intros_run) | Delete duplicate Heather Chiarella run record `cf4bc890-663e-4323-b4fa-8fdf60857882` |
+| `src/components/scripts/ScriptPickerSheet.tsx` | Add member context fetch + display panel |
+| `src/features/pipeline/components/PipelineRowCard.tsx` | Add Script button + PipelineScriptPicker |
+| `src/components/IntroBookingEntry.tsx` | Fix bookingId pass |
+| `src/pages/Admin.tsx` | Add Scripts management tab |
 
-## Acceptance Checklist
+## What Is NOT Changed
 
-| Check | How Verified |
-|---|---|
-| Funnel Sold = Scoreboard Sales for same date range | Both now use `isSaleInRange()` over sale-date-anchored runs |
-| New run auto-shows booking's coach and class time | `applyIntroOutcomeUpdate` fetches and writes these from `intros_booked` |
-| Heather Chiarella: 1 row only | Duplicate run deleted |
-| Premier + HRM → Premier + OTbeat in one row | FollowupPurchaseEntry checks for existing membership before creating new row |
-| Total Sales not inflated by merged HRM records | Merged records replace, not add |
+- MessageGenerator — no changes
+- TemplateEditor — no changes (already works)
+- MyDay event flow (myday:open-script dispatch) — no changes
+- ScriptPickerSheet category tab logic — no changes
+- Pipeline dialogs — no changes
+- FollowUpQueue script opener — already passes bookingId correctly, no change
+- LeadDetailSheet script opener — already passes leadId correctly, no change (no bookingId available there by design since it's a lead-level view)
+
+## Acceptance Checklist Coverage
+
+- Click Script on MyDay intro card (member with Q) → name/goal/obstacle/why shown at top of sheet automatically
+- Click Script on walk-in (no Q) → "Ask before class" shown for all three fields, no crash
+- Open Scripts from Admin tab → create/edit/delete all work
+- Pipeline expanded card shows Script button → clicks opens PipelineScriptPicker with member context
+- IntroBookingEntry script log now linked to correct booking ID
