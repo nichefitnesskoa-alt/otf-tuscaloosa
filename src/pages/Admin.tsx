@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +23,7 @@ import AmcLogForm from '@/components/admin/AmcLogForm';
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
+import ScriptsPage from '@/pages/Scripts';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
@@ -201,7 +202,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -225,6 +226,10 @@ export default function Admin() {
           <TabsTrigger value="stories" className="gap-1">
             <BookOpen className="w-4 h-4" />
             <span className="hidden sm:inline">Stories</span>
+          </TabsTrigger>
+          <TabsTrigger value="scripts" className="gap-1">
+            <FileText className="w-4 h-4" />
+            <span className="hidden sm:inline">Scripts</span>
           </TabsTrigger>
         </TabsList>
 
@@ -291,6 +296,11 @@ export default function Admin() {
         {/* Stories Tab */}
         <TabsContent value="stories" className="space-y-4">
           <SuccessStoriesPanel />
+        </TabsContent>
+
+        {/* Scripts Tab */}
+        <TabsContent value="scripts" className="space-y-4">
+          <ScriptsPage />
         </TabsContent>
       </Tabs>
     </div>
