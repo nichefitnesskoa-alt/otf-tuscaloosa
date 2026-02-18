@@ -182,6 +182,23 @@ export function QuestionnaireHub() {
     return s;
   }, [runs]);
 
+  // Didn't Buy detection
+  const didntBuyBookingIds = useMemo(() => {
+    const s = new Set<string>();
+    runs.forEach(r => {
+      if (r.result === "Didn't Buy" && r.linked_intro_booked_id) s.add(r.linked_intro_booked_id);
+    });
+    return s;
+  }, [runs]);
+
+  const didntBuyNames = useMemo(() => {
+    const s = new Set<string>();
+    runs.forEach(r => {
+      if (r.result === "Didn't Buy") s.add(r.member_name.toLowerCase().trim());
+    });
+    return s;
+  }, [runs]);
+
   // Not interested detection
   const notInterestedBookingIds = useMemo(() => {
     const s = new Set<string>();
@@ -231,18 +248,20 @@ export function QuestionnaireHub() {
     return 'bg-muted text-muted-foreground border-border';
   };
 
-  // Get tab category for a Q record
+  // Get tab category for a Q record — closed outcomes always win
   const getQCategory = (q: QRecord): string => {
     const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
-    const isCompleted = q.status === 'completed' || q.status === 'submitted';
     const isBought = (q.booking_id && purchasedBookingIds.has(q.booking_id)) || purchasedNames.has(fullName);
     const isNotInterested = (q.booking_id && notInterestedBookingIds.has(q.booking_id)) || notInterestedNames.has(fullName);
-    
-    if (isBought && isCompleted) return 'bought';
-    if (isNotInterested) return 'not-interested';
-    if (isCompleted) return 'completed';
-    if (q.status === 'sent') return 'sent';
-    return 'pending';
+    const isDidntBuy = (q.booking_id && didntBuyBookingIds.has(q.booking_id)) || didntBuyNames.has(fullName);
+    const isCompleted = q.status === 'completed' || q.status === 'submitted';
+
+    if (isBought) return 'purchased';          // priority 1 — always wins
+    if (isNotInterested) return 'not-interested'; // priority 2
+    if (isDidntBuy) return 'didnt-buy';           // priority 3
+    if (isCompleted) return 'completed';           // priority 4
+    if (q.status === 'sent') return 'sent';        // priority 5
+    return 'needs-sending';                         // default
   };
 
   // Filter by search and exclude VIP bookings
@@ -262,12 +281,13 @@ export function QuestionnaireHub() {
     );
   }, [questionnaires, searchTerm, bookingMap]);
 
-  // Tab categorization
-  const pending = filtered.filter(q => q.status === 'not_sent');
-  const sent = filtered.filter(q => q.status === 'sent');
-  const completed = filtered.filter(q => (q.status === 'completed' || q.status === 'submitted') && getQCategory(q) !== 'bought');
+  // Tab categorization — computed after getQCategory is defined
+  const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending');
+  const sent = filtered.filter(q => getQCategory(q) === 'sent');
+  const completed = filtered.filter(q => getQCategory(q) === 'completed');
+  const didntBuy = filtered.filter(q => getQCategory(q) === 'didnt-buy');
   const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
-  const bought = filtered.filter(q => getQCategory(q) === 'bought');
+  const purchased = filtered.filter(q => getQCategory(q) === 'purchased');
 
   // Stats
   const totalQs = questionnaires.length;
@@ -390,17 +410,18 @@ export function QuestionnaireHub() {
   const getCategoryBadge = (q: QRecord) => {
     const cat = getQCategory(q);
     const labels: Record<string, { label: string; cls: string }> = {
-      'pending': { label: 'Pending', cls: 'bg-muted text-muted-foreground' },
+      'needs-sending': { label: 'Needs Sending', cls: 'bg-muted text-muted-foreground' },
       'sent': { label: 'Sent', cls: 'bg-blue-100 text-blue-700' },
       'completed': { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' },
+      'didnt-buy': { label: "Didn't Buy", cls: 'bg-amber-100 text-amber-800' },
       'not-interested': { label: 'Not Interested', cls: 'bg-slate-200 text-slate-700' },
-      'bought': { label: 'Bought', cls: 'bg-emerald-600 text-white' },
+      'purchased': { label: 'Purchased', cls: 'bg-emerald-600 text-white' },
     };
-    const info = labels[cat] || labels['pending'];
+    const info = labels[cat] || labels['needs-sending'];
     return <Badge className={cn('text-[9px] px-1 py-0 h-3.5 border-transparent', info.cls)}>{info.label}</Badge>;
   };
 
-  const renderQCard = (q: QRecord, showAnswers = false, showCategoryBadge = false) => {
+  const renderQCard = (q: QRecord, showAnswers = false, showCategoryBadge = false, readOnly = false) => {
     const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
     const fullName = `${q.client_first_name} ${q.client_last_name}`.trim();
     const status = getPersonStatus(q);
@@ -511,15 +532,17 @@ export function QuestionnaireHub() {
           <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1" onClick={() => copyPhone(q)}>
             <Phone className="w-3 h-3" /> Copy #
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-[11px] gap-1 ml-auto"
-            onClick={() => copyLink(q)}
-          >
-            {copiedId === q.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {copiedId === q.id ? 'Copied' : 'Q Link'}
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px] gap-1 ml-auto"
+              onClick={() => copyLink(q)}
+            >
+              {copiedId === q.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              {copiedId === q.id ? 'Copied' : 'Q Link'}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -557,34 +580,41 @@ export function QuestionnaireHub() {
           {filtered.length === 0 ? <EmptyState text="No results found" /> : filtered.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted', true))}
         </div>
       ) : (
-        /* Normal tabbed view */
-        <Tabs defaultValue="pending">
-          <TabsList className="w-full grid grid-cols-5">
-            <TabsTrigger value="pending" className="text-xs">Pending ({pending.length})</TabsTrigger>
+        /* Normal tabbed view — 6 tabs in 2 rows of 3 */
+        <Tabs defaultValue="needs-sending">
+          <TabsList className="w-full grid grid-cols-3 mb-1">
+            <TabsTrigger value="needs-sending" className="text-xs">Needs Sending ({needsSending.length})</TabsTrigger>
             <TabsTrigger value="sent" className="text-xs">Sent ({sent.length})</TabsTrigger>
             <TabsTrigger value="completed" className="text-xs">Completed ({completed.length})</TabsTrigger>
+          </TabsList>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="didnt-buy" className="text-xs">Didn't Buy ({didntBuy.length})</TabsTrigger>
             <TabsTrigger value="not-interested" className="text-xs">Not Int. ({notInterested.length})</TabsTrigger>
-            <TabsTrigger value="bought" className="text-xs">Bought ({bought.length})</TabsTrigger>
+            <TabsTrigger value="purchased" className="text-xs">Purchased ({purchased.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pending" className="space-y-2 mt-2">
-            {pending.length === 0 ? <EmptyState text="No pending questionnaires" /> : pending.map(q => renderQCard(q))}
+          <TabsContent value="needs-sending" className="space-y-2 mt-2">
+            {needsSending.length === 0 ? <EmptyState text="No questionnaires to send" /> : needsSending.map(q => renderQCard(q))}
           </TabsContent>
 
           <TabsContent value="sent" className="space-y-2 mt-2">
-            {sent.length === 0 ? <EmptyState text="No sent questionnaires" /> : sent.map(q => renderQCard(q))}
+            {sent.length === 0 ? <EmptyState text="No sent questionnaires awaiting response" /> : sent.map(q => renderQCard(q))}
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-2 mt-2">
             {completed.length === 0 ? <EmptyState text="No completed questionnaires" /> : completed.map(q => renderQCard(q, true))}
           </TabsContent>
 
-          <TabsContent value="not-interested" className="space-y-2 mt-2">
-            {notInterested.length === 0 ? <EmptyState text="No 'not interested' questionnaires" /> : notInterested.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted'))}
+          <TabsContent value="didnt-buy" className="space-y-2 mt-2">
+            {didntBuy.length === 0 ? <EmptyState text="No 'didn't buy' questionnaires" /> : didntBuy.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted', false, true))}
           </TabsContent>
 
-          <TabsContent value="bought" className="space-y-2 mt-2">
-            {bought.length === 0 ? <EmptyState text="No purchased members with questionnaires" /> : bought.map(q => renderQCard(q, true))}
+          <TabsContent value="not-interested" className="space-y-2 mt-2">
+            {notInterested.length === 0 ? <EmptyState text="No 'not interested' questionnaires" /> : notInterested.map(q => renderQCard(q, q.status === 'completed' || q.status === 'submitted', false, true))}
+          </TabsContent>
+
+          <TabsContent value="purchased" className="space-y-2 mt-2">
+            {purchased.length === 0 ? <EmptyState text="No purchased members with questionnaires" /> : purchased.map(q => renderQCard(q, true, false, true))}
           </TabsContent>
         </Tabs>
       )}

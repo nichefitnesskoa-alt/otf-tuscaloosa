@@ -248,8 +248,18 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           };
         });
 
-        setItems(filtered as FollowUpItem[]);
-        onCountChange?.(filtered.length);
+        // Dedup: keep only the lowest touch_number per person
+        const personMinTouch = new Map<string, number>();
+        for (const d of filtered) {
+          const current = personMinTouch.get(d.person_name);
+          if (current === undefined || d.touch_number < current) {
+            personMinTouch.set(d.person_name, d.touch_number);
+          }
+        }
+        const deduped = filtered.filter(d => d.touch_number === personMinTouch.get(d.person_name));
+
+        setItems(deduped as FollowUpItem[]);
+        onCountChange?.(deduped.length);
       } else {
         setItems([]);
         onCountChange?.(0);
@@ -320,7 +330,16 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
       .from('follow_up_queue')
       .update(updates)
       .eq('id', item.id);
-    
+
+    // Advance next touch due date to 7 days from now
+    const nextTouchDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
+    await supabase
+      .from('follow_up_queue')
+      .update({ scheduled_date: nextTouchDate })
+      .eq('person_name', item.person_name)
+      .eq('touch_number', item.touch_number + 1)
+      .eq('status', 'pending');
+
     toast.success('Follow-up marked as sent');
     fetchQueue();
     onRefresh();
@@ -341,6 +360,16 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
       .from('follow_up_queue')
       .update({ status: 'skipped' })
       .eq('id', item.id);
+
+    // Advance next touch due date to 7 days from now
+    const nextTouchDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
+    await supabase
+      .from('follow_up_queue')
+      .update({ scheduled_date: nextTouchDate })
+      .eq('person_name', item.person_name)
+      .eq('touch_number', item.touch_number + 1)
+      .eq('status', 'pending');
+
     toast.success('Touch skipped');
     fetchQueue();
   };
@@ -357,11 +386,21 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   };
 
   const handleMarkDone = async (item: FollowUpItem) => {
+    // Mark only THIS touch as sent (not the whole sequence)
     await supabase
       .from('follow_up_queue')
-      .update({ status: 'converted' })
+      .update({ status: 'sent', sent_by: user?.name || 'Unknown', sent_at: new Date().toISOString() })
+      .eq('id', item.id);
+
+    // Advance next touch due date to 7 days from now
+    const nextTouchDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
+    await supabase
+      .from('follow_up_queue')
+      .update({ scheduled_date: nextTouchDate })
       .eq('person_name', item.person_name)
+      .eq('touch_number', item.touch_number + 1)
       .eq('status', 'pending');
+
     toast.success('Marked as done');
     fetchQueue();
     onRefresh();
