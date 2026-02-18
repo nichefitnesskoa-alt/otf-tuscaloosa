@@ -121,6 +121,51 @@ function QuestionnaireReconcileCard() {
   );
 }
 
+function QuestionnaireSlugBackfillCard() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<number | null>(null);
+
+  const handleBackfill = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.rpc('backfill_questionnaire_slugs' as any);
+      if (error) throw error;
+      const updated = (data as any)?.updated ?? 0;
+      setResult(updated);
+      toast.success(`Updated ${updated} row${updated !== 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Backfill failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Questionnaire URL Slugs
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Updates all questionnaire slugs to the new <code className="font-mono text-[10px]">firstname-lastname-uuid</code> format. Safe to run multiple times — skips rows already in the correct format.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleBackfill} disabled={running} variant="outline">
+            {running ? 'Running…' : 'Backfill questionnaire URL slugs'}
+          </Button>
+          {result !== null && (
+            <span className="text-sm text-muted-foreground">Updated {result} rows</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface SyncLog {
   id: string;
   sync_type: string;
@@ -291,6 +336,7 @@ export default function Admin() {
           <ShiftRecapsEditor />
           <PhoneBackfillCard />
           <QuestionnaireReconcileCard />
+          <QuestionnaireSlugBackfillCard />
         </TabsContent>
 
         {/* Stories Tab */}

@@ -1775,6 +1775,7 @@ export type Database = {
     }
     Functions: {
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
+      backfill_questionnaire_slugs: { Args: never; Returns: Json }
       get_staff_name: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
