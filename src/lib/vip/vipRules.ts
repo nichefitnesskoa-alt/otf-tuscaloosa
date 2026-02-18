@@ -20,11 +20,12 @@ interface VipRunLike {
 }
 
 /**
- * Returns true if the booking is a VIP event booking (not a normal intro).
+ * Returns true if the booking is a VIP or COMP event booking (not a normal intro).
  */
 export function isVipBooking(b: VipBookingLike): boolean {
   if (b.is_vip === true) return true;
   if (b.booking_type_canon === 'VIP') return true;
+  if (b.booking_type_canon === 'COMP') return true;
   if (b.vip_session_id) return true;
   if (b.lead_source && b.lead_source.toLowerCase().includes('vip')) return true;
   return false;

@@ -7,6 +7,9 @@ import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicke
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import {
@@ -19,8 +22,10 @@ import {
   Archive, Trash2, Link, X, Plus, Copy, Phone, ArrowRight, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isVipBooking } from '@/lib/vip/vipRules';
+import { useAuth } from '@/context/AuthContext';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import type { ClientJourney, PipelineBooking, PipelineRun, VipInfo } from '../pipelineTypes';
 
@@ -49,9 +54,36 @@ function getStatusBadge(status: ClientJourney['status']) {
 export const PipelineRowCard = memo(function PipelineRowCard({
   journey, vipInfoMap, isOnline, onOpenDialog,
 }: PipelineRowCardProps) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [convertBooking, setConvertBooking] = useState<PipelineBooking | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [updatingTypeFor, setUpdatingTypeFor] = useState<string | null>(null);
+
+  const isAdmin = user?.role === 'Admin';
+
+  const handleBookingTypeChange = useCallback(async (bookingId: string, newType: string) => {
+    setUpdatingTypeFor(bookingId);
+    try {
+      const { error } = await supabase
+        .from('intros_booked')
+        .update({
+          booking_type_canon: newType,
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: user?.name || 'Admin',
+          edit_reason: `Booking type changed to ${newType} via Pipeline`,
+        })
+        .eq('id', bookingId);
+      if (error) throw error;
+      toast.success(`Booking type set to ${newType}`);
+      onOpenDialog('refresh', {});
+    } catch (err) {
+      toast.error('Failed to update booking type');
+      console.error(err);
+    } finally {
+      setUpdatingTypeFor(null);
+    }
+  }, [user?.name, onOpenDialog]);
 
   const copyPhone = useCallback((phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -148,6 +180,28 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                         )}
                         {b.is_vip && (
                           <Badge variant="secondary" className="text-[10px] mt-0.5 ml-1">VIP</Badge>
+                        )}
+                        {(b as any).booking_type_canon === 'COMP' && (
+                          <Badge className="text-[10px] mt-0.5 ml-1 bg-amber-100 text-amber-800 border-amber-300">COMP</Badge>
+                        )}
+                        {/* Admin-only booking type selector */}
+                        {isAdmin && (
+                          <div className="mt-1.5">
+                            <Select
+                              value={(b as any).booking_type_canon || 'STANDARD'}
+                              onValueChange={(val) => handleBookingTypeChange(b.id, val)}
+                              disabled={updatingTypeFor === b.id}
+                            >
+                              <SelectTrigger className="h-6 text-[10px] w-28 px-1.5">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="STANDARD" className="text-xs">Standard</SelectItem>
+                                <SelectItem value="VIP" className="text-xs">VIP</SelectItem>
+                                <SelectItem value="COMP" className="text-xs">Comp</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-1">

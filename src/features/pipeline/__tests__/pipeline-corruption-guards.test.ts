@@ -37,6 +37,7 @@ function makeBooking(overrides: Partial<PipelineBooking> = {}): PipelineBooking 
     fitness_goal: null,
     originating_booking_id: null,
     vip_class_name: null,
+    booking_type_canon: 'STANDARD',
     rebooked_from_booking_id: null,
     rebook_reason: null,
     rebooked_at: null,

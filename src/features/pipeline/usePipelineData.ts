@@ -22,7 +22,7 @@ import type {
   VipInfo,
 } from './pipelineTypes';
 
-const BOOKING_SELECT = 'id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, booking_status_canon, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email, is_vip, rebooked_from_booking_id, rebook_reason, rebooked_at';
+const BOOKING_SELECT = 'id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, booking_status_canon, booking_type_canon, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email, is_vip, rebooked_from_booking_id, rebook_reason, rebooked_at';
 const RUN_SELECT = 'id, run_id, member_name, run_date, class_time, result, result_canon, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date, coach_name, sa_name, amc_incremented_at';
 
 export function usePipelineData() {

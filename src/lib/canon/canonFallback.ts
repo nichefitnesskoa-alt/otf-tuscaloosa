@@ -12,6 +12,29 @@ export type ResultCanon =
   | 'SECOND_INTRO_SCHEDULED'
   | 'UNRESOLVED';
 
+export type BookingTypeCanon = 'STANDARD' | 'VIP' | 'COMP';
+
+/**
+ * Canonical booking type normalizer.
+ * NULL defaults to STANDARD. COMP is its own explicit type, never a fallback.
+ */
+export function canonBookingType(raw: string | null | undefined): BookingTypeCanon {
+  if (!raw) return 'STANDARD';
+  const upper = raw.trim().toUpperCase();
+  if (upper === 'VIP') return 'VIP';
+  if (upper === 'COMP') return 'COMP';
+  return 'STANDARD';
+}
+
+/**
+ * Returns true if the booking type should be excluded from the standard funnel
+ * (MyDay, pipeline tabs, questionnaires, follow-ups, scoreboard).
+ */
+export function isExcludedFromFunnel(bookingTypeCanon: string | null | undefined): boolean {
+  const canon = canonBookingType(bookingTypeCanon);
+  return canon === 'VIP' || canon === 'COMP';
+}
+
 const RESULT_CANON_MAP: Record<string, ResultCanon> = {
   // Sale variants
   'premier + otbeat': 'PURCHASED',
