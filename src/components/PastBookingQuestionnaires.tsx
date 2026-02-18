@@ -161,7 +161,7 @@ export default function PastBookingQuestionnaires() {
     const lastName = nameParts.slice(1).join(' ') || '';
     const newId = crypto.randomUUID();
 
-    const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
+    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: booking.is_standalone ? null : booking.id,
@@ -170,7 +170,7 @@ export default function PastBookingQuestionnaires() {
       scheduled_class_date: booking.class_date,
       scheduled_class_time: booking.intro_time || null,
       status: 'not_sent',
-      slug: newSlug || null,
+      slug: newSlug,
     } as any);
 
     setGeneratingId(null);
@@ -198,7 +198,7 @@ export default function PastBookingQuestionnaires() {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
     const newId = crypto.randomUUID();
-    const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
+    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
 
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
@@ -208,7 +208,7 @@ export default function PastBookingQuestionnaires() {
       scheduled_class_date: quickDate,
       scheduled_class_time: quickTime || null,
       status: 'not_sent',
-      slug: newSlug || null,
+      slug: newSlug,
     } as any);
 
     setQuickAdding(false);

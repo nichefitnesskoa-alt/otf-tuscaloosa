@@ -65,7 +65,19 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
 
       if (existing) {
         qId = existing.id;
-        slug = (existing as any).slug || existing.id;
+        // If existing slug already has name-uuid format, use it; else regenerate
+        const existingSlug = (existing as any).slug;
+        if (existingSlug && existingSlug.includes('-') && existingSlug.split('-').length >= 5) {
+          slug = existingSlug;
+        } else {
+          // Backfill slug to new format
+          const nameParts = item.memberName.trim().split(/\s+/);
+          const firstName = nameParts[0] || item.memberName;
+          const lastName = nameParts.slice(1).join(' ') || '';
+          const newSlug = await generateUniqueSlug(firstName, lastName, null, qId);
+          await supabase.from('intro_questionnaires').update({ slug: newSlug } as any).eq('id', qId);
+          slug = newSlug;
+        }
         // Mark as sent if not already sent/completed
         await supabase
           .from('intro_questionnaires')
@@ -78,7 +90,7 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
         const firstName = nameParts[0] || item.memberName;
         const lastName = nameParts.slice(1).join(' ') || '';
         qId = crypto.randomUUID();
-        const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
+        const newSlug = await generateUniqueSlug(firstName, lastName, null, qId);
         await supabase.from('intro_questionnaires').insert({
           id: qId,
           booking_id: bookingId,
@@ -86,9 +98,9 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
           client_last_name: lastName,
           scheduled_class_date: item.classDate,
           status: 'sent',
-          slug: newSlug || null,
+          slug: newSlug,
         } as any);
-        slug = newSlug || qId;
+        slug = newSlug;
       }
 
       const link = `${PUBLISHED_URL}/q/${slug}`;

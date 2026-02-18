@@ -73,7 +73,7 @@ export default function QuestionnaireLink({
 
     // No existing record found — create new
     const newId = crypto.randomUUID();
-    const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
+    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: null,
@@ -82,7 +82,7 @@ export default function QuestionnaireLink({
       scheduled_class_date: introDate,
       scheduled_class_time: introTime || null,
       status: 'not_sent',
-      slug: newSlug || null,
+      slug: newSlug,
     } as any);
     setCreating(false);
     if (error) {
@@ -101,30 +101,18 @@ export default function QuestionnaireLink({
   }, [createQuestionnaire]);
 
   // Sync name/date/time changes back to existing questionnaire record
+  // Slug is NOT regenerated on name change since it already contains the stable UUID
   useEffect(() => {
     if (!questionnaireId || !firstName) return;
     if (syncRef.current) clearTimeout(syncRef.current);
     syncRef.current = setTimeout(async () => {
-      const currentName = `${firstName} ${lastName}`.trim();
-      const nameChanged = currentName !== prevNameRef.current;
-
-      if (nameChanged) {
-        const newSlug = await generateUniqueSlug(firstName, lastName, supabase, questionnaireId);
-        await supabase.from('intro_questionnaires').update({
-          client_first_name: firstName,
-          client_last_name: lastName,
-          scheduled_class_date: introDate,
-          scheduled_class_time: introTime || null,
-          slug: newSlug || null,
-        } as any).eq('id', questionnaireId);
-        setSlug(newSlug);
-        prevNameRef.current = currentName;
-      } else {
-        await supabase.from('intro_questionnaires').update({
-          scheduled_class_date: introDate,
-          scheduled_class_time: introTime || null,
-        } as any).eq('id', questionnaireId);
-      }
+      await supabase.from('intro_questionnaires').update({
+        client_first_name: firstName,
+        client_last_name: lastName,
+        scheduled_class_date: introDate,
+        scheduled_class_time: introTime || null,
+      } as any).eq('id', questionnaireId);
+      prevNameRef.current = `${firstName} ${lastName}`.trim();
     }, 800);
     return () => { if (syncRef.current) clearTimeout(syncRef.current); };
   }, [questionnaireId, firstName, lastName, introDate, introTime]);
