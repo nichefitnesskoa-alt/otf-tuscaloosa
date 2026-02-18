@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, Send, Copy, User, Eye, Dumbbell, ClipboardList } from 'lucide-react';
+import { Phone, Copy, User, Eye, Dumbbell, ClipboardList, Send } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -130,8 +130,8 @@ export default function IntroRowCard({
               className="h-6 text-[10px] gap-1"
               onClick={guardOnline(() => onSendQ(item.bookingId))}
             >
-              <Send className="w-2.5 h-2.5" />
-              Send Questionnaire
+              <Copy className="w-2.5 h-2.5" />
+              Copy Q Link
             </Button>
           </div>
         )}

@@ -16,7 +16,9 @@ import { useUpcomingIntrosData } from './useUpcomingIntrosData';
 import { groupByDay, getSuggestedFocus } from './myDaySelectors';
 import UpcomingIntrosFilters from './UpcomingIntrosFilters';
 import IntroDayGroup from './IntroDayGroup';
-import { sendQuestionnaire, confirmIntro } from './myDayActions';
+import { confirmIntro } from './myDayActions';
+import { supabase } from '@/integrations/supabase/client';
+import { generateUniqueSlug } from '@/lib/utils';
 
 interface UpcomingIntrosCardProps {
   userName: string;
@@ -49,11 +51,54 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
     if (!isOnline) { toast.error('Offline'); return; }
     const item = items.find(i => i.bookingId === bookingId);
     if (!item) return;
+    const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
     try {
-      await sendQuestionnaire(bookingId, item.memberName, item.classDate, userName);
-      toast.success('Questionnaire sent');
+      // Ensure questionnaire exists for this booking
+      const { data: existing } = await supabase
+        .from('intro_questionnaires')
+        .select('id, slug')
+        .eq('booking_id', bookingId)
+        .maybeSingle();
+
+      let slug: string;
+      let qId: string;
+
+      if (existing) {
+        qId = existing.id;
+        slug = (existing as any).slug || existing.id;
+        // Mark as sent if not already sent/completed
+        await supabase
+          .from('intro_questionnaires')
+          .update({ status: 'sent' })
+          .eq('id', qId)
+          .not('status', 'in', '("completed","submitted","sent")');
+      } else {
+        // Create new questionnaire record
+        const nameParts = item.memberName.trim().split(/\s+/);
+        const firstName = nameParts[0] || item.memberName;
+        const lastName = nameParts.slice(1).join(' ') || '';
+        qId = crypto.randomUUID();
+        const newSlug = await generateUniqueSlug(firstName, lastName, supabase);
+        await supabase.from('intro_questionnaires').insert({
+          id: qId,
+          booking_id: bookingId,
+          client_first_name: firstName,
+          client_last_name: lastName,
+          scheduled_class_date: item.classDate,
+          status: 'sent',
+          slug: newSlug || null,
+        } as any);
+        slug = newSlug || qId;
+      }
+
+      const link = `${PUBLISHED_URL}/q/${slug}`;
+      await navigator.clipboard.writeText(link);
+      toast.success('Questionnaire link copied! Paste it in your message.');
       refreshAll();
-    } catch { toast.error('Failed to send questionnaire'); }
+    } catch (err) {
+      console.error('Copy Q link error:', err);
+      toast.error('Failed to copy questionnaire link');
+    }
   }, [items, userName, isOnline, refreshAll]);
 
   const handleConfirm = useCallback(async (bookingId: string) => {

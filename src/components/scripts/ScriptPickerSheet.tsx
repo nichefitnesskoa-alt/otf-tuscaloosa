@@ -59,10 +59,17 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     why: string | null;
   } | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
+  // Auto-resolved questionnaire data from the booking
+  const [resolvedQuestionnaireId, setResolvedQuestionnaireId] = useState<string | undefined>(undefined);
+  const [resolvedQuestionnaireUrl, setResolvedQuestionnaireUrl] = useState<string | undefined>(undefined);
+
+  const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
   useEffect(() => {
     if (!open || !bookingId) {
       setMemberCtx(null);
+      setResolvedQuestionnaireId(undefined);
+      setResolvedQuestionnaireUrl(undefined);
       return;
     }
     let cancelled = false;
@@ -81,8 +88,10 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
         // Fetch questionnaire by booking_id
         const { data: q } = await supabase
           .from('intro_questionnaires')
-          .select('q1_fitness_goal, q3_obstacle, q5_emotional_driver')
+          .select('id, slug, q1_fitness_goal, q3_obstacle, q5_emotional_driver')
           .eq('booking_id', bookingId)
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         if (cancelled) return;
@@ -96,6 +105,13 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           obstacle: q ? trim(q.q3_obstacle) : null,
           why: q ? trim(q.q5_emotional_driver) : null,
         });
+
+        // Store resolved questionnaire URL for auto-injection into script body
+        if (q) {
+          setResolvedQuestionnaireId(q.id);
+          const slug = (q as any).slug || q.id;
+          setResolvedQuestionnaireUrl(`${PUBLISHED_URL}/q/${slug}`);
+        }
       } finally {
         if (!cancelled) setCtxLoading(false);
       }
@@ -228,11 +244,17 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           open={!!selectedTemplate}
           onOpenChange={(o) => { if (!o) setSelectedTemplate(null); }}
           template={selectedTemplate}
-          mergeContext={mergeContext}
+          mergeContext={{
+            ...mergeContext,
+            // Auto-inject the questionnaire URL when we've resolved it from the booking
+            ...(resolvedQuestionnaireUrl && !mergeContext['questionnaire-link']
+              ? { 'questionnaire-link': resolvedQuestionnaireUrl }
+              : {}),
+          }}
           leadId={leadId}
           bookingId={bookingId}
           onLogged={onLogged}
-          questionnaireId={questionnaireId}
+          questionnaireId={questionnaireId ?? resolvedQuestionnaireId}
           friendQuestionnaireId={friendQuestionnaireId}
           onQuestionnaireSent={onQuestionnaireSent}
           onFriendQuestionnaireSent={onFriendQuestionnaireSent}

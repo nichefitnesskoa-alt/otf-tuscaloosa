@@ -326,7 +326,7 @@ export function PrepDrawer({
                             <div className="flex gap-2">
                               {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
                                 <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={onSendQ}>
-                                  Send Q
+                                  Copy Q Link
                                 </Button>
                               )}
                               <Button variant="outline" size="sm" className="h-6 text-[10px]" onClick={() => setLinkQOpen(true)}>
@@ -448,7 +448,7 @@ export function PrepDrawer({
               )}
               {onSendQ && !isSecondIntro && (
                 <Button variant="outline" size="sm" className="text-xs" onClick={onSendQ}>
-                  <FileText className="w-3.5 h-3.5 mr-1" /> Send Q
+                  <FileText className="w-3.5 h-3.5 mr-1" /> Copy Q Link
                 </Button>
               )}
               <Button variant="outline" size="sm" className="text-xs" onClick={handleCopyPhone}>

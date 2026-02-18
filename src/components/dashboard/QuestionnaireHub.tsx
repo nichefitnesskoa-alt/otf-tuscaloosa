@@ -540,7 +540,7 @@ export function QuestionnaireHub() {
               onClick={() => copyLink(q)}
             >
               {copiedId === q.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-              {copiedId === q.id ? 'Copied' : 'Q Link'}
+              {copiedId === q.id ? 'Copied!' : 'Copy Q Link'}
             </Button>
           )}
         </div>
