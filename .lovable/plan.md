@@ -1,257 +1,192 @@
 
-# Fix 1: Follow-Up Queue — Show Only Current Due Touch
-# Fix 2: Questionnaire Hub — Correct Tabs and Filtering
+# Three Targeted Fixes
 
-## Current State Analysis
+## Fix 1: Scoreboard vs Funnel Mismatch — Align Date Filtering
 
-### Follow-Up Queue (`FollowUpsDueToday.tsx`)
-The component at `src/components/dashboard/FollowUpsDueToday.tsx` is the active follow-up queue on MyDay. The issue is in the `fetchQueue()` function at line 68–75:
+### Root Cause
+The funnel's "Sold" count and the scoreboard's "Sales" count use different anchoring logic:
 
+- **Scoreboard** (`useDashboardMetrics.ts`): For each SA, counts all runs where `isSaleInRange(run, dateRange)` is true — this checks `buy_date ?? run_date ?? created_at` against the date range. The run can come from any booking, even one outside the date window.
+
+- **Funnel** (`ConversionFunnel.tsx`): First filters `introsBooked` to those where `class_date` is in the date range, then counts runs linked to those bookings. A sale with `buy_date` in range but linked to a booking where `class_date` is outside range is invisible to the funnel.
+
+The funnel "Sold" is **booking-anchored**, the scoreboard is **sale-date-anchored**. They will produce different numbers whenever a follow-up sale closes in a period after the original booking.
+
+### Fix
+Change the funnel's `computeFunnel()` function's `sold` calculation from:
+```
+booking-anchored: if this booking's linked runs contain a sale in range → sold++
+```
+to:
+```
+sale-date-anchored: count all runs (across all bookings) where isSaleInRange() is true
+```
+
+The `showed` count stays booking-anchored (how many people showed up, filtered by booking date). Only `sold` switches to match the scoreboard's logic.
+
+Specifically, in `ConversionFunnel.tsx` `computeFunnel()`:
+- Remove the per-booking `runs.some(r => isSaleInRange(...))` check
+- Instead, collect all active intros_run records (filtered by the same booking status exclusions and 1st/2nd filter) and count those where `isSaleInRange(r, dateRange)` is true
+
+The 1st/2nd filter still applies to `sold` — a sale from a 1st-intro booking still counts toward 1st-intro sold. This is done by only looking at runs linked to filtered bookings (no class_date restriction on the booking, just the 1st/2nd filter), or more precisely: counting `isSaleInRange` runs that are linked to any booking that passes the intro-type filter.
+
+**Implementation in `computeFunnel`:**
 ```typescript
-const { data, error } = await supabase
-  .from('follow_up_queue')
-  .select('*')
-  .eq('status', 'pending')
-  .lte('scheduled_date', today)   // ← Any pending touch past its date shows up
-  .eq('is_vip', false)
-  ...
-```
+const computeFunnel = (filter: IntroFilter) => {
+  // Filter bookings for 1st/2nd type only (no class_date filter for the sold count)
+  const typeFilteredBookingIds = new Set(
+    introsBooked
+      .filter(b => {
+        const status = ((b as any).booking_status || '').toUpperCase();
+        if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+        if ((b as any).ignore_from_metrics) return false;
+        if ((b as any).is_vip === true) return false;
+        if (filter === '1st') return isFirstIntro(b);
+        if (filter === '2nd') return !isFirstIntro(b);
+        return true;
+      })
+      .map(b => b.id)
+  );
 
-This returns ALL pending touches with `scheduled_date <= today`. So if Amaya Grant has Touch 1 (due today) AND Touch 2 (overdue from a past incomplete cycle), both appear simultaneously. The deduplication by person is missing.
+  // Booked: bookings in date range (class_date filtered)
+  const activeBookings = introsBooked.filter(b => {
+    if (!typeFilteredBookingIds.has(b.id)) return false;
+    return isInRange(b.class_date, dateRange || null);
+  });
+  const booked = activeBookings.length;
 
-The rule to enforce:
-1. For each person, only the **lowest `touch_number`** with status `pending` and `scheduled_date <= today` should show
-2. Higher touch numbers are blocked until all lower-numbered touches are resolved (status `sent`, `skipped`, or `converted`)
-3. The filter chips (All / No Show / Didn't Buy) at lines 280–281 use `items` (pre-filter), so they already reflect only visible items — no change needed there
+  // Showed: based on bookings in date range (booking metric)
+  let showed = 0;
+  const activeBookingIds = new Set(activeBookings.map(b => b.id));
+  activeBookings.forEach(b => {
+    const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
+    const showedRuns = runs.filter(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
+    if (showedRuns.length > 0) showed++;
+  });
 
-**Fix**: After fetching and applying exit conditions, add a deduplication pass that groups by `person_name` and keeps only the row with the minimum `touch_number`. This is a pure client-side filter added at line 250, before `setItems(filtered)`.
+  // Sold: sale-date-anchored (matches scoreboard logic)
+  // Count runs from type-filtered bookings where isSaleInRange() is true
+  const sold = introsRun.filter(r =>
+    r.linked_intro_booked_id && typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
+    isSaleInRange(r, dateRange || null)
+  ).length;
 
-Additionally, `scheduled_date` already enforces the "7 days later" rule if Touch 2 rows are created with the correct `scheduled_date` (7 days after Touch 1's `sent_at`). The current cadence uses `trigger_date + offset` (`DIDNT_BUY_CADENCE = [0, 6, 13]`), not "7 days after previous touch was marked done." This is the deeper structural issue — Touch 2's `scheduled_date` is computed at outcome-log time (offset from trigger), not when Touch 1 completes.
-
-The spec says: "Touch 2 is not due until 7 days after Touch 1 was completed." This means Touch 2's `scheduled_date` needs to be updated when Touch 1 is marked Done. Two approaches:
-- **Approach A (simpler)**: Keep pre-computed `scheduled_date`, but add client-side dedup by person_name keeping min touch_number. This prevents double-cards. The date-based suppression is already working via `lte('scheduled_date', today)`.
-- **Approach B (correct cadence)**: When Touch 1 is marked done (`handleMarkSent`), update Touch 2's `scheduled_date` to `today + 7 days`. This is the proper fix for the "disappears for 7 days" requirement.
-
-**We implement Approach B**: in `handleMarkSent` (line 310) and `handleSkip` (line 339), after updating the current touch status, fetch the next touch for the same person and update its `scheduled_date` to `today + 7 days` if it's currently in the past or too soon.
-
-Plus Approach A's dedup as a safety net.
-
-### Questionnaire Hub (`QuestionnaireHub.tsx`)
-
-**Current tabs (5):** Pending | Sent | Completed | Not Int. | Bought
-
-**Required tabs (6):** Needs Sending | Sent | Completed | Didn't Buy | Not Interested | Purchased
-
-**Key problems to fix:**
-
-1. **Tab rename**: "Pending" → "Needs Sending", "Bought" → "Purchased", add new "Didn't Buy" tab
-2. **Sent tab contamination**: Currently `sent = filtered.filter(q => q.status === 'sent')` — this includes people with Purchased/Not Interested outcomes. Need to exclude closed outcomes from Sent tab.
-3. **Missing "Didn't Buy" tab**: No tab exists for `result = "Didn't Buy"`. These records need their own tab.
-4. **Purchased tab**: Need to detect `"Purchased (Premier w/o OTBeat)"` — current detection looks for `['premier', 'elite', 'basic'].some(k => res.includes(k))` which DOES match "Premier w/o OTBeat" since "premier" is in that string. So Miley Goetz should already appear — but she's likely being pulled into Completed or Sent instead because the `getQCategory` logic checks `isBought && isCompleted` for "bought", and if not completed, she falls through to a non-bought category.
-
-**The real `getQCategory` bug** (line 235–246):
-```typescript
-if (isBought && isCompleted) return 'bought';     // only bought if ALSO completed
-if (isNotInterested) return 'not-interested';
-if (isCompleted) return 'completed';
-if (q.status === 'sent') return 'sent';            // sent tab: no closed-outcome check
-return 'pending';
-```
-
-If Miley has a questionnaire that's `status = 'sent'` (not completed), but she purchased, `isBought && isCompleted` is false so she doesn't get `'bought'` — she ends up in `'sent'` tab. **Fix**: `isBought` alone (regardless of questionnaire completion) should put her in `'purchased'`.
-
-Also: the Sent tab query has no closed-outcome exclusion. Any purchased/not-interested/didn't-buy person with a `status = 'sent'` questionnaire appears in Sent.
-
-**New closed outcome detection needed**: Add "Didn't Buy" detection parallel to existing purchased/not-interested detection using `intros_run.result = "Didn't Buy"`.
-
-**New `getQCategory` logic:**
-```
-if (isBought) → 'purchased'              (regardless of questionnaire completion)
-if (isNotInterested) → 'not-interested'
-if (isDidntBuy) → 'didnt-buy'
-if (isCompleted) → 'completed'
-if (q.status === 'sent') → 'sent'
-return 'needs-sending'
-```
-
-**New tab arrays:**
-```typescript
-const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending');
-const sent = filtered.filter(q => getQCategory(q) === 'sent');
-const completed = filtered.filter(q => getQCategory(q) === 'completed');
-const didntBuy = filtered.filter(q => getQCategory(q) === 'didnt-buy');
-const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
-const purchased = filtered.filter(q => getQCategory(q) === 'purchased');
-```
-
-**Action buttons on read-only tabs**: Purchased, Didn't Buy, Not Interested cards should NOT show the "Q Link" (send questionnaire) button. The `renderQCard` function needs a `readOnly` parameter that hides the copy-link button. The Prep, Script, Coach, Copy # buttons can remain on all tabs.
-
-**Tab count badges**: Render counts inline in trigger labels.
-
-**intros_booked fetch**: Need to also fetch `questionnaire_status_canon` from `intros_booked` to cross-reference. Currently not fetched. But since we're working purely from `intro_questionnaires.status` + `intros_run.result`, the existing data is sufficient.
-
-## Files to Change
-
-### `src/components/dashboard/FollowUpsDueToday.tsx`
-
-**Change 1** — After the `filtered` array is built (line ~229), add a deduplication pass:
-```typescript
-// Keep only the lowest touch_number per person
-const personMinTouch = new Map<string, number>();
-for (const d of filtered) {
-  const current = personMinTouch.get(d.person_name);
-  if (current === undefined || d.touch_number < current) {
-    personMinTouch.set(d.person_name, d.touch_number);
-  }
-}
-const deduped = filtered.filter(d => d.touch_number === personMinTouch.get(d.person_name));
-setItems(deduped as FollowUpItem[]);
-```
-
-**Change 2** — In `handleMarkSent` (line 310) and `handleSkip` (line 339), after updating the current touch, push the next touch's `scheduled_date` forward:
-```typescript
-// After marking current touch sent/skipped, advance next touch's due date
-const nextTouchDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
-await supabase
-  .from('follow_up_queue')
-  .update({ scheduled_date: nextTouchDate })
-  .eq('person_name', item.person_name)
-  .eq('touch_number', item.touch_number + 1)
-  .eq('status', 'pending');
-```
-
-This means: Touch 2 (which had a pre-computed date) gets its `scheduled_date` bumped to 7 days from now when Touch 1 is resolved. The existing `lte('scheduled_date', today)` filter will then naturally suppress it until that future date arrives.
-
-**Change 3** — In `handleMarkDone` (line 359), the current implementation sets ALL pending items to `converted` for the same person. This is incorrect — it marks the entire sequence as done. It should only mark the current touch and advance the next one. Fix:
-```typescript
-const handleMarkDone = async (item: FollowUpItem) => {
-  // Mark only this touch as sent (not all pending for the person)
-  await supabase
-    .from('follow_up_queue')
-    .update({ status: 'sent', sent_by: user?.name || 'Unknown', sent_at: new Date().toISOString() })
-    .eq('id', item.id);
-  
-  // Advance next touch due date to 7 days from now
-  const nextTouchDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
-  await supabase
-    .from('follow_up_queue')
-    .update({ scheduled_date: nextTouchDate })
-    .eq('person_name', item.person_name)
-    .eq('touch_number', item.touch_number + 1)
-    .eq('status', 'pending');
-  
-  toast.success('Marked as done');
-  fetchQueue();
-  onRefresh();
+  return { booked, showed, sold };
 };
 ```
 
-### `src/components/dashboard/QuestionnaireHub.tsx`
+**File:** `src/components/dashboard/ConversionFunnel.tsx`
 
-**Change 1** — Add `didntBuyBookingIds` and `didntBuyNames` computed sets (parallel to existing `purchasedBookingIds`/`notInterestedBookingIds`):
+---
+
+## Fix 2: Intro Run Logging — Auto-Populate from Booking Record
+
+### Root Cause
+In `applyIntroOutcomeUpdate`, Step A2 (create run if missing, lines 97–128) inserts a new `intros_run` record with hardcoded values:
+- `class_time: '00:00'` — not the real class time
+- No `coach_name` field populated
+- No `sa_working_shift` field populated
+
+The booking record (`intros_booked`) contains `class_start_at` (the actual class time), `coach_name`, and `sa_working_shift`. These should be read from the booking and written to the run.
+
+### Fix
+In `applyIntroOutcomeUpdate`, before the "CREATE RUN IF MISSING" block, fetch the booking record when `params.bookingId` is available. Then use those values when inserting the run.
+
+**Specifically, modify the CREATE block (lines 97–128) in `applyIntroOutcomeUpdate.ts`:**
+
 ```typescript
-const didntBuyBookingIds = useMemo(() => {
-  const s = new Set<string>();
-  runs.forEach(r => {
-    if (r.result === "Didn't Buy" && r.linked_intro_booked_id) s.add(r.linked_intro_booked_id);
-  });
-  return s;
-}, [runs]);
+// A2: CREATE RUN IF MISSING
+if (!existingRun && params.bookingId) {
+  // Fetch booking to auto-populate run fields
+  const { data: bookingData } = await supabase
+    .from('intros_booked')
+    .select('class_start_at, coach_name, sa_working_shift, class_date')
+    .eq('id', params.bookingId)
+    .maybeSingle();
 
-const didntBuyNames = useMemo(() => {
-  const s = new Set<string>();
-  runs.forEach(r => {
-    if (r.result === "Didn't Buy") s.add(r.member_name.toLowerCase().trim());
-  });
-  return s;
-}, [runs]);
+  const runDate = bookingData?.class_start_at
+    ? bookingData.class_start_at.split('T')[0]
+    : (params.classDate || getTodayYMD());
+
+  // Extract HH:MM from class_start_at if available
+  const classTime = bookingData?.class_start_at
+    ? bookingData.class_start_at.split('T')[1]?.substring(0, 5) || '00:00'
+    : '00:00';
+
+  const { data: newRun, error: createErr } = await supabase
+    .from('intros_run')
+    .insert({
+      linked_intro_booked_id: params.bookingId,
+      member_name: params.memberName,
+      run_date: runDate,
+      class_time: classTime,
+      coach_name: bookingData?.coach_name || null,       // auto-populated from booking
+      sa_working_shift: bookingData?.sa_working_shift || null, // auto-populated from booking
+      result: params.newResult,
+      result_canon: normalizeIntroResult(params.newResult),
+      lead_source: params.leadSource || null,
+      sa_name: params.editedBy,
+      intro_owner: params.editedBy,
+      commission_amount: resolvedCommission,
+      primary_objection: params.objection || null,
+      buy_date: isNowSale ? getTodayYMD() : null,
+      created_at: new Date().toISOString(),
+      last_edited_at: new Date().toISOString(),
+      last_edited_by: params.editedBy,
+      edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
+    })
+    ...
 ```
 
-**Change 2** — Rewrite `getQCategory` (line 235):
-```typescript
-const getQCategory = (q: QRecord): string => {
-  const fullName = `${q.client_first_name} ${q.client_last_name}`.trim().toLowerCase();
-  const isCompleted = q.status === 'completed' || q.status === 'submitted';
-  const isBought = (q.booking_id && purchasedBookingIds.has(q.booking_id)) || purchasedNames.has(fullName);
-  const isNotInterested = (q.booking_id && notInterestedBookingIds.has(q.booking_id)) || notInterestedNames.has(fullName);
-  const isDidntBuy = (q.booking_id && didntBuyBookingIds.has(q.booking_id)) || didntBuyNames.has(fullName);
+**File:** `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`
 
-  if (isBought) return 'purchased';               // priority 1 — always wins
-  if (isNotInterested) return 'not-interested';    // priority 2
-  if (isDidntBuy) return 'didnt-buy';              // priority 3
-  if (isCompleted) return 'completed';             // priority 4
-  if (q.status === 'sent') return 'sent';          // priority 5
-  return 'needs-sending';                           // default
-};
-```
+---
 
-**Change 3** — Recompute tab arrays:
-```typescript
-const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending');
-const sent = filtered.filter(q => getQCategory(q) === 'sent');
-const completed = filtered.filter(q => getQCategory(q) === 'completed');
-const didntBuy = filtered.filter(q => getQCategory(q) === 'didnt-buy');
-const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
-const purchased = filtered.filter(q => getQCategory(q) === 'purchased');
-```
+## Fix 3: HRM Add-On — Update Original Record, No Duplicate
 
-Remove old `pending`, `bought` variable declarations.
+### Root Cause
+**Heather Chiarella duplicate:** She has two `intros_run` records:
+- `cf4bc890` — `run_date: 2026-02-09`, `buy_date: null`, `result: Premier w/o OTBeat`, `commission: $7.50`
+- `969d2b46` — `run_date: 2026-02-10`, `buy_date: 2026-02-16`, `result: Premier w/o OTBeat`, `commission: $7.50`
 
-**Change 4** — Update `renderQCard` to accept a `readOnly` boolean. When `readOnly = true`, hide the "Q Link" button (copy questionnaire link / send button). Keep Prep, Script, Coach, Copy # available on all tabs. The "Q Link" button at line 514–522 is the send-questionnaire action and should be hidden for Purchased, Didn't Buy, Not Interested tabs.
+Both appear in Members Who Bought because `isMembershipSale("Premier w/o OTBeat")` is true (contains "premier"). The `cf4bc890` record has no buy_date — its effective date falls back to `run_date: 2026-02-09`, which is in the current pay period. The `969d2b46` record has `buy_date: 2026-02-16`. Both pass the date filter, causing the duplicate appearance.
 
-**Change 5** — Rebuild the `<Tabs>` block with exactly 6 tabs in order:
-```tsx
-<Tabs defaultValue="needs-sending">
-  <TabsList className="w-full grid grid-cols-3 mb-1">
-    <TabsTrigger value="needs-sending" className="text-xs">Needs Sending ({needsSending.length})</TabsTrigger>
-    <TabsTrigger value="sent" className="text-xs">Sent ({sent.length})</TabsTrigger>
-    <TabsTrigger value="completed" className="text-xs">Completed ({completed.length})</TabsTrigger>
-  </TabsList>
-  <TabsList className="w-full grid grid-cols-3">
-    <TabsTrigger value="didnt-buy" className="text-xs">Didn't Buy ({didntBuy.length})</TabsTrigger>
-    <TabsTrigger value="not-interested" className="text-xs">Not Int. ({notInterested.length})</TabsTrigger>
-    <TabsTrigger value="purchased" className="text-xs">Purchased ({purchased.length})</TabsTrigger>
-  </TabsList>
-  ...TabsContent for each...
-</Tabs>
-```
+**Fix:** Delete the record `cf4bc890` (the stale one with no buy_date and the earlier run_date, linked to a different booking). Keep `969d2b46` which has the actual buy_date.
 
-Note: 6 tabs won't fit in one row on mobile — using two rows of 3 (`grid-cols-3` each) is the correct approach.
+**Future HRM add-on behavior:** Currently, `FollowupPurchaseEntry.tsx` line 141–164 always inserts a new `sales_outside_intro` row for HRM add-ons, regardless of whether the member already has an existing membership. The fix: before inserting, look up `intros_run` for this member where `isMembershipSale(result)` is true and `buy_date` is in the current pay period. If found, update that run's result to the `+ OTbeat` version and update the commission. If not found, proceed with the existing `sales_outside_intro` insert.
 
-**Change 6** — Update `getCategoryBadge` to include new category labels for `'purchased'`, `'needs-sending'`, `'didnt-buy'`.
+**Tier upgrade mapping:**
+- `Premier w/o OTBeat` or `Premier` → `Premier + OTbeat`
+- `Elite w/o OTBeat` or `Elite` → `Elite + OTbeat`
+- `Basic w/o OTBeat` or `Basic` → `Basic + OTbeat`
 
-**Change 7** — The `getPersonStatus` function (line 205) should also detect "Didn't Buy" to show the correct badge on cards in the Didn't Buy tab.
+Note: the `isMembershipSale()` function checks for "premier", "elite", "basic" — "Premier w/o OTBeat" matches because it contains "premier". The same is true of "Premier + OTbeat". So both are already detected as membership sales and will appear in the scoreboard.
 
-## Acceptance Checklist Coverage
+**File:** `src/components/FollowupPurchaseEntry.tsx`
 
-| Check | Implementation |
+---
+
+## Data Fix (Heather Chiarella)
+
+Delete run `cf4bc890` from `intros_run` using the Supabase insert tool (DELETE operation). This removes the stale duplicate entry for Heather Chiarella.
+
+---
+
+## File Change Summary
+
+| File | Change |
 |---|---|
-| Only one card per person — the lowest pending touch | FollowUpsDueToday: dedup pass after exit-condition filter |
-| Mark Touch 1 Done → disappears, Touch 2 not visible for 7 days | handleMarkDone: marks single touch, advances next touch scheduled_date +7d |
-| Mark Touch 1 as Sent (via script) → same 7-day advance | handleMarkSent: same advance logic added |
-| Questionnaire Sent tab: zero purchased/not-interested/didn't-buy | New `getQCategory` priority logic — closed outcomes win over `q.status === 'sent'` |
-| Miley Goetz in Purchased tab | `isBought` now returns 'purchased' regardless of questionnaire completion status |
-| Exactly 6 tabs in correct order | Tabs block rebuilt with 2 rows of 3 |
-| Count badges on each tab | Counts embedded in TabsTrigger labels |
-| Purchased/Didn't Buy/Not Interested: no Send Q button | `renderQCard(q, showAnswers, showCategoryBadge, readOnly=true)` hides Q Link button |
+| `src/components/dashboard/ConversionFunnel.tsx` | Change `sold` count to use sale-date-anchoring (isSaleInRange) over all type-filtered booking runs, matching scoreboard logic |
+| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Fetch booking record before creating run; auto-populate `run_date`, `class_time`, `coach_name`, `sa_working_shift` |
+| `src/components/FollowupPurchaseEntry.tsx` | On HRM add-on submit: check for existing membership run in current period; if found, update to OTbeat version; if not, create outside_intro as before |
+| DB (intros_run) | Delete duplicate Heather Chiarella run record `cf4bc890-663e-4323-b4fa-8fdf60857882` |
 
-## Implementation Order
+## Acceptance Checklist
 
-```
-1. MODIFY src/components/dashboard/FollowUpsDueToday.tsx
-   a. Add dedup pass (Change 1)
-   b. Fix handleMarkDone to mark single touch only (Change 3)
-   c. Add next-touch date advance to handleMarkSent (Change 2)
-   d. Add next-touch date advance to handleSkip (Change 2)
-
-2. MODIFY src/components/dashboard/QuestionnaireHub.tsx
-   a. Add didntBuy detection sets (Change 1)
-   b. Rewrite getQCategory (Change 2)
-   c. Recompute tab arrays (Change 3)
-   d. Add readOnly param to renderQCard (Change 4)
-   e. Rebuild Tabs block with 6 tabs (Change 5)
-   f. Update getCategoryBadge (Change 6)
-   g. Update getPersonStatus for Didn't Buy (Change 7)
-```
-
-No database migrations needed. No new files. No edge function changes. Only these two component files.
+| Check | How Verified |
+|---|---|
+| Funnel Sold = Scoreboard Sales for same date range | Both now use `isSaleInRange()` over sale-date-anchored runs |
+| New run auto-shows booking's coach and class time | `applyIntroOutcomeUpdate` fetches and writes these from `intros_booked` |
+| Heather Chiarella: 1 row only | Duplicate run deleted |
+| Premier + HRM → Premier + OTbeat in one row | FollowupPurchaseEntry checks for existing membership before creating new row |
+| Total Sales not inflated by merged HRM records | Merged records replace, not add |
