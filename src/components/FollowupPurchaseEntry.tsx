@@ -137,25 +137,85 @@ export default function FollowupPurchaseEntry({
 
     setIsSubmitting(true);
     try {
-      // HRM Add-on: insert as a separate sales_outside_intro record, don't modify existing run
+      // HRM Add-on: check if member already has an existing membership run in the current pay period.
+      // If yes, upgrade that run to the OTbeat tier in-place. If no, create a standalone sales_outside_intro.
       if (membershipType === 'HRM Add-on (OTBeat)') {
-        const saleId = `sale_${crypto.randomUUID().substring(0, 8)}`;
-        const { error: saleError } = await supabase.from('sales_outside_intro').insert({
-          sale_id: saleId,
-          sale_type: 'hrm_addon',
-          member_name: client.memberName,
-          lead_source: client.leadSource || 'HRM Add-on',
-          membership_type: 'HRM Add-on (OTBeat)',
-          commission_amount: commission,
-          intro_owner: staffName,
-          date_closed: purchaseDate,
-        });
+        const HRM_COMMISSION = 7.5;
 
-        if (saleError) throw saleError;
+        // Tier upgrade mapping: existing result → OTbeat version
+        const upgradeMap: Record<string, string> = {
+          'Premier + OTbeat': 'Premier + OTbeat',
+          'Premier + OTBeat': 'Premier + OTbeat',
+          'Premier w/o OTBeat': 'Premier + OTbeat',
+          'Premier': 'Premier + OTbeat',
+          'Elite + OTbeat': 'Elite + OTbeat',
+          'Elite + OTBeat': 'Elite + OTbeat',
+          'Elite w/o OTBeat': 'Elite + OTbeat',
+          'Elite': 'Elite + OTbeat',
+          'Basic + OTbeat': 'Basic + OTbeat',
+          'Basic + OTBeat': 'Basic + OTbeat',
+          'Basic w/o OTBeat': 'Basic + OTbeat',
+          'Basic': 'Basic + OTbeat',
+        };
 
-        toast.success(`${capitalizeName(client.memberName)} purchased HRM!`, {
-          description: `$${commission.toFixed(2)} commission for ${capitalizeName(staffName)}`,
-        });
+        const OTbeat_COMMISSIONS: Record<string, number> = {
+          'Premier + OTbeat': 15,
+          'Elite + OTbeat': 12,
+          'Basic + OTbeat': 3,
+        };
+
+        // Look for existing membership run for this member
+        const { data: existingRuns } = await supabase
+          .from('intros_run')
+          .select('id, result, buy_date, run_date, created_at')
+          .ilike('member_name', client.memberName)
+          .order('created_at', { ascending: false });
+
+        const existingMembershipRun = (existingRuns || []).find(r => isMembershipSale(r.result));
+
+        if (existingMembershipRun) {
+          // Upgrade the existing membership run to OTbeat tier
+          const upgradedResult = upgradeMap[existingMembershipRun.result] || 'Premier + OTbeat';
+          const upgradedCommission = OTbeat_COMMISSIONS[upgradedResult] || HRM_COMMISSION;
+
+          const { error: upgradeError } = await supabase
+            .from('intros_run')
+            .update({
+              result: upgradedResult,
+              result_canon: upgradedResult.toUpperCase().replace(/\s+/g, '_'),
+              commission_amount: upgradedCommission,
+              buy_date: existingMembershipRun.buy_date || purchaseDate,
+              last_edited_at: new Date().toISOString(),
+              last_edited_by: staffName,
+              edit_reason: `HRM Add-on merged: upgraded from "${existingMembershipRun.result}" to "${upgradedResult}" by ${staffName} on ${purchaseDate}`,
+            })
+            .eq('id', existingMembershipRun.id);
+
+          if (upgradeError) throw upgradeError;
+
+          toast.success(`${capitalizeName(client.memberName)} upgraded to ${upgradedResult}!`, {
+            description: `Commission updated to $${upgradedCommission.toFixed(2)}`,
+          });
+        } else {
+          // No existing membership — create standalone sales_outside_intro
+          const saleId = `sale_${crypto.randomUUID().substring(0, 8)}`;
+          const { error: saleError } = await supabase.from('sales_outside_intro').insert({
+            sale_id: saleId,
+            sale_type: 'hrm_addon',
+            member_name: client.memberName,
+            lead_source: client.leadSource || 'HRM Add-on',
+            membership_type: 'HRM Add-on (OTBeat)',
+            commission_amount: HRM_COMMISSION,
+            intro_owner: staffName,
+            date_closed: purchaseDate,
+          });
+
+          if (saleError) throw saleError;
+
+          toast.success(`${capitalizeName(client.memberName)} purchased HRM!`, {
+            description: `$${HRM_COMMISSION.toFixed(2)} commission for ${capitalizeName(staffName)}`,
+          });
+        }
 
         setSelectedClient('');
         setMembershipType('');
