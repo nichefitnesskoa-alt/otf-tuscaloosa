@@ -56,13 +56,13 @@ interface MyDayIntroCardProps {
 function getQBar(status: QuestionnaireCardStatus) {
   switch (status) {
     case 'completed':
-      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Q Complete' };
+      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Q Complete', bannerLabel: '✓ Questionnaire Complete' };
     case 'sent':
-      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Q Not Answered' };
+      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Q Not Answered', bannerLabel: '⚠ Questionnaire Not Answered' };
     case 'not_sent':
     case 'missing':
     default:
-      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Q Not Sent' };
+      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Q Not Sent', bannerLabel: '! Questionnaire Not Sent' };
   }
 }
 
@@ -102,6 +102,16 @@ export function MyDayIntroCard({
 
   return (
     <div className={cn('rounded-lg border bg-card overflow-hidden', className)}>
+      {/* Top status banner */}
+      <div
+        className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
+        style={{ minHeight: '30px' }}
+      >
+        <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
+          {qBar.bannerLabel}
+        </span>
+      </div>
+
       {/* Main content row: left content + right Q bar */}
       <div className="flex min-h-0">
         {/* Left: all card content */}
