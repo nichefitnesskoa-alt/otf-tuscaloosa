@@ -246,8 +246,8 @@ export function PrepDrawer({
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : (
                   <>
-                    {/* MEMBER SNAPSHOT — always visible when Q is completed */}
-                    {hasQ && (
+                    {/* MEMBER SNAPSHOT — show for completed Q; for walk-ins show simplified "ask before class" version */}
+                    {hasQ ? (
                       <MemberSnapshot
                         firstName={firstName}
                         goal={goal || null}
@@ -256,6 +256,8 @@ export function PrepDrawer({
                         commitment={commitment || null}
                         fitnessLevel={questionnaire?.q2_fitness_level ?? null}
                       />
+                    ) : (
+                      <WalkInMemberSnapshot firstName={firstName} />
                     )}
 
                     {/* SECTION 1: Accusation Audit — always visible, NOT collapsible */}
@@ -319,7 +321,7 @@ export function PrepDrawer({
                               <ClipboardList className="w-3.5 h-3.5" />
                               {questionnaire?.last_opened_at && questionnaire.status === 'sent'
                                 ? `Questionnaire opened ${formatDistanceToNow(new Date(questionnaire.last_opened_at), { addSuffix: true })} but not completed`
-                                : questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file'}
+                                : questionnaire ? `Questionnaire ${questionnaire.status === 'sent' ? 'sent but not completed' : 'not yet sent'}` : 'No questionnaire on file — gather verbally before class'}
                             </div>
                             <div className="flex gap-2">
                               {onSendQ && (!questionnaire || questionnaire.status === 'not_sent') && (
@@ -333,7 +335,7 @@ export function PrepDrawer({
                               </Button>
                             </div>
                             <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-2.5 text-xs">
-                              <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1.5">Since the Q isn't completed, ask during the greeting:</p>
+                              <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1.5">Introduce yourself, ask their goal and why before class starts. Use their answers in the post-class sit-down.</p>
                               <ul className="space-y-1 text-amber-700 dark:text-amber-400">
                                 <li>• "What's your main fitness goal?"</li>
                                 <li>• "What's been the biggest thing holding you back?"</li>
@@ -380,9 +382,9 @@ export function PrepDrawer({
                 />
 
                 {!hasQ && (
-                  <div className="text-xs text-muted-foreground italic flex items-center gap-1 p-2 rounded border border-dashed">
-                    <ClipboardList className="w-3 h-3" />
-                    Complete the questionnaire for a personalized close script. Bracketed placeholders shown above.
+                  <div className="rounded-md bg-muted/40 border border-dashed p-2.5 text-xs text-muted-foreground">
+                    <span className="font-semibold block mb-1">No questionnaire — defaulting to price objection</span>
+                    Complete the questionnaire for a personalized close script. Bracketed placeholders shown above. The EIRMA below assumes pricing as the most common objection.
                   </div>
                 )}
 
@@ -390,7 +392,7 @@ export function PrepDrawer({
 
                 {/* Humanized EIRMA Objection Cards */}
                 <HumanizedEirma
-                  obstacles={obstacle || null}
+                  obstacles={obstacle || (hasQ ? null : 'Price')}
                   fitnessLevel={questionnaire?.q2_fitness_level ?? null}
                   emotionalDriver={emotionalDriver || null}
                   clientName={memberName}
@@ -518,6 +520,31 @@ function MemberSnapshot({ firstName, goal, why, obstacle, commitment, fitnessLev
       </div>
       <div className="text-xs border-t border-primary/10 pt-1 text-muted-foreground leading-relaxed">
         Coach handoff: &ldquo;{handoffLine}&rdquo;
+      </div>
+    </div>
+  );
+}
+
+/** Simplified snapshot for walk-in bookings with no questionnaire data */
+function WalkInMemberSnapshot({ firstName }: { firstName: string }) {
+  const ASK = 'Ask before class';
+  return (
+    <div className="rounded-lg bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 space-y-2">
+      <p className="text-lg font-bold">{firstName} <span className="text-xs font-normal text-muted-foreground">(Walk-in)</span></p>
+      <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
+        <span className="font-bold uppercase text-muted-foreground">Goal</span>
+        <span className="italic text-muted-foreground">{ASK}</span>
+        <span className="font-bold uppercase text-muted-foreground">Why</span>
+        <span className="italic text-muted-foreground">{ASK}</span>
+        <span className="font-bold uppercase text-muted-foreground">Obstacle</span>
+        <span className="italic text-muted-foreground">{ASK}</span>
+        <span className="font-bold uppercase text-muted-foreground">Commit</span>
+        <span className="italic text-muted-foreground">{ASK}</span>
+        <span className="font-bold uppercase text-muted-foreground">Level</span>
+        <span className="italic text-muted-foreground">{ASK}</span>
+      </div>
+      <div className="pt-1 border-t border-amber-200 dark:border-amber-700 text-xs italic text-amber-800 dark:text-amber-300 leading-relaxed">
+        Introduce yourself, ask their goal and why before class starts. Use their answers in the post-class sit-down.
       </div>
     </div>
   );

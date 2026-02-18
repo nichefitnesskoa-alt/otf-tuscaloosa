@@ -16,6 +16,14 @@ interface WalkInIntroSheetProps {
   onSaved: () => void;
 }
 
+/** Derives shift label from current hour at moment of save */
+function getShiftLabel(): string {
+  const h = new Date().getHours();
+  if (h < 11) return 'AM Shift';
+  if (h < 16) return 'Mid Shift';
+  return 'PM Shift';
+}
+
 /** Returns the next upcoming class time slot based on current time (OTF standard slots) */
 function getDefaultClassTime(): string {
   const now = new Date();
@@ -85,6 +93,9 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
       const memberName = `${firstName.trim()} ${lastName.trim()}`;
       const saName = user?.name || '';
 
+      // Auto-detect shift at moment of save
+      const shiftLabel = getShiftLabel();
+
       // Build class_start_at from today + selected time
       const classStartAt = `${today}T${classTime}:00`;
 
@@ -95,18 +106,23 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         class_start_at: classStartAt,
         coach_name: coach,
         lead_source: leadSource,
-        sa_working_shift: saName,
+        sa_working_shift: shiftLabel,   // Always a proper shift label, never a name
         booked_by: saName,
         intro_owner: saName,
         intro_owner_locked: false,
         phone: phone.trim() || null,
         booking_type_canon: 'STANDARD',
         booking_status_canon: 'ACTIVE',
-        questionnaire_status_canon: 'not_sent',
+        questionnaire_status_canon: 'not_sent',  // lowercase to match DB enum
         is_vip: false,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Never fail silently — surface the exact error
+        console.error('[WalkInIntroSheet] Insert error (bookingId=new):', error);
+        toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
+        return; // Keep sheet open so SA can retry
+      }
 
       toast.success(`${memberName} added to today's intros.`);
       // Signal UpcomingIntrosCard to refresh immediately
@@ -114,8 +130,9 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
       onSaved();
       handleClose(false);
     } catch (err: any) {
-      console.error('Walk-in intro save error:', err);
+      console.error('[WalkInIntroSheet] Unexpected save error:', err);
       toast.error(err?.message || 'Failed to save walk-in intro');
+      // Do NOT close sheet on failure — keep it open for retry
     } finally {
       setSaving(false);
     }
