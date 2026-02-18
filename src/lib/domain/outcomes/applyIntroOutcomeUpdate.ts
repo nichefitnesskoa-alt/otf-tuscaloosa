@@ -98,7 +98,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       // Fetch booking to auto-populate run fields from the source record
       const { data: bookingData } = await supabase
         .from('intros_booked')
-        .select('class_start_at, coach_name, sa_working_shift, class_date')
+        .select('class_start_at, coach_name, class_date')
         .eq('id', params.bookingId)
         .maybeSingle();
 
@@ -119,7 +119,6 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           run_date: runDate,
           class_time: classTime,
           coach_name: bookingData?.coach_name || null,
-          sa_working_shift: bookingData?.sa_working_shift || null,
           result: params.newResult,
           result_canon: normalizeIntroResult(params.newResult),
           lead_source: params.leadSource || null,
