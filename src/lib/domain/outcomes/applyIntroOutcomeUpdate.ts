@@ -52,6 +52,17 @@ export interface OutcomeUpdateResult {
 
 export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Promise<OutcomeUpdateResult> {
   try {
+    // ── COMP BOOKING GUARD: skip AMC, skip follow-ups, skip commission; log only ──
+    let isCompBooking = false;
+    if (params.bookingId) {
+      const { data: bkType } = await supabase
+        .from('intros_booked')
+        .select('booking_type_canon')
+        .eq('id', params.bookingId)
+        .maybeSingle();
+      isCompBooking = bkType?.booking_type_canon === 'COMP';
+    }
+
     const isNowSale = isMembershipSale(params.newResult);
     const wasSale = params.previousResult ? isMembershipSale(params.previousResult) : false;
     const wasDidntBuy = params.previousResult === "Didn't Buy";
@@ -186,9 +197,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       }).eq('id', params.bookingId);
     }
 
-    // ── STEP 3: AMC (idempotent) ──
+    // ── STEP 3: AMC (idempotent) — skip for COMP bookings ──
     let didIncrementAmc = false;
-    if (isNowSale && !wasSale) {
+    if (!isCompBooking && isNowSale && !wasSale) {
       const alreadyIncremented = existingRun?.amc_incremented_at != null;
       if (!alreadyIncremented) {
         const leadSource = params.leadSource || existingRun?.lead_source || '';
@@ -205,55 +216,57 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       }
     }
 
-    // ── STEP 4: FOLLOW-UP QUEUE (self-cleaning) ──
+    // ── STEP 4: FOLLOW-UP QUEUE (self-cleaning) — skip for COMP bookings ──
     let didGenerateFollowups = false;
 
-    // Sale or Not Interested → clear all pending follow-ups
-    if (isNowSale && (wasDidntBuy || wasNoShow)) {
-      await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
-    }
+    if (!isCompBooking) {
+      // Sale or Not Interested → clear all pending follow-ups
+      if (isNowSale && (wasDidntBuy || wasNoShow)) {
+        await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
+      }
 
-    // Transition TO didn't-buy or no-show → generate follow-ups
-    if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
-      const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
-      const entries = generateFollowUpEntries(
-        params.memberName, personType as 'no_show' | 'didnt_buy',
-        params.classDate, params.bookingId, null, false,
-        isNowDidntBuy ? params.objection || null : null, null,
-      );
-      // Use upsert-like behavior: delete existing then insert to respect unique constraint
-      await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
-      await supabase.from('follow_up_queue').insert(entries);
-      didGenerateFollowups = true;
-    }
+      // Transition TO didn't-buy or no-show → generate follow-ups
+      if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
+        const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const entries = generateFollowUpEntries(
+          params.memberName, personType as 'no_show' | 'didnt_buy',
+          params.classDate, params.bookingId, null, false,
+          isNowDidntBuy ? params.objection || null : null, null,
+        );
+        // Use upsert-like behavior: delete existing then insert to respect unique constraint
+        await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
+        await supabase.from('follow_up_queue').insert(entries);
+        didGenerateFollowups = true;
+      }
 
-    // Switching BETWEEN didn't-buy and no-show
-    if ((wasDidntBuy && isNowNoShow) || (wasNoShow && isNowDidntBuy)) {
-      await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
-      const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
-      const entries = generateFollowUpEntries(
-        params.memberName, personType as 'no_show' | 'didnt_buy',
-        params.classDate, params.bookingId, null, false,
-        isNowDidntBuy ? params.objection || null : null, null,
-      );
-      await supabase.from('follow_up_queue').insert(entries);
-      didGenerateFollowups = true;
-    }
+      // Switching BETWEEN didn't-buy and no-show
+      if ((wasDidntBuy && isNowNoShow) || (wasNoShow && isNowDidntBuy)) {
+        await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
+        const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const entries = generateFollowUpEntries(
+          params.memberName, personType as 'no_show' | 'didnt_buy',
+          params.classDate, params.bookingId, null, false,
+          isNowDidntBuy ? params.objection || null : null, null,
+        );
+        await supabase.from('follow_up_queue').insert(entries);
+        didGenerateFollowups = true;
+      }
 
-    // Not interested → clear pending only
-    if (isNowNotInterested) {
-      await supabase.from('follow_up_queue')
-        .delete()
-        .eq('booking_id', params.bookingId)
-        .eq('status', 'pending');
-    }
+      // Not interested → clear pending only
+      if (isNowNotInterested) {
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', params.bookingId)
+          .eq('status', 'pending');
+      }
 
-    // Sale from any state → clear all pending
-    if (isNowSale && !wasSale) {
-      await supabase.from('follow_up_queue')
-        .delete()
-        .eq('booking_id', params.bookingId)
-        .eq('status', 'pending');
+      // Sale from any state → clear all pending
+      if (isNowSale && !wasSale) {
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', params.bookingId)
+          .eq('status', 'pending');
+      }
     }
 
     // ── STEP 5: AUDIT LOG (outcome_events) ──

@@ -80,7 +80,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         .from('intros_booked')
         .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at')
         .is('deleted_at', null)
-        .eq('booking_type_canon', 'STANDARD')
+        .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
         .lte('class_date', end)
         .not('booking_status_canon', 'in', '("PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED")')

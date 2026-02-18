@@ -38,6 +38,7 @@ export interface PipelineBooking {
   phone: string | null;
   email: string | null;
   is_vip: boolean;
+  booking_type_canon: string;
   rebooked_from_booking_id: string | null;
   rebook_reason: string | null;
   rebooked_at: string | null;

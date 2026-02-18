@@ -207,21 +207,22 @@ export function filterJourneysByTab(
   tab: JourneyTab,
   selectedLeadSource: string | null,
 ): ClientJourney[] {
-  // VIP detection helper
-  const isVipJourney = (j: ClientJourney) =>
+  // VIP or COMP exclusion helper
+  const isExcludedJourney = (j: ClientJourney) =>
     j.bookings.some(b =>
       b.lead_source === 'VIP Class' ||
       (b as any).is_vip === true ||
       (b as any).booking_type_canon === 'VIP' ||
+      (b as any).booking_type_canon === 'COMP' ||
       (b.lead_source && b.lead_source.toLowerCase().includes('vip'))
     );
 
   if (tab === 'vip_class') {
-    return journeyList.filter(j => isVipJourney(j));
+    return journeyList.filter(j => isExcludedJourney(j));
   }
 
-  // All non-VIP tabs: exclude VIP journeys
-  const nonVipJourneys = journeyList.filter(j => !isVipJourney(j));
+  // All non-VIP/COMP tabs: exclude those journeys
+  const nonVipJourneys = journeyList.filter(j => !isExcludedJourney(j));
   if (tab === 'all') return nonVipJourneys;
 
   return nonVipJourneys.filter(journey => {
