@@ -4,7 +4,7 @@
  * No at-risk banners, no scary styling.
  * Cards show Prep | Script | Coach buttons.
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,13 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
   const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
   });
+
+  // Refresh when a walk-in intro is added from the FAB
+  useEffect(() => {
+    const handler = () => refreshAll();
+    window.addEventListener('myday:walk-in-added', handler);
+    return () => window.removeEventListener('myday:walk-in-added', handler);
+  }, [refreshAll]);
 
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
