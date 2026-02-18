@@ -51,7 +51,8 @@ import { MyDayShiftSummary } from './MyDayShiftSummary';
 // Dark mode helpers
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('otf-dark-mode') === 'true';
+    const stored = localStorage.getItem('otf-dark-mode');
+    return stored === null ? true : stored === 'true';
   });
 
   useEffect(() => {
