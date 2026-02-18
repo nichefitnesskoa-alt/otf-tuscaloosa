@@ -146,23 +146,28 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Summary strip – calm, neutral */}
+        {/* Summary strip */}
         <div className="flex items-center gap-3 flex-wrap text-xs">
           <span className="font-medium">
-            {timeRange === 'today' ? "Today's" : 'This week\'s'} Intros: <strong>{items.length}</strong>
+            {timeRange === 'today' ? "Today" : timeRange === 'restOfWeek' ? 'Rest of week' : 'Needs outcome'}: <strong>{items.length}</strong>
           </span>
-          <span className="text-muted-foreground">
-            On track: <strong>{qCompletionPct}%</strong>
-          </span>
-          {suggestedFocus !== 'All prepped! 🎉' && (
+          {timeRange !== 'needsOutcome' && (
+            <span className="text-muted-foreground">
+              On track: <strong>{qCompletionPct}%</strong>
+            </span>
+          )}
+          {timeRange !== 'needsOutcome' && suggestedFocus !== 'All prepped! 🎉' && (
             <span className="text-muted-foreground">
               Quick win: <strong>{suggestedFocus}</strong>
             </span>
           )}
-          {suggestedFocus === 'All prepped! 🎉' && (
+          {timeRange !== 'needsOutcome' && suggestedFocus === 'All prepped! 🎉' && (
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">
               {suggestedFocus}
             </span>
+          )}
+          {timeRange === 'needsOutcome' && items.length > 0 && (
+            <span className="text-muted-foreground">Log outcomes to keep your pipeline accurate.</span>
           )}
         </div>
 
@@ -174,7 +179,7 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
           </div>
         )}
 
-        {/* Tabs: Today / Rest of week */}
+        {/* Tabs: Today / Rest of week / Needs Outcome */}
         <UpcomingIntrosFilters
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
@@ -185,7 +190,9 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : dayGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            {timeRange === 'today' ? 'No intros scheduled for today' : 'No intros for the rest of this week'}
+            {timeRange === 'today' ? 'No intros scheduled for today' 
+              : timeRange === 'restOfWeek' ? 'No intros for the rest of this week'
+              : 'No past intros need an outcome — you\'re all caught up!'}
           </p>
         ) : (
           <div className="space-y-4">

@@ -3,7 +3,7 @@
  * UpcomingIntroItem is a flat, precomputed view model for the canonical intros queue.
  */
 
-export type TimeRange = 'today' | 'restOfWeek';
+export type TimeRange = 'today' | 'restOfWeek' | 'needsOutcome';
 
 export type QuestionnaireStatus = 'NO_Q' | 'Q_SENT' | 'Q_COMPLETED';
 

@@ -1,10 +1,10 @@
 /**
  * Canonical data hook for the My Day upcoming intros queue.
- * Two modes: "today" and "restOfWeek" (tomorrow through Sunday).
+ * Three modes: "today", "restOfWeek" (tomorrow through Sunday), "needsOutcome" (past, unresolved).
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, endOfWeek, addDays } from 'date-fns';
+import { format, endOfWeek, addDays, subDays } from 'date-fns';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayTypes';
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
@@ -40,6 +40,12 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
       }
       return { start: tomorrow, end: sunday };
     }
+    case 'needsOutcome': {
+      // Past 45 days, excluding today
+      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+      const fortyFiveDaysAgo = format(subDays(new Date(), 45), 'yyyy-MM-dd');
+      return { start: fortyFiveDaysAgo, end: yesterday };
+    }
   }
 }
 
@@ -68,17 +74,21 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
     try {
       const { start, end } = getDateRange(options);
 
-      const { data: bookings, error: bErr } = await supabase
+      const isNeedsOutcome = options.timeRange === 'needsOutcome';
+
+      let query = supabase
         .from('intros_booked')
         .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at')
         .is('deleted_at', null)
         .eq('booking_type_canon', 'STANDARD')
         .gte('class_date', start)
         .lte('class_date', end)
-        .not('booking_status_canon', 'eq', 'PURCHASED')
-        .order('class_date', { ascending: true })
+        .not('booking_status_canon', 'in', '("PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED")')
+        .order('class_date', { ascending: isNeedsOutcome ? false : true }) // most recent first for needs outcome
         .order('intro_time', { ascending: true })
         .limit(200);
+
+      const { data: bookings, error: bErr } = await query;
 
       if (bErr) throw bErr;
       if (!bookings || bookings.length === 0) {
@@ -196,8 +206,16 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         };
       });
 
-      // Filter out completed intros (VIP already excluded by query booking_type_canon = 'STANDARD')
-      const activeItems = rawItems.filter(i => !i.hasLinkedRun);
+      // For needsOutcome: keep items with NO linked run OR with an UNRESOLVED run
+      // For today/restOfWeek: filter out items that have any linked run (already had outcome)
+      const activeItems = isNeedsOutcome
+        ? rawItems.filter(i => {
+            if (!i.hasLinkedRun) return true;
+            // Has a run — only show if result is unresolved
+            const result = (i.latestRunResult || '').toLowerCase().trim();
+            return !result || result === 'unresolved';
+          })
+        : rawItems.filter(i => !i.hasLinkedRun);
 
       // Enrich with risk (kept internally for "needs attention" logic) and sort by time
       const enriched = enrichWithRisk(activeItems, nowISO);
