@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart } from 'lucide-react';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -16,6 +16,8 @@ import { SectionHelp } from '@/components/dashboard/SectionHelp';
 import { getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
 import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialog';
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
+import { FollowUpPurchaseSheet } from '@/components/dashboard/FollowUpPurchaseSheet';
+
 
 interface FollowUpItem {
   id: string;
@@ -57,6 +59,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy'>('all');
   const [prepOpen, setPrepOpen] = useState(false);
   const [prepItem, setPrepItem] = useState<FollowUpItem | null>(null);
+  const [purchaseItem, setPurchaseItem] = useState<FollowUpItem | null>(null);
+  const [purchaseOwner, setPurchaseOwner] = useState<string | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -596,6 +600,29 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               <span>Log</span>
             </Button>
           </div>
+          {/* Log Purchase — primary action */}
+          <div className="mt-1.5">
+            <Button
+              size="sm"
+              className="w-full h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold"
+              onClick={async (e) => {
+                e.stopPropagation();
+                // Look up intro owner for attribution
+                if (item.booking_id) {
+                  const { data: bk } = await supabase
+                    .from('intros_booked')
+                    .select('intro_owner, booked_by')
+                    .eq('id', item.booking_id)
+                    .maybeSingle();
+                  setPurchaseOwner(bk?.intro_owner || bk?.booked_by || null);
+                }
+                setPurchaseItem(item);
+              }}
+            >
+              <ShoppingCart className="w-4 h-4 md:w-3.5 md:h-3.5" />
+              Log Purchase
+            </Button>
+          </div>
           {/* Secondary actions */}
           <div className="flex items-center gap-3 mt-0.5">
             <button onClick={() => handleSkip(item)} className="text-[10px] text-muted-foreground hover:text-foreground underline">
@@ -722,6 +749,24 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           leadSource={prepItem.lead_source || ''}
           isSecondIntro={false}
           phone={prepItem.phone}
+        />
+      )}
+      {purchaseItem && (
+        <FollowUpPurchaseSheet
+          open={true}
+          onOpenChange={(o) => { if (!o) { setPurchaseItem(null); setPurchaseOwner(null); } }}
+          personName={purchaseItem.person_name}
+          bookingId={purchaseItem.booking_id}
+          queueItemId={purchaseItem.id}
+          introOwner={purchaseOwner}
+          classDate={purchaseItem.trigger_date}
+          leadSource={purchaseItem.lead_source}
+          onSaved={() => {
+            setPurchaseItem(null);
+            setPurchaseOwner(null);
+            fetchQueue();
+            onRefresh();
+          }}
         />
       )}
     </>
