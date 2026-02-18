@@ -22,10 +22,12 @@ import { generateSlug } from '@/lib/utils';
 
 interface UpcomingIntrosCardProps {
   userName: string;
+  /** If provided, locks the component to this range (no tab selector shown) */
+  fixedTimeRange?: TimeRange;
 }
 
-export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+export default function UpcomingIntrosCard({ userName, fixedTimeRange }: UpcomingIntrosCardProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>(fixedTimeRange ?? 'today');
 
   const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
@@ -192,11 +194,13 @@ export default function UpcomingIntrosCard({ userName }: UpcomingIntrosCardProps
           </div>
         )}
 
-        {/* Tabs: Today / Rest of week / Needs Outcome */}
-        <UpcomingIntrosFilters
-          timeRange={timeRange}
-          onTimeRangeChange={setTimeRange}
-        />
+        {/* Tabs: Today / Rest of week / Needs Outcome — hidden when range is fixed */}
+        {!fixedTimeRange && (
+          <UpcomingIntrosFilters
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+          />
+        )}
 
         {/* Day groups */}
         {isLoading ? (

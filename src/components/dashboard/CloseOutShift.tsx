@@ -24,6 +24,8 @@ interface CloseOutShiftProps {
   /** If provided, the dialog is controlled externally */
   forceOpen?: boolean;
   onForceOpenChange?: (open: boolean) => void;
+  /** Render always as a small button (for use in floating header) */
+  asButton?: boolean;
 }
 
 export function CloseOutShift({
@@ -37,6 +39,7 @@ export function CloseOutShift({
   topObjection,
   forceOpen,
   onForceOpenChange,
+  asButton,
 }: CloseOutShiftProps) {
   const { user } = useAuth();
   const { refreshData } = useData();
@@ -134,15 +137,15 @@ export function CloseOutShift({
 
   return (
     <>
-      {/* Inline button — only when not externally controlled and conditions met */}
-      {!isControlled && visible && (
+      {/* Inline button — when asButton prop is true OR when conditions are met */}
+      {!isControlled && (asButton || visible) && (
         <Button
-          className="w-full gap-2 bg-primary hover:bg-primary/90"
-          size="lg"
+          className={asButton ? 'w-full h-8 text-xs gap-1.5 bg-primary hover:bg-primary/90' : 'w-full gap-2 bg-primary hover:bg-primary/90'}
+          size={asButton ? 'sm' : 'lg'}
           onClick={() => setInternalOpen(true)}
         >
-          <ClipboardCheck className="w-5 h-5" />
-          Close Out Shift
+          <ClipboardCheck className={asButton ? 'w-3.5 h-3.5' : 'w-5 h-5'} />
+          {asButton ? 'End Shift' : 'Close Out Shift'}
         </Button>
       )}
 

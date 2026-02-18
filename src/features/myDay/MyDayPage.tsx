@@ -1,89 +1,83 @@
 /**
- * My Day Page – Simple, card-based workflow.
+ * My Day Page – Internal tab workspace.
  *
- * Sections (visible cards, no nudges):
- * 1. Unresolved Intros
- * 2. Today's Intros (Upcoming Intros queue for today)
- * 3. New Leads
- * 4. Tomorrow & Coming Up (Upcoming Intros queue for future)
- * 5. Follow-Ups Due
- * 6. Questionnaire Hub
+ * Floating header (always visible):
+ * - Greeting + date
+ * - Today's Progress
+ * - Shift Activity (AM/Mid/PM, calls/texts/DMs)
+ * - End Shift button
  *
- * Every intro card shows: Prep | Script | Coach (3-button muscle memory)
- *
- * ── Regression Checklist ──
- * - No duplicate intro lists rendered.
- * - Filters change the same list, not swap.
- * - No writes bypass Pipeline canonical outcome logic.
- * - Prep/Script/Coach always visible on every card.
+ * Five tabs:
+ * 1. Today – today's intros
+ * 2. This Week – rest of week
+ * 3. Follow-Ups – follow-up queue
+ * 4. Questionnaire Hub – full Q hub
+ * 5. Needs Outcome – unresolved past intros
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { format, differenceInMinutes, isToday } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
-import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2 } from 'lucide-react';
 
-// Existing dashboard components
+// Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
-import { StickyDayScore } from '@/components/dashboard/StickyDayScore';
-import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
 import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
-import { ShiftHandoffSummary } from '@/components/dashboard/ShiftHandoffSummary';
-import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
-import { SectionReorderButton, getSectionOrder } from '@/components/dashboard/SectionReorder';
-import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
-import { SectionHelp } from '@/components/dashboard/SectionHelp';
-import { LeadActionBar } from '@/components/ActionBar';
-import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
-import { CardGuidance, getLeadGuidance } from '@/components/dashboard/CardGuidance';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
-import { Badge } from '@/components/ui/badge';
-import { Phone as PhoneIcon, Calendar } from 'lucide-react';
+import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
+import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 
-// Prep, Script, Coach drawers
+// Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { CoachDrawer } from '@/components/myday/CoachDrawer';
-
-// Collapsible optional tools
-import { DailyProgress } from '@/components/dashboard/DailyProgress';
-import { ExecutionCard } from '@/components/dashboard/ExecutionCard';
-import { TouchLeaderboard } from '@/components/dashboard/TouchLeaderboard';
-import { WinStreak } from '@/components/dashboard/WinStreak';
-import { DailyInsight } from '@/components/dashboard/DailyInsight';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 
+// Dark mode helpers
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() => {
+    return localStorage.getItem('otf-dark-mode') === 'true';
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('otf-dark-mode', String(isDark));
+  }, [isDark]);
+
+  return { isDark, toggle: () => setIsDark(v => !v) };
+}
+
 export default function MyDayPage() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, refreshData } = useData();
-  const navigate = useNavigate();
+  const { isDark, toggle: toggleDark } = useDarkMode();
 
-  // Leads state
-  const [newLeads, setNewLeads] = useState<Tables<'leads'>[]>([]);
-  const [alreadyBookedLeadIds, setAlreadyBookedLeadIds] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
   const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
   const [todayScriptsSent, setTodayScriptsSent] = useState(0);
   const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
-  const [sectionOrder, setSectionOrder] = useState<string[]>(getSectionOrder());
-  const [optionalToolsOpen, setOptionalToolsOpen] = useState(false);
+  const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('today');
 
   // Prep/Script/Coach drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
@@ -101,7 +95,7 @@ export default function MyDayPage() {
   // Today's stats
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayBookingsCount = useMemo(() =>
-    introsBooked.filter(b => b.class_date === todayStr).length,
+    introsBooked.filter(b => b.class_date === todayStr && !b.deleted_at).length,
     [introsBooked, todayStr],
   );
   const todayRuns = useMemo(() =>
@@ -110,15 +104,15 @@ export default function MyDayPage() {
   );
   const completedTodayCount = todayRuns.length;
   const purchaseTodayCount = useMemo(() =>
-    todayRuns.filter(r => r.result_canon === 'PURCHASED' || r.result?.toLowerCase().includes('membership') || r.result?.toLowerCase().includes('bought')).length,
+    todayRuns.filter(r => r.result_canon === 'PURCHASED').length,
     [todayRuns],
   );
   const noShowTodayCount = useMemo(() =>
-    todayRuns.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show').length,
+    todayRuns.filter(r => r.result_canon === 'NO_SHOW').length,
     [todayRuns],
   );
   const didntBuyTodayCount = useMemo(() =>
-    todayRuns.filter(r => r.result_canon === 'DIDNT_BUY' || r.result === "Didn't Buy").length,
+    todayRuns.filter(r => r.result_canon === 'DIDNT_BUY').length,
     [todayRuns],
   );
   const topObjectionToday = useMemo(() => {
@@ -130,7 +124,7 @@ export default function MyDayPage() {
 
   // Realtime
   const handleRealtimeUpdate = useCallback(() => {
-    const timer = setTimeout(() => fetchNonIntroData(), 1500);
+    const timer = setTimeout(() => fetchMetrics(), 1500);
     return () => clearTimeout(timer);
   }, []);
   useRealtimeMyDay(handleRealtimeUpdate);
@@ -151,80 +145,21 @@ export default function MyDayPage() {
   }, []);
 
   useEffect(() => {
-    fetchNonIntroData();
+    fetchMetrics();
   }, [user?.name]);
 
-  const fetchNonIntroData = async () => {
+  const fetchMetrics = async () => {
     if (!user?.name) return;
-    setIsLoading(true);
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const todayStart = today + 'T00:00:00';
 
-      // Leads
-      const { data: leads } = await supabase
-        .from('leads')
-        .select('*')
-        .in('stage', ['new', 'contacted'])
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      if (leads && leads.length > 0) {
-        const { data: matchingBookings } = await supabase
-          .from('intros_booked')
-          .select('id, member_name, phone, class_date')
-          .is('deleted_at', null);
-
-        if (matchingBookings) {
-          const bookedByFullName = new Map<string, string>();
-          const bookedByPhone = new Map<string, string>();
-          matchingBookings.forEach(b => {
-            const name = b.member_name.toLowerCase().trim();
-            if (!bookedByFullName.has(name)) bookedByFullName.set(name, b.id);
-            const phone = (b.phone || '').replace(/\D/g, '');
-            if (phone.length >= 7 && !bookedByPhone.has(phone)) bookedByPhone.set(phone, b.id);
-          });
-
-          const autoRemoveIds: string[] = [];
-          const ambiguousIds = new Set<string>();
-          const remaining: Tables<'leads'>[] = [];
-
-          for (const lead of leads) {
-            const fullName = `${lead.first_name} ${lead.last_name}`.toLowerCase().trim();
-            const cleanPhone = lead.phone?.replace(/\D/g, '') || '';
-            if (bookedByFullName.has(fullName) || (cleanPhone.length >= 7 && bookedByPhone.has(cleanPhone))) {
-              autoRemoveIds.push(lead.id);
-            } else {
-              const firstNameLower = lead.first_name.toLowerCase().trim();
-              const partialMatch = matchingBookings.some(b =>
-                b.member_name.split(' ')[0]?.toLowerCase().trim() === firstNameLower &&
-                b.member_name.toLowerCase().trim() !== fullName,
-              );
-              if (partialMatch) ambiguousIds.add(lead.id);
-              remaining.push(lead);
-            }
-          }
-
-          if (autoRemoveIds.length > 0) {
-            await supabase.from('leads').update({ stage: 'booked' }).in('id', autoRemoveIds);
-          }
-
-          setNewLeads(remaining.filter(l => l.stage === 'new'));
-          setAlreadyBookedLeadIds(ambiguousIds);
-        } else {
-          setNewLeads(leads.filter(l => l.stage === 'new'));
-        }
-      } else {
-        setNewLeads([]);
-      }
-
       // Script actions count
       const { data: actionsData } = await supabase
         .from('script_actions')
-        .select('action_type, completed_by')
+        .select('action_type')
         .gte('completed_at', todayStart)
         .eq('completed_by', user.name);
-
       setTodayScriptsSent((actionsData || []).filter(a => a.action_type === 'script_sent').length);
 
       // Follow-ups sent today
@@ -234,83 +169,45 @@ export default function MyDayPage() {
         .eq('status', 'sent')
         .gte('sent_at', todayStart);
       setTodayFollowUpsSent(fuSentCount || 0);
+
+      // Needs outcome count (past 45 days, no resolved result)
+      const cutoff = format(new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+      const { count: unresolved } = await supabase
+        .from('intros_booked')
+        .select('id', { count: 'exact', head: true })
+        .gte('class_date', cutoff)
+        .lt('class_date', today)
+        .is('deleted_at', null)
+        .neq('booking_status_canon', 'CANCELLED');
+      setNeedsOutcomeCount(unresolved || 0);
     } catch (err) {
-      console.error('MyDay non-intro fetch error:', err);
-    } finally {
-      setIsLoading(false);
+      console.error('MyDay metrics fetch error:', err);
     }
   };
 
-  const sortedLeads = useMemo(() => {
-    return [...newLeads].sort((a, b) => {
-      const aRef = a.source?.toLowerCase().includes('referral') ? 0 : 1;
-      const bRef = b.source?.toLowerCase().includes('referral') ? 0 : 1;
-      if (aRef !== bRef) return aRef - bRef;
-      if (a.phone && !b.phone) return -1;
-      if (!a.phone && b.phone) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-  }, [newLeads]);
-
   const { completedActions, totalActions } = useMemo(() => {
-    let total = todayBookingsCount + followUpsDueCount + newLeads.length;
-    let completed = completedTodayCount + todayFollowUpsSent + Math.min(todayScriptsSent, newLeads.length);
+    const total = todayBookingsCount + followUpsDueCount;
+    const completed = completedTodayCount + todayFollowUpsSent;
     return { completedActions: completed, totalActions: total };
-  }, [todayBookingsCount, completedTodayCount, followUpsDueCount, todayFollowUpsSent, newLeads, todayScriptsSent]);
+  }, [todayBookingsCount, completedTodayCount, followUpsDueCount, todayFollowUpsSent]);
 
-  // Handlers for Prep/Script/Coach
-  const handleOpenPrep = useCallback((bookingId: string) => {
-    setPrepBookingId(bookingId);
-  }, []);
-
-  const handleOpenScript = useCallback((bookingId: string) => {
-    setScriptBookingId(bookingId);
-  }, []);
-
-  const handleOpenCoach = useCallback((bookingId: string) => {
-    setCoachBookingId(bookingId);
-  }, []);
-
-  const handleMarkContacted = async (leadId: string) => {
-    try {
-      await supabase.from('leads').update({ stage: 'contacted' }).eq('id', leadId);
-      toast.success('Lead moved to In Progress');
-      fetchNonIntroData();
-    } catch { toast.error('Failed to update'); }
-  };
-
-  const handleMarkAlreadyBooked = async (leadId: string) => {
-    try {
-      await supabase.from('leads').update({ stage: 'booked' }).eq('id', leadId);
-      toast.success('Lead moved to Booked');
-      fetchNonIntroData();
-    } catch { toast.error('Failed to update'); }
-  };
+  const progressPct = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
 
   // Build script merge context for ScriptPickerSheet
   const scriptMergeContext = useMemo(() => {
     if (!scriptBooking) return {};
     const firstName = scriptBooking.member_name.split(' ')[0] || '';
     const lastName = scriptBooking.member_name.split(' ').slice(1).join(' ') || '';
-
-    // Coach name resolution
     const rawCoach = scriptBooking.coach_name?.trim();
     const coachResolved = rawCoach && !/^tbd$/i.test(rawCoach) ? rawCoach : null;
-
-    // Today/tomorrow resolution
     const classDate = scriptBooking.class_date;
     let todayTomorrow = '';
     if (classDate === todayStr) {
       todayTomorrow = 'today';
     } else {
       const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
-      if (classDate === tomorrow) {
-        todayTomorrow = 'tomorrow';
-      } else {
-        try { todayTomorrow = format(new Date(classDate + 'T12:00:00'), 'EEEE'); } catch { todayTomorrow = ''; }
-      }
+      todayTomorrow = classDate === tomorrow ? 'tomorrow' : (() => { try { return format(new Date(classDate + 'T12:00:00'), 'EEEE'); } catch { return ''; } })();
     }
-
     return {
       'first-name': firstName,
       'last-name': lastName,
@@ -324,222 +221,146 @@ export default function MyDayPage() {
     };
   }, [scriptBooking, user?.name, todayStr]);
 
+  const greeting = new Date().getHours() < 12 ? 'morning' : 'afternoon';
+
   return (
-    <div className="px-4 md:px-4 pb-24 space-y-3 md:space-y-4 max-w-full overflow-x-hidden">
+    <div className="max-w-full overflow-x-hidden">
       <OnboardingOverlay />
 
-      {/* Greeting */}
-      <div className="mb-2">
+      {/* ═══ FLOATING HEADER — always visible ═══ */}
+      <div className="sticky top-0 z-20 bg-background border-b px-4 py-3 space-y-2.5 shadow-sm">
+        {/* Greeting + date + dark toggle */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋</h1>
-            <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+            <h1 className="text-base font-bold leading-tight">Good {greeting}, {user?.name}! 👋</h1>
+            <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
           </div>
-          <SectionReorderButton onReorder={setSectionOrder} />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleDark}
+            className="h-8 w-8"
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
         </div>
+
+        {/* Progress bar */}
+        {totalActions > 0 && (
+          <div>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                {completedActions}/{totalActions} actions
+              </span>
+              <span className="font-semibold text-primary">{progressPct}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-1.5">
+              <div
+                className="bg-primary h-1.5 rounded-full transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Shift Activity */}
+        <MyDayShiftSummary compact />
+
+        {/* End Shift button */}
+        <CloseOutShift
+          completedIntros={completedTodayCount}
+          activeIntros={todayBookingsCount - completedTodayCount}
+          scriptsSent={todayScriptsSent}
+          followUpsSent={todayFollowUpsSent}
+          purchaseCount={purchaseTodayCount}
+          noShowCount={noShowTodayCount}
+          didntBuyCount={didntBuyTodayCount}
+          topObjection={topObjectionToday}
+          asButton
+        />
       </div>
 
-      {/* Monday Meeting */}
-      {new Date().getDay() === 1 && !sessionStorage.getItem('meeting-card-dismissed') && (
-        <Card className="border-2 border-primary bg-primary/5">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="font-bold text-lg flex items-center gap-2">📋 Team Meeting Today</p>
-              <p className="text-sm text-muted-foreground">View the agenda before the meeting</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => navigate('/meeting')}>View Agenda</Button>
-              <Button variant="ghost" size="sm" onClick={() => { sessionStorage.setItem('meeting-card-dismissed', '1'); fetchNonIntroData(); }}>✕</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <DailyInsight />
       <OfflineBanner />
-      <StickyDayScore completedActions={completedActions} totalActions={totalActions} />
 
+      {/* ═══ INTERNAL TABS ═══ */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Persistent tab bar */}
+        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b px-3 pt-2 pb-0">
+          <TabsList className="w-full grid grid-cols-5 h-auto gap-0.5 bg-muted/50 p-0.5 rounded-lg">
+            <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Today</span>
+              {todayBookingsCount > 0 && (
+                <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>This Week</span>
+            </TabsTrigger>
+            <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Follow-Ups</span>
+              {followUpsDueCount > 0 && (
+                <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>Q Hub</span>
+            </TabsTrigger>
+            <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Users className="w-3.5 h-3.5" />
+              <span>Outcomes</span>
+              {needsOutcomeCount > 0 && (
+                <Badge variant="outline" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center border-warning text-warning">{needsOutcomeCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      {/* Per-shift activity log — writes to shift_recaps, feeds Studio tab */}
-      <MyDayShiftSummary />
+        {/* Tab content */}
+        <div className="px-4 pb-24 pt-3 space-y-3">
+          {/* TODAY */}
+          <TabsContent value="today" className="mt-0 space-y-3">
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
+          </TabsContent>
 
-      {/* ═══════════════ CORE SECTIONS ═══════════════ */}
+          {/* THIS WEEK */}
+          <TabsContent value="week" className="mt-0 space-y-3">
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
+          </TabsContent>
 
-      {/* Canonical Upcoming Intros Queue — Today | Rest of Week | Needs Outcome */}
-      <UpcomingIntrosCard userName={user?.name || ''} />
+          {/* FOLLOW-UPS */}
+          <TabsContent value="followups" className="mt-0 space-y-3">
+            <div className="mb-1">
+              <h2 className="text-sm font-semibold">Follow-Up Queue</h2>
+              <p className="text-xs text-muted-foreground">All pending follow-ups due today and overdue</p>
+            </div>
+            <FollowUpsDueToday onRefresh={fetchMetrics} onCountChange={setFollowUpsDueCount} />
+          </TabsContent>
 
-      {/* Sections driven by sectionOrder */}
-      {sectionOrder.map((sectionId) => {
-        switch (sectionId) {
-          case 'todays-intros':
-          case 'tomorrows-intros':
-            // Handled by UpcomingIntrosCard
-            return null;
+          {/* QUESTIONNAIRE HUB */}
+          <TabsContent value="qhub" className="mt-0 space-y-3">
+            <QuestionnaireHub />
+          </TabsContent>
 
-          case 'new-leads':
-            if (sortedLeads.length === 0) return null;
-            return (
-              <CollapsibleSection
-                key="new-leads"
-                id="new-leads"
-                title="New Leads"
-                icon={<UserPlus className="w-4 h-4 text-info" />}
-                accentColor="border-l-blue-400"
-                headerBgClass="bg-blue-50 dark:bg-blue-950/30"
-                count={sortedLeads.length}
-                defaultOpen={sortedLeads.length > 0}
-              >
-                <SectionHelp text="New people who haven't been contacted yet." />
-                {sortedLeads.map(lead => {
-                  const minutesAgo = differenceInMinutes(new Date(), new Date(lead.created_at));
-                  const speedColor = minutesAgo < 5 ? 'bg-emerald-500 text-white'
-                    : minutesAgo < 30 ? 'bg-amber-500 text-white'
-                    : 'bg-destructive text-destructive-foreground';
-                  const isAlreadyBooked = alreadyBookedLeadIds.has(lead.id);
+          {/* NEEDS OUTCOME */}
+          <TabsContent value="outcome" className="mt-0 space-y-3">
+            <div className="mb-1">
+              <h2 className="text-sm font-semibold">Needs Outcome</h2>
+              <p className="text-xs text-muted-foreground">Past intros from the last 45 days with no result logged</p>
+            </div>
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="needsOutcome" />
+          </TabsContent>
+        </div>
+      </Tabs>
 
-                  return (
-                    <div key={lead.id} className="rounded-lg border bg-card transition-all">
-                      <div className="p-3 md:p-2.5">
-                        <p className="font-semibold text-sm">{lead.first_name} {lead.last_name}</p>
-                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                          <LeadSourceTag source={lead.source} className="flex-shrink-0" />
-                          <span className="text-xs text-muted-foreground">
-                            {minutesAgo < 60 ? `${minutesAgo}m ago` : isToday(new Date(lead.created_at)) ? format(new Date(lead.created_at), 'h:mm a') : format(new Date(lead.created_at), 'MMM d')}
-                          </span>
-                          <Badge className={`text-[10px] px-1.5 py-0 h-4 ${speedColor}`}>
-                            {minutesAgo < 5 ? 'Just now' : minutesAgo < 30 ? 'Act fast' : 'Overdue'}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                          {lead.phone && (
-                            <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary" onClick={e => e.stopPropagation()}>
-                              <PhoneIcon className="w-2.5 h-2.5" />
-                              {lead.phone}
-                            </a>
-                          )}
-                        </div>
-                        {isAlreadyBooked && (
-                          <div className="mt-1">
-                            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 text-white border-transparent">
-                              Already Booked?
-                            </Badge>
-                          </div>
-                        )}
-                        <CardGuidance text={getLeadGuidance(minutesAgo)} className="mt-1.5" />
-                      </div>
-                      <div className="px-3 md:px-2.5 pb-2.5">
-                        <LeadActionBar
-                          leadId={lead.id}
-                          firstName={lead.first_name}
-                          lastName={lead.last_name}
-                          phone={lead.phone}
-                          source={lead.source}
-                          stage={lead.stage}
-                          onOpenDetail={() => setDetailLead(lead)}
-                          onBookIntro={() => setBookIntroLead(lead)}
-                          onMarkContacted={() => handleMarkContacted(lead.id)}
-                          onMarkAlreadyBooked={() => handleMarkAlreadyBooked(lead.id)}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                <Button variant="ghost" size="sm" className="w-full text-primary" onClick={() => navigate('/leads')}>
-                  View all leads →
-                </Button>
-              </CollapsibleSection>
-            );
-
-          case 'followups-due':
-            return (
-              <CollapsibleSection
-                key="followups-due"
-                id="followups-due"
-                title="Follow-Ups Due"
-                icon={<Clock className="w-4 h-4 text-warning" />}
-                accentColor="border-l-yellow-500"
-                headerBgClass="bg-yellow-50 dark:bg-yellow-950/30"
-                count={followUpsDueCount}
-                defaultOpen={false}
-              >
-                <FollowUpsDueToday onRefresh={fetchNonIntroData} onCountChange={setFollowUpsDueCount} />
-              </CollapsibleSection>
-            );
-
-          case 'questionnaire-hub':
-            return (
-              <CollapsibleSection
-                key="questionnaire-hub"
-                id="questionnaire-hub"
-                title="Questionnaire Hub"
-                icon={<ClipboardList className="w-4 h-4 text-primary" />}
-                accentColor="border-l-teal-400"
-                headerBgClass="bg-teal-50 dark:bg-teal-950/30"
-                defaultOpen={false}
-              >
-                <QuestionnaireHub />
-              </CollapsibleSection>
-            );
-
-          case 'shift-handoff':
-            return (
-              <CollapsibleSection
-                key="shift-handoff"
-                id="shift-handoff"
-                title="Shift Summary"
-                icon={<FileText className="w-4 h-4 text-primary" />}
-                accentColor="border-l-slate-400"
-                headerBgClass="bg-slate-100 dark:bg-slate-900/30"
-                defaultOpen={false}
-              >
-                <ShiftHandoffSummary
-                  todayCompletedCount={completedTodayCount}
-                  todayActiveCount={todayBookingsCount - completedTodayCount}
-                  scriptsSentCount={todayScriptsSent}
-                  followUpsSentCount={todayFollowUpsSent}
-                  userName={user?.name || ''}
-                />
-              </CollapsibleSection>
-            );
-
-          default:
-            return null;
-        }
-      })}
-
-      {/* ═══════════════ OPTIONAL TOOLS (collapsed by default, no nudges) ═══════════════ */}
-      <Collapsible open={optionalToolsOpen} onOpenChange={setOptionalToolsOpen}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground">
-            {optionalToolsOpen ? '▾ Hide Optional Tools' : '▸ Optional Tools (Progress, Streaks, Leaderboard)'}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-3 mt-2">
-          <DailyProgress
-            completedIntros={completedTodayCount}
-            totalIntros={todayBookingsCount}
-            followUpsDue={followUpsDueCount}
-          />
-          <ExecutionCard />
-          <TouchLeaderboard />
-          <WinStreak userName={user?.name || ''} introsRun={introsRun} sales={sales} />
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Close Out Shift — now powered by real today metrics */}
-      <CloseOutShift
-        completedIntros={completedTodayCount}
-        activeIntros={todayBookingsCount - completedTodayCount}
-        scriptsSent={todayScriptsSent}
-        followUpsSent={todayFollowUpsSent}
-        purchaseCount={purchaseTodayCount}
-        noShowCount={noShowTodayCount}
-        didntBuyCount={didntBuyTodayCount}
-        topObjection={topObjectionToday}
-      />
-
+      {/* FAB */}
       <QuickAddFAB
-        onRefresh={fetchNonIntroData}
+        onRefresh={fetchMetrics}
         completedIntros={completedTodayCount}
         activeIntros={todayBookingsCount - completedTodayCount}
         scriptsSent={todayScriptsSent}
@@ -551,7 +372,7 @@ export default function MyDayPage() {
         onEndShift={refreshData}
       />
 
-      {/* ═══════════════ DRAWERS / DIALOGS ═══════════════ */}
+      {/* ═══ DRAWERS / DIALOGS ═══ */}
 
       {/* Prep Drawer */}
       {prepBooking && (
@@ -579,7 +400,7 @@ export default function MyDayPage() {
           suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}
           mergeContext={scriptMergeContext}
           bookingId={scriptBooking.id}
-          onLogged={() => { setScriptBookingId(null); fetchNonIntroData(); }}
+          onLogged={() => { setScriptBookingId(null); fetchMetrics(); }}
         />
       )}
 
@@ -601,7 +422,7 @@ export default function MyDayPage() {
           open={!!bookIntroLead}
           onOpenChange={open => { if (!open) setBookIntroLead(null); }}
           lead={bookIntroLead}
-          onDone={() => { setBookIntroLead(null); fetchNonIntroData(); }}
+          onDone={() => { setBookIntroLead(null); fetchMetrics(); }}
         />
       )}
       <LeadDetailSheet
@@ -609,7 +430,7 @@ export default function MyDayPage() {
         activities={[]}
         open={!!detailLead}
         onOpenChange={open => { if (!open) setDetailLead(null); }}
-        onRefresh={fetchNonIntroData}
+        onRefresh={fetchMetrics}
       />
     </div>
   );
