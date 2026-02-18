@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, UserPlus, X, Users } from 'lucide-react';
+import { Plus, UserPlus, X, Users, CalendarPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
 import { WalkInIntroSheet } from '@/components/dashboard/WalkInIntroSheet';
+import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
@@ -13,6 +14,7 @@ export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
+  const [showBookIntro, setShowBookIntro] = useState(false);
 
   const handleAddLead = () => {
     setExpanded(false);
@@ -24,18 +26,29 @@ export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
     setShowWalkIn(true);
   };
 
+  const handleBookIntro = () => {
+    setExpanded(false);
+    setShowBookIntro(true);
+  };
+
   const actions = [
+    {
+      icon: CalendarPlus,
+      label: 'Book Intro',
+      onClick: handleBookIntro,
+      color: 'bg-primary text-primary-foreground',
+    },
     {
       icon: Users,
       label: 'Walk-In Intro',
       onClick: handleWalkInIntro,
-      color: 'bg-primary text-primary-foreground',
+      color: 'bg-orange-500 text-white',
     },
     {
       icon: UserPlus,
       label: 'Add Lead',
       onClick: handleAddLead,
-      color: 'bg-info text-info-foreground',
+      color: 'bg-secondary text-secondary-foreground',
     },
   ];
 
@@ -83,10 +96,17 @@ export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
         onLeadAdded={onRefresh}
       />
 
-      {/* Walk-In Intro Sheet */}
+      {/* Walk-In Intro Sheet (today only, quick entry) */}
       <WalkInIntroSheet
         open={showWalkIn}
         onOpenChange={setShowWalkIn}
+        onSaved={onRefresh}
+      />
+
+      {/* Book Intro Sheet (any date) */}
+      <BookIntroSheet
+        open={showBookIntro}
+        onOpenChange={setShowBookIntro}
         onSaved={onRefresh}
       />
     </>
