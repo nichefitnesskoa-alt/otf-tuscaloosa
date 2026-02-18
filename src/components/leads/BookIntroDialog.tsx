@@ -87,9 +87,10 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
         console.error('Auto-create Q error:', qErr);
       }
 
-      // Update lead with booked_intro_id
+      // Update lead with booked_intro_id and move to booked stage
       await supabase.from('leads').update({
         booked_intro_id: booking.id,
+        stage: 'booked',
       }).eq('id', lead.id);
 
       // Log activity
