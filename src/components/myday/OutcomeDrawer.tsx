@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { applyIntroOutcomeUpdate } from '@/lib/domain/outcomes/applyIntroOutcomeUpdate';
+import { COACHES } from '@/types';
 import { computeCommission, isSaleOutcome } from '@/lib/outcomes/commissionRules';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { toast } from 'sonner';
@@ -246,16 +247,19 @@ export function OutcomeDrawer({
                 />
               </div>
 
-              {/* Coach input */}
+              {/* Coach selector */}
               <div className="space-y-1">
                 <Label className="text-xs">Coach</Label>
-                <Input
-                  type="text"
-                  value={secondIntroCoach}
-                  onChange={e => setSecondIntroCoach(e.target.value)}
-                  placeholder="Coach name"
-                  className="h-8 text-sm"
-                />
+                <Select value={secondIntroCoach} onValueChange={setSecondIntroCoach}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select coach…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COACHES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
