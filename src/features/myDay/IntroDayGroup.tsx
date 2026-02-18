@@ -1,6 +1,6 @@
 /**
  * Day group: header with date label, count, Q ratio, and bulk actions.
- * Renders intro row cards for that day with Prep/Script/Coach buttons.
+ * Renders intro row cards for that day with Prep/Script/Coach/Outcome buttons.
  */
 import { Badge } from '@/components/ui/badge';
 import type { DayGroup } from './myDayTypes';
@@ -65,8 +65,10 @@ export default function IntroDayGroup({
             key={item.bookingId}
             item={item}
             isOnline={isOnline}
+            userName={userName}
             onSendQ={onSendQ}
             onConfirm={onConfirm}
+            onRefresh={onRefresh}
           />
         ))}
       </div>
