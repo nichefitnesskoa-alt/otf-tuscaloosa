@@ -101,12 +101,12 @@ export default function Questionnaire() {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       const { data: row, error: err } = await supabase
         .from('intro_questionnaires')
-        .select('id, client_first_name, client_last_name, scheduled_class_date, scheduled_class_time, status')
+        .select('id, booking_id, client_first_name, client_last_name, scheduled_class_date, scheduled_class_time, status')
         .or(isUUID ? `id.eq.${id},slug.eq.${id}` : `slug.eq.${id}`)
         .maybeSingle();
       if (err || !row) { setError('Invalid link'); setLoading(false); return; }
-      if (row.status === 'completed') { setError('already_submitted'); setData(row as QuestionnaireData); setLoading(false); return; }
-      setData(row as QuestionnaireData);
+      if (row.status === 'completed') { setError('already_submitted'); setData(row as unknown as QuestionnaireData); setLoading(false); return; }
+      setData(row as unknown as QuestionnaireData);
       setLoading(false);
 
       // Track that the questionnaire was opened
@@ -176,6 +176,7 @@ export default function Questionnaire() {
     const finalQ4 = q4b ? `${q4a} | ${q4b}` : q4a;
     // Q6b: pipe-separated days
     const finalQ6b = q6bDays.length > 0 ? q6bDays.join(' | ') : null;
+    const submittedAt = new Date().toISOString();
 
     const { error: err } = await supabase
       .from('intro_questionnaires')
@@ -189,11 +190,24 @@ export default function Questionnaire() {
         q6b_available_days: finalQ6b,
         q7_coach_notes: q7 || null,
         status: 'completed',
-        submitted_at: new Date().toISOString(),
+        submitted_at: submittedAt,
       } as any)
       .eq('id', data.id);
+    if (err) { console.error(err); setSubmitting(false); return; }
+
+    // Sync questionnaire_status_canon on the linked booking immediately
+    const bookingId = (data as any).booking_id;
+    if (bookingId) {
+      await supabase
+        .from('intros_booked')
+        .update({
+          questionnaire_status_canon: 'completed',
+          questionnaire_completed_at: submittedAt,
+        } as any)
+        .eq('id', bookingId);
+    }
+
     setSubmitting(false);
-    if (err) { console.error(err); return; }
     setDirection(1);
     setStep(8);
   };

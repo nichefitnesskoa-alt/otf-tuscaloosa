@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,6 +68,51 @@ function PhoneBackfillCard() {
           </Button>
           {result !== null && (
             <span className="text-sm text-muted-foreground">Updated {result} rows</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuestionnaireReconcileCard() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<number | null>(null);
+
+  const handleReconcile = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.rpc('reconcile_questionnaire_statuses');
+      if (error) throw error;
+      const updated = (data as any)?.updated ?? 0;
+      setResult(updated);
+      toast.success(`Fixed ${updated} row${updated !== 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Reconciliation failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ClipboardCheck className="w-4 h-4" />
+          Questionnaire Status Sync
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Finds intros where the questionnaire was completed but the status wasn't updated. Safe to run multiple times.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleReconcile} disabled={running} variant="outline">
+            {running ? 'Running…' : 'Fix questionnaire statuses'}
+          </Button>
+          {result !== null && (
+            <span className="text-sm text-muted-foreground">Fixed {result} rows</span>
           )}
         </div>
       </CardContent>
@@ -240,6 +285,7 @@ export default function Admin() {
           <VipBulkImport />
           <ShiftRecapsEditor />
           <PhoneBackfillCard />
+          <QuestionnaireReconcileCard />
         </TabsContent>
 
         {/* Stories Tab */}

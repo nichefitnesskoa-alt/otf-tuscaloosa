@@ -246,6 +246,18 @@ export function PrepDrawer({
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : (
                   <>
+                    {/* MEMBER SNAPSHOT — always visible when Q is completed */}
+                    {hasQ && (
+                      <MemberSnapshot
+                        firstName={firstName}
+                        goal={goal || null}
+                        why={emotionalDriver || null}
+                        obstacle={obstacle || null}
+                        commitment={commitment || null}
+                        fitnessLevel={questionnaire?.q2_fitness_level ?? null}
+                      />
+                    )}
+
                     {/* SECTION 1: Accusation Audit — always visible, NOT collapsible */}
                     <div className="rounded-lg p-3.5 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
                       <div className="flex items-center gap-2 mb-2">
@@ -332,46 +344,6 @@ export function PrepDrawer({
                         )}
                       </div>
                     </div>
-
-                    {/* SECTION 3: Guide Them In */}
-                    <PrepCollapsible title="Guide Them In — Greeting" icon="👋" defaultOpen accentColor="green">
-                      <p className="leading-relaxed">
-                        {p(`"Hey [name]! Welcome to Orangetheory. I'm so glad you're here. I read through your questionnaire — you said you want to [goal], and I love that. Today's class is going to be a great first step toward that. Let me walk you through what to expect."`)}
-                      </p>
-                      {!hasQ && (
-                        <div className="mt-1.5">
-                          <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-1 rounded text-[10px] font-medium">
-                            Q not completed — use a general greeting and ask about their goal in person
-                          </span>
-                        </div>
-                      )}
-                      <div className="mt-3 pt-2 border-t border-green-200 dark:border-green-800">
-                        <p className="font-semibold text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Set Expectations</p>
-                        <p className="leading-relaxed">
-                          {p(`"After class, we'll sit down for about 5-10 minutes. I'll ask you how you felt, and if it's a fit, I'll show you how to keep this going. No pressure, no awkward pitch. Sound good?"`)}
-                        </p>
-                      </div>
-                    </PrepCollapsible>
-
-                    {/* SECTION 4: During Class */}
-                    <PrepCollapsible title="During Class — Check-In" icon="💪" accentColor="green">
-                      <p className="leading-relaxed">
-                        {p(`Walk into the studio at the ~25 minute mark. Make eye contact with [name], give a thumbs up or a quick "You're crushing it!" This creates a bond and shows you are invested in their experience.`)}
-                      </p>
-                      <p className="mt-1.5 text-muted-foreground italic">
-                        Tip: Note which station they're at and what they're doing well — use this in the post-class sit-down.
-                      </p>
-                    </PrepCollapsible>
-
-                    {/* Reference — Flipbook (collapsed, low priority) */}
-                    <PrepCollapsible title="Reference — Flipbook Talking Points" icon="📖" accentColor="muted">
-                      <ul className="space-y-1 list-disc pl-4">
-                        <li><span className="font-medium">Heart Rate Zones:</span> "We use a heart rate monitor so you can see your effort in real time. You'll aim for the Orange Zone — that's where the magic happens."</li>
-                        <li><span className="font-medium">Coaching:</span> "There's a coach leading the entire class. They'll tell you every move, every transition. You don't have to figure anything out."</li>
-                        <li><span className="font-medium">Afterburn:</span> "The workout is designed so you keep burning calories for up to 36 hours after class. It's called the afterburn effect."</li>
-                        <li><span className="font-medium">Community:</span> "Everyone in that room was a first-timer once. This is one of the most supportive workout communities you'll find."</li>
-                      </ul>
-                    </PrepCollapsible>
                   </>
                 )}
               </TabsContent>
@@ -509,6 +481,47 @@ export function PrepDrawer({
 }
 
 /* ---- Sub-components ---- */
+
+function MemberSnapshot({ firstName, goal, why, obstacle, commitment, fitnessLevel }: {
+  firstName: string;
+  goal: string | null;
+  why: string | null;
+  obstacle: string | null;
+  commitment: string | null;
+  fitnessLevel: number | null;
+}) {
+  const shorten = (s: string | null) => s ? s.split('|')[0].trim() : '—';
+
+  const greetingLine = goal && why
+    ? `You're here to ${shorten(goal).toLowerCase()} — ${shorten(why).toLowerCase()}. Let's make this class count.`
+    : `Welcome! Let's make your first class great.`;
+
+  const handoffLine = `${firstName} wants ${shorten(goal)}. Coming ${shorten(commitment)} a week. They're going to hit it.`;
+
+  return (
+    <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-2">
+      <p className="text-lg font-bold">{firstName}</p>
+      <div className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
+        <span className="font-bold uppercase text-muted-foreground">Goal</span>
+        <span>{shorten(goal)}</span>
+        <span className="font-bold uppercase text-muted-foreground">Why</span>
+        <span>{shorten(why)}</span>
+        <span className="font-bold uppercase text-muted-foreground">Obstacle</span>
+        <span>{shorten(obstacle)}</span>
+        <span className="font-bold uppercase text-muted-foreground">Commit</span>
+        <span>{shorten(commitment)}</span>
+        <span className="font-bold uppercase text-muted-foreground">Level</span>
+        <span>{fitnessLevel ? `${fitnessLevel}/5` : '—'}</span>
+      </div>
+      <div className="pt-1 border-t border-primary/10 text-xs italic text-foreground leading-relaxed">
+        Greeting: &ldquo;{greetingLine}&rdquo;
+      </div>
+      <div className="text-xs border-t border-primary/10 pt-1 text-muted-foreground leading-relaxed">
+        Coach handoff: &ldquo;{handoffLine}&rdquo;
+      </div>
+    </div>
+  );
+}
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
