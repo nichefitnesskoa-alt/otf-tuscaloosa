@@ -69,6 +69,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
+import { MyDayShiftSummary } from './MyDayShiftSummary';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -408,6 +409,9 @@ export default function MyDayPage() {
 
       {/* Canonical Upcoming Intros Queue (Today + Tomorrow + Coming Up) */}
       <UpcomingIntrosCard userName={user?.name || ''} />
+
+      {/* Per-shift activity log — writes to shift_recaps, feeds Studio tab */}
+      <MyDayShiftSummary />
 
       {/* Sections driven by sectionOrder */}
       {sectionOrder.map((sectionId) => {
