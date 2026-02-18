@@ -25,12 +25,12 @@ interface IntroRowCardProps {
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Complete' };
+      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
     case 'Q_SENT':
-      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Not answered' };
+      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
     case 'NO_Q':
     default:
-      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Not sent' };
+      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
   }
 }
 
@@ -62,6 +62,16 @@ export default function IntroRowCard({
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
+      {/* Top status banner */}
+      <div
+        className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
+        style={{ minHeight: '30px' }}
+      >
+        <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
+          {qBar.bannerLabel}
+        </span>
+      </div>
+
       {/* Main content row: left content + right Q bar */}
       <div className="flex min-h-0">
         {/* Left: all card content */}
