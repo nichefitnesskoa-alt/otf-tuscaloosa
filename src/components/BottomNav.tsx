@@ -1,45 +1,34 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Settings, TrendingUp, ClipboardList, Users, GitBranch, MessageSquare, Home, Wrench, MoreHorizontal } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
-import { useFollowUpCount } from '@/components/leads/FollowUpQueue';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const primaryItems = [
   { path: '/my-day', label: 'My Day', icon: Home },
-  { path: '/shift-recap', label: 'Recap', icon: FileText },
-  { path: '/leads', label: 'Leads', icon: Users },
   { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
-  { path: '/recaps', label: 'Studio', icon: TrendingUp },
-];
-
-const secondaryItems = [
-  { path: '/scripts', label: 'Scripts', icon: MessageSquare },
-  { path: '/my-shifts', label: 'My Perf', icon: ClipboardList },
 ];
 
 const adminItem = { path: '/admin', label: 'Admin', icon: Settings };
-const settingsItem = { path: '/settings', label: 'Config', icon: Wrench };
+
+// Studio is accessible via the overflow "More" menu
+const studioOverflowItem = { path: '/recaps', label: 'Studio', icon: TrendingUp };
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data: overdueCount = 0 } = useFollowUpCount();
   const isMobile = useIsMobile();
   const [moreOpen, setMoreOpen] = useState(false);
-
   const { canAccessAdmin } = useAuth();
-  const allItems = canAccessAdmin
-    ? [...primaryItems, ...secondaryItems, adminItem, settingsItem]
-    : [...primaryItems, ...secondaryItems];
 
-  // On mobile: show 5 primary + More button. On desktop: show all.
-  const visibleItems = isMobile ? primaryItems : allItems;
-  const overflowItems = isMobile
-    ? (canAccessAdmin ? [...secondaryItems, adminItem, settingsItem] : secondaryItems)
-    : [];
+  // Build visible primary items: My Day, Pipeline, Admin (if admin)
+  const visibleItems = canAccessAdmin
+    ? [...primaryItems, adminItem]
+    : primaryItems;
+
+  // Overflow always contains Studio
+  const overflowItems = [studioOverflowItem];
 
   const isActiveOverflow = overflowItems.some(i => location.pathname === i.path);
 
@@ -75,26 +64,20 @@ export function BottomNav() {
           {visibleItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            const showBadge = item.path === '/leads' && overdueCount > 0;
-            
+
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
                   'flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors relative min-w-[44px]',
-                  isActive 
-                    ? 'text-primary' 
+                  isActive
+                    ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 <div className="relative">
                   <Icon className={cn('w-5 h-5 mb-0.5', isActive && 'stroke-[2.5px]')} />
-                  {showBadge && (
-                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                      {overdueCount > 9 ? '9+' : overdueCount}
-                    </span>
-                  )}
                 </div>
                 <span className={cn(
                   'text-[11px] font-medium',
@@ -109,26 +92,24 @@ export function BottomNav() {
             );
           })}
 
-          {/* More button (mobile only) */}
-          {isMobile && overflowItems.length > 0 && (
-            <button
-              onClick={() => setMoreOpen(!moreOpen)}
-              className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors relative min-w-[44px]',
-                isActiveOverflow || moreOpen
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <MoreHorizontal className={cn('w-5 h-5 mb-0.5', (isActiveOverflow || moreOpen) && 'stroke-[2.5px]')} />
-              <span className={cn('text-[11px] font-medium', (isActiveOverflow || moreOpen) && 'font-semibold')}>
-                More
-              </span>
-              {isActiveOverflow && (
-                <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          )}
+          {/* More button — always shown */}
+          <button
+            onClick={() => setMoreOpen(!moreOpen)}
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors relative min-w-[44px]',
+              isActiveOverflow || moreOpen
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <MoreHorizontal className={cn('w-5 h-5 mb-0.5', (isActiveOverflow || moreOpen) && 'stroke-[2.5px]')} />
+            <span className={cn('text-[11px] font-medium', (isActiveOverflow || moreOpen) && 'font-semibold')}>
+              More
+            </span>
+            {isActiveOverflow && (
+              <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
         </div>
       </nav>
     </>

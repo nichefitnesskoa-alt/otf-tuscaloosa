@@ -53,14 +53,8 @@ function AppRoutes() {
         path="/login" 
         element={isAuthenticated ? <Navigate to="/my-day" replace /> : <Login />} 
       />
-      <Route
-        path="/shift-recap"
-        element={
-          <ProtectedRoute>
-            <ShiftRecap />
-          </ProtectedRoute>
-        }
-      />
+      {/* DEPRECATED: functionality moved to MyDay */}
+      <Route path="/shift-recap" element={<Navigate to="/my-day" replace />} />
       <Route
         path="/dashboard"
         element={<Navigate to="/my-shifts" replace />}
@@ -73,14 +67,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/leads"
-        element={
-          <ProtectedRoute>
-            <Leads />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
       <Route
         path="/my-shifts"
         element={
