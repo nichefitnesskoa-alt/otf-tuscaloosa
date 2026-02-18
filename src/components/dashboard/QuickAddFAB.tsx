@@ -13,6 +13,11 @@ interface QuickAddFABProps {
   activeIntros?: number;
   scriptsSent?: number;
   followUpsSent?: number;
+  purchaseCount?: number;
+  noShowCount?: number;
+  didntBuyCount?: number;
+  topObjection?: string | null;
+  onEndShift?: () => void;
 }
 
 export function QuickAddFAB({
@@ -21,6 +26,11 @@ export function QuickAddFAB({
   activeIntros = 0,
   scriptsSent = 0,
   followUpsSent = 0,
+  purchaseCount = 0,
+  noShowCount = 0,
+  didntBuyCount = 0,
+  topObjection,
+  onEndShift,
 }: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
   const [showAddLead, setShowAddLead] = useState(false);
@@ -31,7 +41,7 @@ export function QuickAddFAB({
   const handleAddLead = () => { setExpanded(false); setShowAddLead(true); };
   const handleWalkInIntro = () => { setExpanded(false); setShowWalkIn(true); };
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
-  const handleEndShift = () => { setExpanded(false); setShowEndShift(true); };
+  const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
 
   const actions = [
     {
@@ -105,10 +115,10 @@ export function QuickAddFAB({
         activeIntros={activeIntros}
         scriptsSent={scriptsSent}
         followUpsSent={followUpsSent}
-        purchaseCount={0}
-        noShowCount={0}
-        didntBuyCount={0}
-        topObjection={null}
+        purchaseCount={purchaseCount}
+        noShowCount={noShowCount}
+        didntBuyCount={didntBuyCount}
+        topObjection={topObjection}
         forceOpen={showEndShift}
         onForceOpenChange={setShowEndShift}
       />

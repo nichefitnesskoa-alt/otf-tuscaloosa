@@ -106,10 +106,29 @@ export default function MyDayPage() {
     introsBooked.filter(b => b.class_date === todayStr).length,
     [introsBooked, todayStr],
   );
-  const completedTodayCount = useMemo(() =>
-    introsRun.filter(r => r.run_date === todayStr).length,
+  const todayRuns = useMemo(() =>
+    introsRun.filter(r => r.run_date === todayStr),
     [introsRun, todayStr],
   );
+  const completedTodayCount = todayRuns.length;
+  const purchaseTodayCount = useMemo(() =>
+    todayRuns.filter(r => r.result_canon === 'PURCHASED' || r.result?.toLowerCase().includes('membership') || r.result?.toLowerCase().includes('bought')).length,
+    [todayRuns],
+  );
+  const noShowTodayCount = useMemo(() =>
+    todayRuns.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show').length,
+    [todayRuns],
+  );
+  const didntBuyTodayCount = useMemo(() =>
+    todayRuns.filter(r => r.result_canon === 'DIDNT_BUY' || r.result === "Didn't Buy").length,
+    [todayRuns],
+  );
+  const topObjectionToday = useMemo(() => {
+    const objections = todayRuns.map(r => (r as any).primary_objection).filter(Boolean) as string[];
+    if (!objections.length) return null;
+    const freq = objections.reduce<Record<string, number>>((acc, o) => { acc[o] = (acc[o] || 0) + 1; return acc; }, {});
+    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  }, [todayRuns]);
 
   // Realtime
   const handleRealtimeUpdate = useCallback(() => {
@@ -585,6 +604,11 @@ export default function MyDayPage() {
         activeIntros={todayBookingsCount - completedTodayCount}
         scriptsSent={todayScriptsSent}
         followUpsSent={todayFollowUpsSent}
+        purchaseCount={purchaseTodayCount}
+        noShowCount={noShowTodayCount}
+        didntBuyCount={didntBuyTodayCount}
+        topObjection={topObjectionToday}
+        onEndShift={refreshData}
       />
 
       {/* ═══════════════ DRAWERS / DIALOGS ═══════════════ */}
