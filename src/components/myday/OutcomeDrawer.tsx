@@ -78,6 +78,7 @@ export function OutcomeDrawer({
   const [outcome, setOutcome] = useState(currentResult || '');
   const [objection, setObjection] = useState('');
   const [notes, setNotes] = useState('');
+  const [coachName, setCoachName] = useState('');
   const [saving, setSaving] = useState(false);
 
   // 2nd intro booking state
@@ -94,12 +95,15 @@ export function OutcomeDrawer({
   const isSale = isSaleOutcome(outcome);
   const isBookedSecondIntro = outcome === 'Booked 2nd intro';
   const needsObjection = outcome === "Didn't Buy" || outcome === 'No-show';
+  const isNoShow = outcome === 'No-show';
+  const coachRequired = !!outcome && !isNoShow;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
 
   const handleSave = async () => {
     if (!outcome) { toast.error('Select an outcome'); return; }
+    if (coachRequired && !coachName) { toast.error('Select the coach who taught the class'); return; }
     if (isBookedSecondIntro && (!secondIntroDate || !secondIntroTime || !secondIntroCoach)) {
       toast.error('Fill in date, time, and coach for the 2nd intro');
       return;
@@ -124,6 +128,7 @@ export function OutcomeDrawer({
         membershipType: isSale ? outcome : undefined,
         leadSource: leadSource || '',
         objection: needsObjection ? objection : null,
+        coachName: coachName || undefined,
         editedBy,
         sourceComponent: 'MyDay-OutcomeDrawer',
         editReason: notes || undefined,
@@ -178,6 +183,27 @@ export function OutcomeDrawer({
         <p className="text-sm text-muted-foreground">
           Commission: <span className="font-medium text-foreground">${commission.toFixed(2)}</span>
         </p>
+      )}
+
+      {/* Coach who taught the class */}
+      {outcome && (
+        <div className="space-y-1">
+          <Label className="text-xs">
+            Coach who taught the class
+            {!isNoShow && <span className="text-destructive ml-1">*</span>}
+            {isNoShow && <span className="text-muted-foreground ml-1">(optional)</span>}
+          </Label>
+          <Select value={coachName} onValueChange={setCoachName}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Select coach…" />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       {/* Objection selector */}

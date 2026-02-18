@@ -29,6 +29,8 @@ export interface OutcomeUpdateParams {
   commissionAmount?: number;
   leadSource?: string;
   objection?: string | null;
+  /** Coach who taught the class — saved to intros_run.coach_name */
+  coachName?: string;
   editedBy: string;
   sourceComponent: string;
   editReason?: string;
@@ -129,7 +131,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           member_name: params.memberName,
           run_date: runDate,
           class_time: classTime,
-          coach_name: bookingData?.coach_name || null,
+          coach_name: params.coachName || bookingData?.coach_name || null,
           result: params.newResult,
           result_canon: normalizeIntroResult(params.newResult),
           lead_source: params.leadSource || null,
@@ -160,7 +162,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         ? (existingRun.buy_date || getTodayYMD())
         : existingRun.buy_date;
 
-      await supabase.from('intros_run').update({
+      const runUpdate: Record<string, unknown> = {
         result: params.newResult,
         result_canon: normalizeIntroResult(params.newResult),
         commission_amount: resolvedCommission,
@@ -169,7 +171,12 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_at: new Date().toISOString(),
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Outcome changed to ${params.newResult} via ${params.sourceComponent}`,
-      }).eq('id', existingRun.id);
+      };
+      if (params.coachName) {
+        runUpdate.coach_name = params.coachName;
+      }
+
+      await supabase.from('intros_run').update(runUpdate).eq('id', existingRun.id);
     }
 
     // ── STEP 2: UPDATE intros_booked ──
