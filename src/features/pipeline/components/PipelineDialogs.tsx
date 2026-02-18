@@ -138,6 +138,15 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectContent><SelectItem value="__TBD__">— TBD/Unknown —</SelectItem>{ALL_STAFF.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div><Label className="text-xs">Intro Owner</Label>
+                <Select value={editBooking.intro_owner || '__NONE__'} onValueChange={v => setEditBooking({ ...editBooking, intro_owner: v === '__NONE__' ? null : v, intro_owner_locked: v !== '__NONE__' } as any)}>
+                  <SelectTrigger><SelectValue placeholder="Select owner..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__NONE__">— Unassigned —</SelectItem>
+                    {SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label className="text-xs">Status</Label>
                 <Select value={editBooking.booking_status || 'Active'} onValueChange={v => setEditBooking({ ...editBooking, booking_status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -166,6 +175,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 editedBy: userName,
                 editReason: editBookingReason || 'Pipeline edit',
               });
+              // Separately update intro_owner since it's not in updateBookingFieldsFromPipeline signature
+              const anyBooking = editBooking as any;
+              await supabase.from('intros_booked').update({
+                intro_owner: anyBooking.intro_owner || null,
+                intro_owner_locked: !!anyBooking.intro_owner,
+              }).eq('id', editBooking.id);
               toast.success('Booking updated');
               setEditBooking(null);
             })}>
@@ -211,6 +226,15 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 <Select value={editRun.coach_name || ''} onValueChange={v => setEditRun({ ...editRun, coach_name: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{ALL_STAFF.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Intro Owner</Label>
+                <Select value={editRun.intro_owner || '__NONE__'} onValueChange={v => setEditRun({ ...editRun, intro_owner: v === '__NONE__' ? null : v } as any)}>
+                  <SelectTrigger><SelectValue placeholder="Select owner..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__NONE__">— Unassigned —</SelectItem>
+                    {SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div><Label className="text-xs">Result/Outcome</Label>
