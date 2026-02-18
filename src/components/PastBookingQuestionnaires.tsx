@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Copy, Check, ExternalLink, Loader2, ChevronDown, ChevronRight, FileText, Search, Plus, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { generateUniqueSlug } from '@/lib/utils';
+import { generateSlug } from '@/lib/utils';
 import QuestionnaireResponseViewer from '@/components/QuestionnaireResponseViewer';
 
 const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
@@ -161,7 +161,7 @@ export default function PastBookingQuestionnaires() {
     const lastName = nameParts.slice(1).join(' ') || '';
     const newId = crypto.randomUUID();
 
-    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
+    const newSlug = generateSlug(firstName, lastName, booking.class_date || undefined);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: booking.is_standalone ? null : booking.id,
@@ -198,7 +198,7 @@ export default function PastBookingQuestionnaires() {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
     const newId = crypto.randomUUID();
-    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
+    const newSlug = generateSlug(firstName, lastName, quickDate || undefined);
 
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,

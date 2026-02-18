@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { generateUniqueSlug } from '@/lib/utils';
+import { generateSlug } from '@/lib/utils';
 
 const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
@@ -73,7 +73,7 @@ export default function QuestionnaireLink({
 
     // No existing record found — create new
     const newId = crypto.randomUUID();
-    const newSlug = await generateUniqueSlug(firstName, lastName, null, newId);
+    const newSlug = generateSlug(firstName, lastName, introDate);
     const { error } = await supabase.from('intro_questionnaires').insert({
       id: newId,
       booking_id: null,
