@@ -95,14 +95,31 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
     // A2: CREATE RUN IF MISSING
     if (!existingRun && params.bookingId) {
-      const runDate = params.classDate || getTodayYMD();
+      // Fetch booking to auto-populate run fields from the source record
+      const { data: bookingData } = await supabase
+        .from('intros_booked')
+        .select('class_start_at, coach_name, sa_working_shift, class_date')
+        .eq('id', params.bookingId)
+        .maybeSingle();
+
+      const runDate = bookingData?.class_start_at
+        ? bookingData.class_start_at.split('T')[0]
+        : (params.classDate || getTodayYMD());
+
+      // Extract HH:MM from class_start_at if available, else default to 00:00
+      const classTime = bookingData?.class_start_at
+        ? (bookingData.class_start_at.split('T')[1]?.substring(0, 5) || '00:00')
+        : '00:00';
+
       const { data: newRun, error: createErr } = await supabase
         .from('intros_run')
         .insert({
           linked_intro_booked_id: params.bookingId,
           member_name: params.memberName,
           run_date: runDate,
-          class_time: '00:00',
+          class_time: classTime,
+          coach_name: bookingData?.coach_name || null,
+          sa_working_shift: bookingData?.sa_working_shift || null,
           result: params.newResult,
           result_canon: normalizeIntroResult(params.newResult),
           lead_source: params.leadSource || null,
@@ -110,7 +127,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           intro_owner: params.editedBy,
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
-          buy_date: isNowSale ? (getTodayYMD()) : null,
+          buy_date: isNowSale ? getTodayYMD() : null,
           created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
           last_edited_by: params.editedBy,

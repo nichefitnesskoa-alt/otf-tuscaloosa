@@ -56,30 +56,44 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
     };
 
     const computeFunnel = (filter: IntroFilter) => {
+      // Build type-filtered booking IDs (no class_date restriction — used for sold count)
+      const typeFilteredBookingIds = new Set(
+        introsBooked
+          .filter(b => {
+            const status = ((b as any).booking_status || '').toUpperCase();
+            if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+            if ((b as any).ignore_from_metrics) return false;
+            if ((b as any).is_vip === true) return false;
+            if (filter === '1st') return isFirstIntro(b);
+            if (filter === '2nd') return !isFirstIntro(b);
+            return true;
+          })
+          .map(b => b.id)
+      );
+
+      // Booked: bookings in date range (class_date filtered)
       const activeBookings = introsBooked.filter(b => {
-        const status = ((b as any).booking_status || '').toUpperCase();
-        if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        if ((b as any).ignore_from_metrics) return false;
-        if ((b as any).is_vip === true) return false; // Exclude VIP events
-        if (!isInRange(b.class_date, dateRange || null)) return false;
-        
-        if (filter === '1st') return isFirstIntro(b);
-        if (filter === '2nd') return !isFirstIntro(b);
-        return true;
+        if (!typeFilteredBookingIds.has(b.id)) return false;
+        return isInRange(b.class_date, dateRange || null);
       });
 
-      let booked = activeBookings.length;
-      let showed = 0;
-      let sold = 0;
+      const booked = activeBookings.length;
 
+      // Showed: booking-anchored (how many showed per booked intro in date range)
+      let showed = 0;
       activeBookings.forEach(b => {
         const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
         const showedRuns = runs.filter(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
-        if (showedRuns.length > 0) {
-          showed++;
-          if (runs.some(r => isSaleInRange(r, dateRange || null))) sold++;
-        }
+        if (showedRuns.length > 0) showed++;
       });
+
+      // Sold: sale-date-anchored — matches scoreboard isSaleInRange() logic exactly
+      // Counts runs from type-filtered bookings where buy_date (fallback run_date) is in range
+      const sold = introsRun.filter(r =>
+        r.linked_intro_booked_id &&
+        typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
+        isSaleInRange(r, dateRange || null)
+      ).length;
 
       return { booked, showed, sold };
     };
