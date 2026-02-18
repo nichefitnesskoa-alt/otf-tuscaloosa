@@ -113,29 +113,19 @@ export function generateNameSlug(firstName: string, lastName: string): string {
 }
 
 /**
- * Generate a unique slug by checking existing slugs in the database.
+ * Generate a unique slug in the format: firstname-lastname-[uuid]
+ * The UUID guarantees uniqueness, so no counter suffix is needed.
+ * Format: https://otf-tuscaloosa.lovable.app/q/bailie-smith-36033b74-6009-428d-a092-dc05f0bb2d34
  */
-export async function generateUniqueSlug(
+export function generateUniqueSlug(
   firstName: string,
   lastName: string,
-  supabaseClient: any,
-  excludeId?: string,
+  _supabaseClient?: any,
+  id?: string,
 ): Promise<string> {
-  const base = generateNameSlug(firstName, lastName);
-  if (!base) return '';
-
-  let query = supabaseClient
-    .from('intro_questionnaires')
-    .select('slug')
-    .like('slug', `${base}%`);
-  if (excludeId) query = query.neq('id', excludeId);
-  const { data: existing } = await query;
-
-  const taken = new Set((existing || []).map((r: any) => r.slug));
-
-  if (!taken.has(base)) return base;
-
-  let counter = 2;
-  while (taken.has(`${base}-${counter}`)) counter++;
-  return `${base}-${counter}`;
+  const nameSlug = generateNameSlug(firstName, lastName);
+  const uuid = id || crypto.randomUUID();
+  // Strip only the hyphens from the UUID to keep it clean when appended
+  const slug = nameSlug ? `${nameSlug}-${uuid}` : uuid;
+  return Promise.resolve(slug);
 }
