@@ -228,30 +228,34 @@ export default function MembershipPurchasesPanel() {
       </CardHeader>
       <CardContent>
         {/* Stats Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+        <div className="grid grid-cols-7 gap-1.5 mb-4">
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold text-success">${stats.total.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">Total Commission</p>
+            <p className="text-base font-bold text-success">${stats.total.toFixed(2)}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Commission</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold">{purchases.length}</p>
-            <p className="text-xs text-muted-foreground">Total Sales</p>
+            <p className="text-base font-bold">{purchases.length}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Total Sales</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold">{stats.premierCount}</p>
-            <p className="text-xs text-muted-foreground">Premier</p>
+            <p className="text-base font-bold">{stats.premierCount}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Premier</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold">{stats.eliteCount}</p>
-            <p className="text-xs text-muted-foreground">Elite</p>
+            <p className="text-base font-bold">{stats.eliteCount}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Elite</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold">{stats.withOtbeat}</p>
-            <p className="text-xs text-muted-foreground">+ OTBeat</p>
+            <p className="text-base font-bold">{stats.basicCount}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Basic</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-lg font-bold">{stats.outsideCount}</p>
-            <p className="text-xs text-muted-foreground">Outside</p>
+            <p className="text-base font-bold">{stats.withOtbeat}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">+ OTBeat</p>
+          </div>
+          <div className="bg-muted/50 p-2 rounded text-center">
+            <p className="text-base font-bold">{stats.outsideCount}</p>
+            <p className="text-[10px] text-muted-foreground leading-tight">Outside</p>
           </div>
         </div>
 
