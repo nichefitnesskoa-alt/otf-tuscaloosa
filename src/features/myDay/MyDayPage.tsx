@@ -579,7 +579,13 @@ export default function MyDayPage() {
         topObjection={null}
       />
 
-      <QuickAddFAB onRefresh={fetchNonIntroData} />
+      <QuickAddFAB
+        onRefresh={fetchNonIntroData}
+        completedIntros={completedTodayCount}
+        activeIntros={todayBookingsCount - completedTodayCount}
+        scriptsSent={todayScriptsSent}
+        followUpsSent={todayFollowUpsSent}
+      />
 
       {/* ═══════════════ DRAWERS / DIALOGS ═══════════════ */}
 

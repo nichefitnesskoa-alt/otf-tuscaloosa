@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,9 @@ interface CloseOutShiftProps {
   noShowCount: number;
   didntBuyCount: number;
   topObjection?: string | null;
+  /** If provided, the dialog is controlled externally */
+  forceOpen?: boolean;
+  onForceOpenChange?: (open: boolean) => void;
 }
 
 export function CloseOutShift({
@@ -32,21 +35,28 @@ export function CloseOutShift({
   noShowCount,
   didntBuyCount,
   topObjection,
+  forceOpen,
+  onForceOpenChange,
 }: CloseOutShiftProps) {
   const { user } = useAuth();
   const { refreshData } = useData();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [visible, setVisible] = useState(false);
 
-  // Show button after shift has been going for a while
   useEffect(() => {
     const hour = new Date().getHours();
-    // Show after 11am for morning, 3pm for mid, 7pm for evening
     const shouldShow = hour >= 11 && (completedIntros + scriptsSent + followUpsSent) > 0;
     setVisible(shouldShow);
   }, [completedIntros, scriptsSent, followUpsSent]);
+
+  const isControlled = forceOpen !== undefined;
+  const open = isControlled ? forceOpen! : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) onForceOpenChange?.(v);
+    else setInternalOpen(v);
+  };
 
   const handleSubmit = async () => {
     if (!user?.name) return;
@@ -57,7 +67,6 @@ export function CloseOutShift({
       const hour = new Date().getHours();
       const shiftType = hour < 12 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
 
-      // Check if recap already exists
       const { data: existing } = await supabase
         .from('shift_recaps')
         .select('id')
@@ -69,7 +78,6 @@ export function CloseOutShift({
       let recapId: string;
 
       if (existing) {
-        // Update existing
         await supabase
           .from('shift_recaps')
           .update({
@@ -79,7 +87,6 @@ export function CloseOutShift({
           .eq('id', existing.id);
         recapId = existing.id;
       } else {
-        // Create new recap
         const { data: newRecap } = await supabase
           .from('shift_recaps')
           .insert({
@@ -91,11 +98,10 @@ export function CloseOutShift({
           })
           .select('id')
           .single();
-
         recapId = newRecap?.id || '';
       }
 
-      // Post to GroupMe via edge function
+      // Post to GroupMe
       try {
         const summary = [
           `📋 ${user.name} — Shift Close Out`,
@@ -126,30 +132,30 @@ export function CloseOutShift({
     }
   };
 
-  if (!visible) return null;
-
   return (
     <>
-      <Button
-        className="w-full gap-2 bg-primary hover:bg-primary/90"
-        size="lg"
-        onClick={() => setOpen(true)}
-      >
-        <ClipboardCheck className="w-5 h-5" />
-        Close Out Shift
-      </Button>
+      {/* Inline button — only when not externally controlled and conditions met */}
+      {!isControlled && visible && (
+        <Button
+          className="w-full gap-2 bg-primary hover:bg-primary/90"
+          size="lg"
+          onClick={() => setInternalOpen(true)}
+        >
+          <ClipboardCheck className="w-5 h-5" />
+          Close Out Shift
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5 text-primary" />
-              Your Shift Summary
+              End Shift
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Metrics */}
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg bg-muted/50 p-3 text-center">
                 <Calendar className="w-4 h-4 mx-auto mb-1 text-primary" />
@@ -157,7 +163,7 @@ export function CloseOutShift({
                 <p className="text-[10px] text-muted-foreground">Intros Logged</p>
               </div>
               <div className="rounded-lg bg-muted/50 p-3 text-center">
-                <CheckCircle2 className="w-4 h-4 mx-auto mb-1 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 mx-auto mb-1 text-primary" />
                 <p className="text-xl font-bold">{purchaseCount}</p>
                 <p className="text-[10px] text-muted-foreground">Purchased</p>
               </div>
@@ -173,7 +179,6 @@ export function CloseOutShift({
               </div>
             </div>
 
-            {/* Breakdown */}
             <div className="text-xs space-y-1 px-1">
               {noShowCount > 0 && (
                 <div className="flex justify-between">
@@ -201,13 +206,11 @@ export function CloseOutShift({
               )}
             </div>
 
-            {/* Auto-generated summary */}
             <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
               Today's Results: {completedIntros} intros ran ({purchaseCount} purchased, {didntBuyCount} didn't buy, {noShowCount} no-show).
               {topObjection && ` Top objection: ${topObjection}.`}
             </div>
 
-            {/* Notes */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
                 Anything to add?
@@ -226,7 +229,7 @@ export function CloseOutShift({
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Shift Recap'}
+              {submitting ? 'Submitting...' : 'Submit & Post to GroupMe'}
             </Button>
           </DialogFooter>
         </DialogContent>

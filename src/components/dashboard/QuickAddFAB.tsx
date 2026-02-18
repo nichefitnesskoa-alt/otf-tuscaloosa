@@ -1,37 +1,45 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, UserPlus, X, Users, CalendarPlus } from 'lucide-react';
+import { Plus, UserPlus, X, Users, CalendarPlus, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
 import { WalkInIntroSheet } from '@/components/dashboard/WalkInIntroSheet';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
+import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
+  completedIntros?: number;
+  activeIntros?: number;
+  scriptsSent?: number;
+  followUpsSent?: number;
 }
 
-export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
+export function QuickAddFAB({
+  onRefresh,
+  completedIntros = 0,
+  activeIntros = 0,
+  scriptsSent = 0,
+  followUpsSent = 0,
+}: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
   const [showAddLead, setShowAddLead] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showBookIntro, setShowBookIntro] = useState(false);
+  const [showEndShift, setShowEndShift] = useState(false);
 
-  const handleAddLead = () => {
-    setExpanded(false);
-    setShowAddLead(true);
-  };
-
-  const handleWalkInIntro = () => {
-    setExpanded(false);
-    setShowWalkIn(true);
-  };
-
-  const handleBookIntro = () => {
-    setExpanded(false);
-    setShowBookIntro(true);
-  };
+  const handleAddLead = () => { setExpanded(false); setShowAddLead(true); };
+  const handleWalkInIntro = () => { setExpanded(false); setShowWalkIn(true); };
+  const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
+  const handleEndShift = () => { setExpanded(false); setShowEndShift(true); };
 
   const actions = [
+    {
+      icon: LogOut,
+      label: 'End Shift',
+      onClick: handleEndShift,
+      color: 'bg-destructive text-destructive-foreground',
+    },
     {
       icon: CalendarPlus,
       label: 'Book Intro',
@@ -54,12 +62,10 @@ export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
 
   return (
     <>
-      {/* Backdrop */}
       {expanded && (
         <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setExpanded(false)} />
       )}
 
-      {/* FAB and mini-actions */}
       <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-2">
         {expanded && actions.map((action, i) => (
           <div
@@ -89,25 +95,22 @@ export function QuickAddFAB({ onRefresh }: QuickAddFABProps) {
         </Button>
       </div>
 
-      {/* Add Lead Dialog */}
-      <AddLeadDialog
-        open={showAddLead}
-        onOpenChange={setShowAddLead}
-        onLeadAdded={onRefresh}
-      />
+      <AddLeadDialog open={showAddLead} onOpenChange={setShowAddLead} onLeadAdded={onRefresh} />
+      <WalkInIntroSheet open={showWalkIn} onOpenChange={setShowWalkIn} onSaved={onRefresh} />
+      <BookIntroSheet open={showBookIntro} onOpenChange={setShowBookIntro} onSaved={onRefresh} />
 
-      {/* Walk-In Intro Sheet (today only, quick entry) */}
-      <WalkInIntroSheet
-        open={showWalkIn}
-        onOpenChange={setShowWalkIn}
-        onSaved={onRefresh}
-      />
-
-      {/* Book Intro Sheet (any date) */}
-      <BookIntroSheet
-        open={showBookIntro}
-        onOpenChange={setShowBookIntro}
-        onSaved={onRefresh}
+      {/* End Shift dialog — controlled externally from FAB */}
+      <CloseOutShift
+        completedIntros={completedIntros}
+        activeIntros={activeIntros}
+        scriptsSent={scriptsSent}
+        followUpsSent={followUpsSent}
+        purchaseCount={0}
+        noShowCount={0}
+        didntBuyCount={0}
+        topObjection={null}
+        forceOpen={showEndShift}
+        onForceOpenChange={setShowEndShift}
       />
     </>
   );
