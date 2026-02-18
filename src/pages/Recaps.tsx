@@ -4,7 +4,7 @@ import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Download, Copy, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
+import { Loader2, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { PerSATable } from '@/components/dashboard/PerSATable';
@@ -198,101 +198,7 @@ export default function Recaps() {
     setIsRefreshing(false);
   };
 
-  const generatePersonalSummaryText = () => {
-    const rangeText = `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
-    const userName = user?.name || 'User';
-    
-    // Find this user's metrics
-    const userMetrics = metrics.perSA.find(m => m.saName === userName);
-    
-    let text = `📊 ${userName}'s Recap (${rangeText})\n\n`;
-    
-    if (userMetrics) {
-      text += `🎯 My Stats:\n`;
-      text += `• Intros Run: ${userMetrics.introsRun}\n`;
-      text += `• Sales: ${userMetrics.sales} (${userMetrics.closingRate.toFixed(0)}% close rate of showed)\n`;
-      text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
-      text += `• Commission: $${userMetrics.commission.toFixed(2)}\n`;
-    } else {
-      text += `No intros recorded for this period yet.\n`;
-    }
-
-    return text;
-  };
-
-  const generateStudioSummaryText = () => {
-    const rangeText = `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
-    
-    let text = `📊 Studio Scoreboard (${rangeText})\n\n`;
-    
-    text += `🎯 Studio Totals:\n`;
-    text += `• Intros Run: ${metrics.studio.introsRun}\n`;
-    text += `• Sales: ${metrics.studio.introSales} (${metrics.studio.closingRate.toFixed(0)}% close rate of showed)\n`;
-    text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n`;
-    text += `• Commission: $${metrics.studio.totalCommission.toFixed(2)}\n\n`;
-
-    if (topBookers.length > 0) {
-      text += `🏆 Top Bookers:\n`;
-      topBookers.forEach((m, i) => {
-        text += `${i + 1}. ${m.name}: ${m.value} booked\n`;
-      });
-      text += `\n`;
-    }
-
-    if (topClosing.length > 0) {
-      text += `💰 Best Closing %:\n`;
-      topClosing.forEach((m, i) => {
-        text += `${i + 1}. ${m.name}: ${m.value.toFixed(0)}% ${m.subValue ? `(${m.subValue})` : ''}\n`;
-      });
-      text += `\n`;
-    }
-
-    return text;
-  };
-
-  const handleCopyPersonalSummary = () => {
-    const text = generatePersonalSummaryText();
-    navigator.clipboard.writeText(text);
-    toast.success('Personal summary copied to clipboard!');
-  };
-
-  const handleCopyStudioSummary = () => {
-    const text = generateStudioSummaryText();
-    navigator.clipboard.writeText(text);
-    toast.success('Studio summary copied to clipboard!');
-  };
-
-  const handleDownloadCSV = () => {
-    const rangeText = `${format(dateRange.start, 'yyyy-MM-dd')}_to_${format(dateRange.end, 'yyyy-MM-dd')}`;
-    
-    // Generate CSV
-    let csv = 'Category,SA Name,Metric,Value\n';
-    
-    // Studio totals
-    csv += `Studio,All,Intros Run,${metrics.studio.introsRun}\n`;
-    csv += `Studio,All,Sales,${metrics.studio.introSales}\n`;
-    csv += `Studio,All,Close Rate,${metrics.studio.closingRate.toFixed(1)}%\n`;
-    csv += `Studio,All,Commission,$${metrics.studio.totalCommission.toFixed(2)}\n`;
-    
-    // Per-SA data
-    metrics.perSA.forEach(m => {
-      csv += `Per-SA,${m.saName},Intros Run,${m.introsRun}\n`;
-      csv += `Per-SA,${m.saName},Sales,${m.sales}\n`;
-      csv += `Per-SA,${m.saName},Close Rate,${m.closingRate.toFixed(1)}%\n`;
-      csv += `Per-SA,${m.saName},Commission,$${m.commission.toFixed(2)}\n`;
-      csv += `Per-SA,${m.saName},Commission,$${m.commission.toFixed(2)}\n`;
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `studio_scoreboard_${rangeText}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    toast.success('CSV downloaded!');
-  };
+  
 
   if (isLoading) {
     return (
@@ -489,29 +395,6 @@ export default function Recaps() {
         </TabsContent>
       </Tabs>
 
-      {/* Export Actions */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Share to GroupMe</CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          <div className="flex flex-col gap-2">
-            <Button onClick={handleCopyPersonalSummary} variant="outline" className="w-full">
-              <Copy className="w-4 h-4 mr-2" />
-              Copy My Personal Recap
-            </Button>
-            <Button onClick={handleCopyStudioSummary} variant="outline" className="w-full">
-              <Copy className="w-4 h-4 mr-2" />
-              Copy Studio Recap
-            </Button>
-            <Button onClick={handleDownloadCSV} variant="outline" className="w-full">
-              <Download className="w-4 h-4 mr-2" />
-              Download Full CSV
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Legend Card */}
       <Card className="bg-muted/30">
         <CardContent className="p-3">
@@ -521,8 +404,6 @@ export default function Recaps() {
             <strong>Runner Stats</strong> = metrics credited to intro_owner (who ran first intro)
             <br />
             <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
-            <br />
-            <strong>Lead Measures</strong> = Goal+Why capture, Peak Gym Experience, Made a Friend
           </p>
         </CardContent>
       </Card>
