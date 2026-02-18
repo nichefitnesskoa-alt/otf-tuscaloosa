@@ -3,9 +3,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +29,51 @@ import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAge
 import { format, addDays } from 'date-fns';
 
 const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
+
+function PhoneBackfillCard() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<number | null>(null);
+
+  const handleBackfill = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.rpc('backfill_booking_phones');
+      if (error) throw error;
+      const updated = (data as any)?.updated ?? 0;
+      setResult(updated);
+      toast.success(`Updated ${updated} row${updated !== 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Backfill failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Phone className="w-4 h-4" />
+          Phone Backfill
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Parse phone numbers from email intake events and write them to intros that are missing a phone number. Safe to run multiple times.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleBackfill} disabled={running} variant="outline">
+            {running ? 'Running…' : 'Backfill missing phones from email parsing'}
+          </Button>
+          {result !== null && (
+            <span className="text-sm text-muted-foreground">Updated {result} rows</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface SyncLog {
   id: string;
@@ -194,6 +239,7 @@ export default function Admin() {
           <IntegrityDashboard />
           <VipBulkImport />
           <ShiftRecapsEditor />
+          <PhoneBackfillCard />
         </TabsContent>
 
         {/* Stories Tab */}

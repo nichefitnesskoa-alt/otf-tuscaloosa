@@ -79,9 +79,8 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
     <Card className="border-muted">
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2 text-muted-foreground">
-          <AlertTriangle className="w-4 h-4" />
-          Past intros to resolve ({filteredIntros.length})
-          <SectionHelp text="These intros are from before today and still need an outcome logged." />
+          Needs outcome ({filteredIntros.length})
+          <SectionHelp text="These are past intros that still need an outcome logged." />
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-0.5">
           Log an outcome for each one below

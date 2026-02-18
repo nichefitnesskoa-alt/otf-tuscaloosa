@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
 import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
+import { computeCommission } from '@/lib/outcomes/commissionRules';
 import {
   normalizeIntroResult,
   normalizeBookingStatus,
@@ -24,6 +25,7 @@ export interface OutcomeUpdateParams {
   newResult: string;
   previousResult?: string | null;
   membershipType?: string;
+  /** @deprecated commission is now computed internally via commissionRules */
   commissionAmount?: number;
   leadSource?: string;
   objection?: string | null;
@@ -31,6 +33,10 @@ export interface OutcomeUpdateParams {
   sourceComponent: string;
   editReason?: string;
   runId?: string;
+  secondIntroBookingDraft?: {
+    class_start_at: string;
+    coach_name: string;
+  };
 }
 
 export interface OutcomeUpdateResult {
@@ -39,6 +45,9 @@ export interface OutcomeUpdateResult {
   didIncrementAmc?: boolean;
   didGenerateFollowups?: boolean;
   error?: string;
+  newBookingId?: string;
+  newBookingStartAt?: string;
+  newBookingCoachName?: string;
 }
 
 export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Promise<OutcomeUpdateResult> {
@@ -51,6 +60,11 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowNoShow = params.newResult === 'No-show';
     const isNowNotInterested = params.newResult === 'Not interested';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
+
+    // Compute commission internally — callers no longer pass this
+    const resolvedCommission = computeCommission({
+      membershipType: isNowSale ? (params.membershipType || params.newResult) : null,
+    });
 
     // Skip processing for unresolved/empty results
     if (isNowUnresolved) {
@@ -94,7 +108,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           lead_source: params.leadSource || null,
           sa_name: params.editedBy,
           intro_owner: params.editedBy,
-          commission_amount: params.commissionAmount ?? 0,
+          commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
           buy_date: isNowSale ? (getTodayYMD()) : null,
           created_at: new Date().toISOString(),
@@ -122,7 +136,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       await supabase.from('intros_run').update({
         result: params.newResult,
         result_canon: normalizeIntroResult(params.newResult),
-        commission_amount: params.commissionAmount ?? 0,
+        commission_amount: resolvedCommission,
         primary_objection: params.objection || null,
         buy_date: buyDate,
         last_edited_at: new Date().toISOString(),
@@ -239,7 +253,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       edit_reason: params.editReason || `${params.sourceComponent}: ${params.previousResult || 'unknown'} → ${params.newResult}`,
       metadata: {
         amc_incremented: didIncrementAmc,
-        commission: params.commissionAmount ?? 0,
+        commission: resolvedCommission,
         lead_source: params.leadSource || existingRun?.lead_source || null,
         buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
       },
@@ -261,6 +275,42 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       });
     } catch {
       // non-critical
+    }
+
+    // ── STEP 6: 2ND INTRO BOOKING (if provided) ──
+    if (params.secondIntroBookingDraft) {
+      const draft = params.secondIntroBookingDraft;
+      const classDate = draft.class_start_at.split('T')[0] || draft.class_start_at;
+      const { data: newBooking } = await supabase
+        .from('intros_booked')
+        .insert({
+          member_name: params.memberName,
+          class_date: classDate,
+          class_start_at: draft.class_start_at,
+          coach_name: draft.coach_name,
+          lead_source: params.leadSource || '',
+          sa_working_shift: 'AM',
+          originating_booking_id: params.bookingId,
+          rebooked_from_booking_id: params.bookingId,
+          rebook_reason: 'second_intro',
+          booking_status_canon: 'ACTIVE',
+          booking_type_canon: 'STANDARD',
+          questionnaire_status_canon: 'not_sent',
+        })
+        .select('id')
+        .single();
+
+      if (newBooking) {
+        return {
+          success: true,
+          runId: existingRun?.id || params.runId,
+          didIncrementAmc,
+          didGenerateFollowups,
+          newBookingId: newBooking.id,
+          newBookingStartAt: draft.class_start_at,
+          newBookingCoachName: draft.coach_name,
+        };
+      }
     }
 
     return { success: true, runId: existingRun?.id || params.runId, didIncrementAmc, didGenerateFollowups };
