@@ -27,6 +27,7 @@ import { format, differenceInMinutes, isToday } from 'date-fns';
 import { formatDisplayTime, formatClassEndedBadge, getLatestRunForBooking } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { FileText, UserPlus, Clock, ClipboardList } from 'lucide-react';
+import { ContactLogger } from '@/components/myday/ContactLogger';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -341,11 +342,9 @@ export default function MyDayPage() {
       <OfflineBanner />
       <StickyDayScore completedActions={completedActions} totalActions={totalActions} />
 
-      {/* Quick Start */}
-      <Button className="w-full gap-2" size="lg" onClick={() => navigate('/shift-recap')}>
-        <FileText className="w-5 h-5" />
-        Start Shift Recap
-      </Button>
+
+      {/* Compact Contact Logger */}
+      <ContactLogger userName={user?.name || ''} />
 
       {/* ═══════════════ CORE SECTIONS ═══════════════ */}
 
