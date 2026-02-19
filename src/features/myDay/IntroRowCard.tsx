@@ -62,13 +62,31 @@ export default function IntroRowCard({
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
-      {/* Top status banner */}
-      <div
-        className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
-        style={{ minHeight: '30px' }}
-      >
-        <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
-          {qBar.bannerLabel}
+      {/* Top status banner — gray for 2nd intros, color-coded for 1st */}
+      {item.isSecondIntro ? (
+        <div
+          className="w-full flex items-center justify-center px-3 py-1.5 bg-slate-400 dark:bg-slate-600"
+          style={{ minHeight: '30px' }}
+        >
+          <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
+            2nd Visit — No questionnaire needed
+          </span>
+        </div>
+      ) : (
+        <div
+          className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
+          style={{ minHeight: '30px' }}
+        >
+          <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
+            {qBar.bannerLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Intro number label */}
+      <div className="w-full flex items-center justify-center py-0.5 bg-muted/30 border-b">
+        <span className="text-[10px] text-muted-foreground font-medium">
+          {item.isSecondIntro ? '2nd Intro Visit' : '1st Intro'}
         </span>
       </div>
 
@@ -131,21 +149,6 @@ export default function IntroRowCard({
             </Badge>
           )}
         </div>
-
-        {/* Row 3: Q action (small, contextual) */}
-        {item.questionnaireStatus === 'NO_Q' && (
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-6 text-[10px] gap-1"
-              onClick={guardOnline(() => onSendQ(item.bookingId))}
-            >
-              <Copy className="w-2.5 h-2.5" />
-              Copy Q Link
-            </Button>
-          </div>
-        )}
 
         {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach | Outcome */}
         <div className="flex items-center gap-1.5">

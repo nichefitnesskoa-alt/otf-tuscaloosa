@@ -126,6 +126,13 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         return; // Keep sheet open so SA can retry
       }
 
+      // Auto-create questionnaire record silently in the background
+      if (inserted?.id) {
+        import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
+          autoCreateQuestionnaire({ bookingId: inserted.id, memberName, classDate: today }).catch(() => {});
+        });
+      }
+
       toast.success(`${memberName} added to today's intros.`);
       // Signal UpcomingIntrosCard to refresh immediately
       window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
