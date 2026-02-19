@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PrepDrawer } from './PrepDrawer';
+import { StatusBanner } from '@/components/shared/StatusBanner';
 import { CoachPrepCard } from './CoachPrepCard';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 import { useScriptTemplates } from '@/hooks/useScriptTemplates';
@@ -442,14 +443,30 @@ export function QuestionnaireHub() {
     return <Badge className={cn('text-[9px] px-1 py-0 h-3.5 border-transparent', info.cls)}>{info.label}</Badge>;
   };
 
+  const getQBannerConfig = (q: QRecord): { color: string; text: string } => {
+    const cat = getQCategory(q);
+    switch (cat) {
+      case 'completed':    return { color: '#16a34a', text: '✓ Questionnaire Complete' };
+      case 'sent':         return { color: '#d97706', text: '⏳ Sent — Not Answered' };
+      case 'needs-sending':return { color: '#dc2626', text: '📋 Needs Questionnaire' };
+      case 'purchased':    return { color: '#16a34a', text: '🏆 Purchased' };
+      case 'didnt-buy':    return { color: '#d97706', text: "💬 Didn't Buy" };
+      case 'not-interested': return { color: '#6b7280', text: '🚫 Not Interested' };
+      default:             return { color: '#6b7280', text: 'Questionnaire' };
+    }
+  };
+
   const renderQCard = (q: QRecord, showAnswers = false, showCategoryBadge = false, readOnly = false) => {
     const booking = q.booking_id ? bookingMap.get(q.booking_id) : null;
     const fullName = `${q.client_first_name} ${q.client_last_name}`.trim();
     const status = getPersonStatus(q);
     const isExpanded = expandedQ === q.id;
+    const bannerConfig = getQBannerConfig(q);
 
     return (
-      <div key={q.id} className="rounded-lg border bg-card p-3 space-y-2">
+      <div key={q.id} className="rounded-lg bg-card overflow-hidden" style={{ border: `2px solid ${bannerConfig.color}` }}>
+        <StatusBanner bgColor={bannerConfig.color} text={bannerConfig.text} />
+        <div className="p-3 space-y-2">
         {/* Row 1: Name + Status + Archive */}
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold text-sm">{fullName}</p>
@@ -564,6 +581,7 @@ export function QuestionnaireHub() {
               {copiedId === q.id ? 'Copied!' : 'Copy Q Link'}
             </Button>
           )}
+        </div>
         </div>
       </div>
     );
