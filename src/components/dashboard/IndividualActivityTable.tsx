@@ -49,7 +49,7 @@ export function IndividualActivityTable({ data }: IndividualActivityTableProps) 
   }
 
   return (
-    <Card>
+    <Card className="border-orange-500/60">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
