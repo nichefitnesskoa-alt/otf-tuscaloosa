@@ -56,27 +56,47 @@ function computeFunnelBothRows(
   introsRun: IntroRun[],
   dateRange: DateRange | null | undefined,
 ): { first: FunnelData; second: FunnelData } {
-  // ── Step 1: build phone→name lookup from bookings so we can resolve run person keys ──
-  // booking id → person key
+  // ── Step 1: build person key maps ──
+  // booking id → person key (phone-first, then name)
   const bookingPersonKey = new Map<string, string>();
-  // person key → sorted list of run_dates (all runs ever, for counting runs before buy)
-  const personRunDates = new Map<string, string[]>();
+  // normalized member name → canonical person key (for cross-booking run merging)
+  const nameToPersonKey = new Map<string, string>();
 
   introsBooked.forEach(b => {
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
+    // Also map the normalized name → key so runs with different booking IDs
+    // but the same member_name resolve to the same person key.
+    const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
+    if (!nameToPersonKey.has(normName)) {
+      nameToPersonKey.set(normName, key);
+    } else if (key.startsWith('phone:')) {
+      // Phone-keyed entry wins: upgrade the name entry to phone key
+      nameToPersonKey.set(normName, key);
+    }
   });
 
-  // For each run, derive its person key via the linked booking (most reliable),
-  // then fall back to member_name on the run itself.
-  introsRun.forEach(r => {
-    let key: string;
+  // person key → sorted list of run_dates (all runs ever, for counting runs before buy)
+  const personRunDates = new Map<string, string[]>();
+
+  // Resolve a run's canonical person key:
+  // 1. linked booking's key (most reliable)
+  // 2. member_name lookup against booking name→key map
+  // 3. name-only fallback
+  const resolveRunKey = (r: IntroRun): string => {
     if (r.linked_intro_booked_id && bookingPersonKey.has(r.linked_intro_booked_id)) {
-      key = bookingPersonKey.get(r.linked_intro_booked_id)!;
-    } else {
-      key = personKey(null, r.member_name);
+      return bookingPersonKey.get(r.linked_intro_booked_id)!;
     }
+    const normName = r.member_name.toLowerCase().replace(/\s+/g, '');
+    if (nameToPersonKey.has(normName)) {
+      return nameToPersonKey.get(normName)!;
+    }
+    return personKey(null, r.member_name);
+  };
+
+  introsRun.forEach(r => {
+    const key = resolveRunKey(r);
     const existing = personRunDates.get(key) || [];
     const rd = r.run_date || r.created_at.split('T')[0];
     existing.push(rd);
@@ -140,16 +160,12 @@ function computeFunnelBothRows(
   introsRun.forEach(r => {
     // Must be a membership sale in the date range
     if (!isSaleInRange(r, dateRange || null)) return;
-    // Must be linked to an active booking
-    if (!r.linked_intro_booked_id || !activeBookingIds.has(r.linked_intro_booked_id)) return;
+    // Must be linked to an active (non-deleted, non-VIP) booking
+    // Allow unlinked runs through with name-based matching
+    if (r.linked_intro_booked_id && !activeBookingIds.has(r.linked_intro_booked_id)) return;
 
-    // Determine this person's key
-    let key: string;
-    if (bookingPersonKey.has(r.linked_intro_booked_id)) {
-      key = bookingPersonKey.get(r.linked_intro_booked_id)!;
-    } else {
-      key = personKey(null, r.member_name);
-    }
+    // Determine this person's key using the unified resolver
+    const key = resolveRunKey(r);
 
     const buyDate = r.buy_date || r.run_date || r.created_at.split('T')[0];
 
