@@ -7,6 +7,7 @@ import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { LeadActionBar } from '@/components/ActionBar';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { StatusBanner } from '@/components/shared/StatusBanner';
 
 interface LeadCardProps {
   lead: Tables<'leads'>;
@@ -57,17 +58,30 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
     fn();
   }, [lead.first_name, lead.last_name]);
 
+  const minutesSince = differenceInMinutes(now, createdAt);
+  const hoursSince = minutesSince / 60;
+  const speedBannerBg = hoursSince >= 4 ? '#dc2626' : hoursSince >= 1 ? '#d97706' : '#16a34a';
+  const speedBannerText = hoursSince >= 4
+    ? '🔴 Overdue — Contact Now'
+    : hoursSince >= 1
+      ? `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received`
+      : `✓ New Lead — ${minutesSince}m ago`;
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
       className={cn(
-        'rounded-lg border p-3 transition-all bg-card select-none space-y-2',
+        'rounded-lg border transition-all bg-card select-none overflow-hidden',
         isOverdue && 'border-destructive ring-1 ring-destructive/30',
         isLost && 'opacity-50',
-        isNew && !isLost && 'animate-pulse border-primary/50'
       )}
     >
+      {/* Speed-to-lead status banner */}
+      {!isLost && lead.stage === 'new' && (
+        <StatusBanner bgColor={speedBannerBg} text={speedBannerText} />
+      )}
+      <div className="p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
