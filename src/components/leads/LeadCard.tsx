@@ -72,10 +72,16 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
       draggable
       onDragStart={onDragStart}
       className={cn(
-        'rounded-lg border transition-all bg-card select-none overflow-hidden',
-        isOverdue && 'border-destructive ring-1 ring-destructive/30',
+        'rounded-lg transition-all bg-card select-none overflow-hidden',
         isLost && 'opacity-50',
       )}
+      style={{
+        border: (!isLost && lead.stage === 'new')
+          ? `2px solid ${speedBannerBg}`
+          : isOverdue
+          ? '2px solid var(--destructive)'
+          : '1px solid hsl(var(--border))',
+      }}
     >
       {/* Speed-to-lead status banner */}
       {!isLost && lead.stage === 'new' && (

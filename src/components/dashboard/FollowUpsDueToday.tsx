@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart, CalendarPlus } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart, CalendarPlus, CalendarIcon } from 'lucide-react';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -18,6 +18,12 @@ import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialo
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { FollowUpPurchaseSheet } from '@/components/dashboard/FollowUpPurchaseSheet';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { COACHES } from '@/types';
 
 
 interface FollowUpItem {
@@ -57,11 +63,18 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const [batchMode, setBatchMode] = useState(false);
   const [batchIndex, setBatchIndex] = useState(0);
   const [sortBy, setSortBy] = useState<'date' | 'type'>('date');
-  const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'no_show' | 'didnt_buy' | 'planning_reschedule'>('all');
   const [prepOpen, setPrepOpen] = useState(false);
   const [prepItem, setPrepItem] = useState<FollowUpItem | null>(null);
   const [purchaseItem, setPurchaseItem] = useState<FollowUpItem | null>(null);
   const [purchaseOwner, setPurchaseOwner] = useState<string | null>(null);
+  // Reschedule-from-followup state
+  const [rescheduleItem, setRescheduleItem] = useState<FollowUpItem | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleCoach, setRescheduleCoach] = useState('');
+  const [rescheduleCalendarOpen, setRescheduleCalendarOpen] = useState(false);
+  const [rescheduleSaving, setRescheduleSaving] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -379,6 +392,51 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
     fetchQueue();
   };
 
+  const handleRescheduleFromFollowUp = async () => {
+    if (!rescheduleItem || !rescheduleDate || !rescheduleTime || !rescheduleCoach) {
+      toast.error('Fill in date, time, and coach');
+      return;
+    }
+    setRescheduleSaving(true);
+    try {
+      const newDateStr = format(rescheduleDate, 'yyyy-MM-dd');
+      const [hStr] = rescheduleTime.split(':');
+      const hour = parseInt(hStr, 10);
+      const shift = hour < 11 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
+
+      const { error: updateErr } = await supabase.from('intros_booked').update({
+        class_date: newDateStr,
+        intro_time: rescheduleTime,
+        class_start_at: `${newDateStr}T${rescheduleTime}:00`,
+        coach_name: rescheduleCoach,
+        booking_status_canon: 'ACTIVE',
+        sa_working_shift: shift,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: user?.name || 'Unknown',
+        edit_reason: 'Rescheduled from follow-up queue',
+      }).eq('id', rescheduleItem.booking_id!);
+      if (updateErr) throw updateErr;
+
+      await supabase.from('follow_up_queue')
+        .update({ status: 'dormant' })
+        .eq('person_name', rescheduleItem.person_name)
+        .eq('status', 'pending');
+
+      const newDateLabel = format(rescheduleDate, 'MMM d');
+      toast.success(`${rescheduleItem.person_name} rescheduled to ${newDateLabel} at ${rescheduleTime} with ${rescheduleCoach}`);
+      setRescheduleItem(null);
+      setRescheduleDate(undefined);
+      setRescheduleTime('');
+      setRescheduleCoach('');
+      fetchQueue();
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to reschedule');
+    } finally {
+      setRescheduleSaving(false);
+    }
+  };
+
   const handleRemove = async (item: FollowUpItem) => {
     await supabase
       .from('follow_up_queue')
@@ -496,6 +554,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   const renderFollowUpCard = (item: FollowUpItem) => {
     const noPhone = !hasPhone(item);
     const banner = getBannerForFollowUp(item);
+    const isRescheduling = rescheduleItem?.id === item.id;
 
     const guidance = noPhone
       ? getPhoneGuidance(item)
@@ -506,11 +565,15 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           leadSource: item.lead_source,
         });
 
+    // notes stored in fitness_goal field
+    const notes = (item as any).fitness_goal;
+
     return (
-      <div key={item.id} className={cn(
-        'rounded-lg border bg-card transition-all overflow-hidden',
-        noPhone && 'border-destructive/30'
-      )}>
+      <div
+        key={item.id}
+        className="rounded-lg bg-card transition-all overflow-hidden"
+        style={{ border: `2px solid ${banner.bgColor}` }}
+      >
         {/* Full-width colored status banner */}
         <StatusBanner bgColor={banner.bgColor} text={banner.text} subtext={banner.subtext} />
 
@@ -532,6 +595,13 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               <InlinePhoneInput personName={item.person_name} bookingId={item.booking_id} onSaved={fetchQueue} compact />
             )}
           </div>
+
+          {/* Notes from Planning to Reschedule */}
+          {notes && (
+            <p className="text-[11px] text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 italic">
+              📝 {notes}
+            </p>
+          )}
 
           {/* Row 2: Badges */}
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -564,6 +634,53 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               Done
             </button>
           </div>
+
+          {/* Inline reschedule form */}
+          {isRescheduling && (
+            <div className="mt-2 space-y-2 border rounded-md p-2 bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground">New Class Details</p>
+              <div className="space-y-1">
+                <Label className="text-xs">Date <span className="text-destructive">*</span></Label>
+                <Popover open={rescheduleCalendarOpen} onOpenChange={setRescheduleCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className={cn('w-full h-8 text-sm justify-start font-normal', !rescheduleDate && 'text-muted-foreground')}>
+                      <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                      {rescheduleDate ? format(rescheduleDate, 'MMM d, yyyy') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={rescheduleDate}
+                      onSelect={(d) => { setRescheduleDate(d); setRescheduleCalendarOpen(false); }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                      disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Time <span className="text-destructive">*</span></Label>
+                <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
+                <Select value={rescheduleCoach} onValueChange={setRescheduleCoach}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select coach…" /></SelectTrigger>
+                  <SelectContent>{COACHES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1 h-8 text-xs" onClick={handleRescheduleFromFollowUp} disabled={rescheduleSaving}>
+                  {rescheduleSaving ? 'Saving…' : 'Confirm Reschedule'}
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { setRescheduleItem(null); setRescheduleDate(undefined); setRescheduleTime(''); setRescheduleCoach(''); }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Row 4: Uniform action buttons */}
@@ -628,17 +745,17 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               Log Purchase
             </Button>
           </div>
-          {/* Planning to Reschedule: create new booking action */}
-          {item.person_type === 'planning_reschedule' && (
+          {/* Planning to Reschedule: Reschedule Now button */}
+          {item.person_type === 'planning_reschedule' && item.booking_id && !isRescheduling && (
             <div className="mt-1.5">
               <Button
                 size="sm"
                 variant="outline"
                 className="w-full h-8 gap-1.5 text-[12px] border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                onClick={() => toast.info('Use the + button on My Day to create a new booking for this person')}
+                onClick={() => { setRescheduleItem(item); setRescheduleDate(undefined); setRescheduleTime(''); setRescheduleCoach(''); }}
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
-                Create New Booking
+                Reschedule Now
               </Button>
             </div>
           )}
