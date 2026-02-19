@@ -61,11 +61,18 @@ function computeFunnelBothRows(
   const bookingPersonKey = new Map<string, string>();
   // normalized member name → canonical person key (for cross-booking run merging)
   const nameToPersonKey = new Map<string, string>();
+  // booking id → whether it has an originating_booking_id (is a 2nd booking)
+  const bookingIsSecond = new Map<string, boolean>();
+  // person key → whether this person has ANY booking with originating_booking_id
+  const personHasSecondBooking = new Map<string, boolean>();
 
   introsBooked.forEach(b => {
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
+    const hasOrig = !!((b as any).originating_booking_id);
+    bookingIsSecond.set(b.id, hasOrig);
+    if (hasOrig) personHasSecondBooking.set(key, true);
     // Also map the normalized name → key so runs with different booking IDs
     // but the same member_name resolve to the same person key.
     const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
@@ -173,7 +180,12 @@ function computeFunnelBothRows(
     const allRunDates = (personRunDates.get(key) || []).sort();
     const runsBeforePurchase = allRunDates.filter(rd => rd <= buyDate).length;
 
-    if (runsBeforePurchase >= 2) {
+    // Classify as 2nd intro if:
+    // (a) 2+ runs before purchase date, OR
+    // (b) person has a booking with originating_booking_id (they came back for a 2nd visit)
+    const isSecond = runsBeforePurchase >= 2 || personHasSecondBooking.get(key) === true;
+
+    if (isSecond) {
       secondSold++;
     } else {
       firstSold++;
