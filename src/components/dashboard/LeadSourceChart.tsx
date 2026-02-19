@@ -126,6 +126,9 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
                   </span>
                   <span className="text-muted-foreground">
                     {item.value} booked, {item.showed} showed, <span className="text-success font-medium">{item.sold} sold</span>
+                    {item.showed > 0 && (
+                      <span className="ml-1 text-primary font-semibold">({Math.round((item.sold / item.showed) * 100)}% close)</span>
+                    )}
                   </span>
                 </div>
               ))}
