@@ -159,26 +159,64 @@ export function OutcomeDrawer({
       return;
     }
 
-    // Planning to Reschedule: mark booking + add to follow-up queue
+  // Planning to Reschedule: mark booking + add to follow-up queue
     if (isPlanningToReschedule) {
       setSaving(true);
       try {
-        await supabase.from('intros_booked').update({
+        // 1. Mark the booking
+        const { error: bookingErr } = await supabase.from('intros_booked').update({
           booking_status_canon: 'PLANNING_RESCHEDULE',
           last_edited_at: new Date().toISOString(),
           last_edited_by: editedBy,
           edit_reason: 'Planning to reschedule via MyDay outcome drawer',
         }).eq('id', bookingId);
+        if (bookingErr) throw bookingErr;
 
-        // Add to follow-up queue with planning_reschedule type
+        // 2. Remove any existing pending queue entries for this booking
+        await supabase.from('follow_up_queue')
+          .update({ status: 'dormant' })
+          .eq('booking_id', bookingId)
+          .eq('status', 'pending');
+
+        // 3. Insert Touch 1
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        await supabase.from('follow_up_queue').insert({
+        const { error: qErr } = await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
           person_name: memberName,
           person_type: 'planning_reschedule',
           trigger_date: classDate,
           scheduled_date: todayStr,
           touch_number: 1,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+          fitness_goal: notes || null,
+        });
+        if (qErr) throw qErr;
+
+        // 4. Touch 2 — 7 days out
+        const touch2Date = format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'planning_reschedule',
+          trigger_date: classDate,
+          scheduled_date: touch2Date,
+          touch_number: 2,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+        });
+
+        // 5. Touch 3 — 14 days out
+        const touch3Date = format(new Date(Date.now() + 14 * 86400000), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'planning_reschedule',
+          trigger_date: classDate,
+          scheduled_date: touch3Date,
+          touch_number: 3,
           status: 'pending',
           is_vip: false,
           is_legacy: false,
@@ -337,12 +375,21 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* Planning to Reschedule — no date needed, just confirm */}
+      {/* Planning to Reschedule — notes field */}
       {isPlanningToReschedule && (
-        <div className="rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+        <div className="space-y-2 rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
           <p className="text-xs text-blue-800 dark:text-blue-200 font-medium">
             📅 This person will enter the follow-up queue with a "Planning to Reschedule" tag. No date needed yet.
           </p>
+          <div className="space-y-1">
+            <Label className="text-xs text-blue-800 dark:text-blue-200">Notes <span className="font-normal opacity-70">(optional — e.g. best time to reach, preferred schedule)</span></Label>
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Prefers mornings, call after 9am…"
+              className="text-xs h-16 resize-none"
+            />
+          </div>
         </div>
       )}
 

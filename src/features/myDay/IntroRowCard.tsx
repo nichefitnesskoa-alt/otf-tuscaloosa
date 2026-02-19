@@ -64,8 +64,19 @@ export default function IntroRowCard({
     fn();
   };
 
+  // Determine border color from banner color
+  const borderColor = needsOutcome
+    ? '#7c3aed'
+    : item.isSecondIntro
+    ? '#6b7280'
+    : item.questionnaireStatus === 'Q_COMPLETED'
+    ? '#16a34a'
+    : item.questionnaireStatus === 'Q_SENT'
+    ? '#d97706'
+    : '#dc2626';
+
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
+    <div className="rounded-lg bg-card overflow-hidden" style={{ border: `2px solid ${borderColor}` }}>
       {/* Top status banner */}
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
