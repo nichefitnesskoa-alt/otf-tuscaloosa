@@ -235,7 +235,7 @@ export default function MyDayPage() {
       <OnboardingOverlay />
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
-      <div className="sticky top-0 z-20 bg-background border-b px-4 py-3 space-y-2.5 shadow-sm">
+      <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 space-y-2.5 shadow-sm">
         {/* Greeting + date + dark toggle */}
         <div className="flex items-center justify-between">
           <div>
@@ -272,10 +272,16 @@ export default function MyDayPage() {
           </div>
         )}
 
-        {/* Shift Activity */}
-        <MyDayShiftSummary compact />
+      </div>
 
-        {/* End Shift button */}
+      <OfflineBanner />
+
+      {/* ═══ STUDIO OVERVIEW (Scoreboard + Weekly Schedule + AMC) ═══ */}
+      <MyDayTopPanel />
+
+      {/* ═══ SHIFT ACTIVITY + END SHIFT — below AMC Tracker ═══ */}
+      <div className="border-b border-primary/30 bg-background px-4 py-3 space-y-2">
+        <MyDayShiftSummary compact />
         <CloseOutShift
           completedIntros={completedTodayCount}
           activeIntros={todayBookingsCount - completedTodayCount}
@@ -289,39 +295,34 @@ export default function MyDayPage() {
         />
       </div>
 
-      <OfflineBanner />
-
-      {/* ═══ STUDIO OVERVIEW (Scoreboard + Weekly Schedule + AMC) ═══ */}
-      <MyDayTopPanel />
-
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Persistent tab bar */}
-        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b px-3 pt-2 pb-0">
-          <TabsList className="w-full grid grid-cols-5 h-auto gap-0.5 bg-muted/50 p-0.5 rounded-lg">
-            <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b-2 border-primary px-3 pt-2 pb-0">
+          <TabsList className="w-full grid grid-cols-5 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
+            <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>Today</span>
               {todayBookingsCount > 0 && (
                 <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>This Week</span>
             </TabsTrigger>
-            <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <Clock className="w-3.5 h-3.5" />
               <span>Follow-Ups</span>
               {followUpsDueCount > 0 && (
                 <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <ClipboardList className="w-3.5 h-3.5" />
               <span>Q Hub</span>
             </TabsTrigger>
-            <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <Users className="w-3.5 h-3.5" />
               <span>Outcomes</span>
               {needsOutcomeCount > 0 && (
