@@ -1,155 +1,77 @@
 
-# Fix: Script Picker — Auto-Pull Questionnaire Data + Script Creation Restoration
+# Fix 2nd Intro Chain: Kaylee Davis, Denise Davis, Keirra Matthew
 
-## What's Broken Today
+## Problem Summary
 
-1. Script button on MyDay cards opens ScriptPickerSheet with zero member context — no goal, no obstacle, no why displayed anywhere in the sheet.
-2. Pipeline row cards have no Script button at all. `PipelineScriptPicker` exists as a component but is never triggered from the row.
-3. ScriptPickerSheet does not load or display questionnaire data for the booking.
-4. Script creation is unreachable — the `/scripts` page exists with full admin Create/Edit/Delete, but it is not linked from Admin, not in the bottom nav, and not discoverable.
-5. `IntroBookingEntry.tsx` opens ScriptPickerSheet with `bookingId={undefined}`, meaning copy-on-send logging is unlinked from the booking.
+All three members came in on **Feb 4** for their **1st intro** (run logged by Grace, result = "Booked 2nd intro"). Grace then booked them for a **2nd visit on Feb 11** and entered the lead source as "2nd Class Intro (staff booked)". However, **no 1st intro booking record exists** — only the Feb 11 booking exists, so the Feb 4 runs are incorrectly linked to the Feb 11 (2nd intro) booking, breaking the chain.
 
----
+## What Needs to Happen
 
-## Part 1: ScriptPickerSheet — Add Member Context Panel
+For each of the 3 members, in one database operation:
 
-**File:** `src/components/scripts/ScriptPickerSheet.tsx`
+### Step 1 — Create backfill 1st-intro booking (Feb 4)
+Insert a new `intros_booked` record with:
+- `class_date`: `2026-02-04` (one week before the Feb 11 booking)
+- `lead_source`: `Instagram DM` (as requested, correcting from "2nd Class Intro")
+- `intro_owner`: `Grace`
+- `booked_by`: `Grace`
+- `sa_working_shift`: `PM` (17:30 class time = PM shift)
+- `booking_status`: `Active`
+- `booking_status_canon`: `ACTIVE`
+- `booking_type_canon`: `STANDARD`
+- `is_vip`: `false`
 
-When `bookingId` is provided, the sheet will:
+### Step 2 — Re-link Feb 4 runs to the new 1st booking
+Update each `intros_run` record (`run_date = 2026-02-04`) so that `linked_intro_booked_id` points to the new backfilled 1st booking (not the Feb 11 booking).
 
-1. Fetch the `intros_booked` row for that booking (to get `member_name`, `lead_source`, `originating_booking_id`).
-2. Fetch the matching `intro_questionnaires` row by `booking_id`.
-3. Display a compact, non-collapsible **MEMBER CONTEXT** section at the top of the drawer, before the script list.
+### Step 3 — Update Feb 11 bookings to be proper 2nd-intro bookings
+Update each Feb 11 `intros_booked` record:
+- Set `originating_booking_id` = the new 1st booking's ID
+- Set `rebooked_from_booking_id` = the new 1st booking's ID
+- Set `rebook_reason` = `second_intro`
+- Change `lead_source` to `Instagram DM`
 
-**Context section layout:**
-```text
-MEMBER CONTEXT
-Name:     Sarah T.
-Goal:     Ask before class         ← if no Q
-Obstacle: Ask before class
-Why:      Ask before class
-```
-If questionnaire data exists:
-- Goal = `q1_fitness_goal` (trimmed to ~40 chars)
-- Obstacle = `q3_obstacle` (trimmed)
-- Why = `q5_emotional_driver` (trimmed)
+## Affected Records
 
-If booking exists but no questionnaire: show "Ask before class" for all three.
+| Member | 1st Booking (to create) | 2nd Booking (Feb 11, to update) | Run (Feb 4, to re-link) |
+|---|---|---|---|
+| Kaylee Davis | new row | `4deaf0c4-...` | `067c39f5-...` |
+| Denise Davis | new row | `49b9dff6-...` | `94662113-...` |
+| Keirra Matthew | new row | `63609408-...` | `ae9c12d9-...` |
 
-If `bookingId` is absent (admin script editing path): show no context panel — existing behavior preserved exactly.
+## Technical Implementation
 
-**New props added to ScriptPickerSheet:**
-- None new — `bookingId` already exists as optional prop. The component will self-fetch when bookingId is present.
+This is a pure database fix — no code changes needed. Three SQL blocks will be run using CTEs to capture the new IDs:
 
-**State changes inside ScriptPickerSheet:**
-```typescript
-const [memberCtx, setMemberCtx] = useState<{
-  name: string;
-  goal: string | null;
-  obstacle: string | null;
-  why: string | null;
-} | null>(null);
-```
-Fetch fires in `useEffect([open, bookingId])`.
+```sql
+-- KAYLEE DAVIS
+WITH new_booking AS (
+  INSERT INTO intros_booked (member_name, class_date, lead_source, intro_owner, booked_by, sa_working_shift, booking_status, booking_status_canon, booking_type_canon, is_vip, questionnaire_status_canon)
+  VALUES ('Kaylee Davis', '2026-02-04', 'Instagram DM', 'Grace', 'Grace', 'PM', 'Active', 'ACTIVE', 'STANDARD', false, 'not_sent')
+  RETURNING id
+)
+UPDATE intros_run SET linked_intro_booked_id = (SELECT id FROM new_booking)
+WHERE id = '067c39f5-1d89-424c-8a9f-412860a3cf12';
 
----
-
-## Part 2: Pipeline — Add Script Button to PipelineRowCard
-
-**File:** `src/features/pipeline/components/PipelineRowCard.tsx`
-
-Add a **Script** button to the action buttons section at the bottom of the expanded card content (the `pt-2 border-t` div).
-
-The button opens `PipelineScriptPicker` with the current `journey`. `PipelineScriptPicker` already exists and already builds the full merge context + loads questionnaire links — it just needs to be wired into the row card.
-
-**Changes:**
-- Add `import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker'`
-- Add `scriptOpen` state
-- Add `<Button>Script</Button>` next to "Add Intro Run" in the action buttons row
-- Render `<PipelineScriptPicker>` conditionally
-
-Because `PipelineScriptPicker` wraps `ScriptPickerSheet`, the new member context panel from Part 1 will automatically appear for Pipeline scripts too (the `bookingId` is already threaded through).
-
----
-
-## Part 3: Fix IntroBookingEntry.tsx — Pass bookingId
-
-**File:** `src/components/IntroBookingEntry.tsx`
-
-Line ~577: `bookingId={undefined}` → change to `bookingId={booking.id}` (the booking's actual ID).
-
-This ensures that when an SA copies a script from the booking entry view, the `script_actions` log is correctly linked to the booking.
-
----
-
-## Part 4: Restore Script Creation Discoverability
-
-The `/scripts` page already has full create/edit/delete for admins via `TemplateEditor`. The problem is no navigation surface leads there.
-
-**Fix:** Add a **Scripts tab** to the Admin page (`src/pages/Admin.tsx`).
-
-- Add a new tab with `value="scripts"` to the existing 6-column `TabsList`
-- Render the `Scripts` page content inline (or import the Scripts page component into the tab content)
-- Alternatively, add a nav card in the Admin Overview that links to `/scripts`
-
-The cleaner approach (minimal change, no restructuring): Add a "Scripts" tab to Admin that embeds the existing `Scripts` page content (already a standalone component — just import and render it).
-
-Admin `TabsList` currently `grid-cols-6` → change to `grid-cols-7` and add the Scripts tab.
-
-**Files:** `src/pages/Admin.tsx`
-
----
-
-## Part 5: Script Filtering by Lead Source and Intro Type
-
-When `bookingId` is provided and the booking is loaded, use the fetched booking data to also set `suggestedCategories` intelligently based on lead source and intro type:
-
-- **2nd intro** (`originating_booking_id` not null): prefer `['post_class_no_close', 'follow_up']` categories
-- **Walk-In** lead source: prefer `['confirmation', 'questionnaire']`  
-- **Web Lead**: prefer `['confirmation', 'questionnaire']`
-- **Referral**: prefer `['confirmation', 'questionnaire']`
-- **Instagram**: prefer `['outreach', 'confirmation']`
-
-This restores the lead-source-aware filtering that was described as "previously working."
-
-Currently MyDay hardcodes `suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}`. After this fix, categories are derived from the booking data loaded inside ScriptPickerSheet — or passed down by the parent.
-
-The cleanest approach: keep `suggestedCategories` as a prop from the parent (don't change the prop interface) but allow `ScriptPickerSheet` to **override** the initial selected tab based on the fetched booking context. That way the parent's `suggestedCategories` still controls what tabs appear, but the default-selected tab can be set intelligently.
-
----
-
-## Technical Implementation Order
-
-```text
-1. ScriptPickerSheet.tsx    — add useEffect fetch + member context panel display
-2. PipelineRowCard.tsx      — add Script button + PipelineScriptPicker wiring
-3. IntroBookingEntry.tsx    — fix bookingId={undefined} → bookingId={booking.id}
-4. Admin.tsx                — add Scripts tab (7th column)
+UPDATE intros_booked SET 
+  originating_booking_id = (SELECT id FROM intros_booked WHERE member_name = 'Kaylee Davis' AND class_date = '2026-02-04' ORDER BY created_at DESC LIMIT 1),
+  rebooked_from_booking_id = (SELECT id FROM intros_booked WHERE member_name = 'Kaylee Davis' AND class_date = '2026-02-04' ORDER BY created_at DESC LIMIT 1),
+  rebook_reason = 'second_intro',
+  lead_source = 'Instagram DM'
+WHERE id = '4deaf0c4-16ae-4691-8a74-8b2f21c20816';
 ```
 
-## Files Changed
+(Repeated for Denise Davis and Keirra Matthew with their respective IDs.)
 
-| File | Change |
-|---|---|
-| `src/components/scripts/ScriptPickerSheet.tsx` | Add member context fetch + display panel |
-| `src/features/pipeline/components/PipelineRowCard.tsx` | Add Script button + PipelineScriptPicker |
-| `src/components/IntroBookingEntry.tsx` | Fix bookingId pass |
-| `src/pages/Admin.tsx` | Add Scripts management tab |
+## Impact on Funnel
 
-## What Is NOT Changed
+After this fix:
+- The Feb 4 runs will be recognized as **1st intro runs**
+- The Feb 11 bookings will be proper **2nd intro bookings** (via `originating_booking_id`)
+- All 3 members will count as **2nd intro purchases** if they buy (matching the `personHasSecondBooking` flag already in the funnel logic)
+- The "2nd Class Intro (staff booked)" lead source disappears from the lead source chart for these entries — replaced by "Instagram DM"
 
-- MessageGenerator — no changes
-- TemplateEditor — no changes (already works)
-- MyDay event flow (myday:open-script dispatch) — no changes
-- ScriptPickerSheet category tab logic — no changes
-- Pipeline dialogs — no changes
-- FollowUpQueue script opener — already passes bookingId correctly, no change
-- LeadDetailSheet script opener — already passes leadId correctly, no change (no bookingId available there by design since it's a lead-level view)
+## What Does NOT Change
 
-## Acceptance Checklist Coverage
-
-- Click Script on MyDay intro card (member with Q) → name/goal/obstacle/why shown at top of sheet automatically
-- Click Script on walk-in (no Q) → "Ask before class" shown for all three fields, no crash
-- Open Scripts from Admin tab → create/edit/delete all work
-- Pipeline expanded card shows Script button → clicks opens PipelineScriptPicker with member context
-- IntroBookingEntry script log now linked to correct booking ID
+- Commission attribution stays with Grace (she is `intro_owner` on all runs)
+- No code changes — this is purely a data correction via SQL
