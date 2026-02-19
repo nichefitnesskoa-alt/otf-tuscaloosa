@@ -26,69 +26,148 @@ function isInRange(dateStr: string | null | undefined, range: DateRange | null):
   } catch { return false; }
 }
 
-type IntroOrder = '1st' | '2nd';
+/**
+ * Returns a person key for matching runs to the same person.
+ * Phone (e164) takes priority, falls back to normalized name.
+ */
+function personKey(
+  phone: string | null | undefined,
+  name: string,
+): string {
+  const p = (phone || '').replace(/\D/g, '');
+  if (p.length >= 7) return `phone:${p}`;
+  // name fallback: normalize to lowercase no-whitespace
+  return `name:${name.toLowerCase().replace(/\s+/g, '')}`;
+}
 
-function computeFunnel(
-  order: IntroOrder,
+/**
+ * Build person key for an IntroRun (uses member_name, no phone field on run).
+ * We'll cross-reference against booking phones below.
+ */
+
+interface FunnelData {
+  booked: number;
+  showed: number;
+  sold: number;
+}
+
+function computeFunnelBothRows(
   introsBooked: IntroBooked[],
   introsRun: IntroRun[],
   dateRange: DateRange | null | undefined,
-) {
-  // Build phone → sorted booking dates for 2nd-intro detection
-  const memberBookings = new Map<string, string[]>();
+): { first: FunnelData; second: FunnelData } {
+  // ── Step 1: build phone→name lookup from bookings so we can resolve run person keys ──
+  // booking id → person key
+  const bookingPersonKey = new Map<string, string>();
+  // person key → sorted list of run_dates (all runs ever, for counting runs before buy)
+  const personRunDates = new Map<string, string[]>();
+
   introsBooked.forEach(b => {
     const phone = (b as any).phone_e164 as string | null | undefined;
-    const key = (phone || b.member_name).toLowerCase();
-    const existing = memberBookings.get(key) || [];
-    existing.push(b.class_date);
-    memberBookings.set(key, existing.sort());
+    const key = personKey(phone, b.member_name);
+    bookingPersonKey.set(b.id, key);
   });
 
-  const isFirstIntro = (b: IntroBooked): boolean => {
-    // Also honour originating_booking_id — explicit 2nd intro marker
+  // For each run, derive its person key via the linked booking (most reliable),
+  // then fall back to member_name on the run itself.
+  introsRun.forEach(r => {
+    let key: string;
+    if (r.linked_intro_booked_id && bookingPersonKey.has(r.linked_intro_booked_id)) {
+      key = bookingPersonKey.get(r.linked_intro_booked_id)!;
+    } else {
+      key = personKey(null, r.member_name);
+    }
+    const existing = personRunDates.get(key) || [];
+    const rd = r.run_date || r.created_at.split('T')[0];
+    existing.push(rd);
+    personRunDates.set(key, existing);
+  });
+
+  // ── Step 2: active non-VIP bookings (no status filter issues) ──
+  const activeBookings = introsBooked.filter(b => {
+    const status = ((b as any).booking_status || '').toUpperCase();
+    if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+    if ((b as any).ignore_from_metrics) return false;
+    if ((b as any).is_vip === true) return false;
+    return true;
+  });
+
+  // person key → sorted booking class_dates (to detect 1st vs 2nd booking)
+  const personBookingDates = new Map<string, string[]>();
+  activeBookings.forEach(b => {
+    const key = bookingPersonKey.get(b.id)!;
+    const existing = personBookingDates.get(key) || [];
+    existing.push(b.class_date);
+    personBookingDates.set(key, existing.sort());
+  });
+
+  // Is this booking the person's FIRST booking (1st intro)?
+  const isFirstBooking = (b: IntroBooked): boolean => {
     if ((b as any).originating_booking_id) return false;
-    const phone = (b as any).phone_e164 as string | null | undefined;
-    const key = (phone || b.member_name).toLowerCase();
-    const allDates = memberBookings.get(key) || [];
-    return allDates.indexOf(b.class_date) === 0;
+    const key = bookingPersonKey.get(b.id)!;
+    const dates = personBookingDates.get(key) || [];
+    return dates[0] === b.class_date;
   };
 
-  // Active, non-VIP bookings matching the 1st/2nd filter
-  const typeFilteredBookingIds = new Set(
-    introsBooked
-      .filter(b => {
-        const status = ((b as any).booking_status || '').toUpperCase();
-        if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        if ((b as any).ignore_from_metrics) return false;
-        if ((b as any).is_vip === true) return false;
-        return order === '1st' ? isFirstIntro(b) : !isFirstIntro(b);
-      })
-      .map(b => b.id)
+  // ── Step 3: Booked + Showed counts (booking-anchored, same as before) ──
+  const firstBookings = activeBookings.filter(b =>
+    isFirstBooking(b) && isInRange(b.class_date, dateRange || null)
+  );
+  const secondBookings = activeBookings.filter(b =>
+    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null)
   );
 
-  // Booked: bookings in the date range (class_date anchored)
-  const activeBookings = introsBooked.filter(b =>
-    typeFilteredBookingIds.has(b.id) &&
-    isInRange(b.class_date, dateRange || null)
-  );
-  const booked = activeBookings.length;
-
-  // Showed: counted per active booking (run-date anchored)
-  let showed = 0;
-  activeBookings.forEach(b => {
+  let firstShowed = 0;
+  firstBookings.forEach(b => {
     const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
-    if (runs.some(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null))) showed++;
+    if (runs.some(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null))) firstShowed++;
   });
 
-  // Sold: sale-date anchored (matches Scoreboard)
-  const sold = introsRun.filter(
-    r =>
-      r.linked_intro_booked_id &&
-      typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
-      isSaleInRange(r, dateRange || null)
-  ).length;
+  let secondShowed = 0;
+  secondBookings.forEach(b => {
+    const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
+    if (runs.some(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null))) secondShowed++;
+  });
 
-  return { booked, showed, sold };
+  // ── Step 4: Sold counts — classified by run count BEFORE buy_date ──
+  // The correct rule: count runs for this person with run_date <= buy_date.
+  // If >= 2 runs before purchase → 2nd intro sale. If 1 → 1st intro sale.
+  const activeBookingIds = new Set(activeBookings.map(b => b.id));
+
+  let firstSold = 0;
+  let secondSold = 0;
+
+  introsRun.forEach(r => {
+    // Must be a membership sale in the date range
+    if (!isSaleInRange(r, dateRange || null)) return;
+    // Must be linked to an active booking
+    if (!r.linked_intro_booked_id || !activeBookingIds.has(r.linked_intro_booked_id)) return;
+
+    // Determine this person's key
+    let key: string;
+    if (bookingPersonKey.has(r.linked_intro_booked_id)) {
+      key = bookingPersonKey.get(r.linked_intro_booked_id)!;
+    } else {
+      key = personKey(null, r.member_name);
+    }
+
+    const buyDate = r.buy_date || r.run_date || r.created_at.split('T')[0];
+
+    // Count all runs for this person where run_date <= buy_date
+    const allRunDates = (personRunDates.get(key) || []).sort();
+    const runsBeforePurchase = allRunDates.filter(rd => rd <= buyDate).length;
+
+    if (runsBeforePurchase >= 2) {
+      secondSold++;
+    } else {
+      firstSold++;
+    }
+  });
+
+  return {
+    first: { booked: firstBookings.length, showed: firstShowed, sold: firstSold },
+    second: { booked: secondBookings.length, showed: secondShowed, sold: secondSold },
+  };
 }
 
 interface FunnelRowProps {
@@ -159,8 +238,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
   const { introsBooked, introsRun } = useData();
 
   const { first, second, total } = useMemo(() => {
-    const first = computeFunnel('1st', introsBooked, introsRun, dateRange);
-    const second = computeFunnel('2nd', introsBooked, introsRun, dateRange);
+    const { first, second } = computeFunnelBothRows(introsBooked, introsRun, dateRange);
     const total = {
       booked: first.booked + second.booked,
       showed: first.showed + second.showed,
