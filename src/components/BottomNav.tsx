@@ -1,25 +1,17 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { TrendingUp, GitBranch, Home, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
 
-const primaryItems = [
+const visibleItems = [
   { path: '/my-day', label: 'My Day', icon: Home },
   { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   { path: '/recaps', label: 'Studio', icon: TrendingUp },
+  { path: '/admin', label: 'Admin', icon: Settings },
 ];
-
-const adminItem = { path: '/admin', label: 'Admin', icon: Settings };
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { canAccessAdmin } = useAuth();
-
-  // Build visible primary items: My Day, Pipeline, Studio, Admin (if admin)
-  const visibleItems = canAccessAdmin
-    ? [...primaryItems, adminItem]
-    : primaryItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">

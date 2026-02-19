@@ -37,6 +37,9 @@ export interface UpcomingIntroItem {
   latestRunAt: string | null;
   originatingBookingId: string | null;
   isSecondIntro: boolean;
+  prepped: boolean;
+  preppedAt: string | null;
+  preppedBy: string | null;
 
   // Computed (set by selectors)
   timeStartISO: string;

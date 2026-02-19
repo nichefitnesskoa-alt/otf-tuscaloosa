@@ -45,7 +45,9 @@ export function getLeadMeasureColor(
 
 /** Q Completion target thresholds */
 export const Q_COMPLETION_THRESHOLDS = { green: 70, amber: 50 };
-/** Confirmation Rate target thresholds */
+/** Prep Rate target thresholds */
+export const PREP_RATE_THRESHOLDS = { green: 70, amber: 50 };
+/** Confirmation Rate target thresholds (kept for backwards compat, retired from display) */
 export const CONFIRMATION_THRESHOLDS = { green: 90, amber: 70 };
-/** Follow-Up Completion target thresholds */
+/** Follow-Up Completion target thresholds (kept for backwards compat, retired from display) */
 export const FOLLOWUP_THRESHOLDS = { green: 80, amber: 60 };

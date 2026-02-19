@@ -78,7 +78,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       let query = supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by')
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
@@ -200,6 +200,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunAt: run?.created_at || null,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: !!b.originating_booking_id || originatingSet.has(b.id),
+          prepped: (b as any).prepped ?? false,
+          preppedAt: (b as any).prepped_at || null,
+          preppedBy: (b as any).prepped_by || null,
           timeStartISO,
           riskFlags: { noQ: false, qIncomplete: false, unconfirmed: false, coachTbd: false, missingOwner: false },
           riskScore: 0,

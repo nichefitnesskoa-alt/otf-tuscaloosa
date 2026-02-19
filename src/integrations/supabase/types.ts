@@ -540,6 +540,9 @@ export type Database = {
           phone: string | null
           phone_e164: string | null
           phone_source: string | null
+          prepped: boolean
+          prepped_at: string | null
+          prepped_by: string | null
           questionnaire_completed_at: string | null
           questionnaire_link: string | null
           questionnaire_sent_at: string | null
@@ -590,6 +593,9 @@ export type Database = {
           phone?: string | null
           phone_e164?: string | null
           phone_source?: string | null
+          prepped?: boolean
+          prepped_at?: string | null
+          prepped_by?: string | null
           questionnaire_completed_at?: string | null
           questionnaire_link?: string | null
           questionnaire_sent_at?: string | null
@@ -640,6 +646,9 @@ export type Database = {
           phone?: string | null
           phone_e164?: string | null
           phone_source?: string | null
+          prepped?: boolean
+          prepped_at?: string | null
+          prepped_by?: string | null
           questionnaire_completed_at?: string | null
           questionnaire_link?: string | null
           questionnaire_sent_at?: string | null
