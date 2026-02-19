@@ -65,6 +65,7 @@ interface OutcomeDrawerProps {
   existingRunId?: string | null;
   currentResult?: string | null;
   editedBy: string;
+  initialPrepped?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -77,6 +78,7 @@ export function OutcomeDrawer({
   existingRunId,
   currentResult,
   editedBy,
+  initialPrepped = false,
   onSaved,
   onCancel,
 }: OutcomeDrawerProps) {
@@ -85,6 +87,7 @@ export function OutcomeDrawer({
   const [notes, setNotes] = useState('');
   const [coachName, setCoachName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [preppedBeforeClass, setPreppedBeforeClass] = useState(initialPrepped);
 
   // 2nd intro booking state
   const [secondIntroDate, setSecondIntroDate] = useState<Date | undefined>(undefined);
@@ -287,6 +290,31 @@ export function OutcomeDrawer({
 
   return (
     <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg">
+      {/* Prepped before class toggle */}
+      <div className={cn(
+        'flex items-center gap-2 px-2 py-2 rounded-md border transition-colors',
+        preppedBeforeClass ? 'bg-success/10 border-success/30' : 'bg-muted/20 border-border'
+      )}>
+        <input
+          type="checkbox"
+          id="prepped-outcome-toggle"
+          checked={preppedBeforeClass}
+          onChange={async (e) => {
+            const val = e.target.checked;
+            setPreppedBeforeClass(val);
+            await supabase.from('intros_booked').update({
+              prepped: val,
+              prepped_at: val ? new Date().toISOString() : null,
+              prepped_by: val ? editedBy : null,
+            }).eq('id', bookingId);
+          }}
+          className="w-4 h-4 accent-green-600"
+        />
+        <label htmlFor="prepped-outcome-toggle" className={cn('text-xs font-medium cursor-pointer', preppedBeforeClass ? 'text-success' : 'text-muted-foreground')}>
+          Prepped before class
+        </label>
+      </div>
+
       {/* Outcome selector */}
       <div className="space-y-1">
         <Label className="text-xs">Outcome</Label>

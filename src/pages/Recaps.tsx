@@ -13,9 +13,7 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
-import { AmcTracker } from '@/components/dashboard/AmcTracker';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
-import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
 import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
@@ -25,7 +23,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { IntroBooked } from '@/context/DataContext';
 
-// 6B: Wrapper that fetches Q completion rate and passes it to StudioScoreboard
+// Wrapper that fetches Q completion rate + Prep Rate and passes them to StudioScoreboard
 function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee, pipeline }: {
   scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number };
   introsBooked: IntroBooked[];
@@ -34,6 +32,7 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
   pipeline: { booked: number; showed: number; sold: number; revenue: number };
 }) {
   const [qRate, setQRate] = useState<number | undefined>(undefined);
+  const [prepRate, setPrepRate] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     (async () => {
@@ -51,18 +50,29 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
           return d >= dateRange.start && d <= dateRange.end;
         } catch { return false; }
       });
-      if (firstIntros.length === 0) { setQRate(undefined); return; }
+      if (firstIntros.length === 0) { setQRate(undefined); setPrepRate(undefined); return; }
       
       const ids = firstIntros.map(b => b.id);
-      const { data: qs } = await supabase
-        .from('intro_questionnaires')
-        .select('booking_id, status')
-        .in('booking_id', ids.slice(0, 500));
+      const [{ data: qs }, { data: preppedBookings }] = await Promise.all([
+        supabase
+          .from('intro_questionnaires')
+          .select('booking_id, status')
+          .in('booking_id', ids.slice(0, 500)),
+        supabase
+          .from('intros_booked')
+          .select('id, prepped')
+          .in('id', ids.slice(0, 500))
+          .eq('prepped', true),
+      ]);
       
       const completed = new Set(
         (qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
       );
       setQRate((completed.size / firstIntros.length) * 100);
+
+      // Prep Rate: prepped bookings / total 1st intros (only those that have been run = have an outcome)
+      // For simplicity at studio level: prepped / total first intros
+      setPrepRate(((preppedBookings?.length || 0) / firstIntros.length) * 100);
     })();
   }, [introsBooked, dateRange, selectedEmployee]);
 
@@ -72,6 +82,7 @@ function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, sel
       introSales={scoreboardMetrics.introSales}
       closingRate={scoreboardMetrics.closingRate}
       qCompletionRate={qRate}
+      prepRate={prepRate}
       introsBooked={pipeline.booked}
       introsShowed={pipeline.showed}
     />
@@ -253,12 +264,6 @@ export default function Recaps() {
           />
         </div>
       </div>
-
-      {/* AMC Tracker - top of Studio */}
-      <AmcTracker />
-
-      {/* This Week's Schedule */}
-      <WeeklySchedule />
 
       {/* Studio Scoreboard */}
       <QCompletionScoreboard

@@ -1,13 +1,13 @@
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  TrendingUp, Target, Users, AlertTriangle, Info, CalendarCheck, ClipboardList, Bell, CheckCircle2,
+  TrendingUp, Target, Users, AlertTriangle, Info, CalendarCheck, ClipboardList, Dumbbell,
 } from 'lucide-react';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
   getLeadMeasureColor,
-  Q_COMPLETION_THRESHOLDS, CONFIRMATION_THRESHOLDS, FOLLOWUP_THRESHOLDS,
+  Q_COMPLETION_THRESHOLDS, PREP_RATE_THRESHOLDS,
 } from '@/lib/studio-metrics';
 import { cn } from '@/lib/utils';
 
@@ -16,8 +16,7 @@ interface StudioScoreboardProps {
   introSales: number;
   closingRate: number;
   qCompletionRate?: number;
-  confirmationRate?: number;
-  followUpCompletionRate?: number;
+  prepRate?: number;
   introsBooked?: number;
   introsShowed?: number;
 }
@@ -27,8 +26,7 @@ export function StudioScoreboard({
   introSales,
   closingRate,
   qCompletionRate,
-  confirmationRate,
-  followUpCompletionRate,
+  prepRate,
   introsBooked,
   introsShowed,
 }: StudioScoreboardProps) {
@@ -153,10 +151,10 @@ export function StudioScoreboard({
           </div>
         )}
 
-        {/* Lead Measures Row — Q Completion, Confirmation Rate, Follow-Up Completion */}
+        {/* Lead Measures Row — Q Completion + Prep Rate */}
         <div className="border-t border-background/20 pt-3">
           <p className="text-xs opacity-60 mb-2 uppercase tracking-wider">Lead Measures</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <LeadMeasureCard
               icon={<ClipboardList className="w-4 h-4" />}
               label="Q Completion"
@@ -165,18 +163,11 @@ export function StudioScoreboard({
               thresholds={Q_COMPLETION_THRESHOLDS}
             />
             <LeadMeasureCard
-              icon={<Bell className="w-4 h-4" />}
-              label="Confirmations"
-              value={confirmationRate}
-              tooltip="Confirmation scripts sent ÷ intros booked. Confirmed intros show up more. Target: 90%+"
-              thresholds={CONFIRMATION_THRESHOLDS}
-            />
-            <LeadMeasureCard
-              icon={<CheckCircle2 className="w-4 h-4" />}
-              label="Follow-Up"
-              value={followUpCompletionRate}
-              tooltip="Follow-ups sent on time ÷ follow-ups due. Consistent follow-up converts no-shows. Target: 80%+"
-              thresholds={FOLLOWUP_THRESHOLDS}
+              icon={<Dumbbell className="w-4 h-4" />}
+              label="Prep Rate"
+              value={prepRate}
+              tooltip="% of intros run where the SA marked themselves as prepped before class. Target: 70%+"
+              thresholds={PREP_RATE_THRESHOLDS}
             />
           </div>
         </div>

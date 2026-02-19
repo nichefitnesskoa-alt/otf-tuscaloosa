@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Phone, Copy, User, Eye, Dumbbell, ClipboardList, Send } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface IntroRowCardProps {
   item: UpcomingIntroItem;
@@ -47,7 +49,30 @@ export default function IntroRowCard({
   needsOutcome = false,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
+  const [prepped, setPrepped] = useState(item.prepped);
+  const [preppedSaving, setPreppedSaving] = useState(false);
   const qBar = getQBar(item.questionnaireStatus);
+
+  const handleTogglePrepped = async (checked: boolean) => {
+    if (!isOnline) { toast.error('You are offline. This action requires network.'); return; }
+    setPrepped(checked);
+    setPreppedSaving(true);
+    try {
+      const { error } = await supabase.from('intros_booked').update({
+        prepped: checked,
+        prepped_at: checked ? new Date().toISOString() : null,
+        prepped_by: checked ? userName : null,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: userName,
+      }).eq('id', item.bookingId);
+      if (error) throw error;
+    } catch {
+      setPrepped(!checked); // revert
+      toast.error('Failed to save prep status');
+    } finally {
+      setPreppedSaving(false);
+    }
+  };
 
   const handleCopyPhone = () => {
     if (item.phone) {
@@ -201,7 +226,31 @@ export default function IntroRowCard({
           </Button>
         </div>
 
+        {/* Prepped checkbox */}
+        <div className={cn(
+          'flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors',
+          prepped ? 'bg-success/10 border-success/30' : 'bg-muted/20 border-border'
+        )}>
+          <Checkbox
+            id={`prepped-${item.bookingId}`}
+            checked={prepped}
+            onCheckedChange={(val) => handleTogglePrepped(!!val)}
+            disabled={preppedSaving}
+          />
+          <label
+            htmlFor={`prepped-${item.bookingId}`}
+            className={cn(
+              'text-xs font-medium cursor-pointer select-none',
+              prepped ? 'text-success' : 'text-muted-foreground'
+            )}
+          >
+            {prepped ? '✓ Prepped before class' : 'Prepped ✓ (tap to mark)'}
+          </label>
+          {preppedSaving && <span className="text-[10px] text-muted-foreground">saving…</span>}
+        </div>
+
         {/* Row 5: Secondary actions */}
+
         <div className="flex items-center gap-1.5">
           {item.phone && (
             <>
@@ -228,6 +277,7 @@ export default function IntroRowCard({
           existingRunId={null}
           currentResult={item.latestRunResult}
           editedBy={userName}
+          initialPrepped={prepped}
           onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
           onCancel={() => setOutcomeOpen(false)}
         />
