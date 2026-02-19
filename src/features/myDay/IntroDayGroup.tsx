@@ -14,51 +14,30 @@ interface IntroDayGroupProps {
   onSendQ: (bookingId: string) => void;
   onConfirm: (bookingId: string) => void;
   onRefresh: () => void;
+  needsOutcome?: boolean;
 }
 
 export default function IntroDayGroup({
-  group,
-  isOnline,
-  userName,
-  onSendQ,
-  onConfirm,
-  onRefresh,
+  group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false,
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
 
   return (
     <div className="space-y-2">
-      {/* Day header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">{group.label}</h3>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
             {group.items.length} intro{group.items.length !== 1 ? 's' : ''}
           </Badge>
-          <Badge
-            variant="outline"
-            className={`text-[10px] px-1.5 py-0 h-4 ${
-              qPercent === 100
-                ? 'text-emerald-700 border-emerald-300'
-                : qPercent >= 50
-                  ? 'text-amber-700 border-amber-300'
-                  : 'text-destructive border-destructive/30'
-            }`}
-          >
-            Q: {qPercent}%
-          </Badge>
+          {!needsOutcome && (
+            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${qPercent === 100 ? 'text-emerald-700 border-emerald-300' : qPercent >= 50 ? 'text-amber-700 border-amber-300' : 'text-destructive border-destructive/30'}`}>
+              Q: {qPercent}%
+            </Badge>
+          )}
         </div>
       </div>
-
-      {/* Bulk actions */}
-      <BulkActionsBar
-        items={group.items}
-        userName={userName}
-        isOnline={isOnline}
-        onDone={onRefresh}
-      />
-
-      {/* Intro cards */}
+      <BulkActionsBar items={group.items} userName={userName} isOnline={isOnline} onDone={onRefresh} />
       <div className="space-y-2">
         {group.items.map(item => (
           <IntroRowCard
@@ -69,6 +48,7 @@ export default function IntroDayGroup({
             onSendQ={onSendQ}
             onConfirm={onConfirm}
             onRefresh={onRefresh}
+            needsOutcome={needsOutcome}
           />
         ))}
       </div>

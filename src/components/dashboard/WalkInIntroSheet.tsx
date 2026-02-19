@@ -85,6 +85,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
   const handleSave = async () => {
     if (!firstName.trim()) { toast.error('First name is required'); return; }
     if (!lastName.trim()) { toast.error('Last name is required'); return; }
+    if (!phone.trim()) { toast.error('Phone number is required'); return; }
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
@@ -193,9 +194,9 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
               </div>
             </div>
 
-            {/* Phone (optional) */}
+            {/* Phone (required) */}
             <div className="space-y-1.5">
-              <Label htmlFor="walk-in-phone">Phone <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Label htmlFor="walk-in-phone">Phone <span className="text-destructive">*</span></Label>
               <Input
                 id="walk-in-phone"
                 type="tel"

@@ -51,7 +51,9 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const handleSave = async () => {
     if (!firstName.trim()) { toast.error('First name is required'); return; }
     if (!lastName.trim()) { toast.error('Last name is required'); return; }
+    if (!phone.trim()) { toast.error('Phone number is required'); return; }
     if (!classDate) { toast.error('Class date is required'); return; }
+    if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
 
@@ -150,9 +152,9 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
               </div>
             </div>
 
-            {/* Phone (optional) */}
+            {/* Phone (required) */}
             <div className="space-y-1.5">
-              <Label htmlFor="book-phone">Phone <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Label htmlFor="book-phone">Phone <span className="text-destructive">*</span></Label>
               <Input
                 id="book-phone"
                 type="tel"
@@ -173,9 +175,9 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
               />
             </div>
 
-            {/* Class Time */}
+            {/* Class Time (required) */}
             <div className="space-y-1.5">
-              <Label htmlFor="book-time">Class Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Label htmlFor="book-time">Class Time <span className="text-destructive">*</span></Label>
               <Input
                 id="book-time"
                 type="time"

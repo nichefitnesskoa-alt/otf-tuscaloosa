@@ -222,6 +222,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 onSendQ={handleSendQ}
                 onConfirm={handleConfirm}
                 onRefresh={refreshAll}
+                needsOutcome={timeRange === 'needsOutcome'}
               />
             ))}
           </div>

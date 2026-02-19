@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { Loader2, CalendarIcon, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { autoCreateQuestionnaire } from '@/lib/introHelpers';
 
 // ── Sale outcomes (Row A) ──
 const SALE_OUTCOMES = [
@@ -39,7 +41,11 @@ const NON_SALE_OUTCOMES = [
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
 ];
 
-const OUTCOME_OPTIONS = [...SALE_OUTCOMES, ...NON_SALE_OUTCOMES];
+// ── Reschedule outcomes (Row C) ──
+const RESCHEDULE_OUTCOMES = [
+  { value: 'Reschedule', label: '📅 Reschedule' },
+  { value: 'Planning to Reschedule', label: '🕐 Planning to Reschedule' },
+];
 
 const OBJECTION_OPTIONS = [
   'Price',
@@ -87,6 +93,12 @@ export function OutcomeDrawer({
   const [secondIntroCoach, setSecondIntroCoach] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Reschedule fields
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
+  const [rescheduleTime, setRescheduleTime] = useState('');
+  const [rescheduleCoach, setRescheduleCoach] = useState('');
+  const [rescheduleCalendarOpen, setRescheduleCalendarOpen] = useState(false);
+
   // Confirmation state after successful 2nd intro save
   const [savedSecondIntro, setSavedSecondIntro] = useState<{
     date: string; time: string; coach: string;
@@ -94,15 +106,127 @@ export function OutcomeDrawer({
 
   const isSale = isSaleOutcome(outcome);
   const isBookedSecondIntro = outcome === 'Booked 2nd intro';
+  const isReschedule = outcome === 'Reschedule';
+  const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const needsObjection = outcome === "Didn't Buy" || outcome === 'No-show';
   const isNoShow = outcome === 'No-show';
-  const coachRequired = !!outcome && !isNoShow;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
 
   const handleSave = async () => {
     if (!outcome) { toast.error('Select an outcome'); return; }
+
+    // Reschedule: create new booking
+    if (isReschedule) {
+      if (!rescheduleDate || !rescheduleTime || !rescheduleCoach) {
+        toast.error('Fill in date, time, and coach for the reschedule');
+        return;
+      }
+      setSaving(true);
+      try {
+        // Mark original booking as RESCHEDULED
+        await supabase.from('intros_booked').update({
+          booking_status_canon: 'RESCHEDULED',
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: editedBy,
+          edit_reason: 'Rescheduled via MyDay outcome drawer',
+        }).eq('id', bookingId);
+
+        // Create new booking carrying over all fields
+        const { data: originalBooking } = await supabase
+          .from('intros_booked')
+          .select('*')
+          .eq('id', bookingId)
+          .maybeSingle();
+
+        if (!originalBooking) throw new Error('Could not load original booking');
+
+        const newDateStr = format(rescheduleDate, 'yyyy-MM-dd');
+        const { data: newBooking, error: insertError } = await supabase
+          .from('intros_booked')
+          .insert({
+            member_name: originalBooking.member_name,
+            class_date: newDateStr,
+            intro_time: rescheduleTime,
+            class_start_at: `${newDateStr}T${rescheduleTime}:00`,
+            coach_name: rescheduleCoach,
+            lead_source: originalBooking.lead_source,
+            sa_working_shift: originalBooking.sa_working_shift,
+            booked_by: originalBooking.booked_by,
+            intro_owner: originalBooking.intro_owner,
+            intro_owner_locked: originalBooking.intro_owner_locked,
+            phone: originalBooking.phone,
+            email: originalBooking.email,
+            phone_e164: originalBooking.phone_e164,
+            booking_type_canon: originalBooking.booking_type_canon,
+            booking_status_canon: 'ACTIVE',
+            questionnaire_status_canon: 'not_sent',
+            is_vip: originalBooking.is_vip,
+            originating_booking_id: originalBooking.originating_booking_id || bookingId,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Auto-create questionnaire for the new booking
+        if (newBooking?.id) {
+          autoCreateQuestionnaire({
+            bookingId: newBooking.id,
+            memberName,
+            classDate: newDateStr,
+          }).catch(() => {});
+        }
+
+        const newDateLabel = format(rescheduleDate, 'MMM d');
+        const newTimeLabel = formatTime12h(rescheduleTime);
+        toast.success(`${memberName} rescheduled to ${newDateLabel} at ${newTimeLabel}`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to reschedule');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Planning to Reschedule: mark booking + add to follow-up queue
+    if (isPlanningToReschedule) {
+      setSaving(true);
+      try {
+        await supabase.from('intros_booked').update({
+          booking_status_canon: 'PLANNING_RESCHEDULE',
+          last_edited_at: new Date().toISOString(),
+          last_edited_by: editedBy,
+          edit_reason: 'Planning to reschedule via MyDay outcome drawer',
+        }).eq('id', bookingId);
+
+        // Add to follow-up queue with planning_reschedule type
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'planning_reschedule',
+          trigger_date: classDate,
+          scheduled_date: todayStr,
+          touch_number: 1,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+        });
+
+        toast.success(`${memberName} moved to follow-up — planning to reschedule`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (coachRequired && !coachName) { toast.error('Select the coach who taught the class'); return; }
     if (isBookedSecondIntro && (!secondIntroDate || !secondIntroTime || !secondIntroCoach)) {
       toast.error('Fill in date, time, and coach for the 2nd intro');
@@ -174,19 +298,89 @@ export function OutcomeDrawer({
             {NON_SALE_OUTCOMES.map(o => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
+            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-t mt-1">Reschedule</div>
+            {RESCHEDULE_OUTCOMES.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Commission display — always shown when outcome is selected */}
-      {outcome && (
+      {/* Commission display — always shown when outcome is a sale */}
+      {isSale && (
         <p className="text-sm text-muted-foreground">
           Commission: <span className="font-medium text-foreground">${commission.toFixed(2)}</span>
         </p>
       )}
 
-      {/* Coach who taught the class */}
-      {outcome && (
+      {/* Reschedule fields */}
+      {isReschedule && (
+        <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+          <p className="text-xs font-medium text-muted-foreground">New Class Details</p>
+
+          <div className="space-y-1">
+            <Label className="text-xs">New Date <span className="text-destructive">*</span></Label>
+            <Popover open={rescheduleCalendarOpen} onOpenChange={setRescheduleCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn('w-full h-8 text-sm justify-start font-normal', !rescheduleDate && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                  {rescheduleDate ? format(rescheduleDate, 'MMM d, yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={rescheduleDate}
+                  onSelect={(d) => { setRescheduleDate(d); setRescheduleCalendarOpen(false); }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">New Time <span className="text-destructive">*</span></Label>
+            <Input
+              type="time"
+              value={rescheduleTime}
+              onChange={e => setRescheduleTime(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
+            <Select value={rescheduleCoach} onValueChange={setRescheduleCoach}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Select coach…" />
+              </SelectTrigger>
+              <SelectContent>
+                {COACHES.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Planning to Reschedule — no date needed, just confirm */}
+      {isPlanningToReschedule && (
+        <div className="rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <p className="text-xs text-blue-800 dark:text-blue-200 font-medium">
+            📅 This person will enter the follow-up queue with a "Planning to Reschedule" tag. No date needed yet.
+          </p>
+        </div>
+      )}
+
+      {/* Coach who taught the class — hidden for reschedule outcomes */}
+      {outcome && !isReschedule && !isPlanningToReschedule && (
         <div className="space-y-1">
           <Label className="text-xs">
             Coach who taught the class
@@ -257,6 +451,7 @@ export function OutcomeDrawer({
                       selected={secondIntroDate}
                       onSelect={(d) => { setSecondIntroDate(d); setCalendarOpen(false); }}
                       initialFocus
+                      className="p-3 pointer-events-auto"
                       disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
                     />
                   </PopoverContent>
@@ -294,15 +489,17 @@ export function OutcomeDrawer({
       )}
 
       {/* Notes */}
-      <div className="space-y-1">
-        <Label className="text-xs">Notes (optional)</Label>
-        <Textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          placeholder="Any additional notes…"
-          className="text-sm min-h-[56px] resize-none"
-        />
-      </div>
+      {!isReschedule && !isPlanningToReschedule && (
+        <div className="space-y-1">
+          <Label className="text-xs">Notes (optional)</Label>
+          <Textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Any additional notes…"
+            className="text-sm min-h-[56px] resize-none"
+          />
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button
@@ -312,7 +509,7 @@ export function OutcomeDrawer({
           disabled={saving || !outcome}
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-          Save Outcome
+          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : 'Save Outcome'}
         </Button>
         <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>
           Cancel

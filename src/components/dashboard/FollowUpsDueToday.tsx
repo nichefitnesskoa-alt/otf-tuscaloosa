@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart } from 'lucide-react';
+import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart, CalendarPlus } from 'lucide-react';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { getFollowUpGuidance } from '@/components/dashboard/CardGuidance';
 import { LogPastContactDialog } from '@/components/dashboard/LogPastContactDialog';
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { FollowUpPurchaseSheet } from '@/components/dashboard/FollowUpPurchaseSheet';
+import { StatusBanner } from '@/components/shared/StatusBanner';
 
 
 interface FollowUpItem {
@@ -478,14 +479,23 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
   if (loading) return null;
   if (items.length === 0) return null;
 
-  const renderFollowUpCard = (item: FollowUpItem) => {
-    const daysSinceTrigger = differenceInDays(new Date(), parseISO(item.trigger_date));
-    const typeLabel = item.person_type === 'no_show' ? 'No Show' : "Didn't Buy";
-    const typeBadgeColor = item.person_type === 'no_show'
-      ? 'bg-destructive/10 text-destructive border-destructive/20'
-      : 'bg-amber-100 text-amber-800 border-amber-200';
+  const getBannerForFollowUp = (item: FollowUpItem): { bgColor: string; text: string; subtext: string } => {
+    const touchLabel = item.touch_number === 3
+      ? `Touch 3 of 3 — Final touch`
+      : `Touch ${item.touch_number} of 3 · Due today`;
 
+    if (item.person_type === 'planning_reschedule') {
+      return { bgColor: '#2563eb', text: '📅 Planning to Reschedule', subtext: touchLabel };
+    }
+    if (item.person_type === 'no_show') {
+      return { bgColor: '#dc2626', text: '🚫 No Show — Follow-Up Required', subtext: touchLabel };
+    }
+    return { bgColor: '#d97706', text: "💬 Didn't Buy — Follow-Up Required", subtext: touchLabel };
+  };
+
+  const renderFollowUpCard = (item: FollowUpItem) => {
     const noPhone = !hasPhone(item);
+    const banner = getBannerForFollowUp(item);
 
     const guidance = noPhone
       ? getPhoneGuidance(item)
@@ -498,9 +508,12 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
     return (
       <div key={item.id} className={cn(
-        'rounded-lg border bg-card transition-all',
+        'rounded-lg border bg-card transition-all overflow-hidden',
         noPhone && 'border-destructive/30'
       )}>
+        {/* Full-width colored status banner */}
+        <StatusBanner bgColor={banner.bgColor} text={banner.text} subtext={banner.subtext} />
+
         <div className="p-3 md:p-2.5">
           {/* Row 1: Name + phone */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -522,12 +535,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
 
           {/* Row 2: Badges */}
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
-            <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', typeBadgeColor)}>
-              {typeLabel}
-            </Badge>
-            <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', touchColor(item.touch_number))}>
-              Touch {item.touch_number} of 3
-            </Badge>
             {item.lead_source && (
               <Badge className={cn('text-[10px] px-1.5 py-0 h-4 border whitespace-nowrap', getLeadSourceBadgeColor(item.lead_source))}>
                 {item.lead_source}
@@ -536,23 +543,22 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             {item.is_legacy && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">Legacy</Badge>
             )}
-            {daysSinceTrigger > 0 && (
-              <span className="text-[11px] md:text-[10px] text-muted-foreground/70">
-                <Clock className="w-2.5 h-2.5 inline mr-0.5" />
-                {daysSinceTrigger}d since intro
-              </span>
+            {item.primary_objection && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
+                {item.primary_objection}
+              </Badge>
             )}
           </div>
 
           {/* Row 3: Journey guidance with Done button */}
-          <div className="text-[13px] font-medium text-foreground/80 leading-snug bg-amber-50 dark:bg-amber-950/30 rounded-md px-2.5 py-1.5 border border-amber-200 dark:border-amber-800/50 flex items-center gap-2 mt-1.5">
+          <div className="text-[13px] font-medium text-foreground/80 leading-snug bg-muted/40 rounded-md px-2.5 py-1.5 border flex items-center gap-2 mt-1.5">
             <span className="flex-1">👉 {guidance}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleMarkSent(item);
               }}
-              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 transition-colors"
+              className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-muted hover:bg-muted/70 text-foreground transition-colors border"
             >
               <Check className="w-3 h-3" />
               Done
@@ -607,7 +613,6 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               className="w-full h-9 gap-1.5 bg-green-600 hover:bg-green-700 text-white text-[13px] font-semibold"
               onClick={async (e) => {
                 e.stopPropagation();
-                // Look up intro owner for attribution
                 if (item.booking_id) {
                   const { data: bk } = await supabase
                     .from('intros_booked')
@@ -623,6 +628,20 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               Log Purchase
             </Button>
           </div>
+          {/* Planning to Reschedule: create new booking action */}
+          {item.person_type === 'planning_reschedule' && (
+            <div className="mt-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-8 gap-1.5 text-[12px] border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                onClick={() => toast.info('Use the + button on My Day to create a new booking for this person')}
+              >
+                <CalendarPlus className="w-3.5 h-3.5" />
+                Create New Booking
+              </Button>
+            </div>
+          )}
           {/* Secondary actions */}
           <div className="flex items-center gap-3 mt-0.5">
             <button onClick={() => handleSkip(item)} className="text-[10px] text-muted-foreground hover:text-foreground underline">

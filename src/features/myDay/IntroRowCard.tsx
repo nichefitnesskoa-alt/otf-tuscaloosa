@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
+import { StatusBanner } from '@/components/shared/StatusBanner';
 
 interface IntroRowCardProps {
   item: UpcomingIntroItem;
@@ -20,6 +21,8 @@ interface IntroRowCardProps {
   onSendQ: (bookingId: string) => void;
   onConfirm: (bookingId: string) => void;
   onRefresh: () => void;
+  /** When true, show the purple Needs Outcome banner instead of Q status */
+  needsOutcome?: boolean;
 }
 
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
@@ -41,6 +44,7 @@ export default function IntroRowCard({
   onSendQ,
   onConfirm,
   onRefresh,
+  needsOutcome = false,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const qBar = getQBar(item.questionnaireStatus);
@@ -62,25 +66,16 @@ export default function IntroRowCard({
 
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
-      {/* Top status banner — gray for 2nd intros, color-coded for 1st */}
-      {item.isSecondIntro ? (
-        <div
-          className="w-full flex items-center justify-center px-3 py-1.5 bg-slate-400 dark:bg-slate-600"
-          style={{ minHeight: '30px' }}
-        >
-          <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
-            2nd Visit — No questionnaire needed
-          </span>
-        </div>
+      {/* Top status banner */}
+      {needsOutcome ? (
+        <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
+      ) : item.isSecondIntro ? (
+        <StatusBanner bgColor="#64748b" text="2nd Visit — No questionnaire needed" />
       ) : (
-        <div
-          className={cn('w-full flex items-center justify-center px-3 py-1.5', qBar.bg)}
-          style={{ minHeight: '30px' }}
-        >
-          <span className="text-white text-[11px] font-semibold tracking-wide text-center leading-none">
-            {qBar.bannerLabel}
-          </span>
-        </div>
+        <StatusBanner
+          bgColor={item.questionnaireStatus === 'Q_COMPLETED' ? '#16a34a' : item.questionnaireStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
+          text={qBar.bannerLabel}
+        />
       )}
 
       {/* Intro number label */}
@@ -134,8 +129,8 @@ export default function IntroRowCard({
             </a>
           )}
           {!item.phone && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-muted-foreground/30">
-              Phone missing
+            <Badge className="text-[10px] px-1.5 py-0 h-auto py-0.5 bg-destructive text-destructive-foreground">
+              📵 Phone missing — add before class
             </Badge>
           )}
           {item.leadSource && (
