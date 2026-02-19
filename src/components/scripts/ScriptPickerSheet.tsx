@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Link2, Check } from 'lucide-react';
 import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
 import { TemplateCategoryTabs } from './TemplateCategoryTabs';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Deterministic tab-to-DB-category mapping
 const TAB_CATEGORY_MAP: Record<string, string[]> = {
@@ -49,6 +51,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const [selectedCategory, setSelectedCategory] = useState(suggestedCategories[0] || '');
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { data: templates = [] } = useScriptTemplates();
 
   // Member context state — populated when bookingId is provided
@@ -57,6 +60,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     goal: string | null;
     obstacle: string | null;
     why: string | null;
+    isSecondIntro?: boolean;
   } | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
   // Auto-resolved questionnaire data from the booking
@@ -104,6 +108,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           goal: q ? trim(q.q1_fitness_goal) : null,
           obstacle: q ? trim(q.q3_obstacle) : null,
           why: q ? trim(q.q5_emotional_driver) : null,
+          isSecondIntro: !!booking.originating_booking_id,
         });
 
         // Store resolved questionnaire URL for auto-injection into script body
@@ -162,6 +167,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
               ) : memberCtx ? (
                 <>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Name:</span><span className="font-medium">{memberCtx.name}</span></div>
+                  <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Visit:</span><span className="font-medium">{memberCtx.isSecondIntro ? '2nd Intro' : '1st Intro'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Goal:</span><span>{memberCtx.goal ?? 'Ask before class'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Obstacle:</span><span>{memberCtx.obstacle ?? 'Ask before class'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Why:</span><span>{memberCtx.why ?? 'Ask before class'}</span></div>
@@ -235,6 +241,28 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
                 ))
               )}
             </div>
+
+            {/* Copy Q link only — low-priority, 1st intros only, only when URL exists */}
+            {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
+              <div className="pt-2 border-t border-dashed flex justify-center">
+                <button
+                  className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(resolvedQuestionnaireUrl);
+                      setLinkCopied(true);
+                      setTimeout(() => setLinkCopied(false), 2000);
+                      toast.success('Link copied');
+                    } catch {
+                      toast.error('Failed to copy');
+                    }
+                  }}
+                >
+                  {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
+                  {linkCopied ? 'Copied!' : 'Copy questionnaire link only'}
+                </button>
+              </div>
+            )}
           </ScrollArea>
         </DrawerContent>
       </Drawer>

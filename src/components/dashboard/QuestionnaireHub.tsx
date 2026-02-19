@@ -75,6 +75,10 @@ export function QuestionnaireHub() {
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedQ, setExpandedQ] = useState<string | null>(null);
+  const [maintRunning, setMaintRunning] = useState(false);
+
+  // 2nd-intro booking IDs — fetched once per hub load
+  const [secondIntroBookingIds, setSecondIntroBookingIds] = useState<Set<string>>(new Set());
 
   // Archive dialog
   const [archiveTarget, setArchiveTarget] = useState<QRecord | null>(null);
@@ -94,7 +98,7 @@ export function QuestionnaireHub() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [qRes, bRes, rRes] = await Promise.all([
+      const [qRes, bRes, rRes, secondIntroRes] = await Promise.all([
         supabase
           .from('intro_questionnaires')
           .select('id, booking_id, client_first_name, client_last_name, status, slug, created_at, submitted_at, last_opened_at, q1_fitness_goal, q2_fitness_level, q3_obstacle, q4_past_experience, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes, scheduled_class_date, scheduled_class_time, archived_at' as any)
@@ -108,11 +112,19 @@ export function QuestionnaireHub() {
         supabase
           .from('intros_run')
           .select('member_name, result, linked_intro_booked_id'),
+        // Fetch all 2nd intro booking IDs (have originating_booking_id set)
+        supabase
+          .from('intros_booked')
+          .select('id')
+          .not('originating_booking_id', 'is', null)
+          .is('deleted_at', null),
       ]);
 
       const allQ = (qRes.data || []) as unknown as QRecord[];
       const allBookings = (bRes.data || []) as BookingInfo[];
       const allRuns = (rRes.data || []) as RunInfo[];
+      const secondIntroIds = new Set<string>((secondIntroRes.data || []).map((r: any) => r.id));
+      setSecondIntroBookingIds(secondIntroIds);
 
       setBookings(allBookings);
       setRuns(allRuns);
@@ -281,9 +293,9 @@ export function QuestionnaireHub() {
     );
   }, [questionnaires, searchTerm, bookingMap]);
 
-  // Tab categorization — computed after getQCategory is defined
-  const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending');
-  const sent = filtered.filter(q => getQCategory(q) === 'sent');
+  // Tab categorization — 2nd intros excluded from needs-sending and sent
+  const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending' && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
+  const sent = filtered.filter(q => getQCategory(q) === 'sent' && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
   const completed = filtered.filter(q => getQCategory(q) === 'completed');
   const didntBuy = filtered.filter(q => getQCategory(q) === 'didnt-buy');
   const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
@@ -561,6 +573,50 @@ export function QuestionnaireHub() {
 
   const isSearching = searchTerm.trim().length > 0;
 
+  const runMaintenance = async () => {
+    setMaintRunning(true);
+    try {
+      const [syncRes, slugRes] = await Promise.all([
+        supabase.rpc('reconcile_questionnaire_statuses' as any),
+        supabase.rpc('backfill_questionnaire_slugs' as any),
+      ]);
+      const syncCount = (syncRes.data as any)?.updated ?? 0;
+      const slugCount = (slugRes.data as any)?.updated ?? 0;
+      // Generate missing questionnaire records for bookings that have none
+      const { data: bookingsWithoutQ } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, class_date')
+        .is('deleted_at', null)
+        .not('booking_type_canon', 'in', '("VIP","COMP")')
+        .not('originating_booking_id', 'is', null);
+      // Also get all bookings (including 1st intros) missing Q records
+      const { data: allBookingsNoQ } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, class_date')
+        .is('deleted_at', null)
+        .not('booking_type_canon', 'in', '("VIP","COMP")')
+        .is('originating_booking_id', null);
+      const { data: existingQBookingIds } = await supabase
+        .from('intro_questionnaires')
+        .select('booking_id')
+        .not('booking_id', 'is', null);
+      const hasQ = new Set((existingQBookingIds || []).map((r: any) => r.booking_id));
+      const missing = (allBookingsNoQ || []).filter((b: any) => !hasQ.has(b.id));
+      let created = 0;
+      for (const b of missing) {
+        const { autoCreateQuestionnaire } = await import('@/lib/introHelpers');
+        await autoCreateQuestionnaire({ bookingId: b.id, memberName: b.member_name, classDate: b.class_date }).catch(() => {});
+        created++;
+      }
+      toast.success(`Done — ${syncCount} status(es) synced, ${slugCount} slug(s) fixed, ${created} Q record(s) created`);
+      fetchData();
+    } catch {
+      toast.error('Maintenance run failed');
+    } finally {
+      setMaintRunning(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Stats Banner */}
@@ -570,6 +626,18 @@ export function QuestionnaireHub() {
         <StatBox label="This Week" value={`${weekRate}%`} accent={weekRate >= 70 ? 'emerald' : weekRate >= 40 ? 'amber' : 'red'} />
         <StatBox label="Opened, Not Done" value={openedNotCompleted} accent={openedNotCompleted > 0 ? 'amber' : undefined} />
       </div>
+
+      {/* Maintenance button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full text-xs gap-1.5"
+        onClick={runMaintenance}
+        disabled={maintRunning}
+      >
+        {maintRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+        {maintRunning ? 'Running…' : 'Sync Statuses + Fix Slugs + Generate Missing Records'}
+      </Button>
 
       {/* Search */}
       <div className="relative">

@@ -85,6 +85,13 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
 
       if (error) throw error;
 
+      // Auto-create questionnaire record silently in the background
+      if (inserted?.id) {
+        import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
+          autoCreateQuestionnaire({ bookingId: inserted.id, memberName, classDate }).catch(() => {});
+        });
+      }
+
       toast.success(`${memberName} booked for ${format(new Date(classDate + 'T12:00:00'), 'MMM d')}.`);
       window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
       onSaved();

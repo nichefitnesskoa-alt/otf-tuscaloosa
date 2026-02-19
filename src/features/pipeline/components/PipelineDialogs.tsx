@@ -713,6 +713,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (fromRun && inserted) {
                 await supabase.from('intros_run').update({ linked_intro_booked_id: inserted.id, last_edited_at: new Date().toISOString(), last_edited_by: userName, edit_reason: 'Linked to newly created booking' }).eq('id', fromRun.id);
               }
+              // Auto-create questionnaire record
+              if (inserted?.id && !secondIntroOriginatingId) {
+                import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
+                  autoCreateQuestionnaire({ bookingId: inserted.id, memberName: newBooking.member_name, classDate: newBooking.class_date }).catch(() => {});
+                });
+              }
               toast.success(secondIntroOriginatingId ? '2nd intro booked' : 'Booking created');
               setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
             })}>
@@ -755,6 +761,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 phone: first.phone || null,
               }).select().single();
               if (error) throw error;
+              // 2nd intros don't need questionnaire records
               toast.info('2nd intro booking created — now log the run');
               // Switch to create_run dialog
               setNewRun({
