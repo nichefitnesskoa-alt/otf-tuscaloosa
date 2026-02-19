@@ -80,6 +80,7 @@ export function QuestionnaireHub() {
 
   // 2nd-intro booking IDs — fetched once per hub load
   const [secondIntroBookingIds, setSecondIntroBookingIds] = useState<Set<string>>(new Set());
+  const [alreadyRanBookingIds, setAlreadyRanBookingIds] = useState<Set<string>>(new Set());
 
   // Archive dialog
   const [archiveTarget, setArchiveTarget] = useState<QRecord | null>(null);
@@ -126,6 +127,11 @@ export function QuestionnaireHub() {
       const allRuns = (rRes.data || []) as RunInfo[];
       const secondIntroIds = new Set<string>((secondIntroRes.data || []).map((r: any) => r.id));
       setSecondIntroBookingIds(secondIntroIds);
+
+      // Build set of booking IDs that have already been run (intro completed)
+      const ranIds = new Set<string>();
+      allRuns.forEach(r => { if (r.linked_intro_booked_id) ranIds.add(r.linked_intro_booked_id); });
+      setAlreadyRanBookingIds(ranIds);
 
       setBookings(allBookings);
       setRuns(allRuns);
@@ -277,13 +283,19 @@ export function QuestionnaireHub() {
     return 'needs-sending';                         // default
   };
 
-  // Filter by search and exclude VIP bookings
+  // Filter by search and exclude VIP bookings + pre-questionnaire era records
   const filtered = useMemo(() => {
     let result = questionnaires.filter(q => {
       // Exclude questionnaires linked to VIP bookings
       if (q.booking_id) {
         const booking = bookingMap.get(q.booking_id);
         if (booking && isVipBooking(booking as any)) return false;
+      }
+      // Exclude records where the intro was already run but the questionnaire was never sent.
+      // These are legacy/retroactive records for people who went through the intro before
+      // the questionnaire system existed — they will never use it, don't count them.
+      if (q.booking_id && alreadyRanBookingIds.has(q.booking_id) && q.status === 'not_sent') {
+        return false;
       }
       return true;
     });
@@ -292,7 +304,7 @@ export function QuestionnaireHub() {
     return result.filter(q =>
       `${q.client_first_name} ${q.client_last_name}`.toLowerCase().includes(term)
     );
-  }, [questionnaires, searchTerm, bookingMap]);
+  }, [questionnaires, searchTerm, bookingMap, alreadyRanBookingIds]);
 
   // Tab categorization — 2nd intros excluded from needs-sending and sent
   const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending' && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
