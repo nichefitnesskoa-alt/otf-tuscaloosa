@@ -20,7 +20,6 @@ import { Loader2, CalendarIcon, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { autoCreateQuestionnaire } from '@/lib/introHelpers';
 
 // ── Sale outcomes (Row A) ──
 const SALE_OUTCOMES = [
@@ -118,7 +117,7 @@ export function OutcomeDrawer({
   const handleSave = async () => {
     if (!outcome) { toast.error('Select an outcome'); return; }
 
-    // Reschedule: create new booking
+    // Reschedule: update the existing booking in-place — never create a new row
     if (isReschedule) {
       if (!rescheduleDate || !rescheduleTime || !rescheduleCoach) {
         toast.error('Fill in date, time, and coach for the reschedule');
@@ -126,63 +125,31 @@ export function OutcomeDrawer({
       }
       setSaving(true);
       try {
-        // Mark original booking as RESCHEDULED
-        await supabase.from('intros_booked').update({
-          booking_status_canon: 'RESCHEDULED',
+        const newDateStr = format(rescheduleDate, 'yyyy-MM-dd');
+
+        // Detect shift from new time
+        const [hStr] = rescheduleTime.split(':');
+        const hour = parseInt(hStr, 10);
+        const shift = hour < 11 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
+
+        // Update the existing booking record in-place — no new row created
+        const { error: updateError } = await supabase.from('intros_booked').update({
+          class_date: newDateStr,
+          intro_time: rescheduleTime,
+          class_start_at: `${newDateStr}T${rescheduleTime}:00`,
+          coach_name: rescheduleCoach,
+          booking_status_canon: 'ACTIVE',
+          sa_working_shift: shift,
           last_edited_at: new Date().toISOString(),
           last_edited_by: editedBy,
           edit_reason: 'Rescheduled via MyDay outcome drawer',
         }).eq('id', bookingId);
 
-        // Create new booking carrying over all fields
-        const { data: originalBooking } = await supabase
-          .from('intros_booked')
-          .select('*')
-          .eq('id', bookingId)
-          .maybeSingle();
-
-        if (!originalBooking) throw new Error('Could not load original booking');
-
-        const newDateStr = format(rescheduleDate, 'yyyy-MM-dd');
-        const { data: newBooking, error: insertError } = await supabase
-          .from('intros_booked')
-          .insert({
-            member_name: originalBooking.member_name,
-            class_date: newDateStr,
-            intro_time: rescheduleTime,
-            class_start_at: `${newDateStr}T${rescheduleTime}:00`,
-            coach_name: rescheduleCoach,
-            lead_source: originalBooking.lead_source,
-            sa_working_shift: originalBooking.sa_working_shift,
-            booked_by: originalBooking.booked_by,
-            intro_owner: originalBooking.intro_owner,
-            intro_owner_locked: originalBooking.intro_owner_locked,
-            phone: originalBooking.phone,
-            email: originalBooking.email,
-            phone_e164: originalBooking.phone_e164,
-            booking_type_canon: originalBooking.booking_type_canon,
-            booking_status_canon: 'ACTIVE',
-            questionnaire_status_canon: 'not_sent',
-            is_vip: originalBooking.is_vip,
-            originating_booking_id: originalBooking.originating_booking_id || bookingId,
-          })
-          .select('id')
-          .single();
-
-        if (insertError) throw insertError;
-
-        // Auto-create questionnaire for the new booking
-        if (newBooking?.id) {
-          autoCreateQuestionnaire({
-            bookingId: newBooking.id,
-            memberName,
-            classDate: newDateStr,
-          }).catch(() => {});
-        }
+        if (updateError) throw updateError;
 
         const newDateLabel = format(rescheduleDate, 'MMM d');
         const newTimeLabel = formatTime12h(rescheduleTime);
-        toast.success(`${memberName} rescheduled to ${newDateLabel} at ${newTimeLabel}`);
+        toast.success(`${memberName} rescheduled to ${newDateLabel} at ${newTimeLabel} with ${rescheduleCoach}`);
         onSaved();
       } catch (err: any) {
         toast.error(err?.message || 'Failed to reschedule');
