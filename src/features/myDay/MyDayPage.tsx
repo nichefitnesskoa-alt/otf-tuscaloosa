@@ -47,6 +47,7 @@ import { CoachDrawer } from '@/components/myday/CoachDrawer';
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
+import { MyDayTopPanel } from './MyDayTopPanel';
 
 // Dark mode helpers
 function useDarkMode() {
@@ -289,6 +290,9 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+
+      {/* ═══ STUDIO OVERVIEW (Scoreboard + Weekly Schedule + AMC) ═══ */}
+      <MyDayTopPanel />
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

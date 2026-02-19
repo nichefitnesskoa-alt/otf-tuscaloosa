@@ -1,14 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/context/DataContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LabelList, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Target, Users, BarChart3, RefreshCw } from 'lucide-react';
+import { TrendingUp, Target, Users, BarChart3, RefreshCw, ClipboardList, Dumbbell } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
 import FollowUpDigest from './FollowUpDigest';
+import { getLeadMeasureColor, Q_COMPLETION_THRESHOLDS, PREP_RATE_THRESHOLDS } from '@/lib/studio-metrics';
 
 interface SAMetrics {
   name: string;
@@ -20,6 +22,8 @@ interface SAMetrics {
   secondIntroBookingRate: number;
   secondIntroCloseRate: number;
   objections: Record<string, number>;
+  qCompletionRate?: number;
+  prepRate?: number;
 }
 
 type CoachingPreset = 'this_week' | '7_days' | '30_days' | 'this_month' | 'last_month' | 'all';
@@ -61,8 +65,58 @@ function getCoachingRange(preset: CoachingPreset): { start: Date; end: Date } | 
 export default function CoachingView() {
   const { introsRun, introsBooked } = useData();
   const [preset, setPreset] = useState<CoachingPreset>('30_days');
+  const [saQPrepRates, setSaQPrepRates] = useState<Record<string, { qRate: number | undefined; prepRate: number | undefined }>>({});
 
   const range = useMemo(() => getCoachingRange(preset), [preset]);
+
+  // Fetch per-SA Q completion + Prep Rate from DB
+  useEffect(() => {
+    (async () => {
+      // Get all first-intro bookings in range per SA
+      const saBookings = new Map<string, string[]>(); // saName -> bookingIds
+      introsBooked.forEach(b => {
+        if ((b as any).is_vip === true || (b as any).originating_booking_id) return;
+        if (range) {
+          try {
+            const d = parseLocalDate(b.class_date);
+            if (!isWithinInterval(d, { start: range.start, end: range.end })) return;
+          } catch { return; }
+        }
+        const sa = (b as any).intro_owner || b.sa_working_shift;
+        if (!sa) return;
+        const existing = saBookings.get(sa) || [];
+        existing.push(b.id);
+        saBookings.set(sa, existing);
+      });
+
+      if (saBookings.size === 0) { setSaQPrepRates({}); return; }
+
+      // Collect all booking IDs
+      const allIds = Array.from(saBookings.values()).flat();
+      const [{ data: qs }, { data: preppedRows }] = await Promise.all([
+        supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', allIds.slice(0, 500)),
+        supabase.from('intros_booked').select('id, prepped, intro_owner, sa_working_shift').in('id', allIds.slice(0, 500)).eq('prepped', true),
+      ]);
+
+      const completedQIds = new Set(
+        (qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
+      );
+      const preppedIds = new Set((preppedRows || []).map(r => r.id));
+
+      const rates: Record<string, { qRate: number | undefined; prepRate: number | undefined }> = {};
+      saBookings.forEach((ids, saName) => {
+        const total = ids.length;
+        if (total === 0) return;
+        const qCompleted = ids.filter(id => completedQIds.has(id)).length;
+        const prepped = ids.filter(id => preppedIds.has(id)).length;
+        rates[saName] = {
+          qRate: (qCompleted / total) * 100,
+          prepRate: (prepped / total) * 100,
+        };
+      });
+      setSaQPrepRates(rates);
+    })();
+  }, [introsBooked, range]);
 
   const saMetrics = useMemo(() => {
     // Build set of VIP booking IDs to exclude
@@ -121,12 +175,10 @@ export default function CoachingView() {
       byStaff.set(sa, m);
     }
 
-    // Count 2nd intro bookings per SA from non-close 1st intros
-    // "2nd Intro Booking Rate" = secondBookings / nonCloseRuns
-
     const metrics: SAMetrics[] = [];
     for (const [name, m] of byStaff) {
       if (m.runs < 3) continue;
+      const rates = saQPrepRates[name];
       metrics.push({
         name,
         closeRate: Math.round((m.sales / m.runs) * 100),
@@ -137,10 +189,12 @@ export default function CoachingView() {
         secondIntroBookingRate: m.nonCloseRuns > 0 ? Math.round((m.secondBookings / m.nonCloseRuns) * 100) : 0,
         secondIntroCloseRate: m.secondBookings > 0 ? Math.round((m.secondCloses / m.secondBookings) * 100) : 0,
         objections: m.objections,
+        qCompletionRate: rates?.qRate,
+        prepRate: rates?.prepRate,
       });
     }
     return metrics.sort((a, b) => b.closeRate - a.closeRate);
-  }, [introsRun, introsBooked, range]);
+  }, [introsRun, introsBooked, range, saQPrepRates]);
 
   const suggestions = useMemo(() => {
     const tips: { name: string; tip: string; priority: 'high' | 'medium' | 'low' }[] = [];
@@ -275,6 +329,46 @@ export default function CoachingView() {
                   <span className={sa.secondIntroCloseRate > 40 ? 'text-success font-bold' : ''}>{sa.secondIntroCloseRate}%</span>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lead Measures per SA: Q Completion + Prep Rate */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardList className="w-4 h-4" />
+            Lead Measures by SA
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">Q Completion % and Prep Rate % per SA · Target: 70%+</p>
+        </CardHeader>
+        <CardContent>
+          {saMetrics.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Not enough data</p>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-muted-foreground">
+                <div>SA</div>
+                <div className="text-center flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" /> Q Comp.</div>
+                <div className="text-center flex items-center justify-center gap-1"><Dumbbell className="w-3 h-3" /> Prep Rate</div>
+              </div>
+              {saMetrics.map(sa => {
+                const qColor = sa.qCompletionRate !== undefined ? getLeadMeasureColor(sa.qCompletionRate, Q_COMPLETION_THRESHOLDS) : null;
+                const pColor = sa.prepRate !== undefined ? getLeadMeasureColor(sa.prepRate, PREP_RATE_THRESHOLDS) : null;
+                const colorClass = (c: typeof qColor) => c === 'success' ? 'text-success font-bold' : c === 'warning' ? 'text-warning font-bold' : c === 'destructive' ? 'text-destructive font-bold' : 'text-muted-foreground';
+                return (
+                  <div key={sa.name} className="grid grid-cols-3 gap-2 text-center text-xs p-2 rounded bg-muted/30">
+                    <span className="font-medium text-left truncate">{sa.name}</span>
+                    <span className={colorClass(qColor)}>
+                      {sa.qCompletionRate !== undefined ? `${sa.qCompletionRate.toFixed(0)}%` : '—'}
+                    </span>
+                    <span className={colorClass(pColor)}>
+                      {sa.prepRate !== undefined ? `${sa.prepRate.toFixed(0)}%` : '—'}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

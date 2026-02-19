@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,12 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { PerSATable } from '@/components/dashboard/PerSATable';
 import { BookerStatsTable } from '@/components/dashboard/BookerStatsTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
-import { PipelineFunnel } from '@/components/dashboard/PipelineFunnel';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
@@ -20,74 +18,6 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { supabase } from '@/integrations/supabase/client';
-import { IntroBooked } from '@/context/DataContext';
-
-// Wrapper that fetches Q completion rate + Prep Rate and passes them to StudioScoreboard
-function QCompletionScoreboard({ scoreboardMetrics, introsBooked, dateRange, selectedEmployee, pipeline }: {
-  scoreboardMetrics: { introsRun: number; introSales: number; closingRate: number };
-  introsBooked: IntroBooked[];
-  dateRange: DateRange | null;
-  selectedEmployee: string | null;
-  pipeline: { booked: number; showed: number; sold: number; revenue: number };
-}) {
-  const [qRate, setQRate] = useState<number | undefined>(undefined);
-  const [prepRate, setPrepRate] = useState<number | undefined>(undefined);
-
-  useEffect(() => {
-    (async () => {
-      const firstIntros = introsBooked.filter(b => {
-        const isVip = (b as any).is_vip === true;
-        const originatingId = (b as any).originating_booking_id;
-        if (isVip || originatingId) return false;
-        if (selectedEmployee) {
-          const owner = (b as any).intro_owner || b.sa_working_shift;
-          if (owner !== selectedEmployee) return false;
-        }
-        if (!dateRange) return true;
-        try {
-          const d = new Date(b.class_date);
-          return d >= dateRange.start && d <= dateRange.end;
-        } catch { return false; }
-      });
-      if (firstIntros.length === 0) { setQRate(undefined); setPrepRate(undefined); return; }
-      
-      const ids = firstIntros.map(b => b.id);
-      const [{ data: qs }, { data: preppedBookings }] = await Promise.all([
-        supabase
-          .from('intro_questionnaires')
-          .select('booking_id, status')
-          .in('booking_id', ids.slice(0, 500)),
-        supabase
-          .from('intros_booked')
-          .select('id, prepped')
-          .in('id', ids.slice(0, 500))
-          .eq('prepped', true),
-      ]);
-      
-      const completed = new Set(
-        (qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
-      );
-      setQRate((completed.size / firstIntros.length) * 100);
-
-      // Prep Rate: prepped bookings / total 1st intros (only those that have been run = have an outcome)
-      // For simplicity at studio level: prepped / total first intros
-      setPrepRate(((preppedBookings?.length || 0) / firstIntros.length) * 100);
-    })();
-  }, [introsBooked, dateRange, selectedEmployee]);
-
-  return (
-    <StudioScoreboard
-      introsRun={scoreboardMetrics.introsRun}
-      introSales={scoreboardMetrics.introSales}
-      closingRate={scoreboardMetrics.closingRate}
-      qCompletionRate={qRate}
-      prepRate={prepRate}
-      introsBooked={pipeline.booked}
-      introsShowed={pipeline.showed}
-    />
-  );
-}
 
 export default function Recaps() {
   const { user } = useAuth();
@@ -142,41 +72,6 @@ export default function Recaps() {
   }, [metrics.bookerStats, selectedEmployee]);
 
   // Filtered scoreboard metrics for individual view
-  const scoreboardMetrics = useMemo(() => {
-    if (!selectedEmployee) return metrics.studio;
-    const sa = metrics.perSA.find(m => m.saName === selectedEmployee);
-    if (!sa) return { introsRun: 0, introSales: 0, closingRate: 0, totalCommission: 0 };
-    return {
-      introsRun: sa.introsRun,
-      introSales: sa.sales,
-      closingRate: sa.closingRate,
-      totalCommission: sa.commission,
-    };
-  }, [selectedEmployee, metrics]);
-
-  // Filtered pipeline metrics
-  const filteredPipeline = useMemo(() => {
-    if (!selectedEmployee) return metrics.pipeline;
-    // Recompute from raw data filtered to this SA
-    const saBookings = introsBooked.filter(b => {
-      const introOwner = (b as any).intro_owner || b.sa_working_shift;
-      const originatingId = (b as any).originating_booking_id;
-      const isFirst = originatingId === null || originatingId === undefined;
-      const inRange = dateRange ? (() => { try { const d = new Date(b.class_date); return d >= dateRange.start && d <= dateRange.end; } catch { return false; } })() : true;
-      return introOwner === selectedEmployee && isFirst && inRange;
-    });
-    let showed = 0, sold = 0;
-    const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
-    saBookings.forEach(b => {
-      const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id && r.result !== 'No-show');
-      if (runs.length > 0) {
-        showed++;
-        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) sold++;
-      }
-    });
-    return { booked: saBookings.length, showed, sold, revenue: 0 };
-  }, [selectedEmployee, introsBooked, introsRun, dateRange, metrics.pipeline]);
-
   // Filtered lead source metrics
   const filteredLeadSource = useMemo(() => {
     if (!selectedEmployee) return metrics.leadSourceMetrics;
@@ -265,14 +160,7 @@ export default function Recaps() {
         </div>
       </div>
 
-      {/* Studio Scoreboard */}
-      <QCompletionScoreboard
-        scoreboardMetrics={scoreboardMetrics}
-        introsBooked={introsBooked}
-        dateRange={dateRange}
-        selectedEmployee={selectedEmployee}
-        pipeline={filteredPipeline}
-      />
+      {/* Conversion Funnel with 1st/2nd Intro dual-row view */}
 
       {/* Conversion Funnel with 1st/2nd Intro toggle */}
       <ConversionFunnel dateRange={dateRange} />

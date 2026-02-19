@@ -1,7 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { ArrowDown, Users, UserCheck, Target, Filter, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData, IntroBooked, IntroRun } from '@/context/DataContext';
@@ -21,8 +19,6 @@ interface ConversionFunnelProps {
   className?: string;
 }
 
-type IntroFilter = 'all' | '1st' | '2nd';
-
 function isInRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
   if (!range || !dateStr) return !range;
   try {
@@ -30,192 +26,168 @@ function isInRange(dateStr: string | null | undefined, range: DateRange | null):
   } catch { return false; }
 }
 
+type IntroOrder = '1st' | '2nd';
+
+function computeFunnel(
+  order: IntroOrder,
+  introsBooked: IntroBooked[],
+  introsRun: IntroRun[],
+  dateRange: DateRange | null | undefined,
+) {
+  // Build phone → sorted booking dates for 2nd-intro detection
+  const memberBookings = new Map<string, string[]>();
+  introsBooked.forEach(b => {
+    const phone = (b as any).phone_e164 as string | null | undefined;
+    const key = (phone || b.member_name).toLowerCase();
+    const existing = memberBookings.get(key) || [];
+    existing.push(b.class_date);
+    memberBookings.set(key, existing.sort());
+  });
+
+  const isFirstIntro = (b: IntroBooked): boolean => {
+    // Also honour originating_booking_id — explicit 2nd intro marker
+    if ((b as any).originating_booking_id) return false;
+    const phone = (b as any).phone_e164 as string | null | undefined;
+    const key = (phone || b.member_name).toLowerCase();
+    const allDates = memberBookings.get(key) || [];
+    return allDates.indexOf(b.class_date) === 0;
+  };
+
+  // Active, non-VIP bookings matching the 1st/2nd filter
+  const typeFilteredBookingIds = new Set(
+    introsBooked
+      .filter(b => {
+        const status = ((b as any).booking_status || '').toUpperCase();
+        if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+        if ((b as any).ignore_from_metrics) return false;
+        if ((b as any).is_vip === true) return false;
+        return order === '1st' ? isFirstIntro(b) : !isFirstIntro(b);
+      })
+      .map(b => b.id)
+  );
+
+  // Booked: bookings in the date range (class_date anchored)
+  const activeBookings = introsBooked.filter(b =>
+    typeFilteredBookingIds.has(b.id) &&
+    isInRange(b.class_date, dateRange || null)
+  );
+  const booked = activeBookings.length;
+
+  // Showed: counted per active booking (run-date anchored)
+  let showed = 0;
+  activeBookings.forEach(b => {
+    const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
+    if (runs.some(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null))) showed++;
+  });
+
+  // Sold: sale-date anchored (matches Scoreboard)
+  const sold = introsRun.filter(
+    r =>
+      r.linked_intro_booked_id &&
+      typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
+      isSaleInRange(r, dateRange || null)
+  ).length;
+
+  return { booked, showed, sold };
+}
+
+interface FunnelRowProps {
+  label: string;
+  data: { booked: number; showed: number; sold: number };
+  highlight?: boolean;
+}
+
+function FunnelRow({ label, data, highlight }: FunnelRowProps) {
+  const showRate = data.booked > 0 ? (data.showed / data.booked) * 100 : 0;
+  const closeRate = data.showed > 0 ? (data.sold / data.showed) * 100 : 0;
+  const bookingToSale = data.booked > 0 ? (data.sold / data.booked) * 100 : 0;
+
+  const rateColor = (rate: number) =>
+    rate >= 75 ? 'text-success' : rate >= 50 ? 'text-warning' : 'text-destructive';
+
+  return (
+    <div className={cn('rounded-lg border p-3 space-y-2', highlight && 'bg-primary/5 border-primary/30')}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className={cn('text-[11px] font-medium', rateColor(bookingToSale))}>
+          {bookingToSale.toFixed(0)}% book→sale
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        {/* Booked */}
+        <div className="flex-1 text-center p-2 rounded bg-info/10 border border-info/20">
+          <Users className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
+          <p className="text-lg font-bold text-info">{data.booked}</p>
+          <p className="text-[10px] text-muted-foreground">Booked</p>
+        </div>
+
+        {/* Arrow + Show Rate */}
+        <div className="flex flex-col items-center gap-0.5">
+          <ArrowDown className="w-3 h-3 text-muted-foreground" />
+          <span className={cn('text-[10px] font-medium', rateColor(showRate))}>
+            {showRate.toFixed(0)}%
+          </span>
+        </div>
+
+        {/* Showed */}
+        <div className="flex-1 text-center p-2 rounded bg-warning/10 border border-warning/20">
+          <UserCheck className="w-3.5 h-3.5 mx-auto mb-0.5 text-warning" />
+          <p className="text-lg font-bold text-warning">{data.showed}</p>
+          <p className="text-[10px] text-muted-foreground">Showed</p>
+        </div>
+
+        {/* Arrow + Close Rate */}
+        <div className="flex flex-col items-center gap-0.5">
+          <ArrowDown className="w-3 h-3 text-muted-foreground" />
+          <span className={cn('text-[10px] font-medium', rateColor(closeRate))}>
+            {closeRate.toFixed(0)}%
+          </span>
+        </div>
+
+        {/* Sold */}
+        <div className="flex-1 text-center p-2 rounded bg-success/10 border border-success/20">
+          <Target className="w-3.5 h-3.5 mx-auto mb-0.5 text-success" />
+          <p className="text-lg font-bold text-success">{data.sold}</p>
+          <p className="text-[10px] text-muted-foreground">Sold</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps) {
   const { introsBooked, introsRun } = useData();
-  const [introFilter, setIntroFilter] = useState<IntroFilter>('all');
 
-  // Determine 1st vs 2nd intro by checking if member has prior bookings
-  const { funnelData, comparisonData } = useMemo(() => {
-    // Build member history: map member_name (lowered) to sorted booking dates
-    const memberBookings = new Map<string, string[]>();
-    introsBooked.forEach(b => {
-      const key = b.member_name.toLowerCase();
-      const existing = memberBookings.get(key) || [];
-      existing.push(b.class_date);
-      memberBookings.set(key, existing);
-    });
-    // Sort each member's bookings
-    memberBookings.forEach((dates, key) => {
-      memberBookings.set(key, dates.sort());
-    });
-
-    const isFirstIntro = (b: IntroBooked): boolean => {
-      const key = b.member_name.toLowerCase();
-      const allDates = memberBookings.get(key) || [];
-      return allDates.indexOf(b.class_date) === 0;
+  const { first, second, total } = useMemo(() => {
+    const first = computeFunnel('1st', introsBooked, introsRun, dateRange);
+    const second = computeFunnel('2nd', introsBooked, introsRun, dateRange);
+    const total = {
+      booked: first.booked + second.booked,
+      showed: first.showed + second.showed,
+      sold: first.sold + second.sold,
     };
-
-    const computeFunnel = (filter: IntroFilter) => {
-      // Build type-filtered booking IDs (no class_date restriction — used for sold count)
-      const typeFilteredBookingIds = new Set(
-        introsBooked
-          .filter(b => {
-            const status = ((b as any).booking_status || '').toUpperCase();
-            if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-            if ((b as any).ignore_from_metrics) return false;
-            if ((b as any).is_vip === true) return false;
-            if (filter === '1st') return isFirstIntro(b);
-            if (filter === '2nd') return !isFirstIntro(b);
-            return true;
-          })
-          .map(b => b.id)
-      );
-
-      // Booked: bookings in date range (class_date filtered)
-      const activeBookings = introsBooked.filter(b => {
-        if (!typeFilteredBookingIds.has(b.id)) return false;
-        return isInRange(b.class_date, dateRange || null);
-      });
-
-      const booked = activeBookings.length;
-
-      // Showed: booking-anchored (how many showed per booked intro in date range)
-      let showed = 0;
-      activeBookings.forEach(b => {
-        const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
-        const showedRuns = runs.filter(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
-        if (showedRuns.length > 0) showed++;
-      });
-
-      // Sold: sale-date-anchored — matches scoreboard isSaleInRange() logic exactly
-      // Counts runs from type-filtered bookings where buy_date (fallback run_date) is in range
-      const sold = introsRun.filter(r =>
-        r.linked_intro_booked_id &&
-        typeFilteredBookingIds.has(r.linked_intro_booked_id) &&
-        isSaleInRange(r, dateRange || null)
-      ).length;
-
-      return { booked, showed, sold };
-    };
-
-    const current = computeFunnel(introFilter);
-    
-    // Compute comparison (the other type)
-    let comparison = null;
-    if (introFilter === '1st') {
-      const other = computeFunnel('2nd');
-      comparison = { label: '2nd Intro', closeRate: other.showed > 0 ? (other.sold / other.showed) * 100 : 0 };
-    } else if (introFilter === '2nd') {
-      const other = computeFunnel('1st');
-      comparison = { label: '1st Intro', closeRate: other.showed > 0 ? (other.sold / other.showed) * 100 : 0 };
-    }
-
-    return { funnelData: current, comparisonData: comparison };
-  }, [introsBooked, introsRun, dateRange, introFilter]);
-
-  const showRate = funnelData.booked > 0 ? (funnelData.showed / funnelData.booked) * 100 : 0;
-  const closeRate = funnelData.showed > 0 ? (funnelData.sold / funnelData.showed) * 100 : 0;
-  const bookingToSaleRate = funnelData.booked > 0 ? (funnelData.sold / funnelData.booked) * 100 : 0;
-
-  const stages = [
-    { label: 'Booked', value: funnelData.booked, icon: Users, color: 'bg-info/20 text-info border-info/30', rate: null as number | null, rateLabel: '' },
-    { label: 'Showed', value: funnelData.showed, icon: UserCheck, color: 'bg-warning/20 text-warning border-warning/30', rate: showRate, rateLabel: 'Show Rate' },
-    { label: 'Sold', value: funnelData.sold, icon: Target, color: 'bg-success/20 text-success border-success/30', rate: closeRate, rateLabel: 'Close Rate (showed)' },
-  ];
+    return { first, second, total };
+  }, [introsBooked, introsRun, dateRange]);
 
   return (
     <Card className={cn(className)}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Filter className="w-4 h-4 text-primary" />
-            Conversion Funnel
-          </CardTitle>
-        </div>
-        {/* Toggle pills */}
-        <div className="flex gap-1 mt-2">
-          {(['all', '1st', '2nd'] as const).map(f => (
-            <Button
-              key={f}
-              variant={introFilter === f ? 'default' : 'outline'}
-              size="sm"
-              className="text-xs h-7 px-3"
-              onClick={() => setIntroFilter(f)}
-            >
-              {f === 'all' ? 'All Intros' : f === '1st' ? '1st Intro' : '2nd Intro'}
-            </Button>
-          ))}
-        </div>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Filter className="w-4 h-4 text-primary" />
+          Conversion Funnel
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">1st and 2nd intro attribution — separate rows</p>
       </CardHeader>
-      <CardContent className="pt-2">
-        <div className="flex flex-col items-center gap-1">
-          {stages.map((stage, index) => (
-            <div key={stage.label} className="w-full">
-              <div
-                className={cn('relative flex items-center justify-between p-3 rounded-lg border transition-all', stage.color)}
-                style={{ width: `${100 - index * 10}%`, marginLeft: 'auto', marginRight: 'auto' }}
-              >
-                <div className="flex items-center gap-2">
-                  <stage.icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{stage.label}</span>
-                </div>
-                <span className="text-lg font-bold">{stage.value}</span>
-              </div>
-              {index < stages.length - 1 && (
-                <div className="flex items-center justify-center my-1">
-                  <ArrowDown className="w-4 h-4 text-muted-foreground" />
-                  {stages[index + 1].rate !== null && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={cn(
-                            'ml-2 text-xs font-medium cursor-help',
-                            (stages[index + 1].rate ?? 0) >= 75 ? 'text-success' :
-                            (stages[index + 1].rate ?? 0) >= 50 ? 'text-warning' : 'text-destructive'
-                          )}>
-                            {(stages[index + 1].rate ?? 0).toFixed(0)}% {stages[index + 1].rateLabel}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[220px]">
-                          {stages[index + 1].rateLabel === 'Show Rate' ? (
-                            <p>Showed ÷ Booked. Measures booking-to-attendance conversion.</p>
-                          ) : (
-                            <p>Sales ÷ intros who showed up. Measures selling effectiveness. Same as Scoreboard close rate.</p>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        
-        <div className="mt-4 pt-3 border-t space-y-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex justify-center items-center gap-1 text-xs text-muted-foreground cursor-help">
-                  <span>Booking-to-Sale Rate: <span className="font-medium text-foreground">{bookingToSaleRate.toFixed(0)}%</span></span>
-                  <Info className="w-3 h-3 opacity-60" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[240px]">
-                <p>Sales ÷ total booked intros (including no-shows). Measures full pipeline efficiency from booking to purchase.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events</p>
+      <CardContent className="space-y-3">
+        <FunnelRow label="1st Intro" data={first} />
+        <FunnelRow label="2nd Intro" data={second} />
+
+        {/* Totals divider */}
+        <div className="border-t pt-2">
+          <FunnelRow label="Total (All Intros)" data={total} highlight />
         </div>
 
-        {/* Comparison card */}
-        {comparisonData && (
-          <div className="mt-3 p-3 rounded-lg border bg-muted/30 text-xs">
-            <span className="font-medium">Close rate: {closeRate.toFixed(0)}%</span>
-            <span className="text-muted-foreground"> (vs {comparisonData.closeRate.toFixed(0)}% for {comparisonData.label})</span>
-          </div>
-        )}
+        <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events · Sale date anchored</p>
       </CardContent>
     </Card>
   );
