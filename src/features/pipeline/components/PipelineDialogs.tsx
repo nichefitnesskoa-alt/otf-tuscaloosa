@@ -732,54 +732,144 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
   }
 
   // ── LOG 2ND INTRO RUN ──
+  // Step 1: we auto-create the 2nd booking on mount (via isSaving guard), then show the run form inline.
   if (type === 'log_2nd_intro' && journey) {
-    // Auto-create linked booking then open create_run
+    const first = journey.bookings.find(b => !b.originating_booking_id) || journey.bookings[0];
+
+    // If we have a linked_intro_booked_id in newRun, we already created the booking — show run form
+    const bookingCreated = !!newRun.linked_intro_booked_id && newRun.member_name === journey.memberName;
+
     return (
-      <Dialog open onOpenChange={onClose}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Log 2nd Intro Run</DialogTitle>
-            <DialogDescription>This will create a 2nd intro booking and open the run logger for {journey.memberName}.</DialogDescription>
+      <Dialog open onOpenChange={() => {
+        setNewRun({ member_name: '', run_date: getLocalDateString(), class_time: '', ran_by: '', lead_source: '', result: '', notes: '', linked_intro_booked_id: '' });
+        onClose();
+      }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Log 2nd Intro Run</DialogTitle>
+            <DialogDescription>
+              {bookingCreated
+                ? `2nd intro booking created. Now log the run for ${journey.memberName}.`
+                : `Creates a linked 2nd intro booking then lets you log the run for ${journey.memberName}.`}
+            </DialogDescription>
           </DialogHeader>
+
+          {!bookingCreated ? (
+            // Step 1: confirm booking creation
+            <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-lg space-y-1">
+              <p><span className="font-medium">Member:</span> {journey.memberName}</p>
+              {first && <p><span className="font-medium">Lead source:</span> {first.lead_source}</p>}
+              <p className="text-xs mt-1">A new intros_booked record will be created with <code>originating_booking_id</code> set to the original booking.</p>
+            </div>
+          ) : (
+            // Step 2: run form (inline — no dialog switch needed)
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-xs">Run Date *</Label><Input type="date" value={newRun.run_date} onChange={e => setNewRun({ ...newRun, run_date: e.target.value })} /></div>
+                <div><Label className="text-xs">Time *</Label><Input type="time" value={newRun.class_time} onChange={e => setNewRun({ ...newRun, class_time: e.target.value })} /></div>
+              </div>
+              <div><Label className="text-xs">Ran By *</Label>
+                <Select value={newRun.ran_by} onValueChange={v => setNewRun({ ...newRun, ran_by: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select SA..." /></SelectTrigger>
+                  <SelectContent>{SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Lead Source</Label>
+                <Select value={newRun.lead_source} onValueChange={v => setNewRun({ ...newRun, lead_source: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Result/Outcome *</Label>
+                <Select value={newRun.result} onValueChange={v => setNewRun({ ...newRun, result: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select outcome..." /></SelectTrigger>
+                  <SelectContent>{VALID_OUTCOMES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Notes</Label><Textarea value={newRun.notes} onChange={e => setNewRun({ ...newRun, notes: e.target.value })} placeholder="Notes..." className="min-h-[60px]" /></div>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button disabled={isSaving} onClick={() => withSave(async () => {
-              const first = journey.bookings.find(b => !b.originating_booking_id) || journey.bookings[0];
-              if (!first) { toast.error('No original booking found'); return; }
-              const { data: inserted, error } = await supabase.from('intros_booked').insert({
-                booking_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                member_name: journey.memberName,
-                class_date: getLocalDateString(),
-                coach_name: first.coach_name || 'TBD',
-                sa_working_shift: first.sa_working_shift,
-                booked_by: first.booked_by || first.sa_working_shift,
-                lead_source: first.lead_source,
-                fitness_goal: first.fitness_goal || null,
-                booking_status: 'Active',
-                booking_status_canon: 'ACTIVE',
-                originating_booking_id: first.id,
-                email: first.email || null,
-                phone: first.phone || null,
-              }).select().single();
-              if (error) throw error;
-              // 2nd intros don't need questionnaire records
-              toast.info('2nd intro booking created — now log the run');
-              // Switch to create_run dialog
-              setNewRun({
-                member_name: journey.memberName,
-                run_date: getLocalDateString(),
-                class_time: '', ran_by: '',
-                lead_source: first.lead_source || '',
-                result: '', notes: '',
-                linked_intro_booked_id: inserted.id,
-              });
-              // We need to switch dialog type - use a small hack
+            <Button variant="outline" onClick={() => {
+              setNewRun({ member_name: '', run_date: getLocalDateString(), class_time: '', ran_by: '', lead_source: '', result: '', notes: '', linked_intro_booked_id: '' });
               onClose();
-              setTimeout(() => {
-                // The parent will need to open create_run
-              }, 100);
-            })}>
-              <CalendarPlus className="w-4 h-4 mr-1" /> Create & Log Run
-            </Button>
+            }}>Cancel</Button>
+
+            {!bookingCreated ? (
+              // Step 1 button: create the 2nd booking
+              <Button disabled={isSaving} onClick={async () => {
+                if (!first) { toast.error('No original booking found'); return; }
+                setIsSaving(true);
+                try {
+                  const { data: inserted, error } = await supabase.from('intros_booked').insert({
+                    booking_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    member_name: journey.memberName,
+                    class_date: getLocalDateString(),
+                    coach_name: first.coach_name || 'TBD',
+                    sa_working_shift: first.sa_working_shift,
+                    booked_by: first.booked_by || first.sa_working_shift,
+                    lead_source: first.lead_source,
+                    fitness_goal: first.fitness_goal || null,
+                    booking_status: 'Active',
+                    booking_status_canon: 'ACTIVE',
+                    originating_booking_id: first.id,
+                    rebooked_from_booking_id: first.id,
+                    rebook_reason: 'second_intro',
+                    email: first.email || null,
+                    phone: first.phone || null,
+                  }).select().single();
+                  if (error) throw error;
+                  // Pre-fill run form with the new booking id, then stay in dialog
+                  setNewRun({
+                    member_name: journey.memberName,
+                    run_date: getLocalDateString(),
+                    class_time: first.intro_time || '',
+                    ran_by: '',
+                    lead_source: first.lead_source || '',
+                    result: '',
+                    notes: '',
+                    linked_intro_booked_id: inserted.id,
+                  });
+                  toast.success('2nd intro booking created — now log the run below');
+                } catch (e: any) {
+                  toast.error(e?.message || 'Failed to create 2nd intro booking');
+                } finally {
+                  setIsSaving(false);
+                }
+              }}>
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CalendarPlus className="w-4 h-4 mr-1" />}
+                Create 2nd Booking & Continue
+              </Button>
+            ) : (
+              // Step 2 button: log the run
+              <Button disabled={isSaving} onClick={() => withSave(async () => {
+                if (!newRun.ran_by) { toast.error('Ran By required'); return; }
+                if (!newRun.result) { toast.error('Result required'); return; }
+                if (!newRun.class_time) { toast.error('Time required'); return; }
+                await supabase.from('intros_run').insert({
+                  run_id: `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  member_name: newRun.member_name,
+                  run_date: newRun.run_date,
+                  class_time: newRun.class_time,
+                  ran_by: newRun.ran_by,
+                  intro_owner: newRun.ran_by,
+                  lead_source: newRun.lead_source || 'Source Not Found',
+                  result: newRun.result,
+                  result_canon: normalizeIntroResultStrict(newRun.result, 'PipelineDialogs:Log2ndIntroRun'),
+                  notes: newRun.notes || null,
+                  linked_intro_booked_id: newRun.linked_intro_booked_id,
+                });
+                if (newRun.result !== 'No-show') {
+                  await syncIntroOwnerToBooking(newRun.linked_intro_booked_id, newRun.ran_by, userName);
+                }
+                toast.success('2nd intro run logged');
+                setNewRun({ member_name: '', run_date: getLocalDateString(), class_time: '', ran_by: '', lead_source: '', result: '', notes: '', linked_intro_booked_id: '' });
+              })}>
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                Log Run
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
