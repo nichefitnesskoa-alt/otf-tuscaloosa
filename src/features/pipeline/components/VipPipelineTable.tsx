@@ -1,6 +1,7 @@
 /**
  * VipPipelineTable — spreadsheet-style VIP member table for the Pipeline VIP tab.
  * Fetches vip_registrations directly so phone/email are always from the registration source.
+ * Includes group creation, link generator, and copy-link per group pill.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import {
   Star, Search, Download, Copy, ChevronUp, ChevronDown, Loader2,
-  Phone, Mail, CalendarPlus, Share2, MessageSquare,
+  Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
@@ -22,6 +23,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,6 +105,12 @@ export function VipPipelineTable() {
   const [bulkDate, setBulkDate] = useState('');
   const [bulkTime, setBulkTime] = useState('');
   const [showBulkDialog, setShowBulkDialog] = useState(false);
+
+  // Create group state
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -337,6 +351,36 @@ export function VipPipelineTable() {
     toast.success('CSV exported');
   };
 
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) { toast.error('Group name is required'); return; }
+    setCreatingGroup(true);
+    try {
+      // Create a placeholder booking to anchor the group, so it shows up in the selector
+      // Groups are derived from vip_class_name on bookings — we just need to ensure the group
+      // shows in the pill list. We add it to the local group list directly.
+      const slug = newGroupName.trim();
+      setGroups(prev => Array.from(new Set([...prev, slug])).sort());
+      setSelectedGroup(slug);
+      setShowCreateGroup(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+      const link = `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(slug)}`;
+      navigator.clipboard.writeText(link);
+      toast.success(`Group "${slug}" created! Registration link copied to clipboard.`);
+    } catch (err) {
+      toast.error('Failed to create group');
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
+
+  const copyGroupLink = (groupName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const link = `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(groupName)}`;
+    navigator.clipboard.writeText(link);
+    toast.success(`Link for ${groupName} copied!`);
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -351,21 +395,58 @@ export function VipPipelineTable() {
 
   return (
     <div className="space-y-3">
-      {/* Group Selector */}
-      <div className="flex gap-2 flex-wrap">
-      {(['All', ...groups] as string[]).map(g => (
+      {/* Group Selector + Create Group */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {/* All pill */}
         <button
-          key={g}
-          onClick={() => setSelectedGroup(g)}
+          onClick={() => setSelectedGroup('All')}
           className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-            selectedGroup === g
+            selectedGroup === 'All'
               ? 'bg-primary text-primary-foreground'
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
-          {g === 'All' ? `All (${rows.length})` : `${g} (${groupCounts.get(g) || 0})`}
+          All ({rows.length})
         </button>
-      ))}
+
+        {/* Group pills with inline Copy Link */}
+        {groups.map(g => (
+          <div key={g} className={`flex items-center gap-0 rounded-full overflow-hidden border transition-colors ${
+            selectedGroup === g ? 'border-primary' : 'border-muted'
+          }`}>
+            <button
+              onClick={() => setSelectedGroup(g)}
+              className={`px-3 py-1 text-xs font-medium transition-colors ${
+                selectedGroup === g
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {g} ({groupCounts.get(g) || 0})
+            </button>
+            <button
+              onClick={(e) => copyGroupLink(g, e)}
+              className={`px-2 py-1 text-[10px] transition-colors flex items-center gap-0.5 ${
+                selectedGroup === g
+                  ? 'bg-primary/80 text-primary-foreground hover:bg-primary/70'
+                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+              }`}
+              title={`Copy link for ${g}`}
+            >
+              <Link2 className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        ))}
+
+        {/* Create New Group button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1 rounded-full"
+          onClick={() => setShowCreateGroup(true)}
+        >
+          <Plus className="w-3 h-3" /> New Group
+        </Button>
       </div>
 
       {/* Registration Link Banner */}
@@ -698,6 +779,53 @@ export function VipPipelineTable() {
           bookingId={scriptRow.bookingId}
         />
       )}
+
+      {/* Create Group Sheet */}
+      <Sheet open={showCreateGroup} onOpenChange={setShowCreateGroup}>
+        <SheetContent side="right" className="max-w-sm">
+          <SheetHeader>
+            <SheetTitle className="text-base">Create New VIP Group</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Group Name *</Label>
+              <Input
+                placeholder="e.g. PhiPsi, Miss Alabama…"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                className="h-10"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Description (optional)</Label>
+              <Textarea
+                placeholder="e.g. Spring 2025 VIP class"
+                value={newGroupDesc}
+                onChange={e => setNewGroupDesc(e.target.value)}
+                className="h-20 text-sm"
+              />
+            </div>
+            {newGroupName.trim() && (
+              <div className="rounded-lg bg-muted/40 p-3 text-xs space-y-1">
+                <p className="font-semibold text-muted-foreground">Registration link preview:</p>
+                <code className="text-primary break-all">
+                  https://otf-tuscaloosa.lovable.app/vip-register?class={encodeURIComponent(newGroupName.trim())}
+                </code>
+                <p className="text-muted-foreground">Link will be copied to clipboard on save.</p>
+              </div>
+            )}
+            <Button
+              className="w-full"
+              disabled={!newGroupName.trim() || creatingGroup}
+              onClick={handleCreateGroup}
+            >
+              {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Create Group & Copy Link
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

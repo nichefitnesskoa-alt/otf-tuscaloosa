@@ -164,9 +164,9 @@ export function StudioScoreboard({
             />
             <LeadMeasureCard
               icon={<Dumbbell className="w-4 h-4" />}
-              label="Prep Rate"
+              label="Prepped & Role Played %"
               value={prepRate}
-              tooltip="% of intros run where the SA marked themselves as prepped before class. Target: 70%+"
+              tooltip="% of intros run where the SA marked 'Prepped & Role Played' — meaning they reviewed the prep card AND role played digging deeper on the member's why and handling their likely objection before they walked in. Target: 70%+"
               thresholds={PREP_RATE_THRESHOLDS}
             />
           </div>
