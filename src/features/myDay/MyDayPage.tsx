@@ -26,7 +26,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2, UserPlus } from 'lucide-react';
 
 // Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
@@ -48,6 +48,7 @@ import { CoachDrawer } from '@/components/myday/CoachDrawer';
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 import { MyDayTopPanel } from './MyDayTopPanel';
+import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 
 // Dark mode helpers
 function useDarkMode() {
@@ -79,6 +80,7 @@ export default function MyDayPage() {
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [activeTab, setActiveTab] = useState('today');
 
   // Prep/Script/Coach drawer state
@@ -299,7 +301,7 @@ export default function MyDayPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b-2 border-primary px-3 pt-2 pb-0">
-          <TabsList className="w-full grid grid-cols-5 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
+          <TabsList className="w-full grid grid-cols-6 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
             <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>Today</span>
@@ -309,13 +311,20 @@ export default function MyDayPage() {
             </TabsTrigger>
             <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
-              <span>This Week</span>
+              <span>Week</span>
             </TabsTrigger>
             <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <Clock className="w-3.5 h-3.5" />
               <span>Follow-Ups</span>
               {followUpsDueCount > 0 && (
                 <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="leads" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Leads</span>
+              {newLeadsCount > 0 && (
+                <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
@@ -351,6 +360,15 @@ export default function MyDayPage() {
               <p className="text-xs text-muted-foreground">All pending follow-ups due today and overdue</p>
             </div>
             <FollowUpsDueToday onRefresh={fetchMetrics} onCountChange={setFollowUpsDueCount} />
+          </TabsContent>
+
+          {/* NEW LEADS */}
+          <TabsContent value="leads" className="mt-0 space-y-3">
+            <div className="mb-1">
+              <h2 className="text-sm font-semibold">New Leads</h2>
+              <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
+            </div>
+            <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
           </TabsContent>
 
           {/* QUESTIONNAIRE HUB */}
