@@ -125,10 +125,10 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           .order('buy_date', { ascending: false })
           .limit(10),
 
-        // vip_sessions / intros_booked with is_vip
+        // vip_sessions / intros_booked with is_vip — also fetch phone from vip_registrations
         supabase
           .from('intros_booked')
-          .select('id, member_name, class_date, vip_class_name, is_vip')
+          .select('id, member_name, class_date, vip_class_name, is_vip, phone')
           .ilike('member_name', likePattern)
           .eq('is_vip', true)
           .is('deleted_at', null)
@@ -209,10 +209,11 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
       // VIP
       for (const v of (vipSessionsRes.data || [])) {
+        const phone = (v as any).phone;
         found.push({
           id: v.id,
           name: v.member_name,
-          context: `${v.vip_class_name || 'VIP'} · ${v.class_date ? format(parseLocalDate(v.class_date), 'MMM d') : ''}`,
+          context: `${v.vip_class_name || 'VIP'}${phone ? ` · 📱 ${phone}` : ''}`,
           badge: 'VIP',
           badgeVariant: 'secondary',
           category: 'vip',
