@@ -1,77 +1,51 @@
 
-# Fix 2nd Intro Chain: Kaylee Davis, Denise Davis, Keirra Matthew
+# Fix: React Error #300 in PipelineTable
 
-## Problem Summary
+## Root Cause Identified
 
-All three members came in on **Feb 4** for their **1st intro** (run logged by Grace, result = "Booked 2nd intro"). Grace then booked them for a **2nd visit on Feb 11** and entered the lead source as "2nd Class Intro (staff booked)". However, **no 1st intro booking record exists** — only the Feb 11 booking exists, so the Feb 4 runs are incorrectly linked to the Feb 11 (2nd intro) booking, breaking the chain.
+In `src/features/pipeline/components/PipelineTable.tsx`, the `useVirtualizer` hook (line 122) is called **after** a conditional early `return` statement (lines 69-119). When `activeTab === 'vip_class'`, the component returns early and `useVirtualizer` is never called. When the tab changes back to a non-VIP tab, `useVirtualizer` is called again — this changes the hook call count between renders and triggers React error #300.
 
-## What Needs to Happen
+```typescript
+// ❌ CURRENT — BROKEN
+if (activeTab === 'vip_class' && vipGroups) {
+  return ( ... ); // Early return on line 69
+}
 
-For each of the 3 members, in one database operation:
-
-### Step 1 — Create backfill 1st-intro booking (Feb 4)
-Insert a new `intros_booked` record with:
-- `class_date`: `2026-02-04` (one week before the Feb 11 booking)
-- `lead_source`: `Instagram DM` (as requested, correcting from "2nd Class Intro")
-- `intro_owner`: `Grace`
-- `booked_by`: `Grace`
-- `sa_working_shift`: `PM` (17:30 class time = PM shift)
-- `booking_status`: `Active`
-- `booking_status_canon`: `ACTIVE`
-- `booking_type_canon`: `STANDARD`
-- `is_vip`: `false`
-
-### Step 2 — Re-link Feb 4 runs to the new 1st booking
-Update each `intros_run` record (`run_date = 2026-02-04`) so that `linked_intro_booked_id` points to the new backfilled 1st booking (not the Feb 11 booking).
-
-### Step 3 — Update Feb 11 bookings to be proper 2nd-intro bookings
-Update each Feb 11 `intros_booked` record:
-- Set `originating_booking_id` = the new 1st booking's ID
-- Set `rebooked_from_booking_id` = the new 1st booking's ID
-- Set `rebook_reason` = `second_intro`
-- Change `lead_source` to `Instagram DM`
-
-## Affected Records
-
-| Member | 1st Booking (to create) | 2nd Booking (Feb 11, to update) | Run (Feb 4, to re-link) |
-|---|---|---|---|
-| Kaylee Davis | new row | `4deaf0c4-...` | `067c39f5-...` |
-| Denise Davis | new row | `49b9dff6-...` | `94662113-...` |
-| Keirra Matthew | new row | `63609408-...` | `ae9c12d9-...` |
-
-## Technical Implementation
-
-This is a pure database fix — no code changes needed. Three SQL blocks will be run using CTEs to capture the new IDs:
-
-```sql
--- KAYLEE DAVIS
-WITH new_booking AS (
-  INSERT INTO intros_booked (member_name, class_date, lead_source, intro_owner, booked_by, sa_working_shift, booking_status, booking_status_canon, booking_type_canon, is_vip, questionnaire_status_canon)
-  VALUES ('Kaylee Davis', '2026-02-04', 'Instagram DM', 'Grace', 'Grace', 'PM', 'Active', 'ACTIVE', 'STANDARD', false, 'not_sent')
-  RETURNING id
-)
-UPDATE intros_run SET linked_intro_booked_id = (SELECT id FROM new_booking)
-WHERE id = '067c39f5-1d89-424c-8a9f-412860a3cf12';
-
-UPDATE intros_booked SET 
-  originating_booking_id = (SELECT id FROM intros_booked WHERE member_name = 'Kaylee Davis' AND class_date = '2026-02-04' ORDER BY created_at DESC LIMIT 1),
-  rebooked_from_booking_id = (SELECT id FROM intros_booked WHERE member_name = 'Kaylee Davis' AND class_date = '2026-02-04' ORDER BY created_at DESC LIMIT 1),
-  rebook_reason = 'second_intro',
-  lead_source = 'Instagram DM'
-WHERE id = '4deaf0c4-16ae-4691-8a74-8b2f21c20816';
+// useVirtualizer is called AFTER the early return — React error #300
+const virtualizer = useVirtualizer({ ... }); // line 122
 ```
 
-(Repeated for Denise Davis and Keirra Matthew with their respective IDs.)
+This is precisely the pattern described in the React docs for invariant #300: hooks must be called in the same order on every render, unconditionally.
 
-## Impact on Funnel
+## Fix
 
-After this fix:
-- The Feb 4 runs will be recognized as **1st intro runs**
-- The Feb 11 bookings will be proper **2nd intro bookings** (via `originating_booking_id`)
-- All 3 members will count as **2nd intro purchases** if they buy (matching the `personHasSecondBooking` flag already in the funnel logic)
-- The "2nd Class Intro (staff booked)" lead source disappears from the lead source chart for these entries — replaced by "Instagram DM"
+Move `useVirtualizer` to the **top of the component**, before any conditional returns. The virtualizer will be initialized on every render regardless of which tab is active, which satisfies React's rules of hooks.
 
-## What Does NOT Change
+```typescript
+// ✅ FIXED — hook called unconditionally at top
+const virtualizer = useVirtualizer({
+  count: journeys.length,  // will be 0 when VIP tab active, harmless
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => ESTIMATED_ROW_HEIGHT,
+  overscan: 10,
+});
 
-- Commission attribution stays with Grace (she is `intro_owner` on all runs)
-- No code changes — this is purely a data correction via SQL
+// Now the conditional return is safe — hook already called above
+if (activeTab === 'vip_class' && vipGroups) {
+  return ( ... );
+}
+```
+
+When `activeTab === 'vip_class'`, the virtualizer will initialize with `count: journeys.length` (which may be 0 or whatever filtered journeys exist), but it will never be rendered since the early return shows the VIP grouped view instead. This is completely harmless — the hook is always called, the order never changes.
+
+## File Changed
+
+**`src/features/pipeline/components/PipelineTable.tsx`** — Move `useVirtualizer` call from line 122 to above the `if (activeTab === 'vip_class')` guard on line 69. No other changes needed.
+
+## Why No Other Files Need Changes
+
+- `PipelineNewLeadsTab.tsx` and `MyDayNewLeadsTab.tsx` — all hooks are at the top level of each component, no conditional hooks present. The `LeadCard` subcomponent is a proper React component with hooks at its top level.
+- `PipelinePage.tsx` — no conditional hooks.
+- `MyDayPage.tsx` — no conditional hooks.
+
+This is a single-line relocation fix that will completely eliminate the React error #300 crash on the Pipeline page.
