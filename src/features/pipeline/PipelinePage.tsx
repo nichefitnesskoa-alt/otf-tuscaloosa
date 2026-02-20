@@ -42,6 +42,7 @@ import { usePipelineData } from './usePipelineData';
 import { PipelineFiltersBar } from './components/PipelineFiltersBar';
 import { PipelineTable } from './components/PipelineTable';
 import { PipelineDialogs } from './components/PipelineDialogs';
+import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
 
@@ -171,17 +172,21 @@ export default function PipelinePage() {
             </div>
           </div>
 
-          {/* Virtualized table */}
-          <PipelineTable
-            journeys={pipeline.filteredJourneys}
-            vipGroups={pipeline.vipGroups}
-            vipInfoMap={pipeline.vipInfoMap}
-            isLoading={pipeline.isLoading}
-            activeTab={pipeline.activeTab}
-            isOnline={isOnline}
-            onOpenDialog={openDialog}
-            onRefresh={pipeline.refreshAll}
-          />
+          {/* New Leads sub-tab view */}
+          {pipeline.activeTab === 'leads' ? (
+            <PipelineNewLeadsTab />
+          ) : (
+            <PipelineTable
+              journeys={pipeline.filteredJourneys}
+              vipGroups={pipeline.vipGroups}
+              vipInfoMap={pipeline.vipInfoMap}
+              isLoading={pipeline.isLoading}
+              activeTab={pipeline.activeTab}
+              isOnline={isOnline}
+              onOpenDialog={openDialog}
+              onRefresh={pipeline.refreshAll}
+            />
+          )}
         </CardContent>
       </Card>
 

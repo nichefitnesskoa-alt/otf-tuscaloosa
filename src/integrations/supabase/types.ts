@@ -910,6 +910,10 @@ export type Database = {
         Row: {
           booked_intro_id: string | null
           created_at: string
+          duplicate_confidence: string | null
+          duplicate_match_type: string | null
+          duplicate_notes: string | null
+          duplicate_override: boolean | null
           email: string | null
           first_name: string
           follow_up_at: string | null
@@ -924,6 +928,10 @@ export type Database = {
         Insert: {
           booked_intro_id?: string | null
           created_at?: string
+          duplicate_confidence?: string | null
+          duplicate_match_type?: string | null
+          duplicate_notes?: string | null
+          duplicate_override?: boolean | null
           email?: string | null
           first_name: string
           follow_up_at?: string | null
@@ -938,6 +946,10 @@ export type Database = {
         Update: {
           booked_intro_id?: string | null
           created_at?: string
+          duplicate_confidence?: string | null
+          duplicate_match_type?: string | null
+          duplicate_notes?: string | null
+          duplicate_override?: boolean | null
           email?: string | null
           first_name?: string
           follow_up_at?: string | null
