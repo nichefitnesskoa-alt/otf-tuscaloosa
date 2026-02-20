@@ -2,6 +2,7 @@
  * FriendReferralDialog — shown once after a booking is saved.
  * Creates a linked intros_booked record for the friend with all
  * class details auto-filled from the original booking.
+ * Also writes a referral log entry to the referrals table.
  */
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
@@ -32,10 +34,14 @@ interface FriendReferralDialogProps {
 }
 
 export function FriendReferralDialog({ open, onOpenChange, originalBooking }: FriendReferralDialogProps) {
+  const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [friendName, setFriendName] = useState('');
   const [friendPhone, setFriendPhone] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // The SA who is currently logged in — used for booked_by on the friend booking
+  const currentSA = user?.name || originalBooking.bookedBy;
 
   const handleNo = () => {
     onOpenChange(false);
@@ -59,7 +65,7 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
       const lastName = nameParts.slice(1).join(' ') || '';
       const leadSource = `Referral (Friend of ${originalBooking.memberName})`;
 
-      // Insert friend booking
+      // Insert friend booking — booked_by MUST be the currently logged-in SA
       const { data: friendBooking, error: bookingErr } = await supabase
         .from('intros_booked')
         .insert({
@@ -70,8 +76,8 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
           coach_name: originalBooking.coachName,
           lead_source: leadSource,
           sa_working_shift: originalBooking.saWorkingShift,
-          booked_by: originalBooking.bookedBy,
-          intro_owner: originalBooking.bookedBy,
+          booked_by: currentSA,        // Always the logged-in SA — critical for shift recap count
+          intro_owner: currentSA,
           intro_owner_locked: false,
           phone: friendPhone.trim() || null,
           booking_type_canon: 'STANDARD',
@@ -79,17 +85,30 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
           questionnaire_status_canon: 'not_sent',
           is_vip: false,
           paired_booking_id: originalBooking.id,
+          originating_booking_id: originalBooking.id,  // Links friend to original booking
         })
         .select('id')
         .single();
 
       if (bookingErr) throw bookingErr;
 
-      // Link original booking back to friend
-      await supabase
-        .from('intros_booked')
-        .update({ paired_booking_id: friendBooking.id })
-        .eq('id', originalBooking.id);
+      // Link original booking back to friend, and write referral log entry atomically
+      await Promise.all([
+        // Update original booking with cross-reference
+        supabase
+          .from('intros_booked')
+          .update({ paired_booking_id: friendBooking.id })
+          .eq('id', originalBooking.id),
+
+        // Write referral log entry — referrer gets credit
+        supabase.from('referrals').insert({
+          referrer_name: originalBooking.memberName,
+          referred_name: trimmedName,
+          referrer_booking_id: originalBooking.id,
+          referred_booking_id: friendBooking.id,
+          discount_applied: false,
+        }),
+      ]);
 
       // Auto-create questionnaire for friend
       try {
