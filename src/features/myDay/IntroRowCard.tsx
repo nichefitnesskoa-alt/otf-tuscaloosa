@@ -226,9 +226,9 @@ export default function IntroRowCard({
           </Button>
         </div>
 
-        {/* Prepped checkbox */}
+        {/* Prepped & Role Played checkbox */}
         <div className={cn(
-          'flex items-center gap-2 px-2 py-1.5 rounded-md border transition-colors',
+          'flex items-start gap-2 px-2 py-1.5 rounded-md border transition-colors',
           prepped ? 'bg-success/10 border-success/30' : 'bg-muted/20 border-border'
         )}>
           <Checkbox
@@ -236,16 +236,23 @@ export default function IntroRowCard({
             checked={prepped}
             onCheckedChange={(val) => handleTogglePrepped(!!val)}
             disabled={preppedSaving}
+            className="mt-0.5"
           />
-          <label
-            htmlFor={`prepped-${item.bookingId}`}
-            className={cn(
-              'text-xs font-medium cursor-pointer select-none',
-              prepped ? 'text-success' : 'text-muted-foreground'
-            )}
-          >
-            {prepped ? '✓ Prepped before class' : 'Prepped ✓ (tap to mark)'}
-          </label>
+          <div className="flex-1 min-w-0">
+            <label
+              htmlFor={`prepped-${item.bookingId}`}
+              className={cn(
+                'text-xs font-medium cursor-pointer select-none block',
+                prepped ? 'text-success' : 'text-muted-foreground'
+              )}
+              title="This means you reviewed their prep card AND role played digging deeper on their why and handling their likely objection before they walked in."
+            >
+              {prepped ? '✓ Prepped & Role Played' : 'Prepped & Role Played (tap to mark)'}
+            </label>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Reviewed card + practiced dig deeper + objection handling
+            </p>
+          </div>
           {preppedSaving && <span className="text-[10px] text-muted-foreground">saving…</span>}
         </div>
 
