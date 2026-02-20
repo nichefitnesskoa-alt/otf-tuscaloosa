@@ -1,17 +1,20 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { TrendingUp, GitBranch, Home, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const visibleItems = [
-  { path: '/my-day', label: 'My Day', icon: Home },
-  { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
-  { path: '/recaps', label: 'Studio', icon: TrendingUp },
-  { path: '/admin', label: 'Admin', icon: Settings },
-];
+import { useAuth } from '@/context/AuthContext';
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const visibleItems = [
+    { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+    { path: '/recaps', label: 'Studio', icon: TrendingUp },
+    // Admin tab only visible to users with Admin role
+    ...(user?.role === 'Admin' ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []),
+  ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
