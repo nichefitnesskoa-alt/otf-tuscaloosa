@@ -181,14 +181,14 @@ export function OutcomeDrawer({
           .eq('booking_id', bookingId)
           .eq('status', 'pending');
 
-        // 3. Insert Touch 1
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        // 3. Insert Touch 1 — next week (7 days out)
+        const touch1Date = format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd');
         const { error: qErr } = await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
           person_name: memberName,
           person_type: 'planning_reschedule',
           trigger_date: classDate,
-          scheduled_date: todayStr,
+          scheduled_date: touch1Date,
           touch_number: 1,
           status: 'pending',
           is_vip: false,
@@ -197,8 +197,8 @@ export function OutcomeDrawer({
         });
         if (qErr) throw qErr;
 
-        // 4. Touch 2 — 7 days out
-        const touch2Date = format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd');
+        // 4. Touch 2 — 14 days out
+        const touch2Date = format(new Date(Date.now() + 14 * 86400000), 'yyyy-MM-dd');
         await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
           person_name: memberName,
@@ -211,8 +211,8 @@ export function OutcomeDrawer({
           is_legacy: false,
         });
 
-        // 5. Touch 3 — 14 days out
-        const touch3Date = format(new Date(Date.now() + 14 * 86400000), 'yyyy-MM-dd');
+        // 5. Touch 3 — 21 days out
+        const touch3Date = format(new Date(Date.now() + 21 * 86400000), 'yyyy-MM-dd');
         await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
           person_name: memberName,
