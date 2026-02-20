@@ -56,11 +56,16 @@ export function usePipelineData() {
   }, []);
 
   const fetchVipInfo = useCallback(async () => {
-    const { data } = await supabase.from('vip_registrations').select('booking_id, birthday, weight_lbs');
+    const { data } = await supabase.from('vip_registrations').select('booking_id, birthday, weight_lbs, phone, email');
     if (data) {
       const map = new Map<string, VipInfo>();
       data.forEach((r: any) => {
-        if (r.booking_id) map.set(r.booking_id, { birthday: r.birthday, weight_lbs: r.weight_lbs });
+        if (r.booking_id) map.set(r.booking_id, {
+          birthday: r.birthday,
+          weight_lbs: r.weight_lbs,
+          phone: r.phone || null,
+          email: r.email || null,
+        });
       });
       setVipInfoMap(map);
     }

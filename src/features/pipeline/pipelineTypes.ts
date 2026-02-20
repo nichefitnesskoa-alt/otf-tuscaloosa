@@ -98,4 +98,6 @@ export type TabCounts = Record<JourneyTab, number>;
 export interface VipInfo {
   birthday: string | null;
   weight_lbs: number | null;
+  phone: string | null;
+  email: string | null;
 }

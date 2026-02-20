@@ -134,12 +134,18 @@ export const PipelineRowCard = memo(function PipelineRowCard({
               <span className="text-destructive">📱 No Phone</span>
             )}
             {email && <span className="truncate max-w-[180px]">✉️ {email}</span>}
-            {/* VIP info */}
+            {/* VIP info — show all 4 registration fields inline */}
             {(() => {
               const vip = journey.bookings.map(b => vipInfoMap.get(b.id)).find(v => v);
               if (!vip) return null;
               return (
                 <>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                    📱 {vip.phone || '—'}
+                  </span>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                    ✉️ {vip.email || '—'}
+                  </span>
                   {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
                   {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
                 </>
