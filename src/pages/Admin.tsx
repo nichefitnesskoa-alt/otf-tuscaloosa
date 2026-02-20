@@ -380,7 +380,7 @@ export default function Admin() {
 
   // Only admin can access
   if (user?.role !== 'Admin') {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/my-day" replace />;
   }
 
   const handleSaveSpreadsheetId = () => {

@@ -22,7 +22,7 @@ import {
 import {
   Star, Plus, Users, CalendarPlus, ChevronDown, ChevronRight,
   Shuffle, CheckSquare, Loader2, ArrowLeft, Clock, ClipboardList,
-  Trash2,
+  Trash2, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -482,6 +482,20 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
             {groupName}
           </h2>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1 text-xs"
+          onClick={() => {
+            const slug = groupName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            const link = `${window.location.origin}/vip-register?class=${encodeURIComponent(groupName)}`;
+            navigator.clipboard.writeText(link);
+            toast.success('Registration link copied!');
+          }}
+        >
+          <Copy className="w-3.5 h-3.5" />
+          Copy Reg Link
+        </Button>
       </div>
 
       {/* Summary Dashboard */}

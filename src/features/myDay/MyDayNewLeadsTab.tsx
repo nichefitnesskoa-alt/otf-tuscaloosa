@@ -16,12 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
-  AlertTriangle, Ban, RotateCcw, Info, ExternalLink,
+  AlertTriangle, Ban, RotateCcw, Info, ExternalLink, Search, Loader2,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
-import { runDeduplicationForLead } from '@/lib/leads/detectDuplicate';
+import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
 
 // Speed-to-lead helpers
 function getSpeedInfo(createdAt: string) {
@@ -54,6 +54,9 @@ interface LeadCardProps {
 }
 
 function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
+  const [findResult, setFindResult] = useState<DuplicateResult | null>(null);
+  const [finding, setFinding] = useState(false);
+
   const stage = lead.stage;
   const isNew = stage === 'new';
   const isFlagged = stage === 'flagged';
@@ -65,6 +68,16 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
   const handleCopyPhone = async () => {
     if (lead.phone) { await navigator.clipboard.writeText(lead.phone); toast.success('Phone copied!'); }
     else toast.info('No phone on file');
+  };
+
+  const handleFindInSystem = async () => {
+    setFinding(true);
+    try {
+      const result = await detectDuplicate({ first_name: lead.first_name, last_name: lead.last_name, phone: lead.phone, email: lead.email });
+      setFindResult(result);
+    } finally {
+      setFinding(false);
+    }
   };
 
   // Banner + border colors
@@ -119,6 +132,28 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
           </div>
         )}
 
+        {/* ── Find in System button (New + Flagged only) ── */}
+        {(isNew || isFlagged) && (
+          <div className="space-y-1.5">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleFindInSystem} disabled={finding}>
+              {finding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              🔍 Find in System
+            </Button>
+            {findResult && (
+              <div className={`rounded px-2.5 py-1.5 text-[11px] ${findResult.isDuplicate ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200' : 'bg-muted/50 border border-border text-muted-foreground'}`}>
+                {findResult.isDuplicate
+                  ? <>✓ Match found — {findResult.summaryNote}
+                    <div className="flex gap-1.5 mt-1.5">
+                      <Button size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => onAction(lead.id, 'confirm_duplicate')}>Confirm → Move to In System</Button>
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setFindResult(null)}>Dismiss</Button>
+                    </div>
+                  </>
+                  : 'No match found — safe to contact'}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Visible action buttons — per tab state ── */}
         {isNew && (
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -147,7 +182,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
               <Ban className="w-3.5 h-3.5" /> Confirm Duplicate
             </Button>
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-green-600 text-green-700" onClick={() => onAction(lead.id, 'confirm_not_duplicate')}>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-success border-success" onClick={() => onAction(lead.id, 'confirm_not_duplicate')}>
               <CheckCircle className="w-3.5 h-3.5" /> Not a Duplicate
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
@@ -229,6 +264,9 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
   const [subTab, setSubTab] = useState('new');
   const dedupRunning = useRef(false);
+  // Stable refs so backgroundDedupRecheck doesn't change identity each render (avoids React #300)
+  const leadsRef = useRef<Lead[]>([]);
+  const fetchLeadsRef = useRef<() => Promise<void>>(async () => {});
 
   const fetchLeads = useCallback(async () => {
     const { data, error } = await supabase
@@ -239,24 +277,22 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
       .limit(300);
     if (!error && data) {
       setLeads(data as Lead[]);
+      leadsRef.current = data as Lead[];
       onCountChange((data as Lead[]).filter(l => l.stage === 'new').length);
     }
     setLoading(false);
   }, [onCountChange]);
 
+  // Keep fetchLeadsRef current
+  fetchLeadsRef.current = fetchLeads;
+
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
-  /**
-   * Background dedup recheck — Direction 5 (tab focus / on load).
-   * Silently re-runs dedup on all 'new' and 'contacted' leads.
-   * No loading state shown.
-   */
-  const backgroundDedupRecheck = useCallback(async (currentLeads?: Lead[]) => {
+  const backgroundDedupRecheck = useCallback(async () => {
     if (dedupRunning.current) return;
     dedupRunning.current = true;
     try {
-      const sourceLeads = currentLeads || leads;
-      const active = sourceLeads.filter(l =>
+      const active = leadsRef.current.filter(l =>
         (l.stage === 'new' || l.stage === 'contacted') && !l.duplicate_override
       );
       if (active.length === 0) return;
@@ -270,19 +306,18 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           duplicate_override: lead.duplicate_override ?? false,
         });
       }
-      // Refresh after background check
-      await fetchLeads();
+      await fetchLeadsRef.current();
     } finally {
       dedupRunning.current = false;
     }
-  }, [leads, fetchLeads]);
+  // Stable — uses refs, no deps
+  }, []);
 
   // Run background dedup once when tab mounts
   useEffect(() => {
     const timer = setTimeout(() => backgroundDedupRecheck(), 1500);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount
+  }, [backgroundDedupRecheck]);
 
   // ── Real-time subscriptions ──────────────────────────────────────────────
   useEffect(() => {

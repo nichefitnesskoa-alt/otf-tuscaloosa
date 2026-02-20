@@ -1,6 +1,6 @@
 /**
  * Centralized lead deduplication engine.
- * Checks a lead against intros_booked, intros_run, and sales records.
+ * Checks a lead against intros_booked, intros_run, AND sales_outside_intro.
  * Priority: phone > email > name+date > name only
  */
 import { supabase } from '@/integrations/supabase/client';
@@ -42,9 +42,13 @@ export async function detectDuplicate(lead: {
   const normalizedPhone = normalizePhone(lead.phone);
   const normalizedEmail = normalizeEmail(lead.email);
 
-  // ── PASS 1: Phone match (highest confidence) ──
+  // ── PASS 1: Phone match in sales_outside_intro (active member) ──
   if (normalizedPhone) {
-    // Check intros_booked by phone or phone_e164
+    // sales_outside_intro doesn't store phone, but we can match by name — skip phone here
+  }
+
+  // ── PASS 1b: Phone match in intros_booked (highest confidence) ──
+  if (normalizedPhone) {
     const { data: phoneBookings } = await supabase
       .from('intros_booked')
       .select('id, member_name, class_date, booking_status_canon, phone, phone_e164')
@@ -89,11 +93,51 @@ export async function detectDuplicate(lead: {
     }
   }
 
-  // ── PASS 3: Name + date match (medium confidence) ──
+  // ── PASS 3: Name match in sales_outside_intro (active member / walk-in sale) ──
+  const { data: outsideSales } = await supabase
+    .from('sales_outside_intro')
+    .select('id, member_name, date_closed, membership_type')
+    .ilike('member_name', memberName)
+    .limit(1);
+
+  if (outsideSales && outsideSales.length > 0) {
+    const s = outsideSales[0];
+    return {
+      isDuplicate: true,
+      confidence: 'HIGH',
+      matchType: 'name_date',
+      matchedRecord: { table: 'sales_outside_intro', id: s.id, name: s.member_name, date: s.date_closed || undefined },
+      existingStatus: 'active_member',
+      summaryNote: `Walk-in sale match: ${s.member_name} — ${s.membership_type} purchased${s.date_closed ? ` on ${s.date_closed}` : ''}`,
+    };
+  }
+
+  // ── PASS 4: Name match in intros_run ──
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 365);
   const cutoffStr = cutoff.toISOString().split('T')[0];
 
+  const { data: runs } = await supabase
+    .from('intros_run')
+    .select('id, member_name, run_date, result_canon')
+    .ilike('member_name', memberName)
+    .gte('run_date', cutoffStr)
+    .limit(1);
+
+  if (runs && runs.length > 0) {
+    const r = runs[0];
+    const isPurchased = r.result_canon === 'PURCHASED';
+    return {
+      isDuplicate: true,
+      confidence: 'MEDIUM',
+      matchType: 'name_date',
+      matchedRecord: { table: 'intros_run', id: r.id, name: r.member_name, date: r.run_date || undefined },
+      existingStatus: isPurchased ? 'purchased' : 'prior_intro',
+      summaryNote: `Intro run match: ${r.member_name} — ${isPurchased ? 'purchased' : 'ran an intro'} on ${r.run_date}`,
+    };
+  }
+
+  // ── PASS 5: Name + date match in intros_booked ──
   const { data: nameBookings } = await supabase
     .from('intros_booked')
     .select('id, member_name, class_date, booking_status_canon')
@@ -115,7 +159,7 @@ export async function detectDuplicate(lead: {
     };
   }
 
-  // ── PASS 4: Name-only match (low confidence) ──
+  // ── PASS 6: Name-only match in intros_booked (low confidence) ──
   const { data: nameOnlyBookings } = await supabase
     .from('intros_booked')
     .select('id, member_name, class_date, booking_status_canon')
@@ -144,6 +188,7 @@ export async function detectDuplicate(lead: {
     summaryNote: null,
   };
 }
+
 
 /** Map confidence to lead stage */
 export function confidenceToStage(confidence: DuplicateConfidence, currentStage = 'new'): string {
