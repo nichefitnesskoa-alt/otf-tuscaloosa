@@ -87,26 +87,29 @@ export function CloseOutShift({
 
       // Intros booked today for this SA — includes friend bookings (booked_by) and shift bookings (sa_working_shift)
       // Fetch both and deduplicate so friend bookings without shift_recap_id are always counted
+      // Exclude VIP/COMP bookings from counts
       const [bookedByShift, bookedByAttrib] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('id')
+          .select('id, booking_type_canon')
           .eq('class_date', today)
           .eq('sa_working_shift', user.name)
           .is('deleted_at', null),
         supabase
           .from('intros_booked')
-          .select('id')
+          .select('id, booking_type_canon')
           .eq('class_date', today)
           .eq('booked_by', user.name)
           .is('deleted_at', null),
       ]);
-      // Deduplicate by id
-      const allBookedIds = new Set([
-        ...((bookedByShift.data || []).map((b: { id: string }) => b.id)),
-        ...((bookedByAttrib.data || []).map((b: { id: string }) => b.id)),
-      ]);
-      const booked = { data: Array.from(allBookedIds).map(id => ({ id })) };
+      // Deduplicate by id and exclude VIP/COMP
+      const allBookedIds = new Set<string>();
+      for (const b of [...(bookedByShift.data || []), ...(bookedByAttrib.data || [])]) {
+        const btc = (b as any).booking_type_canon;
+        if (btc !== 'VIP' && btc !== 'COMP') {
+          allBookedIds.add(b.id);
+        }
+      }
 
       // Intros run today
       const { data: ran } = await supabase

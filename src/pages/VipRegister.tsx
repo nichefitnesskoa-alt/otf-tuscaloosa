@@ -62,6 +62,8 @@ export default function VipRegister() {
           lead_source: 'VIP Class',
           booked_by: 'Self (VIP Form)',
           booking_status: 'Unscheduled',
+          booking_type_canon: 'VIP',
+          booking_status_canon: 'ACTIVE',
           vip_class_name: vipClassName || null,
           is_vip: true,
         } as any)

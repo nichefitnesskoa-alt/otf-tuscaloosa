@@ -84,13 +84,14 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
     setLoading(true);
     try {
       const [bookingsRes, outcomesRes, salesRes] = await Promise.all([
-        // Bookings created today by this SA
+        // Bookings created today by this SA (exclude VIP/COMP)
         supabase
           .from('intros_booked')
-          .select('id, member_name, intro_time, coach_name, lead_source, created_at')
+          .select('id, member_name, intro_time, coach_name, lead_source, created_at, booking_type_canon')
           .eq('booked_by', user.name)
           .gte('created_at', todayStart)
           .is('deleted_at', null)
+          .not('booking_type_canon', 'in', '("VIP","COMP")')
           .order('created_at', { ascending: true }),
 
         // Outcomes logged today by this SA (intros_run)
