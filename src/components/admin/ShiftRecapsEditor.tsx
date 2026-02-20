@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ClipboardList, Trash2, Edit, RefreshCw, Search, AlertTriangle, Eye } from 'lucide-react';
+import { ClipboardList, Trash2, Edit, RefreshCw, Search, AlertTriangle, Eye, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -39,6 +39,14 @@ interface ShiftRecap {
   other_info: string | null;
   created_at: string;
 }
+
+interface DailyRecap {
+  id: string;
+  status: string;
+  recap_text: string;
+  error_message: string | null;
+}
+
 
 export default function ShiftRecapsEditor() {
   const [recaps, setRecaps] = useState<ShiftRecap[]>([]);
@@ -64,6 +72,8 @@ export default function ShiftRecapsEditor() {
   const [recapToDelete, setRecapToDelete] = useState<ShiftRecap | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [failedRecapMap, setFailedRecapMap] = useState<Record<string, DailyRecap>>({});
 
   const fetchRecaps = async () => {
     setIsLoading(true);
@@ -76,12 +86,50 @@ export default function ShiftRecapsEditor() {
         .limit(100);
 
       if (error) throw error;
-      setRecaps(data || []);
+      const recapList = data || [];
+      setRecaps(recapList);
+
+      // Fetch daily_recaps status for each shift recap to detect failed GroupMe posts
+      const ids = recapList.map(r => r.id).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: dailyData } = await supabase
+          .from('daily_recaps')
+          .select('id, shift_recap_id, status, recap_text, error_message')
+          .in('shift_recap_id', ids);
+        const map: Record<string, DailyRecap> = {};
+        (dailyData || []).forEach((d: any) => {
+          if (d.shift_recap_id) map[d.shift_recap_id] = { id: d.id, status: d.status, recap_text: d.recap_text, error_message: d.error_message };
+        });
+        setFailedRecapMap(map);
+      }
     } catch (error) {
       console.error('Error fetching shift recaps:', error);
       toast.error('Failed to load shift recaps');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendGroupMe = async (recap: ShiftRecap) => {
+    const dailyRecap = failedRecapMap[recap.id];
+    if (!dailyRecap) return;
+    setResendingId(recap.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('post-groupme', {
+        body: { text: dailyRecap.recap_text, staffName: recap.staff_name },
+      });
+      if (error || !data?.success) {
+        await supabase.from('daily_recaps').update({ status: 'failed', error_message: error?.message || data?.error || 'Unknown' }).eq('id', dailyRecap.id);
+        toast.error('GroupMe resend failed — check bot configuration');
+      } else {
+        await supabase.from('daily_recaps').update({ status: 'sent', error_message: null }).eq('id', dailyRecap.id);
+        toast.success('Recap resent to GroupMe ✓');
+        await fetchRecaps();
+      }
+    } catch (err) {
+      toast.error('GroupMe resend failed');
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -306,6 +354,19 @@ export default function ShiftRecapsEditor() {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
+                          {/* Resend to GroupMe — only shown if last post failed */}
+                          {failedRecapMap[recap.id]?.status === 'failed' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[10px] px-2 gap-1 border-primary text-primary hover:bg-primary/10"
+                              onClick={() => handleResendGroupMe(recap)}
+                              disabled={resendingId === recap.id}
+                            >
+                              <Send className="w-3 h-3" />
+                              {resendingId === recap.id ? '…' : 'Resend'}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
