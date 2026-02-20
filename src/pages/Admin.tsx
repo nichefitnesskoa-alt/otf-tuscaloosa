@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,6 +69,57 @@ function PhoneBackfillCard() {
           </Button>
           {result !== null && (
             <span className="text-sm text-muted-foreground">Updated {result} rows</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FixVipBookingTypesCard() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<number | null>(null);
+
+  const handleFix = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase
+        .from('intros_booked')
+        .update({ booking_type_canon: 'VIP' } as any)
+        .eq('is_vip', true)
+        .neq('booking_type_canon', 'VIP')
+        .neq('booking_type_canon', 'COMP')
+        .select('id');
+      if (error) throw error;
+      const count = data?.length ?? 0;
+      setResult(count);
+      toast.success(`Fixed ${count} record${count !== 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Fix failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Star className="w-4 h-4" />
+          Fix VIP Booking Types
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Finds all bookings where is_vip=true but booking_type_canon is not 'VIP'. Sets them to 'VIP' so they're correctly excluded from MyDay.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleFix} disabled={running} variant="outline">
+            {running ? 'Running…' : 'Fix VIP booking types'}
+          </Button>
+          {result !== null && (
+            <span className="text-sm text-muted-foreground">Fixed {result} records</span>
           )}
         </div>
       </CardContent>
@@ -499,6 +550,7 @@ export default function Admin() {
           <IntegrityDashboard />
           <ShiftRecapsEditor />
           <PhoneBackfillCard />
+          <FixVipBookingTypesCard />
           <QuestionnaireReconcileCard />
           <QuestionnaireSlugBackfillCard />
         </TabsContent>

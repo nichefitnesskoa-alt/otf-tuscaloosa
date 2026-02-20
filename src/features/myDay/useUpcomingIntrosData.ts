@@ -220,8 +220,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           })
         : rawItems.filter(i => !i.hasLinkedRun);
 
+      // Client-side guard: exclude any VIP bookings that slipped through the DB filter
+      const nonVipItems = activeItems.filter(i => !i.isVip);
+
       // Enrich with risk (kept internally for "needs attention" logic) and sort by time
-      const enriched = enrichWithRisk(activeItems, nowISO);
+      const enriched = enrichWithRisk(nonVipItems, nowISO);
       const sorted = sortByTime(enriched);
 
       setItems(sorted);
