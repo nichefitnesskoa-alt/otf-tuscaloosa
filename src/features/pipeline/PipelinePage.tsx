@@ -40,7 +40,7 @@ import { useData } from '@/context/DataContext';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePipelineData } from './usePipelineData';
 import { PipelineFiltersBar } from './components/PipelineFiltersBar';
-import { PipelineTable } from './components/PipelineTable';
+import { PipelineSpreadsheet } from './components/PipelineSpreadsheet';
 import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import { VipPipelineTable } from './components/VipPipelineTable';
@@ -179,7 +179,7 @@ export default function PipelinePage() {
           ) : pipeline.activeTab === 'vip_class' ? (
             <VipPipelineTable />
           ) : (
-            <PipelineTable
+            <PipelineSpreadsheet
               journeys={pipeline.filteredJourneys}
               vipGroups={pipeline.vipGroups}
               vipInfoMap={pipeline.vipInfoMap}
