@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Upload, Star, CheckCircle, AlertTriangle, Link, Copy, ArrowRight } from 'lucide-react';
+import { Loader2, Upload, Star, CheckCircle, AlertTriangle, Link, Copy, ArrowRight, ExternalLink } from 'lucide-react';
 import VipGroupDetail from './VipGroupDetail';
 
 interface ParsedRow {
@@ -212,22 +212,47 @@ export default function VipBulkImport() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {groups.map(g => (
-              <div
-                key={g.name}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
-                onClick={() => setActiveGroup(g.name)}
-              >
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-purple-500" />
-                  <span className="font-medium text-sm">{g.name}</span>
+            {groups.map(g => {
+              const regLink = `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(g.name)}`;
+              return (
+                <div
+                  key={g.name}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                >
+                  <button
+                    className="flex items-center gap-2 flex-1 text-left"
+                    onClick={() => setActiveGroup(g.name)}
+                  >
+                    <Star className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <span className="font-medium text-sm">{g.name}</span>
+                  </button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="secondary" className="text-xs">{g.count} members</Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(regLink);
+                        toast.success(`${g.name} registration link copied!`);
+                      }}
+                    >
+                      <Copy className="w-3 h-3" />
+                      Copy Link
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground"
+                      onClick={() => setActiveGroup(g.name)}
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">{g.count} members</Badge>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       )}
