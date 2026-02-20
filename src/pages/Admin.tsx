@@ -174,11 +174,12 @@ function DuplicateDetectionCard() {
     setRunning(true);
     setResult(null);
     try {
+      // Include 'contacted' leads — they may have matched a booking that was created after they were contacted
       const { data: leads, error } = await supabase
         .from('leads')
         .select('id, first_name, last_name, phone, email, stage, duplicate_override')
-        .not('stage', 'in', '("lost","already_in_system","booked","won","contacted")')
-        .is('duplicate_override', null);
+        .in('stage', ['new', 'contacted', 'flagged'])
+        .neq('duplicate_override', true);
 
       if (error) throw error;
       if (!leads || leads.length === 0) { toast.success('No leads to process'); setRunning(false); return; }
