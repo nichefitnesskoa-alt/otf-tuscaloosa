@@ -1,8 +1,10 @@
 /**
  * PipelineNewLeadsTab — New Leads sub-tab for Pipeline.
- * Same data source as MyDay New Leads. Sub-tabs: New | Flagged | Contacted | Booked | Already in System
+ * Identical card layout and button rows as MyDayNewLeadsTab.
+ * Sub-tabs: New | Flagged | Contacted | Booked | Already in System
+ * Also listens for intros_booked / intros_run changes and re-runs dedup.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 import { differenceInMinutes, parseISO } from 'date-fns';
@@ -12,16 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
-  MoreVertical, AlertTriangle, Ban, RotateCcw, Info,
+  AlertTriangle, Ban, RotateCcw, Info, ExternalLink,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { runDeduplicationForLead } from '@/lib/leads/detectDuplicate';
 
 type Lead = Tables<'leads'> & {
   duplicate_notes?: string | null;
@@ -47,11 +46,12 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
   onScript: (lead: Lead) => void;
 }) {
   const stage = lead.stage;
+  const isNew = stage === 'new';
   const isFlagged = stage === 'flagged';
   const isContacted = stage === 'contacted';
   const isBooked = stage === 'booked' || stage === 'won';
   const isAlreadyInSystem = stage === 'already_in_system';
-  const hasLowFlag = stage === 'new' && lead.duplicate_confidence === 'LOW';
+  const hasLowFlag = isNew && lead.duplicate_confidence === 'LOW';
 
   const handleCopyPhone = async () => {
     if (lead.phone) { await navigator.clipboard.writeText(lead.phone); toast.success('Phone copied!'); }
@@ -77,7 +77,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
     <div className="rounded-lg overflow-hidden bg-card" style={{ border: `2px solid ${borderColor}` }}>
       <StatusBanner bgColor={bannerBg} text={bannerText} />
       <div className="p-3 space-y-2">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="font-bold text-[15px]">{lead.first_name} {lead.last_name}</p>
@@ -90,68 +90,101 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
                 : <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Phone missing</Badge>}
             </div>
           </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                <MoreVertical className="w-3.5 h-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {isAlreadyInSystem ? (
-                <DropdownMenuItem onClick={() => onAction(lead.id, 'move_to_new')}><RotateCcw className="w-3.5 h-3.5 mr-2" />Move back to New</DropdownMenuItem>
-              ) : isFlagged ? (
-                <>
-                  <DropdownMenuItem onClick={() => onAction(lead.id, 'confirm_duplicate')} className="text-destructive"><Ban className="w-3.5 h-3.5 mr-2" />Confirm duplicate</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onAction(lead.id, 'confirm_not_duplicate')} className="text-success"><CheckCircle className="w-3.5 h-3.5 mr-2" />Not a duplicate</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onBook(lead)}><CalendarPlus className="w-3.5 h-3.5 mr-2" />Book Intro</DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  {!isContacted && !isBooked && <DropdownMenuItem onClick={() => onAction(lead.id, 'contacted')}><CheckCircle className="w-3.5 h-3.5 mr-2" />Mark Contacted</DropdownMenuItem>}
-                  {!isBooked && <DropdownMenuItem onClick={() => onBook(lead)}><CalendarPlus className="w-3.5 h-3.5 mr-2" />Book Intro</DropdownMenuItem>}
-                  <DropdownMenuItem onClick={() => onAction(lead.id, 'confirm_duplicate')} className="text-muted-foreground"><Ban className="w-3.5 h-3.5 mr-2" />Mark Already in System</DropdownMenuItem>
-                  {(isContacted || isBooked) && <DropdownMenuItem onClick={() => onAction(lead.id, 'move_to_new')}><RotateCcw className="w-3.5 h-3.5 mr-2" />Move back to New</DropdownMenuItem>}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {isFlagged && lead.duplicate_notes && (
-          <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">⚠ {lead.duplicate_notes}</div>
-        )}
-        {isAlreadyInSystem && lead.duplicate_notes && (
-          <div className="rounded bg-muted/60 border border-muted-foreground/20 px-2.5 py-1.5 text-[11px] text-muted-foreground">{lead.duplicate_notes}</div>
-        )}
-
-        {!isBooked && !isAlreadyInSystem && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {!isFlagged && (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onScript(lead)}>
-                <MessageSquare className="w-3.5 h-3.5" /> Script
-              </Button>
-            )}
-            {isFlagged ? (
-              <>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
-                  <Ban className="w-3.5 h-3.5" /> Confirm duplicate
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-success text-success" onClick={() => onAction(lead.id, 'confirm_not_duplicate')}>
-                  <CheckCircle className="w-3.5 h-3.5" /> Not a duplicate
-                </Button>
-              </>
-            ) : (
-              <>
-                {!isContacted && <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}><CalendarPlus className="w-3.5 h-3.5" /> Book</Button>}
-                {lead.phone && <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleCopyPhone}><Copy className="w-3.5 h-3.5" /> Copy #</Button>}
-                {!isContacted && <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'contacted')}><CheckCircle className="w-3.5 h-3.5" /> Contacted</Button>}
-              </>
-            )}
+          <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+            ⚠ {lead.duplicate_notes}
           </div>
         )}
-        {isBooked && <p className="text-[11px] text-muted-foreground">Intro booked — visible in Pipeline</p>}
+        {isAlreadyInSystem && lead.duplicate_notes && (
+          <div className="rounded bg-muted/60 border border-muted-foreground/20 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            {lead.duplicate_notes}
+          </div>
+        )}
+
+        {/* ── Visible action buttons — per tab state (identical to MyDay) ── */}
+        {isNew && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onScript(lead)}>
+              <MessageSquare className="w-3.5 h-3.5" /> Script
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
+              <CalendarPlus className="w-3.5 h-3.5" /> Book
+            </Button>
+            {lead.phone && (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleCopyPhone}>
+                <Copy className="w-3.5 h-3.5" /> Copy #
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'contacted')}>
+              <CheckCircle className="w-3.5 h-3.5" /> Contacted
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
+              <Ban className="w-3.5 h-3.5" /> Mark in System
+            </Button>
+          </div>
+        )}
+
+        {isFlagged && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
+              <Ban className="w-3.5 h-3.5" /> Confirm Duplicate
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-green-600 text-green-700" onClick={() => onAction(lead.id, 'confirm_not_duplicate')}>
+              <CheckCircle className="w-3.5 h-3.5" /> Not a Duplicate
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
+              <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
+            </Button>
+          </div>
+        )}
+
+        {isContacted && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onScript(lead)}>
+              <MessageSquare className="w-3.5 h-3.5" /> Script
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
+              <CalendarPlus className="w-3.5 h-3.5" /> Book
+            </Button>
+            {lead.phone && (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleCopyPhone}>
+                <Copy className="w-3.5 h-3.5" /> Copy #
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
+              <RotateCcw className="w-3.5 h-3.5" /> Move to New
+            </Button>
+          </div>
+        )}
+
+        {isBooked && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onScript(lead)}>
+              <MessageSquare className="w-3.5 h-3.5" /> Script
+            </Button>
+            {lead.phone && (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleCopyPhone}>
+                <Copy className="w-3.5 h-3.5" /> Copy #
+              </Button>
+            )}
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => {}}>
+              <ExternalLink className="w-3.5 h-3.5" /> View Booking
+            </Button>
+          </div>
+        )}
+
+        {isAlreadyInSystem && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
+              <RotateCcw className="w-3.5 h-3.5" /> Move to New
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => {}}>
+              <ExternalLink className="w-3.5 h-3.5" /> View Record
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -164,6 +197,7 @@ export function PipelineNewLeadsTab() {
   const [subTab, setSubTab] = useState('new');
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
+  const dedupRunning = useRef(false);
 
   const fetchLeads = useCallback(async () => {
     const { data } = await supabase
@@ -177,6 +211,74 @@ export function PipelineNewLeadsTab() {
   }, []);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
+
+  /** Background dedup — Direction 5 */
+  const backgroundDedupRecheck = useCallback(async () => {
+    if (dedupRunning.current) return;
+    dedupRunning.current = true;
+    try {
+      const active = leads.filter(l =>
+        (l.stage === 'new' || l.stage === 'contacted') && !l.duplicate_override
+      );
+      for (const lead of active) {
+        await runDeduplicationForLead(lead.id, {
+          first_name: lead.first_name,
+          last_name: lead.last_name,
+          phone: lead.phone,
+          email: lead.email,
+          stage: lead.stage,
+          duplicate_override: lead.duplicate_override ?? false,
+        });
+      }
+      await fetchLeads();
+    } finally {
+      dedupRunning.current = false;
+    }
+  }, [leads, fetchLeads]);
+
+  // Background dedup on mount
+  useEffect(() => {
+    const timer = setTimeout(() => backgroundDedupRecheck(), 1500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Real-time: leads + intros_booked + intros_run
+  useEffect(() => {
+    const leadsChannel = supabase
+      .channel('pipeline-leads-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, (payload) => {
+        const newLead = payload.new as Lead;
+        setLeads(prev => prev.find(l => l.id === newLead.id) ? prev : [newLead, ...prev]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, (payload) => {
+        const updated = payload.new as Lead;
+        setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+      })
+      .subscribe();
+
+    const bookingsChannel = supabase
+      .channel('pipeline-bookings-dedup')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'intros_booked' }, async () => {
+        await new Promise(r => setTimeout(r, 800));
+        backgroundDedupRecheck();
+      })
+      .subscribe();
+
+    const runsChannel = supabase
+      .channel('pipeline-runs-dedup')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'intros_run' }, async () => {
+        await new Promise(r => setTimeout(r, 800));
+        backgroundDedupRecheck();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(runsChannel);
+    };
+  }, [backgroundDedupRecheck]);
 
   const handleAction = async (leadId: string, action: LeadAction) => {
     let update: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -226,12 +328,12 @@ export function PipelineNewLeadsTab() {
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="w-full flex h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg flex-wrap">
           {[
-            { value: 'new', label: 'New', count: newLeads.length, variant: 'destructive' as const },
-            { value: 'flagged', label: 'Flagged', count: flaggedLeads.length, variant: 'warning' as const },
-            { value: 'contacted', label: 'Contacted', count: contactedLeads.length, variant: 'secondary' as const },
-            { value: 'booked', label: 'Booked', count: bookedLeads.length, variant: 'secondary' as const },
-            { value: 'system', label: 'In System', count: alreadyInSystem.length, variant: 'secondary' as const },
-          ].map(({ value, label, count, variant }) => (
+            { value: 'new', label: 'New', count: newLeads.length, badgeVariant: 'destructive' as const },
+            { value: 'flagged', label: 'Flagged', count: flaggedLeads.length, badgeVariant: 'warning' as const },
+            { value: 'contacted', label: 'Contacted', count: contactedLeads.length, badgeVariant: 'secondary' as const },
+            { value: 'booked', label: 'Booked', count: bookedLeads.length, badgeVariant: 'secondary' as const },
+            { value: 'system', label: 'In System', count: alreadyInSystem.length, badgeVariant: 'secondary' as const },
+          ].map(({ value, label, count, badgeVariant }) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -241,7 +343,7 @@ export function PipelineNewLeadsTab() {
               {label}
               {count > 0 && (
                 <Badge
-                  variant={variant === 'warning' ? 'secondary' : variant}
+                  variant={badgeVariant === 'warning' ? 'secondary' : badgeVariant}
                   className={`h-3.5 px-1 text-[9px] min-w-[16px] ${value === 'flagged' ? 'bg-amber-500 text-white' : ''}`}
                 >
                   {count}
