@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2, UserPlus } from 'lucide-react';
+import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
@@ -345,6 +346,7 @@ export default function MyDayPage() {
         <div className="px-4 pb-24 pt-3 space-y-3">
           {/* TODAY */}
           <TabsContent value="today" className="mt-0 space-y-3">
+            <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
           </TabsContent>
 
