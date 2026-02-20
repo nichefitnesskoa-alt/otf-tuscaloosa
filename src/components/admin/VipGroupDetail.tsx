@@ -22,7 +22,7 @@ import {
 import {
   Star, Plus, Users, CalendarPlus, ChevronDown, ChevronRight,
   Shuffle, CheckSquare, Loader2, ArrowLeft, Clock, ClipboardList,
-  Trash2, Copy,
+  Trash2, Copy, Phone, Mail, Cake, Weight, Download, Share2, ChevronUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -51,6 +51,18 @@ interface VipMember {
   lead_source: string;
 }
 
+interface VipRegistration {
+  id: string;
+  booking_id: string | null;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string | null;
+  birthday: string | null;
+  weight_lbs: number | null;
+  vip_class_name: string | null;
+}
+
 interface VipGroupDetailProps {
   groupName: string;
   onBack: () => void;
@@ -59,10 +71,12 @@ interface VipGroupDetailProps {
 export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProps) {
   const [sessions, setSessions] = useState<VipSession[]>([]);
   const [members, setMembers] = useState<VipMember[]>([]);
+  const [registrations, setRegistrations] = useState<VipRegistration[]>([]);
   const [questionnaireStats, setQuestionnaireStats] = useState({ completed: 0, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set(['unscheduled']));
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [showAddSession, setShowAddSession] = useState(false);
   const [newSessionLabel, setNewSessionLabel] = useState('');
   const [newSessionDate, setNewSessionDate] = useState('');
@@ -72,7 +86,7 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [sessionsRes, membersRes] = await Promise.all([
+      const [sessionsRes, membersRes, registrationsRes] = await Promise.all([
         supabase
           .from('vip_sessions')
           .select('*')
@@ -84,10 +98,15 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
           .eq('vip_class_name', groupName)
           .is('deleted_at', null)
           .order('member_name', { ascending: true }),
+        supabase
+          .from('vip_registrations')
+          .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name')
+          .eq('vip_class_name', groupName),
       ]);
 
       if (sessionsRes.data) setSessions(sessionsRes.data as VipSession[]);
       if (membersRes.data) setMembers(membersRes.data as VipMember[]);
+      if (registrationsRes.data) setRegistrations(registrationsRes.data as VipRegistration[]);
 
       // Fetch questionnaire stats
       if (membersRes.data && membersRes.data.length > 0) {
@@ -111,6 +130,15 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Build a map from booking_id → registration
+  const registrationByBookingId = useMemo(() => {
+    const map = new Map<string, VipRegistration>();
+    registrations.forEach(r => {
+      if (r.booking_id) map.set(r.booking_id, r);
+    });
+    return map;
+  }, [registrations]);
 
   const scheduledCount = members.filter(m => m.vip_session_id).length;
   const unscheduledCount = members.filter(m => !m.vip_session_id).length;
@@ -161,7 +189,6 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
   };
 
   const handleDeleteSession = async (sessionId: string) => {
-    // Unassign all members from this session first
     const sessionMembers = membersBySession.get(sessionId) || [];
     if (sessionMembers.length > 0) {
       await supabase
@@ -194,34 +221,41 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
     setAssigning(true);
     try {
       const ids = Array.from(selectedMembers);
-      const updateData: any = {
-        vip_session_id: sessionId,
-        booking_status: 'Active',
-      };
 
-      if (session.session_date) {
-        updateData.class_date = session.session_date;
-      }
-      if (session.session_time) {
-        updateData.intro_time = session.session_time;
-      }
-
-      await supabase
-        .from('intros_booked')
-        .update(updateData)
-        .in('id', ids);
-
-      // Create questionnaire records for newly scheduled members
       for (const memberId of ids) {
-        const member = members.find(m => m.id === memberId);
-        if (!member || !session.session_date) continue;
+        const updateData: any = {
+          vip_session_id: sessionId,
+          booking_status: 'Active',
+        };
 
+        if (session.session_date) updateData.class_date = session.session_date;
+        if (session.session_time) updateData.intro_time = session.session_time;
+
+        // Carry over phone/email from registration if booking doesn't have them
+        const reg = registrationByBookingId.get(memberId);
+        const member = members.find(m => m.id === memberId);
+        if (reg) {
+          if (!member?.phone && reg.phone) {
+            // Normalize to E.164 if 10 digits
+            const digits = reg.phone.replace(/\D/g, '');
+            updateData.phone = digits.length === 10 ? `+1${digits}` : reg.phone;
+            updateData.phone_e164 = digits.length === 10 ? `+1${digits}` : null;
+            updateData.phone_source = 'vip_registration';
+          }
+          if (!member?.email && reg.email) {
+            updateData.email = reg.email;
+          }
+        }
+
+        await supabase.from('intros_booked').update(updateData).eq('id', memberId);
+
+        // Create questionnaire records for newly scheduled members
+        if (!member || !session.session_date) continue;
         const nameParts = member.member_name.trim().split(/\s+/);
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         const slug = `${firstName}-${lastName}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
 
-        // Check if questionnaire already exists
         const { data: existing } = await supabase
           .from('intro_questionnaires')
           .select('id')
@@ -266,7 +300,6 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
 
     setAssigning(true);
     try {
-      // Calculate remaining capacity per session
       const capacities = sessions.map(s => ({
         session: s,
         remaining: s.capacity - sessionCapacity(s.id),
@@ -281,7 +314,6 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
       let memberIndex = 0;
       const assignments: { memberId: string; session: VipSession }[] = [];
 
-      // Round-robin distribution
       while (memberIndex < unscheduled.length) {
         let assigned = false;
         for (const cap of capacities) {
@@ -293,10 +325,9 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
             assigned = true;
           }
         }
-        if (!assigned) break; // All sessions full
+        if (!assigned) break;
       }
 
-      // Execute assignments grouped by session
       const bySession = new Map<string, { ids: string[]; session: VipSession }>();
       assignments.forEach(a => {
         if (!bySession.has(a.session.id)) {
@@ -306,14 +337,31 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
       });
 
       for (const [sessionId, { ids, session }] of bySession) {
-        const updateData: any = {
-          vip_session_id: sessionId,
-          booking_status: 'Active',
-        };
-        if (session.session_date) updateData.class_date = session.session_date;
-        if (session.session_time) updateData.intro_time = session.session_time;
+        for (const memberId of ids) {
+          const updateData: any = {
+            vip_session_id: sessionId,
+            booking_status: 'Active',
+          };
+          if (session.session_date) updateData.class_date = session.session_date;
+          if (session.session_time) updateData.intro_time = session.session_time;
 
-        await supabase.from('intros_booked').update(updateData).in('id', ids);
+          // Carry over phone/email from registration
+          const reg = registrationByBookingId.get(memberId);
+          const member = members.find(m => m.id === memberId);
+          if (reg) {
+            if (!member?.phone && reg.phone) {
+              const digits = reg.phone.replace(/\D/g, '');
+              updateData.phone = digits.length === 10 ? `+1${digits}` : reg.phone;
+              updateData.phone_e164 = digits.length === 10 ? `+1${digits}` : null;
+              updateData.phone_source = 'vip_registration';
+            }
+            if (!member?.email && reg.email) {
+              updateData.email = reg.email;
+            }
+          }
+
+          await supabase.from('intros_booked').update(updateData).eq('id', memberId);
+        }
 
         // Create questionnaire records
         if (session.session_date) {
@@ -376,6 +424,15 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
     });
   };
 
+  const toggleMemberExpand = (id: string) => {
+    setExpandedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const toggleMemberSelect = (id: string) => {
     setSelectedMembers(prev => {
       const next = new Set(prev);
@@ -402,58 +459,163 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
     return 'bg-primary';
   };
 
-  const formatSessionHeader = (session: VipSession) => {
-    const count = sessionCapacity(session.id);
-    const label = session.session_label || 'Session';
-    const dateStr = session.session_date ? format(parseISO(session.session_date), 'EEE MMM d') : 'No date';
-    const timeStr = session.session_time ? format(parseISO(`2000-01-01T${session.session_time}`), 'h:mm a') : '';
-    return `${label}: ${timeStr ? `${timeStr} ` : ''}${dateStr} (${count}/${session.capacity})`;
+  // CSV Export
+  const handleExportCsv = () => {
+    const rows: string[] = [
+      'Name,Phone,Email,Birthday,Weight (lbs),Booking Status,Session',
+    ];
+
+    members.forEach(m => {
+      const reg = registrationByBookingId.get(m.id);
+      const session = sessions.find(s => s.id === m.vip_session_id);
+      const sessionLabel = session ? (session.session_label || 'Session') : 'Unscheduled';
+      const phone = reg?.phone || m.phone || '';
+      const email = reg?.email || m.email || '';
+      const birthday = reg?.birthday || '';
+      const weight = reg?.weight_lbs?.toString() || '';
+      const status = m.booking_status || 'Unscheduled';
+
+      rows.push([
+        `"${m.member_name}"`,
+        `"${phone}"`,
+        `"${email}"`,
+        `"${birthday}"`,
+        `"${weight}"`,
+        `"${status}"`,
+        `"${sessionLabel}"`,
+      ].join(','));
+    });
+
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${groupName.replace(/[^a-z0-9]/gi, '_')}_registrations.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported!');
   };
+
+  const regLink = `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(groupName)}`;
 
   const renderMemberRow = (member: VipMember, showUnassign = false) => {
     const isSelected = selectedMembers.has(member.id);
+    const isExpanded = expandedMembers.has(member.id);
+    const reg = registrationByBookingId.get(member.id);
+
+    // Prefer registration data, fall back to booking data
+    const phone = reg?.phone || member.phone;
+    const email = reg?.email || member.email;
+    const birthday = reg?.birthday;
+    const weight = reg?.weight_lbs;
 
     return (
-      <div key={member.id} className="rounded-md border bg-card p-2.5 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleMemberSelect(member.id)}
-            className="flex-shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-medium text-sm">{member.member_name}</span>
-              {!member.phone && (
-                <Badge variant="destructive" className="text-[9px] px-1 py-0">No Phone</Badge>
+      <div key={member.id} className="rounded-md border bg-card overflow-hidden">
+        {/* Collapsed row */}
+        <div className="p-2.5">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleMemberSelect(member.id)}
+              className="flex-shrink-0"
+            />
+            <button
+              className="flex-1 min-w-0 text-left"
+              onClick={() => toggleMemberExpand(member.id)}
+            >
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-medium text-sm">{member.member_name}</span>
+                {phone ? (
+                  <span className="text-xs text-muted-foreground">{phone}</span>
+                ) : (
+                  <Badge variant="destructive" className="text-[9px] px-1 py-0">No Phone</Badge>
+                )}
+              </div>
+            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {showUnassign && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
+                  onClick={() => handleUnassign(member.id)}
+                >
+                  Unassign
+                </Button>
               )}
-              {member.phone && !member.email && (
-                <Badge variant="outline" className="text-[9px] px-1 py-0 text-muted-foreground">No Email</Badge>
-              )}
+              <button
+                onClick={() => toggleMemberExpand(member.id)}
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
             </div>
           </div>
-          {showUnassign && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
-              onClick={() => handleUnassign(member.id)}
-            >
-              Unassign
-            </Button>
+
+          {/* Quick contact line always visible */}
+          {!isExpanded && (
+            <div className="mt-1 ml-6">
+              <IntroActionBar
+                memberName={member.member_name}
+                memberKey={member.member_name.toLowerCase().replace(/\s+/g, '')}
+                bookingId={member.id}
+                classDate={member.class_date}
+                classTime={member.intro_time}
+                coachName={member.coach_name}
+                leadSource={member.lead_source}
+                isSecondIntro={false}
+                phone={phone || null}
+              />
+            </div>
           )}
         </div>
-        <IntroActionBar
-          memberName={member.member_name}
-          memberKey={member.member_name.toLowerCase().replace(/\s+/g, '')}
-          bookingId={member.id}
-          classDate={member.class_date}
-          classTime={member.intro_time}
-          coachName={member.coach_name}
-          leadSource={member.lead_source}
-          isSecondIntro={false}
-          phone={member.phone}
-        />
+
+        {/* Expanded registration details */}
+        {isExpanded && (
+          <div className="border-t bg-muted/30 px-3 py-3 space-y-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Registration Details</p>
+            <div className="grid grid-cols-1 gap-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className={phone ? 'text-foreground' : 'text-muted-foreground italic'}>
+                  {phone || 'Not provided'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className={email ? 'text-foreground' : 'text-muted-foreground italic'}>
+                  {email || 'Not provided'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Cake className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className={birthday ? 'text-foreground' : 'text-muted-foreground italic'}>
+                  {birthday ? format(parseISO(birthday), 'MMM d, yyyy') : 'Not provided'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Weight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                <span className={weight ? 'text-foreground' : 'text-muted-foreground italic'}>
+                  {weight ? `${weight} lbs` : 'Not provided'}
+                </span>
+              </div>
+            </div>
+            <div className="pt-1">
+              <IntroActionBar
+                memberName={member.member_name}
+                memberKey={member.member_name.toLowerCase().replace(/\s+/g, '')}
+                bookingId={member.id}
+                classDate={member.class_date}
+                classTime={member.intro_time}
+                coachName={member.coach_name}
+                leadSource={member.lead_source}
+                isSecondIntro={false}
+                phone={phone || null}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -486,17 +648,52 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
           variant="outline"
           size="sm"
           className="gap-1 text-xs"
-          onClick={() => {
-            const slug = groupName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            const link = `${window.location.origin}/vip-register?class=${encodeURIComponent(groupName)}`;
-            navigator.clipboard.writeText(link);
-            toast.success('Registration link copied!');
-          }}
+          onClick={handleExportCsv}
         >
-          <Copy className="w-3.5 h-3.5" />
-          Copy Reg Link
+          <Download className="w-3.5 h-3.5" />
+          Export CSV
         </Button>
       </div>
+
+      {/* Registration Link Section */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-4 pb-4">
+          <p className="text-xs font-semibold text-primary mb-2">Registration Link</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="flex-1 text-xs bg-background border rounded px-2 py-1.5 truncate min-w-0">
+              {regLink}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1 text-xs flex-shrink-0"
+              onClick={() => {
+                navigator.clipboard.writeText(regLink);
+                toast.success('Registration link copied!');
+              }}
+            >
+              <Copy className="w-3 h-3" />
+              Copy
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1 text-xs flex-shrink-0"
+              onClick={() => {
+                const msg = `Register for your Orangetheory Fitness VIP class here: ${regLink}`;
+                navigator.clipboard.writeText(msg);
+                toast.success('Share message copied!');
+              }}
+            >
+              <Share2 className="w-3 h-3" />
+              Share
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            ✅ Active — accepting registrations
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Summary Dashboard */}
       <Card>
