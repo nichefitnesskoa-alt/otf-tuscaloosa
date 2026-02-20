@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,7 @@ import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 // CoachPerformance removed from Overview - available in Coaching tab and Studio
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
-import VipBulkImport from '@/components/admin/VipBulkImport';
+
 import CoachingView from '@/components/admin/CoachingView';
 import CampaignsPanel from '@/components/admin/CampaignsPanel';
 import AmcLogForm from '@/components/admin/AmcLogForm';
@@ -346,8 +346,7 @@ export default function Admin() {
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [vipAdminKey, setVipAdminKey] = useState(0); // force remount on tab focus
-  
+
   // Global date filter state for Overview tab
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
@@ -411,14 +410,10 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="vip" className="gap-1">
-            <Star className="w-4 h-4 text-purple-600" />
-            <span className="hidden sm:inline">VIP</span>
           </TabsTrigger>
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
@@ -445,11 +440,6 @@ export default function Admin() {
             <span className="hidden sm:inline">Scripts</span>
           </TabsTrigger>
         </TabsList>
-
-        {/* VIP Tab */}
-        <TabsContent value="vip" className="space-y-4">
-          <VipBulkImport key={activeTab === 'vip' ? vipAdminKey : 'inactive'} />
-        </TabsContent>
 
         {/* Coaching Tab */}
         <TabsContent value="coaching" className="space-y-4">
