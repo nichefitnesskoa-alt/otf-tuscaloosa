@@ -194,7 +194,12 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
       counts.not_interested++;
     }
 
-    if (journey.bookings.some(b => b.lead_source === 'VIP Class')) counts.vip_class++;
+    if (journey.bookings.some(b =>
+      b.is_vip === true ||
+      b.booking_type_canon === 'VIP' ||
+      b.booking_type_canon === 'COMP' ||
+      (b.lead_source && b.lead_source.toLowerCase().includes('vip'))
+    )) counts.vip_class++;
   });
 
   return counts;

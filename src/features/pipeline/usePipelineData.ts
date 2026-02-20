@@ -40,7 +40,7 @@ export function usePipelineData() {
     setIsLoading(true);
     try {
       const [bookingsRes, runsRes] = await Promise.all([
-        supabase.from('intros_booked').select(BOOKING_SELECT).order('class_date', { ascending: false }),
+        supabase.from('intros_booked').select(BOOKING_SELECT).is('deleted_at', null).order('class_date', { ascending: false }),
         supabase.from('intros_run').select(RUN_SELECT).order('run_date', { ascending: false }),
       ]);
       if (bookingsRes.error) throw bookingsRes.error;
