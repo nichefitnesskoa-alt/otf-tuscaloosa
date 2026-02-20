@@ -73,11 +73,23 @@ export default function ShiftRecapDetails({
     const fetchDetails = async () => {
       setIsLoading(true);
       try {
-        const [bookingsResult, runsResult, salesResult] = await Promise.all([
+        // Query by shift_recap_id AND also fetch bookings by booked_by+date
+        // (friend bookings created via "Bring a Friend" don't have shift_recap_id set)
+        const [bookingsByRecap, bookingsByAttrib, runsResult, salesResult] = await Promise.all([
           supabase
             .from('intros_booked')
             .select('id, member_name, class_date, intro_time, lead_source, booked_by, intro_owner, booking_status')
             .eq('shift_recap_id', shiftRecapId)
+            .is('deleted_at', null)
+            .order('class_date', { ascending: true }),
+          // Catch friend bookings: same SA, same date, no shift_recap_id
+          supabase
+            .from('intros_booked')
+            .select('id, member_name, class_date, intro_time, lead_source, booked_by, intro_owner, booking_status')
+            .eq('booked_by', staffName)
+            .eq('class_date', shiftDate)
+            .is('shift_recap_id', null)
+            .is('deleted_at', null)
             .order('class_date', { ascending: true }),
           supabase
             .from('intros_run')
@@ -91,7 +103,16 @@ export default function ShiftRecapDetails({
             .order('created_at', { ascending: true }),
         ]);
 
-        if (bookingsResult.data) setIntrosBooked(bookingsResult.data);
+        // Merge bookings, deduplicate by id
+        const allBookings = [...(bookingsByRecap.data || []), ...(bookingsByAttrib.data || [])];
+        const seen = new Set<string>();
+        const deduped = allBookings.filter(b => {
+          if (seen.has(b.id)) return false;
+          seen.add(b.id);
+          return true;
+        });
+
+        setIntrosBooked(deduped);
         if (runsResult.data) setIntrosRun(runsResult.data);
         if (salesResult.data) setSales(salesResult.data);
       } catch (error) {
@@ -102,7 +123,7 @@ export default function ShiftRecapDetails({
     };
 
     fetchDetails();
-  }, [shiftRecapId]);
+  }, [shiftRecapId, staffName, shiftDate]);
 
   const totalCommission = [
     ...introsRun.map(r => r.commission_amount || 0),
