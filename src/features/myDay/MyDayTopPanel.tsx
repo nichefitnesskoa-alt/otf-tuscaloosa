@@ -8,7 +8,6 @@ import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
-import { AmcTracker } from '@/components/dashboard/AmcTracker';
 import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
@@ -112,7 +111,6 @@ export function MyDayTopPanel() {
               introsShowed={metrics.pipeline.showed}
             />
             <WeeklySchedule />
-            <AmcTracker />
           </div>
         </CollapsibleContent>
       </div>

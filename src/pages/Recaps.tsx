@@ -15,6 +15,7 @@ import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
 import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { AmcTracker } from '@/components/dashboard/AmcTracker';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -159,6 +160,9 @@ export default function Recaps() {
           />
         </div>
       </div>
+
+      {/* AMC Tracker */}
+      <AmcTracker />
 
       {/* Conversion Funnel with 1st/2nd Intro dual-row view */}
 
