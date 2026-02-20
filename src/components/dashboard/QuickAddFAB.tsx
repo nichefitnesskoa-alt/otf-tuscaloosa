@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, UserPlus, X, Users, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch } from 'lucide-react';
+import { Plus, X, Users, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AddLeadDialog } from '@/components/leads/AddLeadDialog';
 import { WalkInIntroSheet } from '@/components/dashboard/WalkInIntroSheet';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WalkInSaleSheet, UpgradeSheet, HRMAddOnSheet } from '@/components/dashboard/OutsideSaleSheets';
+import { FABFollowUpPurchaseSheet } from '@/components/dashboard/FABFollowUpPurchaseSheet';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
@@ -34,21 +34,21 @@ export function QuickAddFAB({
   onEndShift,
 }: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
-  const [showAddLead, setShowAddLead] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [showBookIntro, setShowBookIntro] = useState(false);
   const [showEndShift, setShowEndShift] = useState(false);
   const [showWalkInSale, setShowWalkInSale] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showHRM, setShowHRM] = useState(false);
+  const [showFollowUpPurchase, setShowFollowUpPurchase] = useState(false);
 
-  const handleAddLead = () => { setExpanded(false); setShowAddLead(true); };
   const handleWalkInIntro = () => { setExpanded(false); setShowWalkIn(true); };
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
   const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
   const handleWalkInSale = () => { setExpanded(false); setShowWalkInSale(true); };
   const handleUpgrade = () => { setExpanded(false); setShowUpgrade(true); };
   const handleHRM = () => { setExpanded(false); setShowHRM(true); };
+  const handleFollowUpPurchase = () => { setExpanded(false); setShowFollowUpPurchase(true); };
 
   const actions = [
     {
@@ -88,10 +88,10 @@ export function QuickAddFAB({
       color: 'bg-purple-600 text-white',
     },
     {
-      icon: UserPlus,
-      label: 'Add Lead',
-      onClick: handleAddLead,
-      color: 'bg-secondary text-secondary-foreground',
+      icon: RefreshCw,
+      label: 'Follow-Up Purchase',
+      onClick: handleFollowUpPurchase,
+      color: 'bg-emerald-600 text-white',
     },
   ];
 
@@ -130,14 +130,14 @@ export function QuickAddFAB({
         </Button>
       </div>
 
-      <AddLeadDialog open={showAddLead} onOpenChange={setShowAddLead} onLeadAdded={onRefresh} />
       <WalkInIntroSheet open={showWalkIn} onOpenChange={setShowWalkIn} onSaved={onRefresh} />
       <BookIntroSheet open={showBookIntro} onOpenChange={setShowBookIntro} onSaved={onRefresh} />
       <WalkInSaleSheet open={showWalkInSale} onOpenChange={setShowWalkInSale} onSaved={onRefresh} />
       <UpgradeSheet open={showUpgrade} onOpenChange={setShowUpgrade} onSaved={onRefresh} />
       <HRMAddOnSheet open={showHRM} onOpenChange={setShowHRM} onSaved={onRefresh} />
+      <FABFollowUpPurchaseSheet open={showFollowUpPurchase} onOpenChange={setShowFollowUpPurchase} onSaved={onRefresh} />
 
-      {/* End Shift dialog — controlled externally from FAB */}
+      {/* End Shift dialog */}
       <CloseOutShift
         completedIntros={completedIntros}
         activeIntros={activeIntros}
@@ -153,4 +153,3 @@ export function QuickAddFAB({
     </>
   );
 }
-

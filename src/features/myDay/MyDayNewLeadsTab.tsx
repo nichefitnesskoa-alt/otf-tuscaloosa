@@ -161,7 +161,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
               <MessageSquare className="w-3.5 h-3.5" /> Script
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
-              <CalendarPlus className="w-3.5 h-3.5" /> Book
+              <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
             </Button>
             {lead.phone && (
               <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={handleCopyPhone}>
