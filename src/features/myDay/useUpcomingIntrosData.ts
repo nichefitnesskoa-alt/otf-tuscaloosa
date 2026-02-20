@@ -83,7 +83,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
         .lte('class_date', end)
-        .not('booking_status_canon', 'in', '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED")')
+        .not('booking_status_canon', 'in', '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")')
         .order('class_date', { ascending: isNeedsOutcome ? false : true }) // most recent first for needs outcome
         .order('intro_time', { ascending: true })
         .limit(200);
