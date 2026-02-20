@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
 import { supabase } from '@/integrations/supabase/client';
@@ -159,6 +159,75 @@ function QuestionnaireSlugBackfillCard() {
           </Button>
           {result !== null && (
             <span className="text-sm text-muted-foreground">Updated {result} rows</span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DuplicateDetectionCard() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ flagged: number; moved: number } | null>(null);
+
+  const handleRun = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('id, first_name, last_name, phone, email, stage, duplicate_override')
+        .not('stage', 'in', '("lost","already_in_system","booked","won","contacted")')
+        .is('duplicate_override', null);
+
+      if (error) throw error;
+      if (!leads || leads.length === 0) { toast.success('No leads to process'); setRunning(false); return; }
+
+      const { runDeduplicationForLead } = await import('@/lib/leads/detectDuplicate');
+      let flagged = 0, moved = 0;
+
+      for (const lead of leads) {
+        const r = await runDeduplicationForLead(lead.id, {
+          first_name: lead.first_name,
+          last_name: lead.last_name,
+          phone: lead.phone,
+          email: lead.email,
+          stage: lead.stage,
+          duplicate_override: lead.duplicate_override ?? false,
+        });
+        if (r.confidence === 'HIGH') moved++;
+        else if (r.confidence === 'MEDIUM') flagged++;
+      }
+
+      setResult({ flagged, moved });
+      toast.success(`Done — ${moved} moved to Already in System, ${flagged} flagged for review`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Duplicate detection failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <SearchCheck className="w-4 h-4" />
+          Duplicate Detection Backfill
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Runs deduplication on all active leads — checks phone, email, and name against existing bookings. HIGH confidence → moved to Already in System. MEDIUM → flagged for SA review.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button size="sm" onClick={handleRun} disabled={running} variant="outline">
+            {running ? 'Running…' : 'Run duplicate detection on all leads'}
+          </Button>
+          {result !== null && (
+            <span className="text-sm text-muted-foreground">
+              Flagged {result.flagged} · Moved {result.moved} to Already in System
+            </span>
           )}
         </div>
       </CardContent>
@@ -425,6 +494,7 @@ export default function Admin() {
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
           <WeeklyContactAvgCard />
+          <DuplicateDetectionCard />
           <IntegrityDashboard />
           <VipBulkImport />
           <ShiftRecapsEditor />
