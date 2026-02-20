@@ -43,6 +43,7 @@ import { PipelineFiltersBar } from './components/PipelineFiltersBar';
 import { PipelineTable } from './components/PipelineTable';
 import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
+import { VipPipelineTable } from './components/VipPipelineTable';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
 
@@ -172,9 +173,11 @@ export default function PipelinePage() {
             </div>
           </div>
 
-          {/* New Leads sub-tab view */}
+          {/* Tab content */}
           {pipeline.activeTab === 'leads' ? (
             <PipelineNewLeadsTab />
+          ) : pipeline.activeTab === 'vip_class' ? (
+            <VipPipelineTable />
           ) : (
             <PipelineTable
               journeys={pipeline.filteredJourneys}
