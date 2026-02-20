@@ -65,6 +65,14 @@ export function PipelineTable({
     } finally { setIsBulkUpdating(false); }
   };
 
+  // Always call useVirtualizer unconditionally (Rules of Hooks — fixes React error #300)
+  const virtualizer = useVirtualizer({
+    count: journeys.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    overscan: 10,
+  });
+
   // For VIP tab, render grouped
   if (activeTab === 'vip_class' && vipGroups) {
     return (
@@ -117,14 +125,6 @@ export function PipelineTable({
       </div>
     );
   }
-
-  // Standard virtualized list
-  const virtualizer = useVirtualizer({
-    count: journeys.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
-    overscan: 10,
-  });
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>;
