@@ -104,7 +104,7 @@ export function MyDayShiftSummary({ compact }: MyDayShiftSummaryProps = {}) {
         {isLoading ? (
           <p className="text-xs text-muted-foreground">Loading...</p>
         ) : (
-          <div className={compact ? 'flex items-center gap-1.5 flex-1' : 'grid grid-cols-3 gap-2'}>
+          <div className={`${compact ? 'flex items-center gap-1.5 flex-1' : 'grid grid-cols-3 gap-2'} border-2 border-primary rounded-lg p-2`}>
             <div className={compact ? 'flex items-center gap-1' : ''}>
               {compact && <Label className="text-[10px] text-muted-foreground shrink-0">Calls</Label>}
               {!compact && <Label className="text-xs text-muted-foreground mb-1 block">Calls</Label>}
