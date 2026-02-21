@@ -1,44 +1,46 @@
 
 
-# Pipeline Default Sort by Created Date
-
-## Summary
-Two changes requested:
-1. Confirm the shift recap `created_at` fix applies to **all SAs** (not just Sophie) -- already done, no further changes needed
-2. Change Pipeline default sort from `class_date` to `created_at` so the most recently **created** booking appears at top
+# VIP List: Delete Members + Clarify VIP ≠ Intros
 
 ## Changes
 
-### 1. Add `created_at` to Pipeline booking data
-- **File: `src/features/pipeline/pipelineTypes.ts`** -- Add `created_at: string;` to `PipelineBooking` interface
-- **File: `src/features/pipeline/usePipelineData.ts`** -- Add `created_at` to `BOOKING_SELECT` string; change `.order('class_date', ...)` to `.order('created_at', { ascending: false })`
+### 1. Add Delete button to VIP Pipeline table rows
 
-### 2. Update default sort in selectors
-- **File: `src/features/pipeline/selectors.ts`** -- In `buildJourneys`, change the fallback sort from `class_date` to `created_at` so journeys are ordered by most recently created booking first
+**File: `src/features/pipeline/components/VipPipelineTable.tsx`**
 
-### 3. Update spreadsheet default sort
-- **File: `src/features/pipeline/components/PipelineSpreadsheet.tsx`**:
-  - Add `created_at` column to the "all" tab columns (label: "Created")
-  - Change `getDefaultSort` for `default` case from `class_date desc` to `created_at desc`
-  - Add `created_at` sort value extraction in `getSortValue`
-  - Render the created_at cell with a human-readable relative time (e.g., "2h ago")
+- Add a delete (trash) button in the Actions column for each VIP row
+- On click, soft-delete the booking record (`deleted_at = now()`, `deleted_by = user`) and also delete the linked `vip_registrations` record
+- Show a confirmation toast with the member name
+- Refresh the table after deletion
+- Add a "Delete Selected" bulk action button in the bulk action bar (next to "Assign to Session") for deleting multiple VIP members at once
 
-### 4. SA attribution -- already universal
-The shift recap fix from the previous edit uses `user.name` generically -- it already works for all SAs, not just Sophie. No additional changes needed.
+### 2. Add Delete button to expanded row detail
+
+In the expanded row section, add a red "Remove from VIP List" button that performs the same delete action with a brief confirmation step.
+
+### 3. VIP bookings excluded from intro counts (verification)
+
+VIP bookings are already excluded from MyDay, shift recap intro counts, and follow-up queues via `booking_type_canon = 'VIP'` filtering. No additional code changes needed -- the existing isolation is correct. VIP sessions are marketing events, not intro appointments.
 
 ## Technical Details
 
-Key code changes:
+**Delete logic** (single member):
+```typescript
+// Soft-delete the intros_booked record
+await supabase.from('intros_booked')
+  .update({ deleted_at: new Date().toISOString(), deleted_by: userName })
+  .eq('id', bookingId);
 
-- `BOOKING_SELECT` gains `created_at` field
-- `buildJourneys` sort: `a.bookings[0]?.created_at` replaces `a.bookings[0]?.class_date`
-- `getDefaultSort('all')` returns `{ key: 'created_at', dir: 'desc' }`
-- New column in "all" tab: `{ key: 'created_at', label: 'Created', sortable: true }`
-- `getSortValue` case `'created_at'` returns `b?.created_at || ''`
+// Hard-delete the vip_registrations record (if linked)
+await supabase.from('vip_registrations')
+  .delete()
+  .eq('booking_id', bookingId);
+```
 
-## What stays the same
-- Upcoming tab still sorts by class_date ascending (soonest first)
-- Today tab still sorts by class_time ascending
-- Completed, No-show, Missed, Not Interested tabs still sort by class_date descending (but users can click "Created" column header to re-sort)
-- VIP tab is unchanged
-- All existing functionality preserved
+**Bulk delete**: Same logic in a loop or `.in('id', selectedIds)` for the bookings, then matching registration cleanup.
+
+**Files modified:**
+- `src/features/pipeline/components/VipPipelineTable.tsx` -- add delete button in actions column, bulk delete in toolbar, delete in expanded row
+
+No database schema changes needed. Existing `deleted_at` and `deleted_by` columns on `intros_booked` handle soft deletes. The VIP table query already filters `.is('deleted_at', null)`.
+
