@@ -1,51 +1,55 @@
 
-# Fix: React Error #300 in PipelineTable
 
-## Root Cause Identified
+# Fix: Shift Recap "Booked" Count Should Use Created Date, Not Class Date
 
-In `src/features/pipeline/components/PipelineTable.tsx`, the `useVirtualizer` hook (line 122) is called **after** a conditional early `return` statement (lines 69-119). When `activeTab === 'vip_class'`, the component returns early and `useVirtualizer` is never called. When the tab changes back to a non-VIP tab, `useVirtualizer` is called again — this changes the hook call count between renders and triggers React error #300.
+## Problem Found
 
-```typescript
-// ❌ CURRENT — BROKEN
-if (activeTab === 'vip_class' && vipGroups) {
-  return ( ... ); // Early return on line 69
-}
+The shift recap summary query filters bookings by `class_date = today`. This means if an SA books someone today for a future class date (e.g., Sophie booked Anna Sprayberry today for March 3rd), it shows **0 booked** in the pre-submission summary and GroupMe post.
 
-// useVirtualizer is called AFTER the early return — React error #300
-const virtualizer = useVirtualizer({ ... }); // line 122
+Sophie has exactly **1 booking created today** (Anna Sprayberry). The `booked_by` field correctly says "Sophie" — there is no name mismatch. The issue is purely the date filter.
+
+## Root Cause
+
+In `CloseOutShift.tsx` lines 91-103, both queries use:
+```
+.eq('class_date', today)
 ```
 
-This is precisely the pattern described in the React docs for invariant #300: hooks must be called in the same order on every render, unconditionally.
+This should instead filter by `created_at` to count bookings the SA **made during their shift**, regardless of when the class is scheduled.
 
 ## Fix
 
-Move `useVirtualizer` to the **top of the component**, before any conditional returns. The virtualizer will be initialized on every render regardless of which tab is active, which satisfies React's rules of hooks.
+### 1. Update `CloseOutShift.tsx` — Shift Recap Summary
 
-```typescript
-// ✅ FIXED — hook called unconditionally at top
-const virtualizer = useVirtualizer({
-  count: journeys.length,  // will be 0 when VIP tab active, harmless
-  getScrollElement: () => parentRef.current,
-  estimateSize: () => ESTIMATED_ROW_HEIGHT,
-  overscan: 10,
-});
+Change both booking queries from filtering by `class_date = today` to filtering by `created_at >= todayStart` and `created_at < tomorrowStart`. This counts bookings **created** during the shift, which is the metric SAs care about.
 
-// Now the conditional return is safe — hook already called above
-if (activeTab === 'vip_class' && vipGroups) {
-  return ( ... );
-}
-```
+Both the `sa_working_shift` query and the `booked_by` query get the same date filter update.
 
-When `activeTab === 'vip_class'`, the virtualizer will initialize with `count: journeys.length` (which may be 0 or whatever filtered journeys exist), but it will never be rendered since the early return shows the VIP grouped view instead. This is completely harmless — the hook is always called, the order never changes.
+### 2. Update `TodayActivityLog.tsx` — Today's Activity
 
-## File Changed
+Apply the same fix so the activity log shows bookings created today, not bookings with a class date of today. This keeps numbers consistent across surfaces.
 
-**`src/features/pipeline/components/PipelineTable.tsx`** — Move `useVirtualizer` call from line 122 to above the `if (activeTab === 'vip_class')` guard on line 69. No other changes needed.
+### 3. Update GroupMe Post Logic
 
-## Why No Other Files Need Changes
+The GroupMe post reads from the same `summary.booked` value, so fixing the query in `CloseOutShift.tsx` automatically fixes the GroupMe count — no separate change needed.
 
-- `PipelineNewLeadsTab.tsx` and `MyDayNewLeadsTab.tsx` — all hooks are at the top level of each component, no conditional hooks present. The `LeadCard` subcomponent is a proper React component with hooks at its top level.
-- `PipelinePage.tsx` — no conditional hooks.
-- `MyDayPage.tsx` — no conditional hooks.
+### 4. Consistency Check
 
-This is a single-line relocation fix that will completely eliminate the React error #300 crash on the Pipeline page.
+Verify that the `ShiftHandoffSummary` component (if it counts bookings) also uses `created_at` for the same metric. The "booked" count should mean "how many bookings did you create today" everywhere.
+
+## Technical Details
+
+- File: `src/components/dashboard/CloseOutShift.tsx` (lines 91-103)
+  - Replace `.eq('class_date', today)` with `.gte('created_at', todayStart).lt('created_at', tomorrowStart)` on both booking queries
+  - Add `const tomorrowStart = today + 'T00:00:00'` calculation using date math
+
+- File: `src/components/dashboard/TodayActivityLog.tsx`
+  - Same date filter fix for the bookings query
+
+## What This Does NOT Change
+
+- Intros **run** today still filter by `run_date = today` (correct — you ran the intro today)
+- Sales still use `buy_date` logic (correct — revenue attribution)
+- VIP/COMP exclusion remains unchanged
+- No schema or database changes needed
+
