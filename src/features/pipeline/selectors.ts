@@ -141,8 +141,8 @@ export function buildJourneys(
   journeys.sort((a, b) => {
     if (a.hasInconsistency && !b.hasInconsistency) return -1;
     if (!a.hasInconsistency && b.hasInconsistency) return 1;
-    const aDate = a.runs[0]?.run_date || a.bookings[0]?.class_date || '';
-    const bDate = b.runs[0]?.run_date || b.bookings[0]?.class_date || '';
+    const aDate = a.bookings[0]?.created_at || a.runs[0]?.run_date || '';
+    const bDate = b.bookings[0]?.created_at || b.runs[0]?.run_date || '';
     return bDate.localeCompare(aDate);
   });
 
