@@ -2,11 +2,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { TrendingUp, GitBranch, Home, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useDataAudit } from '@/hooks/useDataAudit';
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
+  const { failCount } = useDataAudit(isAdmin);
 
   const visibleItems = [
     { path: '/my-day', label: 'My Day', icon: Home },
@@ -36,6 +39,11 @@ export function BottomNav() {
             >
               <div className="relative">
                 <Icon className={cn('w-5 h-5 mb-0.5', isActive && 'stroke-[2.5px]')} />
+                {item.path === '/admin' && failCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
+                    {failCount > 9 ? '9+' : failCount}
+                  </span>
+                )}
               </div>
               <span className={cn(
                 'text-[11px] font-medium',

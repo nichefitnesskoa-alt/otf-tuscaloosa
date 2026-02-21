@@ -202,6 +202,36 @@ export type Database = {
           },
         ]
       }
+      data_audit_log: {
+        Row: {
+          created_at: string
+          fail_count: number
+          id: string
+          pass_count: number
+          results: Json
+          total_checks: number
+          warn_count: number
+        }
+        Insert: {
+          created_at?: string
+          fail_count?: number
+          id?: string
+          pass_count?: number
+          results?: Json
+          total_checks?: number
+          warn_count?: number
+        }
+        Update: {
+          created_at?: string
+          fail_count?: number
+          id?: string
+          pass_count?: number
+          results?: Json
+          total_checks?: number
+          warn_count?: number
+        }
+        Relationships: []
+      }
       follow_up_queue: {
         Row: {
           booking_id: string | null
