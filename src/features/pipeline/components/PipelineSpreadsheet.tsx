@@ -166,6 +166,7 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
     default: // 'all'
       return [
         { key: 'name', label: 'Name', sortable: true },
+        { key: 'created_at', label: 'Created', sortable: true },
         { key: 'class_date', label: 'Class Date', sortable: true },
         { key: 'class_time', label: 'Class Time', sortable: true },
         { key: 'coach', label: 'Coach', sortable: true },
@@ -184,7 +185,7 @@ function getDefaultSort(tab: JourneyTab): { key: string; dir: SortDir } {
     case 'upcoming': return { key: 'class_date', dir: 'asc' };
     case 'today': return { key: 'class_time', dir: 'asc' };
     case 'second_intro': return { key: 'second_date', dir: 'asc' };
-    default: return { key: 'class_date', dir: 'desc' };
+    default: return { key: 'created_at', dir: 'desc' };
   }
 }
 
@@ -195,6 +196,7 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
   const r = getLatestRun(j);
   switch (key) {
     case 'name': return j.memberName.toLowerCase();
+    case 'created_at': return b?.created_at || '';
     case 'class_date': return b?.class_date || '';
     case 'class_time': return b?.intro_time || '';
     case 'coach': return b?.coach_name || '';
@@ -397,6 +399,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
             <span className="font-medium truncate">{journey.memberName}</span>
           </div>
         );
+      case 'created_at': return <span className="text-xs text-muted-foreground">{b?.created_at ? formatDistanceToNow(parseISO(b.created_at), { addSuffix: true }) : '—'}</span>;
       case 'class_date': return <span className="text-xs">{b?.class_date || '—'}</span>;
       case 'class_time': return <span className="text-xs">{b?.intro_time || '—'}</span>;
       case 'coach': return <span className="text-xs truncate">{b?.coach_name || '—'}</span>;

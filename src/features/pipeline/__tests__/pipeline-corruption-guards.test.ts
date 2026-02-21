@@ -41,6 +41,7 @@ function makeBooking(overrides: Partial<PipelineBooking> = {}): PipelineBooking 
     rebooked_from_booking_id: null,
     rebook_reason: null,
     rebooked_at: null,
+    created_at: '2025-01-10T00:00:00Z',
     ...overrides,
   };
 }

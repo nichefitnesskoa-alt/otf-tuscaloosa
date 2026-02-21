@@ -42,6 +42,7 @@ export interface PipelineBooking {
   rebooked_from_booking_id: string | null;
   rebook_reason: string | null;
   rebooked_at: string | null;
+  created_at: string;
 }
 
 /** Raw run from Supabase (subset used by Pipeline) */
