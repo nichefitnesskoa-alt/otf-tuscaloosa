@@ -12,8 +12,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import {
   Star, Search, Download, Copy, ChevronUp, ChevronDown, Loader2,
-  Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2,
+  Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2, Trash2,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format, parseISO } from 'date-fns';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import {
@@ -111,6 +121,12 @@ export function VipPipelineTable() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
   const [creatingGroup, setCreatingGroup] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<VipRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -381,6 +397,51 @@ export function VipPipelineTable() {
     toast.success(`Link for ${groupName} copied!`);
   };
 
+  const handleDeleteSingle = async (row: VipRow) => {
+    setDeleting(true);
+    try {
+      await supabase
+        .from('intros_booked')
+        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+        .eq('id', row.bookingId);
+      await supabase
+        .from('vip_registrations')
+        .delete()
+        .eq('booking_id', row.bookingId);
+      toast.success(`${row.memberName} removed from VIP list`);
+      setDeleteTarget(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to delete member');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const ids = Array.from(selectedRows);
+      await supabase
+        .from('intros_booked')
+        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+        .in('id', ids);
+      await supabase
+        .from('vip_registrations')
+        .delete()
+        .in('booking_id', ids);
+      const count = ids.length;
+      toast.success(`${count} member(s) removed from VIP list`);
+      setSelectedRows(new Set());
+      setShowBulkDelete(false);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to delete members');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -504,6 +565,12 @@ export function VipPipelineTable() {
             onClick={() => setShowBulkDialog(true)}
           >
             <CalendarPlus className="w-3.5 h-3.5" /> Assign to Session
+          </Button>
+          <Button
+            variant="destructive" size="sm" className="h-7 text-xs gap-1"
+            onClick={() => setShowBulkDelete(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete Selected
           </Button>
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedRows(new Set())}>
             Clear
@@ -655,6 +722,14 @@ export function VipPipelineTable() {
                         >
                           <CalendarPlus className="w-3 h-3" />
                         </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-6 px-1.5 text-[10px] gap-0.5 text-destructive hover:text-destructive"
+                          title="Remove from VIP list"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -691,7 +766,7 @@ export function VipPipelineTable() {
                             <p className="text-muted-foreground mb-0.5">Group</p>
                             <p className="font-medium">{row.groupName}</p>
                           </div>
-                          <div className="flex items-end">
+                          <div className="flex items-end gap-2">
                             <Button
                               size="sm"
                               variant="outline"
@@ -699,6 +774,14 @@ export function VipPipelineTable() {
                               onClick={() => { setAssignRow(row); setAssignDate(''); setAssignTime(''); }}
                             >
                               <CalendarPlus className="w-3 h-3" /> Assign Session
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-6 text-[10px] gap-1"
+                              onClick={() => setDeleteTarget(row)}
+                            >
+                              <Trash2 className="w-3 h-3" /> Remove from VIP List
                             </Button>
                           </div>
                         </div>
@@ -826,6 +909,52 @@ export function VipPipelineTable() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Single Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {deleteTarget?.memberName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove them from the VIP list. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={() => deleteTarget && handleDeleteSingle(deleteTarget)}
+            >
+              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={showBulkDelete} onOpenChange={setShowBulkDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {selectedRows.size} member(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the selected members from the VIP list. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleting}
+              onClick={handleBulkDelete}
+            >
+              {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Remove All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
