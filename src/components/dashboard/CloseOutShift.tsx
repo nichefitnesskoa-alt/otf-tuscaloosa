@@ -81,24 +81,31 @@ export function CloseOutShift({
     if (!user?.name) return;
     setLoadingSummary(true);
     const today = getLocalDateString();
+    const todayStart = today + 'T00:00:00';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStart = format(tomorrow, 'yyyy-MM-dd') + 'T00:00:00';
 
     try {
       const SALE_RESULTS = ['Premier + OTbeat', 'Premier', 'Elite + OTbeat', 'Elite', 'Basic + OTbeat', 'Basic'];
 
-      // Intros booked today for this SA — includes friend bookings (booked_by) and shift bookings (sa_working_shift)
+      // Intros booked (created) today for this SA — filter by created_at, not class_date
+      // This counts bookings the SA made during their shift, regardless of future class date
       // Fetch both and deduplicate so friend bookings without shift_recap_id are always counted
       // Exclude VIP/COMP bookings from counts
       const [bookedByShift, bookedByAttrib] = await Promise.all([
         supabase
           .from('intros_booked')
           .select('id, booking_type_canon')
-          .eq('class_date', today)
+          .gte('created_at', todayStart)
+          .lt('created_at', tomorrowStart)
           .eq('sa_working_shift', user.name)
           .is('deleted_at', null),
         supabase
           .from('intros_booked')
           .select('id, booking_type_canon')
-          .eq('class_date', today)
+          .gte('created_at', todayStart)
+          .lt('created_at', tomorrowStart)
           .eq('booked_by', user.name)
           .is('deleted_at', null),
       ]);
