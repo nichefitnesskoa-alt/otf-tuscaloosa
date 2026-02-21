@@ -17,6 +17,7 @@ import {
   type IntroResult,
   type BookingStatus,
 } from './types';
+import { triggerAuditRefresh } from '@/hooks/useDataAudit';
 
 export interface OutcomeUpdateParams {
   bookingId: string;
@@ -348,6 +349,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         };
       }
     }
+
+    // Trigger audit refresh after outcome change
+    triggerAuditRefresh();
 
     return { success: true, runId: existingRun?.id || params.runId, didIncrementAmc, didGenerateFollowups };
   } catch (err: any) {

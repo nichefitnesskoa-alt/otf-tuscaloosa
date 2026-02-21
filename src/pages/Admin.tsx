@@ -23,6 +23,7 @@ import AmcLogForm from '@/components/admin/AmcLogForm';
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
+import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
 import ScriptsPage from '@/pages/Scripts';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -545,6 +546,7 @@ export default function Admin() {
 
         {/* Data Management Tab */}
         <TabsContent value="data" className="space-y-4">
+          <DataAuditDashboard />
           <WeeklyContactAvgCard />
           <DuplicateDetectionCard />
           <IntegrityDashboard />
