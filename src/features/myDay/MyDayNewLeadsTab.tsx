@@ -32,6 +32,67 @@ function getSpeedInfo(createdAt: string) {
   return { color: '#16a34a', text: `✓ New Lead — ${minutesSince}m ago` };
 }
 
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
+  const newLeads = leads.filter(l => l.stage === 'new');
+  const contactedLeads = leads.filter(l => l.stage === 'contacted');
+
+  const overdue = newLeads.filter(l => differenceInMinutes(new Date(), parseISO(l.created_at)) >= 240).length;
+  const warning = newLeads.filter(l => {
+    const m = differenceInMinutes(new Date(), parseISO(l.created_at));
+    return m >= 60 && m < 240;
+  }).length;
+
+  const responseTimes = contactedLeads
+    .map(l => differenceInMinutes(parseISO(l.updated_at), parseISO(l.created_at)))
+    .filter(m => m >= 0);
+
+  const avgResponse = responseTimes.length > 0
+    ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+    : null;
+  const bestResponse = responseTimes.length > 0
+    ? Math.min(...responseTimes)
+    : null;
+
+  const statusColor = overdue > 0 ? 'border-destructive/40 bg-destructive/5' : warning > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-green-500/40 bg-green-500/5';
+
+  return (
+    <div className={`rounded-lg border-2 ${statusColor} p-2.5`}>
+      <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead</p>
+      <div className="flex items-center gap-3 flex-wrap text-[12px]">
+        {avgResponse !== null ? (
+          <span className="text-foreground font-medium">Avg: {formatDuration(avgResponse)}</span>
+        ) : (
+          <span className="text-muted-foreground">Avg: —</span>
+        )}
+        {bestResponse !== null ? (
+          <span className="text-foreground font-medium">Best: {formatDuration(bestResponse)}</span>
+        ) : (
+          <span className="text-muted-foreground">Best: —</span>
+        )}
+        {overdue > 0 && (
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">🔴 {overdue} Overdue</Badge>
+        )}
+        {warning > 0 && (
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 text-white">⚠ {warning} Soon</Badge>
+        )}
+        {overdue === 0 && warning === 0 && newLeads.length === 0 && (
+          <span className="text-muted-foreground">All clear</span>
+        )}
+        {overdue === 0 && warning === 0 && newLeads.length > 0 && (
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-600 text-white">✓ All fresh</Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type Lead = Tables<'leads'> & {
   duplicate_notes?: string | null;
   duplicate_confidence?: string | null;
@@ -446,6 +507,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
 
   return (
     <div className="space-y-3">
+      <SpeedToLeadBanner leads={leads} />
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="w-full flex h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg flex-wrap">
           <TabsTrigger value="new" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
