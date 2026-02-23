@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
   Search, Copy, Check, ClipboardList, Calendar, User, Phone, ChevronDown, ChevronRight,
-  MessageSquare, Dumbbell, FileText, Loader2, Eye, EyeOff, Trash2, Link2, AlertTriangle,
+  MessageSquare, Dumbbell, FileText, Loader2, Eye, EyeOff, Trash2, Link2, AlertTriangle, Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -306,25 +306,31 @@ export function QuestionnaireHub() {
     );
   }, [questionnaires, searchTerm, bookingMap, alreadyRanBookingIds]);
 
-  // Tab categorization — 2nd intros excluded from needs-sending and sent
-  const needsSending = filtered.filter(q => getQCategory(q) === 'needs-sending' && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
-  const sent = filtered.filter(q => getQCategory(q) === 'sent' && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
+  // Tab categorization — merge needs-sending + sent into notCompleted; 2nd intros excluded
+  const notCompleted = filtered.filter(q => {
+    const cat = getQCategory(q);
+    return (cat === 'needs-sending' || cat === 'sent') && !(q.booking_id && secondIntroBookingIds.has(q.booking_id));
+  });
   const completed = filtered.filter(q => getQCategory(q) === 'completed');
   const didntBuy = filtered.filter(q => getQCategory(q) === 'didnt-buy');
   const notInterested = filtered.filter(q => getQCategory(q) === 'not-interested');
   const purchased = filtered.filter(q => getQCategory(q) === 'purchased');
 
-  // Stats
-  const totalQs = questionnaires.length;
-  const sentAndCompleted = questionnaires.filter(q => q.status === 'sent' || q.status === 'completed' || q.status === 'submitted');
-  const completedAll = questionnaires.filter(q => q.status === 'completed' || q.status === 'submitted');
-  const completionRate = sentAndCompleted.length > 0 ? Math.round((completedAll.length / sentAndCompleted.length) * 100) : 0;
+  // Stats — aligned with Scoreboard: denominator = all 1st-intro Qs (excl VIP, 2nd intros, legacy ghosts)
+  const totalQs = filtered.length;
+  const allFirstIntroQs = filtered.filter(q => {
+    if (q.booking_id && secondIntroBookingIds.has(q.booking_id)) return false;
+    const cat = getQCategory(q);
+    return cat !== 'purchased' && cat !== 'not-interested' && cat !== 'didnt-buy' || cat === 'purchased' || cat === 'not-interested' || cat === 'didnt-buy';
+  });
+  const completedAll = filtered.filter(q => q.status === 'completed' || q.status === 'submitted');
+  const completionDenom = filtered.filter(q => !(q.booking_id && secondIntroBookingIds.has(q.booking_id))).length;
+  const completionRate = completionDenom > 0 ? Math.round((completedAll.length / completionDenom) * 100) : 0;
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const weekQs = questionnaires.filter(q => q.created_at >= sevenDaysAgo);
-  const weekSentAndCompleted = weekQs.filter(q => q.status === 'sent' || q.status === 'completed' || q.status === 'submitted');
+  const weekQs = filtered.filter(q => q.created_at >= sevenDaysAgo && !(q.booking_id && secondIntroBookingIds.has(q.booking_id)));
   const weekCompleted = weekQs.filter(q => q.status === 'completed' || q.status === 'submitted');
-  const weekRate = weekSentAndCompleted.length > 0 ? Math.round((weekCompleted.length / weekSentAndCompleted.length) * 100) : 0;
+  const weekRate = weekQs.length > 0 ? Math.round((weekCompleted.length / weekQs.length) * 100) : 0;
 
   const openedNotCompleted = questionnaires.filter(q => q.status === 'sent' && q.last_opened_at).length;
 
@@ -343,13 +349,20 @@ export function QuestionnaireHub() {
       await navigator.clipboard.writeText(link);
       setCopiedId(q.id);
       setTimeout(() => setCopiedId(null), 2000);
-      if (q.status === 'not_sent') {
-        await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', q.id);
-        setQuestionnaires(prev => prev.map(x => x.id === q.id ? { ...x, status: 'sent' } : x));
-      }
+      // Status is NOT auto-updated on copy — user must explicitly hit "Log as Sent"
       toast.success('Link copied!');
     } catch {
       toast.error('Failed to copy');
+    }
+  };
+
+  const markAsSent = async (q: QRecord) => {
+    try {
+      await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', q.id);
+      setQuestionnaires(prev => prev.map(x => x.id === q.id ? { ...x, status: 'sent' } : x));
+      toast.success('Marked as sent');
+    } catch {
+      toast.error('Failed to update status');
     }
   };
 
@@ -586,11 +599,21 @@ export function QuestionnaireHub() {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[11px] gap-1 ml-auto"
+              className="h-7 px-2 text-[11px] gap-1"
               onClick={() => copyLink(q)}
             >
               {copiedId === q.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
               {copiedId === q.id ? 'Copied!' : 'Copy Q Link'}
+            </Button>
+          )}
+          {!readOnly && q.status === 'not_sent' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px] gap-1 ml-auto text-blue-700 border-blue-200 hover:bg-blue-50"
+              onClick={() => markAsSent(q)}
+            >
+              <Send className="w-3 h-3" /> Log as Sent
             </Button>
           )}
         </div>
@@ -652,7 +675,7 @@ export function QuestionnaireHub() {
       {/* Stats Banner */}
       <div className="grid grid-cols-4 gap-2">
         <StatBox label="Total Qs" value={totalQs} />
-        <StatBox label="Completion" value={`${completionRate}%`} accent={completionRate >= 70 ? 'emerald' : completionRate >= 40 ? 'amber' : 'red'} />
+        <StatBox label="Completion (all 1st)" value={`${completionRate}%`} accent={completionRate >= 70 ? 'emerald' : completionRate >= 40 ? 'amber' : 'red'} />
         <StatBox label="This Week" value={`${weekRate}%`} accent={weekRate >= 70 ? 'emerald' : weekRate >= 40 ? 'amber' : 'red'} />
         <StatBox label="Opened, Not Done" value={openedNotCompleted} accent={openedNotCompleted > 0 ? 'amber' : undefined} />
       </div>
@@ -688,10 +711,9 @@ export function QuestionnaireHub() {
         </div>
       ) : (
         /* Normal tabbed view — 6 tabs in 2 rows of 3 */
-        <Tabs defaultValue="needs-sending">
-          <TabsList className="w-full grid grid-cols-3 mb-1">
-            <TabsTrigger value="needs-sending" className="text-xs">Needs Sending ({needsSending.length})</TabsTrigger>
-            <TabsTrigger value="sent" className="text-xs">Sent ({sent.length})</TabsTrigger>
+        <Tabs defaultValue="not-completed">
+          <TabsList className="w-full grid grid-cols-2 mb-1">
+            <TabsTrigger value="not-completed" className="text-xs">Not Completed ({notCompleted.length})</TabsTrigger>
             <TabsTrigger value="completed" className="text-xs">Completed ({completed.length})</TabsTrigger>
           </TabsList>
           <TabsList className="w-full grid grid-cols-3">
@@ -700,12 +722,8 @@ export function QuestionnaireHub() {
             <TabsTrigger value="purchased" className="text-xs">Purchased ({purchased.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="needs-sending" className="space-y-2 mt-2">
-            {needsSending.length === 0 ? <EmptyState text="No questionnaires to send" /> : needsSending.map(q => renderQCard(q))}
-          </TabsContent>
-
-          <TabsContent value="sent" className="space-y-2 mt-2">
-            {sent.length === 0 ? <EmptyState text="No sent questionnaires awaiting response" /> : sent.map(q => renderQCard(q))}
+          <TabsContent value="not-completed" className="space-y-2 mt-2">
+            {notCompleted.length === 0 ? <EmptyState text="No questionnaires pending" /> : notCompleted.map(q => renderQCard(q))}
           </TabsContent>
 
           <TabsContent value="completed" className="space-y-2 mt-2">
