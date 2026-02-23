@@ -159,7 +159,7 @@ export function useDashboardMetrics(
       return isFirstIntro && isInDateRange;
     });
 
-    // Create a map of booking_id to intro runs
+    // Build booking → runs lookup (must be before pastAndTodayBookings)
     const bookingToRuns = new Map<string, IntroRun[]>();
     activeRuns.forEach(run => {
       const bookingId = run.linked_intro_booked_id;
