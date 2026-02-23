@@ -19,6 +19,7 @@ interface StudioScoreboardProps {
   prepRate?: number;
   introsBooked?: number;
   introsShowed?: number;
+  noShows?: number;
 }
 
 export function StudioScoreboard({
@@ -29,12 +30,10 @@ export function StudioScoreboard({
   prepRate,
   introsBooked,
   introsShowed,
+  noShows,
 }: StudioScoreboardProps) {
   const showRate = (introsBooked && introsBooked > 0 && introsShowed !== undefined)
     ? (introsShowed / introsBooked) * 100
-    : undefined;
-  const noShows = (introsBooked !== undefined && introsShowed !== undefined)
-    ? introsBooked - introsShowed
     : undefined;
 
   return (
@@ -140,7 +139,7 @@ export function StudioScoreboard({
                       <p className="text-xs opacity-70">No-Shows</p>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent><p>Booked intros (past + today) who never showed up. Future bookings excluded.</p></TooltipContent>
+                  <TooltipContent><p>Intros with a confirmed No-show result. Cancels, reschedules, and future bookings excluded.</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>

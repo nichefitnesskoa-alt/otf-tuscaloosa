@@ -45,6 +45,7 @@ interface PipelineMetrics {
   showed: number;
   sold: number;
   revenue: number;
+  noShows: number;
 }
 
 interface TodaysRaceEntry {
@@ -161,7 +162,15 @@ export function useDashboardMetrics(
     // Past + today bookings only — used as denominator for show rate & no-shows
     // so future bookings don't deflate the percentage.
     const todayYMD = getTodayYMD();
-    const pastAndTodayBookings = firstIntroBookings.filter(b => b.class_date <= todayYMD);
+    // Past bookings + today's bookings that actually have a run record (occurred).
+    // Today's bookings with no run yet haven't happened and shouldn't count.
+    const pastAndTodayBookings = firstIntroBookings.filter(b => {
+      if (b.class_date > todayYMD) return false;
+      if (b.class_date < todayYMD) return true;
+      // Today: only include if there's a run record
+      const runs = bookingToRuns.get(b.id);
+      return runs && runs.length > 0;
+    });
     
     // First intro bookings excluding self-booked (for studio-wide metrics)
     const firstIntroBookingsNoSelfBooked = firstIntroBookings.filter(b => {
@@ -408,11 +417,21 @@ export function useDashboardMetrics(
       }
     });
 
+    // Explicit no-show count: only bookings with a confirmed No-show result
+    let pipelineNoShows = 0;
+    pastAndTodayBookings.forEach(b => {
+      const runs = bookingToRuns.get(b.id) || [];
+      if (runs.length > 0 && runs.every(r => r.result === 'No-show')) {
+        pipelineNoShows++;
+      }
+    });
+
     const pipeline: PipelineMetrics = {
       booked: pipelineBooked,
       showed: pipelineShowed,
       sold: pipelineSold,
       revenue: pipelineRevenue,
+      noShows: pipelineNoShows,
     };
 
     // =========================================
