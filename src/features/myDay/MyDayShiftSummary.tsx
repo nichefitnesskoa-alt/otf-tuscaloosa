@@ -1,19 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { FileText, Save } from 'lucide-react';
+import { FileText, Check } from 'lucide-react';
 
 type ShiftType = 'AM Shift' | 'Mid Shift' | 'PM Shift';
 
 interface MyDayShiftSummaryProps {
-  /** When true, renders without the Card wrapper — for embedding in floating header */
   compact?: boolean;
 }
 
@@ -23,8 +20,10 @@ export function MyDayShiftSummary({ compact }: MyDayShiftSummaryProps = {}) {
   const [calls, setCalls] = useState('');
   const [texts, setTexts] = useState('');
   const [dms, setDms] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [savedIndicator, setSavedIndicator] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const userName = user?.name || '';
@@ -32,6 +31,7 @@ export function MyDayShiftSummary({ compact }: MyDayShiftSummaryProps = {}) {
   // Load existing row when shift type changes
   useEffect(() => {
     if (!userName) return;
+    loadedRef.current = false;
     const load = async () => {
       setIsLoading(true);
       const { data } = await supabase
@@ -52,40 +52,46 @@ export function MyDayShiftSummary({ compact }: MyDayShiftSummaryProps = {}) {
         setDms('');
       }
       setIsLoading(false);
+      // Mark loaded so autosave doesn't fire on initial load
+      setTimeout(() => { loadedRef.current = true; }, 100);
     };
     load();
   }, [shiftType, userName, todayStr]);
 
-  const handleSave = async () => {
-    if (!userName) {
-      toast.error('No user name found');
-      return;
-    }
-    setIsSaving(true);
+  // Autosave with 1.5s debounce
+  const doAutosave = useCallback(async (c: string, t: string, d: string) => {
+    if (!userName) return;
+    // Skip if all fields empty
+    if (!c && !t && !d) return;
     try {
-      const { error } = await supabase
+      await supabase
         .from('shift_recaps')
         .upsert(
           {
             staff_name: userName,
             shift_date: todayStr,
             shift_type: shiftType,
-            calls_made: parseInt(calls || '0', 10),
-            texts_sent: parseInt(texts || '0', 10),
-            dms_sent: parseInt(dms || '0', 10),
+            calls_made: parseInt(c || '0', 10),
+            texts_sent: parseInt(t || '0', 10),
+            dms_sent: parseInt(d || '0', 10),
           },
           { onConflict: 'staff_name,shift_date,shift_type' },
         );
-
-      if (error) throw error;
-      toast.success(`${shiftType} activity saved`);
+      setSavedIndicator(true);
+      setTimeout(() => setSavedIndicator(false), 1500);
     } catch (err) {
-      console.error('Shift summary save error:', err);
-      toast.error('Failed to save shift activity');
-    } finally {
-      setIsSaving(false);
+      console.error('Shift autosave error:', err);
     }
-  };
+  }, [userName, todayStr, shiftType]);
+
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      doAutosave(calls, texts, dms);
+    }, 1500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [calls, texts, dms, doAutosave]);
 
   const inner = (
     <div className="space-y-2">
@@ -141,29 +147,19 @@ export function MyDayShiftSummary({ compact }: MyDayShiftSummaryProps = {}) {
                 className={compact ? 'h-7 w-14 text-xs text-center' : 'h-9 text-center'}
               />
             </div>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || isLoading}
-              size="sm"
-              className={compact ? 'h-7 text-xs px-2 shrink-0' : 'w-full'}
-            >
-              <Save className="w-3 h-3 mr-1" />
-              {isSaving ? '...' : 'Save'}
-            </Button>
+            {savedIndicator && (
+              <span className={`flex items-center gap-0.5 text-emerald-600 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+                <Check className="w-3 h-3" /> Saved
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {!compact && !isLoading && (
-        <Button
-          onClick={handleSave}
-          disabled={isSaving || isLoading}
-          size="sm"
-          className="w-full"
-        >
-          <Save className="w-3.5 h-3.5 mr-1.5" />
-          {isSaving ? 'Saving…' : 'Save Activity'}
-        </Button>
+      {!compact && savedIndicator && (
+        <p className="text-xs text-emerald-600 flex items-center gap-1 justify-center">
+          <Check className="w-3 h-3" /> Saved
+        </p>
       )}
     </div>
   );

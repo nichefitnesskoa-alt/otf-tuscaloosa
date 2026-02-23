@@ -90,13 +90,40 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
         if (cancelled || !booking) return;
 
         // Fetch questionnaire by booking_id
-        const { data: q } = await supabase
+        let q = (await supabase
           .from('intro_questionnaires')
           .select('id, slug, q1_fitness_goal, q3_obstacle, q5_emotional_driver')
           .eq('booking_id', bookingId)
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle()).data;
+
+        // Fallback: if no Q linked by booking_id, try matching by name
+        if (!q && booking.member_name) {
+          const nameParts = booking.member_name.trim().split(/\s+/);
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          if (firstName) {
+            let nameQuery = supabase
+              .from('intro_questionnaires')
+              .select('id, slug, q1_fitness_goal, q3_obstacle, q5_emotional_driver, booking_id')
+              .ilike('client_first_name', firstName);
+            if (lastName) nameQuery = nameQuery.ilike('client_last_name', lastName);
+            const { data: nameMatches } = await nameQuery
+              .order('created_at', { ascending: false })
+              .limit(5);
+            // Pick the first unlinked or matching record
+            const match = (nameMatches || []).find((m: any) => !m.booking_id || m.booking_id === bookingId);
+            if (match) {
+              q = match as any;
+              // Auto-link: fire-and-forget
+              supabase.from('intro_questionnaires')
+                .update({ booking_id: bookingId })
+                .eq('id', match.id)
+                .then(() => {});
+            }
+          }
+        }
 
         if (cancelled) return;
 

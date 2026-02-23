@@ -119,32 +119,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
       console.error('Failed to log script action:', e);
     }
 
-    // Auto-mark questionnaire as "sent" when script containing Q link is copied
-    if (questionnaireId) {
-      try {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', questionnaireId)
-          .eq('status', 'not_sent');
-        onQuestionnaireSent?.();
-      } catch (e) {
-        console.error('Failed to update questionnaire status:', e);
-      }
-    }
-
-    if (friendQuestionnaireId) {
-      try {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', friendQuestionnaireId)
-          .eq('status', 'not_sent');
-        onFriendQuestionnaireSent?.();
-      } catch (e) {
-        console.error('Failed to update friend questionnaire status:', e);
-      }
-    }
+    // Questionnaire status is NOT updated on copy — user must explicitly hit "Log as Sent"
   };
 
   const handleLog = async () => {
