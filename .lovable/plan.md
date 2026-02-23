@@ -1,55 +1,44 @@
 
-# Fix Show Rate to Exclude Future Events + Consistency Sweep
+
+# Fix No-Shows to Count Only True No-Shows
 
 ## Problem
 
-Show rate is calculated as `showed / booked`, but "booked" includes future bookings that haven't happened yet. At the beginning of a pay period, if 18 intros are booked for the week but only 3 have occurred so far, the show rate uses 18 as the denominator instead of 3, making it appear artificially low.
+No-shows are currently calculated as `introsBooked - introsShowed`, which incorrectly counts:
+- **Cancellations** as no-shows
+- **Reschedules** as no-shows
+- **Today's intros that haven't happened yet** as no-shows
 
-This affects three surfaces:
-- Studio Scoreboard (via pipeline metrics)
-- Booker Stats table
-- Team Meeting scoreboard
-
-## Root Cause
-
-`firstIntroBookings` in `useDashboardMetrics.ts` filters by `class_date` within the selected date range but does not exclude future dates. The same pattern exists in `useMeetingAgenda.ts`.
+Only bookings with an actual `result === 'No-show'` in `intros_run` should count.
 
 ## Solution
 
-### Change 1: useDashboardMetrics.ts
+### Change 1: Explicit no-show count in `useDashboardMetrics.ts`
 
-Add a `todayYMD` variable using the existing `getTodayYMD()` utility from `src/lib/dateUtils.ts`.
+Instead of deriving no-shows as `booked - showed`, count them explicitly:
+- Loop through `pastAndTodayBookings` and check if the booking has a linked run with `result === 'No-show'`
+- Only those count as no-shows
+- Additionally, tighten `pastAndTodayBookings` to exclude today's bookings that have no run record yet (they haven't happened), by filtering to `class_date < todayYMD` OR bookings that have at least one run in `bookingToRuns`
 
-Create a new filtered list `pastAndTodayBookings` from `firstIntroBookings` that only includes bookings where `class_date <= todayYMD`. Use this filtered list as the denominator for:
+Add `noShows` to the `PipelineMetrics` interface and compute it explicitly in the pipeline section.
 
-- **Pipeline metrics** (line 375): `pipelineBooked` uses `pastAndTodayBookings.length` instead of `firstIntroBookings.length`. The "showed" loop also iterates only over `pastAndTodayBookings`.
-- **Booker stats** (line 317): The `.forEach` that counts booked/showed per SA uses `pastAndTodayBookings` for the show rate denominator. However, the "introsBooked" column should still show ALL bookings (including future) since that's a booking activity metric, not an attendance metric. So booker stats will use a dual approach: total booked from `firstIntroBookings`, show rate denominator from `pastAndTodayBookings`.
-- **Lead source metrics** (line 350): Same pattern -- showed/show rate uses only past+today bookings.
+### Change 2: Update `StudioScoreboard.tsx`
 
-The `firstIntroBookings` list itself is NOT changed -- it still includes future bookings because other metrics (like "Intros Booked" count in the scoreboard) correctly should include future bookings. Only show rate and no-show calculations use the filtered set.
+- Accept `noShows` as a prop from pipeline metrics instead of computing it as `booked - showed`
+- Remove the `const noShows = introsBooked - introsShowed` calculation
+- Update tooltip: "Intros with a confirmed No-show result. Cancels and reschedules excluded."
 
-### Change 2: useMeetingAgenda.ts
+### Change 3: Pass `noShows` through from the pipeline
 
-Line 380: Replace `filteredBooked.length` with a count of only bookings where `class_date <= todayYMD`. Since meeting agendas are typically generated for a past week this rarely matters, but it prevents the same bug if someone generates mid-week.
-
-### Change 3: StudioScoreboard display
-
-Update the scoreboard to display two separate "Booked" numbers:
-- "Booked" stays as-is (total bookings in range, including future)  
-- The show rate tooltip clarifies: "Showed / Booked (past + today only)" so it's obvious future events are excluded
-
-The no-shows calculation (`introsBooked - introsShowed`) will also use the past+today denominator so it doesn't count future bookings as no-shows.
-
-### Change 4: MyDayTopPanel props
-
-`MyDayTopPanel.tsx` passes `metrics.pipeline.booked` and `metrics.pipeline.showed` to `StudioScoreboard`. The pipeline metrics will now reflect the corrected denominator, so no changes needed in MyDayTopPanel itself -- it just passes through.
+Update `MyDayTopPanel.tsx` (or wherever `StudioScoreboard` is called) to pass `metrics.pipeline.noShows` as a prop.
 
 ## Files Modified
 
 | File | What Changes |
 |------|-------------|
-| `src/hooks/useDashboardMetrics.ts` | Add `pastAndTodayBookings` filter; use it for show rate denominator in pipeline, booker stats, and lead source metrics |
-| `src/hooks/useMeetingAgenda.ts` | Filter show rate denominator to past+today bookings |
-| `src/components/dashboard/StudioScoreboard.tsx` | Update no-shows tooltip to clarify past+today only |
+| `src/hooks/useDashboardMetrics.ts` | Add explicit no-show count to pipeline metrics; tighten pastAndTodayBookings to exclude today's un-occurred intros |
+| `src/components/dashboard/StudioScoreboard.tsx` | Accept `noShows` prop instead of computing it; update tooltip |
+| `src/features/myDay/MyDayTopPanel.tsx` | Pass `pipeline.noShows` to StudioScoreboard |
 
-No features removed. No database changes. No new files.
+No database changes. No features removed.
+
