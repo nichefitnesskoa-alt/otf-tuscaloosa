@@ -377,8 +377,12 @@ export function useGenerateAgenda() {
       // Close Rate = Sales / Showed (both deduplicated to first-intro bookings)
       const closeRate = showedLen > 0 ? (salesLen / showedLen) * 100 : 0;
       const prevCloseRate = prevShowedLen > 0 ? (prevSalesLen / prevShowedLen) * 100 : 0;
-      const showRate = filteredBooked.length > 0 ? (showedLen / filteredBooked.length) * 100 : 0;
-      const prevShowRate = prevFilteredBooked.length > 0 ? (prevShowedLen / prevFilteredBooked.length) * 100 : 0;
+      // Show rate denominator excludes future bookings
+      const todayYMD = format(new Date(), 'yyyy-MM-dd');
+      const pastAndTodayBooked = filteredBooked.filter((b: any) => b.class_date <= todayYMD);
+      const prevPastAndTodayBooked = prevFilteredBooked.filter((b: any) => b.class_date <= todayYMD);
+      const showRate = pastAndTodayBooked.length > 0 ? (showedLen / pastAndTodayBooked.length) * 100 : 0;
+      const prevShowRate = prevPastAndTodayBooked.length > 0 ? (prevShowedLen / prevPastAndTodayBooked.length) * 100 : 0;
 
       // AMC
       const amc = amcRes.data?.[0]?.amc_value || 0;

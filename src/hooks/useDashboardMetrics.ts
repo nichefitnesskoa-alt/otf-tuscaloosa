@@ -7,6 +7,7 @@ import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
 import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
+import { getTodayYMD } from '@/lib/dateUtils';
 
 interface StudioMetrics {
   introsRun: number;
@@ -156,6 +157,11 @@ export function useDashboardMetrics(
       const isInDateRange = isDateInRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
     });
+
+    // Past + today bookings only — used as denominator for show rate & no-shows
+    // so future bookings don't deflate the percentage.
+    const todayYMD = getTodayYMD();
+    const pastAndTodayBookings = firstIntroBookings.filter(b => b.class_date <= todayYMD);
     
     // First intro bookings excluding self-booked (for studio-wide metrics)
     const firstIntroBookingsNoSelfBooked = firstIntroBookings.filter(b => {
@@ -313,14 +319,21 @@ export function useDashboardMetrics(
     // because those can still be SA-initiated bookings.
     const EXCLUDED_LEAD_SOURCES_BOOKER = ['Online Intro Offer (self-booked)', 'VIP Class'];
     
-    const bookerCounts = new Map<string, { booked: number; showed: number }>();
+    // Dual approach: total booked from all firstIntroBookings (activity metric),
+    // show rate denominator from pastAndTodayBookings only (attendance metric).
+    const bookerCounts = new Map<string, { booked: number; showed: number; pastBooked: number }>();
+    const pastAndTodayBookingIds = new Set(pastAndTodayBookings.map(b => b.id));
+    
     firstIntroBookings
       .filter(b => !EXCLUDED_LEAD_SOURCES_BOOKER.includes(b.lead_source))
       .forEach(b => {
         const bookedBy = (b as any).booked_by || b.sa_working_shift;
         if (bookedBy && !EXCLUDED_NAMES.includes(bookedBy)) {
-          const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0 };
+          const existing = bookerCounts.get(bookedBy) || { booked: 0, showed: 0, pastBooked: 0 };
           existing.booked++;
+          if (pastAndTodayBookingIds.has(b.id)) {
+            existing.pastBooked++;
+          }
           
           const runs = bookingToRuns.get(b.id) || [];
           if (runs.some(run => run.result !== 'No-show')) {
@@ -336,7 +349,7 @@ export function useDashboardMetrics(
         saName,
         introsBooked: counts.booked,
         introsShowed: counts.showed,
-        showRate: counts.booked > 0 ? (counts.showed / counts.booked) * 100 : 0,
+        showRate: counts.pastBooked > 0 ? (counts.showed / counts.pastBooked) * 100 : 0,
         pipelineValue: counts.booked * 10,
       }))
       .filter(m => m.introsBooked > 0)
@@ -346,20 +359,24 @@ export function useDashboardMetrics(
     // LEAD SOURCE METRICS
     // Uses isSaleInRange for conversion-based sale detection
     // =========================================
+    // Lead source metrics: "booked" = all bookings, showed/sold = past+today only
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
       existing.booked++;
       
-      const runs = bookingToRuns.get(b.id) || [];
-      const nonNoShowRun = runs.find(r => r.result !== 'No-show');
-      if (nonNoShowRun) {
-        existing.showed++;
-        const saleRun = runs.find(r => isSaleInRange(r, dateRange));
-        if (saleRun) {
-          existing.sold++;
-          existing.revenue += saleRun.commission_amount || 0;
+      // Only count showed/sold for past+today bookings
+      if (pastAndTodayBookingIds.has(b.id)) {
+        const runs = bookingToRuns.get(b.id) || [];
+        const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+        if (nonNoShowRun) {
+          existing.showed++;
+          const saleRun = runs.find(r => isSaleInRange(r, dateRange));
+          if (saleRun) {
+            existing.sold++;
+            existing.revenue += saleRun.commission_amount || 0;
+          }
         }
       }
       
@@ -372,12 +389,13 @@ export function useDashboardMetrics(
     // =========================================
     // PIPELINE METRICS - uses isSaleInRange for conversion-based sale detection
     // =========================================
-    const pipelineBooked = firstIntroBookings.length;
+    // Pipeline: "booked" for show rate uses past+today only
+    const pipelineBooked = pastAndTodayBookings.length;
     let pipelineShowed = 0;
     let pipelineSold = 0;
     let pipelineRevenue = 0;
 
-    firstIntroBookings.forEach(b => {
+    pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
       const nonNoShowRun = runs.find(r => r.result !== 'No-show');
       if (nonNoShowRun) {
