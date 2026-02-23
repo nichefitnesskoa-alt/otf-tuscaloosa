@@ -1,46 +1,96 @@
 
 
-# VIP List: Delete Members + Clarify VIP ≠ Intros
+# Q Hub Simplification, Script Bug Fixes, and Shift Activity Autosave
 
-## Changes
+## Summary
 
-### 1. Add Delete button to VIP Pipeline table rows
+Five interconnected changes to improve consistency, fix bugs, and reduce friction.
 
-**File: `src/features/pipeline/components/VipPipelineTable.tsx`**
+---
 
-- Add a delete (trash) button in the Actions column for each VIP row
-- On click, soft-delete the booking record (`deleted_at = now()`, `deleted_by = user`) and also delete the linked `vip_registrations` record
-- Show a confirmation toast with the member name
-- Refresh the table after deletion
-- Add a "Delete Selected" bulk action button in the bulk action bar (next to "Assign to Session") for deleting multiple VIP members at once
+## Change 1: Simplify Q Hub Tabs
 
-### 2. Add Delete button to expanded row detail
+Replace the current 6-tab layout (Needs Sending / Sent / Completed / Didn't Buy / Not Interested / Purchased) with a cleaner structure:
 
-In the expanded row section, add a red "Remove from VIP List" button that performs the same delete action with a brief confirmation step.
+**Top row (2 tabs):** Not Completed | Completed
 
-### 3. VIP bookings excluded from intro counts (verification)
+**Bottom row (3 tabs):** Didn't Buy | Not Interested | Purchased
 
-VIP bookings are already excluded from MyDay, shift recap intro counts, and follow-up queues via `booking_type_canon = 'VIP'` filtering. No additional code changes needed -- the existing isolation is correct. VIP sessions are marketing events, not intro appointments.
+"Not Completed" merges the old "Needs Sending" and "Sent" tabs into one list. Cards within it still show their individual status (needs sending vs sent) via the colored banner, so no information is lost.
 
-## Technical Details
+**File:** `src/components/dashboard/QuestionnaireHub.tsx`
+- Merge `needsSending` and `sent` arrays into a single `notCompleted` list
+- Update TabsList from 3+3 grid to 2-col top row + 3-col bottom row
+- Default tab becomes `not-completed`
+- All card rendering, banners, and action buttons remain unchanged
 
-**Delete logic** (single member):
-```typescript
-// Soft-delete the intros_booked record
-await supabase.from('intros_booked')
-  .update({ deleted_at: new Date().toISOString(), deleted_by: userName })
-  .eq('id', bookingId);
+---
 
-// Hard-delete the vip_registrations record (if linked)
-await supabase.from('vip_registrations')
-  .delete()
-  .eq('booking_id', bookingId);
-```
+## Change 2: Fix Questionnaire Not Appearing in Scripts
 
-**Bulk delete**: Same logic in a loop or `.in('id', selectedIds)` for the bookings, then matching registration cleanup.
+**Root cause:** When a booking has no linked questionnaire record (auto-creation failed or link missing), the ScriptPickerSheet query on line 93 returns null, so no Q link gets injected into the script.
 
-**Files modified:**
-- `src/features/pipeline/components/VipPipelineTable.tsx` -- add delete button in actions column, bulk delete in toolbar, delete in expanded row
+**Fix in `src/components/scripts/ScriptPickerSheet.tsx`:**
+- After the primary query by `booking_id` returns no result, add a fallback query that searches `intro_questionnaires` by matching name (client_first_name + client_last_name = member_name from the booking)
+- If a match is found, auto-link it by updating `booking_id` on the questionnaire record (fire-and-forget, same pattern as the Q Hub auto-linker)
+- This ensures the Q link resolves even when the booking_id relationship was never established
 
-No database schema changes needed. Existing `deleted_at` and `deleted_by` columns on `intros_booked` handle soft deletes. The VIP table query already filters `.is('deleted_at', null)`.
+This is the same auto-link logic already in QuestionnaireHub (lines 140-165) but applied at the moment scripts are opened, so it catches any records that slipped through.
 
+---
+
+## Change 3: Stop Auto-Marking Questionnaire as "Sent" on Copy
+
+**Current behavior:** In `MessageGenerator.tsx`, both the "Copy to Clipboard" button (handleCopy) and the "Log as Sent" button (handleLog) auto-update the questionnaire status to 'sent'.
+
+**New behavior:**
+- **"Copy to Clipboard"** -- only copies text and logs `script_actions`. Does NOT update questionnaire status.
+- **"Log as Sent"** -- this is the explicit user action that marks the questionnaire as sent. Only this button updates questionnaire status.
+
+**Also in `QuestionnaireHub.tsx` `copyLink` function (line 346):** Currently auto-marks status as 'sent' when Q link is copied. Add a separate "Mark as Sent" button on Q Hub cards instead, and remove the auto-status-update from the copy action.
+
+**File changes:**
+- `src/components/scripts/MessageGenerator.tsx` -- remove questionnaire status update from `handleCopy`, keep it only in `handleLog`
+- `src/components/dashboard/QuestionnaireHub.tsx` -- remove auto-status-update from `copyLink`, add explicit "Log as Sent" button on cards in the Not Completed tab
+
+---
+
+## Change 4: Autosave Calls, Texts, and DMs
+
+Replace the manual "Save" button in the Shift Activity module with automatic saving.
+
+**File:** `src/features/myDay/MyDayShiftSummary.tsx`
+- Add a `useEffect` debounce (1.5 seconds after last keystroke) that auto-upserts to `shift_recaps`
+- Remove the Save button from the UI
+- Show a subtle "Saved" indicator that briefly appears after each autosave
+- Keep the existing load-on-shift-type-change behavior
+- Skip autosave if all fields are empty (prevent creating empty rows)
+
+---
+
+## Change 5: Align Q Completion Rate Between Hub and Scoreboard
+
+**Why they differ today:**
+- **Scoreboard** calculates: completed questionnaires / all 1st intro bookings in date range (includes bookings where Q was never sent)
+- **Q Hub** calculates: completed / (sent + completed) only (excludes "needs sending" from denominator)
+
+These are fundamentally different metrics. The Scoreboard denominator is correct for measuring "how well are we completing Qs for our intros." The Hub denominator only measures "of the ones we sent, how many came back."
+
+**Fix:** Align the Q Hub stats banner to use the same formula as the Scoreboard:
+- Denominator = all 1st-intro questionnaire records (excluding VIP, excluding 2nd intros, excluding legacy ghost records)
+- Numerator = those with status 'completed' or 'submitted'
+- Label changes to clarify: "Completion (all 1st intros)" so it's clear what's being measured
+- This ensures the number in the Q Hub stats matches the Scoreboard for the same time period
+
+---
+
+## Files Modified
+
+| File | What Changes |
+|------|-------------|
+| `src/components/dashboard/QuestionnaireHub.tsx` | Tab restructure, remove auto-sent on copy, add "Log as Sent" button, align completion rate formula |
+| `src/components/scripts/ScriptPickerSheet.tsx` | Fallback Q lookup by name when booking_id query returns nothing |
+| `src/components/scripts/MessageGenerator.tsx` | Remove questionnaire status update from handleCopy |
+| `src/features/myDay/MyDayShiftSummary.tsx` | Replace Save button with debounced autosave |
+
+**No files removed. No existing features removed. No database changes needed.**
