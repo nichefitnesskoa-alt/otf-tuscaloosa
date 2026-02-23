@@ -159,6 +159,17 @@ export function useDashboardMetrics(
       return isFirstIntro && isInDateRange;
     });
 
+    // Create a map of booking_id to intro runs
+    const bookingToRuns = new Map<string, IntroRun[]>();
+    activeRuns.forEach(run => {
+      const bookingId = run.linked_intro_booked_id;
+      if (bookingId) {
+        const existing = bookingToRuns.get(bookingId) || [];
+        existing.push(run);
+        bookingToRuns.set(bookingId, existing);
+      }
+    });
+
     // Past + today bookings only — used as denominator for show rate & no-shows
     // so future bookings don't deflate the percentage.
     const todayYMD = getTodayYMD();
@@ -176,17 +187,6 @@ export function useDashboardMetrics(
     const firstIntroBookingsNoSelfBooked = firstIntroBookings.filter(b => {
       const bookedBy = (b as any).booked_by || b.sa_working_shift || '';
       return !EXCLUDED_NAMES.some(ex => bookedBy.toLowerCase() === ex.toLowerCase());
-    });
-
-    // Create a map of booking_id to intro runs
-    const bookingToRuns = new Map<string, IntroRun[]>();
-    activeRuns.forEach(run => {
-      const bookingId = run.linked_intro_booked_id;
-      if (bookingId) {
-        const existing = bookingToRuns.get(bookingId) || [];
-        existing.push(run);
-        bookingToRuns.set(bookingId, existing);
-      }
     });
 
     // Get all unique SA names
