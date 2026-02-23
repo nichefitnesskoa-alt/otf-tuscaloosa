@@ -1,44 +1,47 @@
 
 
-# Fix No-Shows to Count Only True No-Shows
+# Add Speed-to-Lead Metric on My Day Leads Tab
 
-## Problem
+## What It Does
 
-No-shows are currently calculated as `introsBooked - introsShowed`, which incorrectly counts:
-- **Cancellations** as no-shows
-- **Reschedules** as no-shows
-- **Today's intros that haven't happened yet** as no-shows
+Adds a visible, at-a-glance speed-to-lead summary banner at the top of the New Leads tab. This gives the SA an immediate sense of urgency and performance without scrolling through individual cards.
 
-Only bookings with an actual `result === 'No-show'` in `intros_run` should count.
+## What the Metric Shows
 
-## Solution
+A compact stats bar above the lead cards with:
 
-### Change 1: Explicit no-show count in `useDashboardMetrics.ts`
+- **Avg Response Time** -- Average minutes/hours from lead creation to when it was marked "Contacted" (only for leads that have been contacted)
+- **Fastest Response** -- Best (shortest) response time in the current set
+- **Overdue Count** -- Number of "New" leads that are 4+ hours old and haven't been contacted yet (red badge)
+- **Needs Contact** -- Number of "New" leads 1-4 hours old (amber badge)
 
-Instead of deriving no-shows as `booked - showed`, count them explicitly:
-- Loop through `pastAndTodayBookings` and check if the booking has a linked run with `result === 'No-show'`
-- Only those count as no-shows
-- Additionally, tighten `pastAndTodayBookings` to exclude today's bookings that have no run record yet (they haven't happened), by filtering to `class_date < todayYMD` OR bookings that have at least one run in `bookingToRuns`
+Color-coded status: Green (all leads contacted within 1h), Amber (some 1-4h), Red (any 4h+ overdue).
 
-Add `noShows` to the `PipelineMetrics` interface and compute it explicitly in the pipeline section.
+## Technical Changes
 
-### Change 2: Update `StudioScoreboard.tsx`
+### File: `src/features/myDay/MyDayNewLeadsTab.tsx`
 
-- Accept `noShows` as a prop from pipeline metrics instead of computing it as `booked - showed`
-- Remove the `const noShows = introsBooked - introsShowed` calculation
-- Update tooltip: "Intros with a confirmed No-show result. Cancels and reschedules excluded."
+1. Add a new `SpeedToLeadBanner` component inside the file that:
+   - Receives the `leads` array
+   - Filters "new" leads to count overdue (4h+) and warning (1-4h) buckets
+   - Filters "contacted" leads and calculates average response time using `created_at` vs `updated_at` (the timestamp when stage changed to "contacted")
+   - Displays a compact horizontal stats bar with the 4 metrics above
+   - Uses color-coded badges matching the existing card border colors (red/amber/green)
 
-### Change 3: Pass `noShows` through from the pipeline
+2. Render `SpeedToLeadBanner` at the top of the component, just above the sub-tabs (New | Flagged | Contacted etc.)
 
-Update `MyDayTopPanel.tsx` (or wherever `StudioScoreboard` is called) to pass `metrics.pipeline.noShows` as a prop.
+### No other files changed
 
-## Files Modified
+The banner uses only data already fetched (`leads` state array) -- no new queries or database changes needed. The `updated_at` field on the `leads` table is already set when a lead's stage changes, so it serves as the "contacted at" timestamp for response time calculation.
 
-| File | What Changes |
-|------|-------------|
-| `src/hooks/useDashboardMetrics.ts` | Add explicit no-show count to pipeline metrics; tighten pastAndTodayBookings to exclude today's un-occurred intros |
-| `src/components/dashboard/StudioScoreboard.tsx` | Accept `noShows` prop instead of computing it; update tooltip |
-| `src/features/myDay/MyDayTopPanel.tsx` | Pass `pipeline.noShows` to StudioScoreboard |
+## Visual Layout
 
-No database changes. No features removed.
+```text
++--------------------------------------------------+
+| Speed to Lead                                     |
+| Avg: 45m | Best: 12m | 🔴 2 Overdue | ⚠ 3 Soon  |
++--------------------------------------------------+
+| [New] [Flagged] [Contacted] [Booked] [In System]  |
+| ... lead cards ...                                 |
+```
 
