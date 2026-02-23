@@ -126,7 +126,7 @@ export function StudioScoreboard({
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[220px]">
-                    <p>Showed ÷ Booked. Measures booking-to-attendance conversion.</p>
+                    <p>Showed ÷ Booked (past + today only). Future bookings excluded from denominator.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -140,7 +140,7 @@ export function StudioScoreboard({
                       <p className="text-xs opacity-70">No-Shows</p>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent><p>Booked intros who never showed up</p></TooltipContent>
+                  <TooltipContent><p>Booked intros (past + today) who never showed up. Future bookings excluded.</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
