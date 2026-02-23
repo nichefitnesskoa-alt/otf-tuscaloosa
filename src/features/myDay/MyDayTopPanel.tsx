@@ -109,6 +109,7 @@ export function MyDayTopPanel() {
               prepRate={prepRate}
               introsBooked={metrics.pipeline.booked}
               introsShowed={metrics.pipeline.showed}
+              noShows={metrics.pipeline.noShows}
             />
             <WeeklySchedule />
           </div>
