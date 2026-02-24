@@ -1,34 +1,39 @@
 
 
-# Pre-populate Outcome Drawer with Previously Saved Data
-
-## Problem
-When reopening the Outcome Drawer (e.g., by tapping the outcome badge), the "2nd Intro Details" fields (Date, Time, Coach) appear blank even though a 2nd intro was already booked. The user expects to see the previously submitted values pre-filled so they can make edits from that baseline.
+# Fix: 2nd Intro Time Not Pre-Populating
 
 ## Root Cause
-In `OutcomeDrawer.tsx`, the linked 2nd intro data is fetched (lines 109-128) and displayed as a read-only info banner, but the form fields (`secondIntroDate`, `secondIntroTime`, `secondIntroCoach`) are initialized to empty strings/undefined (lines 101-103). There is no `useEffect` that populates these form fields when `linkedSecondIntro` loads.
 
-## Changes — `src/components/myday/OutcomeDrawer.tsx`
+When a "Booked 2nd intro" outcome is saved, the new `intros_booked` record is created with `class_start_at` (e.g., `2026-02-26T06:15:00`) but **`intro_time` is never set** (line 326 of `applyIntroOutcomeUpdate.ts`).
 
-### 1. Pre-populate 2nd intro form fields from linked data
-Add a `useEffect` after the `linkedSecondIntro` fetch effect (after line 128) that sets `secondIntroDate`, `secondIntroTime`, and `secondIntroCoach` when `linkedSecondIntro` is loaded:
+The OutcomeDrawer fetches `intro_time` from the linked booking (line 114), gets `null`, and the time field stays blank — even though the time is embedded in `class_start_at`.
 
-```tsx
-useEffect(() => {
-  if (!linkedSecondIntro) return;
-  if (linkedSecondIntro.date) {
-    setSecondIntroDate(new Date(linkedSecondIntro.date + 'T00:00:00'));
-  }
-  if (linkedSecondIntro.time) setSecondIntroTime(linkedSecondIntro.time);
-  if (linkedSecondIntro.coach) setSecondIntroCoach(linkedSecondIntro.coach);
-}, [linkedSecondIntro]);
+The blue banner shows the date correctly because it only uses `class_date`, but time is missing because `intro_time` is null.
+
+## Changes
+
+### 1. `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`
+In the Step 6 insert (line 323), add `intro_time` extracted from the draft's `class_start_at`:
+
+```ts
+intro_time: draft.class_start_at.split('T')[1]?.substring(0, 5) || null,
 ```
 
-This ensures that when an SA taps the outcome badge to edit a "Booked 2nd intro" outcome, the date, time, and coach fields are already filled with the previously saved values. The SA can then modify any field and re-save.
+This ensures future 2nd intro bookings always have `intro_time` set.
+
+### 2. `src/components/myday/OutcomeDrawer.tsx`
+In the fetch query (line 114), also select `class_start_at`. In the result handler, fall back to extracting HH:mm from `class_start_at` when `intro_time` is null:
+
+```ts
+time: data.intro_time || data.class_start_at?.split('T')[1]?.substring(0, 5) || '',
+```
+
+This fixes pre-population for existing records that already have `class_start_at` but no `intro_time`.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/myday/OutcomeDrawer.tsx` | Add useEffect to populate 2nd intro form fields from `linkedSecondIntro` |
+| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Add `intro_time` to 2nd intro booking insert |
+| `src/components/myday/OutcomeDrawer.tsx` | Fallback to `class_start_at` for time when `intro_time` is null |
 
