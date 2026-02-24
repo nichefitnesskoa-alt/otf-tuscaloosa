@@ -360,13 +360,36 @@ export default function IntroRowCard({
               ⏳ Waiting for response
             </Badge>
           )}
-          {item.phone && (
-            <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Copy Phone" onClick={handleCopyPhone}>
-              <Copy className="w-2.5 h-2.5" />
-            </Button>
-          )}
         </div>
       </div>
+
+      {/* Outcome result bottom banner */}
+      {item.latestRunResult && (
+        <StatusBanner
+          bgColor={
+            item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+              ? '#16a34a'
+              : item.latestRunResult === 'Booked 2nd intro'
+              ? '#2563eb'
+              : item.latestRunResult === "Didn't Buy"
+              ? '#dc2626'
+              : item.latestRunResult === 'No-show'
+              ? '#64748b'
+              : '#d97706'
+          }
+          text={
+            item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+              ? `✓ Purchased — ${item.latestRunResult}`
+              : item.latestRunResult === 'Booked 2nd intro'
+              ? '📅 Booked 2nd Intro'
+              : item.latestRunResult === "Didn't Buy"
+              ? "✗ Didn't Buy"
+              : item.latestRunResult === 'No-show'
+              ? '👻 No-show'
+              : `⏳ ${item.latestRunResult}`
+          }
+        />
+      )}
 
       {/* Outcome drawer – expands below the card */}
       {outcomeOpen && (
