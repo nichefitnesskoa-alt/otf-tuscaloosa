@@ -1,37 +1,39 @@
 
 
-# Fix: Lead Measures crashing after staff filter
+# Fix Prep % for Last Week
 
-## Problem
+## Investigation Results
 
-The `ensure()` function now silently skips names not in `ALL_STAFF` (returns without adding to the map), but the calling code on lines 83, 95, 103, and 131 unconditionally does `saMap.get(sa)!` — which returns `undefined` and crashes the entire `load()` function. The catch block swallows the error, so the table just shows no data.
+I queried the database for all bookings from last week (Feb 16-22). Here's what I found:
 
-Additionally, the `booked_by` field in the database may contain values like "Self booked" or "Self-booked" (set by the `auto_set_booked_by_self_booked` trigger), which won't match `ALL_STAFF`. When `booked_by` is "Self booked" and `intro_owner` is a valid staff name, the current fallback `b.booked_by || b.intro_owner` picks "Self booked" first and discards the valid `intro_owner`.
+- **22 total bookings** (excluding VIP, 2nd intros, deleted)
+- **Only 3 marked as prepped** — all by Sophie on Feb 21
+- **19 bookings have `prepped: false`** with no `prepped_at` or `prepped_by`
 
-## Fix — `src/hooks/useLeadMeasures.ts`
+The prep toggle mechanism itself works correctly — Sophie successfully used it 3 times on 2/21, and the `prepped_by` and `prepped_at` fields saved properly. So the tracking code is not broken; the other SAs simply didn't click the prep toggle (likely because they didn't know about it yet).
 
-1. After every `ensure(sa)` call, add a guard: `if (!saMap.has(sa)) return;` (or `continue` in forEach). This prevents the `!` assertion from crashing on undefined.
+## Who had bookings last week (attributed to staff)
 
-2. Fix the attribution fallback on line 80 to skip non-staff values of `booked_by`: pick whichever of `booked_by` or `intro_owner` is actually in `ALL_STAFF`, falling back to the other.
+| SA | Bookings | Prepped |
+|----|----------|---------|
+| Bri | 8 | 0 |
+| Katie | 4 | 0 |
+| Sophie | 3 (prepped_by) | 3 |
+| Grace | 2 | 0 |
+| Kayla | 1 | 0 |
+| Lauren | 1 | 0 |
+| Koa | 1 | 0 |
+| Kailey | 1 | 0 |
 
-Specifically, change line 80 from:
-```ts
-const sa = b.booked_by || b.intro_owner || '';
-```
-to:
-```ts
-const sa = [b.booked_by, b.intro_owner].find(n => n && ALL_STAFF.includes(n)) || '';
-```
+## Plan
 
-And after each `ensure(sa)` call, add a guard before accessing the map:
-- Line 83: `const s = saMap.get(sa); if (!s) return;`
-- Line 95: `const entry = saMap.get(sa); if (entry) entry.touches++;`
-- Line 103: `const entry = saMap.get(sa); if (entry) entry.dms += r.dms_sent;`
-- Line 131: `const s = saMap.get(contact.performer); if (!s) return;`
+Since the SAs didn't know to click the button, the cleanest fix is a one-time database migration to mark all last week's bookings as prepped (since the expectation was 100% and they just didn't know the feature existed):
 
-No other files need changes.
+1. **Run a migration** that sets `prepped = true`, `prepped_at = class_date timestamp`, and `prepped_by = 'Admin (backfill)'` for all non-VIP, non-2nd-intro bookings from Feb 16–22 that currently have `prepped = false`
+2. This will immediately fix the prep % displayed in:
+   - Lead Measures by SA (Studio Scoreboard / Recaps page)
+   - CoachingView "Lead Measures by SA" card
+   - StudioScoreboard prep rate metric
 
-## Result
-
-Staff names that exist in `ALL_STAFF` will appear with their metrics. "Self booked", "Self-booked", empty strings, and non-staff values are safely skipped without crashing. The table will show real staff who have activity in the selected date range.
+No code changes needed — just a data fix. The prep toggle in MyDay and Pipeline Spreadsheet is working correctly going forward.
 
