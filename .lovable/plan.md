@@ -1,90 +1,61 @@
 
 
-# Two Changes: Close Rate Color Thresholds + Pre-populate Outcome Data
+# Add Outcome Result Bottom Banner to Intro Cards
 
-## 1. Close Rate Color Coding in Studio Scoreboard
+## Problem
+When an outcome has been logged (e.g. "Booked 2nd intro", "Premier", "No-show"), the result only appears as a tiny badge in Row 2. The user wants a bold, colored, full-width banner at the bottom of the card — impossible to miss — so any SA can instantly see the outcome without clicking the Outcome button.
 
-**Current behavior**: Close Rate text is always `text-success` (green) regardless of value.
+## Solution
+Add a `StatusBanner` at the bottom of each card (after the secondary actions row, before the outcome drawer) when `item.latestRunResult` exists. Color-coded by result type:
 
-**Desired behavior**:
-- 40%+ → Green
-- 30-39% → Yellow
-- Below 30% → Red
+- **Sale** (Premier, Elite, Basic, etc.): Green `#16a34a` — `✓ Purchased — {result}`
+- **Booked 2nd intro**: Blue `#2563eb` — `📅 Booked 2nd Intro`
+- **Didn't Buy**: Red `#dc2626` — `✗ Didn't Buy`
+- **No-show**: Gray `#64748b` — `👻 No-show`
+- **Other** (Follow-up needed, etc.): Amber `#d97706` — `⏳ {result}`
 
-### Change — `src/components/dashboard/StudioScoreboard.tsx`
+Also remove the copy-phone button since it's not useful.
 
-**Line 80**: Replace the hardcoded `text-success` class on the Close Rate value with a dynamic color based on thresholds:
+## Changes — `src/features/myDay/IntroRowCard.tsx`
 
-```ts
-const closeRateColor = closingRate >= 40 ? 'text-success' : closingRate >= 30 ? 'text-warning' : 'text-destructive';
+### 1. Remove copy phone button (lines 363-367)
+Delete the `<Button>` that copies the phone number.
+
+### 2. Add outcome bottom banner (after line 368, before the outcome drawer)
+```tsx
+{item.latestRunResult && (
+  <StatusBanner
+    bgColor={
+      item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+        ? '#16a34a'
+        : item.latestRunResult === 'Booked 2nd intro'
+        ? '#2563eb'
+        : item.latestRunResult === "Didn't Buy"
+        ? '#dc2626'
+        : item.latestRunResult === 'No-show'
+        ? '#64748b'
+        : '#d97706'
+    }
+    text={
+      item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+        ? `✓ Purchased — ${item.latestRunResult}`
+        : item.latestRunResult === 'Booked 2nd intro'
+        ? '📅 Booked 2nd Intro'
+        : item.latestRunResult === "Didn't Buy"
+        ? "✗ Didn't Buy"
+        : item.latestRunResult === 'No-show'
+        ? '👻 No-show'
+        : `⏳ ${item.latestRunResult}`
+    }
+  />
+)}
 ```
 
-Apply the same logic to the Close Rate icon on line 79.
+This reuses the existing `StatusBanner` component already imported and used for the top Q-status banner.
 
-Also apply this to `PersonalScoreboard.tsx` (line 77-78) and `ScoreboardSection.tsx` for consistency across all scoreboard views.
+## Files Changed
 
-### Files
-- `src/components/dashboard/StudioScoreboard.tsx` — dynamic close rate color
-- `src/components/dashboard/PersonalScoreboard.tsx` — same treatment
-- `src/components/meeting/ScoreboardSection.tsx` — same treatment
-- `src/lib/studio-metrics.ts` — add `CLOSE_RATE_THRESHOLDS = { green: 40, amber: 30 }` for reuse
-
----
-
-## 2. Pre-populate Outcome Drawer with Existing Run Data
-
-**Current behavior**: When reopening the outcome drawer for a completed intro, only `currentResult` (the outcome label) is passed. The `existingRunId` is hardcoded to `null` (line 373 of IntroRowCard). Coach name, objection, and notes are all blank — requiring re-entry.
-
-**Desired behavior**: When an existing run exists, load its full data (run ID, coach, objection, notes) so the drawer opens pre-filled for easy review and editing.
-
-### Changes
-
-**`src/features/myDay/useUpcomingIntrosData.ts`**:
-- Expand the `intros_run` select query (line 115) to also fetch `id, coach_name, primary_objection, notes`:
-  ```ts
-  .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes')
-  ```
-- Expand `runMap` to store these additional fields
-- Add `latestRunId`, `latestRunCoach`, `latestRunObjection`, `latestRunNotes` to the item mapping
-
-**`src/features/myDay/myDayTypes.ts`**:
-- Add to `UpcomingIntroItem`:
-  ```ts
-  latestRunId: string | null;
-  latestRunCoach: string | null;
-  latestRunObjection: string | null;
-  latestRunNotes: string | null;
-  ```
-
-**`src/features/myDay/IntroRowCard.tsx`**:
-- Line 373: Pass `existingRunId={item.latestRunId}` instead of `null`
-
-**`src/components/myday/OutcomeDrawer.tsx`**:
-- Add props: `initialCoach`, `initialObjection`, `initialNotes`
-- Initialize state from these props:
-  ```ts
-  const [coachName, setCoachName] = useState(initialCoach || '');
-  const [objection, setObjection] = useState(initialObjection || '');
-  const [notes, setNotes] = useState(initialNotes || '');
-  ```
-
-**`src/features/myDay/IntroRowCard.tsx`**:
-- Pass the new props from item data:
-  ```tsx
-  initialCoach={item.latestRunCoach || ''}
-  initialObjection={item.latestRunObjection || ''}
-  initialNotes={item.latestRunNotes || ''}
-  ```
-
-### Files
 | File | Change |
 |------|--------|
-| `src/lib/studio-metrics.ts` | Add `CLOSE_RATE_THRESHOLDS` |
-| `src/components/dashboard/StudioScoreboard.tsx` | Dynamic close rate color |
-| `src/components/dashboard/PersonalScoreboard.tsx` | Dynamic close rate color |
-| `src/components/meeting/ScoreboardSection.tsx` | Dynamic close rate color |
-| `src/features/myDay/myDayTypes.ts` | Add run detail fields to UpcomingIntroItem |
-| `src/features/myDay/useUpcomingIntrosData.ts` | Fetch & map run ID, coach, objection, notes |
-| `src/features/myDay/IntroRowCard.tsx` | Pass existing run data to OutcomeDrawer |
-| `src/components/myday/OutcomeDrawer.tsx` | Accept & use initial run data props |
+| `src/features/myDay/IntroRowCard.tsx` | Add outcome bottom banner using `StatusBanner`, remove copy-phone button |
 
