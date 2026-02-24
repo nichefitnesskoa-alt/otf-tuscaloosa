@@ -16,6 +16,7 @@ import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard'
 import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { LeadMeasuresTable } from '@/components/dashboard/LeadMeasuresTable';
+import { OutreachTable } from '@/components/dashboard/OutreachTable';
 import { useLeadMeasures } from '@/hooks/useLeadMeasures';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
@@ -74,6 +75,12 @@ export default function Recaps() {
     if (!selectedEmployee) return metrics.bookerStats;
     return metrics.bookerStats.filter(m => m.saName === selectedEmployee);
   }, [metrics.bookerStats, selectedEmployee]);
+
+  // Filtered outreach data
+  const filteredOutreach = useMemo(() => {
+    if (!selectedEmployee) return leadMeasures;
+    return leadMeasures.filter(m => m.saName === selectedEmployee);
+  }, [leadMeasures, selectedEmployee]);
 
   // Filtered scoreboard metrics for individual view
   // Filtered lead source metrics
@@ -283,15 +290,19 @@ export default function Recaps() {
       )}
       {/* Runner & Booker Stats Tabs */}
       <Tabs defaultValue="runner">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="runner">Runner Stats</TabsTrigger>
           <TabsTrigger value="booker">Booker Stats</TabsTrigger>
+          <TabsTrigger value="outreach">Outreach</TabsTrigger>
         </TabsList>
         <TabsContent value="runner">
           <PerSATable data={filteredPerSA} />
         </TabsContent>
         <TabsContent value="booker">
           <BookerStatsTable data={filteredBookerStats} />
+        </TabsContent>
+        <TabsContent value="outreach">
+          <OutreachTable data={filteredOutreach} loading={leadMeasuresLoading} />
         </TabsContent>
       </Tabs>
 

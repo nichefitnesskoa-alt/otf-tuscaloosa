@@ -1,27 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Zap, ClipboardCheck, BookOpen, MessageCircle, Users, Timer } from 'lucide-react';
+import { Zap, ClipboardCheck, BookOpen, PlayCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { SALeadMeasure } from '@/hooks/useLeadMeasures';
 
 interface Props {
   data: SALeadMeasure[];
   loading?: boolean;
   compact?: boolean;
-}
-
-function formatSpeed(minutes: number | null): string {
-  if (minutes === null) return '—';
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function speedColor(minutes: number | null): string {
-  if (minutes === null) return 'text-muted-foreground';
-  if (minutes <= 15) return 'text-success';
-  if (minutes <= 60) return 'text-warning';
-  return 'text-destructive';
 }
 
 function pctColor(pct: number | null): string {
@@ -44,62 +29,78 @@ export function LeadMeasuresTable({ data, loading, compact }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border/60">
-                <th className="text-left py-2 pr-2 font-medium text-muted-foreground">SA</th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="Avg time to first contact">
-                  <Timer className="w-3 h-3 mx-auto" />
-                  <span className="block text-[9px]">Speed</span>
-                </th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="Questionnaire completion %">
-                  <ClipboardCheck className="w-3 h-3 mx-auto" />
-                  <span className="block text-[9px]">Q %</span>
-                </th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="Prep rate %">
-                  <BookOpen className="w-3 h-3 mx-auto" />
-                  <span className="block text-[9px]">Prep</span>
-                </th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="Follow-up touches">
-                  <MessageCircle className="w-3 h-3 mx-auto" />
-                  <span className="block text-[9px]">FU</span>
-                </th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="DMs sent">
-                  <span className="block text-[9px]">DMs</span>
-                </th>
-                <th className="text-center py-2 px-1 font-medium text-muted-foreground" title="Leads reached out to">
-                  <Users className="w-3 h-3 mx-auto" />
-                  <span className="block text-[9px]">Leads</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((sa, i) => (
-                <tr key={sa.saName} className="border-b border-border/30 last:border-0">
-                  <td className="py-1.5 pr-2 font-medium truncate max-w-[80px]">
-                    {i < 3 && <span className="mr-0.5">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
-                    {sa.saName}
-                  </td>
-                  <td className={`text-center py-1.5 px-1 font-semibold ${speedColor(sa.speedToLead)}`}>
-                    {formatSpeed(sa.speedToLead)}
-                  </td>
-                  <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.qCompletionPct)}`}>
-                    {sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}
-                  </td>
-                  <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.prepRatePct)}`}>
-                    {sa.prepRatePct !== null ? `${sa.prepRatePct}%` : '—'}
-                  </td>
-                  <td className="text-center py-1.5 px-1 font-semibold">{sa.followUpTouches}</td>
-                  <td className="text-center py-1.5 px-1 font-semibold">{sa.dmsSent}</td>
-                  <td className="text-center py-1.5 px-1 font-semibold">{sa.leadsReachedOut}</td>
+        <TooltipProvider>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/60">
+                  <th className="text-left py-2 pr-2 font-medium text-muted-foreground">SA</th>
+                  <th className="text-center py-2 px-1 font-medium text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <ClipboardCheck className="w-3 h-3 mx-auto" />
+                          <span className="block text-[9px]">Q %</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        <p><strong>Questionnaire Completion %</strong></p>
+                        <p>% of 1st intro bookings where the client completed the questionnaire before their intro.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="text-center py-2 px-1 font-medium text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <BookOpen className="w-3 h-3 mx-auto" />
+                          <span className="block text-[9px]">Prep</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        <p><strong>Prep Rate %</strong></p>
+                        <p>% of intros that were prepped (reviewed questionnaire & notes) before the class.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="text-center py-2 px-1 font-medium text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <PlayCircle className="w-3 h-3 mx-auto" />
+                          <span className="block text-[9px]">Ran</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        <p><strong>Intros Ran</strong></p>
+                        <p>Total number of intros run by this SA in the selected period.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {data.map((sa, i) => (
+                  <tr key={sa.saName} className="border-b border-border/30 last:border-0">
+                    <td className="py-1.5 pr-2 font-medium truncate max-w-[80px]">
+                      {i < 3 && <span className="mr-0.5">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
+                      {sa.saName}
+                    </td>
+                    <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.qCompletionPct)}`}>
+                      {sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}
+                    </td>
+                    <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.prepRatePct)}`}>
+                      {sa.prepRatePct !== null ? `${sa.prepRatePct}%` : '—'}
+                    </td>
+                    <td className="text-center py-1.5 px-1 font-semibold">{sa.introsRan}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </TooltipProvider>
         <p className="text-[10px] text-muted-foreground mt-2">
-          Speed = avg time to first contact · Q = questionnaire completion · Prep = intros prepped before class · FU = follow-up touches sent
+          Q = questionnaire completion rate · Prep = intros prepped before class · Ran = total intros run
         </p>
       </CardContent>
     </Card>
