@@ -1,43 +1,44 @@
+# Restructure Lead Measures Table + Add Outreach Tab
+
+## What Q% Actually Is
+
+**Q%** = Questionnaire Completion Rate. It counts what percentage of 1st intro bookings (non-VIP, non-2nd-intro) attributed to an SA have `questionnaire_status_canon === 'completed'`. This measures whether the SA sent the questionnaire and the client filled it out before their intro. The code at line 86 of `useLeadMeasures.ts` confirms this. We also need to add meanings to the different columns when highlighting over it
+
+## Changes
+
+### 1. Add `introsRan` to the lead measures data — `src/hooks/useLeadMeasures.ts`
+
+- Add `introsRan: number` to the `SALeadMeasure` interface
+- Add `introsRan: number` to the saMap aggregation object (initialized to 0)
+- After the existing bookings loop, add a new loop over `runs` to count intros per SA using `intro_owner` (falling back to `sa_name`), filtered to ALL_STAFF
+- Include `introsRan` in the result mapping
+
+### 2. Slim down LeadMeasuresTable — `src/components/dashboard/LeadMeasuresTable.tsx`
+
+Strip the table to show only 3 columns per SA:
+
+- **Q%** — questionnaire completion rate (keep existing color logic)
+- **Prep%** — prep rate (keep existing color logic)
+- **Intros Ran** — new column from the hook
+
+Remove: Speed to Lead, Follow-Up Touches, DMs Sent, Leads Reached columns. Update the footer text accordingly.
+
+### 3. Add "Outreach" tab next to Runner Stats / Booker Stats — `src/pages/Recaps.tsx`
+
+- Change the tabs from 2 columns to 3: `Runner Stats | Booker Stats | Outreach`
+- The Outreach tab renders a new table showing per-SA: Speed to Lead, Follow-Up Touches, DMs Sent, Leads Reached (the columns removed from LeadMeasuresTable)
+- Reuse the `leadMeasures` data already fetched — no new queries needed
+- The Outreach tab content will use a simple table component (can inline or create a small `OutreachTable` component)
+
+### 4. Filter outreach tab by employee — `src/pages/Recaps.tsx`
+
+Apply the same `selectedEmployee` filter to the outreach data, consistent with how Runner Stats and Booker Stats are filtered.
+
+## Files Changed
 
 
-# Keep Completed Intros Visible on Today Tab
-
-## Problem
-
-Line 221 in `useUpcomingIntrosData.ts` filters out any intro that has a linked run for the "today" and "restOfWeek" time ranges:
-
-```ts
-: rawItems.filter(i => !i.hasLinkedRun);
-```
-
-This means once an outcome is logged (creating an `intros_run` record), the intro disappears from the Today tab. The user wants completed intros to remain visible so outcomes can be reviewed or edited.
-
-## Fix — `src/features/myDay/useUpcomingIntrosData.ts`
-
-**Line 221**: For `today` mode, keep ALL items (don't filter out linked runs). For `restOfWeek`, also keep all items. The filtering only makes sense for `needsOutcome` where the purpose is specifically to surface unresolved intros.
-
-Change lines 212-221 from:
-```ts
-const activeItems = isNeedsOutcome
-  ? rawItems.filter(i => { ... })
-  : rawItems.filter(i => !i.hasLinkedRun);
-```
-
-To:
-```ts
-const activeItems = isNeedsOutcome
-  ? rawItems.filter(i => { ... })
-  : rawItems; // Keep all intros visible on today/restOfWeek for review & edits
-```
-
-Also need to remove the `booking_status_canon` exclusion for `PURCHASED` and `CLOSED_PURCHASED` on line 86 when in `today` or `restOfWeek` mode, since those are completed intros that should now be visible. The DB query currently filters them out at the SQL level.
-
-**Line 86**: Make the status exclusion conditional — for `needsOutcome`, keep the current exclusions. For `today`/`restOfWeek`, only exclude `CANCELLED` and `PLANNING_RESCHEDULE` (truly removed bookings), but keep `PURCHASED`, `CLOSED_PURCHASED`, `NOT_INTERESTED`, and `SECOND_INTRO_SCHEDULED` visible.
-
-### Summary of changes
-
-1. **Line 86**: For today/restOfWeek, narrow the exclusion to only `CANCELLED` so completed intros are fetched from the database
-2. **Line 221**: Remove the `!i.hasLinkedRun` filter for today/restOfWeek — show all intros regardless of outcome status
-
-One file changed: `src/features/myDay/useUpcomingIntrosData.ts`
-
+| File                                             | Change                                                   |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| `src/hooks/useLeadMeasures.ts`                   | Add `introsRan` field, aggregate from `runs`             |
+| `src/components/dashboard/LeadMeasuresTable.tsx` | Remove Speed/FU/DMs/Leads columns, add Intros Ran column |
+| `src/pages/Recaps.tsx`                           | Add 3rd "Outreach" tab with Speed/FU/DMs/Leads table     |
