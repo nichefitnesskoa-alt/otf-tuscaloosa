@@ -24,6 +24,7 @@ import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
+import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import ScriptsPage from '@/pages/Scripts';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -552,6 +553,7 @@ export default function Admin() {
           <FixVipBookingTypesCard />
           <QuestionnaireReconcileCard />
           <QuestionnaireSlugBackfillCard />
+          <ArchiveOldDmLeads />
         </TabsContent>
 
         {/* Stories Tab */}
