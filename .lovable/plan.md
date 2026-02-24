@@ -1,39 +1,43 @@
 
 
-# Fix Prep % for Last Week
+# Keep Completed Intros Visible on Today Tab
 
-## Investigation Results
+## Problem
 
-I queried the database for all bookings from last week (Feb 16-22). Here's what I found:
+Line 221 in `useUpcomingIntrosData.ts` filters out any intro that has a linked run for the "today" and "restOfWeek" time ranges:
 
-- **22 total bookings** (excluding VIP, 2nd intros, deleted)
-- **Only 3 marked as prepped** — all by Sophie on Feb 21
-- **19 bookings have `prepped: false`** with no `prepped_at` or `prepped_by`
+```ts
+: rawItems.filter(i => !i.hasLinkedRun);
+```
 
-The prep toggle mechanism itself works correctly — Sophie successfully used it 3 times on 2/21, and the `prepped_by` and `prepped_at` fields saved properly. So the tracking code is not broken; the other SAs simply didn't click the prep toggle (likely because they didn't know about it yet).
+This means once an outcome is logged (creating an `intros_run` record), the intro disappears from the Today tab. The user wants completed intros to remain visible so outcomes can be reviewed or edited.
 
-## Who had bookings last week (attributed to staff)
+## Fix — `src/features/myDay/useUpcomingIntrosData.ts`
 
-| SA | Bookings | Prepped |
-|----|----------|---------|
-| Bri | 8 | 0 |
-| Katie | 4 | 0 |
-| Sophie | 3 (prepped_by) | 3 |
-| Grace | 2 | 0 |
-| Kayla | 1 | 0 |
-| Lauren | 1 | 0 |
-| Koa | 1 | 0 |
-| Kailey | 1 | 0 |
+**Line 221**: For `today` mode, keep ALL items (don't filter out linked runs). For `restOfWeek`, also keep all items. The filtering only makes sense for `needsOutcome` where the purpose is specifically to surface unresolved intros.
 
-## Plan
+Change lines 212-221 from:
+```ts
+const activeItems = isNeedsOutcome
+  ? rawItems.filter(i => { ... })
+  : rawItems.filter(i => !i.hasLinkedRun);
+```
 
-Since the SAs didn't know to click the button, the cleanest fix is a one-time database migration to mark all last week's bookings as prepped (since the expectation was 100% and they just didn't know the feature existed):
+To:
+```ts
+const activeItems = isNeedsOutcome
+  ? rawItems.filter(i => { ... })
+  : rawItems; // Keep all intros visible on today/restOfWeek for review & edits
+```
 
-1. **Run a migration** that sets `prepped = true`, `prepped_at = class_date timestamp`, and `prepped_by = 'Admin (backfill)'` for all non-VIP, non-2nd-intro bookings from Feb 16–22 that currently have `prepped = false`
-2. This will immediately fix the prep % displayed in:
-   - Lead Measures by SA (Studio Scoreboard / Recaps page)
-   - CoachingView "Lead Measures by SA" card
-   - StudioScoreboard prep rate metric
+Also need to remove the `booking_status_canon` exclusion for `PURCHASED` and `CLOSED_PURCHASED` on line 86 when in `today` or `restOfWeek` mode, since those are completed intros that should now be visible. The DB query currently filters them out at the SQL level.
 
-No code changes needed — just a data fix. The prep toggle in MyDay and Pipeline Spreadsheet is working correctly going forward.
+**Line 86**: Make the status exclusion conditional — for `needsOutcome`, keep the current exclusions. For `today`/`restOfWeek`, only exclude `CANCELLED` and `PLANNING_RESCHEDULE` (truly removed bookings), but keep `PURCHASED`, `CLOSED_PURCHASED`, `NOT_INTERESTED`, and `SECOND_INTRO_SCHEDULED` visible.
+
+### Summary of changes
+
+1. **Line 86**: For today/restOfWeek, narrow the exclusion to only `CANCELLED` so completed intros are fetched from the database
+2. **Line 221**: Remove the `!i.hasLinkedRun` filter for today/restOfWeek — show all intros regardless of outcome status
+
+One file changed: `src/features/myDay/useUpcomingIntrosData.ts`
 
