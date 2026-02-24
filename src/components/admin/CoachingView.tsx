@@ -10,6 +10,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
 import FollowUpDigest from './FollowUpDigest';
+import OutreachEffectiveness from './OutreachEffectiveness';
 import { getLeadMeasureColor, Q_COMPLETION_THRESHOLDS, PREP_RATE_THRESHOLDS } from '@/lib/studio-metrics';
 
 interface SAMetrics {
@@ -441,6 +442,9 @@ export default function CoachingView() {
           </CardContent>
         </Card>
       )}
+
+      {/* Outreach Effectiveness — from Win the Day reflections */}
+      <OutreachEffectiveness />
 
       {/* Follow-Up System Health */}
       <FollowUpDigest preset={preset} />

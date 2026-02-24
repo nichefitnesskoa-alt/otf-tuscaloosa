@@ -25,6 +25,8 @@ interface IntroRowCardProps {
   onRefresh: () => void;
   /** When true, show the purple Needs Outcome banner instead of Q status */
   needsOutcome?: boolean;
+  /** Confirmation result from Win the Day reflection */
+  confirmationResult?: string | null;
 }
 
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
@@ -47,6 +49,7 @@ export default function IntroRowCard({
   onConfirm,
   onRefresh,
   needsOutcome = false,
+  confirmationResult,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
@@ -246,6 +249,11 @@ export default function IntroRowCard({
           {item.confirmedAt && (
             <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 border">
               Confirmed
+            </Badge>
+          )}
+          {confirmationResult === 'unreachable' && !item.confirmedAt && (
+            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-amber-200 border">
+              ⚠ Unconfirmed
             </Badge>
           )}
           {item.latestRunResult && (

@@ -134,6 +134,28 @@ export function useWinTheDayItems() {
 
       const recapSubmitted = (todayRecap || []).length > 0;
 
+      // ── 8. Today's reflections (to mark items complete) ──
+      const { data: todayReflections } = await supabase
+        .from('win_the_day_reflections')
+        .select('reflection_type, result, booking_id')
+        .eq('reflection_date', todayStr);
+
+      const reflectionsByBooking = new Map<string, string>();
+      const reflectionsByType = new Set<string>();
+      (todayReflections || []).forEach((r: any) => {
+        if (r.booking_id) reflectionsByBooking.set(`${r.reflection_type}_${r.booking_id}`, r.result);
+        reflectionsByType.add(r.reflection_type);
+      });
+
+      // ── 9. Today's followup daily log ──
+      const { data: todayFuLog } = await supabase
+        .from('followup_daily_log')
+        .select('id')
+        .eq('log_date', todayStr)
+        .limit(1);
+
+      const followupLogExists = (todayFuLog || []).length > 0;
+
       // ── BUILD ITEMS ──
 
       // Questionnaire sends & resends
@@ -146,14 +168,15 @@ export function useWinTheDayItems() {
         const timeDisplay = formatDisplayTime(intro.intro_time);
 
         if (intro.questionnaire_status_canon === 'not_sent') {
+          const qReflected = reflectionsByBooking.has(`questionnaire_outreach_${intro.id}`);
           newItems.push({
             id: `q_send_${intro.id}`,
             type: 'q_send',
             text: `Send questionnaire to ${intro.member_name} — ${timeDisplay}`,
             actionLabel: 'Copy Q Link',
-            completed: false,
-            urgency: minutesUntil <= 120 ? 'amber' : 'normal',
-            sortOrder: minutesUntil <= 120 ? 200 + minutesUntil : 700 + minutesUntil,
+            completed: qReflected,
+            urgency: qReflected ? 'normal' : minutesUntil <= 120 ? 'amber' : 'normal',
+            sortOrder: qReflected ? 9000 : minutesUntil <= 120 ? 200 + minutesUntil : 700 + minutesUntil,
             targetId: intro.id,
             memberName: intro.member_name,
             classTime: intro.intro_time || undefined,
@@ -161,14 +184,15 @@ export function useWinTheDayItems() {
             questionnaireLink: intro.questionnaire_link || undefined,
           });
         } else if (intro.questionnaire_status_canon === 'sent' && minutesUntil > 120) {
+          const qReflected = reflectionsByBooking.has(`questionnaire_outreach_${intro.id}`);
           newItems.push({
             id: `q_resend_${intro.id}`,
             type: 'q_resend',
             text: `Resend questionnaire to ${intro.member_name} — hasn't answered yet`,
             actionLabel: 'Resend Script',
-            completed: false,
+            completed: qReflected,
             urgency: 'normal',
-            sortOrder: 400 + minutesUntil,
+            sortOrder: qReflected ? 9000 : 400 + minutesUntil,
             targetId: intro.id,
             memberName: intro.member_name,
             classTime: intro.intro_time || undefined,
@@ -210,15 +234,17 @@ export function useWinTheDayItems() {
       // Booking confirmations for tomorrow
       for (const intro of (tomorrowIntros || [])) {
         const isConfirmed = confirmedIds.has(intro.id);
+        const hasReflection = reflectionsByBooking.has(`booking_confirmation_${intro.id}`);
+        const completed = isConfirmed || hasReflection;
         const timeDisplay = formatDisplayTime(intro.intro_time);
         newItems.push({
           id: `confirm_${intro.id}`,
           type: 'confirm_tomorrow',
           text: `Confirm ${intro.member_name}'s intro — tomorrow at ${timeDisplay}`,
           actionLabel: 'Send Confirmation',
-          completed: isConfirmed,
+          completed,
           urgency: 'normal',
-          sortOrder: isConfirmed ? 9000 : 500,
+          sortOrder: completed ? 9000 : 500,
           targetId: intro.id,
           memberName: intro.member_name,
         });
@@ -231,9 +257,9 @@ export function useWinTheDayItems() {
           type: 'followups_due',
           text: `${fuDueCount} follow-up${fuDueCount !== 1 ? 's' : ''} due today`,
           actionLabel: 'Go to Follow-Ups',
-          completed: false,
-          urgency: 'normal',
-          sortOrder: 600,
+          completed: followupLogExists,
+          urgency: followupLogExists ? 'normal' : 'normal',
+          sortOrder: followupLogExists ? 9000 : 600,
         });
       }
 
@@ -244,14 +270,15 @@ export function useWinTheDayItems() {
       });
       if (overdueLeads.length > 0) {
         const maxHours = Math.max(...overdueLeads.map(l => differenceInHours(now, new Date(l.created_at))));
+        const leadsReflected = reflectionsByType.has('new_leads_contact');
         newItems.push({
           id: 'leads_overdue',
           type: 'leads_overdue',
           text: `${overdueLeads.length} lead${overdueLeads.length !== 1 ? 's' : ''} waiting over 1 hour — contact now`,
           actionLabel: 'Go to New Leads',
-          completed: false,
-          urgency: maxHours >= 4 ? 'red' : 'amber',
-          sortOrder: 100, // highest priority
+          completed: leadsReflected,
+          urgency: leadsReflected ? 'normal' : maxHours >= 4 ? 'red' : 'amber',
+          sortOrder: leadsReflected ? 9000 : 100,
         });
       }
 
@@ -311,6 +338,8 @@ export function useWinTheDayItems() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_recaps' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ig_leads' }, () => fetchItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'win_the_day_reflections' }, () => fetchItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'followup_daily_log' }, () => fetchItems())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
