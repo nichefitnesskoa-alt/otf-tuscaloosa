@@ -127,6 +127,16 @@ export function OutcomeDrawer({
     })();
   }, [bookingId, currentResult]);
 
+  // Pre-populate 2nd intro form fields from linked data
+  useEffect(() => {
+    if (!linkedSecondIntro) return;
+    if (linkedSecondIntro.date) {
+      setSecondIntroDate(new Date(linkedSecondIntro.date + 'T00:00:00'));
+    }
+    if (linkedSecondIntro.time) setSecondIntroTime(linkedSecondIntro.time);
+    if (linkedSecondIntro.coach) setSecondIntroCoach(linkedSecondIntro.coach);
+  }, [linkedSecondIntro]);
+
   // Reschedule fields
   const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
   const [rescheduleTime, setRescheduleTime] = useState('');
