@@ -10,6 +10,7 @@ export interface SALeadMeasure {
   followUpTouches: number;
   dmsSent: number;
   leadsReachedOut: number;
+  introsRan: number;
 }
 
 interface UseLeadMeasuresOpts {
@@ -67,12 +68,12 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         qTotal: number; qCompleted: number;
         prepTotal: number; prepDone: number;
         touches: number; dms: number; leadsReached: number;
-        speedSumMin: number; speedCount: number;
+        speedSumMin: number; speedCount: number; introsRan: number;
       }>();
 
       const ensure = (name: string) => {
         if (!name || !ALL_STAFF.includes(name)) return;
-        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0 });
+        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0 });
       };
 
       // Q completion & prep rate by SA
@@ -86,6 +87,15 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
         s.prepTotal++;
         if (b.prepped) s.prepDone++;
+      });
+
+      // Intros ran per SA
+      (runs || []).forEach((r: any) => {
+        const sa = r.intro_owner || r.sa_name || '';
+        if (!sa) return;
+        ensure(sa);
+        const entry = saMap.get(sa);
+        if (entry) entry.introsRan++;
       });
 
       // Follow-up touches
@@ -150,6 +160,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           followUpTouches: s.touches,
           dmsSent: s.dms,
           leadsReachedOut: s.leadsReached,
+          introsRan: s.introsRan,
         }))
         .filter(s => (s.qCompletionPct !== null || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
         .sort((a, b) => (b.leadsReachedOut + b.followUpTouches + b.dmsSent) - (a.leadsReachedOut + a.followUpTouches + a.dmsSent));
