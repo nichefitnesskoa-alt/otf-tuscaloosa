@@ -325,6 +325,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           class_date: classDate,
           class_start_at: draft.class_start_at,
           coach_name: draft.coach_name,
+          intro_time: draft.class_start_at.split('T')[1]?.substring(0, 5) || null,
           lead_source: params.leadSource || '',
           sa_working_shift: 'AM',
           originating_booking_id: params.bookingId,

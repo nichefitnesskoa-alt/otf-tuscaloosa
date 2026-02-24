@@ -111,7 +111,7 @@ export function OutcomeDrawer({
     (async () => {
       const { data } = await supabase
         .from('intros_booked')
-        .select('class_date, intro_time, coach_name')
+        .select('class_date, intro_time, coach_name, class_start_at')
         .or(`originating_booking_id.eq.${bookingId},rebooked_from_booking_id.eq.${bookingId}`)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -120,7 +120,7 @@ export function OutcomeDrawer({
       if (data) {
         setLinkedSecondIntro({
           date: data.class_date,
-          time: data.intro_time || '',
+          time: data.intro_time || data.class_start_at?.split('T')[1]?.substring(0, 5) || '',
           coach: data.coach_name || '',
         });
       }
