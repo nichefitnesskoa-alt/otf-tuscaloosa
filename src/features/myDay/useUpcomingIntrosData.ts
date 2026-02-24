@@ -76,6 +76,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const isNeedsOutcome = options.timeRange === 'needsOutcome';
 
+      const statusExclusion = isNeedsOutcome
+        ? '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")'
+        : '("CANCELLED","PLANNING_RESCHEDULE")'; // today/restOfWeek: keep completed intros visible
+
       let query = supabase
         .from('intros_booked')
         .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by')
@@ -83,7 +87,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
         .lte('class_date', end)
-        .not('booking_status_canon', 'in', '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")')
+        .not('booking_status_canon', 'in', statusExclusion)
         .order('class_date', { ascending: isNeedsOutcome ? false : true }) // most recent first for needs outcome
         .order('intro_time', { ascending: true })
         .limit(200);
@@ -218,7 +222,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             const result = (i.latestRunResult || '').toLowerCase().trim();
             return !result || result === 'unresolved';
           })
-        : rawItems.filter(i => !i.hasLinkedRun);
+        : rawItems; // Keep all intros visible on today/restOfWeek for review & edits
 
       // Client-side guard: exclude any VIP bookings that slipped through the DB filter
       const nonVipItems = activeItems.filter(i => !i.isVip);
