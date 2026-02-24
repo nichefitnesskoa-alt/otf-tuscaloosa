@@ -26,7 +26,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2, UserPlus } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2, UserPlus, Instagram } from 'lucide-react';
 import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
@@ -50,7 +50,7 @@ import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 import { MyDayTopPanel } from './MyDayTopPanel';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
-
+import { MyDayIgDmTab } from './MyDayIgDmTab';
 // Dark mode helpers
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
@@ -82,6 +82,7 @@ export default function MyDayPage() {
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
+  const [igDmCount, setIgDmCount] = useState(0);
   const [activeTab, setActiveTab] = useState('today');
 
   // Prep/Script/Coach drawer state
@@ -302,7 +303,7 @@ export default function MyDayPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b-2 border-primary px-3 pt-2 pb-0">
-          <TabsList className="w-full grid grid-cols-6 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
+          <TabsList className="w-full grid grid-cols-7 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
             <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>Today</span>
@@ -316,7 +317,7 @@ export default function MyDayPage() {
             </TabsTrigger>
             <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <Clock className="w-3.5 h-3.5" />
-              <span>Follow-Ups</span>
+              <span>F/U</span>
               {followUpsDueCount > 0 && (
                 <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
               )}
@@ -326,6 +327,13 @@ export default function MyDayPage() {
               <span>Leads</span>
               {newLeadsCount > 0 && (
                 <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="igdm" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+              <Instagram className="w-3.5 h-3.5" />
+              <span>IG DMs</span>
+              {igDmCount > 0 && (
+                <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{igDmCount}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
@@ -371,6 +379,15 @@ export default function MyDayPage() {
               <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
             </div>
             <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
+          </TabsContent>
+
+          {/* IG DMs */}
+          <TabsContent value="igdm" className="mt-0 space-y-3">
+            <div className="mb-1">
+              <h2 className="text-sm font-semibold">IG DM Tracker</h2>
+              <p className="text-xs text-muted-foreground">Track Instagram outreach — DMs, interest, bookings</p>
+            </div>
+            <MyDayIgDmTab onCountChange={setIgDmCount} />
           </TabsContent>
 
           {/* QUESTIONNAIRE HUB */}

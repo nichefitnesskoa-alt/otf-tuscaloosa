@@ -168,7 +168,7 @@ export default function Meeting() {
     if (metrics.closeRate > metrics.closeRatePrev + 2) {
       return `📈 Studio close rate up from ${metrics.closeRatePrev.toFixed(0)}% to ${metrics.closeRate.toFixed(0)}% this week!`;
     }
-    return `💪 AMC: ${metrics.amc}. ${Math.max(400 - metrics.amc, 0)} away from 400.`;
+    return `💪 Close rate: ${metrics.closeRate.toFixed(0)}%. Let's keep pushing!`;
   }, [metrics]);
 
   // Render a section by ID
@@ -188,7 +188,7 @@ export default function Meeting() {
       case 'housekeeping':
         return <HousekeepingSection notes={housekeeping} onChange={presentMode ? () => {} : v => { setHousekeeping(v); saveField('housekeeping_notes', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
       case 'wig':
-        return <WigSection closeRate={metrics.closeRate} wigTarget={wigTarget} wigCommitments={wigCommitments} previousCommitments={prevAgenda?.wig_commitments || null} onTargetChange={presentMode ? () => {} : v => { setWigTarget(v); saveField('wig_target', v); }} onCommitmentsChange={presentMode ? () => {} : v => { setWigCommitments(v); saveField('wig_commitments', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} />;
+        return <WigSection closeRate={metrics.closeRate} wigTarget={wigTarget} wigCommitments={wigCommitments} previousCommitments={prevAgenda?.wig_commitments || null} onTargetChange={presentMode ? () => {} : v => { setWigTarget(v); saveField('wig_target', v); }} onCommitmentsChange={presentMode ? () => {} : v => { setWigCommitments(v); saveField('wig_commitments', v); }} isAdmin={presentMode ? false : isAdmin} isPresentMode={presentMode} perSAMetrics={(metrics as any).perSALeadMeasures} />;
       default:
         return null;
     }

@@ -15,7 +15,8 @@ import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
 import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
-import { AmcTracker } from '@/components/dashboard/AmcTracker';
+import { LeadMeasuresTable } from '@/components/dashboard/LeadMeasuresTable';
+import { useLeadMeasures } from '@/hooks/useLeadMeasures';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -36,6 +37,8 @@ export default function Recaps() {
   
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
   const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, undefined, followUpQueue, followupTouches);
+  const leadMeasuresOpts = useMemo(() => dateRange ? { startDate: format(dateRange.start, 'yyyy-MM-dd'), endDate: format(dateRange.end, 'yyyy-MM-dd') } : undefined, [dateRange]);
+  const { data: leadMeasures, loading: leadMeasuresLoading } = useLeadMeasures(leadMeasuresOpts);
 
   // 6B: Q Completion Rate - % of 1st intro bookings with completed questionnaire
   const qCompletionRate = useMemo(() => {
@@ -161,8 +164,8 @@ export default function Recaps() {
         </div>
       </div>
 
-      {/* AMC Tracker */}
-      <AmcTracker />
+      {/* Lead Measures by SA */}
+      <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
 
       {/* Conversion Funnel with 1st/2nd Intro dual-row view */}
 
