@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
-import { differenceInMinutes, parseISO } from 'date-fns';
+import { differenceInMinutes, parseISO, format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -157,6 +157,14 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
     borderColor = s.color; bannerBg = s.color; bannerText = s.text;
   }
 
+  // Per-card speed-to-lead timing
+  const createdAt = parseISO(lead.created_at);
+  const minutesSinceCreated = differenceInMinutes(new Date(), createdAt);
+  const receivedLabel = format(createdAt, 'MMM d · h:mm aa');
+  const responseMinutes = isContacted
+    ? differenceInMinutes(parseISO(lead.updated_at), createdAt)
+    : null;
+
   return (
     <div className="rounded-lg overflow-hidden bg-card" style={{ border: `2px solid ${borderColor}` }}>
       <StatusBanner bgColor={bannerBg} text={bannerText} />
@@ -178,6 +186,19 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
                 ? <span className="text-[11px] text-muted-foreground">{lead.phone}</span>
                 : <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Phone missing</Badge>}
             </div>
+            {/* Received timestamp */}
+            <p className="text-[10px] text-muted-foreground mt-1">Received: {receivedLabel}</p>
+            {/* Individual speed metric */}
+            {isNew && (
+              <p className={`text-[11px] font-semibold mt-0.5 ${minutesSinceCreated >= 240 ? 'text-destructive' : minutesSinceCreated >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>
+                ⏱ {formatDuration(minutesSinceCreated)} waiting
+              </p>
+            )}
+            {isContacted && responseMinutes !== null && responseMinutes >= 0 && (
+              <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                Responded in {formatDuration(responseMinutes)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -556,8 +577,15 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
         <ScriptPickerSheet
           open={!!scriptLead}
           onOpenChange={open => { if (!open) setScriptLead(null); }}
-          suggestedCategories={['speed_to_lead', 'new_lead', 'follow_up']}
+          suggestedCategories={
+            scriptLead.source?.toLowerCase().includes('instagram') || scriptLead.source?.toLowerCase() === 'ig'
+              ? ['ig_dm', 'web_lead', 'cold_lead', 'outreach']
+              : scriptLead.stage === 'booked'
+                ? ['confirmation', 'web_lead', 'outreach']
+                : ['web_lead', 'ig_dm', 'cold_lead', 'outreach']
+          }
           mergeContext={scriptMergeContext}
+          leadId={scriptLead.id}
           onLogged={() => setScriptLead(null)}
         />
       )}
