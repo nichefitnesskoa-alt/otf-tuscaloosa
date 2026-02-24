@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ALL_STAFF } from '@/types';
 
 export interface SALeadMeasure {
   saName: string;
@@ -70,13 +71,13 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
       }>();
 
       const ensure = (name: string) => {
-        if (!name) return;
+        if (!name || !ALL_STAFF.includes(name)) return;
         if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0 });
       };
 
       // Q completion & prep rate by SA
       allBookings.forEach((b: any) => {
-        const sa = b.intro_owner || b.sa_working_shift || b.booked_by || '';
+        const sa = b.booked_by || b.intro_owner || '';
         if (!sa) return;
         ensure(sa);
         const s = saMap.get(sa)!;
