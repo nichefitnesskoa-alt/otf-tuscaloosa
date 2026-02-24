@@ -3,11 +3,11 @@
  * Outcome expands an inline drawer that routes through canonical applyIntroOutcomeUpdate.
  * Q status is displayed as a bold full-width top banner.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Phone, Copy, User, Eye, Dumbbell, ClipboardList, Send } from 'lucide-react';
+import { Phone, Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -51,7 +51,80 @@ export default function IntroRowCard({
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
   const [preppedSaving, setPreppedSaving] = useState(false);
-  const qBar = getQBar(item.questionnaireStatus);
+  const [logSentLoading, setLogSentLoading] = useState(false);
+  const [localQStatus, setLocalQStatus] = useState(item.questionnaireStatus);
+  const qBar = getQBar(localQStatus);
+
+  // Auto-detect questionnaire completion every 30s
+  useEffect(() => {
+    if (localQStatus === 'Q_COMPLETED' || item.isSecondIntro) return;
+    const check = async () => {
+      const { data } = await supabase
+        .from('intro_questionnaires')
+        .select('status')
+        .eq('booking_id', item.bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const s = (data as any).status;
+        if (s === 'completed' || s === 'submitted') setLocalQStatus('Q_COMPLETED');
+        else if (s === 'sent') setLocalQStatus('Q_SENT');
+      }
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, [item.bookingId, item.isSecondIntro, localQStatus]);
+
+  // Sync from parent when item changes
+  useEffect(() => {
+    setLocalQStatus(item.questionnaireStatus);
+  }, [item.questionnaireStatus]);
+
+  const handleLogAsSent = async () => {
+    if (!isOnline) { toast.error('Offline'); return; }
+    setLogSentLoading(true);
+    try {
+      // Check if Q exists for this booking
+      const { data: existing } = await supabase
+        .from('intro_questionnaires')
+        .select('id, status')
+        .eq('booking_id', item.bookingId)
+        .maybeSingle();
+
+      if (existing) {
+        const s = (existing as any).status;
+        if (s === 'completed' || s === 'submitted') {
+          setLocalQStatus('Q_COMPLETED');
+          toast.success('Questionnaire already completed!');
+          return;
+        }
+        if (s !== 'sent') {
+          await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', existing.id);
+        }
+      } else {
+        // Create a minimal Q record marked as sent
+        const nameParts = item.memberName.trim().split(/\s+/);
+        const firstName = nameParts[0] || item.memberName;
+        const lastName = nameParts.slice(1).join(' ') || '';
+        await supabase.from('intro_questionnaires').insert({
+          booking_id: item.bookingId,
+          client_first_name: firstName,
+          client_last_name: lastName,
+          scheduled_class_date: item.classDate,
+          status: 'sent',
+        } as any);
+      }
+      setLocalQStatus('Q_SENT');
+      toast.success('Logged as sent');
+      onRefresh();
+    } catch {
+      toast.error('Failed to log');
+    } finally {
+      setLogSentLoading(false);
+    }
+  };
 
   const handleTogglePrepped = async (checked: boolean) => {
     if (!isOnline) { toast.error('You are offline. This action requires network.'); return; }
@@ -94,9 +167,9 @@ export default function IntroRowCard({
     ? '#7c3aed'
     : item.isSecondIntro
     ? '#6b7280'
-    : item.questionnaireStatus === 'Q_COMPLETED'
+    : localQStatus === 'Q_COMPLETED'
     ? '#16a34a'
-    : item.questionnaireStatus === 'Q_SENT'
+    : localQStatus === 'Q_SENT'
     ? '#d97706'
     : '#dc2626';
 
@@ -109,7 +182,7 @@ export default function IntroRowCard({
         <StatusBanner bgColor="#64748b" text="2nd Visit — No questionnaire needed" />
       ) : (
         <StatusBanner
-          bgColor={item.questionnaireStatus === 'Q_COMPLETED' ? '#16a34a' : item.questionnaireStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
+          bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
           text={qBar.bannerLabel}
         />
       )}
@@ -256,9 +329,25 @@ export default function IntroRowCard({
           {preppedSaving && <span className="text-[10px] text-muted-foreground">saving…</span>}
         </div>
 
-        {/* Row 5: Secondary actions */}
-
-        <div className="flex items-center gap-1.5">
+        {/* Row 5: Log as Sent + Secondary actions */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {!item.isSecondIntro && (localQStatus === 'NO_Q') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] gap-1 border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+              onClick={handleLogAsSent}
+              disabled={logSentLoading}
+            >
+              <CheckCircle className="w-3 h-3" />
+              {logSentLoading ? 'Saving…' : 'Log Q as Sent'}
+            </Button>
+          )}
+          {!item.isSecondIntro && localQStatus === 'Q_SENT' && (
+            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 border">
+              ⏳ Waiting for response
+            </Badge>
+          )}
           {item.phone && (
             <>
               <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Copy Phone" onClick={handleCopyPhone}>
