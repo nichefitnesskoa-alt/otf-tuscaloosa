@@ -1,23 +1,34 @@
 
 
-# Make Outcome Badge Tappable to Open Outcome Drawer
+# Pre-populate Outcome Drawer with Previously Saved Data
 
 ## Problem
-The outcome result badge in Row 2 (line 259-274) and the bottom status banner (lines 375-400) are not interactive. To edit an outcome, the SA must scroll down to find and tap the "Outcome" button. The user wants to tap directly on the visible outcome badge to open the outcome editor.
+When reopening the Outcome Drawer (e.g., by tapping the outcome badge), the "2nd Intro Details" fields (Date, Time, Coach) appear blank even though a 2nd intro was already booked. The user expects to see the previously submitted values pre-filled so they can make edits from that baseline.
 
-## Changes — `src/features/myDay/IntroRowCard.tsx`
+## Root Cause
+In `OutcomeDrawer.tsx`, the linked 2nd intro data is fetched (lines 109-128) and displayed as a read-only info banner, but the form fields (`secondIntroDate`, `secondIntroTime`, `secondIntroCoach`) are initialized to empty strings/undefined (lines 101-103). There is no `useEffect` that populates these form fields when `linkedSecondIntro` loads.
 
-### 1. Make the outcome result badge in Row 2 tappable
-Wrap the existing `Badge` at lines 259-274 in a `button` element that calls `setOutcomeOpen(true)` on click. Add `cursor-pointer` styling so it's obvious it's tappable.
+## Changes — `src/components/myday/OutcomeDrawer.tsx`
 
-### 2. Make the bottom outcome status banner tappable
-Wrap the `StatusBanner` at lines 375-400 in a `button` element that also calls `setOutcomeOpen(true)`. Add `cursor-pointer` and a subtle hover effect.
+### 1. Pre-populate 2nd intro form fields from linked data
+Add a `useEffect` after the `linkedSecondIntro` fetch effect (after line 128) that sets `secondIntroDate`, `secondIntroTime`, and `secondIntroCoach` when `linkedSecondIntro` is loaded:
 
-Both tap targets open the same `OutcomeDrawer` that the "Outcome" button already uses — no new components or data flows needed.
+```tsx
+useEffect(() => {
+  if (!linkedSecondIntro) return;
+  if (linkedSecondIntro.date) {
+    setSecondIntroDate(new Date(linkedSecondIntro.date + 'T00:00:00'));
+  }
+  if (linkedSecondIntro.time) setSecondIntroTime(linkedSecondIntro.time);
+  if (linkedSecondIntro.coach) setSecondIntroCoach(linkedSecondIntro.coach);
+}, [linkedSecondIntro]);
+```
 
-## File Changed
+This ensures that when an SA taps the outcome badge to edit a "Booked 2nd intro" outcome, the date, time, and coach fields are already filled with the previously saved values. The SA can then modify any field and re-save.
+
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/features/myDay/IntroRowCard.tsx` | Wrap outcome badge (Row 2) and outcome bottom banner in tappable elements that toggle `setOutcomeOpen(true)` |
+| `src/components/myday/OutcomeDrawer.tsx` | Add useEffect to populate 2nd intro form fields from `linkedSecondIntro` |
 
