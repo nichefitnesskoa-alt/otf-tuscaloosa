@@ -51,6 +51,7 @@ import { MyDayShiftSummary } from './MyDayShiftSummary';
 import { MyDayTopPanel } from './MyDayTopPanel';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
+import { WinTheDay } from './WinTheDay';
 // Dark mode helpers
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
@@ -298,6 +299,9 @@ export default function MyDayPage() {
           asButton
         />
       </div>
+
+      {/* ═══ WIN THE DAY CHECKLIST ═══ */}
+      <WinTheDay onSwitchTab={setActiveTab} />
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

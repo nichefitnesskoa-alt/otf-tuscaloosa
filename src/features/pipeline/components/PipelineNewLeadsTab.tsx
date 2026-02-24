@@ -241,7 +241,7 @@ export function PipelineNewLeadsTab() {
     const { data } = await supabase
       .from('leads')
       .select('*')
-      .not('stage', 'in', '("lost")')
+      .not('stage', 'in', '("lost","archived")')
       .order('created_at', { ascending: false })
       .limit(300);
     if (data) {

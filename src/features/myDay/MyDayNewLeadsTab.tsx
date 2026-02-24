@@ -354,7 +354,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .not('stage', 'in', '("lost")')
+      .not('stage', 'in', '("lost","archived")')
       .order('created_at', { ascending: false })
       .limit(300);
     if (!error && data) {
