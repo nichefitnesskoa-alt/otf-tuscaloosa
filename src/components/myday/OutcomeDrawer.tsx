@@ -2,7 +2,7 @@
  * Inline outcome drawer for intro cards on MyDay.
  * Routes through canonical applyIntroOutcomeUpdate. No duplicate logic.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,6 +61,7 @@ interface OutcomeDrawerProps {
   bookingId: string;
   memberName: string;
   classDate: string;
+  introTime?: string | null;
   leadSource?: string;
   existingRunId?: string | null;
   currentResult?: string | null;
@@ -77,6 +78,7 @@ export function OutcomeDrawer({
   bookingId,
   memberName,
   classDate,
+  introTime,
   leadSource,
   existingRunId,
   currentResult,
@@ -100,6 +102,30 @@ export function OutcomeDrawer({
   const [secondIntroTime, setSecondIntroTime] = useState('');
   const [secondIntroCoach, setSecondIntroCoach] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Load linked 2nd intro booking if outcome was "Booked 2nd intro"
+  const [linkedSecondIntro, setLinkedSecondIntro] = useState<{ date: string; time: string; coach: string } | null>(null);
+
+  useEffect(() => {
+    if (currentResult !== 'Booked 2nd intro') return;
+    (async () => {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('class_date, intro_time, coach_name')
+        .or(`originating_booking_id.eq.${bookingId},rebooked_from_booking_id.eq.${bookingId}`)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        setLinkedSecondIntro({
+          date: data.class_date,
+          time: data.intro_time || '',
+          coach: data.coach_name || '',
+        });
+      }
+    })();
+  }, [bookingId, currentResult]);
 
   // Reschedule fields
   const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
@@ -296,6 +322,37 @@ export function OutcomeDrawer({
 
   return (
     <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg">
+      {/* Header: member name + date/time */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium border-b pb-2">
+        <span className="text-sm font-semibold text-foreground">{memberName}</span>
+        <span>·</span>
+        <span>{formatDateShort(classDate)}</span>
+        {introTime && (
+          <>
+            <span>·</span>
+            <span>{formatTime12h(introTime)}</span>
+          </>
+        )}
+        {currentResult && (
+          <>
+            <span>·</span>
+            <span className="text-primary font-semibold">{currentResult}</span>
+          </>
+        )}
+      </div>
+
+      {/* Linked 2nd intro info — shown when reopening a "Booked 2nd intro" outcome */}
+      {linkedSecondIntro && currentResult === 'Booked 2nd intro' && (
+        <div className="flex items-center gap-2 text-sm bg-blue-50 dark:bg-blue-950/30 rounded-md p-2 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>
+            2nd intro booked: {formatDateShort(linkedSecondIntro.date)}
+            {linkedSecondIntro.time && ` at ${formatTime12h(linkedSecondIntro.time)}`}
+            {linkedSecondIntro.coach && ` with ${linkedSecondIntro.coach}`}
+          </span>
+        </div>
+      )}
+
       {/* Prepped before class toggle */}
       <div className={cn(
         'flex items-center gap-2 px-2 py-2 rounded-md border transition-colors',
