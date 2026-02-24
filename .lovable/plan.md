@@ -1,61 +1,90 @@
 
 
-# Why Sophie's Prep % Isn't Showing
+# Two Changes: Close Rate Color Thresholds + Pre-populate Outcome Data
 
-## Root Cause — Two Bugs
+## 1. Close Rate Color Coding in Studio Scoreboard
 
-### Bug 1: SA attribution picks `booked_by` first (line 81)
+**Current behavior**: Close Rate text is always `text-success` (green) regardless of value.
+
+**Desired behavior**:
+- 40%+ → Green
+- 30-39% → Yellow
+- Below 30% → Red
+
+### Change — `src/components/dashboard/StudioScoreboard.tsx`
+
+**Line 80**: Replace the hardcoded `text-success` class on the Close Rate value with a dynamic color based on thresholds:
 
 ```ts
-const sa = [b.booked_by, b.intro_owner].find(n => n && ALL_STAFF.includes(n)) || '';
+const closeRateColor = closingRate >= 40 ? 'text-success' : closingRate >= 30 ? 'text-warning' : 'text-destructive';
 ```
 
-This checks `booked_by` before `intro_owner`. If someone else booked Sophie's intros, the prep credit goes to the booker, not Sophie. For prep rate, the correct attribution should be `intro_owner` (or `prepped_by`) since they're the one who actually preps.
+Apply the same logic to the Close Rate icon on line 79.
 
-### Bug 2: Filter excludes SAs with only prep/intros data (line 165)
+Also apply this to `PersonalScoreboard.tsx` (line 77-78) and `ScoreboardSection.tsx` for consistency across all scoreboard views.
 
-```ts
-.filter(s => (s.qCompletionPct !== null || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
-```
+### Files
+- `src/components/dashboard/StudioScoreboard.tsx` — dynamic close rate color
+- `src/components/dashboard/PersonalScoreboard.tsx` — same treatment
+- `src/components/meeting/ScoreboardSection.tsx` — same treatment
+- `src/lib/studio-metrics.ts` — add `CLOSE_RATE_THRESHOLDS = { green: 40, amber: 30 }` for reuse
 
-This filter doesn't check `prepRatePct` or `introsRan`. If Sophie has prep data and intros ran but zero follow-up touches, zero DMs, zero leads reached, and no Q completions attributed to her, she gets completely filtered out of the results.
+---
 
-### Bug 3: Sort order is by outreach metrics (line 166)
+## 2. Pre-populate Outcome Drawer with Existing Run Data
 
-Now that outreach moved to its own tab, the Lead Measures table should sort by something more relevant like intros ran or prep rate.
+**Current behavior**: When reopening the outcome drawer for a completed intro, only `currentResult` (the outcome label) is passed. The `existingRunId` is hardcoded to `null` (line 373 of IntroRowCard). Coach name, objection, and notes are all blank — requiring re-entry.
 
-## Fix — `src/hooks/useLeadMeasures.ts`
+**Desired behavior**: When an existing run exists, load its full data (run ID, coach, objection, notes) so the drawer opens pre-filled for easy review and editing.
 
-### Line 81: Use `intro_owner` first for prep attribution
+### Changes
 
-Change from:
-```ts
-const sa = [b.booked_by, b.intro_owner].find(...)
-```
-To:
-```ts
-const sa = [b.intro_owner, b.booked_by].find(...)
-```
+**`src/features/myDay/useUpcomingIntrosData.ts`**:
+- Expand the `intros_run` select query (line 115) to also fetch `id, coach_name, primary_objection, notes`:
+  ```ts
+  .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes')
+  ```
+- Expand `runMap` to store these additional fields
+- Add `latestRunId`, `latestRunCoach`, `latestRunObjection`, `latestRunNotes` to the item mapping
 
-This ensures the person who owns/runs the intro gets the prep and Q credit, which is what matters for lead measures.
+**`src/features/myDay/myDayTypes.ts`**:
+- Add to `UpcomingIntroItem`:
+  ```ts
+  latestRunId: string | null;
+  latestRunCoach: string | null;
+  latestRunObjection: string | null;
+  latestRunNotes: string | null;
+  ```
 
-### Line 165: Include `prepRatePct` and `introsRan` in the filter
+**`src/features/myDay/IntroRowCard.tsx`**:
+- Line 373: Pass `existingRunId={item.latestRunId}` instead of `null`
 
-Change to also keep SAs that have prep data or ran intros:
-```ts
-.filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
-```
+**`src/components/myday/OutcomeDrawer.tsx`**:
+- Add props: `initialCoach`, `initialObjection`, `initialNotes`
+- Initialize state from these props:
+  ```ts
+  const [coachName, setCoachName] = useState(initialCoach || '');
+  const [objection, setObjection] = useState(initialObjection || '');
+  const [notes, setNotes] = useState(initialNotes || '');
+  ```
 
-### Line 166: Sort by intros ran (primary), then prep rate
+**`src/features/myDay/IntroRowCard.tsx`**:
+- Pass the new props from item data:
+  ```tsx
+  initialCoach={item.latestRunCoach || ''}
+  initialObjection={item.latestRunObjection || ''}
+  initialNotes={item.latestRunNotes || ''}
+  ```
 
-Change sort to prioritize the metrics actually shown in the Lead Measures table:
-```ts
-.sort((a, b) => (b.introsRan - a.introsRan) || ((b.prepRatePct ?? 0) - (a.prepRatePct ?? 0)))
-```
-
-## Files Changed
-
+### Files
 | File | Change |
 |------|--------|
-| `src/hooks/useLeadMeasures.ts` | Fix SA attribution order, filter, and sort |
+| `src/lib/studio-metrics.ts` | Add `CLOSE_RATE_THRESHOLDS` |
+| `src/components/dashboard/StudioScoreboard.tsx` | Dynamic close rate color |
+| `src/components/dashboard/PersonalScoreboard.tsx` | Dynamic close rate color |
+| `src/components/meeting/ScoreboardSection.tsx` | Dynamic close rate color |
+| `src/features/myDay/myDayTypes.ts` | Add run detail fields to UpcomingIntroItem |
+| `src/features/myDay/useUpcomingIntrosData.ts` | Fetch & map run ID, coach, objection, notes |
+| `src/features/myDay/IntroRowCard.tsx` | Pass existing run data to OutcomeDrawer |
+| `src/components/myday/OutcomeDrawer.tsx` | Accept & use initial run data props |
 
