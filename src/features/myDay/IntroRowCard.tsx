@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Phone, Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle } from 'lucide-react';
+import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -226,16 +226,12 @@ export default function IntroRowCard({
           </div>
         </div>
 
-        {/* Row 2: Contact + lead source */}
+        {/* Row 2: Contact + lead source + outcome result */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {item.phone && (
-            <a
-              href={`tel:${item.phone}`}
-              className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary"
-            >
-              <Phone className="w-2.5 h-2.5" />
+            <span className="text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal inline-flex items-center">
               {item.phone}
-            </a>
+            </span>
           )}
           {!item.phone && (
             <Badge className="text-[10px] px-1.5 py-0 h-auto py-0.5 bg-destructive text-destructive-foreground">
@@ -250,6 +246,22 @@ export default function IntroRowCard({
           {item.confirmedAt && (
             <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 border">
               Confirmed
+            </Badge>
+          )}
+          {item.latestRunResult && (
+            <Badge className={cn(
+              'text-[10px] px-1.5 py-0 h-4 border font-semibold',
+              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-700'
+                : item.latestRunResult === "Didn't Buy"
+                ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/30 dark:text-red-400 dark:border-red-700'
+                : item.latestRunResult === 'No-show'
+                ? 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
+                : item.latestRunResult === 'Booked 2nd intro'
+                ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-700'
+                : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700'
+            )}>
+              {item.latestRunResult}
             </Badge>
           )}
         </div>
@@ -349,16 +361,9 @@ export default function IntroRowCard({
             </Badge>
           )}
           {item.phone && (
-            <>
-              <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Copy Phone" onClick={handleCopyPhone}>
-                <Copy className="w-2.5 h-2.5" />
-              </Button>
-              <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Call" asChild>
-                <a href={`tel:${item.phone}`}>
-                  <Phone className="w-2.5 h-2.5" />
-                </a>
-              </Button>
-            </>
+            <Button variant="outline" size="sm" className="h-6 w-6 p-0" title="Copy Phone" onClick={handleCopyPhone}>
+              <Copy className="w-2.5 h-2.5" />
+            </Button>
           )}
         </div>
       </div>
@@ -369,6 +374,7 @@ export default function IntroRowCard({
           bookingId={item.bookingId}
           memberName={item.memberName}
           classDate={item.classDate}
+          introTime={item.introTime}
           leadSource={item.leadSource || ''}
           existingRunId={item.latestRunId}
           currentResult={item.latestRunResult}
