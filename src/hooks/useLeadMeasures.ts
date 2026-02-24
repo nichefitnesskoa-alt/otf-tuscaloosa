@@ -78,7 +78,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Q completion & prep rate by SA
       allBookings.forEach((b: any) => {
-        const sa = [b.booked_by, b.intro_owner].find(n => n && ALL_STAFF.includes(n)) || '';
+        const sa = [b.intro_owner, b.booked_by].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
         ensure(sa);
         const s = saMap.get(sa);
@@ -162,8 +162,8 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           leadsReachedOut: s.leadsReached,
           introsRan: s.introsRan,
         }))
-        .filter(s => (s.qCompletionPct !== null || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
-        .sort((a, b) => (b.leadsReachedOut + b.followUpTouches + b.dmsSent) - (a.leadsReachedOut + a.followUpTouches + a.dmsSent));
+        .filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
+        .sort((a, b) => (b.introsRan - a.introsRan) || ((b.prepRatePct ?? 0) - (a.prepRatePct ?? 0)));
 
       setData(result);
     } catch (err) {
