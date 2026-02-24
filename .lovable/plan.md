@@ -1,27 +1,37 @@
 
 
-# Fix: Filter Lead Measures to Real Staff Only
+# Fix: Lead Measures crashing after staff filter
 
 ## Problem
 
-The `useLeadMeasures` hook aggregates metrics by whatever name string appears in database fields like `sa_working_shift`, `booked_by`, `intro_owner`, `staff_name`, `created_by`, and `performed_by`. Values like "AM shift", "Admin", "Koa" (wait — Koa IS in `SALES_ASSOCIATES`), and "Online" are shift-type labels or system values that leak into the SA map because there's no filter against the known staff list.
+The `ensure()` function now silently skips names not in `ALL_STAFF` (returns without adding to the map), but the calling code on lines 83, 95, 103, and 131 unconditionally does `saMap.get(sa)!` — which returns `undefined` and crashes the entire `load()` function. The catch block swallows the error, so the table just shows no data.
 
-## Fix
+Additionally, the `booked_by` field in the database may contain values like "Self booked" or "Self-booked" (set by the `auto_set_booked_by_self_booked` trigger), which won't match `ALL_STAFF`. When `booked_by` is "Self booked" and `intro_owner` is a valid staff name, the current fallback `b.booked_by || b.intro_owner` picks "Self booked" first and discards the valid `intro_owner`.
 
-In `src/hooks/useLeadMeasures.ts`, import `ALL_STAFF` from `@/types` and add a validation check inside the `ensure()` function so that only names matching a real staff member get tracked. This single change filters out "AM shift", "Admin", "Online", and any other non-person values at the source.
+## Fix — `src/hooks/useLeadMeasures.ts`
 
-Additionally, the attribution logic on line 79 currently falls back through `intro_owner → sa_working_shift → booked_by`. The `sa_working_shift` field often contains shift labels like "AM shift" rather than a person's name. The fallback chain should be changed to `booked_by → intro_owner` only — both of which are actual person names. Same filtering applies to `staff_name` from shift recaps (which is always a real person, but the `ALL_STAFF` check covers it anyway).
+1. After every `ensure(sa)` call, add a guard: `if (!saMap.has(sa)) return;` (or `continue` in forEach). This prevents the `!` assertion from crashing on undefined.
 
-### Changes to `src/hooks/useLeadMeasures.ts`
+2. Fix the attribution fallback on line 80 to skip non-staff values of `booked_by`: pick whichever of `booked_by` or `intro_owner` is actually in `ALL_STAFF`, falling back to the other.
 
-1. **Import `ALL_STAFF`** from `@/types`
-2. **Update `ensure()`** to reject names not in `ALL_STAFF`: `if (!name || !ALL_STAFF.includes(name)) return;`
-3. **Fix attribution fallback** on line 79: change from `b.intro_owner || b.sa_working_shift || b.booked_by` to `b.booked_by || b.intro_owner` — drop `sa_working_shift` since it holds shift labels, not people
-4. **Return early** in speed-to-lead and other loops when performer is not in `ALL_STAFF`
+Specifically, change line 80 from:
+```ts
+const sa = b.booked_by || b.intro_owner || '';
+```
+to:
+```ts
+const sa = [b.booked_by, b.intro_owner].find(n => n && ALL_STAFF.includes(n)) || '';
+```
 
-No other files need changes. The `LeadMeasuresTable` component just renders whatever data it receives.
+And after each `ensure(sa)` call, add a guard before accessing the map:
+- Line 83: `const s = saMap.get(sa); if (!s) return;`
+- Line 95: `const entry = saMap.get(sa); if (entry) entry.touches++;`
+- Line 103: `const entry = saMap.get(sa); if (entry) entry.dms += r.dms_sent;`
+- Line 131: `const s = saMap.get(contact.performer); if (!s) return;`
+
+No other files need changes.
 
 ## Result
 
-Only rows for actual staff members (Bre, Bri, Elizabeth, Grace, Kailey, Katie, Kayla, Koa, Lauren, Nora, Sophie, James, Kaitlyn H, Nathan, Natalya) will appear. "AM shift", "Admin", "Online", and any other non-person values will be excluded.
+Staff names that exist in `ALL_STAFF` will appear with their metrics. "Self booked", "Self-booked", empty strings, and non-staff values are safely skipped without crashing. The table will show real staff who have activity in the selected date range.
 
