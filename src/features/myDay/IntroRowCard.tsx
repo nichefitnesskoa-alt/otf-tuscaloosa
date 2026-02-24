@@ -370,10 +370,13 @@ export default function IntroRowCard({
           memberName={item.memberName}
           classDate={item.classDate}
           leadSource={item.leadSource || ''}
-          existingRunId={null}
+          existingRunId={item.latestRunId}
           currentResult={item.latestRunResult}
           editedBy={userName}
           initialPrepped={prepped}
+          initialCoach={item.latestRunCoach || ''}
+          initialObjection={item.latestRunObjection || ''}
+          initialNotes={item.latestRunNotes || ''}
           onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
           onCancel={() => setOutcomeOpen(false)}
         />
