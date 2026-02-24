@@ -17,6 +17,9 @@ const TAB_CATEGORY_MAP: Record<string, string[]> = {
   questionnaire: ['booking_confirmation', 'pre_class_reminder', 'questionnaire'],
   follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up'],
   outreach: ['web_lead', 'cold_lead', 'ig_dm', 'referral_ask', 'promo', 'outreach'],
+  web_lead: ['web_lead'],
+  cold_lead: ['cold_lead'],
+  ig_dm: ['ig_dm'],
 };
 
 interface MergeContext {
