@@ -77,10 +77,11 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Q completion & prep rate by SA
       allBookings.forEach((b: any) => {
-        const sa = b.booked_by || b.intro_owner || '';
+        const sa = [b.booked_by, b.intro_owner].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
         ensure(sa);
-        const s = saMap.get(sa)!;
+        const s = saMap.get(sa);
+        if (!s) return;
         s.qTotal++;
         if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
         s.prepTotal++;
@@ -92,7 +93,8 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         const sa = t.created_by || '';
         if (!sa) return;
         ensure(sa);
-        saMap.get(sa)!.touches++;
+        const entry = saMap.get(sa);
+        if (entry) entry.touches++;
       });
 
       // DMs sent
@@ -100,7 +102,8 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         const sa = r.staff_name || '';
         if (!sa || !r.dms_sent) return;
         ensure(sa);
-        saMap.get(sa)!.dms += r.dms_sent;
+        const entry = saMap.get(sa);
+        if (entry) entry.dms += r.dms_sent;
       });
 
       // Speed to lead + leads reached out
@@ -128,7 +131,8 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         const lead = (leads || []).find((l: any) => l.id === leadId);
         if (!lead || !contact.performer) return;
         ensure(contact.performer);
-        const s = saMap.get(contact.performer)!;
+        const s = saMap.get(contact.performer);
+        if (!s) return;
         s.leadsReached++;
         const diffMin = (new Date(contact.contactTime).getTime() - new Date(lead.created_at).getTime()) / 60000;
         if (diffMin > 0 && diffMin < 2880) { // < 48h
