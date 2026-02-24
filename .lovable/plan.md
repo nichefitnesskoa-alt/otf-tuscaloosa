@@ -1,47 +1,51 @@
 
 
-# Add Speed-to-Lead Metric on My Day Leads Tab
+# Individual Speed-to-Lead + Script Fixes for Leads
 
-## What It Does
+## Problem Summary
 
-Adds a visible, at-a-glance speed-to-lead summary banner at the top of the New Leads tab. This gives the SA an immediate sense of urgency and performance without scrolling through individual cards.
+1. **No per-card speed-to-lead timing** — Lead cards in MyDay don't show when a lead was received or how long it's been waiting
+2. **Wrong script categories on Leads tab** — The Script button uses `['speed_to_lead', 'new_lead', 'follow_up']` which don't match any real DB categories (`web_lead`, `ig_dm`, `cold_lead`), so no scripts are suggested
+3. **Scripts not all accessible** — When `relevantCategories` is passed to `ClientSearchScriptPicker`, only those categories show in "Recommended", but the "All Scripts" section does work; the issue is the Leads tab `ScriptPickerSheet` uses non-existent categories so nothing matches
+4. **No suggested script context per lead** — Script buttons don't pass lead source/stage info to pick the right category automatically
 
-## What the Metric Shows
+## Changes
 
-A compact stats bar above the lead cards with:
+### 1. Per-Card Speed-to-Lead + Received Time (`src/features/myDay/MyDayNewLeadsTab.tsx`)
 
-- **Avg Response Time** -- Average minutes/hours from lead creation to when it was marked "Contacted" (only for leads that have been contacted)
-- **Fastest Response** -- Best (shortest) response time in the current set
-- **Overdue Count** -- Number of "New" leads that are 4+ hours old and haven't been contacted yet (red badge)
-- **Needs Contact** -- Number of "New" leads 1-4 hours old (amber badge)
+In the `LeadCard` component (line 160-302), add:
+- **Received timestamp**: Show actual date/time received below the name, e.g. "Received: Feb 23 at 2:15 PM"
+- **Individual speed metric**: For "new" leads, show elapsed time as a prominent line, e.g. "⏱ 2h 34m waiting"
+- For "contacted" leads, show response time: "Responded in 45m"
 
-Color-coded status: Green (all leads contacted within 1h), Amber (some 1-4h), Red (any 4h+ overdue).
+### 2. Fix Script Categories for Leads (`src/features/myDay/MyDayNewLeadsTab.tsx`)
 
-## Technical Changes
+**Line 559**: Change `suggestedCategories` from `['speed_to_lead', 'new_lead', 'follow_up']` to dynamically pick based on the lead's source:
+- Instagram leads → `['ig_dm', 'web_lead', 'cold_lead']`
+- All other leads → `['web_lead', 'ig_dm', 'cold_lead']`
 
-### File: `src/features/myDay/MyDayNewLeadsTab.tsx`
+Also pass `leadId` to `ScriptPickerSheet` so script sends get logged against the lead.
 
-1. Add a new `SpeedToLeadBanner` component inside the file that:
-   - Receives the `leads` array
-   - Filters "new" leads to count overdue (4h+) and warning (1-4h) buckets
-   - Filters "contacted" leads and calculates average response time using `created_at` vs `updated_at` (the timestamp when stage changed to "contacted")
-   - Displays a compact horizontal stats bar with the 4 metrics above
-   - Uses color-coded badges matching the existing card border colors (red/amber/green)
+### 3. Add "All" Category Access in ScriptPickerSheet (`src/components/scripts/ScriptPickerSheet.tsx`)
 
-2. Render `SpeedToLeadBanner` at the top of the component, just above the sub-tabs (New | Flagged | Contacted etc.)
+The `ScriptPickerSheet` already has an "All" button (line 227-237), but the `TAB_CATEGORY_MAP` (line 15-20) doesn't include `web_lead` under any tab that would be suggested for leads. 
 
-### No other files changed
+Add an `outreach` entry to `suggestedCategories` when opened from a lead context, and ensure the "All" tab shows every active script.
 
-The banner uses only data already fetched (`leads` state array) -- no new queries or database changes needed. The `updated_at` field on the `leads` table is already set when a lead's stage changes, so it serves as the "contacted at" timestamp for response time calculation.
+### 4. Smart Script Selection Per Lead Card
 
-## Visual Layout
+Update the `onScript` handler to pass lead-specific context so the `ScriptPickerSheet` opens with the right suggested category pre-selected:
+- New leads from IG → pre-select `ig_dm`
+- New leads from web/other → pre-select `web_lead`
+- Contacted leads → pre-select `web_lead` (follow-up touch)
+- Booked leads → pre-select `booking_confirmation`
 
-```text
-+--------------------------------------------------+
-| Speed to Lead                                     |
-| Avg: 45m | Best: 12m | 🔴 2 Overdue | ⚠ 3 Soon  |
-+--------------------------------------------------+
-| [New] [Flagged] [Contacted] [Booked] [In System]  |
-| ... lead cards ...                                 |
-```
+## Files Modified
+
+| File | What Changes |
+|------|-------------|
+| `src/features/myDay/MyDayNewLeadsTab.tsx` | Add per-card received time + elapsed duration; fix script categories to use real DB values; pass lead source to script picker |
+| `src/components/scripts/ScriptPickerSheet.tsx` | No structural changes needed — the existing "All" tab handles showing everything; the fix is in the categories passed in |
+
+## No database changes. No features removed.
 
