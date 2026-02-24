@@ -257,20 +257,22 @@ export default function IntroRowCard({
             </Badge>
           )}
           {item.latestRunResult && (
-            <Badge className={cn(
-              'text-[10px] px-1.5 py-0 h-4 border font-semibold',
-              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-700'
-                : item.latestRunResult === "Didn't Buy"
-                ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/30 dark:text-red-400 dark:border-red-700'
-                : item.latestRunResult === 'No-show'
-                ? 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
-                : item.latestRunResult === 'Booked 2nd intro'
-                ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-700'
-                : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700'
-            )}>
-              {item.latestRunResult}
-            </Badge>
+            <button type="button" onClick={() => setOutcomeOpen(true)} className="cursor-pointer">
+              <Badge className={cn(
+                'text-[10px] px-1.5 py-0 h-4 border font-semibold',
+                item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-700'
+                  : item.latestRunResult === "Didn't Buy"
+                  ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/30 dark:text-red-400 dark:border-red-700'
+                  : item.latestRunResult === 'No-show'
+                  ? 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
+                  : item.latestRunResult === 'Booked 2nd intro'
+                  ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-700'
+                  : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700'
+              )}>
+                {item.latestRunResult}
+              </Badge>
+            </button>
           )}
         </div>
 
@@ -373,30 +375,32 @@ export default function IntroRowCard({
 
       {/* Outcome result bottom banner */}
       {item.latestRunResult && (
-        <StatusBanner
-          bgColor={
-            item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-              ? '#16a34a'
-              : item.latestRunResult === 'Booked 2nd intro'
-              ? '#2563eb'
-              : item.latestRunResult === "Didn't Buy"
-              ? '#dc2626'
-              : item.latestRunResult === 'No-show'
-              ? '#64748b'
-              : '#d97706'
-          }
-          text={
-            item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-              ? `✓ Purchased — ${item.latestRunResult}`
-              : item.latestRunResult === 'Booked 2nd intro'
-              ? '📅 Booked 2nd Intro'
-              : item.latestRunResult === "Didn't Buy"
-              ? "✗ Didn't Buy"
-              : item.latestRunResult === 'No-show'
-              ? '👻 No-show'
-              : `⏳ ${item.latestRunResult}`
-          }
-        />
+        <button type="button" onClick={() => setOutcomeOpen(true)} className="w-full cursor-pointer hover:opacity-90 transition-opacity">
+          <StatusBanner
+            bgColor={
+              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+                ? '#16a34a'
+                : item.latestRunResult === 'Booked 2nd intro'
+                ? '#2563eb'
+                : item.latestRunResult === "Didn't Buy"
+                ? '#dc2626'
+                : item.latestRunResult === 'No-show'
+                ? '#64748b'
+                : '#d97706'
+            }
+            text={
+              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+                ? `✓ Purchased — ${item.latestRunResult}`
+                : item.latestRunResult === 'Booked 2nd intro'
+                ? '📅 Booked 2nd Intro'
+                : item.latestRunResult === "Didn't Buy"
+                ? "✗ Didn't Buy"
+                : item.latestRunResult === 'No-show'
+                ? '👻 No-show'
+                : `⏳ ${item.latestRunResult}`
+            }
+          />
+        </button>
       )}
 
       {/* Outcome drawer – expands below the card */}
