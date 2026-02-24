@@ -19,7 +19,7 @@ import ReferralTree from '@/components/admin/ReferralTree';
 
 import CoachingView from '@/components/admin/CoachingView';
 import CampaignsPanel from '@/components/admin/CampaignsPanel';
-import AmcLogForm from '@/components/admin/AmcLogForm';
+
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
@@ -536,9 +536,6 @@ export default function Admin() {
 
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
-
-          {/* AMC Log */}
-          <AmcLogForm />
 
           {/* Pay Period Commission */}
           <PayPeriodCommission dateRange={dateRange} />

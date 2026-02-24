@@ -35,6 +35,13 @@ interface ShiftSummaryData {
   texts: number;
   dms: number;
   shiftType: string;
+  // New MyDay activity fields
+  qSent: number;
+  qCompleted: number;
+  scriptsSent: number;
+  followUpTouches: number;
+  introsPrepped: number;
+  igDmsSent: number;
 }
 
 export function CloseOutShift({
@@ -140,14 +147,54 @@ export function CloseOutShift({
       const hour = new Date().getHours();
       const shiftType = hour < 12 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
 
-      const { data: shiftData } = await supabase
-        .from('shift_recaps')
-        .select('calls_made, texts_sent, dms_sent, shift_type')
-        .eq('staff_name', user.name)
-        .eq('shift_date', today)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [shiftDataRes, qSentRes, qCompletedRes, scriptsRes, fuTouchesRes, preppedRes, igDmsRes] = await Promise.all([
+        supabase
+          .from('shift_recaps')
+          .select('calls_made, texts_sent, dms_sent, shift_type')
+          .eq('staff_name', user.name)
+          .eq('shift_date', today)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('intros_booked')
+          .select('id', { count: 'exact', head: true })
+          .gte('questionnaire_sent_at', todayStart)
+          .lt('questionnaire_sent_at', tomorrowStart)
+          .or(`sa_working_shift.eq.${user.name},booked_by.eq.${user.name}`),
+        supabase
+          .from('intros_booked')
+          .select('id', { count: 'exact', head: true })
+          .gte('questionnaire_completed_at', todayStart)
+          .lt('questionnaire_completed_at', tomorrowStart),
+        supabase
+          .from('script_actions')
+          .select('id', { count: 'exact', head: true })
+          .eq('action_type', 'script_sent')
+          .eq('completed_by', user.name)
+          .gte('completed_at', todayStart)
+          .lt('completed_at', tomorrowStart),
+        supabase
+          .from('followup_touches')
+          .select('id', { count: 'exact', head: true })
+          .eq('created_by', user.name)
+          .gte('created_at', todayStart)
+          .lt('created_at', tomorrowStart),
+        supabase
+          .from('intros_booked')
+          .select('id', { count: 'exact', head: true })
+          .eq('prepped', true)
+          .gte('prepped_at', todayStart)
+          .lt('prepped_at', tomorrowStart),
+        supabase
+          .from('ig_leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('sa_name', user.name)
+          .gte('created_at', todayStart)
+          .lt('created_at', tomorrowStart),
+      ]);
+
+      const shiftData = shiftDataRes.data;
 
       setSummary({
         booked: allBookedIds.size,
@@ -160,6 +207,12 @@ export function CloseOutShift({
         texts: shiftData?.texts_sent ?? 0,
         dms: shiftData?.dms_sent ?? 0,
         shiftType: shiftData?.shift_type || shiftType,
+        qSent: qSentRes.count ?? 0,
+        qCompleted: qCompletedRes.count ?? 0,
+        scriptsSent: scriptsRes.count ?? 0,
+        followUpTouches: fuTouchesRes.count ?? 0,
+        introsPrepped: preppedRes.count ?? 0,
+        igDmsSent: igDmsRes.count ?? 0,
       });
     } catch (err) {
       console.error('End shift summary fetch error:', err);
@@ -219,10 +272,18 @@ export function CloseOutShift({
         `• Didn't Buy: ${summary.didntBuy}`,
         `• Follow-Up: ${summary.followUpNeeded}`,
         ``,
-        `📞 CONTACTS`,
+        `📋 PREP & Q`,
+        `• Q Sent: ${summary.qSent}`,
+        `• Q Completed: ${summary.qCompleted}`,
+        `• Prepped: ${summary.introsPrepped}`,
+        `• Scripts Sent: ${summary.scriptsSent}`,
+        ``,
+        `📞 CONTACTS & FOLLOW-UPS`,
         `• Calls: ${summary.calls}`,
         `• Texts: ${summary.texts}`,
         `• DMs: ${summary.dms}`,
+        `• IG DMs: ${summary.igDmsSent}`,
+        `• FU Touches: ${summary.followUpTouches}`,
       ].join('\n');
 
       // 3. Post to GroupMe (after DB write succeeds)
@@ -335,15 +396,30 @@ export function CloseOutShift({
                 </div>
               </div>
 
-              {/* Contacts section */}
+              {/* Prep & Questionnaires section */}
               <div className="rounded-lg border border-border/60 overflow-hidden">
                 <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📞 Contacts</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📋 Prep & Questionnaires</span>
+                </div>
+                <div className="px-3 py-1">
+                  <SummaryRow label="Questionnaires Sent" value={summary.qSent} />
+                  <SummaryRow label="Questionnaires Completed" value={summary.qCompleted} />
+                  <SummaryRow label="Intros Prepped" value={summary.introsPrepped} />
+                  <SummaryRow label="Scripts Sent" value={summary.scriptsSent} />
+                </div>
+              </div>
+
+              {/* Follow-Up & Outreach section */}
+              <div className="rounded-lg border border-border/60 overflow-hidden">
+                <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📞 Contacts & Follow-Ups</span>
                 </div>
                 <div className="px-3 py-1">
                   <SummaryRow label="Calls" value={summary.calls} />
                   <SummaryRow label="Texts" value={summary.texts} />
                   <SummaryRow label="DMs" value={summary.dms} />
+                  <SummaryRow label="IG DMs Sent" value={summary.igDmsSent} />
+                  <SummaryRow label="Follow-Up Touches" value={summary.followUpTouches} />
                 </div>
               </div>
 
