@@ -51,3 +51,5 @@ export const PREP_RATE_THRESHOLDS = { green: 70, amber: 50 };
 export const CONFIRMATION_THRESHOLDS = { green: 90, amber: 70 };
 /** Follow-Up Completion target thresholds (kept for backwards compat, retired from display) */
 export const FOLLOWUP_THRESHOLDS = { green: 80, amber: 60 };
+/** Close Rate target thresholds */
+export const CLOSE_RATE_THRESHOLDS = { green: 40, amber: 30 };

@@ -2,6 +2,7 @@ import { MeetingMetrics } from '@/hooks/useMeetingAgenda';
 import { MeetingSection } from './MeetingSection';
 import { BarChart3, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CLOSE_RATE_THRESHOLDS } from '@/lib/studio-metrics';
 
 interface Props {
   metrics: MeetingMetrics;
@@ -43,7 +44,7 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
             <Trend current={m.sales} previous={m.salesPrev} />
           </div>
           <div className="text-center">
-            <p className="text-6xl font-black text-green-400">{m.closeRate.toFixed(0)}%</p>
+            <p className={cn("text-6xl font-black", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-400' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-400' : 'text-red-400')}>{m.closeRate.toFixed(0)}%</p>
             <p className="text-lg text-white/60 mt-1">Close Rate</p>
             <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
           </div>
@@ -118,7 +119,7 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
           <Trend current={m.sales} previous={m.salesPrev} />
         </div>
         <div className="text-center p-3 bg-muted rounded-lg">
-          <p className="text-2xl font-bold">{m.closeRate.toFixed(0)}%</p>
+          <p className={cn("text-2xl font-bold", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-600' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-600' : 'text-red-600')}>{m.closeRate.toFixed(0)}%</p>
           <p className="text-xs text-muted-foreground">Close Rate</p>
           <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
         </div>

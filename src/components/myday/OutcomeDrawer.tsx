@@ -66,6 +66,9 @@ interface OutcomeDrawerProps {
   currentResult?: string | null;
   editedBy: string;
   initialPrepped?: boolean;
+  initialCoach?: string;
+  initialObjection?: string;
+  initialNotes?: string;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -79,13 +82,16 @@ export function OutcomeDrawer({
   currentResult,
   editedBy,
   initialPrepped = false,
+  initialCoach = '',
+  initialObjection = '',
+  initialNotes = '',
   onSaved,
   onCancel,
 }: OutcomeDrawerProps) {
   const [outcome, setOutcome] = useState(currentResult || '');
-  const [objection, setObjection] = useState('');
-  const [notes, setNotes] = useState('');
-  const [coachName, setCoachName] = useState('');
+  const [objection, setObjection] = useState(initialObjection);
+  const [notes, setNotes] = useState(initialNotes);
+  const [coachName, setCoachName] = useState(initialCoach);
   const [saving, setSaving] = useState(false);
   const [preppedBeforeClass, setPreppedBeforeClass] = useState(initialPrepped);
 

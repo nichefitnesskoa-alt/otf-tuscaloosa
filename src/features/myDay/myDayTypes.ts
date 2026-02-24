@@ -35,6 +35,10 @@ export interface UpcomingIntroItem {
   hasLinkedRun: boolean;
   latestRunResult: string | null;
   latestRunAt: string | null;
+  latestRunId: string | null;
+  latestRunCoach: string | null;
+  latestRunObjection: string | null;
+  latestRunNotes: string | null;
   originatingBookingId: string | null;
   isSecondIntro: boolean;
   prepped: boolean;

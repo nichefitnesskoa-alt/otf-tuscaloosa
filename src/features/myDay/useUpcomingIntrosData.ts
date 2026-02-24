@@ -112,7 +112,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           .in('booking_id', bookingIds),
         supabase
           .from('intros_run')
-          .select('linked_intro_booked_id, result, created_at')
+          .select('id, linked_intro_booked_id, result, created_at, coach_name, primary_objection, notes')
           .in('linked_intro_booked_id', bookingIds)
           .limit(500),
         supabase
@@ -132,12 +132,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         }
       }
 
-      const runMap = new Map<string, { result: string; created_at: string }>();
+      const runMap = new Map<string, { result: string; created_at: string; id: string; coach_name: string | null; primary_objection: string | null; notes: string | null }>();
       for (const r of (runRes.data || [])) {
         if (!r.linked_intro_booked_id) continue;
         const existing = runMap.get(r.linked_intro_booked_id);
         if (!existing || r.created_at > existing.created_at) {
-          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at });
+          runMap.set(r.linked_intro_booked_id, { result: r.result, created_at: r.created_at, id: r.id, coach_name: r.coach_name, primary_objection: r.primary_objection, notes: r.notes });
         }
       }
 
@@ -202,6 +202,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           hasLinkedRun: !!run,
           latestRunResult: run?.result || null,
           latestRunAt: run?.created_at || null,
+          latestRunId: run?.id || null,
+          latestRunCoach: run?.coach_name || null,
+          latestRunObjection: run?.primary_objection || null,
+          latestRunNotes: run?.notes || null,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: !!b.originating_booking_id || originatingSet.has(b.id),
           prepped: (b as any).prepped ?? false,
