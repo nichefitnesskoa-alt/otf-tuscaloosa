@@ -313,6 +313,33 @@ export type Database = {
           },
         ]
       }
+      followup_daily_log: {
+        Row: {
+          contacted_count: number
+          created_at: string
+          id: string
+          log_date: string
+          responded_count: number
+          sa_name: string
+        }
+        Insert: {
+          contacted_count?: number
+          created_at?: string
+          id?: string
+          log_date?: string
+          responded_count?: number
+          sa_name: string
+        }
+        Update: {
+          contacted_count?: number
+          created_at?: string
+          id?: string
+          log_date?: string
+          responded_count?: number
+          sa_name?: string
+        }
+        Relationships: []
+      }
       followup_touches: {
         Row: {
           booking_id: string | null
@@ -1817,6 +1844,36 @@ export type Database = {
           id?: string
           report_json?: Json
           week_start?: string
+        }
+        Relationships: []
+      }
+      win_the_day_reflections: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          id: string
+          reflection_date: string
+          reflection_type: string
+          result: string
+          sa_name: string
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          id?: string
+          reflection_date?: string
+          reflection_type: string
+          result: string
+          sa_name: string
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          id?: string
+          reflection_date?: string
+          reflection_type?: string
+          result?: string
+          sa_name?: string
         }
         Relationships: []
       }

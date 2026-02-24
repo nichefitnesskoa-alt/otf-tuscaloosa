@@ -28,10 +28,27 @@ interface UpcomingIntrosCardProps {
 
 export default function UpcomingIntrosCard({ userName, fixedTimeRange }: UpcomingIntrosCardProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>(fixedTimeRange ?? 'today');
+  const [confirmResults, setConfirmResults] = useState<Record<string, string>>({});
 
   const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
   });
+
+  // Fetch confirmation reflection results for Unconfirmed badge
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('win_the_day_reflections')
+        .select('booking_id, result')
+        .eq('reflection_type', 'booking_confirmation')
+        .not('booking_id', 'is', null);
+      if (data) {
+        const map: Record<string, string> = {};
+        (data as any[]).forEach(r => { if (r.booking_id) map[r.booking_id] = r.result; });
+        setConfirmResults(map);
+      }
+    })();
+  }, [items]);
 
   // Refresh when a walk-in intro is added from the FAB
   useEffect(() => {
@@ -223,6 +240,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 onConfirm={handleConfirm}
                 onRefresh={refreshAll}
                 needsOutcome={timeRange === 'needsOutcome'}
+                confirmResults={confirmResults}
               />
             ))}
           </div>

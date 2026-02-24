@@ -15,10 +15,11 @@ interface IntroDayGroupProps {
   onConfirm: (bookingId: string) => void;
   onRefresh: () => void;
   needsOutcome?: boolean;
+  confirmResults?: Record<string, string>;
 }
 
 export default function IntroDayGroup({
-  group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false,
+  group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {},
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
 
@@ -49,6 +50,7 @@ export default function IntroDayGroup({
             onConfirm={onConfirm}
             onRefresh={onRefresh}
             needsOutcome={needsOutcome}
+            confirmationResult={confirmResults[item.bookingId] || null}
           />
         ))}
       </div>
