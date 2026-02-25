@@ -1,23 +1,17 @@
 /**
  * My Day Page – Internal tab workspace.
  *
- * Floating header (always visible):
- * - Greeting + date
- * - Today's Progress
- * - Shift Activity (AM/Mid/PM, calls/texts/DMs)
- * - End Shift button
- *
- * Five tabs:
- * 1. Today – today's intros
- * 2. This Week – rest of week
- * 3. Follow-Ups – follow-up queue
- * 4. Questionnaire Hub – full Q hub
- * 5. Needs Outcome – unresolved past intros
+ * Layout order:
+ * 1. Floating header (greeting + progress)
+ * 2. End Shift button (prominent, at top)
+ * 3. Activity Tracker (shift summary)
+ * 4. Win the Day checklist
+ * 5. This Week's Schedule
+ * 6. Tabs (Today, Week, F/U, Leads, IG DMs, Q Hub, Outcomes)
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -39,6 +33,7 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
+import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 
 // Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
@@ -48,10 +43,11 @@ import { CoachDrawer } from '@/components/myday/CoachDrawer';
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
-import { MyDayTopPanel } from './MyDayTopPanel';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
 import { WinTheDay } from './WinTheDay';
+import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
+
 // Dark mode helpers
 function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
@@ -186,7 +182,6 @@ export default function MyDayPage() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const todayStart = today + 'T00:00:00';
 
-      // Script actions count
       const { data: actionsData } = await supabase
         .from('script_actions')
         .select('action_type')
@@ -194,7 +189,6 @@ export default function MyDayPage() {
         .eq('completed_by', user.name);
       setTodayScriptsSent((actionsData || []).filter(a => a.action_type === 'script_sent').length);
 
-      // Follow-ups sent today
       const { count: fuSentCount } = await supabase
         .from('follow_up_queue')
         .select('id', { count: 'exact', head: true })
@@ -202,7 +196,6 @@ export default function MyDayPage() {
         .gte('sent_at', todayStart);
       setTodayFollowUpsSent(fuSentCount || 0);
 
-      // Needs outcome count (past 45 days, no resolved result)
       const cutoff = format(new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
       const { count: unresolved } = await supabase
         .from('intros_booked')
@@ -259,6 +252,7 @@ export default function MyDayPage() {
   return (
     <div className="max-w-full overflow-x-hidden">
       <OnboardingOverlay />
+      <WhatsChangedDialog />
 
       {/* ═══ FLOATING HEADER — always visible ═══ */}
       <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 space-y-2.5 shadow-sm">
@@ -297,17 +291,12 @@ export default function MyDayPage() {
             </div>
           </div>
         )}
-
       </div>
 
       <OfflineBanner />
 
-      {/* ═══ STUDIO OVERVIEW (Scoreboard + Weekly Schedule + AMC) ═══ */}
-      <MyDayTopPanel />
-
-      {/* ═══ SHIFT ACTIVITY + END SHIFT — below AMC Tracker ═══ */}
-      <div className="border-b border-primary/30 bg-background px-4 py-3 space-y-2">
-        <MyDayShiftSummary compact />
+      {/* ═══ END SHIFT — prominent at top ═══ */}
+      <div className="border-b border-primary/30 bg-background px-4 py-3">
         <CloseOutShift
           completedIntros={completedTodayCount}
           activeIntros={todayBookingsCount - completedTodayCount}
@@ -321,8 +310,18 @@ export default function MyDayPage() {
         />
       </div>
 
+      {/* ═══ ACTIVITY TRACKER ═══ */}
+      <div className="border-b border-primary/30 bg-background px-4 py-3">
+        <MyDayShiftSummary compact />
+      </div>
+
       {/* ═══ WIN THE DAY CHECKLIST ═══ */}
       <WinTheDay onSwitchTab={setActiveTab} />
+
+      {/* ═══ THIS WEEK'S SCHEDULE ═══ */}
+      <div className="px-4 py-3 border-b border-primary/30">
+        <WeeklySchedule />
+      </div>
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -377,18 +376,15 @@ export default function MyDayPage() {
 
         {/* Tab content */}
         <div className="px-4 pb-24 pt-3 space-y-3">
-          {/* TODAY */}
           <TabsContent value="today" className="mt-0 space-y-3">
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
           </TabsContent>
 
-          {/* THIS WEEK */}
           <TabsContent value="week" className="mt-0 space-y-3">
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
           </TabsContent>
 
-          {/* FOLLOW-UPS */}
           <TabsContent value="followups" className="mt-0 space-y-3">
             <div className="mb-1">
               <h2 className="text-sm font-semibold">Follow-Up Queue</h2>
@@ -397,7 +393,6 @@ export default function MyDayPage() {
             <FollowUpsDueToday onRefresh={fetchMetrics} onCountChange={setFollowUpsDueCount} />
           </TabsContent>
 
-          {/* NEW LEADS */}
           <TabsContent value="leads" className="mt-0 space-y-3">
             <div className="mb-1">
               <h2 className="text-sm font-semibold">New Leads</h2>
@@ -406,7 +401,6 @@ export default function MyDayPage() {
             <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
           </TabsContent>
 
-          {/* IG DMs */}
           <TabsContent value="igdm" className="mt-0 space-y-3">
             <div className="mb-1">
               <h2 className="text-sm font-semibold">IG DM Tracker</h2>
@@ -415,12 +409,10 @@ export default function MyDayPage() {
             <MyDayIgDmTab onCountChange={setIgDmCount} />
           </TabsContent>
 
-          {/* QUESTIONNAIRE HUB */}
           <TabsContent value="qhub" className="mt-0 space-y-3">
             <QuestionnaireHub />
           </TabsContent>
 
-          {/* NEEDS OUTCOME */}
           <TabsContent value="outcome" className="mt-0 space-y-3">
             <div className="mb-1">
               <h2 className="text-sm font-semibold">Needs Outcome</h2>
@@ -446,8 +438,6 @@ export default function MyDayPage() {
       />
 
       {/* ═══ DRAWERS / DIALOGS ═══ */}
-
-      {/* Prep Drawer */}
       {prepBooking && (
         <PrepDrawer
           open={!!prepBookingId}
@@ -465,7 +455,6 @@ export default function MyDayPage() {
         />
       )}
 
-      {/* Script Picker */}
       {scriptBooking && (
         <ScriptPickerSheet
           open={!!scriptBookingId}
@@ -477,7 +466,6 @@ export default function MyDayPage() {
         />
       )}
 
-      {/* Coach Drawer */}
       {coachBooking && (
         <CoachDrawer
           open={!!coachBookingId}
@@ -489,7 +477,6 @@ export default function MyDayPage() {
         />
       )}
 
-      {/* Lead Dialogs */}
       {bookIntroLead && (
         <BookIntroDialog
           open={!!bookIntroLead}

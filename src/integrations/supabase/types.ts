@@ -107,6 +107,62 @@ export type Database = {
         }
         Relationships: []
       }
+      changelog: {
+        Row: {
+          changes: Json
+          id: string
+          is_active: boolean
+          published_at: string
+          title: string
+          version: string
+        }
+        Insert: {
+          changes?: Json
+          id?: string
+          is_active?: boolean
+          published_at?: string
+          title: string
+          version: string
+        }
+        Update: {
+          changes?: Json
+          id?: string
+          is_active?: boolean
+          published_at?: string
+          title?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      changelog_seen: {
+        Row: {
+          changelog_id: string
+          id: string
+          seen_at: string
+          user_name: string
+        }
+        Insert: {
+          changelog_id: string
+          id?: string
+          seen_at?: string
+          user_name: string
+        }
+        Update: {
+          changelog_id?: string
+          id?: string
+          seen_at?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "changelog_seen_changelog_id_fkey"
+            columns: ["changelog_id"]
+            isOneToOne: false
+            referencedRelation: "changelog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       churn_log: {
         Row: {
           churn_count: number
@@ -158,6 +214,33 @@ export type Database = {
           role?: string | null
           scope?: string
           touches_target?: number
+        }
+        Relationships: []
+      }
+      daily_outreach_log: {
+        Row: {
+          cold_dms_sent: number
+          cold_texts_sent: number
+          created_at: string
+          id: string
+          log_date: string
+          sa_name: string
+        }
+        Insert: {
+          cold_dms_sent?: number
+          cold_texts_sent?: number
+          created_at?: string
+          id?: string
+          log_date?: string
+          sa_name: string
+        }
+        Update: {
+          cold_dms_sent?: number
+          cold_texts_sent?: number
+          created_at?: string
+          id?: string
+          log_date?: string
+          sa_name?: string
         }
         Relationships: []
       }
@@ -1086,6 +1169,39 @@ export type Database = {
           id?: string
           meeting_day?: number
           meeting_time?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          meta: Json | null
+          notification_type: string
+          read_at: string | null
+          target_user: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          notification_type: string
+          read_at?: string | null
+          target_user?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          target_user?: string | null
+          title?: string
         }
         Relationships: []
       }
