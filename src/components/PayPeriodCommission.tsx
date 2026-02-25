@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Users, Download, Loader2, ChevronRight, CalendarDays } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DollarSign, Users, Download, Loader2, ChevronRight, CalendarDays, Trash2 } from 'lucide-react';
 import { capitalizeName } from '@/lib/utils';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { parseLocalDate } from '@/lib/utils';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 import { DateRange, formatDateRange } from '@/lib/pay-period';
@@ -38,6 +40,8 @@ function generatePayPeriods(): { label: string; start: Date; end: Date }[] {
 }
 
 interface SaleDetail {
+  id: string;
+  sourceTable: 'intros_run' | 'sales_outside_intro';
   memberName: string;
   amount: number;
   date: string;
@@ -72,6 +76,9 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
   const [payroll, setPayroll] = useState<PayrollEntry[]>([]);
   const [showRateStats, setShowRateStats] = useState<ShowRateEntry[]>([]);
   const [totalCommission, setTotalCommission] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<SaleDetail | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [fetchTrigger, setFetchTrigger] = useState(0);
   const [showRateSort, setShowRateSort] = useState<{
     column: 'saName' | 'booked' | 'showed' | 'showRate';
     direction: 'asc' | 'desc';
@@ -123,7 +130,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         // Fetch intro runs with commission - fetch all, filter in JS
         const { data: runs, error: runsError } = await supabase
           .from('intros_run')
-          .select('intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name, result, lead_source, linked_intro_booked_id')
+          .select('id, intro_owner, sa_name, commission_amount, run_date, buy_date, created_at, member_name, result, lead_source, linked_intro_booked_id')
           .gt('commission_amount', 0);
 
         if (runsError) throw runsError;
@@ -131,7 +138,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         // Fetch sales outside intro - fetch all with commission, filter in JS
         const { data: sales, error: salesError } = await supabase
           .from('sales_outside_intro')
-          .select('intro_owner, commission_amount, date_closed, created_at, member_name, membership_type, lead_source')
+          .select('id, intro_owner, commission_amount, date_closed, created_at, member_name, membership_type, lead_source')
           .gt('commission_amount', 0);
 
         if (salesError) throw salesError;
@@ -207,6 +214,8 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           const bookingInfo = run.linked_intro_booked_id ? bookingMap.get(run.linked_intro_booked_id) : null;
           
           payrollMap[owner].details.push({
+            id: run.id,
+            sourceTable: 'intros_run',
             memberName: run.member_name,
             amount: run.commission_amount || 0,
             date: getSaleDate(run.buy_date, run.run_date, null, run.created_at),
@@ -227,6 +236,8 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           payrollMap[owner].total += sale.commission_amount || 0;
           payrollMap[owner].sales++;
           payrollMap[owner].details.push({
+            id: sale.id,
+            sourceTable: 'sales_outside_intro',
             memberName: sale.member_name,
             amount: sale.commission_amount || 0,
             date: getSaleDate(null, null, sale.date_closed, sale.created_at),
@@ -288,7 +299,27 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
     };
 
     fetchPayroll();
-  }, [selectedPeriod, payPeriods, useExternalRange, externalDateRange]);
+  }, [selectedPeriod, payPeriods, useExternalRange, externalDateRange, fetchTrigger]);
+
+  const handleDeleteCommission = useCallback(async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from(deleteTarget.sourceTable)
+        .update({ commission_amount: 0 })
+        .eq('id', deleteTarget.id);
+      if (error) throw error;
+      toast.success(`Removed $${deleteTarget.amount.toFixed(2)} commission for ${deleteTarget.memberName}`);
+      setDeleteTarget(null);
+      setFetchTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Delete commission error:', err);
+      toast.error('Failed to remove commission');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget]);
 
   const sortedShowRateStats = useMemo(() => {
     return [...showRateStats].sort((a, b) => {
@@ -438,11 +469,22 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                                   )}
                                 </div>
                               </div>
-                              <p className="font-medium text-success">
-                                ${detail.amount.toFixed(2)}
-                              </p>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <p className="font-medium text-success">
+                                  ${detail.amount.toFixed(2)}
+                                </p>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(detail); }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
+
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
@@ -515,6 +557,24 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           </>
         )}
       </CardContent>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Commission</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will zero out the ${deleteTarget?.amount.toFixed(2)} commission for {deleteTarget?.memberName}. The sale record will be preserved for reporting.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCommission} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? 'Removing...' : 'Remove Commission'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
