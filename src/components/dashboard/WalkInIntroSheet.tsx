@@ -59,6 +59,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
   const [friendFirstName, setFriendFirstName] = useState('');
   const [friendLastName, setFriendLastName] = useState('');
   const [friendPhone, setFriendPhone] = useState('');
+  const [referredBy, setReferredBy] = useState('');
 
   const showFriendPrompt = isReferralSource(leadSource);
 
@@ -66,6 +67,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
     setFirstName(''); setLastName(''); setPhone('');
     setClassTime(getDefaultClassTime()); setCoach(''); setLeadSource('');
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
+    setReferredBy('');
   };
 
   const handleClose = (open: boolean) => {
@@ -78,6 +80,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
     // Reset friend answer when source changes
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
+    setReferredBy('');
   };
 
   const handleSave = async () => {
@@ -112,6 +115,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
+        referred_by_member_name: leadSource === 'Member Referral' ? (referredBy.trim() || null) : null,
       }).select('id').single();
 
       if (error) {
@@ -248,6 +252,14 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
               <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+
+          {/* ── Who Referred Them? (Member Referral only) ── */}
+          {leadSource === 'Member Referral' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="walk-in-referred-by">Who referred them?</Label>
+              <Input id="walk-in-referred-by" value={referredBy} onChange={e => setReferredBy(e.target.value)} placeholder="Referring member's name" />
+            </div>
+          )}
 
           {/* ── Inline Friend Prompt (referral sources only) ── */}
           {showFriendPrompt && (
