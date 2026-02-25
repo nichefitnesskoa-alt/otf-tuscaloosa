@@ -365,6 +365,56 @@ export default function IntroRowCard({
               {logSentLoading ? 'Saving…' : 'Log Q as Sent'}
             </Button>
           )}
+          {!item.isSecondIntro && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] gap-1"
+              onClick={async () => {
+                try {
+                  const { data: qRecord } = await supabase
+                    .from('intro_questionnaires')
+                    .select('slug, id')
+                    .eq('booking_id', item.bookingId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                  if (qRecord?.slug) {
+                    const link = `https://otf-tuscaloosa.lovable.app/q/${(qRecord as any).slug}`;
+                    await navigator.clipboard.writeText(link);
+                    toast.success(`Q link copied for ${item.memberName}`);
+                  } else {
+                    const nameParts = item.memberName.trim().split(/\s+/);
+                    const firstName = nameParts[0] || item.memberName;
+                    const lastName = nameParts.slice(1).join(' ') || '';
+                    const d = new Date(item.classDate + 'T12:00:00');
+                    const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+                    const slug = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${lastName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${monthNames[d.getMonth()]}${String(d.getDate()).padStart(2, '0')}`;
+                    const { data: created } = await supabase.from('intro_questionnaires').insert({
+                      booking_id: item.bookingId,
+                      client_first_name: firstName,
+                      client_last_name: lastName,
+                      scheduled_class_date: item.classDate,
+                      slug,
+                      status: 'not_sent',
+                    } as any).select('slug').single();
+                    if (created?.slug) {
+                      const link = `https://otf-tuscaloosa.lovable.app/q/${(created as any).slug}`;
+                      await navigator.clipboard.writeText(link);
+                      toast.success(`Q link generated & copied for ${item.memberName}`);
+                    } else {
+                      toast.error('Failed to generate Q link');
+                    }
+                  }
+                } catch {
+                  toast.error('Failed to copy Q link');
+                }
+              }}
+            >
+              <Copy className="w-3 h-3" />
+              Copy Q Link
+            </Button>
+          )}
           {!item.isSecondIntro && localQStatus === 'Q_SENT' && (
             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 border">
               ⏳ Waiting for response

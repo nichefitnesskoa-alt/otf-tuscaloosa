@@ -90,6 +90,26 @@ export default function MyDayPage() {
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [coachBookingId, setCoachBookingId] = useState<string | null>(null);
+  const [scriptQLink, setScriptQLink] = useState<string | undefined>();
+
+  // Fetch Q link when script drawer opens
+  useEffect(() => {
+    if (!scriptBookingId) { setScriptQLink(undefined); return; }
+    (async () => {
+      const { data } = await supabase
+        .from('intro_questionnaires')
+        .select('slug')
+        .eq('booking_id', scriptBookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.slug) {
+        setScriptQLink(`https://otf-tuscaloosa.lovable.app/q/${(data as any).slug}`);
+      } else {
+        setScriptQLink(undefined);
+      }
+    })();
+  }, [scriptBookingId]);
 
   // Derived booking data for drawers
   const getBookingById = useCallback((id: string) =>
@@ -230,8 +250,9 @@ export default function MyDayPage() {
       day: (() => { try { return format(new Date(classDate + 'T12:00:00'), 'EEEE, MMMM d'); } catch { return ''; } })(),
       time: formatDisplayTime(scriptBooking.intro_time),
       'location-name': 'Tuscaloosa',
+      'questionnaire-link': scriptQLink || '',
     };
-  }, [scriptBooking, user?.name, todayStr]);
+  }, [scriptBooking, user?.name, todayStr, scriptQLink]);
 
   const greeting = new Date().getHours() < 12 ? 'morning' : 'afternoon';
 
