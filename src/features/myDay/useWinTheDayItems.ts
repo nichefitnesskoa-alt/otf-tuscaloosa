@@ -80,6 +80,19 @@ export function useWinTheDayItems() {
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")');
 
+      // Fetch questionnaire slugs for today's bookings to build real links
+      const todayBookingIds = (todayIntros || []).map(i => i.id);
+      const { data: qRecords } = todayBookingIds.length > 0
+        ? await supabase
+            .from('intro_questionnaires')
+            .select('booking_id, slug')
+            .in('booking_id', todayBookingIds)
+        : { data: [] };
+      const qSlugByBooking = new Map<string, string>();
+      for (const q of (qRecords || [])) {
+        if (q.slug && q.booking_id) qSlugByBooking.set(q.booking_id, q.slug);
+      }
+
       // ── 2. Fetch tomorrow's intros for confirmations ──
       const { data: tomorrowIntros } = await supabase
         .from('intros_booked')
@@ -181,7 +194,9 @@ export function useWinTheDayItems() {
             memberName: intro.member_name,
             classTime: intro.intro_time || undefined,
             minutesUntilClass: minutesUntil,
-            questionnaireLink: intro.questionnaire_link || undefined,
+            questionnaireLink: qSlugByBooking.has(intro.id)
+              ? `https://otf-tuscaloosa.lovable.app/q/${qSlugByBooking.get(intro.id)}`
+              : intro.questionnaire_link || undefined,
           });
         } else if (intro.questionnaire_status_canon === 'sent' && minutesUntil > 120) {
           const qReflected = reflectionsByBooking.has(`questionnaire_outreach_${intro.id}`);
