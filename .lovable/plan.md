@@ -1,39 +1,32 @@
 
 
-# Fix: 2nd Intro Time Not Pre-Populating
+# Add "Who Referred Them?" Field for Member Referral Lead Source
 
-## Root Cause
+## Problem
+When a booking is created with a "Member Referral" lead source, there is no field to capture **who** the referring member is. The `referred_by_member_name` column already exists on `intros_booked` but is only populated from the ShiftRecap form. The two main booking sheets (BookIntroSheet and WalkInIntroSheet) do not prompt for it.
 
-When a "Booked 2nd intro" outcome is saved, the new `intros_booked` record is created with `class_start_at` (e.g., `2026-02-26T06:15:00`) but **`intro_time` is never set** (line 326 of `applyIntroOutcomeUpdate.ts`).
-
-The OutcomeDrawer fetches `intro_time` from the linked booking (line 114), gets `null`, and the time field stays blank — even though the time is embedded in `class_start_at`.
-
-The blue banner shows the date correctly because it only uses `class_date`, but time is missing because `intro_time` is null.
+## Scope
+The "Member Referral" lead source specifically needs a "Who referred them?" text input. This is distinct from the existing "Did they bring a friend?" prompt which handles friend-type referral sources. The `isReferralSource()` helper already matches "Member Referral" — the referrer name field should appear alongside (or above) the friend prompt for this specific source.
 
 ## Changes
 
-### 1. `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`
-In the Step 6 insert (line 323), add `intro_time` extracted from the draft's `class_start_at`:
+### 1. `src/components/dashboard/BookIntroSheet.tsx`
+- Add state: `const [referredBy, setReferredBy] = useState('')`
+- Reset it in `reset()`
+- Reset it in `handleLeadSourceChange()`
+- When `leadSource === 'Member Referral'`, render a text input: "Who referred them?" above the friend prompt
+- In `handleSave`, pass `referred_by_member_name: referredBy.trim() || null` to the `intros_booked` insert
 
-```ts
-intro_time: draft.class_start_at.split('T')[1]?.substring(0, 5) || null,
-```
+### 2. `src/components/dashboard/WalkInIntroSheet.tsx`
+- Same pattern: add `referredBy` state, render the input when `leadSource === 'Member Referral'`, save to `referred_by_member_name`
 
-This ensures future 2nd intro bookings always have `intro_time` set.
-
-### 2. `src/components/myday/OutcomeDrawer.tsx`
-In the fetch query (line 114), also select `class_start_at`. In the result handler, fall back to extracting HH:mm from `class_start_at` when `intro_time` is null:
-
-```ts
-time: data.intro_time || data.class_start_at?.split('T')[1]?.substring(0, 5) || '',
-```
-
-This fixes pre-population for existing records that already have `class_start_at` but no `intro_time`.
+### No database changes needed
+The `referred_by_member_name` column already exists on `intros_booked`.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Add `intro_time` to 2nd intro booking insert |
-| `src/components/myday/OutcomeDrawer.tsx` | Fallback to `class_start_at` for time when `intro_time` is null |
+| `src/components/dashboard/BookIntroSheet.tsx` | Add referredBy state + input for "Member Referral" source, save to `referred_by_member_name` |
+| `src/components/dashboard/WalkInIntroSheet.tsx` | Same pattern |
 
