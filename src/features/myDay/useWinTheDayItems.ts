@@ -17,7 +17,9 @@ export type ChecklistItemType =
   | 'followups_due'
   | 'leads_overdue'
   | 'log_ig'
-  | 'shift_recap';
+  | 'shift_recap'
+  | 'cold_texts'
+  | 'cold_dms';
 
 export interface ChecklistItem {
   id: string;
@@ -135,6 +137,14 @@ export function useWinTheDayItems() {
         .limit(1);
 
       const hasLoggedIgToday = (todayIgLeads || []).length > 0;
+
+      // ── 6b. Daily outreach log for cold texts/DMs ──
+      const { data: outreachLogs } = await supabase
+        .from('daily_outreach_log')
+        .select('cold_texts_sent, cold_dms_sent')
+        .eq('log_date', todayStr);
+      const totalTexts = (outreachLogs || []).reduce((sum, l) => sum + (l.cold_texts_sent || 0), 0);
+      const totalDms = (outreachLogs || []).reduce((sum, l) => sum + (l.cold_dms_sent || 0), 0);
 
       // ── 7. Shift recap submitted today ──
       const { data: todayRecap } = await supabase
@@ -326,6 +336,28 @@ export function useWinTheDayItems() {
         });
       }
 
+      // Cold lead texts (studio-wide target: 30)
+      newItems.push({
+        id: 'cold_texts',
+        type: 'cold_texts',
+        text: `Send 30 cold lead texts (${totalTexts}/30 done today)`,
+        actionLabel: 'Log Texts',
+        completed: totalTexts >= 30,
+        urgency: totalTexts >= 30 ? 'normal' : 'low',
+        sortOrder: totalTexts >= 30 ? 9000 : 750,
+      });
+
+      // Cold DMs (studio-wide target: 50)
+      newItems.push({
+        id: 'cold_dms',
+        type: 'cold_dms',
+        text: `Send 50 DMs (${totalDms}/50 done today)`,
+        actionLabel: 'Log DMs',
+        completed: totalDms >= 50,
+        urgency: totalDms >= 50 ? 'normal' : 'low',
+        sortOrder: totalDms >= 50 ? 9000 : 760,
+      });
+
       // Sort by sortOrder
       newItems.sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -355,6 +387,7 @@ export function useWinTheDayItems() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ig_leads' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'win_the_day_reflections' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'followup_daily_log' }, () => fetchItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_outreach_log' }, () => fetchItems())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

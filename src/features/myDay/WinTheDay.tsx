@@ -26,9 +26,9 @@ type ReflectionTarget = {
 } | null;
 
 // Reflection types
-type ReflectionType = 'q_send' | 'q_resend' | 'confirm_tomorrow' | 'followups_due' | 'leads_overdue';
+type ReflectionType = 'q_send' | 'q_resend' | 'confirm_tomorrow' | 'followups_due' | 'leads_overdue' | 'cold_texts' | 'cold_dms';
 
-const INFLUENCED_TYPES: ReflectionType[] = ['q_send', 'q_resend', 'confirm_tomorrow', 'followups_due', 'leads_overdue'];
+const INFLUENCED_TYPES: ReflectionType[] = ['q_send', 'q_resend', 'confirm_tomorrow', 'followups_due', 'leads_overdue', 'cold_texts', 'cold_dms'];
 const DIRECT_COMPLETE_TYPES = ['prep_roleplay', 'log_ig', 'shift_recap'];
 
 function isInfluencedType(type: string): type is ReflectionType {
@@ -42,6 +42,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   const [reflectionTarget, setReflectionTarget] = useState<ReflectionTarget>(null);
   const [followupContacted, setFollowupContacted] = useState(0);
   const [followupResponded, setFollowupResponded] = useState(0);
+  const [outreachCount, setOutreachCount] = useState(0);
 
   const effectiveOpen = allComplete ? isOpen : true;
   const userName = user?.name || '';
@@ -83,6 +84,9 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       if (item.type === 'followups_due') {
         setFollowupContacted(0);
         setFollowupResponded(0);
+      }
+      if (item.type === 'cold_texts' || item.type === 'cold_dms') {
+        setOutreachCount(0);
       }
       setReflectionTarget({ item });
     }
@@ -126,6 +130,12 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       case 'shift_recap': {
         const fab = document.querySelector('[data-end-shift-trigger]') as HTMLElement;
         if (fab) fab.click();
+        break;
+      }
+      case 'cold_texts':
+      case 'cold_dms': {
+        setOutreachCount(0);
+        setReflectionTarget({ item });
         break;
       }
     }
@@ -217,6 +227,45 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
     setReflectionTarget(null);
     refresh();
   }, [saveReflection, refresh]);
+
+  // Outreach reflection (cold texts / DMs)
+  const handleOutreachReflection = useCallback(async () => {
+    const item = reflectionTarget?.item;
+    if (!item || outreachCount <= 0) return;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const field = item.type === 'cold_texts' ? 'cold_texts_sent' : 'cold_dms_sent';
+
+    // Check if record exists for this SA + today
+    const { data: existing } = await supabase
+      .from('daily_outreach_log')
+      .select('id, cold_texts_sent, cold_dms_sent')
+      .eq('sa_name', userName)
+      .eq('log_date', todayStr)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      const current = existing[0];
+      const newVal = (field === 'cold_texts_sent' ? current.cold_texts_sent : current.cold_dms_sent) + outreachCount;
+      await supabase
+        .from('daily_outreach_log')
+        .update({ [field]: newVal })
+        .eq('id', current.id);
+    } else {
+      await supabase
+        .from('daily_outreach_log')
+        .insert({
+          sa_name: userName,
+          log_date: todayStr,
+          [field]: outreachCount,
+        } as any);
+    }
+
+    const label = item.type === 'cold_texts' ? 'texts' : 'DMs';
+    toast.success(`Logged ${outreachCount} ${label}`);
+    setReflectionTarget(null);
+    setOutreachCount(0);
+    refresh();
+  }, [reflectionTarget, outreachCount, userName, refresh]);
 
   if (isLoading && items.length === 0) return null;
   if (totalCount === 0) return null;
@@ -451,6 +500,37 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
               <span className="text-lg">📭</span>
               <span className="text-sm font-medium">No new leads today</span>
             </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Cold Texts / DMs reflection */}
+      <Drawer open={!!reflectionItem && (reflectionItem.type === 'cold_texts' || reflectionItem.type === 'cold_dms')} onOpenChange={(open) => { if (!open) setReflectionTarget(null); }}>
+        <DrawerContent className="px-4 pb-6">
+          <DrawerHeader className="px-0">
+            <DrawerTitle className="text-base">
+              {reflectionItem?.type === 'cold_texts' ? 'Cold Lead Texts' : 'Cold DMs'} — Today
+            </DrawerTitle>
+            <p className="text-sm text-muted-foreground">How many did you send this shift?</p>
+          </DrawerHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {reflectionItem?.type === 'cold_texts' ? 'Texts sent' : 'DMs sent'}
+              </span>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setOutreachCount(Math.max(0, outreachCount - 1))}>
+                  <Minus className="w-3.5 h-3.5" />
+                </Button>
+                <span className="text-lg font-bold w-8 text-center">{outreachCount}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setOutreachCount(outreachCount + 1)}>
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+            <Button className="w-full" onClick={handleOutreachReflection} disabled={outreachCount <= 0}>
+              Log {outreachCount} {reflectionItem?.type === 'cold_texts' ? 'Texts' : 'DMs'}
+            </Button>
           </div>
         </DrawerContent>
       </Drawer>
