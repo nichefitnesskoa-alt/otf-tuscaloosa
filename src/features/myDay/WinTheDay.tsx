@@ -88,18 +88,48 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
     }
   }, [handleDirectComplete]);
 
-  // Handle action button tap — same as circle for influenced, same as direct for SA-controlled
+  // Handle action button tap — performs the specific action described by the label
   const handleAction = useCallback(async (item: ChecklistItem) => {
-    if (DIRECT_COMPLETE_TYPES.includes(item.type)) {
-      handleDirectComplete(item);
-    } else if (isInfluencedType(item.type)) {
-      if (item.type === 'followups_due') {
-        setFollowupContacted(0);
-        setFollowupResponded(0);
+    switch (item.type) {
+      case 'q_send':
+      case 'q_resend': {
+        if (item.questionnaireLink) {
+          await navigator.clipboard.writeText(item.questionnaireLink);
+          toast.success(`Q link copied for ${item.memberName}`);
+        } else {
+          toast.error('No questionnaire link available');
+        }
+        break;
       }
-      setReflectionTarget({ item });
+      case 'prep_roleplay': {
+        handleDirectComplete(item);
+        break;
+      }
+      case 'confirm_tomorrow': {
+        // Navigate to the intro card so SA can send confirmation
+        onSwitchTab?.('intros');
+        toast('Navigate to the intro card to send confirmation');
+        break;
+      }
+      case 'followups_due': {
+        onSwitchTab?.('followups');
+        break;
+      }
+      case 'leads_overdue': {
+        onSwitchTab?.('newleads');
+        break;
+      }
+      case 'log_ig': {
+        onSwitchTab?.('igdm');
+        break;
+      }
+      case 'shift_recap': {
+        const fab = document.querySelector('[data-end-shift-trigger]') as HTMLElement;
+        if (fab) fab.click();
+        break;
+      }
     }
-  }, [handleDirectComplete]);
+  }, [handleDirectComplete, onSwitchTab]);
 
   // Save reflection result
   const saveReflection = useCallback(async (type: string, result: string, bookingId?: string) => {
