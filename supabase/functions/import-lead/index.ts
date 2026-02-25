@@ -275,7 +275,50 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Create new lead with correct stage
+      // ── Inline dedup: check intros_booked by phone before inserting ──
+      let dupConfidence: string | null = null;
+      let dupNotes: string | null = null;
+      let dupMatchType: string | null = null;
+
+      if (autoStage === 'new' && lead.phone) {
+        const phoneDigits = (lead.phone || '').replace(/\D/g, '');
+        const normalizedPhone = phoneDigits.length === 11 && phoneDigits.startsWith('1') ? phoneDigits.slice(1) : phoneDigits;
+        if (normalizedPhone.length === 10) {
+          const { data: phoneMatch } = await supabase
+            .from("intros_booked")
+            .select("id, member_name, class_date, booking_status_canon")
+            .is("deleted_at", null)
+            .or(`phone.eq.${normalizedPhone},phone_e164.eq.+1${normalizedPhone}`)
+            .limit(1)
+            .maybeSingle();
+          if (phoneMatch) {
+            dupConfidence = 'HIGH';
+            dupMatchType = 'phone';
+            dupNotes = `Phone match: ${phoneMatch.member_name} — booked on ${phoneMatch.class_date}`;
+            autoStage = 'already_in_system';
+          }
+        }
+      }
+
+      // Also check by name if not already flagged
+      if (!dupConfidence && autoStage === 'new') {
+        const memberName = `${lead.first_name} ${lead.last_name}`;
+        const { data: nameMatch } = await supabase
+          .from("intros_booked")
+          .select("id, member_name, class_date")
+          .is("deleted_at", null)
+          .ilike("member_name", memberName)
+          .limit(1)
+          .maybeSingle();
+        if (nameMatch) {
+          dupConfidence = 'MEDIUM';
+          dupMatchType = 'name_only';
+          dupNotes = `Name match: ${nameMatch.member_name} — booked on ${nameMatch.class_date}`;
+          autoStage = 'flagged';
+        }
+      }
+
+      // Create new lead with correct stage + dedup info
       const { data: newLead, error: leadError } = await supabase
         .from("leads")
         .insert({
@@ -286,6 +329,9 @@ Deno.serve(async (req) => {
           stage: autoStage,
           source: existingBooking?.lead_source || lead.source || "Orangebook Web Lead",
           booked_intro_id: autoBookedIntroId,
+          duplicate_confidence: dupConfidence,
+          duplicate_match_type: dupMatchType,
+          duplicate_notes: dupNotes,
         })
         .select("id")
         .single();

@@ -190,6 +190,34 @@ export async function detectDuplicate(lead: {
 }
 
 
+/** Run continuous dedup on all active leads (new, contacted, flagged) */
+export async function runContinuousDedup(): Promise<number> {
+  const { data: leads } = await supabase
+    .from('leads')
+    .select('id, first_name, last_name, phone, email, stage, duplicate_override')
+    .in('stage', ['new', 'contacted', 'flagged'])
+    .eq('duplicate_override', false)
+    .limit(200);
+
+  if (!leads || leads.length === 0) return 0;
+
+  let flaggedCount = 0;
+  for (const lead of leads) {
+    const result = await runDeduplicationForLead(lead.id, {
+      first_name: lead.first_name,
+      last_name: lead.last_name,
+      phone: lead.phone,
+      email: lead.email,
+      stage: lead.stage,
+      duplicate_override: lead.duplicate_override ?? false,
+    });
+    if (result.isDuplicate && result.confidence !== 'NONE') {
+      flaggedCount++;
+    }
+  }
+  return flaggedCount;
+}
+
 /** Map confidence to lead stage */
 export function confidenceToStage(confidence: DuplicateConfidence, currentStage = 'new'): string {
   if (confidence === 'HIGH') return 'already_in_system';

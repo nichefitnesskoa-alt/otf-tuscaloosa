@@ -112,9 +112,15 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       // Fetch booking to auto-populate run fields from the source record
       const { data: bookingData } = await supabase
         .from('intros_booked')
-        .select('class_start_at, coach_name, class_date')
+        .select('class_start_at, coach_name, class_date, lead_source, booked_by')
         .eq('id', params.bookingId)
         .maybeSingle();
+
+      // Resolve intro owner: Personal Friend → booked_by gets credit, otherwise the SA running the intro
+      const isPersonalFriend = (bookingData?.lead_source || '').toLowerCase().includes('personal friend');
+      const resolvedOwner = isPersonalFriend && bookingData?.booked_by
+        ? bookingData.booked_by
+        : params.editedBy;
 
       const runDate = bookingData?.class_start_at
         ? bookingData.class_start_at.split('T')[0]
@@ -137,7 +143,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           result_canon: normalizeIntroResult(params.newResult),
           lead_source: params.leadSource || null,
           sa_name: params.editedBy,
-          intro_owner: params.editedBy,
+          intro_owner: resolvedOwner,
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
           buy_date: isNowSale ? getTodayYMD() : null,
@@ -154,6 +160,12 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       } else if (newRun) {
         existingRun = newRun;
         params.runId = newRun.id;
+
+        // Sync intro_owner back to booking and lock it
+        await supabase.from('intros_booked').update({
+          intro_owner: resolvedOwner,
+          intro_owner_locked: true,
+        }).eq('id', params.bookingId);
       }
     }
 
