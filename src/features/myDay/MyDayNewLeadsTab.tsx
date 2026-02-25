@@ -395,10 +395,11 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   // Stable — uses refs, no deps
   }, []);
 
-  // Run background dedup once when tab mounts
+  // Run background dedup on mount + every 5 minutes
   useEffect(() => {
     const timer = setTimeout(() => backgroundDedupRecheck(), 1500);
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => backgroundDedupRecheck(), 5 * 60 * 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
   }, [backgroundDedupRecheck]);
 
   // ── Real-time subscriptions ──────────────────────────────────────────────

@@ -99,6 +99,18 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
                 NEW
               </Badge>
             )}
+            {lead.duplicate_confidence === 'HIGH' && !isLost && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 gap-0.5" title={lead.duplicate_notes || 'Already in system'}>
+                <AlertCircle className="w-2.5 h-2.5" />
+                In System
+              </Badge>
+            )}
+            {lead.duplicate_confidence === 'MEDIUM' && !isLost && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-warning text-warning gap-0.5" title={lead.duplicate_notes || 'Possible duplicate'}>
+                <AlertCircle className="w-2.5 h-2.5" />
+                May be duplicate
+              </Badge>
+            )}
             {isGoingCold && (
               <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">Going Cold</Badge>
             )}

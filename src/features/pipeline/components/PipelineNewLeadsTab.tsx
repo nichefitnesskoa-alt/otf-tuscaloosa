@@ -281,10 +281,11 @@ export function PipelineNewLeadsTab() {
   // Stable — no deps; uses refs
   }, []);
 
-  // Background dedup on mount
+  // Background dedup on mount + every 5 minutes
   useEffect(() => {
     const timer = setTimeout(() => backgroundDedupRecheck(), 1500);
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => backgroundDedupRecheck(), 5 * 60 * 1000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
   }, [backgroundDedupRecheck]);
 
   // Real-time: leads + intros_booked + intros_run
