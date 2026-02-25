@@ -13,7 +13,7 @@ import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
-import { VipConversionCard } from '@/components/dashboard/VipConversionCard';
+// VipConversionCard removed from Studio page
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { LeadMeasuresTable } from '@/components/dashboard/LeadMeasuresTable';
 import { OutreachTable } from '@/components/dashboard/OutreachTable';
@@ -185,109 +185,7 @@ export default function Recaps() {
       {/* Referral Leaderboard */}
       <ReferralLeaderboard />
 
-      {/* VIP Conversion Tracking */}
-      <VipConversionCard dateRange={dateRange} />
       {/* Top Performers - only show when viewing all staff */}
-      {!selectedEmployee && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-primary" />
-              Top Performers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              {/* Top Bookers - limited to 3 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Top Bookers</p>
-                {topBookers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No data</p>
-                ) : (
-                  topBookers.slice(0, 3).map((m, i) => (
-                    <div key={m.name} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-1">
-                        {i === 0 && '🥇'}
-                        {i === 1 && '🥈'}
-                        {i === 2 && '🥉'}
-                        <span className="truncate max-w-[60px]">{m.name}</span>
-                      </span>
-                      <Badge variant="secondary" className="text-xs">{m.value}</Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Top Show Rate - limited to 3 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Best Show Rate</p>
-                {topShowRate.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Min 3 booked</p>
-                ) : (
-                  topShowRate.slice(0, 3).map((m, i) => (
-                    <div key={m.name} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-1">
-                        {i === 0 && '🥇'}
-                        {i === 1 && '🥈'}
-                        {i === 2 && '🥉'}
-                        <span className="truncate max-w-[60px]">{m.name}</span>
-                      </span>
-                      <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Top Closers - limited to 3 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Best Close Rate</p>
-                {topClosing.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Min 1 ran</p>
-                ) : (
-                  topClosing.slice(0, 3).map((m, i) => (
-                    <div key={m.name} className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-1">
-                        {i === 0 && '🥇'}
-                        {i === 1 && '🥈'}
-                        {i === 2 && '🥉'}
-                        <span className="truncate max-w-[60px]">{m.name}</span>
-                      </span>
-                      <Badge variant="secondary" className="text-xs">{m.value.toFixed(0)}%</Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Saves & Rebooks Card */}
-      {(metrics.rebooksCreatedInRange > 0 || metrics.followUpConversionsInRange > 0) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              🔄 Saves & Conversions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-2xl font-bold">{metrics.rebooksCreatedInRange}</p>
-                <p className="text-xs text-muted-foreground">Rebooks</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{metrics.noShowSavesInRange}</p>
-                <p className="text-xs text-muted-foreground">No-Show Saves</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{metrics.followUpConversionsInRange}</p>
-                <p className="text-xs text-muted-foreground">FU Conversions</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
       {/* Runner & Booker Stats Tabs */}
       <Tabs defaultValue="runner">
         <TabsList className="grid w-full grid-cols-3">

@@ -108,6 +108,17 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
 
       if (error) throw error;
 
+      // Insert referral record if referred by someone
+      if (inserted?.id && leadSource === 'Member Referral' && referredBy.trim()) {
+        await supabase.from('referrals').insert({
+          referrer_name: referredBy.trim(),
+          referred_name: memberName,
+          referrer_booking_id: null,
+          referred_booking_id: inserted.id,
+          discount_applied: false,
+        });
+      }
+
       // Auto-create questionnaire
       if (inserted?.id) {
         import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
