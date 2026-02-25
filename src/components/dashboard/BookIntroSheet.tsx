@@ -45,6 +45,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [friendFirstName, setFriendFirstName] = useState('');
   const [friendLastName, setFriendLastName] = useState('');
   const [friendPhone, setFriendPhone] = useState('');
+  const [referredBy, setReferredBy] = useState('');
 
   const showFriendPrompt = isReferralSource(leadSource);
 
@@ -53,6 +54,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     setClassDate(format(new Date(), 'yyyy-MM-dd')); setClassTime('');
     setCoach(''); setLeadSource('');
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
+    setReferredBy('');
   };
 
   const handleClose = (open: boolean) => {
@@ -64,6 +66,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     setLeadSource(val);
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
+    setReferredBy('');
   };
 
   const handleSave = async () => {
@@ -100,6 +103,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
+        referred_by_member_name: leadSource === 'Member Referral' ? (referredBy.trim() || null) : null,
       }).select('id').single();
 
       if (error) throw error;
@@ -236,6 +240,14 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
               <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+
+          {/* ── Who Referred Them? (Member Referral only) ── */}
+          {leadSource === 'Member Referral' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="book-referred-by">Who referred them?</Label>
+              <Input id="book-referred-by" value={referredBy} onChange={e => setReferredBy(e.target.value)} placeholder="Referring member's name" />
+            </div>
+          )}
 
           {/* ── Inline Friend Prompt (referral sources only) ── */}
           {showFriendPrompt && (
