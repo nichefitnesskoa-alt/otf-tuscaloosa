@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
 import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
-// VipConversionCard removed from Studio page
+import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { LeadMeasuresTable } from '@/components/dashboard/LeadMeasuresTable';
 import { OutreachTable } from '@/components/dashboard/OutreachTable';
@@ -21,6 +21,10 @@ import { useLeadMeasures } from '@/hooks/useLeadMeasures';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { parseLocalDate } from '@/lib/utils';
+import { isWithinInterval } from 'date-fns';
+import { isMembershipSale } from '@/lib/sales-detection';
 
 export default function Recaps() {
   const { user } = useAuth();
@@ -41,24 +45,40 @@ export default function Recaps() {
   const leadMeasuresOpts = useMemo(() => dateRange ? { startDate: format(dateRange.start, 'yyyy-MM-dd'), endDate: format(dateRange.end, 'yyyy-MM-dd') } : undefined, [dateRange]);
   const { data: leadMeasures, loading: leadMeasuresLoading } = useLeadMeasures(leadMeasuresOpts);
 
-  // 6B: Q Completion Rate - % of 1st intro bookings with completed questionnaire
-  const qCompletionRate = useMemo(() => {
-    const firstIntros = introsBooked.filter(b => {
-      const isVip = (b as any).is_vip === true;
-      const originatingId = (b as any).originating_booking_id;
-      const isFirst = !originatingId;
-      if (isVip || !isFirst) return false;
-      if (!dateRange) return true;
-      try {
-        const d = new Date(b.class_date);
-        return d >= dateRange.start && d <= dateRange.end;
-      } catch { return false; }
-    });
-    if (firstIntros.length === 0) return undefined;
-    // We need questionnaire data - use a simple query approach via state
-    // For now we count bookings that have a questionnaire completed by checking DataContext
-    // This is a placeholder until we can fetch questionnaire status in bulk
-    return undefined; // Will be populated below
+  // Compute scoreboard metrics from existing data
+  const scoreboardIntrosRun = metrics.studio.introsRun;
+  const scoreboardSales = metrics.studio.introSales;
+  const scoreboardClosingRate = metrics.studio.closingRate;
+  const scoreboardBooked = metrics.pipeline.booked;
+  const scoreboardShowed = metrics.pipeline.showed;
+  const scoreboardNoShows = metrics.pipeline.noShows;
+
+  // Q Completion + Prep Rate from DB
+  const [qCompletionRate, setQCompletionRate] = useState<number | undefined>();
+  const [prepRate, setPrepRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    (async () => {
+      const firstIntros = introsBooked.filter(b => {
+        if ((b as any).is_vip === true || (b as any).originating_booking_id) return false;
+        if (!dateRange) return true;
+        try {
+          const d = parseLocalDate(b.class_date);
+          return isWithinInterval(d, { start: dateRange.start, end: dateRange.end });
+        } catch { return false; }
+      });
+      if (firstIntros.length === 0) { setQCompletionRate(undefined); setPrepRate(undefined); return; }
+
+      const ids = firstIntros.map(b => b.id).slice(0, 500);
+      const [{ data: qs }, { data: preppedRows }] = await Promise.all([
+        supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids),
+        supabase.from('intros_booked').select('id').in('id', ids).eq('prepped', true),
+      ]);
+      const completedQIds = new Set((qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id));
+      const preppedIds = new Set((preppedRows || []).map(r => r.id));
+      setQCompletionRate((completedQIds.size / firstIntros.length) * 100);
+      setPrepRate((preppedIds.size / firstIntros.length) * 100);
+    })();
   }, [introsBooked, dateRange]);
 
   // Use leaderboard data from metrics
@@ -170,6 +190,18 @@ export default function Recaps() {
           />
         </div>
       </div>
+
+      {/* Studio Scoreboard Card */}
+      <StudioScoreboard
+        introsRun={scoreboardIntrosRun}
+        introSales={scoreboardSales}
+        closingRate={scoreboardClosingRate}
+        qCompletionRate={qCompletionRate}
+        prepRate={prepRate}
+        introsBooked={scoreboardBooked}
+        introsShowed={scoreboardShowed}
+        noShows={scoreboardNoShows}
+      />
 
       {/* Lead Measures by SA */}
       <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
