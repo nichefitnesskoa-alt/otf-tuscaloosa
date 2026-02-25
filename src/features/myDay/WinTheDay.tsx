@@ -144,7 +144,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   }, [userName]);
 
   // Questionnaire reflection
-  const handleQReflection = useCallback(async (result: 'answered' | 'sent_waiting' | 'unreachable') => {
+  const handleQReflection = useCallback(async (result: 'answered' | 'sent_waiting' | 'unreachable' | 'already_done' | 'cancelled') => {
     const item = reflectionTarget?.item;
     if (!item) return;
 
@@ -173,7 +173,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   }, [reflectionTarget, saveReflection, userName, refresh]);
 
   // Confirmation reflection
-  const handleConfirmReflection = useCallback(async (result: 'confirmed' | 'sent_no_response' | 'unreachable') => {
+  const handleConfirmReflection = useCallback(async (result: 'confirmed' | 'sent_no_response' | 'unreachable' | 'reschedule' | 'cancelled') => {
     const item = reflectionTarget?.item;
     if (!item) return;
 
@@ -211,7 +211,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   }, [userName, followupContacted, followupResponded, saveReflection, refresh]);
 
   // New leads reflection
-  const handleLeadsReflection = useCallback(async (result: 'all_contacted' | 'partial' | 'no_time') => {
+  const handleLeadsReflection = useCallback(async (result: 'all_contacted' | 'partial' | 'no_time' | 'none_assigned') => {
     await saveReflection('new_leads_contact', result);
     toast.success('Lead contact reflection logged');
     setReflectionTarget(null);
@@ -306,6 +306,20 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
               <span className="text-lg">📵</span>
               <span className="text-sm font-medium">Couldn't reach them</span>
             </button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => handleQReflection('already_done')}
+            >
+              <span className="text-lg">📋</span>
+              <span className="text-sm font-medium">Already completed the Q</span>
+            </button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => handleQReflection('cancelled')}
+            >
+              <span className="text-lg">🚫</span>
+              <span className="text-sm font-medium">Cancelled / not coming</span>
+            </button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -338,6 +352,20 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
             >
               <span className="text-lg">✗</span>
               <span className="text-sm font-medium">Couldn't reach them</span>
+            </button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => handleConfirmReflection('reschedule')}
+            >
+              <span className="text-lg">🔄</span>
+              <span className="text-sm font-medium">Wants to reschedule</span>
+            </button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => handleConfirmReflection('cancelled')}
+            >
+              <span className="text-lg">🚫</span>
+              <span className="text-sm font-medium">Cancelled — not coming</span>
             </button>
           </div>
         </DrawerContent>
@@ -376,6 +404,13 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
               </div>
             </div>
             <Button className="w-full" onClick={handleFollowupReflection}>Mark Complete</Button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => { setFollowupContacted(0); setFollowupResponded(0); handleFollowupReflection(); }}
+            >
+              <span className="text-lg">🈳</span>
+              <span className="text-sm font-medium">No follow-ups due today</span>
+            </button>
           </div>
         </DrawerContent>
       </Drawer>
@@ -408,6 +443,13 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
             >
               <span className="text-lg">✗</span>
               <span className="text-sm font-medium">No — ran out of time</span>
+            </button>
+            <button
+              className="w-full text-left p-3 rounded-lg border hover:bg-muted/50 transition-colors flex items-center gap-3"
+              onClick={() => handleLeadsReflection('none_assigned')}
+            >
+              <span className="text-lg">📭</span>
+              <span className="text-sm font-medium">No new leads today</span>
             </button>
           </div>
         </DrawerContent>
