@@ -149,8 +149,8 @@ All colors MUST be HSL.
     width: auto !important;
   }
 
-  /* Hide everything except the print layout */
-  body > * {
+  /* Hide everything except the print layout — spare the portal holding print card */
+  body > *:not([data-radix-portal]:has([data-print-card])) {
     visibility: hidden !important;
     position: absolute !important;
     overflow: hidden !important;
@@ -179,7 +179,7 @@ All colors MUST be HSL.
 
   /* Hide Radix overlays, toasts, nav, etc — but keep portal containing print card */
   [data-radix-portal]:not(:has([data-print-card])),
-  [role="dialog"],
+  [role="dialog"]:not(:has([data-print-card])),
   nav,
   header,
   .sonner-toast-wrapper {
