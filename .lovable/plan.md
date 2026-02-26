@@ -1,229 +1,264 @@
-Everything is good with this as the only things that i want to make sure about  
+Don't build 1G  
   
-**Change 2 — AI Panel** It says "all state and handlers already exist" — this is only true if the previous session successfully wired them. If that session had errors, the handlers may not actually be there and the JSX will break. If Lovable flags any missing references, tell it to add the handlers too.
+Universal Inline Editing — Implementation Plan
 
-**Change 6 — Outcome re-selector** The plan says "most practical: add an Edit Outcome dropdown item — already exists on line 625." That's not what we asked for — we wanted tappable outcome badge that opens the re-selector. Make sure it actually opens the outcome bottom sheet via `applyIntroOutcomeUpdate`, not just a dropdown.
+## Scope
+
+6 sections, ~30 inline edit points across 5 main files. One reusable inline edit component to standardize the pattern. No DB migration needed.
 
 ---
 
-**One thing missing from the plan:**
+## Technical Approach
 
-The plan doesn't mention updating `IntroDayGroup.tsx` to pass `focusedBookingId` down — it mentions it in Change 4 description but it's not in the files changed summary table. It should be there. Not a blocker since it's referenced in the body, just confirm it actually makes the change.  
-  
-Implementation Plan — Changes 1-7
+### Shared InlineEditField Component
 
-## Scope Summary
+Create `src/components/shared/InlineEditField.tsx` — a generic reusable component that handles all the inline editing patterns described:
 
-7 changes across 8 files modified and 1 DB migration. Prioritized order: Change 1 → 4 → 5 → 7 → 2 → 3 → 6.
+```
+InlineEditField<T> props:
+  - value: string | number | null
+  - placeholder: string (e.g. "Add phone")
+  - type: 'text' | 'tel' | 'email' | 'number' | 'time' | 'select' | 'toggle'
+  - options?: { value: string; label: string }[] (for select type)
+  - onSave: (newValue: T) => Promise<void>
+  - displayFormatter?: (val: T) => string
+  - disabled?: boolean
+  - className?: string
+```
+
+Behavior:
+
+- Display mode: shows value or muted italic placeholder. Subtle pencil icon on hover.
+- Edit mode: replaces with appropriate `<input>` or `<select>`. Focused immediately.
+- Save: on blur or Enter for inputs, on change for selects, on click for toggles.
+- Cancel: Escape key reverts without saving.
+- Success: brief green checkmark flash (CSS transition, ~1s), no toast.
+- Error: red border on field + error toast. Input stays open.
+
+This component will be imported everywhere instead of duplicating edit logic.
 
 ---
 
-## Change 1: Update AI Script Generator System Prompt
-
-**File: `supabase/functions/generate-script/index.ts**`
-
-- Replace the `KOA_SYSTEM_PROMPT` constant (lines 8-19) with the full verbatim prompt provided. This is a direct string replacement — no logic changes.
-- The new prompt is significantly longer (~2500 chars) and includes voice rules, anti-patterns, objection handling patterns, and example scripts.
-
-## Change 2: AI Panel Drawer JSX in ScriptPickerSheet
-
-**File: `src/components/scripts/ScriptPickerSheet.tsx**`
-
-- Add a new `<Drawer>` component at the bottom of the JSX (after the `MessageGenerator` section, around line 382)
-- Opens when `aiPanelOpen === true`
-- Contents:
-  - Title: "✨ AI Script Generator" with sub-label
-  - Script category `<Select>` dropdown with 8 options: confirmation, questionnaire send, follow-up touch 1/2/3, no-show outreach, objection handling, general
-  - Read-only context panel showing Name, Goal, Objection from `memberCtx`
-  - Orange "Generate Script" `<Button>` calling existing `handleAiGenerate()`
-  - "Regenerate" `<Button>` (calls `handleAiGenerate()` again)
-  - Generated script in `<Textarea>` with `value={aiScript}` + `onChange` for editability
-  - "Use This Script" `<Button>` calling existing `handleUseAiScript()`
-  - "Cancel" `<Button>` closing the panel
-  - Loading spinner (`<Loader2 className="animate-spin">`) shown during `aiGenerating`
-- Import `Textarea` from `@/components/ui/textarea` and `Loader2` from `lucide-react`
-- All state and handlers already exist (`aiPanelOpen`, `aiGenerating`, `aiScript`, `aiCategory`, `handleAiGenerate`, `handleUseAiScript`) — this is purely a JSX addition.
-
-## Change 3: Prep Drawer Full Redesign
-
-**DB Migration:**
-
-- Add `shoutout_consent` boolean column to `intros_booked`, default null
-
-**File: `src/components/dashboard/PrepDrawer.tsx` (complete rewrite of content sections)**
-
-The existing file has ~653 lines with SA/Coach content in two tabs (Before Class / After Class). The redesign replaces both tabs with a single scrollable view with SA sections, then Coach sections.
-
-**SA Card Content (screen view):**
-
-1. **Transformative one-liner** — already exists (lines 302-314), keep with minor text change
-2. **Shoutout consent** — NEW. Amber card with radio-style buttons. Tapping saves `shoutout_consent` to `intros_booked` via Supabase immediately
-3. **Dig Deeper** — Replace current bullet-point checklist (lines 344-400) with conversation flow waypoints format as specified
-4. **Risk Free Guarantee** — already exists (lines 418-429), update text to match exact wording
-5. **Studio Trend** — NEW section for 1st intros only. Query `intros_run` for current pay period, find most common `primary_objection`, display with plain English tip
-
-**Coach Card Content (screen view):**
-
-- For 2nd intros: "FROM THEIR FIRST VISIT" section at very top in orange (query originating booking's run data)
-- Quick snapshot: Name, Time, Level, Goal, Coach
-- Pre-entry announcement: static text with name interpolated
-- In-class actions: 3 bullets auto-generated from goal type + fitness level using lookup tables for 6 goal categories
-- Peak moment callout: Only shown when `shoutout_consent === true`. Shows only the matching goal category
-- Closing celebration: Only when `shoutout_consent === true`
-- Performance summary: Two options shown, both populated from questionnaire data
-
-**State additions to PrepDrawer:**
-
-- `shoutoutConsent: boolean | null` — loaded from `intros_booked.shoutout_consent`
-- `savingConsent: boolean` — loading state for save
-- `studioTrend: { objection: string; percent: number } | null` — from pay period query
-- `prevVisitData` — for 2nd intro coach card (query originating booking's run + Q)
-
-**Print layout:**
-
-- Replace existing print-only div (lines 562-605) with the two-half layout
-- Top half: SA Prep with name/date/time header, one-liner, shoutout consent checkboxes, dig deeper waypoints, RFG
-- Cut line: `✂ ─ ─ ─ COACH COPY ─ [NAME] | [TIME] | Level [X]/5`
-- Bottom half: Coach content with pre-entry, in-class actions, peak moment (if consent), closing (if consent), performance summary
-- CSS: `@media print` rules — `font-size: 11px`, `max-height: 100vh`, hide drawer chrome
-
-**Goal-to-actions mapping (static lookup):**
-
-```
-GOAL_ACTIONS = {
-  fat_loss: [...3 bullets],
-  build_muscle: [...3 bullets],
-  energy: [...3 bullets],
-  confidence: [...3 bullets],
-  wedding: [...3 bullets],
-  getting_back: [...3 bullets],
-}
-```
-
-Goal detection: regex match on `q1_fitness_goal` text to map to category.
-Fitness level rules appended based on `q2_fitness_level`.
-
-## Change 4: A6 Focus Mode 2 Hours Before Intro
+## Section 1 — MyDay Intro Cards
 
 **File: `src/features/myDay/IntroRowCard.tsx**`
 
-Add new state and effect:
+### 1A — Phone (lines 427-437)
 
-- `minutesUntilClass: number | null` computed from `item.classDate + item.introTime`
-- `useEffect` with 60-second `setInterval` to recompute
-- New prop: `isFocused?: boolean` (passed from parent)
-- When `isFocused && minutesUntilClass <= 120 && minutesUntilClass > 0`:
-  - Add `ring-2 ring-orange-500` to card outer div with `style={{ animationDuration: '3s' }}` and `animate-pulse`
-  - Show countdown badge: `<Badge>🕐 Class in {hours}h {mins}m</Badge>` in amber color, positioned after the name
-  - If `!prepped`: Prep button gets `animate-pulse bg-orange-500 text-white`
-- When not focused but another card is: `opacity-80` on card outer div
+Current: Red "Phone missing — add before class" badge is not tappable. Existing phone is static text.
 
-**File: `src/features/myDay/IntroRowCard.tsx` — interface update:**
+Change:
 
-- Add `isFocused?: boolean` to `IntroRowCardProps`
+- Replace the non-tappable badge and static phone display (lines 428-437) with `InlineEditField` type="tel"
+- When no phone: shows muted italic "Add phone" placeholder
+- When phone exists: shows formatted phone as tappable text
+- On save: `supabase.from('intros_booked').update({ phone: val, phone_e164: '+1' + stripped }).eq('id', item.bookingId)` then `onRefresh()`
+- Display uses `formatPhoneDisplay()`
 
-**File: `src/features/myDay/IntroDayGroup.tsx**`
+### 1B — Email (new, after phone line ~line 437)
 
-- Add `focusedBookingId?: string | null` prop
-- Pass `isFocused={item.bookingId === focusedBookingId}` to each `IntroRowCard`
+Current: No email field shown at all.
 
-**File: `src/features/myDay/UpcomingIntrosCard.tsx**`
+Change:
 
-- Compute `focusedBookingId`: find the item with the nearest `introTime` where `classDate === todayStr` and `minutesUntilClass <= 120 && minutesUntilClass > 0`
-- Pass `focusedBookingId` to `IntroDayGroup`
+- Add `InlineEditField` type="email" below phone
+- When no email: muted italic "Add email"
+- When email exists: tappable text showing truncated email
+- On save: `supabase.from('intros_booked').update({ email: val }).eq('id', item.bookingId)`
 
-## Change 5: A7 Q Escalation 3 Hours Before Class
+### 1C — Class time (lines 360-407)
 
-**File: `src/features/myDay/IntroRowCard.tsx**`
+Current: Already has inline time editor with `editingTime` state and `<input type="time">`. This is already working.
 
-In the Q status banner section (lines 270-281), add a condition:
+Change: Refactor to use `InlineEditField` type="time" for consistency, keeping the same save logic. Or leave as-is since it already works — verify only.
 
-- When `!item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0`:
-  - Override banner to red: `<StatusBanner bgColor="#dc2626" text="🔴 Questionnaire Overdue — Class in Xh Xm" />`
-  - Override `borderColor` to `'#dc2626'`
+### 1D — Coach (lines 409-413)
 
-**File: `src/features/myDay/useWinTheDayItems.ts**`
+Current: `InlineCoachPicker` exists but only activates when coach is "TBD" or null (line 409). When coach has a value, it's static text (line 412).
 
-In the `q_resend` section (lines 211-226):
+Change: Make the existing coach name (line 412) also tappable — wrap in a `<button>` that triggers `InlineCoachPicker` editing mode. The `InlineCoachPicker` component (lines 24-71) already handles the select/save/blur pattern — just need to make it always tappable, not just when TBD.
 
-- Change the condition: currently only shows resend if `minutesUntil > 120`. When `minutesUntil <= 180`, instead:
-  - Set `urgency: 'red'`
-  - Set `sortOrder: 50` (highest priority, above everything)
-  - Change text to: `"⚠ ${intro.member_name}'s questionnaire still not answered — class in ${timeLabel}"`
+### 1E — SA/Owner (lines 414-422)
 
-## Change 6: E4 Inline Editing on Pipeline Expanded Rows
+Current: Shows SA name as static text with a User icon.
+
+Change: Replace static `<span>` with `InlineEditField` type="select" with `ALL_STAFF` options. When no owner: show "Add SA" in muted italic. On save: `supabase.from('intros_booked').update({ intro_owner: val }).eq('id', item.bookingId)`
+
+### 1F — Lead source (lines 438-442)
+
+Current: Shows lead source as a static `<Badge variant="outline">`.
+
+Change: Replace with `InlineEditField` type="select" using `LEAD_SOURCES` from `@/types`. Renders as tappable badge. On save: `supabase.from('intros_booked').update({ lead_source: val }).eq('id', item.bookingId)`
+
+### 1H — Outcome (lines 652-678)
+
+Current: Already tappable — the outcome banner at the bottom is wrapped in a `<button>` that opens `OutcomeDrawer` (line 653). This is already working correctly.
+
+No changes needed.
+
+---
+
+## Section 2 — Pipeline Expanded Rows
 
 **File: `src/features/pipeline/components/PipelineSpreadsheet.tsx**`
 
-In `ExpandedRowDetail` (lines 543-654):
+### Current state (lines 543-758)
 
-**Lead Source inline edit:**
+`ExpandedRowDetail` already has:
 
-- In booking row (line 582): replace static `{b.lead_source}` with a tappable element
-- On tap: show inline `<select>` with standard lead sources (Member Referral, Online Intro Offer, Walk-in, IG DM, etc.)
-- On change: `supabase.from('intros_booked').update({ lead_source: val }).eq('id', b.id)` + refresh
+- Inline owner edit (lines 564, 583-607) — working
+- Inline lead source edit (lines 565, 622-642) — working
+- Inline commission edit (lines 566-567, 694-727) — working, admin only
+- Tappable outcome badge (lines 682-693) — opens `edit_run` dialog
 
-**SA/Owner inline edit:**
+### 2A — Phone (line 576-579)
 
-- In line 569 where `journey.latestIntroOwner` is shown: make tappable
-- On tap: show inline `<select>` with ALL_STAFF names
-- On change: `supabase.from('intros_booked').update({ intro_owner: val }).eq('id', b.id)` + refresh
+Current: Shows phone as static text with copy button.
 
-**Outcome re-selector:**
+Change: Replace with `InlineEditField` type="tel". When missing: "Add phone" placeholder. On save: update `intros_booked.phone` for the latest booking.
 
-- On the `OutcomeBadge` in runs section (line 622): make it a button
-- On click: dispatch `myday:open-outcome` event or open inline outcome selector
-- Most practical: add an "Edit Outcome" dropdown item (already exists on line 625 as edit button)
+### 2B — Email (line 581)
 
-**Commission inline edit (admin only):**
+Current: Shows email as static text or nothing.
 
-- Next to `${r.commission_amount}` (line 623): if user is admin, make tappable
-- On tap: show inline `<input type="number">` 
-- On blur: `supabase.from('intros_run').update({ commission_amount: val }).eq('id', r.id)` + refresh
+Change: Replace with `InlineEditField` type="email". When missing: "Add email" placeholder. On save: update `intros_booked.email` for the latest booking.
 
-Use consistent inline editing pattern: `useState` for each editing field, tappable text → select/input → save on change.
+### 2C-2F — Already implemented
 
-## Change 7: StudioIntelligenceCard MyDay + Admin Integration
-
-**File: `src/features/myDay/MyDayPage.tsx**`
-
-- Import `StudioIntelligenceCard` from `@/components/admin/StudioIntelligenceCard`
-- Import `useAuth` (already imported)
-- Check if user has admin role: query `user_roles` table on mount for `role === 'admin'`
-- Add state: `isAdmin: boolean`, `intelligenceDismissed: boolean` (from localStorage with today's date key)
-- Render above `<WinTheDay>` (before line 330): if `isAdmin && !intelligenceDismissed`, show `<StudioIntelligenceCard dismissible onDismiss={() => { localStorage.setItem('si-dismissed-' + todayStr, 'true'); setIntelligenceDismissed(true); }} />`
-
-**File: `src/pages/Admin.tsx**`
-
-- Import `StudioIntelligenceCard`
-- Add new tab "Intelligence" to the `TabsList` (change `grid-cols-7` to `grid-cols-8`)
-- Add `<TabsTrigger value="intelligence">` with `<Brain>` icon
-- Add `<TabsContent value="intelligence">` rendering `<StudioIntelligenceCard />`
+Lead source (2C), SA/Owner (2D), Outcome (2E), Commission (2F) are already working as inline edits. No changes needed except adding the `InlineEditField` visual treatment (hover pencil, green checkmark flash) for consistency.
 
 ---
 
-## DB Migration
+## Section 3 — Referral Leaderboard
 
-Single migration with:
+**File: `src/components/dashboard/ReferralLeaderboard.tsx**`
 
-```sql
-ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS shoutout_consent boolean DEFAULT NULL;
-```
+### 3A — Mark as Purchased button
+
+Current state needs to be verified. The previous session added this. If already working, no changes. If not, add inline "Mark Purchased" button on Pending entries that updates `referrals` table.
+
+### 3B — Auto-detect on purchase log
+
+**File: `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts**`
+
+After saving a purchase outcome (when `result_canon === 'PURCHASED'`):
+
+- Query `intros_booked` for the booking's `referred_by_member_name`
+- If present, query `referrals` table for matching `referred_name` 
+- If found with `discount_applied === false`, update to `discount_applied = true`
+- `console.log('Auto-detected referral purchase for:', referrerName)`
 
 ---
 
-## Files Changed Summary
+## Section 4 — Follow Up Queue
+
+**File: `src/components/dashboard/FollowUpsDueToday.tsx**`
+
+Need to read this file to understand current rendering of individual follow-up items before specifying changes.
+
+### 4A — Scheduled date
+
+Add `InlineEditField` type="date" on the scheduled date display. On save: `supabase.from('follow_up_queue').update({ scheduled_date: val }).eq('id', itemId)`
+
+### 4B — Notes
+
+Add `InlineEditField` type="text" (or a textarea variant) for notes. When empty: "Add note" placeholder. On save: update `follow_up_queue` notes field. Note: The `follow_up_queue` table doesn't have a `notes` column per the schema — it has `primary_objection` and `fitness_goal`. Will add notes to the `followup_touches` table instead, or skip if the column doesn't exist.
+
+Actually, looking at the schema: `follow_up_queue` doesn't have a `notes` column. The `followup_touches` table has `notes`. For the follow-up queue cards, we'll make the `primary_objection` field tappable to edit since that's the most useful field to correct inline.
+
+### 4C — Mark complete
+
+Verify the existing "Mark Done" / "Sent" buttons work without page refresh. The `FollowUpsDueToday` component likely handles this already via optimistic updates.
+
+---
+
+## Section 5 — Leads List
+
+**File: `src/components/leads/LeadListView.tsx**`
+
+### 5A — Phone (lines 203-206)
+
+Current: Shows phone as a `tel:` link.
+
+Change: Replace with `InlineEditField` type="tel". Tap opens inline input. On save: `supabase.from('leads').update({ phone: val }).eq('id', lead.id)` + `onRefresh()`
+
+### 5B — Email
+
+Current: No email column shown in the table.
+
+Change: Add an Email column to the table header and body. Use `InlineEditField` type="email". When missing: "Add email" placeholder.
+
+### 5C — Lead source
+
+Current: Not shown in the leads table (source is passed to `LeadActionBar` but not displayed as a column).
+
+Change: The `leads` table uses `source` not `lead_source`. Add inline editing via `LeadActionBar` or add a visible column. Since the table is already wide, add source editing to the lead detail sheet instead, or make the name cell show source as a small badge below. For minimal table disruption: add source as a tappable badge in the Name cell.
+
+### 5D — Stage (lines 208-220)
+
+Current: Already an inline `<Select>` dropdown that calls `onStageChange`. This is already working.
+
+No changes needed.
+
+---
+
+## Section 6 — Win the Day Buttons
+
+**File: `src/features/myDay/WinTheDay.tsx**`
+
+### Current state
+
+Reviewed the `handleAction` callback (lines 96-163). All buttons already perform direct actions or navigation:
+
+- `q_send`/`q_resend`: copies Q link + navigates to card (lines 98-114)
+- `prep_roleplay`: navigates to card + opens prep drawer (lines 116-126)
+- `confirm_tomorrow`: navigates to week tab + scrolls to card (lines 128-137)
+- `followups_due`: switches to followups tab (line 140-141)
+- `leads_overdue`: switches to newleads tab (line 143-145)
+- `log_ig`: switches to igdm tab (line 147-149)
+- `shift_recap`: clicks end-shift trigger (line 151-153)
+- `cold_texts`/`cold_dms`: opens outreach reflection drawer (lines 156-161)
+
+**Audit result**: No "navigate to X" toasts found in the action handlers. The `handleDirectComplete` function (lines 51-76) uses `toast.success()` only for confirming an action was done (e.g., "Prepped [name]"), not instructional "go to X" toasts.
+
+**Changes needed**: 
+
+- `confirm_tomorrow` (line 130): after scrolling to the card, also dispatch `myday:open-script` to auto-open the script picker for confirmations
+- Verify no toast anywhere says "navigate" or "go to" — search codebase
+
+---
+
+## New Files
 
 
-| File                                                       | Changes                              |
-| ---------------------------------------------------------- | ------------------------------------ |
-| `supabase/functions/generate-script/index.ts`              | Replace system prompt verbatim       |
-| `src/components/scripts/ScriptPickerSheet.tsx`             | Add AI panel Drawer JSX              |
-| `src/components/dashboard/PrepDrawer.tsx`                  | Full content redesign + print layout |
-| `src/features/myDay/IntroRowCard.tsx`                      | Focus mode (A6) + Q escalation (A7)  |
-| `src/features/myDay/IntroDayGroup.tsx`                     | Pass focusedBookingId prop           |
-| `src/features/myDay/UpcomingIntrosCard.tsx`                | Compute focusedBookingId             |
-| `src/features/myDay/useWinTheDayItems.ts`                  | Q overdue escalation to top          |
-| `src/features/myDay/MyDayPage.tsx`                         | StudioIntelligenceCard for admins    |
-| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | Inline editing in expanded rows      |
-| `src/pages/Admin.tsx`                                      | Daily Intelligence tab               |
+| File                                        | Purpose                                          |
+| ------------------------------------------- | ------------------------------------------------ |
+| `src/components/shared/InlineEditField.tsx` | Reusable inline edit component with all patterns |
+
+
+## Modified Files
+
+
+| File                                                       | Changes                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/features/myDay/IntroRowCard.tsx`                      | 1A phone, 1B email, 1D coach always-tappable, 1E SA, 1F lead source, 1G confirmation toggle |
+| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | 2A phone, 2B email inline edits in expanded rows                                            |
+| `src/components/leads/LeadListView.tsx`                    | 5A phone inline edit, 5B email column + inline edit                                         |
+| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`       | 3B referral auto-detection on purchase                                                      |
+| `src/features/myDay/WinTheDay.tsx`                         | Confirm button also opens script picker                                                     |
+| `src/components/dashboard/FollowUpsDueToday.tsx`           | 4A date edit, 4B objection edit, 4C verify mark complete                                    |
+
+
+---
+
+## Implementation Priority
+
+If time runs low:
+
+1. `InlineEditField` component (foundation for everything)
+2. Section 1 — MyDay cards (highest user impact)
+3. Section 5 — Leads list
+4. Section 2 — Pipeline expanded rows
+5. Section 3 — Referral auto-detect
+6. Section 4 — Follow up queue
+7. Section 6 — Win the Day audit
