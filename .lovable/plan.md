@@ -1,65 +1,42 @@
 
 
-# Delete Purchases from Pay Period Commission + Fix Cold Lead/DM Counts in Win the Day
+# Fix 2nd Intro Cards + Add Editable Time + Follow-up Outcome + Remove Inline Badge
 
-## Problem 1: No way to delete purchases from Pay Period Commission
+## Issues Identified
 
-The `PayPeriodCommission` component shows sale details per intro owner but has no delete action. The `SaleDetail` interface doesn't even track the record `id` or source table, making deletion impossible without changes.
+1. **Inline outcome badge (lines 291-308)** — the circled button from the screenshot. Needs removal; bottom banner is sufficient.
+2. **Copy Phone missing on 2nd intro cards** — The Copy Phone button (line 451) already exists for all cards with a phone. However, 2nd intro cards may not have phone data populated because the 2nd intro booking is auto-created and may not copy the phone from the original booking. Need to verify/fix the phone inheritance.
+3. **Time not showing on 2nd intro cards** — `intro_time` may not be getting set when the 2nd intro booking is auto-created via `applyIntroOutcomeUpdate`. The card displays `formatDisplayTime(item.introTime)` which shows nothing if `intro_time` is null.
+4. **Times need to be editable inline on all cards** — Currently there's no way to edit the intro time directly on the card. Need an inline edit capability.
+5. **"Follow-up needed" missing from outcome drawer** — Need to add it back to `NON_SALE_OUTCOMES`.
 
-### Changes to `src/components/PayPeriodCommission.tsx`
+## Plan
 
-1. **Add `id` and source info to `SaleDetail` interface** — add `id: string` and `sourceTable: 'intros_run' | 'sales_outside_intro'` fields
-2. **Populate `id` and `sourceTable`** when building detail rows from runs (lines 209-218) and sales (lines 229-238)
-3. **Add a delete handler** that:
-   - Shows a confirmation dialog (using `AlertDialog`)
-   - On confirm, sets `commission_amount = 0` on the record (soft-delete approach — preserves the run/sale record but zeroes out commission) OR fully deletes the record
-   - Refreshes payroll data after deletion
-4. **Add a Trash icon button** on each detail row (next to the commission amount, lines 441-443) — only visible to admins or always visible depending on preference
-5. **Add confirmation toast** after successful deletion
+### 1. Remove inline outcome badge from IntroRowCard (`src/features/myDay/IntroRowCard.tsx`)
 
-### Approach: Zero out commission vs hard delete
-I'll use a "remove from commission" approach — set `commission_amount = 0` on the source record. This preserves the intro run/sale data for reporting while removing it from payroll. A hard delete option can also be offered via a secondary action.
+Remove lines 291-308 (the `item.latestRunResult` button/badge in Row 2). The bottom banner (lines 510-536) already shows this.
 
----
+### 2. Add "Follow-up needed" to outcome options (`src/components/myday/OutcomeDrawer.tsx`)
 
-## Problem 2: Cold Lead Texts and DMs not showing in Win the Day
+Add `{ value: 'Follow-up needed', label: '📋 Follow-up needed' }` to the `NON_SALE_OUTCOMES` array (after "Not interested", before "Booked 2nd intro"). When selected, it should create a follow-up queue entry similar to "Planning to Reschedule" behavior.
 
-The `useWinTheDayItems.ts` hook currently generates items for questionnaires, confirmations, prep, follow-ups, leads, IG logs, and shift recaps — but **never queries `daily_outreach_log`** and never creates `cold_texts` or `cold_dms` checklist items. The types aren't even in the `ChecklistItemType` union.
+### 3. Make intro time editable inline on cards (`src/features/myDay/IntroRowCard.tsx`)
 
-### Changes to `src/features/myDay/useWinTheDayItems.ts`
+- Replace the static time display (line 247) with a tappable element that opens an inline time input
+- Add state: `editingTime` boolean, `editTimeValue` string
+- On tap, show a `<input type="time">` inline; on blur/confirm, update `intros_booked.intro_time` and `class_start_at` via supabase
+- Works for both 1st and 2nd intro cards
+- If time is missing (null), show a red "Add Time" prompt that forces time entry
 
-1. **Add `cold_texts` and `cold_dms` to `ChecklistItemType` union** (line 12-20)
-2. **Query `daily_outreach_log`** for today's date to get totals across all SAs:
-   ```ts
-   const { data: outreachLogs } = await supabase
-     .from('daily_outreach_log')
-     .select('cold_texts_sent, cold_dms_sent')
-     .eq('log_date', todayStr);
-   const totalTexts = (outreachLogs || []).reduce((sum, l) => sum + l.cold_texts_sent, 0);
-   const totalDms = (outreachLogs || []).reduce((sum, l) => sum + l.cold_dms_sent, 0);
-   ```
-3. **Create two new checklist items** after the existing items:
-   - `cold_texts`: "Send 30 cold lead texts (X/30 done today)" — completed when totalTexts >= 30
-   - `cold_dms`: "Send 50 DMs (X/50 done today)" — completed when totalDms >= 50
-4. **Add `daily_outreach_log` to the realtime subscription** (line 347-358) so counts update live
+### 4. Ensure 2nd intro bookings inherit phone from original (`src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`)
 
-### Changes to `src/features/myDay/WinTheDay.tsx`
-
-1. **Add `cold_texts` and `cold_dms` to `INFLUENCED_TYPES`** array (line 31) so tapping the circle opens a reflection drawer
-2. **Add state for outreach input** — `coldTextsCount` and `coldDmsCount` number state
-3. **Add two new reflection drawers** for cold_texts and cold_dms:
-   - Each has a number input "How many did you send this shift?"
-   - On submit, upserts into `daily_outreach_log` for the current SA + today
-   - Shows remaining count after submission
-4. **Add handler `handleOutreachReflection`** that upserts to `daily_outreach_log` and refreshes
-
----
+Check if the auto-created 2nd intro booking copies `phone`, `phone_e164`, and `email` from the original booking. If not, add that to the insert. This is the root cause of missing phone/time on 2nd intro cards.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/PayPeriodCommission.tsx` | Add `id`/`sourceTable` to SaleDetail, add delete button per row with confirmation, zero-out or delete commission record |
-| `src/features/myDay/useWinTheDayItems.ts` | Add `cold_texts`/`cold_dms` types, query `daily_outreach_log`, generate checklist items, add realtime subscription |
-| `src/features/myDay/WinTheDay.tsx` | Add outreach reflection drawers for cold texts and DMs with number input and upsert logic |
+| `src/features/myDay/IntroRowCard.tsx` | Remove inline outcome badge (lines 291-308); add inline editable time with "Add Time" prompt when missing |
+| `src/components/myday/OutcomeDrawer.tsx` | Add "Follow-up needed" to `NON_SALE_OUTCOMES`; add follow-up queue creation logic when selected |
+| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Ensure 2nd intro auto-creation copies phone, phone_e164, email, and intro_time from original booking |
 
