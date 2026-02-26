@@ -112,7 +112,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       // Fetch booking to auto-populate run fields from the source record
       const { data: bookingData } = await supabase
         .from('intros_booked')
-        .select('class_start_at, coach_name, class_date, lead_source, booked_by')
+        .select('class_start_at, coach_name, class_date, lead_source, booked_by, phone, phone_e164, email, intro_time')
         .eq('id', params.bookingId)
         .maybeSingle();
 
@@ -330,6 +330,29 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     if (params.secondIntroBookingDraft) {
       const draft = params.secondIntroBookingDraft;
       const classDate = draft.class_start_at.split('T')[0] || draft.class_start_at;
+
+      // Fetch phone/email from original booking to inherit onto the 2nd intro
+      let origPhone: string | null = null;
+      let origPhoneE164: string | null = null;
+      let origEmail: string | null = null;
+      if (params.bookingId) {
+        const { data: origBk } = await supabase
+          .from('intros_booked')
+          .select('phone, phone_e164, email')
+          .eq('id', params.bookingId)
+          .maybeSingle();
+        if (origBk) {
+          origPhone = origBk.phone;
+          origPhoneE164 = origBk.phone_e164;
+          origEmail = origBk.email;
+        }
+      }
+
+      // Detect shift from class time
+      const timeStr = draft.class_start_at.split('T')[1]?.substring(0, 5) || '00:00';
+      const hour = parseInt(timeStr.split(':')[0], 10);
+      const shift = hour < 11 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
+
       const { data: newBooking } = await supabase
         .from('intros_booked')
         .insert({
@@ -337,15 +360,18 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           class_date: classDate,
           class_start_at: draft.class_start_at,
           coach_name: draft.coach_name,
-          intro_time: draft.class_start_at.split('T')[1]?.substring(0, 5) || null,
+          intro_time: timeStr,
           lead_source: params.leadSource || '',
-          sa_working_shift: 'AM',
+          sa_working_shift: shift,
           originating_booking_id: params.bookingId,
           rebooked_from_booking_id: params.bookingId,
           rebook_reason: 'second_intro',
           booking_status_canon: 'ACTIVE',
           booking_type_canon: 'STANDARD',
           questionnaire_status_canon: 'not_sent',
+          phone: origPhone,
+          phone_e164: origPhoneE164,
+          email: origEmail,
         })
         .select('id')
         .single();

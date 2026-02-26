@@ -36,6 +36,7 @@ const NON_SALE_OUTCOMES = [
   { value: "Didn't Buy", label: "❌ Didn't Buy" },
   { value: 'No-show', label: '👻 No-show' },
   { value: 'Not interested', label: '🚫 Not interested' },
+  { value: 'Follow-up needed', label: '📋 Follow-up needed' },
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
 ];
 
@@ -151,9 +152,10 @@ export function OutcomeDrawer({
   const isBookedSecondIntro = outcome === 'Booked 2nd intro';
   const isReschedule = outcome === 'Reschedule';
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
+  const isFollowUpNeeded = outcome === 'Follow-up needed';
   const needsObjection = outcome === "Didn't Buy" || outcome === 'No-show';
   const isNoShow = outcome === 'No-show';
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
