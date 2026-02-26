@@ -291,6 +291,31 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       }
     }
 
+    // ── STEP 4B: REFERRAL AUTO-DETECT on purchase ──
+    if (isNowSale && params.bookingId) {
+      try {
+        const { data: bkRef } = await supabase
+          .from('intros_booked')
+          .select('referred_by_member_name')
+          .eq('id', params.bookingId)
+          .maybeSingle();
+        if (bkRef?.referred_by_member_name) {
+          const { data: matchingRefs } = await supabase
+            .from('referrals')
+            .select('id, discount_applied')
+            .eq('referred_name', params.memberName)
+            .eq('discount_applied', false)
+            .limit(1);
+          if (matchingRefs && matchingRefs.length > 0) {
+            await supabase.from('referrals').update({ discount_applied: true }).eq('id', matchingRefs[0].id);
+            console.log('Auto-detected referral purchase for:', bkRef.referred_by_member_name);
+          }
+        }
+      } catch (refErr) {
+        console.warn('Referral auto-detect failed (non-critical):', refErr);
+      }
+    }
+
     // ── STEP 5: AUDIT LOG (outcome_events) ──
     await supabase.from('outcome_events').insert({
       booking_id: params.bookingId,

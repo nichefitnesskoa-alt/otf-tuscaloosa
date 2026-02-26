@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
@@ -18,21 +18,27 @@ import { StatusBanner } from '@/components/shared/StatusBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
-import { COACHES } from '@/types';
+import { COACHES, ALL_STAFF, LEAD_SOURCES } from '@/types';
+import { InlineEditField } from '@/components/dashboard/InlineEditField';
 
-/** Inline coach picker for TBD coaches */
+/** Inline coach picker — always tappable */
 function InlineCoachPicker({ bookingId, currentCoach, userName, onSaved }: { bookingId: string; currentCoach: string | null; userName: string; onSaved: () => void }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const isTbd = !currentCoach || currentCoach === 'TBD';
 
   if (!editing) {
     return (
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="text-destructive font-semibold hover:underline cursor-pointer"
+        className={cn(
+          'cursor-pointer hover:underline',
+          isTbd ? 'text-destructive font-semibold' : 'text-foreground hover:bg-muted/50 rounded px-0.5 -mx-0.5',
+        )}
       >
-        🏋️ {currentCoach || 'Coach TBD'}
+        {isTbd ? '🏋️ Coach TBD' : currentCoach}
       </button>
     );
   }
@@ -406,41 +412,71 @@ export default function IntroRowCard({
               </button>
             )}
             <span>·</span>
-            {(!item.coachName || item.coachName === 'TBD') ? (
-              <InlineCoachPicker bookingId={item.bookingId} currentCoach={item.coachName} userName={userName} onSaved={onRefresh} />
-            ) : (
-              <span>{item.coachName}</span>
-            )}
-            {item.introOwner && (
-              <>
-                <span>·</span>
-                <span className="flex items-center gap-0.5">
-                  <User className="w-3 h-3" />
-                  {item.introOwner}
-                </span>
-              </>
-            )}
+            <span>·</span>
+            <InlineCoachPicker bookingId={item.bookingId} currentCoach={item.coachName} userName={userName} onSaved={onRefresh} />
+            <span>·</span>
+            <InlineEditField
+              value={item.introOwner || ''}
+              displayValue={item.introOwner || undefined}
+              placeholder="Add SA"
+              options={ALL_STAFF.map(s => ({ label: s, value: s }))}
+              onSave={async (val) => {
+                await supabase.from('intros_booked').update({
+                  intro_owner: val,
+                  last_edited_at: new Date().toISOString(),
+                  last_edited_by: userName,
+                }).eq('id', item.bookingId);
+                onRefresh();
+              }}
+              muted={!item.introOwner}
+              className="text-xs"
+            />
           </div>
         </div>
 
-        {/* Row 2: Contact + lead source + outcome result */}
+        {/* Row 2: Contact + lead source */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {item.phone && (
-            <span className="text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal inline-flex items-center">
-              {formatPhoneDisplay(item.phone) || item.phone}
-            </span>
-          )}
-          {!item.phone && (
-            <Badge className="text-[10px] px-1.5 py-0 h-auto py-0.5 bg-destructive text-destructive-foreground">
-              📵 Phone missing — add before class
-            </Badge>
-          )}
-          {item.leadSource && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-              {item.leadSource}
-            </Badge>
-          )}
-          
+          {/* Inline phone edit */}
+          <InlineEditField
+            value={item.phone || ''}
+            displayValue={item.phone ? (formatPhoneDisplay(item.phone) || item.phone) : undefined}
+            placeholder="Add phone"
+            type="tel"
+            onSave={async (val) => {
+              const stripped = val.replace(/\D/g, '');
+              await supabase.from('intros_booked').update({
+                phone: val,
+                phone_e164: stripped.length === 10 ? '+1' + stripped : (stripped.length === 11 && stripped.startsWith('1') ? '+' + stripped : val),
+                phone_source: 'inline_edit',
+              }).eq('id', item.bookingId);
+              onRefresh();
+            }}
+            muted={!item.phone}
+          />
+          {/* Inline email edit */}
+          <InlineEditField
+            value={item.email || ''}
+            placeholder="Add email"
+            type="email"
+            onSave={async (val) => {
+              await supabase.from('intros_booked').update({ email: val }).eq('id', item.bookingId);
+              onRefresh();
+            }}
+            muted={!item.email}
+          />
+          {/* Inline lead source edit */}
+          <InlineEditField
+            value={item.leadSource || ''}
+            displayValue={item.leadSource || undefined}
+            placeholder="Add source"
+            options={LEAD_SOURCES.map(s => ({ label: s, value: s }))}
+            onSave={async (val) => {
+              await supabase.from('intros_booked').update({ lead_source: val }).eq('id', item.bookingId);
+              onRefresh();
+            }}
+            muted={!item.leadSource}
+            className="text-[10px]"
+          />
         </div>
 
         {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach | Outcome */}

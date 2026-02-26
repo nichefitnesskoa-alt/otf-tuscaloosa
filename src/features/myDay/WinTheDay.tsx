@@ -126,12 +126,16 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
         break;
       }
       case 'confirm_tomorrow': {
-        // Navigate to the week tab and scroll to the specific card
+        // Navigate to the week tab and scroll to the specific card, then open script picker
         onSwitchTab?.('week');
         if (item.targetId) {
           setTimeout(() => {
             const el = document.getElementById(`intro-card-${item.targetId}`);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Auto-open script picker for confirmations
+            window.dispatchEvent(new CustomEvent('myday:open-script', {
+              detail: { bookingId: item.targetId, isSecondIntro: false },
+            }));
           }, 300);
         }
         break;
