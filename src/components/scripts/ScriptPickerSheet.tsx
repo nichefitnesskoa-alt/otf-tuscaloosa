@@ -209,8 +209,9 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
       const data = await res.json();
       setAiScript(data.script || 'No script generated');
     } catch (err: any) {
-      toast.error('AI generation failed');
-      console.error(err);
+      const msg = err?.message || 'Unknown error';
+      toast.error(`AI generation failed: ${msg}`);
+      console.error('AI generate error:', err);
     } finally {
       setAiGenerating(false);
     }

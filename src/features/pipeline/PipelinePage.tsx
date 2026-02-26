@@ -45,6 +45,7 @@ import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import { VipPipelineTable } from './components/VipPipelineTable';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
+import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
 
 export default function PipelinePage() {
@@ -60,6 +61,9 @@ export default function PipelinePage() {
     run?: PipelineRun | null;
     journey?: ClientJourney | null;
   }>({ type: null });
+
+  // Script picker state (lifted from PipelineSpreadsheet)
+  const [scriptJourney, setScriptJourney] = useState<ClientJourney | null>(null);
 
   const openDialog = (type: string, data?: { booking?: PipelineBooking; run?: PipelineRun; journey?: ClientJourney }) => {
     if (type === 'refresh') { pipeline.refreshAll(); return; }
@@ -188,6 +192,7 @@ export default function PipelinePage() {
               isOnline={isOnline}
               onOpenDialog={openDialog}
               onRefresh={pipeline.refreshAll}
+              onOpenScript={(j) => setScriptJourney(j)}
             />
           )}
         </CardContent>
@@ -205,6 +210,15 @@ export default function PipelinePage() {
         isOnline={isOnline}
         userName={user?.name || 'Admin'}
       />
+
+      {/* Script Picker (rendered at page level for proper z-index) */}
+      {scriptJourney && (
+        <PipelineScriptPicker
+          journey={scriptJourney as any}
+          open={!!scriptJourney}
+          onOpenChange={(open) => { if (!open) setScriptJourney(null); }}
+        />
+      )}
     </div>
   );
 }
