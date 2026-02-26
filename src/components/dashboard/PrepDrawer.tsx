@@ -698,7 +698,7 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT ══════════ */}
-        <div className="hidden print:block fixed inset-0 bg-white p-4 text-black" style={{ zIndex: 9999, fontSize: '11px', fontFamily: 'system-ui, sans-serif' }}>
+        <div data-print-card className="hidden print:block fixed inset-0 bg-white p-4 text-black" style={{ zIndex: 9999, fontSize: '11px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden' }}>
           {/* SA HALF */}
           <div className="font-bold text-sm border-b pb-1 mb-2">
             {memberName} | {classDate}{classTime ? ` | ${classTime.substring(0, 5)}` : ''}
