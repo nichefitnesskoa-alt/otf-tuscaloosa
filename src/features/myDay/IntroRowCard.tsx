@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -188,7 +189,7 @@ export default function IntroRowCard({
 
   const handleCopyPhone = () => {
     if (item.phone) {
-      navigator.clipboard.writeText(item.phone);
+      navigator.clipboard.writeText(stripCountryCode(item.phone) || item.phone);
       toast.success('Phone copied');
     }
   };
@@ -316,7 +317,7 @@ export default function IntroRowCard({
         <div className="flex items-center gap-1.5 flex-wrap">
           {item.phone && (
             <span className="text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal inline-flex items-center">
-              {item.phone}
+              {formatPhoneDisplay(item.phone) || item.phone}
             </span>
           )}
           {!item.phone && (

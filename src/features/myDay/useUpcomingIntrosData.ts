@@ -221,6 +221,42 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         };
       });
 
+      // ── 2nd intro phone inheritance: fill missing phone from originating booking ──
+      const phoneMap = new Map<string, string>();
+      const missingPhoneOriginIds: string[] = [];
+      for (const item of rawItems) {
+        if (item.phone) phoneMap.set(item.bookingId, item.phone);
+        if (!item.phone && item.originatingBookingId) {
+          missingPhoneOriginIds.push(item.originatingBookingId);
+        }
+      }
+      // Check local batch first, then query DB for any remaining
+      const stillMissing = missingPhoneOriginIds.filter(id => !phoneMap.has(id));
+      if (stillMissing.length > 0) {
+        const { data: originBookings } = await supabase
+          .from('intros_booked')
+          .select('id, phone, phone_e164, email')
+          .in('id', stillMissing);
+        for (const ob of (originBookings || [])) {
+          const ph = ob.phone_e164 || ob.phone || extractPhone(ob.email);
+          if (ph) phoneMap.set(ob.id, ph);
+        }
+      }
+      // Apply inherited phone + auto-fix in background
+      for (const item of rawItems) {
+        if (!item.phone && item.originatingBookingId) {
+          const inherited = phoneMap.get(item.originatingBookingId);
+          if (inherited) {
+            item.phone = inherited;
+            // Background auto-fix: persist so we don't re-query next time
+            supabase.from('intros_booked').update({
+              phone_e164: inherited.startsWith('+') ? inherited : null,
+              phone: inherited.startsWith('+') ? null : inherited,
+            }).eq('id', item.bookingId).is('phone_e164', null).is('phone', null).then(() => {});
+          }
+        }
+      }
+
       // For needsOutcome: keep items with NO linked run OR with an UNRESOLVED run
       // For today/restOfWeek: filter out items that have any linked run (already had outcome)
       const activeItems = isNeedsOutcome
