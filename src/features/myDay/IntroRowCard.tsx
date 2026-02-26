@@ -213,7 +213,7 @@ export default function IntroRowCard({
     : '#dc2626';
 
   return (
-    <div className="rounded-lg bg-card overflow-hidden" style={{ border: `2px solid ${borderColor}` }}>
+    <div id={`intro-card-${item.bookingId}`} className="rounded-lg bg-card overflow-hidden" style={{ border: `2px solid ${borderColor}` }}>
       {/* Top status banner */}
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />

@@ -297,6 +297,9 @@ export default function MyDayPage() {
 
       {/* ═══ END SHIFT — prominent at top ═══ */}
       <div className="border-b border-primary/30 bg-background px-4 py-3">
+        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
+          Close out your shift with a recap when you're done.
+        </p>
         <CloseOutShift
           completedIntros={completedTodayCount}
           activeIntros={todayBookingsCount - completedTodayCount}
@@ -312,6 +315,9 @@ export default function MyDayPage() {
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
       <div className="border-b border-primary/30 bg-background px-4 py-3">
+        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
+          Quick view of your shift stats. Log activity from the + button.
+        </p>
         <MyDayShiftSummary compact />
       </div>
 
@@ -320,14 +326,17 @@ export default function MyDayPage() {
 
       {/* ═══ THIS WEEK'S SCHEDULE ═══ */}
       <div className="px-4 py-3 border-b border-primary/30">
+        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
+          Your upcoming schedule at a glance.
+        </p>
         <WeeklySchedule />
       </div>
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Persistent tab bar */}
-        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background border-b-2 border-primary px-3 pt-2 pb-0">
-          <TabsList className="w-full grid grid-cols-7 h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg border border-primary/40">
+        <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
+          <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
             <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
               <CalendarDays className="w-3.5 h-3.5" />
               <span>Today</span>
@@ -372,6 +381,8 @@ export default function MyDayPage() {
               )}
             </TabsTrigger>
           </TabsList>
+          {/* Separator line between tabs and content */}
+          <div className="h-[2px] bg-primary/40 mt-2" />
         </div>
 
         {/* Tab content */}

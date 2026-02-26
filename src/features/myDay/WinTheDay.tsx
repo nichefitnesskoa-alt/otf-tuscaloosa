@@ -103,16 +103,37 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
         } else {
           toast.error('No questionnaire link available');
         }
+        // Also navigate to the card
+        onSwitchTab?.('today');
+        if (item.targetId) {
+          setTimeout(() => {
+            const el = document.getElementById(`intro-card-${item.targetId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
         break;
       }
       case 'prep_roleplay': {
-        handleDirectComplete(item);
+        // Navigate to today tab and scroll to card, then trigger prep
+        onSwitchTab?.('today');
+        if (item.targetId) {
+          setTimeout(() => {
+            const el = document.getElementById(`intro-card-${item.targetId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId: item.targetId } }));
+          }, 300);
+        }
         break;
       }
       case 'confirm_tomorrow': {
-        // Navigate to the intro card so SA can send confirmation
-        onSwitchTab?.('intros');
-        toast('Navigate to the intro card to send confirmation');
+        // Navigate to the week tab and scroll to the specific card
+        onSwitchTab?.('week');
+        if (item.targetId) {
+          setTimeout(() => {
+            const el = document.getElementById(`intro-card-${item.targetId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
         break;
       }
       case 'followups_due': {
@@ -276,8 +297,14 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   return (
     <div className="border-b border-primary/30 bg-background">
       <Collapsible open={effectiveOpen} onOpenChange={setIsOpen}>
+        {/* Section guidance */}
+        <div className="px-4 pt-2 pb-1">
+          <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2">
+            Your shift checklist. Tap ○ to reflect, tap the button to take action. Complete every item to win the day.
+          </p>
+        </div>
         {/* Header */}
-        <div className="px-4 pt-3 pb-2">
+        <div className="px-4 pt-1 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" />

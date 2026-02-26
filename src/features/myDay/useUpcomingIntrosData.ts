@@ -10,6 +10,7 @@ import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayT
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
+import { extractPhone } from '@/lib/parsing/phone';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
@@ -179,8 +180,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         const timePart = normalizedTime ? `${normalizedTime}:00` : '23:59:59';
         const timeStartISO = (b as any).class_start_at || `${b.class_date}T${timePart}`;
 
-        // Use phone_e164 if available, fall back to legacy phone
-        const displayPhone = (b as any).phone_e164 || b.phone;
+        // Use phone_e164 if available, fall back to legacy phone, then try extracting from email
+        let displayPhone = (b as any).phone_e164 || b.phone;
+        if (!displayPhone && b.email) {
+          displayPhone = extractPhone(b.email);
+        }
 
         return {
           bookingId: b.id,
