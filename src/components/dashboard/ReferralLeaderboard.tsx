@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { isMembershipSale } from '@/lib/sales-detection';
 
 interface Referral {
+  id: string;
   referrer_name: string;
   referred_name: string;
   referred_booking_id: string | null;
@@ -16,38 +19,50 @@ export function ReferralLeaderboard() {
   const [bookingStatuses, setBookingStatuses] = useState<Map<string, string>>(new Map());
   const [expandedReferrer, setExpandedReferrer] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from('referrals')
-        .select('referrer_name, referred_name, referred_booking_id');
-      const refs = data || [];
-      setReferrals(refs);
+  const fetchData = async () => {
+    const { data } = await supabase
+      .from('referrals')
+      .select('id, referrer_name, referred_name, referred_booking_id');
+    const refs = (data || []) as Referral[];
+    setReferrals(refs);
 
-      // Fetch booking statuses for referred people
-      const bookingIds = refs.map(r => r.referred_booking_id).filter(Boolean) as string[];
-      if (bookingIds.length > 0) {
-        const { data: bookings } = await supabase
-          .from('intros_booked')
-          .select('id, booking_status')
-          .in('id', bookingIds.slice(0, 500));
-        
-        // Also check intros_run for outcome
-        const { data: runs } = await supabase
-          .from('intros_run')
-          .select('linked_intro_booked_id, result')
-          .in('linked_intro_booked_id', bookingIds.slice(0, 500));
-        
-        const statusMap = new Map<string, string>();
-        (bookings || []).forEach(b => statusMap.set(b.id, b.booking_status || 'Booked'));
-        (runs || []).forEach(r => {
-          if (r.linked_intro_booked_id) {
-            statusMap.set(r.linked_intro_booked_id, r.result);
-          }
-        });
-        setBookingStatuses(statusMap);
-      }
-    })();
+    const bookingIds = refs.map(r => r.referred_booking_id).filter(Boolean) as string[];
+    if (bookingIds.length > 0) {
+      const { data: bookings } = await supabase
+        .from('intros_booked')
+        .select('id, booking_status')
+        .in('id', bookingIds.slice(0, 500));
+
+      const { data: runs } = await supabase
+        .from('intros_run')
+        .select('linked_intro_booked_id, result')
+        .in('linked_intro_booked_id', bookingIds.slice(0, 500));
+
+      const statusMap = new Map<string, string>();
+      (bookings || []).forEach(b => statusMap.set(b.id, b.booking_status || 'Booked'));
+      (runs || []).forEach(r => {
+        if (r.linked_intro_booked_id && isMembershipSale(r.result)) {
+          statusMap.set(r.linked_intro_booked_id, r.result);
+        } else if (r.linked_intro_booked_id) {
+          statusMap.set(r.linked_intro_booked_id, r.result);
+        }
+      });
+      setBookingStatuses(statusMap);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Realtime subscription for auto-update
+    const channel = supabase
+      .channel('referral-leaderboard')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'referrals' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const leaderboard = useMemo(() => {
@@ -68,15 +83,38 @@ export function ReferralLeaderboard() {
 
   if (leaderboard.length === 0) return null;
 
+  const getStatusForRef = (ref: Referral): string => {
+    if (!ref.referred_booking_id) return 'Pending';
+    return bookingStatuses.get(ref.referred_booking_id) || 'Pending';
+  };
+
+  const isPurchased = (status: string) => {
+    return isMembershipSale(status) || status.toLowerCase().includes('purchased') || status.toLowerCase().includes('closed');
+  };
+
   const getStatusBadge = (status: string) => {
-    const lower = (status || '').toLowerCase();
-    if (lower.includes('purchased') || lower.includes('premier') || lower.includes('elite') || lower.includes('basic'))
+    if (isPurchased(status))
       return <Badge className="text-[10px] bg-green-500/20 text-green-600 border-green-500/30">Purchased</Badge>;
+    const lower = (status || '').toLowerCase();
     if (lower === 'no-show' || lower === 'no show')
       return <Badge variant="destructive" className="text-[10px]">No Show</Badge>;
-    if (lower.includes('didn') || lower.includes('didnt') || lower.includes("didn't"))
-      return <Badge variant="secondary" className="text-[10px]">Didn't Buy</Badge>;
-    return <Badge variant="outline" className="text-[10px]">{status || 'Booked'}</Badge>;
+    if (lower.includes('follow') || lower.includes('didn'))
+      return <Badge variant="secondary" className="text-[10px]">Follow-up Needed</Badge>;
+    return <Badge variant="outline" className="text-[10px]">{status || 'Pending'}</Badge>;
+  };
+
+  const handleMarkPurchased = async (ref: Referral) => {
+    if (!ref.referred_booking_id) {
+      toast.error('No booking linked to this referral');
+      return;
+    }
+    // Update the booking status
+    await supabase.from('intros_booked').update({
+      booking_status: 'Closed (Purchased)',
+      booking_status_canon: 'CLOSED_PURCHASED',
+    }).eq('id', ref.referred_booking_id);
+    toast.success(`Marked ${ref.referred_name} as purchased`);
+    fetchData();
   };
 
   return (
@@ -108,14 +146,26 @@ export function ReferralLeaderboard() {
 
             {expandedReferrer === entry.name && (
               <div className="ml-8 mb-2 space-y-1">
-                {entry.refs.map((ref, ri) => {
-                  const status = ref.referred_booking_id
-                    ? bookingStatuses.get(ref.referred_booking_id)
-                    : undefined;
+                {entry.refs.map((ref) => {
+                  const status = getStatusForRef(ref);
+                  const showMarkButton = !isPurchased(status) && ref.referred_booking_id;
                   return (
-                    <div key={ri} className="flex items-center justify-between text-xs py-0.5">
+                    <div key={ref.id} className="flex items-center justify-between text-xs py-0.5 gap-2">
                       <span className="text-muted-foreground">{ref.referred_name}</span>
-                      {status ? getStatusBadge(status) : <Badge variant="outline" className="text-[10px]">Pending</Badge>}
+                      <div className="flex items-center gap-1">
+                        {getStatusBadge(status)}
+                        {showMarkButton && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[10px] px-1.5 gap-0.5 text-green-600 hover:text-green-700"
+                            onClick={(e) => { e.stopPropagation(); handleMarkPurchased(ref); }}
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                            Mark Purchased
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

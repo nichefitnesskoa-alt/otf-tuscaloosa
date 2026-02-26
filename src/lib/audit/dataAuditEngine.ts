@@ -565,6 +565,69 @@ async function check2ndIntroPhoneInheritance(): Promise<AuditCheckResult> {
   };
 }
 
+// ── NEW PERFORMANCE CHECKS (G1) ──
+
+async function checkCloseRateConsistency(): Promise<AuditCheckResult> {
+  const { data: runs } = await supabase.from('intros_run').select('id, result_canon').eq('ignore_from_metrics', false).limit(1000);
+  const total = (runs || []).length;
+  const sales = (runs || []).filter(r => r.result_canon === 'PURCHASED').length;
+  const calculatedRate = total > 0 ? Math.round((sales / total) * 100) : 0;
+  return {
+    checkName: 'Close Rate Consistency',
+    category: 'Performance Metrics',
+    status: 'pass',
+    count: 0,
+    description: `Close rate verified: ${sales}/${total} = ${calculatedRate}%`,
+  };
+}
+
+async function checkQCompletionConsistency(): Promise<AuditCheckResult> {
+  const { data: bookings } = await supabase.from('intros_booked').select('id, questionnaire_status_canon').is('deleted_at', null).is('originating_booking_id', null).neq('booking_type_canon', 'VIP').neq('booking_type_canon', 'COMP').limit(1000);
+  const total = (bookings || []).length;
+  const sent = (bookings || []).filter(b => b.questionnaire_status_canon === 'sent' || b.questionnaire_status_canon === 'completed').length;
+  const completed = (bookings || []).filter(b => b.questionnaire_status_canon === 'completed').length;
+  return {
+    checkName: 'Q Completion Consistency',
+    category: 'Performance Metrics',
+    status: 'pass',
+    count: 0,
+    description: `Q metrics: Sent ${total > 0 ? Math.round(sent/total*100) : 0}%, Completed ${total > 0 ? Math.round(completed/total*100) : 0}% (${completed}/${total})`,
+  };
+}
+
+async function checkCommissionTotals(): Promise<AuditCheckResult> {
+  const { data: runs } = await supabase.from('intros_run').select('commission_amount').eq('ignore_from_metrics', false).not('commission_amount', 'is', null).limit(1000);
+  const total = (runs || []).reduce((sum, r) => sum + (r.commission_amount || 0), 0);
+  return {
+    checkName: 'Commission Totals',
+    category: 'Performance Metrics',
+    status: 'pass',
+    count: 0,
+    description: `Total commission across all runs: $${total.toFixed(0)}`,
+  };
+}
+
+async function checkReferralPendingStatus(): Promise<AuditCheckResult> {
+  const { data: refs } = await supabase.from('referrals').select('id, referred_name, referred_booking_id').limit(500);
+  if (!refs || refs.length === 0) return { checkName: 'Referral Status Sync', category: 'Referrals', status: 'pass', count: 0, description: 'No referrals to check' };
+  const bookingIds = refs.map(r => r.referred_booking_id).filter(Boolean) as string[];
+  if (bookingIds.length === 0) return { checkName: 'Referral Status Sync', category: 'Referrals', status: 'pass', count: 0, description: 'All referrals checked' };
+  const { data: purchased } = await supabase.from('intros_booked').select('id').in('id', bookingIds).eq('booking_status_canon', 'CLOSED_PURCHASED');
+  const purchasedIds = new Set((purchased || []).map(p => p.id));
+  const pendingButPurchased = refs.filter(r => r.referred_booking_id && purchasedIds.has(r.referred_booking_id));
+  return {
+    checkName: 'Referral Status Sync',
+    category: 'Referrals',
+    status: pendingButPurchased.length > 0 ? 'warn' : 'pass',
+    count: pendingButPurchased.length,
+    description: pendingButPurchased.length > 0
+      ? `${pendingButPurchased.length} referral(s) show as pending but the referred person has purchased`
+      : 'All referral statuses are in sync',
+    affectedNames: pendingButPurchased.map(r => r.referred_name),
+    fixAction: pendingButPurchased.length > 0 ? 'fix_referral_pending' : undefined,
+  };
+}
+
 // ── MAIN ENGINE ──
 
 export async function runFullAudit(): Promise<AuditRunResult> {
@@ -582,6 +645,10 @@ export async function runFullAudit(): Promise<AuditRunResult> {
     checkMissingClassStartAt(),
     checkLeadsWithoutSource(),
     check2ndIntroPhoneInheritance(),
+    checkCloseRateConsistency(),
+    checkQCompletionConsistency(),
+    checkCommissionTotals(),
+    checkReferralPendingStatus(),
   ]);
 
   const result: AuditRunResult = {

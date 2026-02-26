@@ -1786,6 +1786,27 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_intelligence: {
+        Row: {
+          content_json: Json
+          created_at: string
+          id: string
+          report_date: string
+        }
+        Insert: {
+          content_json?: Json
+          created_at?: string
+          id?: string
+          report_date: string
+        }
+        Update: {
+          content_json?: Json
+          created_at?: string
+          id?: string
+          report_date?: string
+        }
+        Relationships: []
+      }
       success_stories: {
         Row: {
           created_at: string
