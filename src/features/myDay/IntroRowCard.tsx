@@ -442,9 +442,6 @@ export default function IntroRowCard({
             }}
             muted={!item.phone}
           />
-          {item.email && (
-            <span className="text-[10px] text-muted-foreground">{item.email}</span>
-          )}
           {item.leadSource && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
               {item.leadSource}
