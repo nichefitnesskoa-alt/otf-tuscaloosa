@@ -1,67 +1,59 @@
 
 
-# Plan: Fix Follow-Ups, Clean IG Leads, Fix Scripts in Pipeline, Fix AI Generate
+# Plan: Add Script/Text Send Log to Pipeline Cards
 
-## Issue 1 — Follow-Ups Not Showing (Root Cause Found)
+## Overview
+Fetch `script_actions` data per booking and display touch counts, last contact timestamps, and detailed send history in pipeline rows and expanded cards.
 
-**Root cause**: The 6-day cooling guardrail in `FollowUpsDueToday.tsx` (line 259) filters out follow-ups when ANY `script_actions` entry exists for that booking in the last 6 days — including `past_text` actions logged via the "Log Past Contact" dialog. Both Mia Leahy and Mariel Peters have `past_text` actions from yesterday, which suppresses their pending Touch 2/3 follow-ups.
+## Changes
 
-**File: `src/components/dashboard/FollowUpsDueToday.tsx`** (line 125)
-
-Change the `recentActionsRes` query to only count outreach-type actions that should trigger cooling, not passive logging:
-
+### 1. Add type — `src/features/pipeline/pipelineTypes.ts`
+Add `PipelineScriptAction` interface:
 ```typescript
-// Was: all script_actions in last 6 days
-supabase.from('script_actions').select('booking_id')
-  .gte('completed_at', sixDaysAgo + 'T00:00:00')
-  .in('action_type', ['script_sent', 'confirmation_sent'])
+export interface PipelineScriptAction {
+  id: string;
+  booking_id: string | null;
+  lead_id: string | null;
+  action_type: string;
+  script_category: string | null;
+  completed_at: string;
+  completed_by: string;
+}
 ```
 
-This ensures that logging a past contact (`past_text`) does not suppress the follow-up from appearing.
+### 2. Fetch script_actions — `src/features/pipeline/usePipelineData.ts`
+- Add `scriptActions` state: `Map<string, PipelineScriptAction[]>` keyed by booking_id
+- Fetch from `script_actions` table in parallel with bookings/runs (select `id, booking_id, lead_id, action_type, script_category, completed_at, completed_by`)
+- Build the map in a `useCallback`, group by `booking_id`
+- Return `scriptActionsMap` from the hook
 
----
+### 3. Pass through — `src/features/pipeline/PipelinePage.tsx`
+- Pass `pipeline.scriptActionsMap` to `PipelineSpreadsheet` as new prop `scriptActionsMap`
 
-## Issue 2 — Delete All Old IG Leads
+### 4. Display in spreadsheet — `src/features/pipeline/components/PipelineSpreadsheet.tsx`
 
-**Action**: Run a DELETE on `ig_leads` to remove all 42 records (all have status `not_booked`).
+**Props**: Add `scriptActionsMap: Map<string, PipelineScriptAction[]>` to `PipelineSpreadsheetProps`
 
-```sql
-DELETE FROM ig_leads;
+**Touch column** (currently renders `—`): Look up all booking IDs for the journey in the map, sum action counts, display as badge like `3 texts`
+
+**Last Contact column** (currently renders `—`): Find the most recent `completed_at` across all the journey's bookings' actions, display as relative time (`2d ago`)
+
+**Expanded row detail**: Add a "Outreach Log" section below the Runs section showing each script_action as a row:
 ```
+📤 script_sent · Confirmation · by Bre · 2 days ago
+📤 script_sent · Follow-up · by James · 5 days ago
+```
+Each row shows: action_type icon, script_category, completed_by, relative timestamp. Sorted most recent first. If no actions exist, show "No outreach logged yet" in muted text.
 
----
+### 5. Column definitions
+Add `touch` and `last_contact` columns to the `all` tab column list (currently only on `no_show` tab), and also add to `upcoming`, `completed`, `missed_guest`, and `not_interested` tabs so the send count is visible everywhere.
 
-## Issue 3 — Scripts Not Interactable in Pipeline
-
-**Root cause**: The `PipelineScriptPicker` uses a `Drawer` component rendered inside the `PipelineSpreadsheet` parent. The spreadsheet's scroll container (`h-[600px] overflow-auto`) with `position: relative` on the virtualizer wrapper can trap pointer events or z-index for the Drawer portal. The Drawer overlay may be rendering behind or getting clipped.
-
-**Fix in `src/features/pipeline/PipelinePage.tsx`**: Move the `PipelineScriptPicker` rendering from inside `PipelineSpreadsheet` to the top-level `PipelinePage` component, alongside the other dialogs. This ensures the Drawer portal is not nested inside a scrollable, positioned container.
-
-Steps:
-1. In `PipelineSpreadsheet.tsx`: Remove the `scriptJourney` state and the `PipelineScriptPicker` rendering. Instead, accept an `onOpenScript(journey)` callback prop and call it.
-2. In `PipelinePage.tsx`: Add `scriptJourney` state, pass the callback to `PipelineSpreadsheet`, and render `PipelineScriptPicker` at the page level alongside `PipelineDialogs`.
-
----
-
-## Issue 4 — AI Generate Script Not Working
-
-**Root cause**: No edge function logs means the function call may be failing silently or not reaching the server. The `generate-script` edge function uses `ANTHROPIC_API_KEY` directly. The function code and config look correct. Most likely cause: the function needs redeployment or the `VITE_SUPABASE_URL` environment variable isn't resolving correctly in the fetch call.
-
-**Fix**:
-1. Redeploy the `generate-script` edge function (touch the file to trigger auto-deploy).
-2. In `ScriptPickerSheet.tsx` line 194: Add better error handling and logging so failures surface to the user instead of being swallowed.
-3. Change the fetch URL construction to use `VITE_SUPABASE_URL` with a fallback, and add a toast with the actual error message instead of generic "AI generation failed".
-
----
-
-## Summary of Changes
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/dashboard/FollowUpsDueToday.tsx` | Fix cooling guardrail to only count `script_sent`/`confirmation_sent` actions |
-| DB (ig_leads) | Delete all 42 IG lead records |
-| `src/features/pipeline/PipelinePage.tsx` | Host `PipelineScriptPicker` at page level |
-| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | Lift script state up via callback prop |
-| `supabase/functions/generate-script/index.ts` | Touch to redeploy + improve error surface |
-| `src/components/scripts/ScriptPickerSheet.tsx` | Better error handling for AI generate |
+| `src/features/pipeline/pipelineTypes.ts` | Add `PipelineScriptAction` type |
+| `src/features/pipeline/usePipelineData.ts` | Fetch `script_actions`, build map, return it |
+| `src/features/pipeline/PipelinePage.tsx` | Pass `scriptActionsMap` prop |
+| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | Accept prop, populate touch/last_contact cells, add outreach log in expanded view |
 
