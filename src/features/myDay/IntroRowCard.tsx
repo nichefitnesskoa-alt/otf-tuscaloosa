@@ -206,7 +206,7 @@ export default function IntroRowCard({
   const borderColor = needsOutcome
     ? '#7c3aed'
     : item.isSecondIntro
-    ? '#6b7280'
+    ? (item.confirmedAt ? '#16a34a' : '#2563eb')
     : localQStatus === 'Q_COMPLETED'
     ? '#16a34a'
     : localQStatus === 'Q_SENT'
@@ -219,7 +219,9 @@ export default function IntroRowCard({
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
       ) : item.isSecondIntro ? (
-        <StatusBanner bgColor="#64748b" text="2nd Visit — No questionnaire needed" />
+        item.confirmedAt
+          ? <StatusBanner bgColor="#16a34a" text="✓ 2nd Intro Confirmed" />
+          : <StatusBanner bgColor="#2563eb" text="📱 Send 2nd Intro Confirmation Text" />
       ) : (
         <StatusBanner
           bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
@@ -360,7 +362,9 @@ export default function IntroRowCard({
             variant="secondary"
             className="h-8 flex-1 text-xs gap-1"
             onClick={guardOnline(() => {
-              window.dispatchEvent(new CustomEvent('myday:open-script', { detail: { bookingId: item.bookingId } }));
+              window.dispatchEvent(new CustomEvent('myday:open-script', {
+                detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
+              }));
             })}
           >
             <Send className="w-3.5 h-3.5" />
@@ -420,6 +424,27 @@ export default function IntroRowCard({
 
         {/* Row 5: Log as Sent + Secondary actions */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 2nd intro: dedicated confirmation button */}
+          {item.isSecondIntro && !item.confirmedAt && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[11px] gap-1 border-blue-400 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 font-semibold"
+              onClick={guardOnline(() => {
+                window.dispatchEvent(new CustomEvent('myday:open-script', {
+                  detail: { bookingId: item.bookingId, isSecondIntro: true },
+                }));
+              })}
+            >
+              <Send className="w-3 h-3" />
+              Send 2nd Intro Confirmation
+            </Button>
+          )}
+          {item.isSecondIntro && item.confirmedAt && (
+            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-700 border-emerald-300 border">
+              ✓ Confirmation Sent
+            </Badge>
+          )}
           {!item.isSecondIntro && (localQStatus === 'NO_Q') && (
             <Button
               variant="outline"
