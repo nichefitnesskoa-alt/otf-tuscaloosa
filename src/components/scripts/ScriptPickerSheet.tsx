@@ -16,13 +16,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 // Deterministic tab-to-DB-category mapping
 const TAB_CATEGORY_MAP: Record<string, string[]> = {
+  booking_confirmation: ['booking_confirmation', 'pre_class_reminder', 'day_before_reminder', 'confirmation'],
+  pre_class_reminder: ['pre_class_reminder', 'day_before_reminder', 'booking_confirmation', 'confirmation'],
   confirmation: ['booking_confirmation', 'pre_class_reminder', 'day_before_reminder', 'confirmation'],
   questionnaire: ['booking_confirmation', 'pre_class_reminder', 'questionnaire'],
+  no_show: ['no_show'],
   follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up'],
   outreach: ['web_lead', 'cold_lead', 'ig_dm', 'referral_ask', 'promo', 'outreach'],
   web_lead: ['web_lead'],
   cold_lead: ['cold_lead'],
   ig_dm: ['ig_dm'],
+  post_class_no_close: ['post_class_no_close'],
+  post_class_joined: ['post_class_joined'],
+  referral_ask: ['referral_ask'],
+  cancel_freeze: ['cancel_freeze'],
+  promo: ['promo'],
 };
 
 interface MergeContext {
