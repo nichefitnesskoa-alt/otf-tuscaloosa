@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp, Mail } from 'lucide-react';
+import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ import { StatusBanner } from '@/components/shared/StatusBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
-import { COACHES, ALL_STAFF, LEAD_SOURCES } from '@/types';
+import { COACHES } from '@/types';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
 
 /** Inline coach picker — always tappable */
@@ -414,23 +414,12 @@ export default function IntroRowCard({
             <span>·</span>
             <span>·</span>
             <InlineCoachPicker bookingId={item.bookingId} currentCoach={item.coachName} userName={userName} onSaved={onRefresh} />
-            <span>·</span>
-            <InlineEditField
-              value={item.introOwner || ''}
-              displayValue={item.introOwner || undefined}
-              placeholder="Add SA"
-              options={ALL_STAFF.map(s => ({ label: s, value: s }))}
-              onSave={async (val) => {
-                await supabase.from('intros_booked').update({
-                  intro_owner: val,
-                  last_edited_at: new Date().toISOString(),
-                  last_edited_by: userName,
-                }).eq('id', item.bookingId);
-                onRefresh();
-              }}
-              muted={!item.introOwner}
-              className="text-xs"
-            />
+            {item.introOwner && (
+              <>
+                <span>·</span>
+                <span>{item.introOwner}</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -453,30 +442,14 @@ export default function IntroRowCard({
             }}
             muted={!item.phone}
           />
-          {/* Inline email edit */}
-          <InlineEditField
-            value={item.email || ''}
-            placeholder="Add email"
-            type="email"
-            onSave={async (val) => {
-              await supabase.from('intros_booked').update({ email: val }).eq('id', item.bookingId);
-              onRefresh();
-            }}
-            muted={!item.email}
-          />
-          {/* Inline lead source edit */}
-          <InlineEditField
-            value={item.leadSource || ''}
-            displayValue={item.leadSource || undefined}
-            placeholder="Add source"
-            options={LEAD_SOURCES.map(s => ({ label: s, value: s }))}
-            onSave={async (val) => {
-              await supabase.from('intros_booked').update({ lead_source: val }).eq('id', item.bookingId);
-              onRefresh();
-            }}
-            muted={!item.leadSource}
-            className="text-[10px]"
-          />
+          {item.email && (
+            <span className="text-[10px] text-muted-foreground">{item.email}</span>
+          )}
+          {item.leadSource && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+              {item.leadSource}
+            </Badge>
+          )}
         </div>
 
         {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach | Outcome */}
