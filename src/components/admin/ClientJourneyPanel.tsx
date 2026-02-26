@@ -661,12 +661,18 @@ export default function ClientJourneyPanel() {
           return hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show');
         }
 
-        case 'missed_guest':
-          // Exclude clients who eventually purchased
+        case 'missed_guest': {
           if (hasPurchased) return false;
+          const hasUpcoming2nd = journey.bookings.some(b =>
+            b.originating_booking_id &&
+            (!b.booking_status || b.booking_status === 'Active') &&
+            isBookingUpcoming(b)
+          );
+          if (hasUpcoming2nd) return false;
           return journey.runs.some(r => 
             r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
           );
+        }
 
         case 'second_intro':
           // Exclude clients who eventually purchased
