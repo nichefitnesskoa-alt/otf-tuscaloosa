@@ -15,6 +15,8 @@ export interface AuditCheckResult {
   affectedNames?: string[];
   suggestedFix?: string;
   fixAction?: string; // key for automated fix
+  /** IDs of records that need manual inline editing (no auto-fix possible) */
+  manualFixIds?: { id: string; name: string; field: string }[];
 }
 
 export interface AuditRunResult {
@@ -54,7 +56,7 @@ async function checkBookingsWithoutLeadSource(): Promise<AuditCheckResult> {
 async function checkBookingsWithoutBookedBy(): Promise<AuditCheckResult> {
   const { data } = await supabase
     .from('intros_booked')
-    .select('id, member_name')
+    .select('id, member_name, intro_owner')
     .or('booked_by.is.null,booked_by.eq.')
     .is('deleted_at', null)
     .neq('lead_source', 'Online Intro Offer (self-booked)')
@@ -62,6 +64,11 @@ async function checkBookingsWithoutBookedBy(): Promise<AuditCheckResult> {
     .limit(200);
 
   const count = data?.length ?? 0;
+  
+  // Identify records that can be auto-fixed (intro_owner exists) vs need manual input
+  const canAutoFix = data?.filter(d => d.intro_owner && d.intro_owner.trim() !== '') ?? [];
+  const needManual = data?.filter(d => !d.intro_owner || d.intro_owner.trim() === '') ?? [];
+
   return {
     checkName: 'Booked By Missing',
     category: 'Booking Attribution',
@@ -72,7 +79,13 @@ async function checkBookingsWithoutBookedBy(): Promise<AuditCheckResult> {
       : 'All bookings have a "booked by" SA name',
     affectedIds: data?.map(d => d.id),
     affectedNames: data?.map(d => d.member_name),
-    suggestedFix: count > 0 ? 'Review these bookings and add the SA who booked them' : undefined,
+    suggestedFix: count > 0
+      ? canAutoFix.length > 0
+        ? `${canAutoFix.length} can be auto-fixed from intro_owner. ${needManual.length} need manual entry.`
+        : 'Review these bookings and add the SA who booked them'
+      : undefined,
+    fixAction: canAutoFix.length > 0 ? 'fix_booked_by_missing' : undefined,
+    manualFixIds: needManual.map(d => ({ id: d.id, name: d.member_name, field: 'booked_by' })),
   };
 }
 
@@ -103,7 +116,6 @@ async function checkVipBookingTypeCanon(): Promise<AuditCheckResult> {
 }
 
 async function checkQuestionnaireStatusMismatch(): Promise<AuditCheckResult> {
-  // Bookings where a completed questionnaire exists but status isn't 'completed'
   const { data } = await supabase
     .from('intros_booked')
     .select('id, member_name, questionnaire_status_canon')
@@ -121,7 +133,6 @@ async function checkQuestionnaireStatusMismatch(): Promise<AuditCheckResult> {
     };
   }
 
-  // Check which have completed questionnaires
   const ids = data.map(d => d.id);
   const { data: completedQs } = await supabase
     .from('intro_questionnaires')
@@ -173,7 +184,6 @@ async function checkOrphanedRuns(): Promise<AuditCheckResult> {
 }
 
 async function checkFollowUpQueuePurchased(): Promise<AuditCheckResult> {
-  // People in follow-up queue who have purchased
   const { data: pending } = await supabase
     .from('follow_up_queue')
     .select('id, person_name, booking_id')
@@ -234,7 +244,6 @@ async function checkLeadsAlreadyInSystem(): Promise<AuditCheckResult> {
     };
   }
 
-  // Check if any of these leads match bookings by phone
   const phones = leads.map(l => l.phone).filter(Boolean);
   const { data: matchingBookings } = await supabase
     .from('intros_booked')
@@ -267,33 +276,67 @@ async function checkLeadsAlreadyInSystem(): Promise<AuditCheckResult> {
 }
 
 async function checkBookingsMissingPhone(): Promise<AuditCheckResult> {
-  // Bookings with intake events but no phone
   const { data } = await supabase
     .from('intros_booked')
-    .select('id, member_name')
+    .select('id, member_name, email')
     .is('phone_e164', null)
+    .or('phone.is.null,phone.eq.')
     .is('deleted_at', null)
-    .not('email', 'is', null)
     .limit(200);
 
   const count = data?.length ?? 0;
+
+  // Check which ones have a matching lead with phone
+  let canAutoFix = 0;
+  const manualFixRecords: { id: string; name: string; field: string }[] = [];
+
+  if (data && data.length > 0) {
+    const emailsToCheck = data.filter(d => d.email).map(d => d.email!);
+    if (emailsToCheck.length > 0) {
+      const { data: matchingLeads } = await supabase
+        .from('leads')
+        .select('email, phone')
+        .in('email', emailsToCheck)
+        .not('phone', 'is', null)
+        .neq('phone', '');
+
+      const leadPhoneMap = new Set((matchingLeads ?? []).map(l => l.email?.toLowerCase()));
+
+      for (const d of data) {
+        if (d.email && leadPhoneMap.has(d.email.toLowerCase())) {
+          canAutoFix++;
+        } else {
+          manualFixRecords.push({ id: d.id, name: d.member_name, field: 'phone' });
+        }
+      }
+    } else {
+      for (const d of data) {
+        manualFixRecords.push({ id: d.id, name: d.member_name, field: 'phone' });
+      }
+    }
+  }
+
   return {
     checkName: 'Phone Number Missing',
     category: 'Booking Attribution',
-    status: count > 5 ? 'warn' : 'pass',
+    status: count > 0 ? 'warn' : 'pass',
     count,
     description: count > 0
-      ? `${count} booking${count !== 1 ? 's have' : ' has'} an email but no phone number — follow-up scripts can't be personalized with phone info`
-      : 'All bookings with email also have phone numbers',
+      ? `${count} booking${count !== 1 ? 's' : ''} missing phone number — follow-up scripts can't be personalized`
+      : 'All bookings have phone numbers',
     affectedIds: data?.map(d => d.id),
     affectedNames: data?.map(d => d.member_name),
-    suggestedFix: count > 0 ? 'Run the phone backfill tool to parse phone numbers from email intake data' : undefined,
-    fixAction: count > 5 ? 'fix_phone_backfill' : undefined,
+    suggestedFix: count > 0
+      ? canAutoFix > 0
+        ? `${canAutoFix} can be auto-filled from leads table. ${manualFixRecords.length} need manual entry.`
+        : 'Add phone numbers manually'
+      : undefined,
+    fixAction: canAutoFix > 0 ? 'fix_phone_from_leads' : undefined,
+    manualFixIds: manualFixRecords.length > 0 ? manualFixRecords : undefined,
   };
 }
 
 async function checkCommissionZeroNonBasic(): Promise<AuditCheckResult> {
-  // Sale records where commission is 0 but membership is not Basic
   const { data } = await supabase
     .from('intros_run')
     .select('id, member_name, result')
@@ -304,7 +347,6 @@ async function checkCommissionZeroNonBasic(): Promise<AuditCheckResult> {
     .eq('ignore_from_metrics', false)
     .limit(200);
 
-  // Filter out Basic results client-side for safety
   const nonBasic = data?.filter(d => {
     const r = d.result?.toLowerCase() ?? '';
     return !r.includes('basic') || r.includes('otbeat');
@@ -326,10 +368,9 @@ async function checkCommissionZeroNonBasic(): Promise<AuditCheckResult> {
 }
 
 async function checkOutcomeMismatch(): Promise<AuditCheckResult> {
-  // Runs with a result but booking still ACTIVE
   const { data: runs } = await supabase
     .from('intros_run')
-    .select('id, member_name, linked_intro_booked_id, result_canon')
+    .select('id, member_name, linked_intro_booked_id, result_canon, result')
     .not('result_canon', 'eq', 'UNRESOLVED')
     .not('linked_intro_booked_id', 'is', null)
     .eq('ignore_from_metrics', false)
@@ -366,7 +407,8 @@ async function checkOutcomeMismatch(): Promise<AuditCheckResult> {
       : 'All outcome results match their booking status',
     affectedIds: mismatched.map(d => d.id),
     affectedNames: mismatched.map(d => d.member_name),
-    suggestedFix: count > 0 ? 'Re-save the outcome for these intros to sync the booking status' : undefined,
+    suggestedFix: count > 0 ? 'Sync booking status to match the logged outcome' : undefined,
+    fixAction: count > 0 ? 'fix_outcome_status_sync' : undefined,
   };
 }
 
@@ -414,6 +456,23 @@ async function checkLeadsWithoutSource(): Promise<AuditCheckResult> {
   };
 }
 
+// ── PHONE NORMALIZATION HELPER ──
+
+function stripCountryCode(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const ten = digits.slice(1);
+    if (ten[0] === '0' || ten[0] === '1') return null;
+    return ten;
+  }
+  if (digits.length === 10) {
+    if (digits[0] === '0' || digits[0] === '1') return null;
+    return digits;
+  }
+  return null;
+}
+
 // ── AUTOMATED FIX FUNCTIONS ──
 
 export async function runAutomatedFix(fixAction: string): Promise<{ fixed: number; error?: string }> {
@@ -438,7 +497,6 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
       }
 
       case 'fix_followup_purchased': {
-        // Get pending follow-ups for purchased/not-interested bookings
         const { data: pending } = await supabase
           .from('follow_up_queue')
           .select('id, booking_id')
@@ -521,11 +579,129 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
         for (const m of missing) {
           const src = m.originating_booking_id ? phoneMap.get(m.originating_booking_id) : null;
           if (!src) continue;
+          // Normalize phone before storing
+          const normalizedPhone = stripCountryCode(src.phone);
+          const normalizedE164 = normalizedPhone ? `+1${normalizedPhone}` : src.phone_e164;
           const { error } = await supabase.from('intros_booked').update({
-            phone: src.phone,
-            phone_e164: src.phone_e164,
+            phone: normalizedPhone || src.phone,
+            phone_e164: normalizedE164,
             phone_source: 'inherited_from_original',
           }).eq('id', m.id);
+          if (!error) fixed++;
+        }
+        return { fixed };
+      }
+
+      case 'fix_outcome_status_sync': {
+        // Find runs with result_canon != UNRESOLVED linked to ACTIVE bookings
+        const { data: runs } = await supabase
+          .from('intros_run')
+          .select('id, linked_intro_booked_id, result_canon, result')
+          .not('result_canon', 'eq', 'UNRESOLVED')
+          .not('linked_intro_booked_id', 'is', null)
+          .eq('ignore_from_metrics', false)
+          .limit(500);
+
+        if (!runs || runs.length === 0) return { fixed: 0 };
+
+        const bookingIds = runs.map(r => r.linked_intro_booked_id).filter(Boolean) as string[];
+        const { data: activeBookings } = await supabase
+          .from('intros_booked')
+          .select('id')
+          .in('id', bookingIds)
+          .eq('booking_status_canon', 'ACTIVE');
+
+        const activeIds = new Set(activeBookings?.map(b => b.id) ?? []);
+        const toFix = runs.filter(r => r.linked_intro_booked_id && activeIds.has(r.linked_intro_booked_id));
+
+        let fixed = 0;
+        for (const run of toFix) {
+          const { error } = await supabase
+            .from('intros_booked')
+            .update({
+              booking_status: run.result,
+              booking_status_canon: run.result_canon,
+            })
+            .eq('id', run.linked_intro_booked_id!);
+          if (!error) fixed++;
+        }
+        return { fixed };
+      }
+
+      case 'fix_booked_by_missing': {
+        // Copy intro_owner → booked_by where booked_by is null but intro_owner exists
+        const { data } = await supabase
+          .from('intros_booked')
+          .select('id, intro_owner')
+          .or('booked_by.is.null,booked_by.eq.')
+          .not('intro_owner', 'is', null)
+          .neq('intro_owner', '')
+          .is('deleted_at', null)
+          .neq('lead_source', 'Online Intro Offer (self-booked)')
+          .neq('lead_source', 'Online Intro Offer')
+          .limit(200);
+
+        if (!data || data.length === 0) return { fixed: 0 };
+
+        let fixed = 0;
+        for (const row of data) {
+          const { error } = await supabase
+            .from('intros_booked')
+            .update({ booked_by: row.intro_owner })
+            .eq('id', row.id);
+          if (!error) fixed++;
+        }
+        return { fixed };
+      }
+
+      case 'fix_phone_from_leads': {
+        // For bookings missing phone, find matching lead by email and copy phone
+        const { data: bookings } = await supabase
+          .from('intros_booked')
+          .select('id, email')
+          .is('phone_e164', null)
+          .or('phone.is.null,phone.eq.')
+          .is('deleted_at', null)
+          .not('email', 'is', null)
+          .neq('email', '')
+          .limit(200);
+
+        if (!bookings || bookings.length === 0) return { fixed: 0 };
+
+        const emails = bookings.map(b => b.email!.toLowerCase());
+        const { data: leads } = await supabase
+          .from('leads')
+          .select('email, phone')
+          .in('email', emails)
+          .not('phone', 'is', null)
+          .neq('phone', '');
+
+        if (!leads || leads.length === 0) return { fixed: 0 };
+
+        const emailPhoneMap = new Map<string, string>();
+        for (const l of leads) {
+          if (l.email && l.phone) {
+            emailPhoneMap.set(l.email.toLowerCase(), l.phone);
+          }
+        }
+
+        let fixed = 0;
+        for (const b of bookings) {
+          const leadPhone = b.email ? emailPhoneMap.get(b.email.toLowerCase()) : null;
+          if (!leadPhone) continue;
+          
+          // Normalize phone
+          const normalized = stripCountryCode(leadPhone);
+          if (!normalized) continue;
+
+          const { error } = await supabase
+            .from('intros_booked')
+            .update({
+              phone: normalized,
+              phone_e164: `+1${normalized}`,
+              phone_source: 'copied_from_lead',
+            })
+            .eq('id', b.id);
           if (!error) fixed++;
         }
         return { fixed };
@@ -537,6 +713,21 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
   } catch (err: any) {
     return { fixed: 0, error: err?.message || 'Fix failed' };
   }
+}
+
+/** Run ALL available auto-fixes in sequence */
+export async function runAllFixes(results: AuditCheckResult[]): Promise<{ totalFixed: number; details: { checkName: string; fixed: number; error?: string }[] }> {
+  const fixable = results.filter(r => r.fixAction && r.status !== 'pass');
+  const details: { checkName: string; fixed: number; error?: string }[] = [];
+  let totalFixed = 0;
+
+  for (const check of fixable) {
+    const result = await runAutomatedFix(check.fixAction!);
+    details.push({ checkName: check.checkName, fixed: result.fixed, error: result.error });
+    totalFixed += result.fixed;
+  }
+
+  return { totalFixed, details };
 }
 
 async function check2ndIntroPhoneInheritance(): Promise<AuditCheckResult> {
@@ -565,7 +756,7 @@ async function check2ndIntroPhoneInheritance(): Promise<AuditCheckResult> {
   };
 }
 
-// ── NEW PERFORMANCE CHECKS (G1) ──
+// ── PERFORMANCE CHECKS ──
 
 async function checkCloseRateConsistency(): Promise<AuditCheckResult> {
   const { data: runs } = await supabase.from('intros_run').select('id, result_canon').eq('ignore_from_metrics', false).limit(1000);
@@ -674,7 +865,6 @@ export async function saveAuditRun(run: AuditRunResult): Promise<void> {
     results: run.results as any,
   });
 
-  // Keep only last 30 runs
   const { data: all } = await supabase
     .from('data_audit_log')
     .select('id')
