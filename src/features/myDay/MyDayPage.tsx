@@ -47,6 +47,7 @@ import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
 import { WinTheDay } from './WinTheDay';
 import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
+import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
 // Dark mode helpers
 function useDarkMode() {
@@ -81,6 +82,8 @@ export default function MyDayPage() {
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [igDmCount, setIgDmCount] = useState(0);
   const [activeTab, setActiveTab] = useState('today');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 
   // Prep/Script/Coach drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
@@ -179,7 +182,15 @@ export default function MyDayPage() {
 
   useEffect(() => {
     fetchMetrics();
-  }, [user?.name]);
+    // Check admin role
+    if (user?.id) {
+      supabase.from('user_roles').select('role').eq('user_id', user.id).eq('role', 'admin').maybeSingle()
+        .then(({ data }) => { setIsAdmin(!!data); });
+    }
+    // Check intelligence dismissal for today
+    const todayKey = `si-dismissed-${format(new Date(), 'yyyy-MM-dd')}`;
+    setIntelligenceDismissed(localStorage.getItem(todayKey) === 'true');
+  }, [user?.name, user?.id]);
 
   const fetchMetrics = async () => {
     if (!user?.name) return;
@@ -325,6 +336,20 @@ export default function MyDayPage() {
         </p>
         <MyDayShiftSummary compact />
       </div>
+
+      {/* ═══ STUDIO INTELLIGENCE (admin only) ═══ */}
+      {isAdmin && !intelligenceDismissed && (
+        <div className="px-4 py-3 border-b border-primary/30">
+          <StudioIntelligenceCard
+            dismissible
+            onDismiss={() => {
+              const todayKey = `si-dismissed-${format(new Date(), 'yyyy-MM-dd')}`;
+              localStorage.setItem(todayKey, 'true');
+              setIntelligenceDismissed(true);
+            }}
+          />
+        </div>
+      )}
 
       {/* ═══ WIN THE DAY CHECKLIST ═══ */}
       <WinTheDay onSwitchTab={setActiveTab} />

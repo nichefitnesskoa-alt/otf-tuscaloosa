@@ -81,6 +81,10 @@ interface IntroRowCardProps {
   needsOutcome?: boolean;
   /** Confirmation result from Win the Day reflection */
   confirmationResult?: string | null;
+  /** When true, this card is the focused (nearest upcoming) intro */
+  isFocused?: boolean;
+  /** When true, another card is focused so dim this one */
+  anyFocused?: boolean;
 }
 
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
@@ -104,6 +108,8 @@ export default function IntroRowCard({
   onRefresh,
   needsOutcome = false,
   confirmationResult,
+  isFocused = false,
+  anyFocused = false,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
@@ -118,6 +124,31 @@ export default function IntroRowCard({
   const [timeSaving, setTimeSaving] = useState(false);
   const timeInputRef = useRef<HTMLInputElement>(null);
   const qBar = getQBar(localQStatus);
+
+  // ── Focus mode: compute minutesUntilClass ──
+  const [minutesUntilClass, setMinutesUntilClass] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!item.introTime || !item.classDate) { setMinutesUntilClass(null); return; }
+    const compute = () => {
+      try {
+        const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+        const now = new Date();
+        const diff = Math.round((classStart.getTime() - now.getTime()) / 60000);
+        setMinutesUntilClass(diff);
+      } catch { setMinutesUntilClass(null); }
+    };
+    compute();
+    const interval = setInterval(compute, 60000);
+    return () => clearInterval(interval);
+  }, [item.classDate, item.introTime]);
+
+  const isInFocusWindow = isFocused && minutesUntilClass !== null && minutesUntilClass <= 120 && minutesUntilClass > 0;
+  const focusHours = minutesUntilClass !== null ? Math.floor(minutesUntilClass / 60) : 0;
+  const focusMins = minutesUntilClass !== null ? minutesUntilClass % 60 : 0;
+
+  // ── Q escalation: 3 hours before class ──
+  const isQOverdue = !item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
 
   // Auto-prep 2nd visits
   useEffect(() => {
@@ -256,6 +287,8 @@ export default function IntroRowCard({
   // Determine border color from banner color
   const borderColor = needsOutcome
     ? '#7c3aed'
+    : isQOverdue
+    ? '#dc2626'
     : item.isSecondIntro
     ? (item.confirmedAt ? '#16a34a' : '#2563eb')
     : localQStatus === 'Q_COMPLETED'
@@ -265,10 +298,32 @@ export default function IntroRowCard({
     : '#dc2626';
 
   return (
-    <div id={`intro-card-${item.bookingId}`} className="rounded-lg bg-card overflow-hidden" style={{ border: `2px solid ${borderColor}` }}>
+    <div
+      id={`intro-card-${item.bookingId}`}
+      className={cn(
+        'rounded-lg bg-card overflow-hidden transition-all',
+        isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
+        !isFocused && anyFocused && 'opacity-80',
+      )}
+      style={{
+        border: `2px solid ${borderColor}`,
+        ...(isInFocusWindow ? { animationDuration: '3s' } : {}),
+      }}
+    >
+      {/* Focus countdown badge */}
+      {isInFocusWindow && (
+        <div className="flex items-center justify-center py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
+          <Badge className="text-[10px] px-2 py-0 h-4 bg-amber-500 text-white border-transparent">
+            🕐 Class in {focusHours}h {focusMins}m
+          </Badge>
+        </div>
+      )}
+
       {/* Top status banner */}
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
+      ) : isQOverdue ? (
+        <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
         item.confirmedAt
           ? <StatusBanner bgColor="#16a34a" text="✓ 2nd Intro Confirmed" />
@@ -392,7 +447,11 @@ export default function IntroRowCard({
         <div className="flex items-center gap-1.5">
           <Button
             size="sm"
-            className="h-8 flex-1 text-xs gap-1"
+            className={cn(
+              'h-8 flex-1 text-xs gap-1',
+              isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
+            )}
+            style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
             onClick={() => {
               window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId: item.bookingId } }));
             }}

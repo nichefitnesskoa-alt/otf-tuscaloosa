@@ -18,10 +18,11 @@ interface IntroDayGroupProps {
   onRefresh: () => void;
   needsOutcome?: boolean;
   confirmResults?: Record<string, string>;
+  focusedBookingId?: string | null;
 }
 
 export default function IntroDayGroup({
-  group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {},
+  group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {}, focusedBookingId = null,
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
 
@@ -84,6 +85,8 @@ export default function IntroDayGroup({
                   onRefresh={onRefresh}
                   needsOutcome={needsOutcome}
                   confirmationResult={confirmResults[item.bookingId] || null}
+                  isFocused={item.bookingId === focusedBookingId}
+                  anyFocused={!!focusedBookingId}
                 />
               ))}
             </div>

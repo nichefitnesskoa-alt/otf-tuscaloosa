@@ -542,6 +542,9 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 
 // ── Expanded Row Detail ──
 
+const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
+const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
+
 function ExpandedRowDetail({
   journey, vipInfoMap, isOnline, onOpenDialog, onOpenScript, userName,
 }: {
@@ -552,12 +555,22 @@ function ExpandedRowDetail({
   onOpenScript: () => void;
   userName: string;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
   const phone = journey.bookings.find(b => b.phone)?.phone;
   const email = journey.bookings.find(b => b.email)?.email;
 
+  // Inline editing state
+  const [editingOwner, setEditingOwner] = useState(false);
+  const [editingLeadSource, setEditingLeadSource] = useState<string | null>(null);
+  const [editingCommission, setEditingCommission] = useState<string | null>(null);
+  const [commissionValue, setCommissionValue] = useState('');
+
+  const handleRefresh = async () => { await onOpenDialog('refresh', {}); };
+
   return (
     <div className="p-4 bg-muted/10 border-b border-l-4 border-l-primary/30 space-y-3 min-w-[800px]">
-      {/* Contact info */}
+      {/* Contact info + inline owner edit */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
         {phone && (
           <button className="flex items-center gap-1 hover:text-foreground"
@@ -566,10 +579,35 @@ function ExpandedRowDetail({
           </button>
         )}
         {email && <span className="truncate max-w-[200px]">✉️ {email}</span>}
-        {journey.latestIntroOwner && <span>Owner: {journey.latestIntroOwner}</span>}
+        {/* SA/Owner inline edit */}
+        {editingOwner ? (
+          <select
+            className="h-5 text-xs border rounded px-1 bg-background text-foreground"
+            defaultValue={journey.latestIntroOwner || ''}
+            autoFocus
+            onChange={async (e) => {
+              const val = e.target.value;
+              if (!val) return;
+              const latestBooking = journey.bookings[0];
+              if (!latestBooking) return;
+              await supabase.from('intros_booked').update({ intro_owner: val }).eq('id', latestBooking.id);
+              toast.success(`Owner set to ${val}`);
+              setEditingOwner(false);
+              handleRefresh();
+            }}
+            onBlur={() => setEditingOwner(false)}
+          >
+            <option value="">Select…</option>
+            {ALL_STAFF.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        ) : (
+          <button className="hover:underline cursor-pointer" onClick={() => setEditingOwner(true)}>
+            Owner: {journey.latestIntroOwner || 'Not set'}
+          </button>
+        )}
       </div>
 
-      {/* Bookings */}
+      {/* Bookings with inline lead source edit */}
       {journey.bookings.length > 0 && (
         <div>
           <div className="text-xs font-semibold mb-1">Bookings ({journey.bookings.length})</div>
@@ -579,7 +617,29 @@ function ExpandedRowDetail({
                 <div>
                   <span className="font-medium">{b.class_date}</span>
                   {b.intro_time && <span className="text-muted-foreground"> @ {b.intro_time}</span>}
-                  <span className="text-muted-foreground"> · {b.coach_name} · {b.lead_source}</span>
+                  <span className="text-muted-foreground"> · {b.coach_name} · </span>
+                  {/* Inline lead source edit */}
+                  {editingLeadSource === b.id ? (
+                    <select
+                      className="h-5 text-xs border rounded px-1 bg-background text-foreground"
+                      defaultValue={b.lead_source}
+                      autoFocus
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        await supabase.from('intros_booked').update({ lead_source: val }).eq('id', b.id);
+                        toast.success(`Lead source → ${val}`);
+                        setEditingLeadSource(null);
+                        handleRefresh();
+                      }}
+                      onBlur={() => setEditingLeadSource(null)}
+                    >
+                      {LEAD_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <button className="hover:underline cursor-pointer text-muted-foreground" onClick={() => setEditingLeadSource(b.id)}>
+                      {b.lead_source}
+                    </button>
+                  )}
                   {b.originating_booking_id && <Badge variant="outline" className="text-[10px] ml-1">2nd</Badge>}
                 </div>
                 <div className="flex items-center gap-1">
@@ -607,7 +667,7 @@ function ExpandedRowDetail({
         </div>
       )}
 
-      {/* Runs */}
+      {/* Runs with tappable outcome badge + inline commission */}
       {journey.runs.length > 0 && (
         <div>
           <div className="text-xs font-semibold mb-1">Intro Runs ({journey.runs.length})</div>
@@ -619,8 +679,52 @@ function ExpandedRowDetail({
                   <span className="text-muted-foreground"> @ {r.class_time} · Ran by: {r.ran_by || '—'}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <OutcomeBadge result={r.result} />
-                  {(r.commission_amount || 0) > 0 && <span className="text-green-600 font-medium">${r.commission_amount}</span>}
+                  {/* Tappable outcome badge → opens outcome editor */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isOnline) { toast.error('Requires internet'); return; }
+                      onOpenDialog('edit_run', { run: r, journey });
+                    }}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    title="Tap to change outcome"
+                  >
+                    <OutcomeBadge result={r.result} />
+                  </button>
+                  {/* Inline commission edit (admin only) */}
+                  {isAdmin && editingCommission === r.id ? (
+                    <input
+                      type="number"
+                      className="w-16 h-5 text-xs border rounded px-1 bg-background text-foreground"
+                      value={commissionValue}
+                      onChange={(e) => setCommissionValue(e.target.value)}
+                      autoFocus
+                      onBlur={async () => {
+                        const val = parseFloat(commissionValue);
+                        if (!isNaN(val)) {
+                          await supabase.from('intros_run').update({ commission_amount: val } as any).eq('id', r.id);
+                          toast.success(`Commission → $${val}`);
+                          handleRefresh();
+                        }
+                        setEditingCommission(null);
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    />
+                  ) : (r.commission_amount || 0) > 0 ? (
+                    <button
+                      className="text-green-600 font-medium hover:underline cursor-pointer"
+                      onClick={() => { if (isAdmin) { setCommissionValue(String(r.commission_amount || 0)); setEditingCommission(r.id); } }}
+                    >
+                      ${r.commission_amount}
+                    </button>
+                  ) : isAdmin ? (
+                    <button
+                      className="text-muted-foreground hover:underline cursor-pointer text-[10px]"
+                      onClick={() => { setCommissionValue('0'); setEditingCommission(r.id); }}
+                    >
+                      +$
+                    </button>
+                  ) : null}
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0"
                     onClick={() => { if (!isOnline) { toast.error('Requires internet'); return; } onOpenDialog('edit_run', { run: r, journey }); }}>
                     <Edit className="w-3 h-3" />
