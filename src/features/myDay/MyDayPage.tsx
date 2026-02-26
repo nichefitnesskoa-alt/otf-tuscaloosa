@@ -85,6 +85,7 @@ export default function MyDayPage() {
   // Prep/Script/Coach drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
+  const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
   const [coachBookingId, setCoachBookingId] = useState<string | null>(null);
   const [scriptQLink, setScriptQLink] = useState<string | undefined>();
 
@@ -160,7 +161,11 @@ export default function MyDayPage() {
   // Listen for Prep/Script/Coach events from IntroRowCard
   useEffect(() => {
     const onPrep = (e: Event) => setPrepBookingId((e as CustomEvent).detail.bookingId);
-    const onScript = (e: Event) => setScriptBookingId((e as CustomEvent).detail.bookingId);
+    const onScript = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setScriptBookingId(detail.bookingId);
+      setScriptIsSecondIntro(!!detail.isSecondIntro);
+    };
     const onCoach = (e: Event) => setCoachBookingId((e as CustomEvent).detail.bookingId);
     window.addEventListener('myday:open-prep', onPrep);
     window.addEventListener('myday:open-script', onScript);
@@ -470,7 +475,7 @@ export default function MyDayPage() {
         <ScriptPickerSheet
           open={!!scriptBookingId}
           onOpenChange={(open) => { if (!open) setScriptBookingId(null); }}
-          suggestedCategories={['confirmation', 'questionnaire', 'follow_up']}
+          suggestedCategories={scriptIsSecondIntro ? ['confirmation'] : ['confirmation', 'questionnaire', 'follow_up']}
           mergeContext={scriptMergeContext}
           bookingId={scriptBooking.id}
           onLogged={() => { setScriptBookingId(null); fetchMetrics(); }}

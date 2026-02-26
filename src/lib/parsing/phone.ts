@@ -64,12 +64,20 @@ export function extractPhone(raw: string | null | undefined): string | null {
 
 /**
  * Strip +1 or leading 1 from a phone string, returning 10-digit string.
+ * US area codes never start with 0 or 1 (NANP rules), so a 10-digit
+ * number starting with '1' means the country code leaked into the value.
  */
 export function stripCountryCode(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, '');
   if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
-  if (digits.length === 10) return digits;
+  if (digits.length === 10) {
+    // If starts with '1', it's likely a country-code leak with a truncated last digit.
+    // US area codes never start with 0 or 1, so this is never a valid 10-digit US number.
+    // We can't recover the missing digit, so return null to flag it as invalid.
+    if (digits.startsWith('1') || digits.startsWith('0')) return null;
+    return digits;
+  }
   return null;
 }
 
