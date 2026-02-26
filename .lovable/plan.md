@@ -1,74 +1,66 @@
 
 
-# Win the Day Navigation + Section Banners + Tab Separators + Phone Fix + Week Tab Days
+# Universal Phone Formatting + 2nd Intro Phone Inheritance Fix + Continuous Data Audit
 
-## 5 Changes
+## Problem Summary
 
-### 1. Win the Day action buttons navigate directly to the correct card/tab (`src/features/myDay/WinTheDay.tsx`)
+1. **Phone numbers display with `+1` prefix** — `phone_e164` values like `+15129000350` are shown raw on cards and pipeline instead of formatted as `(512) 900-0350`.
+2. **2nd intro cards show "Phone missing"** even though the original booking has phone data — existing 2nd intros in the DB were created before the inheritance fix was added, and the data hook doesn't fall back to the originating booking's phone.
+3. **No continuous auto-correction** — the audit engine detects missing phones but doesn't auto-fix them.
 
-Currently, `confirm_tomorrow` switches to the `intros` tab and shows a toast saying "Navigate to the intro card." Instead, all action buttons should switch to the correct tab AND scroll to the specific card.
+## Changes
 
-**Changes:**
-- `confirm_tomorrow` → switch to `week` tab (tomorrow's intros are in the Week tab), then after a short delay, scroll to the element with `id="intro-card-{bookingId}"` using `scrollIntoView`
-- `q_send` / `q_resend` → keep existing copy behavior, but ALSO switch to `today` tab and scroll to the card
-- `prep_roleplay` → switch to `today` tab and scroll to the card, then open the prep drawer
-- `followups_due` → already switches tab (good)
-- `leads_overdue` → already switches tab (good)
-- Remove the toast "Navigate to the intro card to send confirmation"
+### 1. Normalize all phone display universally (`src/lib/parsing/phone.ts`)
 
-**In `IntroRowCard.tsx`**: ensure each card has `id={`intro-card-${item.bookingId}`}` on its outer div for scroll targeting.
+Add a new `normalizePhoneForDisplay` function that strips `+1` prefix, extracts 10 digits, and formats as `(XXX) XXX-XXXX`. Update the existing `formatPhoneDisplay` to also handle `+1XXXXXXXXXX` and `1XXXXXXXXXX` inputs.
 
-### 2. Section guidance banners for every major section (`src/features/myDay/MyDayPage.tsx`, `src/features/myDay/WinTheDay.tsx`)
+### 2. Format phone on IntroRowCard (`src/features/myDay/IntroRowCard.tsx`)
 
-Add a short, always-visible explanation banner at the top of each section:
+- Import `formatPhoneDisplay` from `@/lib/parsing/phone`
+- Use it everywhere `item.phone` is rendered (line 319 display badge, line 191 copy handler)
+- Copy handler should copy the clean 10-digit number (no `+1`)
 
-- **Win the Day**: "Your shift checklist. Complete every item to win the day. Tap ○ to reflect, tap the button to take action."
-- **Activity Tracker**: "Quick view of your shift stats. Log activity from the FAB."
-- **Weekly Schedule**: "Your upcoming schedule at a glance."
-- **End Shift**: "Close out your shift with a recap when you're done."
-- **Each tab content area**: Brief guidance text below the tab bar (Today: "Your intros for today, sorted by class time.", Week: "Upcoming intros grouped by day.", etc.)
+### 3. 2nd intro phone fallback in data hook (`src/features/myDay/useUpcomingIntrosData.ts`)
 
-Implementation: a small `SectionGuide` component — a muted text block with a subtle left border or background, rendered inline at the top of each section.
+After building `rawItems`, for any item where `phone` is null AND `originating_booking_id` is not null (i.e., it's a 2nd intro), look up the originating booking's phone from the same fetch batch. Since we already fetch all bookings, check if the originating booking is in our result set. If not, do a targeted query for originating booking phones.
 
-### 3. Visual divider between tabs (`src/features/myDay/MyDayPage.tsx`)
+**Implementation:**
+- After `rawItems` is built, create a map of `bookingId → phone` from all items
+- For items with no phone and an `originatingBookingId`, check the map first
+- If not found in the map, batch-query the missing originating IDs from `intros_booked` for their phone/phone_e164
+- Assign the inherited phone to the 2nd intro item
 
-Add a visible separator line between the tab bar and the content below. Currently the tabs sit in a `TabsList` with no clear bottom edge. Add a `border-b-2 border-primary/40` or a `<Separator>` below the `TabsList` and above the `TabsContent`.
+### 4. Add auto-fix to audit engine (`src/lib/audit/dataAuditEngine.ts`)
 
-Also add `border-b` between each tab trigger to create visual separation between the tab items themselves — using a thin vertical divider or spacing gap with a visible border.
+Add a new audit check + auto-fix: `check2ndIntroPhoneInheritance`
+- Query all `intros_booked` where `originating_booking_id IS NOT NULL` AND `phone IS NULL` AND `phone_e164 IS NULL`
+- For each, look up the originating booking's phone
+- Auto-fix: update the 2nd intro record with the originating booking's phone data
+- Add `fixAction: 'fix_2nd_intro_phones'` so the admin "Fix Now" button triggers it
 
-### 4. Fix Katherine Bibb Branyon phone not showing (`src/features/myDay/useUpcomingIntrosData.ts`)
+Also add a continuous phone normalization check that strips `+1` from `phone` field values and populates `phone_e164` where missing.
 
-The phone field is fetched from `intros_booked` in the select query (line 85). The data hook uses `phone_e164 || phone` (line 183). If neither field has data in the DB row for this booking, the card shows no phone.
+### 5. Format phones in Pipeline display (`src/features/pipeline/components/PipelineSpreadsheet.tsx`)
 
-**Root cause**: The booking was likely imported from email/sheets without running `extractPhone` on the raw body. 
+Apply `formatPhoneDisplay` to all phone displays in the pipeline spreadsheet view so numbers show as `(XXX) XXX-XXXX` instead of raw `+1XXXXXXXXXX`.
 
-**Fix**: In `useUpcomingIntrosData.ts`, after building raw items, add a fallback step: if `phone` is null, check if the booking has an `email` field containing a phone number (common in OTF email imports), and run `extractPhone` on it client-side. Also check the `lead_source` or `notes` fields.
+### 6. Trigger audit after data load on My Day
 
-Additionally, add the `notes` field to the select query on `intros_booked` so we have more raw text to parse for phone numbers.
-
-### 5. Week tab: internal day-based sub-tabs (`src/features/myDay/UpcomingIntrosCard.tsx`, `src/features/myDay/IntroDayGroup.tsx`)
-
-Currently the Week tab renders all days in a single scrollable list with just a small date header. Need clearer day separation.
-
-**Approach**: When `fixedTimeRange === 'restOfWeek'`, render an internal horizontal pill-style tab row at the top with each day of the week (e.g., "Thu", "Fri", "Sat", "Sun"). Tapping a day shows only that day's intros. Default to the first day with intros.
-
-**Changes to `UpcomingIntrosCard.tsx`**:
-- When `fixedTimeRange === 'restOfWeek'` and `dayGroups.length > 1`, render a secondary tab bar with day labels
-- Add state `selectedWeekDay` defaulting to the first day group's date
-- Filter `dayGroups` to only the selected day
-- Show a count badge on each day pill
-
-**Changes to `IntroDayGroup.tsx`**:
-- Add stronger visual separation: a thicker border-top, a more prominent date header with background color
+In `useUpcomingIntrosData.ts`, after building items, if any items have missing phone AND an originating booking ID, auto-fix those records in the background by copying phone from the originating booking. This makes the fix continuous and self-healing.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/features/myDay/WinTheDay.tsx` | Navigate to specific cards on action tap; add section guidance banner |
-| `src/features/myDay/IntroRowCard.tsx` | Add `id` attribute to card outer div for scroll targeting |
-| `src/features/myDay/MyDayPage.tsx` | Add section guidance banners to each section; add visual tab separator |
-| `src/features/myDay/useUpcomingIntrosData.ts` | Add `notes` to select query; run `extractPhone` fallback on email/notes for missing phone |
-| `src/features/myDay/UpcomingIntrosCard.tsx` | Add internal day sub-tabs for Week view |
-| `src/features/myDay/IntroDayGroup.tsx` | Stronger visual day separation with thicker borders and colored header |
+| `src/lib/parsing/phone.ts` | Update `formatPhoneDisplay` to handle `+1` prefix and 11-digit inputs; add `stripCountryCode` helper |
+| `src/features/myDay/IntroRowCard.tsx` | Use `formatPhoneDisplay` for all phone rendering; strip `+1` from copied value |
+| `src/features/myDay/useUpcomingIntrosData.ts` | Add originating-booking phone fallback for 2nd intros; auto-fix missing phone records in background |
+| `src/lib/audit/dataAuditEngine.ts` | Add `check2ndIntroPhoneInheritance` audit check with auto-fix capability |
+| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | Format phone display with `formatPhoneDisplay` |
+
+## Prompt to Reproduce This Build
+
+Here is a prompt that would get you to this exact point:
+
+> Build a fitness studio sales associate (SA) dashboard app for Orangetheory Fitness Tuscaloosa. The app tracks intro bookings (first-time visitors), their outcomes (purchased, didn't buy, no-show), follow-up sequences, and sales pipeline. Key features: (1) "My Day" page with today's intros, rest-of-week view with day sub-tabs, and a "Win the Day" shift checklist that navigates directly to specific intro cards. Each intro card shows questionnaire status as a colored banner, has inline editable time, Copy Q Link / Copy Phone buttons, coach assignment, and an outcome drawer. 2nd intro cards display previous intro info in a collapsible section and inherit phone/email/time from the originating booking. (2) Pipeline page with spreadsheet view grouping all bookings by client journey. (3) Phone numbers are stored as 10-digit strings, parsed from email imports via an extractPhone utility, and displayed universally as (XXX) XXX-XXXX without country code. A continuous data audit engine runs 12+ checks every 30 minutes and auto-corrects issues like missing phone numbers on 2nd intros by inheriting from the original booking. The app uses Supabase for data, has section guidance banners explaining each UI area, visual tab separators, and supports offline mode. Outcome changes route through a single canonical function (applyIntroOutcomeUpdate) that handles AMC tracking, follow-up queue generation, commission calculation, and audit logging.
 
