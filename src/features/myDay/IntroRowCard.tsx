@@ -3,7 +3,7 @@
  * Outcome expands an inline drawer that routes through canonical applyIntroOutcomeUpdate.
  * Q status is displayed as a bold full-width top banner.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -61,6 +61,10 @@ export default function IntroRowCard({
   const [prevIntroOpen, setPrevIntroOpen] = useState(false);
   const [prevIntro, setPrevIntro] = useState<any>(null);
   const [prevIntroLoading, setPrevIntroLoading] = useState(false);
+  const [editingTime, setEditingTime] = useState(false);
+  const [editTimeValue, setEditTimeValue] = useState(item.introTime || '');
+  const [timeSaving, setTimeSaving] = useState(false);
+  const timeInputRef = useRef<HTMLInputElement>(null);
   const qBar = getQBar(localQStatus);
 
   // Auto-prep 2nd visits
@@ -244,7 +248,54 @@ export default function IntroRowCard({
           </div>
           {/* Time + Coach + Owner */}
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs text-muted-foreground">
-            <span>{formatDisplayTime(item.introTime)}</span>
+            {editingTime ? (
+              <input
+                ref={timeInputRef}
+                type="time"
+                value={editTimeValue}
+                onChange={(e) => setEditTimeValue(e.target.value)}
+                onBlur={async () => {
+                  if (!editTimeValue) { setEditingTime(false); return; }
+                  setTimeSaving(true);
+                  try {
+                    const { error } = await supabase.from('intros_booked').update({
+                      intro_time: editTimeValue,
+                      class_start_at: `${item.classDate}T${editTimeValue}:00`,
+                      last_edited_at: new Date().toISOString(),
+                      last_edited_by: userName,
+                    }).eq('id', item.bookingId);
+                    if (error) throw error;
+                    toast.success('Time updated');
+                    onRefresh();
+                  } catch {
+                    toast.error('Failed to update time');
+                  } finally {
+                    setTimeSaving(false);
+                    setEditingTime(false);
+                  }
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-24 h-5 text-xs border rounded px-1 bg-background text-foreground"
+                autoFocus
+                disabled={timeSaving}
+              />
+            ) : item.introTime ? (
+              <button
+                type="button"
+                onClick={() => { setEditTimeValue(item.introTime || ''); setEditingTime(true); }}
+                className="hover:underline cursor-pointer text-foreground"
+              >
+                {formatDisplayTime(item.introTime)}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditTimeValue(''); setEditingTime(true); }}
+                className="text-destructive font-semibold hover:underline cursor-pointer"
+              >
+                ⏰ Add Time
+              </button>
+            )}
             <span>·</span>
             <span className={cn(!item.coachName || item.coachName === 'TBD' ? 'text-destructive' : '')}>
               {item.coachName || 'Coach TBD'}
@@ -288,24 +339,7 @@ export default function IntroRowCard({
               ⚠ Unconfirmed
             </Badge>
           )}
-          {item.latestRunResult && (
-            <button type="button" onClick={() => setOutcomeOpen(true)} className="cursor-pointer">
-              <Badge className={cn(
-                'text-[10px] px-1.5 py-0 h-4 border font-semibold',
-                item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-700'
-                  : item.latestRunResult === "Didn't Buy"
-                  ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/30 dark:text-red-400 dark:border-red-700'
-                  : item.latestRunResult === 'No-show'
-                  ? 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600'
-                  : item.latestRunResult === 'Booked 2nd intro'
-                  ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-700'
-                  : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700'
-              )}>
-                {item.latestRunResult}
-              </Badge>
-            </button>
-          )}
+          
         </div>
 
         {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach | Outcome */}
