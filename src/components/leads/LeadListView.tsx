@@ -16,6 +16,8 @@ import { LeadActionBar } from '@/components/ActionBar';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { supabase } from '@/integrations/supabase/client';
+import { InlineEditField } from '@/components/dashboard/InlineEditField';
+import { LEAD_SOURCES } from '@/types';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -168,6 +170,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
               )}
               <SortHeader label="Name" k="name" />
               <SortHeader label="Phone" k="phone" />
+              <SortHeader label="Email" k="email" />
               <TableHead>Stage</TableHead>
               <SortHeader label="Received" k="created_at" />
               <SortHeader label="Last Action" k="last_action" />
@@ -200,10 +203,30 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                     )}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <a href={`tel:${lead.phone}`} onClick={e => e.stopPropagation()} className="hover:text-primary">
-                    {formatPhoneDisplay(lead.phone) || lead.phone}
-                  </a>
+                <TableCell onClick={e => e.stopPropagation()}>
+                  <InlineEditField
+                    value={lead.phone || ''}
+                    displayValue={lead.phone ? (formatPhoneDisplay(lead.phone) || lead.phone) : undefined}
+                    placeholder="Add phone"
+                    type="tel"
+                    onSave={async (val) => {
+                      await supabase.from('leads').update({ phone: val }).eq('id', lead.id);
+                      onRefresh?.();
+                    }}
+                    muted={!lead.phone}
+                  />
+                </TableCell>
+                <TableCell onClick={e => e.stopPropagation()}>
+                  <InlineEditField
+                    value={lead.email || ''}
+                    placeholder="Add email"
+                    type="email"
+                    onSave={async (val) => {
+                      await supabase.from('leads').update({ email: val }).eq('id', lead.id);
+                      onRefresh?.();
+                    }}
+                    muted={!lead.email}
+                  />
                 </TableCell>
                 <TableCell onClick={e => e.stopPropagation()}>
                   <Select value={lead.stage} onValueChange={v => onStageChange(lead.id, v)}>
@@ -246,7 +269,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
             ))}
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={selectMode ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={selectMode ? 9 : 8} className="text-center py-8 text-muted-foreground">
                   No leads yet
                 </TableCell>
               </TableRow>

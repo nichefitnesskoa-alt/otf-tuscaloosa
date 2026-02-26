@@ -6,6 +6,7 @@
 import { useRef, useState, useMemo, useCallback, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader2, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, ChevronRight, Copy, Phone, FileText, Edit, Plus, CalendarPlus, MoreVertical, UserCheck, DollarSign, UserX, Archive, Trash2, Link, X } from 'lucide-react';
+import { InlineEditField } from '@/components/dashboard/InlineEditField';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -572,13 +573,38 @@ function ExpandedRowDetail({
     <div className="p-4 bg-muted/10 border-b border-l-4 border-l-primary/30 space-y-3 min-w-[800px]">
       {/* Contact info + inline owner edit */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-        {phone && (
-          <button className="flex items-center gap-1 hover:text-foreground"
-            onClick={() => { navigator.clipboard.writeText(phone); toast.success('Phone copied'); }}>
-            <Phone className="w-3 h-3" /> {phone}
-          </button>
-        )}
-        {email && <span className="truncate max-w-[200px]">✉️ {email}</span>}
+        {/* Inline phone edit */}
+        <InlineEditField
+          value={phone || ''}
+          displayValue={phone ? (formatPhoneDisplay(phone) || phone) : undefined}
+          placeholder="Add phone"
+          type="tel"
+          onSave={async (val) => {
+            const latestBooking = journey.bookings[0];
+            if (!latestBooking) return;
+            const stripped = val.replace(/\D/g, '');
+            await supabase.from('intros_booked').update({
+              phone: val,
+              phone_e164: stripped.length === 10 ? '+1' + stripped : val,
+              phone_source: 'inline_edit',
+            }).eq('id', latestBooking.id);
+            handleRefresh();
+          }}
+          muted={!phone}
+        />
+        {/* Inline email edit */}
+        <InlineEditField
+          value={email || ''}
+          placeholder="Add email"
+          type="email"
+          onSave={async (val) => {
+            const latestBooking = journey.bookings[0];
+            if (!latestBooking) return;
+            await supabase.from('intros_booked').update({ email: val }).eq('id', latestBooking.id);
+            handleRefresh();
+          }}
+          muted={!email}
+        />
         {/* SA/Owner inline edit */}
         {editingOwner ? (
           <select

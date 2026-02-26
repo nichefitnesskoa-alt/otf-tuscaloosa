@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Clock, Copy, Layers, ArrowUpDown, Phone, History, Check, FileText, ShoppingCart, CalendarPlus, CalendarIcon } from 'lucide-react';
 import { InlinePhoneInput, NoPhoneBadge } from '@/components/dashboard/InlinePhoneInput';
+import { InlineEditField } from '@/components/dashboard/InlineEditField';
 import { format, differenceInDays, parseISO, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
@@ -595,6 +596,18 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
             {noPhone && (
               <InlinePhoneInput personName={item.person_name} bookingId={item.booking_id} onSaved={fetchQueue} compact />
             )}
+            {/* Inline scheduled date edit */}
+            <InlineEditField
+              value={item.scheduled_date}
+              type="text"
+              placeholder="Set date"
+              onSave={async (val) => {
+                await supabase.from('follow_up_queue').update({ scheduled_date: val }).eq('id', item.id);
+                fetchQueue();
+              }}
+              muted={false}
+              className="text-[10px]"
+            />
           </div>
 
           {/* Notes from Planning to Reschedule */}
@@ -615,9 +628,28 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">Legacy</Badge>
             )}
             {item.primary_objection && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground">
-                {item.primary_objection}
-              </Badge>
+              <InlineEditField
+                value={item.primary_objection || ''}
+                placeholder="Add objection"
+                onSave={async (val) => {
+                  await supabase.from('follow_up_queue').update({ primary_objection: val }).eq('id', item.id);
+                  fetchQueue();
+                }}
+                muted={false}
+                className="text-[10px]"
+              />
+            )}
+            {!item.primary_objection && (
+              <InlineEditField
+                value=""
+                placeholder="Add objection"
+                onSave={async (val) => {
+                  await supabase.from('follow_up_queue').update({ primary_objection: val }).eq('id', item.id);
+                  fetchQueue();
+                }}
+                muted
+                className="text-[10px]"
+              />
             )}
           </div>
 
