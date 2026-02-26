@@ -694,6 +694,7 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
+          shoutout_consent: boolean | null
           vip_class_name: string | null
           vip_session_id: string | null
           vip_status: string | null
@@ -747,6 +748,7 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          shoutout_consent?: boolean | null
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null
@@ -800,6 +802,7 @@ export type Database = {
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
+          shoutout_consent?: boolean | null
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null

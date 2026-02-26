@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, Link2, Check, Sparkles, Copy, RefreshCw } from 'lucide-react';
+import { Search, Link2, Check, Sparkles, Copy, RefreshCw, Loader2 } from 'lucide-react';
 import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
@@ -379,6 +380,102 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           onFriendQuestionnaireSent={onFriendQuestionnaireSent}
         />
       )}
+
+      {/* AI Panel Drawer */}
+      <Drawer open={aiPanelOpen} onOpenChange={setAiPanelOpen}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle className="text-lg">✨ AI Script Generator</DrawerTitle>
+            <DrawerDescription className="text-xs text-muted-foreground">
+              Powered by Claude — writes in Koa's voice
+            </DrawerDescription>
+          </DrawerHeader>
+          <ScrollArea className="px-4 pb-6 flex-1">
+            <div className="space-y-4">
+              {/* Category selector */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Script Category</label>
+                <Select value={aiCategory} onValueChange={setAiCategory}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="confirmation">Confirmation</SelectItem>
+                    <SelectItem value="questionnaire">Questionnaire Send</SelectItem>
+                    <SelectItem value="follow_up_1">Follow-up Touch 1</SelectItem>
+                    <SelectItem value="follow_up_2">Follow-up Touch 2</SelectItem>
+                    <SelectItem value="follow_up_3">Follow-up Touch 3</SelectItem>
+                    <SelectItem value="no_show">No-show Outreach</SelectItem>
+                    <SelectItem value="objection">Objection Handling</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Pre-filled context */}
+              <div className="rounded-lg bg-muted/60 border p-3 text-xs space-y-0.5">
+                <p className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Context</p>
+                <div className="flex gap-1">
+                  <span className="text-muted-foreground w-16 shrink-0">Name:</span>
+                  <span className="font-medium">{memberCtx?.name || mergeContext['first-name'] || '—'}</span>
+                </div>
+                <div className="flex gap-1">
+                  <span className="text-muted-foreground w-16 shrink-0">Goal:</span>
+                  <span>{memberCtx?.goal || 'Not specified'}</span>
+                </div>
+                <div className="flex gap-1">
+                  <span className="text-muted-foreground w-16 shrink-0">Objection:</span>
+                  <span>{memberCtx?.obstacle || 'None'}</span>
+                </div>
+              </div>
+
+              {/* Generate buttons */}
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handleAiGenerate}
+                  disabled={aiGenerating}
+                >
+                  {aiGenerating ? (
+                    <><Loader2 className="w-4 h-4 animate-spin mr-1" /> Generating…</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4 mr-1" /> Generate Script</>
+                  )}
+                </Button>
+                {aiScript && (
+                  <Button variant="outline" size="sm" onClick={handleAiGenerate} disabled={aiGenerating}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" /> Regenerate
+                  </Button>
+                )}
+              </div>
+
+              {/* Generated script */}
+              {aiScript && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Generated Script (editable)</label>
+                  <Textarea
+                    value={aiScript}
+                    onChange={(e) => setAiScript(e.target.value)}
+                    className="min-h-[120px] text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-2">
+                {aiScript && (
+                  <Button className="flex-1" onClick={handleUseAiScript}>
+                    <Copy className="w-4 h-4 mr-1" /> Use This Script
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => { setAiPanelOpen(false); setAiScript(''); }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

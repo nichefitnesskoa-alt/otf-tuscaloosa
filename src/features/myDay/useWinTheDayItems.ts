@@ -208,21 +208,42 @@ export function useWinTheDayItems() {
               ? `https://otf-tuscaloosa.lovable.app/q/${qSlugByBooking.get(intro.id)}`
               : intro.questionnaire_link || undefined,
           });
-        } else if (intro.questionnaire_status_canon === 'sent' && minutesUntil > 120) {
+        } else if (intro.questionnaire_status_canon === 'sent') {
           const qReflected = reflectionsByBooking.has(`questionnaire_outreach_${intro.id}`);
-          newItems.push({
-            id: `q_resend_${intro.id}`,
-            type: 'q_resend',
-            text: `Resend questionnaire to ${intro.member_name} — hasn't answered yet`,
-            actionLabel: 'Resend Script',
-            completed: qReflected,
-            urgency: 'normal',
-            sortOrder: qReflected ? 9000 : 400 + minutesUntil,
-            targetId: intro.id,
-            memberName: intro.member_name,
-            classTime: intro.intro_time || undefined,
-            minutesUntilClass: minutesUntil,
-          });
+          const timeLabel = minutesUntil <= 60
+            ? `${minutesUntil}m`
+            : `${Math.floor(minutesUntil / 60)}h ${minutesUntil % 60}m`;
+
+          // Q overdue escalation: within 3 hours of class
+          if (minutesUntil <= 180 && minutesUntil > 0) {
+            newItems.push({
+              id: `q_resend_${intro.id}`,
+              type: 'q_resend',
+              text: `⚠ ${intro.member_name}'s questionnaire still not answered — class in ${timeLabel}`,
+              actionLabel: 'Resend Script',
+              completed: qReflected,
+              urgency: qReflected ? 'normal' : 'red',
+              sortOrder: qReflected ? 9000 : 50,
+              targetId: intro.id,
+              memberName: intro.member_name,
+              classTime: intro.intro_time || undefined,
+              minutesUntilClass: minutesUntil,
+            });
+          } else if (minutesUntil > 120) {
+            newItems.push({
+              id: `q_resend_${intro.id}`,
+              type: 'q_resend',
+              text: `Resend questionnaire to ${intro.member_name} — hasn't answered yet`,
+              actionLabel: 'Resend Script',
+              completed: qReflected,
+              urgency: 'normal',
+              sortOrder: qReflected ? 9000 : 400 + minutesUntil,
+              targetId: intro.id,
+              memberName: intro.member_name,
+              classTime: intro.intro_time || undefined,
+              minutesUntilClass: minutesUntil,
+            });
+          }
         }
 
         // Prep & role play

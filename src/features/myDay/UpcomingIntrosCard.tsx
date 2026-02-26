@@ -5,6 +5,7 @@
  * Cards show Prep | Script | Coach buttons.
  */
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,33 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
+
+  // Compute focused booking: nearest today's intro within 2 hours
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const [focusedBookingId, setFocusedBookingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const compute = () => {
+      const now = new Date();
+      let nearest: { id: string; mins: number } | null = null;
+      for (const item of items) {
+        if (item.classDate !== todayStr || !item.introTime) continue;
+        try {
+          const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+          const mins = differenceInMinutes(classStart, now);
+          if (mins > 0 && mins <= 120) {
+            if (!nearest || mins < nearest.mins) {
+              nearest = { id: item.bookingId, mins };
+            }
+          }
+        } catch {}
+      }
+      setFocusedBookingId(nearest?.id || null);
+    };
+    compute();
+    const interval = setInterval(compute, 60000);
+    return () => clearInterval(interval);
+  }, [items, todayStr]);
 
   // Week tab: day sub-tabs
   const isWeekView = fixedTimeRange === 'restOfWeek';
@@ -290,6 +318,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 onRefresh={refreshAll}
                 needsOutcome={timeRange === 'needsOutcome'}
                 confirmResults={confirmResults}
+                focusedBookingId={focusedBookingId}
               />
             ))}
           </div>
