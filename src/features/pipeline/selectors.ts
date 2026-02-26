@@ -181,7 +181,12 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
     const hasMissedResult = journey.runs.some(
       r => r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
     );
-    if (!hasPurchased && hasMissedResult) counts.missed_guest++;
+    const hasUpcoming2ndIntroForCount = journey.bookings.some(b =>
+      b.originating_booking_id &&
+      (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') &&
+      isBookingUpcoming(b)
+    );
+    if (!hasPurchased && hasMissedResult && !hasUpcoming2ndIntroForCount) counts.missed_guest++;
 
     const has2ndIntro = journey.bookings.some(b => b.originating_booking_id) ||
       journey.runs.some(r => r.result === 'Booked 2nd intro') ||
@@ -251,10 +256,17 @@ export function filterJourneysByTab(
         const hasValidRun = journey.runs.some(r => r.result !== 'No-show');
         return hasActiveBooking && !hasValidRun && journey.runs.every(r => !r || r.result === 'No-show');
       }
-      case 'missed_guest':
+      case 'missed_guest': {
         if (hasPurchased) return false;
         if (journey.status === 'not_interested') return false;
+        const hasUpcoming2ndIntro = journey.bookings.some(b =>
+          b.originating_booking_id &&
+          (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') &&
+          isBookingUpcoming(b)
+        );
+        if (hasUpcoming2ndIntro) return false;
         return journey.runs.some(r => r.result === 'Follow-up needed' || r.result === "Didn't Buy" || r.result === 'Booked 2nd intro');
+      }
       case 'second_intro':
         if (hasPurchased) return false;
         return journey.bookings.some(b => b.originating_booking_id) ||

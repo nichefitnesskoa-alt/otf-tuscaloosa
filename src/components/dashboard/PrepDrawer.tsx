@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { getCurrentPayPeriod, formatDate as fmtDate } from '@/lib/pay-period';
 import {
@@ -379,7 +380,7 @@ export function PrepDrawer({
                 <div className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-muted-foreground text-xs w-16">Phone</span>
-                  <button onClick={() => window.open(`tel:${phone}`)} className="text-primary underline text-xs font-medium">{phone}</button>
+                  <button onClick={() => window.open(`tel:${phone}`)} className="text-primary underline text-xs font-medium">{formatPhoneDisplay(phone) || phone}</button>
                 </div>
               )}
               {email && (
@@ -432,6 +433,47 @@ export function PrepDrawer({
                       >
                         ✗ No — keep it low key
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Section 2.5 — What They Told Us */}
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/40">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <ClipboardList className="w-3.5 h-3.5" /> WHAT THEY TOLD US
+                      </p>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {hasQ ? (
+                        <>
+                          {goal && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Goal</span><p className="text-sm font-semibold leading-snug">"{goal}"</p></div>
+                          )}
+                          {emotionalDriver && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Why</span><p className="text-sm font-semibold leading-snug">"{emotionalDriver}"</p></div>
+                          )}
+                          {obstacle && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Obstacle</span><p className="text-sm font-semibold leading-snug">"{obstacle}"</p></div>
+                          )}
+                          {pastExp && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Past experience</span><p className="text-xs leading-snug">"{pastExp}"</p></div>
+                          )}
+                          {fitnessLevel != null && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Fitness Level</span><p className="text-xs">{fitnessLevel}/5</p></div>
+                          )}
+                          {commitment && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Commitment</span><p className="text-xs">{commitment} days/week</p></div>
+                          )}
+                          {questionnaire?.q6b_available_days && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Available days</span><p className="text-xs">{questionnaire.q6b_available_days}</p></div>
+                          )}
+                          {questionnaire?.q7_coach_notes && (
+                            <div><span className="text-muted-foreground text-[10px] uppercase tracking-wide">Coach notes</span><p className="text-xs">"{questionnaire.q7_coach_notes}"</p></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">No questionnaire answers yet</p>
+                      )}
                     </div>
                   </div>
 
@@ -707,6 +749,24 @@ export function PrepDrawer({
           {oneLiner && (
             <div className="mb-2 p-1.5 border-2 border-black">
               <div className="font-bold">"{oneLiner}"</div>
+            </div>
+          )}
+
+          {/* WHAT THEY TOLD US — Print */}
+          {hasQ && (
+            <div className="mb-2" style={{ fontSize: '10px' }}>
+              <div className="font-bold mb-0.5">WHAT THEY TOLD US</div>
+              {goal && <div>Goal: "{goal}"</div>}
+              {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
+              {obstacle && <div>Obstacle: "{obstacle}"</div>}
+              {(fitnessLevel != null || commitment) && (
+                <div>
+                  {fitnessLevel != null ? `Level: ${fitnessLevel}/5` : ''}
+                  {fitnessLevel != null && commitment ? ' | ' : ''}
+                  {commitment ? `Commit: ${commitment} days/week` : ''}
+                </div>
+              )}
+              {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
             </div>
           )}
 
