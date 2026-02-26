@@ -177,12 +177,17 @@ All colors MUST be HSL.
     page-break-inside: avoid !important;
   }
 
-  /* Hide Radix overlays, toasts, nav, etc */
-  [data-radix-portal],
+  /* Hide Radix overlays, toasts, nav, etc — but keep portal containing print card */
+  [data-radix-portal]:not(:has([data-print-card])),
   [role="dialog"],
   nav,
   header,
   .sonner-toast-wrapper {
+    display: none !important;
+  }
+
+  /* Hide sheet chrome inside the print-card portal so only the card shows */
+  [data-radix-portal]:has([data-print-card]) [role="dialog"] > *:not([data-print-card]) {
     display: none !important;
   }
 }
