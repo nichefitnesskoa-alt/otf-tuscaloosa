@@ -70,26 +70,32 @@ export function extractPhone(raw: string | null | undefined): string | null {
 export function stripCountryCode(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, '');
-  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
+
+  // +1 / 1 + 10 digits
+  if (digits.length === 11 && digits.startsWith('1')) {
+    const ten = digits.slice(1);
+    // NANP: area code cannot start with 0 or 1
+    if (ten[0] === '0' || ten[0] === '1') return null;
+    return ten;
+  }
+
+  // 10 digits
   if (digits.length === 10) {
-    // If starts with '1', it's likely a country-code leak with a truncated last digit.
-    // US area codes never start with 0 or 1, so this is never a valid 10-digit US number.
-    // We can't recover the missing digit, so return null to flag it as invalid.
-    if (digits.startsWith('1') || digits.startsWith('0')) return null;
+    // NANP: area code cannot start with 0 or 1
+    if (digits[0] === '0' || digits[0] === '1') return null;
     return digits;
   }
+
   return null;
 }
 
 /**
  * Format any phone value for display: (205) 555-1234
- * Handles +1XXXXXXXXXX, 1XXXXXXXXXX, raw 10-digit, and already-formatted strings.
+ * Returns null for invalid/unparseable values.
  */
 export function formatPhoneDisplay(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const clean = stripCountryCode(raw);
-  if (clean) {
-    return `(${clean.slice(0, 3)}) ${clean.slice(3, 6)}-${clean.slice(6)}`;
-  }
-  return raw; // Return as-is if not parseable
+  if (!clean) return null;
+  return `(${clean.slice(0, 3)}) ${clean.slice(3, 6)}-${clean.slice(6)}`;
 }

@@ -886,6 +886,7 @@ export type Database = {
           run_date: string | null
           run_id: string | null
           sa_name: string | null
+          second_intro_reason: string | null
           sheets_row_number: number | null
           shift_recap_id: string | null
           vip_converted: boolean
@@ -934,6 +935,7 @@ export type Database = {
           run_date?: string | null
           run_id?: string | null
           sa_name?: string | null
+          second_intro_reason?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
           vip_converted?: boolean
@@ -982,6 +984,7 @@ export type Database = {
           run_date?: string | null
           run_id?: string | null
           sa_name?: string | null
+          second_intro_reason?: string | null
           sheets_row_number?: number | null
           shift_recap_id?: string | null
           vip_converted?: boolean
