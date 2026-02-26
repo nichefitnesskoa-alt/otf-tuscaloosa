@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -585,7 +586,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               <a href={`tel:${item.phone}`} onClick={e => e.stopPropagation()}>
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal cursor-pointer hover:text-primary">
                   <Phone className="w-2.5 h-2.5" />
-                  {item.phone}
+                  {formatPhoneDisplay(item.phone) || item.phone}
                 </Badge>
               </a>
             ) : (

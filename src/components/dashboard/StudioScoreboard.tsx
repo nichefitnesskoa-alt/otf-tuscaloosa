@@ -91,64 +91,7 @@ export function StudioScoreboard({
           </TooltipProvider>
         </div>
 
-        {/* Show Rate Row */}
-        {showRate !== undefined && (
-          <div className="border-t border-background/20 pt-3 mb-3">
-            <div className="grid grid-cols-3 gap-3">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-center p-2 bg-background/10 rounded-lg">
-                      <CalendarCheck className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                      <p className="text-xl font-bold">{introsBooked}</p>
-                      <p className="text-xs opacity-70">Booked</p>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Total 1st intro bookings (excludes VIP, 2nd intros)</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-center p-2 bg-background/10 rounded-lg">
-                      <Users className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                      <p className="text-xl font-bold">
-                        <span className={showRate >= 75 ? 'text-success' : showRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                          {showRate.toFixed(0)}%
-                        </span>
-                      </p>
-                      <div className="flex items-center justify-center gap-0.5">
-                        <p className="text-xs opacity-70">Show Rate</p>
-                        <Info className="w-3 h-3 opacity-50" />
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[220px]">
-                    <p>Showed ÷ Booked (past + today only). Future bookings excluded from denominator.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-center p-2 bg-background/10 rounded-lg">
-                      <AlertTriangle className="w-4 h-4 mx-auto mb-1 opacity-70" />
-                      <p className="text-xl font-bold text-destructive">{noShows}</p>
-                      <p className="text-xs opacity-70">No-Shows</p>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Intros with a confirmed No-show result. Cancels, reschedules, and future bookings excluded.</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-
-            <p className="text-[10px] opacity-50 text-center mt-2">
-              {introsBooked} Booked → {introsShowed} Showed ({showRate.toFixed(0)}%) → {introSales} Sold ({closingRate.toFixed(0)}%)
-            </p>
-          </div>
-        )}
+        
 
         {/* Lead Measures Row — Q Completion + Prep Rate */}
         <div className="border-t border-background/20 pt-3">

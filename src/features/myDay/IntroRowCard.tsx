@@ -18,6 +18,57 @@ import { StatusBanner } from '@/components/shared/StatusBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
+import { COACHES } from '@/types';
+
+/** Inline coach picker for TBD coaches */
+function InlineCoachPicker({ bookingId, currentCoach, userName, onSaved }: { bookingId: string; currentCoach: string | null; userName: string; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="text-destructive font-semibold hover:underline cursor-pointer"
+      >
+        🏋️ {currentCoach || 'Coach TBD'}
+      </button>
+    );
+  }
+
+  return (
+    <select
+      className="h-5 text-xs border rounded px-1 bg-background text-foreground"
+      defaultValue=""
+      autoFocus
+      disabled={saving}
+      onChange={async (e) => {
+        const val = e.target.value;
+        if (!val) return;
+        setSaving(true);
+        try {
+          await supabase.from('intros_booked').update({
+            coach_name: val,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: userName,
+          }).eq('id', bookingId);
+          toast.success(`Coach set to ${val}`);
+          onSaved();
+        } catch {
+          toast.error('Failed to update coach');
+        } finally {
+          setSaving(false);
+          setEditing(false);
+        }
+      }}
+      onBlur={() => setEditing(false)}
+    >
+      <option value="">Select coach…</option>
+      {COACHES.map(c => <option key={c} value={c}>{c}</option>)}
+    </select>
+  );
+}
 
 interface IntroRowCardProps {
   item: UpcomingIntroItem;
@@ -300,9 +351,11 @@ export default function IntroRowCard({
               </button>
             )}
             <span>·</span>
-            <span className={cn(!item.coachName || item.coachName === 'TBD' ? 'text-destructive' : '')}>
-              {item.coachName || 'Coach TBD'}
-            </span>
+            {(!item.coachName || item.coachName === 'TBD') ? (
+              <InlineCoachPicker bookingId={item.bookingId} currentCoach={item.coachName} userName={userName} onSaved={onRefresh} />
+            ) : (
+              <span>{item.coachName}</span>
+            )}
             {item.introOwner && (
               <>
                 <span>·</span>
@@ -330,16 +383,6 @@ export default function IntroRowCard({
           {item.leadSource && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
               {item.leadSource}
-            </Badge>
-          )}
-          {item.confirmedAt && (
-            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-emerald-200 border">
-              Confirmed
-            </Badge>
-          )}
-          {confirmationResult === 'unreachable' && !item.confirmedAt && (
-            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-amber-200 border">
-              ⚠ Unconfirmed
             </Badge>
           )}
           
@@ -424,27 +467,7 @@ export default function IntroRowCard({
 
         {/* Row 5: Log as Sent + Secondary actions */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* 2nd intro: dedicated confirmation button */}
-          {item.isSecondIntro && !item.confirmedAt && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] gap-1 border-blue-400 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30 font-semibold"
-              onClick={guardOnline(() => {
-                window.dispatchEvent(new CustomEvent('myday:open-script', {
-                  detail: { bookingId: item.bookingId, isSecondIntro: true },
-                }));
-              })}
-            >
-              <Send className="w-3 h-3" />
-              Send 2nd Intro Confirmation
-            </Button>
-          )}
-          {item.isSecondIntro && item.confirmedAt && (
-            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-700 border-emerald-300 border">
-              ✓ Confirmation Sent
-            </Badge>
-          )}
+          
           {!item.isSecondIntro && (localQStatus === 'NO_Q') && (
             <Button
               variant="outline"
@@ -575,7 +598,7 @@ export default function IntroRowCard({
                 ? '#16a34a'
                 : item.latestRunResult === 'Booked 2nd intro'
                 ? '#2563eb'
-                : item.latestRunResult === "Didn't Buy"
+                : item.latestRunResult === 'Follow-up needed'
                 ? '#dc2626'
                 : item.latestRunResult === 'No-show'
                 ? '#64748b'
@@ -586,8 +609,8 @@ export default function IntroRowCard({
                 ? `✓ Purchased — ${item.latestRunResult}`
                 : item.latestRunResult === 'Booked 2nd intro'
                 ? '📅 Booked 2nd Intro'
-                : item.latestRunResult === "Didn't Buy"
-                ? "✗ Didn't Buy"
+                : item.latestRunResult === 'Follow-up needed'
+                ? '📋 Follow-up Needed'
                 : item.latestRunResult === 'No-show'
                 ? '👻 No-show'
                 : `⏳ ${item.latestRunResult}`

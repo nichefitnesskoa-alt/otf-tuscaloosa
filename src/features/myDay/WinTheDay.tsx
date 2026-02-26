@@ -339,7 +339,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
 
         <CollapsibleContent>
           <div className="px-4 pb-3 space-y-1">
-            {items.map(item => (
+            {items.filter(i => !i.completed).map(item => (
               <ChecklistRow
                 key={item.id}
                 item={item}
@@ -347,6 +347,30 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
                 onCircleTap={handleCircleTap}
               />
             ))}
+            {/* Completed tasks collapse into dropdown */}
+            {items.filter(i => i.completed).length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground mt-2 py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors">
+                    <Check className="w-3 h-3 text-success" />
+                    <span>Completed ✓ ({items.filter(i => i.completed).length})</span>
+                    <ChevronDown className="w-3 h-3 ml-auto" />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-1 mt-1">
+                    {items.filter(i => i.completed).map(item => (
+                      <ChecklistRow
+                        key={item.id}
+                        item={item}
+                        onAction={handleAction}
+                        onCircleTap={handleCircleTap}
+                      />
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>

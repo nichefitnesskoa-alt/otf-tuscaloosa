@@ -253,7 +253,8 @@ export function filterJourneysByTab(
       }
       case 'missed_guest':
         if (hasPurchased) return false;
-        return journey.runs.some(r => r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro');
+        if (journey.status === 'not_interested') return false;
+        return journey.runs.some(r => r.result === 'Follow-up needed' || r.result === "Didn't Buy" || r.result === 'Booked 2nd intro');
       case 'second_intro':
         if (hasPurchased) return false;
         return journey.bookings.some(b => b.originating_booking_id) ||

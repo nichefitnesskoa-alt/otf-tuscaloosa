@@ -1,6 +1,7 @@
 import { Tables } from '@/integrations/supabase/types';
 import { formatDistanceToNow, parseISO, isBefore, differenceInMinutes, differenceInDays } from 'date-fns';
 import { AlertCircle, Flame } from 'lucide-react';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
