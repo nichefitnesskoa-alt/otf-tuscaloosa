@@ -121,8 +121,8 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           // 2. 6-day cooling guardrail
           supabase.from('follow_up_queue').select('person_name')
             .eq('status', 'sent').gte('sent_at', sixDaysAgo + 'T00:00:00').in('person_name', personNames),
-          // 3. Script_actions for manual contacts
-          supabase.from('script_actions').select('booking_id').gte('completed_at', sixDaysAgo + 'T00:00:00'),
+          // 3. Script_actions cooling (only outreach actions, not passive logging like past_text)
+          supabase.from('script_actions').select('booking_id').gte('completed_at', sixDaysAgo + 'T00:00:00').in('action_type', ['script_sent', 'confirmation_sent']),
           // 4. EXIT: Check if person purchased via ANY intro run (name match)
           supabase.from('intros_run').select('member_name, result').in('member_name', personNames),
           // 5. EXIT: Check for future bookings (2nd intro booked)

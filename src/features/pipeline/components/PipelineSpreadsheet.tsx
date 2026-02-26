@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isVipBooking } from '@/lib/vip/vipRules';
-import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
+
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
@@ -34,6 +34,7 @@ interface PipelineSpreadsheetProps {
   isOnline: boolean;
   onOpenDialog: (type: string, data?: any) => void;
   onRefresh: () => Promise<void>;
+  onOpenScript?: (journey: ClientJourney) => void;
 }
 
 type SortDir = 'asc' | 'desc';
@@ -231,14 +232,14 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
 // ── Main component ──
 
 export function PipelineSpreadsheet({
-  journeys, vipGroups, vipInfoMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh,
+  journeys, vipGroups, vipInfoMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
 }: PipelineSpreadsheetProps) {
   const { user } = useAuth();
   const parentRef = useRef<HTMLDivElement>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>(getDefaultSort(activeTab).key);
   const [sortDir, setSortDir] = useState<SortDir>(getDefaultSort(activeTab).dir);
-  const [scriptJourney, setScriptJourney] = useState<ClientJourney | null>(null);
+  
 
   // Reset sort when tab changes
   const columns = useMemo(() => getColumns(activeTab), [activeTab]);
@@ -331,7 +332,7 @@ export function PipelineSpreadsheet({
                   vipInfoMap={vipInfoMap}
                   onToggle={() => setExpandedKey(isExpanded ? null : journey.memberKey)}
                   onOpenDialog={onOpenDialog}
-                  onOpenScript={() => setScriptJourney(journey)}
+                  onOpenScript={() => onOpenScript?.(journey)}
                   isEven={vRow.index % 2 === 0}
                   userName={user?.name || 'Admin'}
                 />
@@ -341,13 +342,6 @@ export function PipelineSpreadsheet({
         </div>
       </div>
 
-      {scriptJourney && (
-        <PipelineScriptPicker
-          journey={scriptJourney as any}
-          open={!!scriptJourney}
-          onOpenChange={(open) => { if (!open) setScriptJourney(null); }}
-        />
-      )}
     </>
   );
 }
