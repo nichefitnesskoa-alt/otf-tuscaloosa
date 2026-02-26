@@ -23,12 +23,13 @@ import { isVipBooking } from '@/lib/vip/vipRules';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
-import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo } from '../pipelineTypes';
+import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
   vipGroups: [string, ClientJourney[]][] | null;
   vipInfoMap: Map<string, VipInfo>;
+  scriptActionsMap: Map<string, PipelineScriptAction[]>;
   isLoading: boolean;
   activeTab: JourneyTab;
   isOnline: boolean;
@@ -93,6 +94,8 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
         { key: 'coach', label: 'Coach', sortable: true },
         { key: 'lead_source', label: 'Lead Source', sortable: true },
         { key: 'q_status', label: 'Q Status', sortable: true },
+        { key: 'touch', label: 'Touch', sortable: true },
+        { key: 'last_contact', label: 'Last Contact', sortable: true },
         { key: 'sa', label: 'SA', sortable: true },
         { key: 'actions', label: 'Actions' },
       ];
@@ -114,6 +117,8 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
         { key: 'outcome', label: 'Outcome', sortable: true },
         { key: 'membership', label: 'Membership', sortable: true },
         { key: 'commission', label: 'Commission', sortable: true },
+        { key: 'touch', label: 'Touch', sortable: true },
+        { key: 'last_contact', label: 'Last Contact', sortable: true },
         { key: 'sa', label: 'SA', sortable: true },
         { key: 'coach', label: 'Coach', sortable: true },
         { key: 'actions', label: 'Actions' },
@@ -136,6 +141,8 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
         { key: 'sa', label: 'SA', sortable: true },
         { key: 'phone', label: 'Phone', sortable: true },
         { key: 'lead_source', label: 'Lead Source', sortable: true },
+        { key: 'touch', label: 'Touch', sortable: true },
+        { key: 'last_contact', label: 'Last Contact', sortable: true },
         { key: 'actions', label: 'Actions' },
       ];
     case 'second_intro':
@@ -154,6 +161,8 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
         { key: 'class_date', label: 'Class Date', sortable: true },
         { key: 'objection', label: 'Objection', sortable: true },
         { key: 'sa', label: 'SA', sortable: true },
+        { key: 'touch', label: 'Touch', sortable: true },
+        { key: 'last_contact', label: 'Last Contact', sortable: true },
         { key: 'notes', label: 'Notes', sortable: false },
         { key: 'actions', label: 'Actions' },
       ];
@@ -174,6 +183,8 @@ function getColumns(tab: JourneyTab): ColumnDef[] {
         { key: 'class_time', label: 'Class Time', sortable: true },
         { key: 'coach', label: 'Coach', sortable: true },
         { key: 'lead_source', label: 'Lead Source', sortable: true },
+        { key: 'touch', label: 'Touch', sortable: true },
+        { key: 'last_contact', label: 'Last Contact', sortable: true },
         { key: 'status', label: 'Status', sortable: true },
         { key: 'sa', label: 'SA', sortable: true },
         { key: 'actions', label: 'Actions' },
@@ -232,7 +243,7 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
 // ── Main component ──
 
 export function PipelineSpreadsheet({
-  journeys, vipGroups, vipInfoMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
+  journeys, vipGroups, vipInfoMap, scriptActionsMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
 }: PipelineSpreadsheetProps) {
   const { user } = useAuth();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -330,6 +341,7 @@ export function PipelineSpreadsheet({
                   isExpanded={isExpanded}
                   isOnline={isOnline}
                   vipInfoMap={vipInfoMap}
+                  scriptActionsMap={scriptActionsMap}
                   onToggle={() => setExpandedKey(isExpanded ? null : journey.memberKey)}
                   onOpenDialog={onOpenDialog}
                   onOpenScript={() => onOpenScript?.(journey)}
@@ -355,6 +367,7 @@ interface SpreadsheetRowProps {
   isExpanded: boolean;
   isOnline: boolean;
   vipInfoMap: Map<string, VipInfo>;
+  scriptActionsMap: Map<string, PipelineScriptAction[]>;
   onToggle: () => void;
   onOpenDialog: (type: string, data?: any) => void;
   onOpenScript: () => void;
@@ -363,7 +376,7 @@ interface SpreadsheetRowProps {
 }
 
 const SpreadsheetRow = memo(function SpreadsheetRow({
-  journey, columns, activeTab, isExpanded, isOnline, vipInfoMap,
+  journey, columns, activeTab, isExpanded, isOnline, vipInfoMap, scriptActionsMap,
   onToggle, onOpenDialog, onOpenScript, isEven, userName,
 }: SpreadsheetRowProps) {
   const b = getLatestBooking(journey);
@@ -426,8 +439,19 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
             <Copy className="w-3 h-3" /> {formatPhoneDisplay(phone) || phone}
           </button>
         ) : <span className="text-xs text-muted-foreground">—</span>;
-      case 'touch': return <span className="text-xs">—</span>;
-      case 'last_contact': return <span className="text-xs">—</span>;
+      case 'touch': {
+        const allActions = journey.bookings.flatMap(bk => scriptActionsMap.get(bk.id) || []);
+        const count = allActions.length;
+        return count > 0
+          ? <Badge variant="secondary" className="text-[10px]">{count} text{count !== 1 ? 's' : ''}</Badge>
+          : <span className="text-xs text-muted-foreground">—</span>;
+      }
+      case 'last_contact': {
+        const allActions2 = journey.bookings.flatMap(bk => scriptActionsMap.get(bk.id) || []);
+        if (allActions2.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        const latest = allActions2.reduce((a, b) => a.completed_at > b.completed_at ? a : b);
+        return <span className="text-xs text-muted-foreground">{formatDistanceToNow(parseISO(latest.completed_at), { addSuffix: true })}</span>;
+      }
       case 'objection': return <span className="text-xs truncate">{r?.notes || '—'}</span>;
       case 'notes': return <span className="text-xs truncate max-w-[180px] block">{r?.notes || '—'}</span>;
       case 'original_date': {
@@ -525,6 +549,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
         <ExpandedRowDetail
           journey={journey}
           vipInfoMap={vipInfoMap}
+          scriptActionsMap={scriptActionsMap}
           isOnline={isOnline}
           onOpenDialog={onOpenDialog}
           onOpenScript={onOpenScript}
@@ -541,10 +566,11 @@ const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya'
 const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
 
 function ExpandedRowDetail({
-  journey, vipInfoMap, isOnline, onOpenDialog, onOpenScript, userName,
+  journey, vipInfoMap, scriptActionsMap, isOnline, onOpenDialog, onOpenScript, userName,
 }: {
   journey: ClientJourney;
   vipInfoMap: Map<string, VipInfo>;
+  scriptActionsMap: Map<string, PipelineScriptAction[]>;
   isOnline: boolean;
   onOpenDialog: (type: string, data?: any) => void;
   onOpenScript: () => void;
@@ -755,6 +781,33 @@ function ExpandedRowDetail({
           </div>
         </div>
       )}
+
+      {/* Outreach Log */}
+      {(() => {
+        const allActions = journey.bookings
+          .flatMap(bk => scriptActionsMap.get(bk.id) || [])
+          .sort((a, b) => b.completed_at.localeCompare(a.completed_at));
+        return (
+          <div>
+            <div className="text-xs font-semibold mb-1">Outreach Log ({allActions.length})</div>
+            {allActions.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No outreach logged yet</p>
+            ) : (
+              <div className="space-y-1">
+                {allActions.map(a => (
+                  <div key={a.id} className="text-xs p-2 bg-background rounded border flex items-center gap-2">
+                    <span>📤</span>
+                    <span className="font-medium">{a.action_type}</span>
+                    {a.script_category && <span className="text-muted-foreground">· {a.script_category}</span>}
+                    <span className="text-muted-foreground">· by {a.completed_by}</span>
+                    <span className="text-muted-foreground ml-auto">{formatDistanceToNow(parseISO(a.completed_at), { addSuffix: true })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Action bar */}
       <div className="pt-2 border-t border-dashed flex gap-2 flex-wrap">

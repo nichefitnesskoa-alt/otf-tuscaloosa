@@ -102,3 +102,14 @@ export interface VipInfo {
   phone: string | null;
   email: string | null;
 }
+
+/** Script action logged against a booking */
+export interface PipelineScriptAction {
+  id: string;
+  booking_id: string | null;
+  lead_id: string | null;
+  action_type: string;
+  script_category: string | null;
+  completed_at: string;
+  completed_by: string;
+}

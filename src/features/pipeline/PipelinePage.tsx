@@ -187,6 +187,7 @@ export default function PipelinePage() {
               journeys={pipeline.filteredJourneys}
               vipGroups={pipeline.vipGroups}
               vipInfoMap={pipeline.vipInfoMap}
+              scriptActionsMap={pipeline.scriptActionsMap}
               isLoading={pipeline.isLoading}
               activeTab={pipeline.activeTab}
               isOnline={isOnline}
