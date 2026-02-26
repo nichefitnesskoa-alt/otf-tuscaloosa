@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { GroupMeSettings } from '@/components/admin/GroupMeSettings';
 import DataHealthPanel from '@/components/admin/DataHealthPanel';
+import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import { useMemo } from 'react';
 import { getDateRangeForPreset } from '@/lib/pay-period';
 
@@ -25,6 +26,8 @@ export default function SettingsPage() {
           System configuration and health monitoring
         </p>
       </div>
+
+      <LeadSheetImport />
 
       <GroupMeSettings />
 
