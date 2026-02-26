@@ -20,16 +20,19 @@ import type {
   ClientJourney,
   JourneyTab,
   VipInfo,
+  PipelineScriptAction,
 } from './pipelineTypes';
 
 const BOOKING_SELECT = 'id, booking_id, member_name, class_date, intro_time, coach_name, sa_working_shift, booked_by, lead_source, fitness_goal, booking_status, booking_status_canon, booking_type_canon, intro_owner, intro_owner_locked, originating_booking_id, vip_class_name, phone, email, is_vip, rebooked_from_booking_id, rebook_reason, rebooked_at, created_at';
 const RUN_SELECT = 'id, run_id, member_name, run_date, class_time, result, result_canon, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date, coach_name, sa_name, amc_incremented_at';
+const SCRIPT_ACTION_SELECT = 'id, booking_id, lead_id, action_type, script_category, completed_at, completed_by';
 
 export function usePipelineData() {
   const { refreshData: refreshGlobalData } = useData();
   const [bookings, setBookings] = useState<PipelineBooking[]>([]);
   const [runs, setRuns] = useState<PipelineRun[]>([]);
   const [vipInfoMap, setVipInfoMap] = useState<Map<string, VipInfo>>(new Map());
+  const [scriptActionsMap, setScriptActionsMap] = useState<Map<string, PipelineScriptAction[]>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<JourneyTab>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,14 +42,26 @@ export function usePipelineData() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [bookingsRes, runsRes] = await Promise.all([
+      const [bookingsRes, runsRes, actionsRes] = await Promise.all([
         supabase.from('intros_booked').select(BOOKING_SELECT).is('deleted_at', null).order('created_at', { ascending: false }),
         supabase.from('intros_run').select(RUN_SELECT).order('run_date', { ascending: false }),
+        supabase.from('script_actions').select(SCRIPT_ACTION_SELECT).order('completed_at', { ascending: false }),
       ]);
       if (bookingsRes.error) throw bookingsRes.error;
       if (runsRes.error) throw runsRes.error;
       setBookings((bookingsRes.data || []) as PipelineBooking[]);
       setRuns((runsRes.data || []) as PipelineRun[]);
+      // Build script actions map keyed by booking_id
+      const actionsData = (actionsRes.data || []) as PipelineScriptAction[];
+      const map = new Map<string, PipelineScriptAction[]>();
+      actionsData.forEach(a => {
+        if (a.booking_id) {
+          const existing = map.get(a.booking_id) || [];
+          existing.push(a);
+          map.set(a.booking_id, existing);
+        }
+      });
+      setScriptActionsMap(map);
     } catch (error) {
       console.error('Error fetching pipeline data:', error);
       toast.error('Failed to load pipeline data');
@@ -108,6 +123,7 @@ export function usePipelineData() {
     filteredJourneys,
     vipGroups,
     vipInfoMap,
+    scriptActionsMap,
     tabCounts,
     leadSourceOptions,
     inconsistencyCount,
