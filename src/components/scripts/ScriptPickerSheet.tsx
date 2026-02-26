@@ -3,13 +3,15 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Link2, Check } from 'lucide-react';
+import { Search, Link2, Check, Sparkles, Copy, RefreshCw } from 'lucide-react';
 import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
 import { TemplateCategoryTabs } from './TemplateCategoryTabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Deterministic tab-to-DB-category mapping
 const TAB_CATEGORY_MAP: Record<string, string[]> = {
@@ -55,6 +57,10 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiScript, setAiScript] = useState('');
+  const [aiCategory, setAiCategory] = useState(suggestedCategories[0] || 'follow_up');
   const { data: templates = [] } = useScriptTemplates();
 
   // Member context state — populated when bookingId is provided
@@ -180,13 +186,68 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     (c) => SCRIPT_CATEGORIES.find((sc) => sc.value === c)
   ).filter(Boolean);
 
+  const handleAiGenerate = async () => {
+    setAiGenerating(true);
+    setAiScript('');
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-script`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({
+          personName: memberCtx?.name || mergeContext['first-name'] || '',
+          goal: memberCtx?.goal || '',
+          why: memberCtx?.why || '',
+          obstacle: memberCtx?.obstacle || '',
+          fitnessLevel: '',
+          objection: '',
+          leadSource: '',
+          scriptCategory: SCRIPT_CATEGORIES.find(c => c.value === aiCategory)?.label || aiCategory,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setAiScript(data.script || 'No script generated');
+    } catch (err: any) {
+      toast.error('AI generation failed');
+      console.error(err);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleUseAiScript = async () => {
+    if (!aiScript) return;
+    await navigator.clipboard.writeText(aiScript);
+    toast.success('Script copied to clipboard');
+    // Log as sent
+    if (bookingId) {
+      await supabase.from('script_send_log').insert({
+        template_id: '00000000-0000-0000-0000-000000000000',
+        booking_id: bookingId,
+        sent_by: mergeContext['sa-name'] || 'Unknown',
+        message_body_sent: aiScript,
+      } as any);
+    }
+    setAiPanelOpen(false);
+    setAiScript('');
+    onLogged?.();
+  };
+
   return (
     <>
-      <Drawer open={open && !selectedTemplate} onOpenChange={onOpenChange}>
+      <Drawer open={open && !selectedTemplate && !aiPanelOpen} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="pb-2">
             <DrawerTitle className="text-lg">Select Script</DrawerTitle>
           </DrawerHeader>
+
+          {/* AI Generate button */}
+          <div className="mx-4 mb-2">
+            <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-1.5 border-primary/30" onClick={() => setAiPanelOpen(true)}>
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              ✨ AI Generate Script
+            </Button>
+          </div>
 
           {/* Member Context Panel — only shown when bookingId is provided */}
           {bookingId && (

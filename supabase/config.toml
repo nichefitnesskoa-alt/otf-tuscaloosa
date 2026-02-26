@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.weekly-digest]
 verify_jwt = false
+
+[functions.generate-script]
+verify_jwt = false
+
+[functions.studio-intelligence]
+verify_jwt = false
