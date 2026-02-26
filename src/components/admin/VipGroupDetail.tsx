@@ -27,6 +27,7 @@ import {
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { IntroActionBar } from '@/components/ActionBar';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 
 interface VipSession {
   id: string;
@@ -527,7 +528,7 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-medium text-sm">{member.member_name}</span>
                 {phone ? (
-                  <span className="text-xs text-muted-foreground">{phone}</span>
+                  <span className="text-xs text-muted-foreground">{formatPhoneDisplay(phone) || phone}</span>
                 ) : (
                   <Badge variant="destructive" className="text-[9px] px-1 py-0">No Phone</Badge>
                 )}
@@ -579,7 +580,7 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                 <span className={phone ? 'text-foreground' : 'text-muted-foreground italic'}>
-                  {phone || 'Not provided'}
+                  {formatPhoneDisplay(phone) || phone || 'Not provided'}
                 </span>
               </div>
               <div className="flex items-center gap-2">

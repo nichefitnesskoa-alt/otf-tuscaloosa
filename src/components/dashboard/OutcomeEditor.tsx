@@ -30,10 +30,10 @@ interface OutcomeEditorProps {
 export function OutcomeEditor({ bookingId, memberName, classDate, currentResult, currentObjection, onDone }: OutcomeEditorProps) {
   const { user } = useAuth();
   const wasPurchased = isMembershipSale(currentResult);
-  const wasDidntBuy = currentResult === "Didn't Buy";
+  const wasFollowUp = currentResult === "Didn't Buy" || currentResult === 'Follow-up needed';
   const wasNoShow = currentResult === 'No-show';
 
-  const initialOutcome = wasPurchased ? 'purchased' : wasDidntBuy ? 'didnt_buy' : wasNoShow ? 'no_show' : '';
+  const initialOutcome = wasPurchased ? 'purchased' : wasFollowUp ? 'follow_up' : wasNoShow ? 'no_show' : '';
   const [outcome, setOutcome] = useState(initialOutcome);
   const [objection, setObjection] = useState(currentObjection || '');
   const initialMembership = wasPurchased
@@ -54,8 +54,8 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
       if (outcome === 'purchased') {
         newResult = membershipType;
         newCommission = selectedOption?.commission || 0;
-      } else if (outcome === 'didnt_buy') {
-        newResult = "Didn't Buy";
+      } else if (outcome === 'follow_up') {
+        newResult = 'Follow-up needed';
       } else if (outcome === 'no_show') {
         newResult = 'No-show';
       }
@@ -68,7 +68,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         previousResult: currentResult,
         membershipType: outcome === 'purchased' ? membershipType : undefined,
         commissionAmount: newCommission,
-        objection: outcome === 'didnt_buy' ? objection || null : null,
+        objection: outcome === 'follow_up' ? objection || null : null,
         editedBy: saName,
         sourceComponent: 'OutcomeEditor',
         editReason: `Outcome changed from ${currentResult} to ${newResult} via MyDay`,
@@ -90,7 +90,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
     <div className="mt-2 p-2 rounded border bg-muted/30 space-y-2" onClick={e => e.stopPropagation()}>
       <div className="grid grid-cols-3 gap-1.5">
         <Button variant={outcome === 'purchased' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('purchased')}>Purchased</Button>
-        <Button variant={outcome === 'didnt_buy' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('didnt_buy')}>Didn't Buy</Button>
+        <Button variant={outcome === 'follow_up' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('follow_up')}>Follow-up</Button>
         <Button variant={outcome === 'no_show' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('no_show')}>No Show</Button>
       </div>
       {outcome === 'purchased' && (
@@ -105,7 +105,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
           </SelectContent>
         </Select>
       )}
-      {outcome === 'didnt_buy' && (
+      {outcome === 'follow_up' && (
         <Select value={objection} onValueChange={setObjection}>
           <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select objection" /></SelectTrigger>
           <SelectContent>
@@ -114,7 +114,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         </Select>
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection)}>
+        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'follow_up' && !objection)}>
           {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
           {saving ? 'Saving...' : 'Save'}
         </Button>

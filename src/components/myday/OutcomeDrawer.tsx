@@ -33,11 +33,19 @@ const SALE_OUTCOMES = [
 
 // ── Non-sale outcomes (Row B) ──
 const NON_SALE_OUTCOMES = [
-  { value: "Didn't Buy", label: "❌ Didn't Buy" },
-  { value: 'No-show', label: '👻 No-show' },
-  { value: 'Not interested', label: '🚫 Not interested' },
   { value: 'Follow-up needed', label: '📋 Follow-up needed' },
+  { value: 'No-show', label: '👻 No-show' },
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
+  { value: 'Not interested', label: '🚫 Not interested' },
+];
+
+const SECOND_INTRO_REASON_OPTIONS = [
+  { value: 'Price / Cost', label: '💰 Price / Cost' },
+  { value: 'Needs to think about it', label: '🤔 Needs to think about it' },
+  { value: 'Needs to talk to parents/spouse', label: '👨‍👩‍👧 Needs to talk to parents/spouse' },
+  { value: 'Timing isn\'t right', label: '📅 Timing isn\'t right' },
+  { value: 'Wants to try it first', label: '💪 Wants to try it first' },
+  { value: 'Other', label: '❓ Other' },
 ];
 
 // ── Reschedule outcomes (Row C) ──
@@ -100,6 +108,8 @@ export function OutcomeDrawer({
   // 2nd intro booking state
   const [secondIntroDate, setSecondIntroDate] = useState<Date | undefined>(undefined);
   const [secondIntroTime, setSecondIntroTime] = useState('');
+  const [secondIntroReason, setSecondIntroReason] = useState('');
+  const [secondIntroReasonOther, setSecondIntroReasonOther] = useState('');
   const [secondIntroCoach, setSecondIntroCoach] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -153,7 +163,8 @@ export function OutcomeDrawer({
   const isReschedule = outcome === 'Reschedule';
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
-  const needsObjection = outcome === "Didn't Buy" || outcome === 'No-show';
+  const needsObjection = outcome === 'Follow-up needed';
+  const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
   const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded;
 
@@ -281,6 +292,14 @@ export function OutcomeDrawer({
     if (coachRequired && !coachName) { toast.error('Select the coach who taught the class'); return; }
     if (isBookedSecondIntro && (!secondIntroDate || !secondIntroTime || !secondIntroCoach)) {
       toast.error('Fill in date, time, and coach for the 2nd intro');
+      return;
+    }
+    if (isBookedSecondIntroNeedsReason && !secondIntroReason) {
+      toast.error('Select what\'s holding them back');
+      return;
+    }
+    if (needsObjection && !objection) {
+      toast.error('Select the objection before saving');
       return;
     }
     setSaving(true);
@@ -421,58 +440,66 @@ export function OutcomeDrawer({
       )}
 
       {/* Reschedule fields */}
-      {isReschedule && (
-        <div className="space-y-2 border rounded-md p-2 bg-muted/20">
-          <p className="text-xs font-medium text-muted-foreground">New Class Details</p>
-
-          <div className="space-y-1">
-            <Label className="text-xs">New Date <span className="text-destructive">*</span></Label>
-            <Popover open={rescheduleCalendarOpen} onOpenChange={setRescheduleCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn('w-full h-8 text-sm justify-start font-normal', !rescheduleDate && 'text-muted-foreground')}
-                >
-                  <CalendarIcon className="w-3.5 h-3.5 mr-2" />
-                  {rescheduleDate ? format(rescheduleDate, 'MMM d, yyyy') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={rescheduleDate}
-                  onSelect={(d) => { setRescheduleDate(d); setRescheduleCalendarOpen(false); }}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs">New Time <span className="text-destructive">*</span></Label>
-            <Input
-              type="time"
-              value={rescheduleTime}
-              onChange={e => setRescheduleTime(e.target.value)}
-              className="h-8 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
-            <Select value={rescheduleCoach} onValueChange={setRescheduleCoach}>
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select coach…" />
+      {/* 2nd Intro Reason + Booking Details */}
+      {isBookedSecondIntro && (
+        <div className="space-y-3">
+          {/* Reason selector */}
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
+            <Label className="text-xs text-blue-700 dark:text-blue-300 font-semibold">What's holding them back? <span className="text-destructive">*</span></Label>
+            <Select value={secondIntroReason} onValueChange={setSecondIntroReason}>
+              <SelectTrigger className="h-8 text-sm bg-background">
+                <SelectValue placeholder="Select reason…" />
               </SelectTrigger>
               <SelectContent>
-                {COACHES.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                {SECOND_INTRO_REASON_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {secondIntroReason === 'Other' && (
+              <Input
+                value={secondIntroReasonOther}
+                onChange={e => setSecondIntroReasonOther(e.target.value)}
+                className="h-8 text-sm bg-background mt-2"
+                placeholder="Please specify..."
+              />
+            )}
+          </div>
+
+          <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground">2nd Intro Details</p>
+            <div className="space-y-1">
+              <Label className="text-xs">Date <span className="text-destructive">*</span></Label>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn('w-full h-8 text-sm justify-start font-normal', !secondIntroDate && 'text-muted-foreground')}>
+                    <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                    {secondIntroDate ? format(secondIntroDate, 'MMM d, yyyy') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={secondIntroDate}
+                    onSelect={(d) => { setSecondIntroDate(d); setCalendarOpen(false); }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Time <span className="text-destructive">*</span></Label>
+              <Input type="time" value={secondIntroTime} onChange={e => setSecondIntroTime(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
+              <Select value={secondIntroCoach} onValueChange={setSecondIntroCoach}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select coach…" /></SelectTrigger>
+                <SelectContent>{COACHES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       )}

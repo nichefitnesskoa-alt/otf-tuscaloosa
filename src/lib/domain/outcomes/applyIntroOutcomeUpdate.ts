@@ -40,6 +40,7 @@ export interface OutcomeUpdateParams {
     class_start_at: string;
     coach_name: string;
   };
+  secondIntroReason?: string;
 }
 
 export interface OutcomeUpdateResult {
@@ -68,9 +69,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
     const isNowSale = isMembershipSale(params.newResult);
     const wasSale = params.previousResult ? isMembershipSale(params.previousResult) : false;
-    const wasDidntBuy = params.previousResult === "Didn't Buy";
+    const wasDidntBuy = params.previousResult === "Didn't Buy" || params.previousResult === 'Follow-up needed';
     const wasNoShow = params.previousResult === 'No-show';
-    const isNowDidntBuy = params.newResult === "Didn't Buy";
+    const isNowDidntBuy = params.newResult === "Didn't Buy" || params.newResult === 'Follow-up needed';
     const isNowNoShow = params.newResult === 'No-show';
     const isNowNotInterested = params.newResult === 'Not interested';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
@@ -184,6 +185,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_at: new Date().toISOString(),
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Outcome changed to ${params.newResult} via ${params.sourceComponent}`,
+        second_intro_reason: params.secondIntroReason,
       };
       if (params.coachName) {
         runUpdate.coach_name = params.coachName;

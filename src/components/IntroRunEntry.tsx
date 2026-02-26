@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -453,7 +454,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
                   phoneCollected: e.target.value,
                   phoneMissing: !e.target.value.trim(),
                 })}
-                placeholder="(555) 123-4567"
+                placeholder={formatPhoneDisplay('(555) 123-4567') || '(555) 123-4567'}
                 className="mt-1"
               />
             </div>
