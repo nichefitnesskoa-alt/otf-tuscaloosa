@@ -1,13 +1,32 @@
-# Universal Inline Editing — COMPLETED
 
-All 6 sections implemented. See git history for details.
 
-## Summary of Changes
+# Fix: Print Card Not Showing
 
-1. **InlineEditField** — Reused existing component at `src/components/dashboard/InlineEditField.tsx`
-2. **Section 1 (MyDay IntroRowCard)** — Phone, email, SA/Owner, lead source all tappable inline. Coach picker always tappable.
-3. **Section 2 (Pipeline Expanded Rows)** — Phone and email inline edits added. Owner, lead source, commission, outcome already working.
-4. **Section 3 (Referral Auto-detect)** — Added to `applyIntroOutcomeUpdate.ts`: auto-updates referrals table on PURCHASED outcome.
-5. **Section 4 (Follow-Up Queue)** — Inline objection editing, inline date editing on cards. Mark complete already works.
-6. **Section 5 (Leads List)** — Phone and email inline edits. Email column added. Source badge not added to keep table width manageable.
-7. **Section 6 (Win the Day)** — `confirm_tomorrow` now dispatches `myday:open-script` to auto-open script picker. No "navigate to X" toasts found.
+## Root Cause
+
+The `[data-print-card]` div is rendered inside `<SheetContent>`, which is a Radix portal. The print CSS rule on line 181 sets `[data-radix-portal] { display: none !important }`, which hides the entire portal — including the print card inside it.
+
+## Fix
+
+**File: `src/index.css`** (line 181)
+
+Change the Radix portal hide rule to exclude portals that contain the print card:
+
+```css
+[data-radix-portal]:not(:has([data-print-card])),
+```
+
+This uses CSS `:has()` (supported in all modern browsers) to keep the portal visible when it contains the print layout, while still hiding all other portals (dialogs, toasts, etc.).
+
+Also hide the non-print content inside the sheet so only `[data-print-card]` shows:
+
+```css
+[data-radix-portal]:has([data-print-card]) [role="dialog"] > *:not([data-print-card]) {
+  display: none !important;
+}
+```
+
+This ensures the sheet chrome (close button, scroll area, header) is hidden during print, leaving only the print card visible.
+
+One file changed. Two CSS rules modified/added.
+
