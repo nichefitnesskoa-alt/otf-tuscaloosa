@@ -273,34 +273,34 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
             {/* Category filter */}
             <ScrollArea className="w-full whitespace-nowrap">
               <div className="flex gap-2 pb-1">
-                {suggestedCategories.map((cat) => {
-                  const label = SCRIPT_CATEGORIES.find((sc) => sc.value === cat)?.label || cat;
+                <button
+                  onClick={() => setSelectedCategory('')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
+                    !selectedCategory
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  All
+                </button>
+                {SCRIPT_CATEGORIES.map((sc) => {
+                  const isSuggested = suggestedCategories.includes(sc.value);
                   return (
                     <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
+                      key={sc.value}
+                      onClick={() => setSelectedCategory(sc.value)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
-                        selectedCategory === cat
+                        selectedCategory === sc.value
                           ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                          : isSuggested
+                            ? 'bg-accent text-accent-foreground hover:text-foreground'
+                            : 'bg-muted text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {label}
+                      {sc.label}
                     </button>
                   );
                 })}
-                {suggestedCategories.length > 0 && (
-                  <button
-                    onClick={() => setSelectedCategory('')}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
-                      !selectedCategory
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    All
-                  </button>
-                )}
               </div>
             </ScrollArea>
 
