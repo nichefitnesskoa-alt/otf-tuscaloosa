@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Copy, Eye, Send, Dumbbell, ClipboardList, Link2 } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -92,9 +93,12 @@ export function MyDayIntroCard({
   };
 
   const handleCopyPhone = () => {
-    if (booking.phone) {
-      navigator.clipboard.writeText(booking.phone);
+    const clean = stripCountryCode(booking.phone);
+    if (clean) {
+      navigator.clipboard.writeText(clean);
       toast.success('Phone copied');
+    } else {
+      toast.error('Invalid phone on file');
     }
   };
 
@@ -136,16 +140,23 @@ export function MyDayIntroCard({
 
         {/* Row 2: Meta (lead source, phone) */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {booking.phone && (
-            <a
-              href={`tel:${booking.phone}`}
-              className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary"
-            >
-              <Phone className="w-2.5 h-2.5" />
-              {booking.phone}
-            </a>
-          )}
-          {!booking.phone && (
+          {booking.phone ? (() => {
+            const phoneDisplay = formatPhoneDisplay(booking.phone);
+            const phoneDigits = stripCountryCode(booking.phone);
+            return phoneDisplay && phoneDigits ? (
+              <a
+                href={`tel:${phoneDigits}`}
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary"
+              >
+                <Phone className="w-2.5 h-2.5" />
+                {phoneDisplay}
+              </a>
+            ) : (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-destructive border-destructive/30">
+                ⚠ Invalid phone
+              </Badge>
+            );
+          })() : (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-destructive border-destructive/30">
               No Phone
             </Badge>

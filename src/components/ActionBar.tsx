@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useScriptTemplates } from '@/hooks/useScriptTemplates';
 import { selectBestScript, type ScriptContext } from '@/hooks/useSmartScriptSelect';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
+import { stripCountryCode } from '@/lib/parsing/phone';
 
 // ─── Intro Action Bar (for booking cards) ───────────────────────────────────
 
@@ -288,8 +289,9 @@ export function IntroActionBar({
   }, [dynamicQSlug, isSecondIntro, bookingId, firstName, lastName, classDate, classTime, onQuestionnaireCreated]);
 
   const handleCopyPhone = async () => {
-    if (phone) {
-      await navigator.clipboard.writeText(phone);
+    const clean = phone ? (stripCountryCode(phone) || phone) : null;
+    if (clean) {
+      await navigator.clipboard.writeText(clean);
       toast.success('Phone number copied!');
     } else {
       const nameParts = memberName.trim().split(/\s+/);
@@ -302,8 +304,9 @@ export function IntroActionBar({
         .ilike('last_name', ln || '')
         .limit(1)
         .maybeSingle();
-      if (data?.phone) {
-        await navigator.clipboard.writeText(data.phone);
+      const alt = data?.phone ? (stripCountryCode(data.phone) || data.phone) : null;
+      if (alt) {
+        await navigator.clipboard.writeText(alt);
         toast.success('Phone number copied!');
       } else {
         toast.info('No phone number on file');
@@ -490,8 +493,9 @@ export function LeadActionBar({
   }), [firstName, lastName, user?.name]);
 
   const handleCopyPhone = async () => {
-    if (phone) {
-      await navigator.clipboard.writeText(phone);
+    const clean = phone ? (stripCountryCode(phone) || phone) : null;
+    if (clean) {
+      await navigator.clipboard.writeText(clean);
       toast.success('Phone number copied!');
     } else {
       toast.info('No phone number on file');
