@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { TimeRange } from './myDayTypes';
@@ -59,6 +60,25 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
+
+  // Week tab: day sub-tabs
+  const isWeekView = fixedTimeRange === 'restOfWeek';
+  const [selectedWeekDay, setSelectedWeekDay] = useState<string | null>(null);
+
+  // Reset selected day when day groups change
+  useEffect(() => {
+    if (isWeekView && dayGroups.length > 0) {
+      setSelectedWeekDay(prev => {
+        if (prev && dayGroups.some(g => g.date === prev)) return prev;
+        return dayGroups[0].date;
+      });
+    }
+  }, [isWeekView, dayGroups]);
+
+  const filteredDayGroups = useMemo(() => {
+    if (!isWeekView || !selectedWeekDay) return dayGroups;
+    return dayGroups.filter(g => g.date === selectedWeekDay);
+  }, [isWeekView, selectedWeekDay, dayGroups]);
 
   const qCompletionPct = useMemo(() => {
     if (items.length === 0) return 0;
@@ -219,6 +239,35 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           />
         )}
 
+        {/* Week day pills */}
+        {isWeekView && dayGroups.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto pb-1">
+            {dayGroups.map(g => {
+              const d = new Date(g.date + 'T12:00:00');
+              const dayLabel = format(d, 'EEE');
+              const dateLabel = format(d, 'M/d');
+              const isActive = selectedWeekDay === g.date;
+              return (
+                <button
+                  key={g.date}
+                  onClick={() => setSelectedWeekDay(g.date)}
+                  className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
+                  }`}
+                >
+                  <span>{dayLabel}</span>
+                  <span className="text-[10px]">{dateLabel}</span>
+                  <Badge variant={isActive ? 'secondary' : 'outline'} className="h-3.5 px-1 text-[9px] mt-0.5">
+                    {g.items.length}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Day groups */}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
@@ -230,7 +279,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           </p>
         ) : (
           <div className="space-y-4">
-            {dayGroups.map(group => (
+            {filteredDayGroups.map(group => (
               <IntroDayGroup
                 key={group.date}
                 group={group}

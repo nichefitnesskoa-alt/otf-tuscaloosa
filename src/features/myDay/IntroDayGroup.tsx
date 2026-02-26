@@ -24,10 +24,10 @@ export default function IntroDayGroup({
   const qPercent = Math.round(group.qSentRatio * 100);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
+    <div className="space-y-2 border-t-2 border-primary/30 pt-3 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-2 bg-muted/40 rounded-lg px-3 py-1.5">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{group.label}</h3>
+          <h3 className="text-sm font-bold">{group.label}</h3>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
             {group.items.length} intro{group.items.length !== 1 ? 's' : ''}
           </Badge>
