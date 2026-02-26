@@ -133,3 +133,56 @@ All colors MUST be HSL.
     display: none;
   }
 }
+
+/* ══════════ PRINT STYLES ══════════ */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.25in;
+  }
+
+  html, body {
+    background: white !important;
+    color: black !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: auto !important;
+  }
+
+  /* Hide everything except the print layout */
+  body > * {
+    visibility: hidden !important;
+    position: absolute !important;
+    overflow: hidden !important;
+    height: 0 !important;
+  }
+
+  /* The print div uses print:block — make it visible and sized to one page */
+  [data-print-card] {
+    visibility: visible !important;
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
+    z-index: 99999 !important;
+    background: white !important;
+    display: block !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Force single page — no overflow content */
+  [data-print-card] * {
+    page-break-inside: avoid !important;
+  }
+
+  /* Hide Radix overlays, toasts, nav, etc */
+  [data-radix-portal],
+  [role="dialog"],
+  nav,
+  header,
+  .sonner-toast-wrapper {
+    display: none !important;
+  }
+}
