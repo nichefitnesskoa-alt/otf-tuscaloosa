@@ -105,12 +105,9 @@ function normalizePhone(phone: string | null | undefined): string | null {
 function parseFlexDate(raw: string): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
-  // YYYY-MM-DD already
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  // MM/DD/YYYY or MM-DD-YYYY
   const m = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-  // MM/DD/YY
   const m2 = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
   if (m2) {
     const yr = parseInt(m2[3]) > 50 ? `19${m2[3]}` : `20${m2[3]}`;
@@ -124,9 +121,7 @@ function parseFlexDate(raw: string): string | null {
 function parseFlexTime(raw: string): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
-  // Already HH:MM 24h
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) return trimmed.slice(0, 5);
-  // h:mm AM/PM
   const m = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (m) {
     let hour = parseInt(m[1], 10);
@@ -144,7 +139,7 @@ function parseFlexTime(raw: string): string | null {
 interface HeaderMap {
   firstName: number;
   lastName: number;
-  name: number; // single "Name" column
+  name: number;
   email: number;
   phone: number;
   date: number;
@@ -203,11 +198,13 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Get spreadsheet ID from body or secret
+    // Get spreadsheet ID and mode from body or secret
     let spreadsheetId: string | null = null;
+    let mode: string = 'import';
     try {
       const body = await req.json();
       spreadsheetId = body.spreadsheetId || null;
+      mode = body.mode || 'import';
     } catch { /* no body */ }
 
     if (!spreadsheetId) {
@@ -220,11 +217,11 @@ Deno.serve(async (req) => {
     const accessToken = await getAccessToken();
     const TAB_NAME = 'OTF Lead Intake';
 
-    console.log(`[import-sheet-leads] Reading from "${TAB_NAME}"...`);
+    console.log(`[import-sheet-leads] Reading from "${TAB_NAME}" (mode: ${mode})...`);
     const rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
 
     if (rows.length < 2) {
-      return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_empty: 0, errors: 0, message: 'No data rows found' });
+      return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_empty: 0, errors: 0, rows_scanned: 0, message: 'No data rows found' });
     }
 
     const headers = rows[0];
@@ -240,7 +237,9 @@ Deno.serve(async (req) => {
     let skippedEmpty = 0;
     let errors = 0;
     const details: string[] = [];
+    const rowsScanned = rows.length - 1;
 
+    // Both 'import' and 'backfill' modes read ALL rows — backfill is just explicit about it
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       try {
@@ -263,7 +262,6 @@ Deno.serve(async (req) => {
 
         if (hasBookingInfo) {
           // ── BOOKING PATH ──
-          // Dedup: check intros_booked by name + date
           const { data: existByNameDate } = await supabase
             .from('intros_booked')
             .select('id')
@@ -278,7 +276,6 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Dedup: check by phone
           if (phone) {
             const { data: existByPhone } = await supabase
               .from('intros_booked')
@@ -295,7 +292,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Dedup: check by email
           if (email) {
             const { data: existByEmail } = await supabase
               .from('intros_booked')
@@ -312,7 +308,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Insert booking
           const { error: insertErr } = await supabase.from('intros_booked').insert({
             member_name: memberName,
             class_date: classDate,
@@ -346,7 +341,6 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Dedup: check leads by phone or email
           const orFilters: string[] = [];
           if (email) orFilters.push(`email.eq.${email}`);
           if (phone) orFilters.push(`phone.eq.${phone}`);
@@ -363,13 +357,11 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Dedup: check intros_booked by name (cross-table)
           let dupConfidence: string | null = null;
           let dupMatchType: string | null = null;
           let dupNotes: string | null = null;
           let autoStage = 'new';
 
-          // Check by phone in intros_booked
           if (phone) {
             const { data: phoneMatch } = await supabase
               .from('intros_booked')
@@ -387,7 +379,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Check by email in intros_booked
           if (!dupConfidence && email) {
             const { data: emailMatch } = await supabase
               .from('intros_booked')
@@ -405,7 +396,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Check by name in intros_booked
           if (!dupConfidence) {
             const { data: nameMatch } = await supabase
               .from('intros_booked')
@@ -423,7 +413,6 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Check sales_outside_intro
           if (!dupConfidence) {
             const { data: saleMatch } = await supabase
               .from('sales_outside_intro')
@@ -469,12 +458,16 @@ Deno.serve(async (req) => {
     }
 
     // Log to sheets_sync_log
-    await supabase.from('sheets_sync_log').insert({
-      sync_type: 'import_sheet_leads',
-      status: errors > 0 ? 'partial' : 'success',
-      records_synced: imported,
-      error_message: errors > 0 ? `${errors} errors. ${details.filter(d => d.includes('failed')).join('; ')}` : null,
-    });
+    try {
+      await supabase.from('sheets_sync_log').insert({
+        sync_type: mode === 'backfill' ? 'backfill_sheet_leads' : 'import_sheet_leads',
+        status: errors > 0 ? 'partial' : 'success',
+        records_synced: imported,
+        error_message: errors > 0 ? `${errors} errors. ${details.filter(d => d.includes('failed')).join('; ')}` : null,
+      });
+    } catch (logErr) {
+      console.error('[import-sheet-leads] Failed to log sync:', logErr);
+    }
 
     console.log(`[import-sheet-leads] Done: imported=${imported}, skipped_dup=${skippedDuplicate}, skipped_empty=${skippedEmpty}, errors=${errors}`);
 
@@ -484,20 +477,25 @@ Deno.serve(async (req) => {
       skipped_duplicate: skippedDuplicate,
       skipped_empty: skippedEmpty,
       errors,
-      details: details.slice(0, 50), // limit detail output
+      rows_scanned: rowsScanned,
+      details: details.slice(0, 50),
     });
 
   } catch (err) {
     console.error('[import-sheet-leads] Fatal error:', err);
 
-    // Log error
-    const supabase2 = createClient(supabaseUrl, supabaseServiceKey);
-    await supabase2.from('sheets_sync_log').insert({
-      sync_type: 'import_sheet_leads',
-      status: 'error',
-      records_synced: 0,
-      error_message: String(err),
-    }).catch(() => {});
+    // Log error — wrapped in try/catch to avoid the .catch() crash
+    try {
+      const supabase2 = createClient(supabaseUrl, supabaseServiceKey);
+      await supabase2.from('sheets_sync_log').insert({
+        sync_type: 'import_sheet_leads',
+        status: 'error',
+        records_synced: 0,
+        error_message: String(err),
+      });
+    } catch (logErr) {
+      console.error('[import-sheet-leads] Failed to log error:', logErr);
+    }
 
     return jsonResponse({ error: 'Internal server error', details: String(err) }, 500);
   }
