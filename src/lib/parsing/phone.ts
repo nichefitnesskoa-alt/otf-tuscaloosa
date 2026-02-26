@@ -63,13 +63,25 @@ export function extractPhone(raw: string | null | undefined): string | null {
 }
 
 /**
- * Format a 10-digit phone for display: (205) 555-1234
+ * Strip +1 or leading 1 from a phone string, returning 10-digit string.
  */
-export function formatPhoneDisplay(digits: string | null | undefined): string | null {
-  if (!digits) return null;
-  const clean = digits.replace(/\D/g, '');
-  if (clean.length === 10) {
+export function stripCountryCode(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
+  if (digits.length === 10) return digits;
+  return null;
+}
+
+/**
+ * Format any phone value for display: (205) 555-1234
+ * Handles +1XXXXXXXXXX, 1XXXXXXXXXX, raw 10-digit, and already-formatted strings.
+ */
+export function formatPhoneDisplay(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const clean = stripCountryCode(raw);
+  if (clean) {
     return `(${clean.slice(0, 3)}) ${clean.slice(3, 6)}-${clean.slice(6)}`;
   }
-  return digits; // Return as-is if not 10 digits
+  return raw; // Return as-is if not parseable
 }

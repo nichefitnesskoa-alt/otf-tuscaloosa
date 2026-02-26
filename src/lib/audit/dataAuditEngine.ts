@@ -498,12 +498,71 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
         return { fixed: (data as any)?.updated ?? 0 };
       }
 
+      case 'fix_2nd_intro_phones': {
+        const { data: missing } = await supabase
+          .from('intros_booked')
+          .select('id, originating_booking_id')
+          .not('originating_booking_id', 'is', null)
+          .is('phone', null)
+          .is('phone_e164', null)
+          .is('deleted_at', null)
+          .limit(200);
+        if (!missing || missing.length === 0) return { fixed: 0 };
+        const originIds = [...new Set(missing.map(m => m.originating_booking_id).filter(Boolean))] as string[];
+        const { data: origins } = await supabase
+          .from('intros_booked')
+          .select('id, phone, phone_e164')
+          .in('id', originIds);
+        const phoneMap = new Map<string, { phone: string | null; phone_e164: string | null }>();
+        for (const o of (origins || [])) {
+          if (o.phone || o.phone_e164) phoneMap.set(o.id, { phone: o.phone, phone_e164: o.phone_e164 });
+        }
+        let fixed = 0;
+        for (const m of missing) {
+          const src = m.originating_booking_id ? phoneMap.get(m.originating_booking_id) : null;
+          if (!src) continue;
+          const { error } = await supabase.from('intros_booked').update({
+            phone: src.phone,
+            phone_e164: src.phone_e164,
+            phone_source: 'inherited_from_original',
+          }).eq('id', m.id);
+          if (!error) fixed++;
+        }
+        return { fixed };
+      }
+
       default:
         return { fixed: 0, error: 'Unknown fix action' };
     }
   } catch (err: any) {
     return { fixed: 0, error: err?.message || 'Fix failed' };
   }
+}
+
+async function check2ndIntroPhoneInheritance(): Promise<AuditCheckResult> {
+  const { data } = await supabase
+    .from('intros_booked')
+    .select('id, member_name, originating_booking_id')
+    .not('originating_booking_id', 'is', null)
+    .is('phone', null)
+    .is('phone_e164', null)
+    .is('deleted_at', null)
+    .limit(200);
+
+  const count = data?.length ?? 0;
+  return {
+    checkName: '2nd Intro Phone Missing',
+    category: 'Data Inheritance',
+    status: count > 0 ? 'fail' : 'pass',
+    count,
+    description: count > 0
+      ? `${count} 2nd intro${count !== 1 ? 's are' : ' is'} missing phone data that exists on the original booking`
+      : 'All 2nd intros have inherited phone data',
+    affectedIds: data?.map(d => d.id),
+    affectedNames: data?.map(d => d.member_name),
+    suggestedFix: count > 0 ? 'Copy phone from originating booking to these 2nd intro records' : undefined,
+    fixAction: count > 0 ? 'fix_2nd_intro_phones' : undefined,
+  };
 }
 
 // ── MAIN ENGINE ──
@@ -522,6 +581,7 @@ export async function runFullAudit(): Promise<AuditRunResult> {
     checkOutcomeMismatch(),
     checkMissingClassStartAt(),
     checkLeadsWithoutSource(),
+    check2ndIntroPhoneInheritance(),
   ]);
 
   const result: AuditRunResult = {

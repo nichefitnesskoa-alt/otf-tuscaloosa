@@ -21,6 +21,7 @@ import { isVipBooking } from '@/lib/vip/vipRules';
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo } from '../pipelineTypes';
 
 interface PipelineSpreadsheetProps {
@@ -372,10 +373,11 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 }: SpreadsheetRowProps) {
   const b = getLatestBooking(journey);
   const r = getLatestRun(journey);
-  const phone = b?.phone || journey.bookings.find(bk => bk.phone)?.phone;
+  const rawPhone = b?.phone || (b as any)?.phone_e164 || journey.bookings.find(bk => bk.phone)?.phone || null;
+  const phone = rawPhone || null;
 
   const copyPhone = () => {
-    if (phone) { navigator.clipboard.writeText(phone); toast.success('Phone copied'); }
+    if (phone) { navigator.clipboard.writeText(stripCountryCode(phone) || phone); toast.success('Phone copied'); }
   };
 
   const handlePreppedToggle = async () => {
@@ -426,7 +428,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
       case 'phone':
         return phone ? (
           <button className="text-xs hover:text-primary flex items-center gap-0.5" onClick={e => { e.stopPropagation(); copyPhone(); }}>
-            <Copy className="w-3 h-3" /> {phone}
+            <Copy className="w-3 h-3" /> {formatPhoneDisplay(phone) || phone}
           </button>
         ) : <span className="text-xs text-muted-foreground">—</span>;
       case 'touch': return <span className="text-xs">—</span>;
