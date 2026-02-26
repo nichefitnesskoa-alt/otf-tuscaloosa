@@ -1,59 +1,65 @@
 
 
-# Plan: Add Script/Text Send Log to Pipeline Cards
+# Plan: Inbound Lead Import from Google Sheet
 
 ## Overview
-Fetch `script_actions` data per booking and display touch counts, last contact timestamps, and detailed send history in pipeline rows and expanded cards.
+Create a new edge function `import-sheet-leads` that reads the "OTF Lead Intake" tab, deduplicates against existing `intros_booked` and `leads` tables, and inserts new records. Include both a manual trigger button in Admin and a cron job running every 5 minutes.
 
-## Changes
+## 1. New Edge Function — `supabase/functions/import-sheet-leads/index.ts`
 
-### 1. Add type — `src/features/pipeline/pipelineTypes.ts`
-Add `PipelineScriptAction` interface:
-```typescript
-export interface PipelineScriptAction {
-  id: string;
-  booking_id: string | null;
-  lead_id: string | null;
-  action_type: string;
-  script_category: string | null;
-  completed_at: string;
-  completed_by: string;
-}
+- **Auth**: Use service role key (no JWT needed since it will run on cron). For manual triggers, verify staff auth.
+- **Flow**:
+  1. Get Google access token using existing `GOOGLE_SERVICE_ACCOUNT_JSON` (same pattern as `sync-sheets`)
+  2. Read all rows from `OTF Lead Intake` tab
+  3. Parse headers dynamically (map column names like `First Name`, `Last Name`, `Email`, `Phone`, `Date`, `Time`, etc.)
+  4. For each row:
+     - Skip empty/header rows
+     - If row has a booking date + time → treat as **intro booking** → check `intros_booked` by name+date+time, then by phone → insert into `intros_booked` if new
+     - If row has no date/time → treat as **web lead** → check `leads` by email/phone, then `intros_booked` by name → insert into `leads` if new, with appropriate dedup stage (`already_in_system`, `flagged`, `new`)
+  5. Track results: `{imported: N, skipped_duplicate: N, errors: N}`
+  6. Log to `sheets_sync_log` table
+
+- **Dedup logic** (reuses `import-lead` patterns):
+  - Check `intros_booked` by name (case-insensitive) + date
+  - Check `intros_booked` by phone/phone_e164
+  - Check `leads` by email or phone
+  - If already exists anywhere → skip, log as duplicate
+  - If name-only match → insert with `duplicate_confidence: 'MEDIUM'`, stage `flagged`
+
+## 2. Config — `supabase/config.toml`
+
+Add:
+```toml
+[functions.import-sheet-leads]
+verify_jwt = false
 ```
 
-### 2. Fetch script_actions — `src/features/pipeline/usePipelineData.ts`
-- Add `scriptActions` state: `Map<string, PipelineScriptAction[]>` keyed by booking_id
-- Fetch from `script_actions` table in parallel with bookings/runs (select `id, booking_id, lead_id, action_type, script_category, completed_at, completed_by`)
-- Build the map in a `useCallback`, group by `booking_id`
-- Return `scriptActionsMap` from the hook
+## 3. Cron Job — SQL via insert tool
 
-### 3. Pass through — `src/features/pipeline/PipelinePage.tsx`
-- Pass `pipeline.scriptActionsMap` to `PipelineSpreadsheet` as new prop `scriptActionsMap`
+Schedule `import-sheet-leads` to run every 5 minutes using `pg_cron` + `pg_net`. Enable extensions if needed. The cron will POST to the function URL with the spreadsheet ID stored as a secret or passed in the body.
 
-### 4. Display in spreadsheet — `src/features/pipeline/components/PipelineSpreadsheet.tsx`
+## 4. Admin UI — Manual Trigger
 
-**Props**: Add `scriptActionsMap: Map<string, PipelineScriptAction[]>` to `PipelineSpreadsheetProps`
+Add a button in the Settings or Admin page (alongside existing Data Sync controls) that calls `import-sheet-leads` manually. Shows results (imported/skipped/errors) in a toast or inline summary.
 
-**Touch column** (currently renders `—`): Look up all booking IDs for the journey in the map, sum action counts, display as badge like `3 texts`
+**File**: New component `src/components/admin/LeadSheetImport.tsx`
+- "Import Leads from Sheet" button
+- Calls `supabase.functions.invoke('import-sheet-leads', { body: { spreadsheetId } })`
+- Shows result counts
 
-**Last Contact column** (currently renders `—`): Find the most recent `completed_at` across all the journey's bookings' actions, display as relative time (`2d ago`)
+**File**: `src/pages/Settings.tsx` — Add `<LeadSheetImport />` component
 
-**Expanded row detail**: Add a "Outreach Log" section below the Runs section showing each script_action as a row:
-```
-📤 script_sent · Confirmation · by Bre · 2 days ago
-📤 script_sent · Follow-up · by James · 5 days ago
-```
-Each row shows: action_type icon, script_category, completed_by, relative timestamp. Sorted most recent first. If no actions exist, show "No outreach logged yet" in muted text.
+## 5. Spreadsheet ID
 
-### 5. Column definitions
-Add `touch` and `last_contact` columns to the `all` tab column list (currently only on `no_show` tab), and also add to `upcoming`, `completed`, `missed_guest`, and `not_interested` tabs so the send count is visible everywhere.
+The function will use the same spreadsheet ID from `localStorage` (via `getSpreadsheetId()`) for manual triggers. For the cron job, we'll store it as a Supabase secret `LEADS_SPREADSHEET_ID`.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/features/pipeline/pipelineTypes.ts` | Add `PipelineScriptAction` type |
-| `src/features/pipeline/usePipelineData.ts` | Fetch `script_actions`, build map, return it |
-| `src/features/pipeline/PipelinePage.tsx` | Pass `scriptActionsMap` prop |
-| `src/features/pipeline/components/PipelineSpreadsheet.tsx` | Accept prop, populate touch/last_contact cells, add outreach log in expanded view |
+| `supabase/functions/import-sheet-leads/index.ts` | New edge function |
+| `supabase/config.toml` | Add function config (auto-managed) |
+| `src/components/admin/LeadSheetImport.tsx` | New manual trigger UI |
+| `src/pages/Settings.tsx` | Add LeadSheetImport component |
+| DB (pg_cron) | Schedule every-5-min cron job |
 
