@@ -79,7 +79,29 @@ async function getAccessToken(): Promise<string> {
   return cachedAuth.access_token;
 }
 
-// ── Sheet reading ──
+// ── Sheet metadata & reading ──
+
+async function findTabName(spreadsheetId: string, accessToken: string): Promise<string> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`;
+  const response = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+  if (!response.ok) throw new Error(`Failed to get spreadsheet metadata: ${await response.text()}`);
+  const data = await response.json();
+  const sheets: { properties: { title: string } }[] = data.sheets || [];
+  const titles = sheets.map(s => s.properties.title);
+  console.log(`[import-sheet-leads] Available tabs: ${JSON.stringify(titles)}`);
+
+  // Try exact match first, then fuzzy
+  const exact = titles.find(t => t === 'OTF Lead Intake');
+  if (exact) return exact;
+
+  const match = titles.find(t => {
+    const lower = t.toLowerCase();
+    return lower.includes('lead') || lower.includes('otf');
+  });
+  if (match) return match;
+
+  throw new Error(`No matching tab found. Available tabs: ${JSON.stringify(titles)}`);
+}
 
 async function readSheet(spreadsheetId: string, tabName: string, accessToken: string): Promise<string[][]> {
   const range = `'${tabName}'!A:Z`;
@@ -253,8 +275,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'No spreadsheetId provided and LEADS_SPREADSHEET_ID secret not set' }, 400);
     }
 
-    const TAB_NAME = 'OTF Lead Intake';
-
     // ── TEST MODE ──
     if (mode === 'test') {
       const steps: { step: string; status: string; detail?: unknown }[] = [];
@@ -269,17 +289,27 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, steps }, 200);
       }
 
-      // Step 2: Read sheet
+      // Step 2: Find tab
+      let tabName: string;
+      try {
+        tabName = await findTabName(spreadsheetId, accessToken);
+        steps.push({ step: 'find_tab', status: 'ok', detail: `Using tab: "${tabName}"` });
+      } catch (tabErr) {
+        steps.push({ step: 'find_tab', status: 'error', detail: String(tabErr) });
+        return jsonResponse({ success: false, steps }, 200);
+      }
+
+      // Step 3: Read sheet
       let rows: string[][];
       try {
-        rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
+        rows = await readSheet(spreadsheetId, tabName, accessToken);
         steps.push({ step: 'read_sheet', status: 'ok', detail: `${rows.length} rows returned` });
       } catch (sheetErr) {
         steps.push({ step: 'read_sheet', status: 'error', detail: String(sheetErr) });
         return jsonResponse({ success: false, steps }, 200);
       }
 
-      // Step 3: Return first 3 rows raw
+      // Step 4: Return first 3 rows raw
       const sampleRows = rows.slice(0, 3);
       const headers = rows[0] || [];
       const hm = buildHeaderMap(headers, rows.slice(1));
@@ -290,9 +320,10 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = await getAccessToken();
+    const tabName = await findTabName(spreadsheetId, accessToken);
 
-    console.log(`[import-sheet-leads] Reading from "${TAB_NAME}" (mode: ${mode})...`);
-    const rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
+    console.log(`[import-sheet-leads] Reading from "${tabName}" (mode: ${mode})...`);
+    const rows = await readSheet(spreadsheetId, tabName, accessToken);
 
     if (rows.length < 2) {
       return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_empty: 0, errors: 0, rows_scanned: 0, message: 'No data rows found' });
