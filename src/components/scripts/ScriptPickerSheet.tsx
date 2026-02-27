@@ -246,7 +246,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   return (
     <>
       <Drawer open={open && !selectedTemplate && !aiPanelOpen} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh] flex flex-col overflow-hidden">
           <DrawerHeader className="pb-2">
             <DrawerTitle className="text-lg">Select Script</DrawerTitle>
           </DrawerHeader>
@@ -279,8 +279,8 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
 
           <div className="px-4 space-y-3">
             {/* Category filter */}
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-2 pb-1">
+            <div className="w-full overflow-x-auto scrollbar-thin pb-1">
+              <div className="flex gap-2 whitespace-nowrap min-w-max">
                 <button
                   onClick={() => setSelectedCategory('')}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
@@ -310,7 +310,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Search */}
             <div className="relative">
@@ -324,7 +324,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
             </div>
           </div>
 
-          <ScrollArea className="px-4 pb-6 flex-1 mt-3">
+          <ScrollArea className="px-4 pb-6 mt-3 flex-1 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 280px)' }}>
             <div className="space-y-2">
               {showFallback && (
                 <p className="text-xs text-muted-foreground text-center pb-2">No templates tagged for this tab yet, showing All</p>
