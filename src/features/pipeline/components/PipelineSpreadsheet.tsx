@@ -3,7 +3,7 @@
  * Each tab renders its own column set. Rows are sortable and expandable inline.
  * Uses @tanstack/react-virtual for performance with large datasets.
  */
-import { useRef, useState, useMemo, useCallback, memo } from 'react';
+import { useRef, useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader2, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, ChevronRight, Copy, Phone, FileText, Edit, Plus, CalendarPlus, MoreVertical, UserCheck, DollarSign, UserX, Archive, Trash2, Link, X } from 'lucide-react';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
@@ -279,7 +279,13 @@ export function PipelineSpreadsheet({
     getScrollElement: () => parentRef.current,
     estimateSize: (i) => expandedKey === sorted[i]?.memberKey ? 300 : 40,
     overscan: 15,
+    getItemKey: (i) => sorted[i]?.memberKey ?? i,
   });
+
+  // Force virtualizer to recalculate sizes when expanded row changes
+  useEffect(() => {
+    virtualizer.measure();
+  }, [expandedKey, virtualizer]);
 
   // By Source: analytics summary view
   if (activeTab === 'by_lead_source') {
