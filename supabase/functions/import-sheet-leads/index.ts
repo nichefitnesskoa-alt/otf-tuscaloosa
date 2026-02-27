@@ -225,9 +225,12 @@ Deno.serve(async (req) => {
       steps.push({ step: 'column_mapping', status: 'ok', detail: COL });
       steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
 
-      // Count rows with POSTED_2xx status
-      const validRows = rows.slice(1).filter(r => getVal(r, COL.STATUS).startsWith('POSTED_2xx'));
-      steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx status out of ${rows.length - 1} total data rows` });
+      // Count rows with POSTED_2xx or NON_2XX_404 status
+      const validRows = rows.slice(1).filter(r => {
+        const s = getVal(r, COL.STATUS);
+        return s.startsWith('POSTED_2xx') || s === 'NON_2XX_404';
+      });
+      steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx/NON_2XX_404 status out of ${rows.length - 1} total data rows` });
 
       return jsonResponse({ success: true, steps, total_rows: rows.length }, 200);
     }
@@ -262,9 +265,9 @@ Deno.serve(async (req) => {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // ── Status filter: only POSTED_2xx ──
+        // ── Status filter: POSTED_2xx or NON_2XX_404 ──
         const status = getVal(row, COL.STATUS);
-        if (!status.startsWith('POSTED_2xx')) {
+        if (!status.startsWith('POSTED_2xx') && status !== 'NON_2XX_404') {
           skippedFiltered++;
           continue;
         }
