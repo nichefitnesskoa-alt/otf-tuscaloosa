@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Determine role based on staff name
 function getRoleForName(name: string): UserRole {
-  if (name === 'Admin') return 'Admin';
+  if (name === 'Koa') return 'Admin';
   if ((COACHES as readonly string[]).includes(name)) return 'Coach';
   if ((SALES_ASSOCIATES as readonly string[]).includes(name)) return 'SA';
   return 'SA';
