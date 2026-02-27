@@ -52,7 +52,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [friendPhone, setFriendPhone] = useState('');
   const [referredBy, setReferredBy] = useState('');
 
-  const showFriendPrompt = isReferralSource(leadSource);
+  const showFriendPrompt = !!leadSource;
 
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
