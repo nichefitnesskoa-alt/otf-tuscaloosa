@@ -81,27 +81,7 @@ async function getAccessToken(): Promise<string> {
 
 // ── Sheet metadata & reading ──
 
-async function findTabName(spreadsheetId: string, accessToken: string): Promise<string> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`;
-  const response = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-  if (!response.ok) throw new Error(`Failed to get spreadsheet metadata: ${await response.text()}`);
-  const data = await response.json();
-  const sheets: { properties: { title: string } }[] = data.sheets || [];
-  const titles = sheets.map(s => s.properties.title);
-  console.log(`[import-sheet-leads] Available tabs: ${JSON.stringify(titles)}`);
-
-  // Try exact match first, then fuzzy
-  const exact = titles.find(t => t === 'OTF Lead Intake');
-  if (exact) return exact;
-
-  const match = titles.find(t => {
-    const lower = t.toLowerCase();
-    return lower.includes('lead') || lower.includes('otf');
-  });
-  if (match) return match;
-
-  throw new Error(`No matching tab found. Available tabs: ${JSON.stringify(titles)}`);
-}
+const TAB_NAME = 'OTF Lead Intake';
 
 async function readSheet(spreadsheetId: string, tabName: string, accessToken: string): Promise<string[][]> {
   const range = `'${tabName}'!A:Z`;
@@ -156,7 +136,9 @@ function parseFlexTime(raw: string): string | null {
   return null;
 }
 
-// ── Dynamic header mapping ──
+// ── Fixed header mapping for OTF Lead Intake ──
+// Columns: Timestamp(A=0), First(B=1), Last(C=2), Email(D=3), Phone(E=4),
+//          IntroDate(F=5), IntroTime(G=6), RawSubject(H=7), MessageId(I=8), Status(J=9)
 
 interface HeaderMap {
   firstName: number;
@@ -170,59 +152,19 @@ interface HeaderMap {
   coach: number;
 }
 
-// Columns to ignore entirely
-const IGNORED_HEADERS = new Set(['timestamp', 'rawsubject', 'messageid', 'status']);
-
-function buildHeaderMap(headers: string[], dataRows?: string[][]): HeaderMap {
-  const map: HeaderMap = { firstName: -1, lastName: -1, name: -1, email: -1, phone: -1, date: -1, time: -1, source: -1, coach: -1 };
-  headers.forEach((h, i) => {
-    const lower = (h || '').toLowerCase().trim();
-    if (IGNORED_HEADERS.has(lower)) return; // skip ignored columns
-    if (lower === 'first' || lower === 'first name' || lower === 'first_name' || lower === 'firstname') map.firstName = i;
-    else if (lower === 'last' || lower === 'last name' || lower === 'last_name' || lower === 'lastname') map.lastName = i;
-    else if (lower === 'name' || lower === 'full name' || lower === 'member name' || lower === 'client name') map.name = i;
-    else if (lower === 'email' || lower === 'email address') map.email = i;
-    else if (lower === 'phone' || lower === 'phone number' || lower === 'phone_number' || lower === 'cell' || lower === 'mobile') map.phone = i;
-    else if (lower === 'date' || lower === 'class date' || lower === 'intro date' || lower === 'appointment date' || lower === 'class_date') map.date = i;
-    else if (lower === 'time' || lower === 'class time' || lower === 'intro time' || lower === 'appointment time' || lower === 'class_time') map.time = i;
-    else if (lower === 'source' || lower === 'lead source' || lower === 'lead_source' || lower === 'how did you hear') map.source = i;
-    else if (lower === 'coach' || lower === 'coach name' || lower === 'coach_name' || lower === 'instructor') map.coach = i;
-  });
-
-  // Content-based detection for date/time columns with blank or unexpected headers
-  if ((map.date < 0 || map.time < 0) && dataRows && dataRows.length > 0) {
-    const sampleRows = dataRows.slice(0, Math.min(10, dataRows.length));
-    for (let col = 0; col < (headers.length + 5); col++) {
-      // Skip columns already mapped
-      if (Object.values(map).includes(col)) continue;
-      const lower = (headers[col] || '').toLowerCase().trim();
-      if (IGNORED_HEADERS.has(lower)) continue;
-
-      const samples = sampleRows.map(r => (r[col] || '').trim()).filter(Boolean);
-      if (samples.length === 0) continue;
-
-      if (map.date < 0) {
-        const datePattern = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/;
-        const dateMatches = samples.filter(s => datePattern.test(s));
-        if (dateMatches.length >= 1) {
-          map.date = col;
-          console.log(`[import-sheet-leads] Auto-detected date column at index ${col}`);
-          continue;
-        }
-      }
-
-      if (map.time < 0) {
-        const timePattern = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
-        const timeMatches = samples.filter(s => timePattern.test(s));
-        if (timeMatches.length >= 1) {
-          map.time = col;
-          console.log(`[import-sheet-leads] Auto-detected time column at index ${col}`);
-          continue;
-        }
-      }
-    }
-  }
-
+function buildHeaderMap(headers: string[]): HeaderMap {
+  const map: HeaderMap = {
+    firstName: 1,   // B = First
+    lastName: 2,    // C = Last
+    name: -1,       // not used
+    email: 3,       // D = Email
+    phone: 4,       // E = Phone
+    date: 5,        // F = IntroDate
+    time: 6,        // G = IntroTime
+    source: -1,     // not in this sheet
+    coach: -1,      // not in this sheet
+  };
+  console.log(`[import-sheet-leads] Fixed column mapping. Headers: ${JSON.stringify(headers)}`);
   return map;
 }
 
@@ -259,20 +201,16 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Get spreadsheet ID and mode from body or secret
-    let spreadsheetId: string | null = null;
+    // Always use the LEADS_SPREADSHEET_ID secret — ignore body.spreadsheetId
     let mode: string = 'import';
     try {
       const body = await req.json();
-      spreadsheetId = body.spreadsheetId || null;
       mode = body.mode || 'import';
     } catch { /* no body */ }
 
+    const spreadsheetId = Deno.env.get('LEADS_SPREADSHEET_ID') || null;
     if (!spreadsheetId) {
-      spreadsheetId = Deno.env.get('LEADS_SPREADSHEET_ID') || null;
-    }
-    if (!spreadsheetId) {
-      return jsonResponse({ error: 'No spreadsheetId provided and LEADS_SPREADSHEET_ID secret not set' }, 400);
+      return jsonResponse({ error: 'LEADS_SPREADSHEET_ID secret not set' }, 400);
     }
 
     // ── TEST MODE ──
@@ -289,20 +227,13 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, steps }, 200);
       }
 
-      // Step 2: Find tab
-      let tabName: string;
-      try {
-        tabName = await findTabName(spreadsheetId, accessToken);
-        steps.push({ step: 'find_tab', status: 'ok', detail: `Using tab: "${tabName}"` });
-      } catch (tabErr) {
-        steps.push({ step: 'find_tab', status: 'error', detail: String(tabErr) });
-        return jsonResponse({ success: false, steps }, 200);
-      }
+      // Step 2: Read tab
+      steps.push({ step: 'find_tab', status: 'ok', detail: `Using fixed tab: "${TAB_NAME}"` });
 
       // Step 3: Read sheet
       let rows: string[][];
       try {
-        rows = await readSheet(spreadsheetId, tabName, accessToken);
+        rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
         steps.push({ step: 'read_sheet', status: 'ok', detail: `${rows.length} rows returned` });
       } catch (sheetErr) {
         steps.push({ step: 'read_sheet', status: 'error', detail: String(sheetErr) });
@@ -312,7 +243,7 @@ Deno.serve(async (req) => {
       // Step 4: Return first 3 rows raw
       const sampleRows = rows.slice(0, 3);
       const headers = rows[0] || [];
-      const hm = buildHeaderMap(headers, rows.slice(1));
+      const hm = buildHeaderMap(headers);
       steps.push({ step: 'header_map', status: 'ok', detail: hm });
       steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
 
@@ -320,17 +251,16 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = await getAccessToken();
-    const tabName = await findTabName(spreadsheetId, accessToken);
 
-    console.log(`[import-sheet-leads] Reading from "${tabName}" (mode: ${mode})...`);
-    const rows = await readSheet(spreadsheetId, tabName, accessToken);
+    console.log(`[import-sheet-leads] Reading from "${TAB_NAME}" (mode: ${mode})...`);
+    const rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
 
     if (rows.length < 2) {
       return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_empty: 0, errors: 0, rows_scanned: 0, message: 'No data rows found' });
     }
 
     const headers = rows[0];
-    const hm = buildHeaderMap(headers, rows.slice(1));
+    const hm = buildHeaderMap(headers);
     console.log(`[import-sheet-leads] Header map:`, JSON.stringify(hm));
 
     if (hm.firstName < 0 && hm.name < 0) {
