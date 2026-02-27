@@ -26,26 +26,39 @@ async function getAccessToken(): Promise<string> {
   if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
 
   serviceAccountJson = serviceAccountJson.trim();
+  // Remove wrapping quotes if present
   if ((serviceAccountJson.startsWith('"') && serviceAccountJson.endsWith('"')) ||
       (serviceAccountJson.startsWith("'") && serviceAccountJson.endsWith("'"))) {
     serviceAccountJson = serviceAccountJson.slice(1, -1);
   }
+  // Unescape doubly-escaped quotes
   if (serviceAccountJson.includes('\\"')) {
     serviceAccountJson = serviceAccountJson.replace(/\\"/g, '"');
   }
-  serviceAccountJson = serviceAccountJson
-    .replace(/\r\n/g, '\\n').replace(/\r/g, '\\n').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+  // Only fix literal newlines INSIDE the private_key value, not everywhere
+  // Try parsing as-is first, only transform if it fails
+  let parseAttempt: Record<string, string> | null = null;
+  try {
+    parseAttempt = JSON.parse(serviceAccountJson);
+  } catch {
+    // The JSON likely has real newlines/tabs — normalize them for JSON compatibility
+    serviceAccountJson = serviceAccountJson
+      .replace(/\r\n/g, '\\n').replace(/\r/g, '\\n').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+    // no-op, will parse below
+  }
 
   let serviceAccount: Record<string, string>;
-  try {
-    serviceAccount = JSON.parse(serviceAccountJson);
-  } catch (parseErr) {
-    console.error('[import-sheet-leads] JSON parse failed. First 80 chars:', serviceAccountJson.slice(0, 80));
-    throw new Error(`Service account JSON parse error: ${parseErr}`);
+  if (parseAttempt) {
+    serviceAccount = parseAttempt;
+  } else {
+    try {
+      serviceAccount = JSON.parse(serviceAccountJson);
+    } catch (parseErr) {
+      console.error('[import-sheet-leads] JSON parse failed. First 80 chars:', serviceAccountJson.slice(0, 80));
+      throw new Error(`Service account JSON parse error: ${parseErr}`);
+    }
   }
   console.log('[import-sheet-leads] client_email:', serviceAccount.client_email || '(missing)');
-  console.log('[import-sheet-leads] project_id:', serviceAccount.project_id || '(missing)');
-  console.log('[import-sheet-leads] private_key length:', serviceAccount.private_key?.length || 0);
   if (!serviceAccount.client_email || !serviceAccount.private_key) {
     throw new Error('Service account JSON missing required fields');
   }
@@ -187,20 +200,6 @@ Deno.serve(async (req) => {
     if (mode === 'test') {
       const steps: { step: string; status: string; detail?: unknown }[] = [];
 
-      // Debug: show what client_email we parsed
-      let debugEmail = '(unknown)';
-      try {
-        let raw = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '';
-        raw = raw.trim();
-        if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) raw = raw.slice(1, -1);
-        if (raw.includes('\\"')) raw = raw.replace(/\\"/g, '"');
-        raw = raw.replace(/\r\n/g, '\\n').replace(/\r/g, '\\n').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
-        const parsed = JSON.parse(raw);
-        debugEmail = parsed.client_email || '(missing)';
-        steps.push({ step: 'secret_parse', status: 'ok', detail: { client_email: debugEmail, project_id: parsed.project_id || '(missing)', key_len: parsed.private_key?.length || 0, raw_first_40: (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').slice(0, 40) } });
-      } catch (e) {
-        steps.push({ step: 'secret_parse', status: 'error', detail: String(e) });
-      }
 
       let accessToken: string;
       try {
