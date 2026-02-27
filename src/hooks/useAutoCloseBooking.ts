@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { toast } from '@/hooks/use-toast';
 
 interface MatchingBooking {
@@ -44,102 +43,88 @@ export function useAutoCloseBooking() {
     relatedBookingId?: string,
     changedBy: string = 'System'
   ): Promise<AutoCloseResult> => {
-    // Check if this sale qualifies for auto-close
     if (commissionAmount <= 0 && !membershipType) {
-      return { success: true }; // No action needed
-    }
-
-    const spreadsheetId = getSpreadsheetId();
-    if (!spreadsheetId) {
-      return { success: false, error: 'No spreadsheet configured' };
+      return { success: true };
     }
 
     setIsClosing(true);
     try {
-      // If we have a specific booking ID, close it directly
       if (relatedBookingId) {
-        const { data, error } = await supabase.functions.invoke('sync-sheets', {
-          body: {
-            action: 'update_booking_status',
-            spreadsheetId,
-            data: {
-              bookingId: relatedBookingId,
-              newStatus: 'CLOSED',
-              statusReason: 'Purchased membership',
-              changedBy,
-              closedSaleId: saleId,
-            },
-          },
-        });
+        // Close directly in DB
+        const { error } = await supabase
+          .from('intros_booked')
+          .update({
+            booking_status_canon: 'closed',
+            closed_at: new Date().toISOString(),
+            closed_by: changedBy,
+          })
+          .eq('id', relatedBookingId);
 
         if (error) throw error;
-        if (!data.success) throw new Error(data.error);
 
         toast({
           title: 'Membership logged',
           description: 'Removed from booked intros.',
         });
 
-        return { success: true, closedCount: data.updatedRows || 1 };
+        return { success: true, closedCount: 1 };
       }
 
-      // Otherwise, find matching bookings by member key
+      // Find matching bookings by member name in DB
       const memberKey = normalizeName(memberName);
-      
-      const { data: matchData, error: matchError } = await supabase.functions.invoke('sync-sheets', {
-        body: {
-          action: 'find_active_bookings_by_member',
-          spreadsheetId,
-          data: { memberKey },
-        },
-      });
+      const { data: matches, error: matchError } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, class_date, intro_time, lead_source')
+        .ilike('member_name', `%${memberName}%`)
+        .in('booking_status_canon', ['active', 'ACTIVE'])
+        .is('deleted_at', null);
 
       if (matchError) throw matchError;
-      if (!matchData.success) throw new Error(matchData.error);
 
-      const matches: MatchingBooking[] = matchData.matches || [];
-
-      if (matches.length === 0) {
-        // No active bookings to close
+      if (!matches || matches.length === 0) {
         return { success: true, closedCount: 0 };
       }
 
       if (matches.length === 1) {
-        // Exactly one match - close it automatically
-        const { data, error } = await supabase.functions.invoke('sync-sheets', {
-          body: {
-            action: 'update_booking_status',
-            spreadsheetId,
-            data: {
-              bookingId: matches[0].booking_id,
-              memberKey: matches[0].member_key,
-              newStatus: 'CLOSED',
-              statusReason: 'Purchased membership',
-              changedBy,
-              closedSaleId: saleId,
-            },
-          },
-        });
+        const { error } = await supabase
+          .from('intros_booked')
+          .update({
+            booking_status_canon: 'closed',
+            closed_at: new Date().toISOString(),
+            closed_by: changedBy,
+          })
+          .eq('id', matches[0].id);
 
         if (error) throw error;
-        if (!data.success) throw new Error(data.error);
 
         toast({
           title: 'Membership logged',
           description: 'Removed from booked intros.',
         });
 
-        return { success: true, closedCount: data.updatedRows || 1 };
+        return { success: true, closedCount: 1 };
       }
 
       // Multiple matches - require admin confirmation
-      setPendingMatches(matches);
+      const mappedMatches: MatchingBooking[] = matches.map(m => ({
+        booking_id: m.id,
+        member_name: m.member_name,
+        member_key: normalizeName(m.member_name),
+        intro_date: m.class_date,
+        intro_time: m.intro_time || '',
+        lead_source: m.lead_source,
+        notes: '',
+        originating_booking_id: '',
+        row_number: 0,
+      }));
+      
+      setPendingMatches(mappedMatches);
       setPendingSaleInfo({ saleId, memberKey, changedBy });
       
       return { 
         success: true, 
         requiresConfirmation: true, 
-        matches 
+        matches: mappedMatches 
       };
 
     } catch (err) {
@@ -158,40 +143,28 @@ export function useAutoCloseBooking() {
       return { success: false, error: 'No pending sale info' };
     }
 
-    const spreadsheetId = getSpreadsheetId();
-    if (!spreadsheetId) {
-      return { success: false, error: 'No spreadsheet configured' };
-    }
-
     setIsClosing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-sheets', {
-        body: {
-          action: 'update_booking_status',
-          spreadsheetId,
-          data: {
-            bookingId,
-            newStatus: 'CLOSED',
-            statusReason: 'Purchased membership',
-            changedBy: pendingSaleInfo.changedBy,
-            closedSaleId: pendingSaleInfo.saleId,
-          },
-        },
-      });
+      const { error } = await supabase
+        .from('intros_booked')
+        .update({
+          booking_status_canon: 'closed',
+          closed_at: new Date().toISOString(),
+          closed_by: pendingSaleInfo.changedBy,
+        })
+        .eq('id', bookingId);
 
       if (error) throw error;
-      if (!data.success) throw new Error(data.error);
 
       toast({
         title: 'Membership logged',
         description: 'Removed from booked intros.',
       });
 
-      // Clear pending state
       setPendingMatches(null);
       setPendingSaleInfo(null);
 
-      return { success: true, closedCount: data.updatedRows || 1 };
+      return { success: true, closedCount: 1 };
 
     } catch (err) {
       console.error('Error confirming close:', err);

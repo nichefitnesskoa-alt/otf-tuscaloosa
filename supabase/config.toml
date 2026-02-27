@@ -21,8 +21,6 @@ verify_jwt = false
 [functions.import-sheet-leads]
 verify_jwt = false
 
-[functions.sync-sheets]
-verify_jwt = false
 
 [functions.post-groupme]
 verify_jwt = false

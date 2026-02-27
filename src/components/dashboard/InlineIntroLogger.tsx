@@ -208,32 +208,7 @@ export function InlineIntroLogger({
 
       let followUpIds: string[] = [];
 
-      // Google Sheets sync (non-blocking)
-      try {
-        const { getSpreadsheetId } = await import('@/lib/sheets-sync');
-        const spreadsheetId = getSpreadsheetId();
-        if (spreadsheetId && introRunId) {
-          await supabase.functions.invoke('sync-sheets', {
-            body: {
-              action: 'sync_run',
-              spreadsheetId,
-              data: {
-                run_id: introRunId,
-                member_name: memberName,
-                run_date: classDate,
-                class_time: classTime || '00:00',
-                lead_source: leadSource,
-                intro_owner: saName,
-                result,
-                notes: notes.trim() || null,
-                primary_objection: outcome === 'didnt_buy' ? objection : outcome === 'purchased' ? objection : null,
-              },
-            },
-          });
-        }
-      } catch (e) {
-        console.error('Sheets sync failed (non-blocking):', e);
-      }
+      // Google Sheets sync removed — old outbound sheet no longer exists
 
       const commissionText = commissionAmount > 0 ? ` · $${commissionAmount.toFixed(2)} commission` : '';
       toast.success(`${memberName} logged as ${result}${commissionText}`);
