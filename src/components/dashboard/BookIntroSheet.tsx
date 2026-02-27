@@ -23,10 +23,15 @@ interface BookIntroSheetProps {
   onSaved: () => void;
 }
 
+const REFERRAL_SOURCES = new Set([
+  'Member Referral',
+  'Lead Management (Friend)',
+  'Instagram DMs (Friend)',
+  'My Personal Friend I Invited',
+]);
+
 function isReferralSource(source: string): boolean {
-  if (!source) return false;
-  const lower = source.toLowerCase();
-  return lower.includes('referral') || lower.includes('friend') || lower.includes('invited');
+  return REFERRAL_SOURCES.has(source);
 }
 
 export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
@@ -103,13 +108,13 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         booking_status_canon: 'ACTIVE',
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
-        referred_by_member_name: leadSource === 'Member Referral' ? (referredBy.trim() || null) : null,
+        referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
       }).select('id').single();
 
       if (error) throw error;
 
       // Insert referral record if referred by someone
-      if (inserted?.id && leadSource === 'Member Referral' && referredBy.trim()) {
+      if (inserted?.id && REFERRAL_SOURCES.has(leadSource) && referredBy.trim()) {
         await supabase.from('referrals').insert({
           referrer_name: referredBy.trim(),
           referred_name: memberName,
@@ -252,8 +257,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
             </Select>
           </div>
 
-          {/* ── Who Referred Them? (Member Referral only) ── */}
-          {leadSource === 'Member Referral' && (
+          {/* ── Who Referred Them? (referral sources) ── */}
+          {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">Who referred them?</Label>
               <Input id="book-referred-by" value={referredBy} onChange={e => setReferredBy(e.target.value)} placeholder="Referring member's name" />
