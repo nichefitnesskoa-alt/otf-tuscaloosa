@@ -12,7 +12,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
-// ── Google Auth (same pattern as sync-sheets) ──
+// ── Google Auth ──
 
 interface GoogleAuth { access_token: string; expires_at: number; }
 let cachedAuth: GoogleAuth | null = null;
@@ -79,12 +79,12 @@ async function getAccessToken(): Promise<string> {
   return cachedAuth.access_token;
 }
 
-// ── Sheet metadata & reading ──
+// ── Sheet reading ──
 
 const TAB_NAME = 'OTF Lead Intake';
 
 async function readSheet(spreadsheetId: string, tabName: string, accessToken: string): Promise<string[][]> {
-  const range = `'${tabName}'!A:Z`;
+  const range = `'${tabName}'!A:J`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   const response = await fetch(url, { method: 'GET', headers: { 'Authorization': `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`Failed to read sheet "${tabName}": ${await response.text()}`);
@@ -92,7 +92,26 @@ async function readSheet(spreadsheetId: string, tabName: string, accessToken: st
   return data.values || [];
 }
 
-// ── Phone normalization ──
+// ── Column indices (fixed positional mapping) ──
+// A=0: Timestamp (skip), B=1: First, C=2: Last, D=3: Email, E=4: Phone,
+// F=5: IntroDate, G=6: IntroTime, H=7: RawSubject (skip), I=8: MessageId, J=9: Status
+const COL = {
+  FIRST: 1,
+  LAST: 2,
+  EMAIL: 3,
+  PHONE: 4,
+  INTRO_DATE: 5,
+  INTRO_TIME: 6,
+  MESSAGE_ID: 8,
+  STATUS: 9,
+} as const;
+
+// ── Helpers ──
+
+function getVal(row: string[], idx: number): string {
+  if (idx < 0 || idx >= row.length) return '';
+  return (row[idx] || '').trim();
+}
 
 function normalizePhone(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -101,8 +120,6 @@ function normalizePhone(phone: string | null | undefined): string | null {
   if (digits.length === 10) return digits;
   return null;
 }
-
-// ── Date parsing (flexible) ──
 
 function parseFlexDate(raw: string): string | null {
   if (!raw) return null;
@@ -117,8 +134,6 @@ function parseFlexDate(raw: string): string | null {
   }
   return null;
 }
-
-// ── Time parsing (flexible) ──
 
 function parseFlexTime(raw: string): string | null {
   if (!raw) return null;
@@ -136,59 +151,6 @@ function parseFlexTime(raw: string): string | null {
   return null;
 }
 
-// ── Fixed header mapping for OTF Lead Intake ──
-// Columns: Timestamp(A=0), First(B=1), Last(C=2), Email(D=3), Phone(E=4),
-//          IntroDate(F=5), IntroTime(G=6), RawSubject(H=7), MessageId(I=8), Status(J=9)
-
-interface HeaderMap {
-  firstName: number;
-  lastName: number;
-  name: number;
-  email: number;
-  phone: number;
-  date: number;
-  time: number;
-  source: number;
-  coach: number;
-}
-
-function buildHeaderMap(headers: string[]): HeaderMap {
-  const map: HeaderMap = {
-    firstName: 1,   // B = First
-    lastName: 2,    // C = Last
-    name: -1,       // not used
-    email: 3,       // D = Email
-    phone: 4,       // E = Phone
-    date: 5,        // F = IntroDate
-    time: 6,        // G = IntroTime
-    source: -1,     // not in this sheet
-    coach: -1,      // not in this sheet
-  };
-  console.log(`[import-sheet-leads] Fixed column mapping. Headers: ${JSON.stringify(headers)}`);
-  return map;
-}
-
-function getVal(row: string[], idx: number): string {
-  if (idx < 0 || idx >= row.length) return '';
-  return (row[idx] || '').trim();
-}
-
-function parseName(row: string[], hm: HeaderMap): { first: string; last: string } | null {
-  if (hm.firstName >= 0) {
-    const first = getVal(row, hm.firstName);
-    const last = getVal(row, hm.lastName);
-    if (!first) return null;
-    return { first, last: last || '' };
-  }
-  if (hm.name >= 0) {
-    const full = getVal(row, hm.name);
-    if (!full) return null;
-    const parts = full.split(/\s+/);
-    return { first: parts[0], last: parts.slice(1).join(' ') || '' };
-  }
-  return null;
-}
-
 // ── Main handler ──
 
 Deno.serve(async (req) => {
@@ -201,7 +163,6 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Always use the LEADS_SPREADSHEET_ID secret — ignore body.spreadsheetId
     let mode: string = 'import';
     try {
       const body = await req.json();
@@ -217,7 +178,6 @@ Deno.serve(async (req) => {
     if (mode === 'test') {
       const steps: { step: string; status: string; detail?: unknown }[] = [];
 
-      // Step 1: Google auth
       let accessToken: string;
       try {
         accessToken = await getAccessToken();
@@ -227,10 +187,8 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, steps }, 200);
       }
 
-      // Step 2: Read tab
       steps.push({ step: 'find_tab', status: 'ok', detail: `Using fixed tab: "${TAB_NAME}"` });
 
-      // Step 3: Read sheet
       let rows: string[][];
       try {
         rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
@@ -240,63 +198,83 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: false, steps }, 200);
       }
 
-      // Step 4: Return first 3 rows raw
-      const sampleRows = rows.slice(0, 3);
-      const headers = rows[0] || [];
-      const hm = buildHeaderMap(headers);
-      steps.push({ step: 'header_map', status: 'ok', detail: hm });
+      const sampleRows = rows.slice(0, 4); // header + first 3 data rows
+      steps.push({ step: 'column_mapping', status: 'ok', detail: COL });
       steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
+
+      // Count rows with POSTED_2xx status
+      const validRows = rows.slice(1).filter(r => getVal(r, COL.STATUS).startsWith('POSTED_2xx'));
+      steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx status out of ${rows.length - 1} total data rows` });
 
       return jsonResponse({ success: true, steps, total_rows: rows.length }, 200);
     }
 
+    // ── IMPORT / BACKFILL MODE ──
     const accessToken = await getAccessToken();
-
-    console.log(`[import-sheet-leads] Reading from "${TAB_NAME}" (mode: ${mode})...`);
+    console.log(`[import-sheet-leads] Reading "${TAB_NAME}" (mode: ${mode})...`);
     const rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
 
     if (rows.length < 2) {
-      return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_empty: 0, errors: 0, rows_scanned: 0, message: 'No data rows found' });
+      return jsonResponse({ success: true, imported: 0, skipped_duplicate: 0, skipped_filtered: 0, skipped_empty: 0, errors: 0, rows_scanned: 0, message: 'No data rows found' });
     }
 
-    const headers = rows[0];
-    const hm = buildHeaderMap(headers);
-    console.log(`[import-sheet-leads] Header map:`, JSON.stringify(hm));
+    console.log(`[import-sheet-leads] Headers: ${JSON.stringify(rows[0])}`);
 
-    if (hm.firstName < 0 && hm.name < 0) {
-      return jsonResponse({ error: 'Could not find a name column in the sheet headers. Found: ' + headers.join(', ') }, 400);
-    }
+    // Pre-load existing message IDs for idempotency
+    const { data: existingEvents } = await supabase
+      .from('intake_events')
+      .select('external_id')
+      .eq('source', 'sheet_import');
+    const existingMessageIds = new Set((existingEvents || []).map(e => e.external_id));
+    console.log(`[import-sheet-leads] ${existingMessageIds.size} existing intake_events for sheet_import`);
 
     let imported = 0;
     let skippedDuplicate = 0;
+    let skippedFiltered = 0;
     let skippedEmpty = 0;
     let errors = 0;
     const details: string[] = [];
     const rowsScanned = rows.length - 1;
 
-    // Both 'import' and 'backfill' modes read ALL rows — backfill is just explicit about it
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       try {
-        const nameResult = parseName(row, hm);
-        if (!nameResult || !nameResult.first) { skippedEmpty++; continue; }
+        // ── Status filter: only POSTED_2xx ──
+        const status = getVal(row, COL.STATUS);
+        if (!status.startsWith('POSTED_2xx')) {
+          skippedFiltered++;
+          continue;
+        }
 
-        const { first, last } = nameResult;
+        // ── Idempotency: check MessageId against intake_events ──
+        const messageId = getVal(row, COL.MESSAGE_ID);
+        if (messageId && existingMessageIds.has(messageId)) {
+          skippedDuplicate++;
+          continue;
+        }
+
+        // ── Parse row data ──
+        const first = getVal(row, COL.FIRST);
+        const last = getVal(row, COL.LAST);
+        if (!first) { skippedEmpty++; continue; }
+
         const memberName = last ? `${first} ${last}` : first;
-        const email = getVal(row, hm.email).toLowerCase() || null;
-        const rawPhone = getVal(row, hm.phone);
+        const email = getVal(row, COL.EMAIL).toLowerCase() || null;
+        const rawPhone = getVal(row, COL.PHONE);
         const phone = normalizePhone(rawPhone);
-        const rawDate = getVal(row, hm.date);
-        const rawTime = getVal(row, hm.time);
+        const rawDate = getVal(row, COL.INTRO_DATE);
+        const rawTime = getVal(row, COL.INTRO_TIME);
         const classDate = parseFlexDate(rawDate);
         const introTime = parseFlexTime(rawTime);
-        const source = getVal(row, hm.source) || 'OTF Lead Intake Sheet';
-        const coach = getVal(row, hm.coach) || 'TBD';
 
         const hasBookingInfo = !!classDate;
 
         if (hasBookingInfo) {
-          // ── BOOKING PATH ──
+          // ═══════════════════════════════════════
+          // BOOKING PATH → intros_booked
+          // ═══════════════════════════════════════
+
+          // Dedup by name+date
           const { data: existByNameDate } = await supabase
             .from('intros_booked')
             .select('id')
@@ -308,47 +286,42 @@ Deno.serve(async (req) => {
 
           if (existByNameDate) {
             skippedDuplicate++;
+            // Still record the intake event for audit
+            if (messageId) {
+              await supabase.from('intake_events').insert({
+                source: 'sheet_import', external_id: messageId, payload: { row_index: i, member_name: memberName }, booking_id: existByNameDate.id,
+              });
+              existingMessageIds.add(messageId);
+            }
             continue;
           }
 
+          // Dedup by phone+date
           if (phone) {
             const { data: existByPhone } = await supabase
               .from('intros_booked')
-              .select('id, member_name, class_date')
+              .select('id')
               .is('deleted_at', null)
               .or(`phone.eq.${phone},phone_e164.eq.+1${phone}`)
               .eq('class_date', classDate)
               .limit(1)
               .maybeSingle();
-
             if (existByPhone) {
               skippedDuplicate++;
+              if (messageId) {
+                await supabase.from('intake_events').insert({ source: 'sheet_import', external_id: messageId, payload: { row_index: i }, booking_id: existByPhone.id });
+                existingMessageIds.add(messageId);
+              }
               continue;
             }
           }
 
-          if (email) {
-            const { data: existByEmail } = await supabase
-              .from('intros_booked')
-              .select('id')
-              .is('deleted_at', null)
-              .ilike('email', email)
-              .eq('class_date', classDate)
-              .limit(1)
-              .maybeSingle();
-
-            if (existByEmail) {
-              skippedDuplicate++;
-              continue;
-            }
-          }
-
-          const { error: insertErr } = await supabase.from('intros_booked').insert({
+          const { data: newBooking, error: insertErr } = await supabase.from('intros_booked').insert({
             member_name: memberName,
             class_date: classDate,
             intro_time: introTime,
-            lead_source: source,
-            coach_name: coach,
+            lead_source: 'Online Intro Offer (self-booked)',
+            coach_name: 'TBD',
             sa_working_shift: 'Online',
             booked_by: 'System (Sheet Import)',
             booking_status: 'Active',
@@ -357,7 +330,7 @@ Deno.serve(async (req) => {
             phone_e164: phone ? `+1${phone}` : null,
             phone_source: phone ? 'sheet_import' : null,
             email: email,
-          });
+          }).select('id').single();
 
           if (insertErr) {
             console.error(`Row ${i + 1} booking insert error:`, insertErr);
@@ -366,16 +339,26 @@ Deno.serve(async (req) => {
           } else {
             imported++;
             details.push(`Row ${i + 1}: booked ${memberName} on ${classDate}`);
+            // Record intake event
+            if (messageId) {
+              await supabase.from('intake_events').insert({
+                source: 'sheet_import', external_id: messageId, payload: { row_index: i, member_name: memberName }, booking_id: newBooking.id,
+              });
+              existingMessageIds.add(messageId);
+            }
           }
 
         } else {
-          // ── LEAD PATH (no date) ──
+          // ═══════════════════════════════════════
+          // LEAD PATH (no date) → leads
+          // ═══════════════════════════════════════
           if (!phone && !email) {
             skippedEmpty++;
             details.push(`Row ${i + 1}: skipped ${memberName} — no phone or email`);
             continue;
           }
 
+          // Dedup in leads table
           const orFilters: string[] = [];
           if (email) orFilters.push(`email.eq.${email}`);
           if (phone) orFilters.push(`phone.eq.${phone}`);
@@ -389,9 +372,14 @@ Deno.serve(async (req) => {
 
           if (existingLead) {
             skippedDuplicate++;
+            if (messageId) {
+              await supabase.from('intake_events').insert({ source: 'sheet_import', external_id: messageId, payload: { row_index: i }, lead_id: existingLead.id });
+              existingMessageIds.add(messageId);
+            }
             continue;
           }
 
+          // Cross-table dedup
           let dupConfidence: string | null = null;
           let dupMatchType: string | null = null;
           let dupNotes: string | null = null;
@@ -400,12 +388,11 @@ Deno.serve(async (req) => {
           if (phone) {
             const { data: phoneMatch } = await supabase
               .from('intros_booked')
-              .select('id, member_name, class_date, booking_status_canon')
+              .select('id, member_name, class_date')
               .is('deleted_at', null)
               .or(`phone.eq.${phone},phone_e164.eq.+1${phone}`)
               .limit(1)
               .maybeSingle();
-
             if (phoneMatch) {
               dupConfidence = 'HIGH';
               dupMatchType = 'phone';
@@ -422,7 +409,6 @@ Deno.serve(async (req) => {
               .ilike('email', email)
               .limit(1)
               .maybeSingle();
-
             if (emailMatch) {
               dupConfidence = 'HIGH';
               dupMatchType = 'email';
@@ -439,7 +425,6 @@ Deno.serve(async (req) => {
               .ilike('member_name', memberName)
               .limit(1)
               .maybeSingle();
-
             if (nameMatch) {
               dupConfidence = 'MEDIUM';
               dupMatchType = 'name_only';
@@ -448,33 +433,17 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (!dupConfidence) {
-            const { data: saleMatch } = await supabase
-              .from('sales_outside_intro')
-              .select('id, member_name')
-              .ilike('member_name', memberName)
-              .limit(1)
-              .maybeSingle();
-
-            if (saleMatch) {
-              dupConfidence = 'HIGH';
-              dupMatchType = 'name_date';
-              dupNotes = `Active member match: ${saleMatch.member_name}`;
-              autoStage = 'already_in_system';
-            }
-          }
-
-          const { error: insertErr } = await supabase.from('leads').insert({
+          const { data: newLead, error: insertErr } = await supabase.from('leads').insert({
             first_name: first,
             last_name: last || 'Unknown',
             email: email,
             phone: phone || rawPhone || '',
             stage: autoStage,
-            source: source,
+            source: 'OTF Lead Intake Sheet',
             duplicate_confidence: dupConfidence,
             duplicate_match_type: dupMatchType,
             duplicate_notes: dupNotes,
-          });
+          }).select('id').single();
 
           if (insertErr) {
             console.error(`Row ${i + 1} lead insert error:`, insertErr);
@@ -483,6 +452,10 @@ Deno.serve(async (req) => {
           } else {
             imported++;
             details.push(`Row ${i + 1}: lead ${memberName} (stage: ${autoStage})`);
+            if (messageId) {
+              await supabase.from('intake_events').insert({ source: 'sheet_import', external_id: messageId, payload: { row_index: i, member_name: memberName }, lead_id: newLead.id });
+              existingMessageIds.add(messageId);
+            }
           }
         }
       } catch (rowErr) {
@@ -504,12 +477,13 @@ Deno.serve(async (req) => {
       console.error('[import-sheet-leads] Failed to log sync:', logErr);
     }
 
-    console.log(`[import-sheet-leads] Done: imported=${imported}, skipped_dup=${skippedDuplicate}, skipped_empty=${skippedEmpty}, errors=${errors}`);
+    console.log(`[import-sheet-leads] Done: imported=${imported}, skipped_dup=${skippedDuplicate}, skipped_filtered=${skippedFiltered}, skipped_empty=${skippedEmpty}, errors=${errors}`);
 
     return jsonResponse({
       success: true,
       imported,
       skipped_duplicate: skippedDuplicate,
+      skipped_filtered: skippedFiltered,
       skipped_empty: skippedEmpty,
       errors,
       rows_scanned: rowsScanned,
@@ -519,7 +493,6 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error('[import-sheet-leads] Fatal error:', err);
 
-    // Log error — wrapped in try/catch to avoid the .catch() crash
     try {
       const supabase2 = createClient(supabaseUrl, supabaseServiceKey);
       await supabase2.from('sheets_sync_log').insert({
