@@ -384,6 +384,88 @@ function WeeklyContactAvgCard() {
   );
 }
 
+function IntelligenceTab() {
+  const [reports, setReports] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('studio_intelligence')
+        .select('id, report_date, content_json, created_at')
+        .order('report_date', { ascending: false })
+        .limit(14);
+      setReports(data || []);
+      setLoading(false);
+    };
+    fetchReports();
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      {/* Latest report card with generate button */}
+      <StudioIntelligenceCard />
+
+      {/* Historical reports */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Report History (Last 14 Days)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Loading…</p>
+          ) : reports.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              No reports yet. Click "Generate Now" above to create the first one.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {reports.map((r) => {
+                const data = r.content_json as any;
+                return (
+                  <div key={r.id} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{data?.report_date || r.report_date}</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <Badge variant="outline">{data?.intros_ran ?? '—'} intros</Badge>
+                        <Badge variant="outline" className="text-green-600">{data?.sales ?? '—'} sales</Badge>
+                        <Badge variant="outline">{data?.close_rate ?? '—'}%</Badge>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-[11px]">
+                      {data?.best_source && data.best_source !== 'N/A' && (
+                        <span className="text-muted-foreground">Best source: <strong>{data.best_source}</strong> ({data.best_source_rate}%)</span>
+                      )}
+                      {data?.top_sa && data.top_sa !== 'N/A' && (
+                        <span className="text-muted-foreground">Top SA: <strong>{data.top_sa}</strong> ({data.top_sa_rate}%)</span>
+                      )}
+                      {data?.top_objection && data.top_objection !== 'N/A' && (
+                        <span className="text-muted-foreground">Top objection: <strong>{data.top_objection}</strong> ({data.top_objection_count}x)</span>
+                      )}
+                    </div>
+                    {data?.report_text && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-primary font-medium">View full report</summary>
+                        <div className="mt-2 rounded bg-muted/50 p-2.5 whitespace-pre-line leading-relaxed">
+                          {data.report_text}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const { introsBooked, introsRun, refreshData } = useData();
@@ -477,7 +559,7 @@ export default function Admin() {
 
         {/* Intelligence Tab */}
         <TabsContent value="intelligence" className="space-y-4">
-          <StudioIntelligenceCard />
+          <IntelligenceTab />
         </TabsContent>
 
         {/* Coaching Tab */}
