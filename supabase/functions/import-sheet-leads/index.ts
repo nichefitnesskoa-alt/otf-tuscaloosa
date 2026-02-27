@@ -253,8 +253,43 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'No spreadsheetId provided and LEADS_SPREADSHEET_ID secret not set' }, 400);
     }
 
-    const accessToken = await getAccessToken();
     const TAB_NAME = 'OTF Lead Intake';
+
+    // ── TEST MODE ──
+    if (mode === 'test') {
+      const steps: { step: string; status: string; detail?: unknown }[] = [];
+
+      // Step 1: Google auth
+      let accessToken: string;
+      try {
+        accessToken = await getAccessToken();
+        steps.push({ step: 'google_auth', status: 'ok', detail: 'Access token obtained' });
+      } catch (authErr) {
+        steps.push({ step: 'google_auth', status: 'error', detail: String(authErr) });
+        return jsonResponse({ success: false, steps }, 200);
+      }
+
+      // Step 2: Read sheet
+      let rows: string[][];
+      try {
+        rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
+        steps.push({ step: 'read_sheet', status: 'ok', detail: `${rows.length} rows returned` });
+      } catch (sheetErr) {
+        steps.push({ step: 'read_sheet', status: 'error', detail: String(sheetErr) });
+        return jsonResponse({ success: false, steps }, 200);
+      }
+
+      // Step 3: Return first 3 rows raw
+      const sampleRows = rows.slice(0, 3);
+      const headers = rows[0] || [];
+      const hm = buildHeaderMap(headers, rows.slice(1));
+      steps.push({ step: 'header_map', status: 'ok', detail: hm });
+      steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
+
+      return jsonResponse({ success: true, steps, total_rows: rows.length }, 200);
+    }
+
+    const accessToken = await getAccessToken();
 
     console.log(`[import-sheet-leads] Reading from "${TAB_NAME}" (mode: ${mode})...`);
     const rows = await readSheet(spreadsheetId, TAB_NAME, accessToken);
