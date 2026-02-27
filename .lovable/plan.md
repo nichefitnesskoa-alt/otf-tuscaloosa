@@ -1,28 +1,22 @@
 
 
-## Problem: Row Expansion Glitch in Virtualized Pipeline Spreadsheet
+## Two Changes
 
-When you click a row to expand it, the virtualizer "glitches" because it uses `estimateSize` based on `expandedKey`, but `@tanstack/react-virtual` caches size estimates and doesn't automatically recalculate when `expandedKey` changes. This causes the layout to jump — rows overlap or shift incorrectly until the virtualizer catches up.
+### 1. Fix Script Generation: Switch from Anthropic to Lovable AI
 
-### Root Cause
+The `generate-script` edge function calls `api.anthropic.com` directly, but the Anthropic account has no credits. Switch to the Lovable AI gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) using the pre-configured `LOVABLE_API_KEY`.
 
-The `useVirtualizer` hook caches estimated sizes. When `expandedKey` changes (toggling a row from 40px → 300px), the cached sizes are stale, causing visual glitching as the virtualizer tries to reconcile absolute positioning with wrong height data.
+**File: `supabase/functions/generate-script/index.ts`**
+- Replace the Anthropic fetch call with Lovable AI gateway call
+- Use `google/gemini-2.5-flash` model (fast, good for this use case)
+- Change from `ANTHROPIC_API_KEY` to `LOVABLE_API_KEY`
+- Adapt request/response format from Anthropic to OpenAI-compatible format
+- Keep the full KOA_SYSTEM_PROMPT unchanged
 
-### Fix
+### 2. Delete the daily-followup-digest edge function
 
-1. **In `PipelineSpreadsheet.tsx`** — After `expandedKey` changes, call `virtualizer.measure()` to force the virtualizer to recalculate all row sizes. This is done via a `useEffect` that watches `expandedKey`:
+**Delete: `supabase/functions/daily-followup-digest/index.ts`**
+- Remove the entire edge function directory
 
-```typescript
-useEffect(() => {
-  virtualizer.measure();
-}, [expandedKey, virtualizer]);
-```
-
-2. **Add a stable `getItemKey`** to the virtualizer config so it tracks rows by `memberKey` instead of index — preventing mismatches when rows reorder or the expanded row shifts position:
-
-```typescript
-getItemKey: (i) => sorted[i]?.memberKey ?? i,
-```
-
-These two changes ensure that when a row is toggled, the virtualizer immediately recalculates the full layout with the correct expanded/collapsed heights, eliminating the visual jump.
+Also remove the `FollowUpDigest` admin component if it references this function.
 
