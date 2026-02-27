@@ -148,12 +148,16 @@ interface HeaderMap {
   coach: number;
 }
 
-function buildHeaderMap(headers: string[]): HeaderMap {
+// Columns to ignore entirely
+const IGNORED_HEADERS = new Set(['timestamp', 'rawsubject', 'messageid', 'status']);
+
+function buildHeaderMap(headers: string[], dataRows?: string[][]): HeaderMap {
   const map: HeaderMap = { firstName: -1, lastName: -1, name: -1, email: -1, phone: -1, date: -1, time: -1, source: -1, coach: -1 };
   headers.forEach((h, i) => {
-    const lower = h.toLowerCase().trim();
-    if (lower === 'first name' || lower === 'first_name' || lower === 'firstname') map.firstName = i;
-    else if (lower === 'last name' || lower === 'last_name' || lower === 'lastname') map.lastName = i;
+    const lower = (h || '').toLowerCase().trim();
+    if (IGNORED_HEADERS.has(lower)) return; // skip ignored columns
+    if (lower === 'first' || lower === 'first name' || lower === 'first_name' || lower === 'firstname') map.firstName = i;
+    else if (lower === 'last' || lower === 'last name' || lower === 'last_name' || lower === 'lastname') map.lastName = i;
     else if (lower === 'name' || lower === 'full name' || lower === 'member name' || lower === 'client name') map.name = i;
     else if (lower === 'email' || lower === 'email address') map.email = i;
     else if (lower === 'phone' || lower === 'phone number' || lower === 'phone_number' || lower === 'cell' || lower === 'mobile') map.phone = i;
@@ -162,6 +166,41 @@ function buildHeaderMap(headers: string[]): HeaderMap {
     else if (lower === 'source' || lower === 'lead source' || lower === 'lead_source' || lower === 'how did you hear') map.source = i;
     else if (lower === 'coach' || lower === 'coach name' || lower === 'coach_name' || lower === 'instructor') map.coach = i;
   });
+
+  // Content-based detection for date/time columns with blank or unexpected headers
+  if ((map.date < 0 || map.time < 0) && dataRows && dataRows.length > 0) {
+    const sampleRows = dataRows.slice(0, Math.min(10, dataRows.length));
+    for (let col = 0; col < (headers.length + 5); col++) {
+      // Skip columns already mapped
+      if (Object.values(map).includes(col)) continue;
+      const lower = (headers[col] || '').toLowerCase().trim();
+      if (IGNORED_HEADERS.has(lower)) continue;
+
+      const samples = sampleRows.map(r => (r[col] || '').trim()).filter(Boolean);
+      if (samples.length === 0) continue;
+
+      if (map.date < 0) {
+        const datePattern = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/;
+        const dateMatches = samples.filter(s => datePattern.test(s));
+        if (dateMatches.length >= 1) {
+          map.date = col;
+          console.log(`[import-sheet-leads] Auto-detected date column at index ${col}`);
+          continue;
+        }
+      }
+
+      if (map.time < 0) {
+        const timePattern = /^\d{1,2}:\d{2}\s*(AM|PM)?$/i;
+        const timeMatches = samples.filter(s => timePattern.test(s));
+        if (timeMatches.length >= 1) {
+          map.time = col;
+          console.log(`[import-sheet-leads] Auto-detected time column at index ${col}`);
+          continue;
+        }
+      }
+    }
+  }
+
   return map;
 }
 
@@ -225,7 +264,7 @@ Deno.serve(async (req) => {
     }
 
     const headers = rows[0];
-    const hm = buildHeaderMap(headers);
+    const hm = buildHeaderMap(headers, rows.slice(1));
     console.log(`[import-sheet-leads] Header map:`, JSON.stringify(hm));
 
     if (hm.firstName < 0 && hm.name < 0) {
