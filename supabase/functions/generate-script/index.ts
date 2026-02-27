@@ -117,6 +117,19 @@ serve(async (req) => {
       });
     }
 
+    const userPrompt = `Generate a ${scriptCategory || 'follow-up'} script for this person:
+
+Name: ${personName || 'Unknown'}
+Goal: ${goal || 'Not specified'}
+Why: ${why || 'Not specified'}
+Obstacle: ${obstacle || 'Not specified'}
+Fitness Level: ${fitnessLevel || 'Not specified'}
+Objection: ${objection || 'None'}
+Lead Source: ${leadSource || 'Not specified'}
+Category: ${scriptCategory || 'general'}
+
+Write the script as a ready-to-send text message or DM. Do not include any instructions or meta-commentary — just the message itself.`;
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
