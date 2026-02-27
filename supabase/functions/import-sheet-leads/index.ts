@@ -82,7 +82,7 @@ async function getAccessToken(): Promise<string> {
 // ── Sheet reading ──
 
 async function readSheet(spreadsheetId: string, tabName: string, accessToken: string): Promise<string[][]> {
-  const range = `${tabName}!A:ZZ`;
+  const range = `'${tabName}'!A:Z`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
   const response = await fetch(url, { method: 'GET', headers: { 'Authorization': `Bearer ${accessToken}` } });
   if (!response.ok) throw new Error(`Failed to read sheet "${tabName}": ${await response.text()}`);
