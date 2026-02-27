@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
 import { toast } from 'sonner';
 import { FileSpreadsheet, Loader2, CheckCircle, AlertTriangle, DatabaseBackup, TestTube } from 'lucide-react';
 
@@ -25,12 +24,6 @@ export function LeadSheetImport() {
   const [testResult, setTestResult] = useState<string | null>(null);
 
   const handleAction = async (mode: 'import' | 'backfill') => {
-    const spreadsheetId = getSpreadsheetId();
-    if (!spreadsheetId) {
-      toast.error('No spreadsheet ID configured. Set it in Data Sync settings first.');
-      return;
-    }
-
     const setLoadingFn = mode === 'backfill' ? setBackfillLoading : setLoading;
     setLoadingFn(true);
     setLastResult(null);
@@ -39,7 +32,7 @@ export function LeadSheetImport() {
 
     try {
       const { data, error } = await supabase.functions.invoke('import-sheet-leads', {
-        body: { spreadsheetId, mode },
+        body: { mode },
       });
 
       if (error) {
@@ -86,19 +79,13 @@ export function LeadSheetImport() {
   };
 
   const handleTest = async () => {
-    const spreadsheetId = getSpreadsheetId();
-    if (!spreadsheetId) {
-      toast.error('No spreadsheet ID configured.');
-      return;
-    }
-
     setTestLoading(true);
     setTestResult(null);
     setErrorDetail(null);
 
     try {
       const { data, error } = await supabase.functions.invoke('import-sheet-leads', {
-        body: { spreadsheetId, mode: 'test' },
+        body: { mode: 'test' },
       });
 
       if (error) {

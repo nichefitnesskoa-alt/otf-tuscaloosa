@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { getSpreadsheetId, setSpreadsheetId } from '@/lib/sheets-sync';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
@@ -384,21 +384,10 @@ function WeeklyContactAvgCard() {
   );
 }
 
-interface SyncLog {
-  id: string;
-  sync_type: string;
-  records_synced: number;
-  status: string;
-  error_message: string | null;
-  created_at: string;
-}
-
 export default function Admin() {
   const { user } = useAuth();
   const { introsBooked, introsRun, refreshData } = useData();
   const navigate = useNavigate();
-  const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(getSpreadsheetId() || '');
-  const [syncLogs, setSyncLogs] = useState<SyncLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -416,13 +405,6 @@ export default function Admin() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch sync logs
-        const { data: logs } = await supabase
-          .from('sheets_sync_log')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        if (logs) setSyncLogs(logs as SyncLog[]);
       } catch (error) {
         console.error('Error fetching admin data:', error);
       } finally {
@@ -438,19 +420,12 @@ export default function Admin() {
     return <Navigate to="/my-day" replace />;
   }
 
-  const handleSaveSpreadsheetId = () => {
-    setSpreadsheetId(spreadsheetIdInput);
-    toast.success('Spreadsheet ID saved!');
-  };
 
   const handleRefresh = async () => {
     await refreshData();
     toast.success('Data refreshed!');
   };
 
-  const handleSyncComplete = async () => {
-    await refreshData();
-  };
 
   return (
     <div className="p-4 space-y-4">

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, CheckCircle, Loader2, Search, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
+
 import { toast } from 'sonner';
 import { SALES_ASSOCIATES } from '@/types';
 
@@ -118,7 +118,6 @@ export default function FixBookingAttribution({ onFixComplete }: FixBookingAttri
     }
 
     setIsApplyingFixes(true);
-    const spreadsheetId = getSpreadsheetId();
     let successCount = 0;
     let errorCount = 0;
 
@@ -142,30 +141,6 @@ export default function FixBookingAttribution({ onFixComplete }: FixBookingAttri
           errorCount++;
           console.error('Error updating booking:', dbError);
           continue;
-        }
-
-        // Sync to Google Sheets if configured
-        if (spreadsheetId && booking.booking_id) {
-          try {
-            await supabase.functions.invoke('sync-sheets', {
-              body: {
-                action: 'sync_booking',
-                spreadsheetId,
-                data: {
-                  id,
-                  booking_id: booking.booking_id,
-                  member_name: booking.member_name,
-                  class_date: booking.class_date,
-                  intro_owner: newOwner,
-                  sa_working_shift: booking.sa_working_shift,
-                },
-                editedBy: 'Admin (Attribution Fix)',
-                editReason: `Corrected intro_owner from "${booking.intro_owner}" to "${newOwner}"`,
-              },
-            });
-          } catch (sheetError) {
-            console.warn('Failed to sync to sheets:', sheetError);
-          }
         }
 
         successCount++;

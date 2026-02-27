@@ -27,11 +27,10 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
   }, [dateRange]);
 
   const fetchAll = async () => {
-    const [referralRes, runsRes, recapRes, syncRes] = await Promise.all([
+    const [referralRes, runsRes, recapRes] = await Promise.all([
       supabase.from('referrals').select('*'),
       supabase.from('intros_run').select('linked_intro_booked_id, result'),
       supabase.from('daily_recaps').select('status, created_at').order('created_at', { ascending: false }).limit(50),
-      supabase.from('sheets_sync_log').select('status, created_at').order('created_at', { ascending: false }).limit(1),
     ]);
 
     // Referral liability
@@ -55,12 +54,11 @@ export default function AdminOverviewHealth({ dateRange }: AdminOverviewHealthPr
     // System health
     const failedRecaps = (recapRes.data || []).filter(r => r.status === 'failed').length;
     const lastSent = (recapRes.data || []).find(r => r.status === 'sent');
-    const syncLog = syncRes.data?.[0];
     setSystemHealth({
       lastGroupMePost: lastSent?.created_at || null,
       failedRecaps,
-      lastSyncStatus: syncLog?.status || null,
-      lastSyncTime: syncLog?.created_at || null,
+      lastSyncStatus: null,
+      lastSyncTime: null,
     });
   };
 

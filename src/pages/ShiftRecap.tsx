@@ -20,7 +20,7 @@ import IntroRunEntry, { IntroRunData } from '@/components/IntroRunEntry';
 import SaleEntry, { SaleData } from '@/components/SaleEntry';
 import FollowupPurchaseEntry from '@/components/FollowupPurchaseEntry';
 import { supabase } from '@/integrations/supabase/client';
-import { getSpreadsheetId } from '@/lib/sheets-sync';
+
 import { postShiftRecapToGroupMe } from '@/lib/groupme';
 import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
@@ -42,7 +42,7 @@ type ShiftType = typeof SHIFT_TYPES[number];
 export default function ShiftRecap() {
   const { user } = useAuth();
   const { refreshData } = useData();
-  const spreadsheetId = getSpreadsheetId();
+  
   const { 
     isClosing, 
     pendingMatches, 
@@ -422,26 +422,6 @@ export default function ShiftRecap() {
         }
       }
 
-      // Sync to Google Sheets
-      if (spreadsheetId) {
-        await supabase.functions.invoke('sync-sheets', {
-          body: {
-            action: 'sync_booking',
-            spreadsheetId,
-            data: {
-              booking_id: bookingId,
-              member_name: booking.memberName,
-              class_date: booking.introDate,
-              intro_time: booking.introTime,
-              lead_source: booking.leadSource,
-              notes: booking.notes,
-              booked_by: staffName,
-              intro_owner: '',
-              booking_status: 'ACTIVE',
-            },
-          },
-        });
-      }
 
       // Mark as submitted
       updateIntroBooking(index, {
@@ -656,26 +636,6 @@ export default function ShiftRecap() {
             }
           }
 
-          // Sync to Google Sheets if configured
-          if (spreadsheetId) {
-            await supabase.functions.invoke('sync-sheets', {
-              body: {
-                action: 'sync_booking',
-                spreadsheetId,
-                data: {
-                  booking_id: bookingId,
-                  member_name: booking.memberName,
-                  class_date: booking.introDate,
-                  intro_time: booking.introTime,
-                  lead_source: booking.leadSource,
-                  notes: booking.notes,
-                  booked_by: staffName, // Booking credit
-                  intro_owner: '',      // NULL at booking time
-                  booking_status: 'ACTIVE',
-                },
-              },
-            });
-          }
         }
       }
 
@@ -891,55 +851,12 @@ export default function ShiftRecap() {
               })
               .eq('id', linkedBookingId);
 
-            // Sync the update to Google Sheets
-            if (spreadsheetId) {
-              await supabase.functions.invoke('sync-sheets', {
-                body: {
-                  action: 'sync_booking',
-                  spreadsheetId,
-                  data: {
-                    booking_id: linkedBookingId,
-                    member_name: run.memberName,
-                    class_date: secondIntroDate,
-                    intro_time: secondIntroTime,
-                    lead_source: '2nd Intro Scheduled',
-                    notes: `2nd intro scheduled - Intro owner: ${introOwner}`,
-                    booking_status: '2nd Intro Scheduled',
-                    intro_owner: introOwner,
-                  },
-                },
-              });
-            }
             
             toast.info('2nd intro scheduled', {
               description: `Updated booking for ${secondIntroDate}`,
             });
           }
 
-          // Sync to Google Sheets if configured
-          if (spreadsheetId) {
-            await supabase.functions.invoke('sync-sheets', {
-              body: {
-                action: 'sync_run',
-                spreadsheetId,
-                data: {
-                  run_id: runId,
-                  member_name: run.memberName,
-                  run_date: run.runDate,
-                  class_time: run.runTime,
-                  lead_source: run.leadSource,
-                  intro_owner: introOwner,
-                  result: run.outcome,
-                  // New lead measures (spec-compliant)
-                  goal_why_captured: run.goalWhyCaptured,
-                  relationship_experience: run.relationshipExperience,
-                  made_a_friend: run.madeAFriend,
-                   notes: run.notes,
-                   primary_objection: run.primaryObjection || null,
-                },
-              },
-            });
-          }
         }
       }
 
@@ -996,36 +913,9 @@ export default function ShiftRecap() {
             amc_incremented: isAmcEligibleSale({ membershipType: sale.membershipType, leadSource: sale.leadSource || '' }),
           } as any);
 
-          // Sync to Google Sheets if configured
-          if (spreadsheetId) {
-            await supabase.functions.invoke('sync-sheets', {
-              body: {
-                action: 'sync_sale',
-                spreadsheetId,
-                data: {
-                  sale_id: saleId,
-                  member_name: sale.memberName,
-                  lead_source: sale.leadSource,
-                  membership_type: sale.membershipType,
-                  commission_amount: sale.commissionAmount,
-                  intro_owner: user?.name,
-                },
-              },
-            });
-          }
         }
       }
 
-      // 5. Sync shift recap to Google Sheets
-      if (spreadsheetId) {
-        await supabase.functions.invoke('sync-sheets', {
-          body: {
-            action: 'sync_shift',
-            spreadsheetId,
-            data: shiftData,
-          },
-        });
-      }
 
       // 6. Post to GroupMe - await to ensure it completes
       try {
