@@ -9,7 +9,7 @@ import { Users, BarChart3 } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
-import FollowUpDigest from './FollowUpDigest';
+
 import OutreachEffectiveness from './OutreachEffectiveness';
 // Removed lead measure imports - sections moved to Studio page
 
@@ -240,9 +240,6 @@ export default function CoachingView() {
 
       {/* Outreach Effectiveness — from Win the Day reflections */}
       <OutreachEffectiveness />
-
-      {/* Follow-Up System Health */}
-      <FollowUpDigest preset={preset} />
     </div>
   );
 }

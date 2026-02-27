@@ -110,51 +110,48 @@ serve(async (req) => {
 
   try {
     const { personName, goal, why, obstacle, fitnessLevel, objection, leadSource, scriptCategory } = await req.json();
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY is not configured" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY is not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userPrompt = `Generate a ${scriptCategory || 'follow-up'} script for this person:
-
-Name: ${personName || 'Unknown'}
-Goal: ${goal || 'Not specified'}
-Why: ${why || 'Not specified'}
-Obstacle: ${obstacle || 'Not specified'}
-Fitness Level: ${fitnessLevel || 'Not specified'}
-Objection: ${objection || 'None'}
-Lead Source: ${leadSource || 'Not specified'}
-Category: ${scriptCategory || 'general'}
-
-Write the script as a ready-to-send text message or DM. Do not include any instructions or meta-commentary — just the message itself.`;
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 500,
-        system: KOA_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: KOA_SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Anthropic API error:", response.status, errText);
+      console.error("Lovable AI gateway error:", response.status, errText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again shortly." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: "AI generation failed" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const result = await response.json();
-    const generatedScript = result.content?.[0]?.text || "";
+    const generatedScript = result.choices?.[0]?.message?.content || "";
 
     return new Response(JSON.stringify({ script: generatedScript }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
