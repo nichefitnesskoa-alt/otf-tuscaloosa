@@ -72,16 +72,32 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   }, [onClose]);
 
   const runSearch = useCallback(async (q: string) => {
-    if (q.trim().length < 2) {
+    const cleaned = q.replace(/[\t\r\n]+/g, ' ').trim();
+    if (cleaned.length < 2) {
       setResults([]);
       return;
     }
     setSearching(true);
-    const term = q.trim().toLowerCase();
+    const term = cleaned.toLowerCase();
     const likePattern = `%${term}%`;
     const phoneDigits = normalizePhone(term);
 
+    // Split into parts for first+last name matching
+    const nameParts = cleaned.split(/\s+/).filter(Boolean);
+    const hasMultipleParts = nameParts.length >= 2;
+
     try {
+      // Build leads OR filter — handle "First Last" searches
+      let leadsOrFilter = `first_name.ilike.${likePattern},last_name.ilike.${likePattern}`;
+      if (phoneDigits.length >= 7) leadsOrFilter += `,phone.ilike.%${phoneDigits}%`;
+      if (hasMultipleParts) {
+        // Also try: first part matches first_name AND last part matches last_name
+        // We can't do AND inside .or(), so we add individual part matches
+        for (const part of nameParts) {
+          leadsOrFilter += `,first_name.ilike.%${part}%,last_name.ilike.%${part}%`;
+        }
+      }
+
       // Parallel queries across all tables
       const [
         introsRes,
@@ -104,7 +120,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
         supabase
           .from('leads')
           .select('id, first_name, last_name, phone, email, stage, source')
-          .or(`first_name.ilike.${likePattern},last_name.ilike.${likePattern}${phoneDigits.length >= 7 ? `,phone.ilike.%${phoneDigits}%` : ''}`)
+          .or(leadsOrFilter)
           .limit(10),
 
         // follow_up_queue (pending/due)
@@ -163,8 +179,17 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
         });
       }
 
-      // Leads
+      // Leads — deduplicate and filter for multi-word relevance
+      const seenLeadIds = new Set<string>();
       for (const l of (leadsRes.data || [])) {
+        if (seenLeadIds.has(l.id)) continue;
+        // For multi-word searches, verify the full name actually contains all parts
+        if (hasMultipleParts) {
+          const fullName = `${l.first_name} ${l.last_name}`.toLowerCase();
+          const allMatch = nameParts.every(p => fullName.includes(p.toLowerCase()));
+          if (!allMatch && !(phoneDigits.length >= 7 && normalizePhone(l.phone || '').includes(phoneDigits))) continue;
+        }
+        seenLeadIds.add(l.id);
         found.push({
           id: l.id,
           name: `${l.first_name} ${l.last_name}`,
