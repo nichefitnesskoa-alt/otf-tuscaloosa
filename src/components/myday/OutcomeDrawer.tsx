@@ -504,6 +504,45 @@ export function OutcomeDrawer({
         </div>
       )}
 
+      {/* Reschedule — date, time, coach fields */}
+      {isReschedule && (
+        <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+          <p className="text-xs font-medium text-muted-foreground">Reschedule Details</p>
+          <div className="space-y-1">
+            <Label className="text-xs">New Date <span className="text-destructive">*</span></Label>
+            <Popover open={rescheduleCalendarOpen} onOpenChange={setRescheduleCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('w-full h-8 text-sm justify-start font-normal', !rescheduleDate && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                  {rescheduleDate ? format(rescheduleDate, 'MMM d, yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={rescheduleDate}
+                  onSelect={(d) => { setRescheduleDate(d); setRescheduleCalendarOpen(false); }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">New Time <span className="text-destructive">*</span></Label>
+            <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} className="h-8 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
+            <Select value={rescheduleCoach} onValueChange={setRescheduleCoach}>
+              <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select coach…" /></SelectTrigger>
+              <SelectContent>{COACHES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {/* Planning to Reschedule — notes field */}
       {isPlanningToReschedule && (
         <div className="space-y-2 rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
