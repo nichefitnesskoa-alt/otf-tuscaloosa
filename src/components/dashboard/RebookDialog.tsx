@@ -11,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { getLocalDateString } from '@/lib/utils';
 import { ALL_STAFF } from '@/types';
 import { CalendarPlus, Loader2 } from 'lucide-react';
+import { DatePickerField, ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 interface RebookDialogProps {
   open: boolean;
@@ -120,21 +121,11 @@ export function RebookDialog({ open, onOpenChange, personName, bookingId, person
         <div className="space-y-3">
           <div>
             <Label className="text-xs">New Class Date</Label>
-            <Input
-              type="date"
-              value={classDate}
-              onChange={e => setClassDate(e.target.value)}
-              className="h-9"
-            />
+            <DatePickerField value={classDate} onChange={setClassDate} disablePast />
           </div>
           <div>
             <Label className="text-xs">Intro Time (optional)</Label>
-            <Input
-              type="time"
-              value={introTime}
-              onChange={e => setIntroTime(e.target.value)}
-              className="h-9"
-            />
+            <ClassTimeSelect value={introTime} onValueChange={setIntroTime} placeholder="Select time..." />
           </div>
           <div>
             <Label className="text-xs">Coach (optional)</Label>

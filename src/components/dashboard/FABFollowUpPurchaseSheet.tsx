@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerField } from '@/components/shared/FormHelpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -296,7 +297,7 @@ export function FABFollowUpPurchaseSheet({ open, onOpenChange, onSaved }: FABFol
 
               <div className="space-y-1.5">
                 <Label>Purchase Date</Label>
-                <Input type="date" value={buyDate} onChange={e => setBuyDate(e.target.value)} />
+                <DatePickerField value={buyDate} onChange={setBuyDate} />
               </div>
               <div className="space-y-1.5">
                 <Label>Notes (optional)</Label>
@@ -341,7 +342,7 @@ export function FABFollowUpPurchaseSheet({ open, onOpenChange, onSaved }: FABFol
 
               <div className="space-y-1.5">
                 <Label>Date</Label>
-                <Input type="date" value={buyDate} onChange={e => setBuyDate(e.target.value)} />
+                <DatePickerField value={buyDate} onChange={setBuyDate} />
               </div>
               <div className="space-y-1.5">
                 <Label>Notes (optional)</Label>

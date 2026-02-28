@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { DatePickerField } from '@/components/shared/FormHelpers';
 
 interface ScheduleFollowUpDialogProps {
   open: boolean;
@@ -60,7 +61,7 @@ export function ScheduleFollowUpDialog({ open, onOpenChange, leadId, onDone }: S
         <div className="space-y-3">
           <div>
             <Label>Date *</Label>
-            <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            <DatePickerField value={date} onChange={setDate} disablePast />
           </div>
           <div>
             <Label>Time</Label>

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { DatePickerField } from '@/components/shared/FormHelpers';
 import { Loader2, DollarSign, ShoppingCart, Watch } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -230,7 +231,7 @@ export function FollowUpPurchaseSheet({
             </div>
             <div>
               <Label>Buy Date</Label>
-              <Input type="date" value={buyDate} onChange={e => setBuyDate(e.target.value)} />
+              <DatePickerField value={buyDate} onChange={setBuyDate} />
             </div>
             <div>
               <Label>Notes</Label>
