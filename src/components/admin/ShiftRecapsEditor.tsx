@@ -309,9 +309,16 @@ export default function ShiftRecapsEditor() {
                         {format(parseLocalDate(recap.shift_date), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell className="text-sm py-2">
-                        <Badge variant="outline" className="text-xs">
-                          {recap.shift_type}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-xs">
+                            {recap.shift_type}
+                          </Badge>
+                          {(recap.shift_type === 'Auto-closed' || recap.other_info?.includes('Auto-submitted')) && (
+                            <Badge className="text-[10px] bg-amber-500/15 text-amber-600 border-amber-300 dark:text-amber-400" variant="outline">
+                              Auto-closed
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center text-sm py-2">
                         {recap.calls_made || 0}

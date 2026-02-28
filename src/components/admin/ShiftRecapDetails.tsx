@@ -140,8 +140,18 @@ export default function ShiftRecapDetails({
     );
   }
 
+  const isAutoClosed = shiftType === 'Auto-closed' || otherInfo?.includes('Auto-submitted');
+
   return (
     <div className="space-y-4">
+      {/* Auto-close banner */}
+      {isAutoClosed && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 px-3 py-2">
+          <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold">⏰ Auto-submitted at 7:00 PM</span>
+          <span className="text-amber-600/70 dark:text-amber-400/70 text-[10px]">— This recap was not manually closed out by the SA.</span>
+        </div>
+      )}
+
       {/* Header Summary */}
       <div className="flex items-center justify-between">
         <div>
