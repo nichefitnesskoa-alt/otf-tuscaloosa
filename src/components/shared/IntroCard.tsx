@@ -217,12 +217,8 @@ export default function IntroCard({
       {/* ── HEADER BAR ── */}
       <div className="px-3 py-2" style={{ background: 'var(--intro-header-bg)' }}>
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Name */}
-          {canEdit ? (
-            <InlineText value={memberName} field="member_name" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh} />
-          ) : (
-            <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>{memberName}</h3>
-          )}
+          {/* Name — always static */}
+          <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>{memberName}</h3>
           {badges}
 
           {/* Editable meta fields inline next to name */}
