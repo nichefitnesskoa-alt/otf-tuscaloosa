@@ -69,8 +69,9 @@ export function FollowUpQueue() {
       const { data: leads } = await supabase.from('leads').select('id, first_name, last_name, stage');
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, booking_status')
-        .is('deleted_at', null);
+        .select('id, member_name, class_date, intro_time, booking_status, booking_type_canon, is_vip')
+        .is('deleted_at', null)
+        .not('booking_type_canon', 'in', '("VIP","COMP")');
 
       const leadMap = new Map((leads || []).map(l => [l.id, l]));
       const bookingMap = new Map((bookings || []).map(b => [b.id, b]));

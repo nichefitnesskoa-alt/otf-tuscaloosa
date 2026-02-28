@@ -43,6 +43,7 @@ function isTerminal(result: string | null): boolean {
 
 export function useFollowUpData() {
   const [noShow, setNoShow] = useState<FollowUpItem[]>([]);
+  const [missedGuest, setMissedGuest] = useState<FollowUpItem[]>([]);
   const [followUpNeeded, setFollowUpNeeded] = useState<FollowUpItem[]>([]);
   const [secondIntro, setSecondIntro] = useState<FollowUpItem[]>([]);
   const [plansToReschedule, setPlansToReschedule] = useState<FollowUpItem[]>([]);
@@ -54,19 +55,21 @@ export function useFollowUpData() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const cutoff = format(subDays(new Date(), 90), 'yyyy-MM-dd');
 
-      // Fetch all runs in last 90 days
+      // Fetch all runs in last 90 days (exclude VIP)
       const { data: runs } = await supabase
         .from('intros_run')
-        .select('id, member_name, result, result_canon, linked_intro_booked_id, coach_name, run_date, class_time, lead_source, primary_objection, notes')
+        .select('id, member_name, result, result_canon, linked_intro_booked_id, coach_name, run_date, class_time, lead_source, primary_objection, notes, is_vip')
         .gte('run_date', cutoff)
+        .eq('is_vip', false)
         .order('run_date', { ascending: false });
 
-      // Fetch all bookings in last 90 days
+      // Fetch all bookings in last 90 days (exclude VIP/COMP)
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date')
+        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip')
         .gte('class_date', cutoff)
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .not('booking_type_canon', 'in', '("VIP","COMP")');
 
       // Fetch recent touches for last contact info
       const { data: touches } = await supabase
@@ -117,6 +120,7 @@ export function useFollowUpData() {
       }
 
       const noShowItems: FollowUpItem[] = [];
+      const missedGuestItems: FollowUpItem[] = [];
       const fuNeededItems: FollowUpItem[] = [];
       const secondIntroItems: FollowUpItem[] = [];
       const plansItems: FollowUpItem[] = [];
@@ -236,7 +240,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
         };
         processed.add(key);
-        noShowItems.push(item);
+        missedGuestItems.push(item);
       }
 
       // Process bookings for 2nd Intro tab (unrun 2nd intro bookings)
@@ -314,6 +318,7 @@ export function useFollowUpData() {
         b.classDate.localeCompare(a.classDate);
 
       setNoShow(noShowItems.sort(sortByDate));
+      setMissedGuest(missedGuestItems.sort(sortByDate));
       setFollowUpNeeded(fuNeededItems.sort(sortByDate));
       setSecondIntro(secondIntroItems.sort(sortByDate));
       setPlansToReschedule(plansItems.sort(sortByDate));
@@ -328,14 +333,16 @@ export function useFollowUpData() {
 
   const counts = useMemo(() => ({
     noShow: noShow.length,
+    missedGuest: missedGuest.length,
     followUpNeeded: followUpNeeded.length,
     secondIntro: secondIntro.length,
     plansToReschedule: plansToReschedule.length,
-    total: noShow.length + followUpNeeded.length + secondIntro.length + plansToReschedule.length,
-  }), [noShow, followUpNeeded, secondIntro, plansToReschedule]);
+    total: noShow.length + missedGuest.length + followUpNeeded.length + secondIntro.length + plansToReschedule.length,
+  }), [noShow, missedGuest, followUpNeeded, secondIntro, plansToReschedule]);
 
   return {
     noShow,
+    missedGuest,
     followUpNeeded,
     secondIntro,
     plansToReschedule,
