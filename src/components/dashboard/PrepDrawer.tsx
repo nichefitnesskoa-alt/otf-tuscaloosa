@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
@@ -84,73 +86,6 @@ interface PrepDrawerProps {
   onGenerateScript?: () => void;
   onSendQ?: () => void;
 }
-
-// ── Goal category detection ─────────────────────────────────────────────────
-type GoalCategory = 'fat_loss' | 'build_muscle' | 'energy' | 'confidence' | 'wedding' | 'getting_back';
-
-function detectGoalCategory(goal: string | null): GoalCategory {
-  if (!goal) return 'energy';
-  const g = goal.toLowerCase();
-  if (/weight|lose|fat|burn|slim|lean|shed/i.test(g)) return 'fat_loss';
-  if (/muscle|tone|strength|strong|build|tighten/i.test(g)) return 'build_muscle';
-  if (/energy|stress|mental|anxiety|sleep|mood/i.test(g)) return 'energy';
-  if (/confiden|self|feel better about|self-esteem/i.test(g)) return 'confidence';
-  if (/wedding|event|reunion|vacation|trip|honeymoon/i.test(g)) return 'wedding';
-  if (/back|restart|again|used to|returning|haven't worked out/i.test(g)) return 'getting_back';
-  return 'energy';
-}
-
-const GOAL_IN_CLASS_ACTIONS: Record<GoalCategory, string[]> = {
-  fat_loss: [
-    'Really hype them on the treadmill — this is their moment',
-    'Push pace and all-out encouragement — this is where fat burns',
-    'During tread block: "This is exactly what you came in for"',
-  ],
-  build_muscle: [
-    'Focus energy on the floor — form corrections and hype',
-    'Call out good form publicly — makes them feel coached not just encouraged',
-    'During floor block: "This is where you build what you\'re looking for"',
-  ],
-  energy: [
-    'Mid-class check in: "Notice how different you feel already?"',
-    'Keep the vibe high — they came to change how they feel',
-    'End of tread block: "That right there is why people keep coming back"',
-  ],
-  confidence: [
-    'Call them out when they push through something hard',
-    'Name what you see: "That\'s what showing up for yourself looks like"',
-    'Make them feel capable, not just welcome',
-  ],
-  wedding: [
-    'They\'re on a timeline — keep urgency and energy high',
-    'Tread and floor both matter — full body focus',
-    'Mid-class: "You\'re going to be exactly where you want to be"',
-  ],
-  getting_back: [
-    'Meet them where they are — encourage consistency not intensity',
-    'Celebrate every rep: "This is what getting back looks like"',
-    'Don\'t push too hard — the win today is that they showed up',
-  ],
-};
-
-function getInClassActions(goalCat: GoalCategory, level: number | null): string[] {
-  const actions = [...GOAL_IN_CLASS_ACTIONS[goalCat]];
-  if (level !== null && level <= 2) {
-    actions.push('Keep them at base pace on treads until they ask for more');
-  } else if (level !== null && level >= 4) {
-    actions.push('Challenge them — they can handle push pace and all-outs');
-  }
-  return actions.slice(0, 4);
-}
-
-const PEAK_MOMENT_LINES: Record<GoalCategory, (name: string) => string> = {
-  fat_loss: (n) => `${n} is on that tread right now burning exactly what they came in to burn — let them hear it.`,
-  build_muscle: (n) => `${n} on the floor right now — first class, already putting in the work to build something. Give them some energy.`,
-  energy: (n) => `${n} came in today to change how they feel — room, let them know they're in the right place. Let's hear it.`,
-  confidence: (n) => `Look at ${n} right now — this is what showing up for yourself looks like. Room, give them some energy.`,
-  wedding: (n) => `${n} is on a mission right now — room, let's give them some energy. They're going to get there.`,
-  getting_back: (n) => `${n} is back — and they're showing up. Room, let them feel that. Give them some energy.`,
-};
 
 // ── Objection detection ─────────────────────────────────────────────────────
 function detectObjection(obstacle: string | null): 'price' | 'time' | 'spouse' | 'commitment' {
@@ -228,6 +163,9 @@ export function PrepDrawer({
   const [savingConsent, setSavingConsent] = useState(false);
   const [studioTrend, setStudioTrend] = useState<{ objection: string; percent: number } | null>(null);
   const [prevVisitData, setPrevVisitData] = useState<{ objection: string | null; notes: string | null; goal: string | null; why: string | null } | null>(null);
+  const [buyingCriteria, setBuyingCriteria] = useState('');
+  const [saObjection, setSaObjection] = useState('');
+  const [savingBrief, setSavingBrief] = useState(false);
 
   const defaultBookings = bookings || [{
     id: bookingId, class_date: classDate, intro_time: classTime, coach_name: coachName,
@@ -254,7 +192,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent')
+        .select('shoutout_consent, sa_buying_criteria, sa_objection' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
@@ -262,7 +200,10 @@ export function PrepDrawer({
       const completed = allQ.find(q => q.status === 'completed' || q.status === 'submitted');
       setQuestionnaire(completed || allQ[0] || null);
       setSendLogs((logRes.data || []) as SendLogEntry[]);
-      setShoutoutConsent((consentRes.data as any)?.shoutout_consent ?? null);
+      const bookingData = consentRes.data as any;
+      setShoutoutConsent(bookingData?.shoutout_consent ?? null);
+      setBuyingCriteria(bookingData?.sa_buying_criteria || '');
+      setSaObjection(bookingData?.sa_objection || '');
       setLoading(false);
     });
 
@@ -313,6 +254,13 @@ export function PrepDrawer({
     toast.success(val ? 'Shoutout consent saved ✓' : 'Low-key preference saved ✓');
   }, [bookingId]);
 
+  const handleSaveBrief = useCallback(async (field: 'sa_buying_criteria' | 'sa_objection', value: string) => {
+    setSavingBrief(true);
+    await supabase.from('intros_booked').update({ [field]: value } as any).eq('id', bookingId);
+    setSavingBrief(false);
+    toast.success('Brief saved ✓');
+  }, [bookingId]);
+
   const hasSale = defaultRuns.some(r => isMembershipSale(r.result));
   const totalCommission = defaultRuns.reduce((sum, r) => sum + (r.commission_amount || 0), 0);
   const formatDate = (dateStr: string) =>
@@ -331,7 +279,6 @@ export function PrepDrawer({
   const commitment = questionnaire?.q6_weekly_commitment;
   const pastExp = questionnaire?.q4_past_experience;
   const fitnessLevel = questionnaire?.q2_fitness_level ?? null;
-  const goalCategory = detectGoalCategory(goal);
 
   const oneLiner = hasQ && goal && commitment
     ? `If you work out with us ${commitment} a week, I can clearly see you ${goal.toLowerCase()}.`
@@ -340,7 +287,6 @@ export function PrepDrawer({
 
   const objectionType = detectObjection(obstacle);
   const eirma = getEirma(objectionType, goal, commitment, oneLiner || 'achieving your goal');
-  const inClassActions = getInClassActions(goalCategory, fitnessLevel);
 
   const handlePrint = () => window.print();
 
@@ -477,7 +423,37 @@ export function PrepDrawer({
                     </div>
                   </div>
 
-                  {/* Section 3 — Dig Deeper */}
+                  {/* THE BRIEF — SA fills in after dig deeper */}
+                  <div className="rounded-lg border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
+                    <div className="px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE BRIEF</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Fill in after dig deeper — handed to coach on print card</p>
+                    </div>
+                    <div className="p-3 space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">What they're looking for</Label>
+                        <Textarea
+                          value={buyingCriteria}
+                          onChange={e => setBuyingCriteria(e.target.value)}
+                          onBlur={() => handleSaveBrief('sa_buying_criteria', buyingCriteria)}
+                          placeholder="Use their exact words…"
+                          className="min-h-[48px] text-xs resize-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">What it would come down to</Label>
+                        <Textarea
+                          value={saObjection}
+                          onChange={e => setSaObjection(e.target.value)}
+                          onBlur={() => handleSaveBrief('sa_objection', saObjection)}
+                          placeholder="Use their exact words…"
+                          className="min-h-[48px] text-xs resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 3 — Dig Deeper (3 waypoints only) */}
                   <div className="rounded-lg border overflow-hidden">
                     <div className="px-3 py-2 bg-muted/40">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Dig Deeper</p>
@@ -487,29 +463,27 @@ export function PrepDrawer({
                         "Looking at your questionnaire — I'd love to get the coach a few more details I was curious about."
                       </p>
 
-                      {/* Fitness Level */}
+                      {/* Waypoint 1: Fitness Level */}
                       <div className="border-l-2 border-primary pl-3 space-y-1">
-                        <p className="font-bold text-foreground">FITNESS LEVEL {fitnessLevel ? `${fitnessLevel}/5` : '—'}</p>
+                        <p className="font-bold text-foreground">FITNESS LEVEL {fitnessLevel ? `${fitnessLevel}/5` : '[X]/5'}</p>
                         <p className="text-muted-foreground">→ "Why did you give yourself that rating?"</p>
                         <p className="text-muted-foreground">→ "What would you being at a 5 look like to you?"</p>
-                        <p className="text-[10px] text-muted-foreground/60 italic">↓ let it flow naturally into goal</p>
+                        <p className="text-[10px] text-muted-foreground/60 italic">↓ let it flow naturally — they're already telling you the goal and the why</p>
                       </div>
 
-                      {/* Goal + Why */}
+                      {/* Waypoint 2: What are you looking for */}
                       <div className="border-l-2 border-primary pl-3 space-y-1">
-                        <p className="font-bold text-foreground">GOAL + WHY</p>
-                        <p className="text-muted-foreground">→ "So that's the version of you you want to get to?"</p>
-                        <p className="text-muted-foreground/60 ml-3">or "So that's the goal right — feeling like that?"</p>
-                        <p className="text-muted-foreground">→ "How different does that feel from where you're at now?"</p>
-                        <p className="text-muted-foreground/60 ml-3">or "Like what does life look like if you get there?"</p>
+                        <p className="font-bold text-foreground">WHAT ARE YOU LOOKING FOR</p>
+                        <p className="text-muted-foreground">→ "What are you looking for in a gym membership?"</p>
+                        <p className="text-[10px] text-muted-foreground/60 italic">↓ their answer = their close criteria. use their exact words in your close.</p>
                       </div>
 
-                      {/* Obstacle */}
+                      {/* Waypoint 3: What would it come down to */}
                       <div className="border-l-2 border-primary pl-3 space-y-1">
-                        <p className="font-bold text-foreground">OBSTACLE</p>
-                        <p className="text-muted-foreground">→ "What's gotten in the way before?"</p>
-                        <p className="text-muted-foreground">→ "Like what clicked for you?"</p>
-                        <p className="text-muted-foreground/60 ml-3">or "So something shifted that's causing you to take action — what was it?"</p>
+                        <p className="font-bold text-foreground">WHAT WOULD IT COME DOWN TO</p>
+                        <p className="text-muted-foreground">→ "If you ended up not joining after today — what do you think it would come down to?"</p>
+                        <p className="text-[10px] text-muted-foreground/60 italic">↓ don't reassure them yet. just listen. nod. say "that makes sense."</p>
+                        <p className="text-[10px] text-muted-foreground/60 italic">↓ you have the whole class to prepare for it.</p>
                       </div>
                     </div>
                   </div>
@@ -562,7 +536,7 @@ export function PrepDrawer({
                 {/* ══════════ COACH CARD ══════════ */}
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-bold uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-                    <Dumbbell className="w-3.5 h-3.5" /> COACH HANDOFF
+                    <Dumbbell className="w-3.5 h-3.5" /> COACH CARD
                   </h3>
 
                   {/* 2nd Intro: Previous Visit Data */}
@@ -580,82 +554,161 @@ export function PrepDrawer({
                     </div>
                   )}
 
-                  {/* Quick Snapshot */}
-                  <div className="rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 text-xs">
-                    <p className="font-bold">{memberName} | {classTime ? classTime.substring(0, 5) : '—'} | Level {fitnessLevel ? `${fitnessLevel}/5` : '—'}</p>
-                    <p className="text-muted-foreground">Goal: {goal || 'Ask before class'} | Coach: {coachName}</p>
+                  {/* THE SPINE */}
+                  <div className="rounded-xl p-4 border-2 border-blue-400 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-800 dark:text-blue-300 mb-2">THE SPINE</p>
+                    <p className="text-sm font-bold leading-snug text-blue-900 dark:text-blue-100">
+                      "By the end of this class {firstName} should have a story worth telling about themselves."
+                    </p>
                   </div>
 
-                  {/* Pre-entry announcement */}
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="px-3 py-2 bg-blue-100/50 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">Pre-Entry</p>
+                  {/* THE BRIEF (read-only view for coach) */}
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
+                    <div className="px-3 py-2 bg-blue-50/50 dark:bg-blue-950/30">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE BRIEF</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in after dig deeper — handed to coach on print card during intro</p>
                     </div>
-                    <div className="p-3 text-xs">
-                      <p className="italic text-foreground leading-relaxed">
-                        "Before we head in — {firstName} is doing their first class with us today. This is what we do — let's make them feel a part of the OTF Family."
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* In-class actions */}
-                  <div className="rounded-lg border overflow-hidden">
-                    <div className="px-3 py-2 bg-blue-100/50 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">In-Class Actions</p>
-                    </div>
-                    <div className="p-3 space-y-2">
-                      {inClassActions.map((action, i) => (
-                        <div key={i} className="flex gap-2 text-xs">
-                          <span className="text-blue-600 mt-0.5">•</span>
-                          <span>{action}</span>
-                        </div>
-                      ))}
+                    <div className="p-3 space-y-1.5 text-xs">
+                      <div><span className="font-bold text-blue-800 dark:text-blue-300">What they're looking for:</span> <span>{buyingCriteria || '—'}</span></div>
+                      <div><span className="font-bold text-blue-800 dark:text-blue-300">What it would come down to:</span> <span>{saObjection || '—'}</span></div>
+                      <p className="text-[10px] text-muted-foreground italic mt-1">Use their exact words. Not paraphrases. These two lines build your mirror drop and your performance summary.</p>
                     </div>
                   </div>
 
-                  {/* Peak Moment — only when consent = true */}
-                  {shoutoutConsent === true && (
-                    <div className="rounded-lg border-2 border-primary overflow-hidden">
-                      <div className="px-3 py-2 bg-primary/10">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-primary flex items-center gap-1">
-                          <Megaphone className="w-3 h-3" /> Peak Moment — On the Mic
-                        </p>
-                      </div>
-                      <div className="p-3 text-xs">
-                        <p className="italic text-foreground leading-relaxed">
-                          "{PEAK_MOMENT_LINES[goalCategory](firstName)}"
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <Separator />
 
-                  {/* Closing — only when consent = true */}
-                  {shoutoutConsent === true && (
+                  {/* THE ARC */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-blue-800 dark:text-blue-300">THE ARC</p>
+
+                    {/* PRE-ENTRY */}
                     <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-2 bg-emerald-100/50 dark:bg-emerald-950/30">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Closing</p>
+                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
+                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">PRE-ENTRY — The Initiation</p>
                       </div>
-                      <div className="p-3 text-xs">
-                        <p className="italic text-foreground leading-relaxed">
-                          "Shout out to {firstName} for crushing their first class! You did amazing!"
-                        </p>
+                      <div className="p-3 text-xs space-y-1.5">
+                        <p>While the intro is on their tour Koa or SA briefs the room.</p>
+                        <p className="italic">"We have a first-timer today. When they hit their all-out — make some noise. Make them feel like they belong here."</p>
+                        <p className="text-muted-foreground">Raffle is live from this moment.</p>
                       </div>
                     </div>
-                  )}
 
-                  {/* Performance Summary */}
+                    {/* ACT 1 */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
+                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">ACT 1 — The Threshold + Tiny Win</p>
+                      </div>
+                      <div className="p-3 text-xs space-y-1.5">
+                        <p>When they step on the treadmill for the first time mark it.</p>
+                        <p className="italic">"This is it. Everything starts here."</p>
+                        <p>First treadmill block — call their base pace then quietly say <span className="italic">"you can go one higher."</span></p>
+                        <p>Let them do it. Don't celebrate loudly. Just nod. This is theirs alone.</p>
+                        <p className="text-muted-foreground">They bank a private win before the difficulty hits.</p>
+                      </div>
+                    </div>
+
+                    {/* ACT 2 */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
+                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">ACT 2 — The Struggle Hold + Mirror Drop</p>
+                      </div>
+                      <div className="p-3 text-xs space-y-1.5">
+                        <p>Block two — hold back encouragement deliberately. No rescue. No coaching in.</p>
+                        <p>Let them feel the difficulty. This is the valley. The all-out needs a valley to land.</p>
+                        <p>Once during this block appear next to them.</p>
+                        <p>Drop one sentence using their exact words from the brief:</p>
+                        <p className="italic font-semibold">"That's what {buyingCriteria ? `${buyingCriteria}` : '[their buying criteria]'} looks like right now."</p>
+                        <p className="text-muted-foreground">Say it quietly. Move on. It should feel like coincidence. It isn't.</p>
+                      </div>
+                    </div>
+
+                    {/* ACT 3 */}
+                    <div className="rounded-lg border-2 border-primary overflow-hidden">
+                      <div className="px-3 py-1.5 bg-primary/10">
+                        <p className="text-[10px] font-bold uppercase text-primary">ACT 3 — The All-Out Sequence (non-negotiable)</p>
+                      </div>
+                      <div className="p-3 text-xs space-y-3">
+                        <p className="font-bold text-foreground">If class has a traditional all-out:</p>
+                        <div className="space-y-2 ml-1">
+                          <div>
+                            <p className="font-bold text-primary">DRUMROLL</p>
+                            <p>One sentence on the mic as the all-out starts:</p>
+                            <p className="italic">"First-timer in the house — {firstName} let's go."</p>
+                            <p className="text-muted-foreground">Keep it fuel not spotlight. Slot it into your natural callout flow.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-primary">DURING</p>
+                            <p>Weave their name and goal language into your normal encouragement:</p>
+                            <p className="italic">"{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-primary">CALLOUT</p>
+                            <p>The moment the timer hits zero. Full stop.</p>
+                            <p className="italic">"Everybody — {firstName} just hit their first all-out. Let's go."</p>
+                            <p className="text-muted-foreground">Hold the mic. Let the room respond. Don't rush past this moment.</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-primary">AFTERGLOW</p>
+                            <p>10 seconds after the room settles. Quietly on mic:</p>
+                            <p className="italic">"Lock in what you just felt. That's yours now."</p>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div>
+                          <p className="font-bold text-foreground">If class has no traditional all-out:</p>
+                          <p className="mt-1">Identify the hardest push in the final 30-60 seconds of the last treadmill block.</p>
+                          <p>That moment is the all-out. Run the exact same four-beat sequence.</p>
+                          <p className="text-muted-foreground">DRUMROLL → DURING → CALLOUT → AFTERGLOW</p>
+                          <p className="text-muted-foreground">Same words. Same energy. Same non-negotiable.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* VETERAN TORCH PASS */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-950/30">
+                        <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">VETERAN TORCH PASS</p>
+                      </div>
+                      <div className="p-3 text-xs space-y-1.5">
+                        <p>Before class — coach or Koa pulls one member aside.</p>
+                        <p>Ask them: <span className="italic">"Would you be willing to say one thing to our first-timer at the end? Just: I remember my first. Welcome."</span></p>
+                        <p className="text-muted-foreground">That's it.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* THE PERFORMANCE SUMMARY */}
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="px-3 py-2 bg-emerald-100/50 dark:bg-emerald-950/30">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">THE PERFORMANCE SUMMARY</p>
+                    </div>
+                    <div className="p-3 text-xs space-y-1.5">
+                      <p className="text-muted-foreground">At the TV screen. Intro and SA both present.</p>
+                      <p className="text-muted-foreground">One sentence. Built from the brief. Their exact words.</p>
+                      <p className="italic font-semibold text-foreground leading-relaxed">
+                        "You came in looking for {buyingCriteria || '[their words]'}. You found it in that {'{all-out / final push}'}. That's you."
+                      </p>
+                      <p className="text-muted-foreground font-semibold">Stop. Let it land.</p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* STANDOUT MEMBER */}
                   <div className="rounded-lg border overflow-hidden">
                     <div className="px-3 py-2 bg-muted/40">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Performance Summary (SA is present)</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">STANDOUT MEMBER</p>
                     </div>
-                    <div className="p-3 space-y-2 text-xs">
-                      <p className="italic text-foreground leading-relaxed">
-                        "Based on what I saw today and what you're going for — if you're in here {commitment || '[X]'} days a week you're going to get there. Like genuinely."
-                      </p>
-                      <p className="text-muted-foreground text-[10px]">or</p>
-                      <p className="italic text-foreground leading-relaxed">
-                        "Based on today — {commitment || '[X]'} days a week gets you to {goal ? goal.toLowerCase() : '[goal]'}. That's not a sales pitch, that's just what I saw."
-                      </p>
+                    <div className="p-3 text-xs space-y-1.5">
+                      <p>After the intro leaves SA asks:</p>
+                      <p className="italic">"Was there a member who made you feel especially welcome today?"</p>
+                      <p>If they name someone SA texts that member:</p>
+                      <p className="italic">"hey — {firstName.toLowerCase()} just left and before they walked out they asked me who made them feel the most welcome today. they said you. I just wanted you to know that."</p>
+                      <p className="text-muted-foreground">Name goes on the Member of the Moment board for the week.</p>
                     </div>
                   </div>
                 </div>
@@ -777,22 +830,20 @@ export function PrepDrawer({
             <div className="mt-1">□ Yes — good to go &nbsp;&nbsp;&nbsp; □ No — keep it low key</div>
           </div>
 
+          {/* DIG DEEPER — Print (3 waypoints only) */}
           <div className="mb-2">
             <div className="font-bold mb-0.5">DIG DEEPER</div>
             <div style={{ fontSize: '10px' }} className="italic mb-1">Opener: "Looking at your questionnaire — I'd love to get the coach a few more details I was curious about."</div>
             <div className="ml-1 space-y-0.5" style={{ fontSize: '10px' }}>
-              <div className="font-bold">LEVEL {fitnessLevel ? `${fitnessLevel}/5` : '—'}</div>
+              <div className="font-bold">FITNESS LEVEL {fitnessLevel ? `${fitnessLevel}/5` : '[X]/5'}</div>
               <div>→ "Why did you give yourself that rating?"</div>
               <div>→ "What would you being at a 5 look like to you?"</div>
-              <div className="font-bold mt-1">GOAL + WHY</div>
-              <div>→ "So that's the version of you you want to get to?"</div>
-              <div className="ml-3">or "So that's the goal right — feeling like that?"</div>
-              <div>→ "How different does that feel from where you're at now?"</div>
-              <div className="ml-3">or "Like what does life look like if you get there?"</div>
-              <div className="font-bold mt-1">OBSTACLE</div>
-              <div>→ "What's gotten in the way before?"</div>
-              <div>→ "Like what clicked for you?"</div>
-              <div className="ml-3">or "So something shifted that's causing you to take action — what was it?"</div>
+              <div className="font-bold mt-1">WHAT ARE YOU LOOKING FOR</div>
+              <div>→ "What are you looking for in a gym membership?"</div>
+              <div className="ml-3 italic">Note: use their exact words in your close.</div>
+              <div className="font-bold mt-1">WHAT WOULD IT COME DOWN TO</div>
+              <div>→ "If you ended up not joining after today — what do you think it would come down to?"</div>
+              <div className="ml-3 italic">Note: don't reassure. just listen. you have the whole class to prepare.</div>
             </div>
           </div>
 
@@ -806,44 +857,63 @@ export function PrepDrawer({
           <div className="my-2 text-center" style={{ fontSize: '10px', letterSpacing: '2px' }}>
             ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
           </div>
-          <div className="font-bold text-sm mb-2">
-            COACH COPY — {memberName} | {classTime ? classTime.substring(0, 5) : '—'} | Level {fitnessLevel ? `${fitnessLevel}/5` : '—'}
+
+          {/* COACH HALF — Print */}
+          <div className="font-bold text-sm mb-1">
+            COACH COPY — {memberName} | {classTime ? classTime.substring(0, 5) : '—'}
           </div>
 
-          {/* COACH HALF */}
           <div style={{ fontSize: '10px' }}>
-            <div className="mb-1">Goal: {goal || 'Ask before class'} | Coach: {coachName}</div>
+            <div className="mb-1.5 p-1 border border-gray-400">
+              <div className="font-bold">THE SPINE</div>
+              <div>"{firstName} leaves with a story worth telling about themselves."</div>
+            </div>
 
-            <div className="mb-1.5">
+            <div className="mb-1.5 p-1 border border-gray-400">
+              <div className="font-bold">THE BRIEF (SA fills in after dig deeper)</div>
+              <div>Looking for: {buyingCriteria || '___________________________'}</div>
+              <div>Would come down to: {saObjection || '____________________'}</div>
+            </div>
+
+            <div className="mb-1">
               <div className="font-bold">PRE-ENTRY</div>
-              <div>"Before we head in — {firstName} is doing their first class with us today.</div>
-              <div>This is what we do — let's make them feel a part of the OTF Family."</div>
+              <div>While intro is on tour — Koa or SA briefs the room:</div>
+              <div>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong."</div>
+              <div>Raffle is live.</div>
             </div>
 
-            <div className="mb-1.5">
-              <div className="font-bold">IN-CLASS ACTIONS</div>
-              {inClassActions.map((a, i) => <div key={i}>• {a}</div>)}
+            <div className="mb-1">
+              <div className="font-bold">ACT 1 — THRESHOLD + TINY WIN</div>
+              <div>Step on tread: "This is it. Everything starts here." (quiet — just them)</div>
+              <div>Block 1: "You can go one higher." Let them. Just nod.</div>
             </div>
 
-            {shoutoutConsent === true && (
-              <>
-                <div className="mb-1.5">
-                  <div className="font-bold">PEAK MOMENT — ON THE MIC</div>
-                  <div>"{PEAK_MOMENT_LINES[goalCategory](firstName)}"</div>
-                </div>
-                <div className="mb-1.5">
-                  <div className="font-bold">CLOSING</div>
-                  <div>"Shout out to {firstName} for crushing their first class! You did amazing!"</div>
-                </div>
-              </>
-            )}
+            <div className="mb-1">
+              <div className="font-bold">ACT 2 — STRUGGLE HOLD + MIRROR DROP</div>
+              <div>Block 2: Hold back. No rescue. Let them feel the valley.</div>
+              <div>Once — appear next to them:</div>
+              <div>"That's what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like right now."</div>
+            </div>
 
-            <div>
-              <div className="font-bold">PERFORMANCE SUMMARY</div>
-              <div>"Based on what I saw today and what you're going for — if you're in here {commitment || '[X]'} days a week</div>
-              <div>you're going to get there. Like genuinely."</div>
-              <div className="mt-0.5">or</div>
-              <div>"Based on today — {commitment || '[X]'} days a week gets you to {goal ? goal.toLowerCase() : '[goal]'}. That's not a sales pitch, that's just what I saw."</div>
+            <div className="mb-1">
+              <div className="font-bold">ACT 3 — ALL-OUT (non-negotiable)</div>
+              <div>DRUMROLL: "First-timer in the house — {firstName} let's go."</div>
+              <div>DURING: "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div>
+              <div>CALLOUT: "Everybody — {firstName} just hit their first all-out. Let's go." Hold it.</div>
+              <div>AFTERGLOW: "Lock in what you just felt. That's yours now."</div>
+              <div className="mt-0.5 italic">No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div>
+            </div>
+
+            <div className="mb-1">
+              <div className="font-bold">VETERAN TORCH PASS</div>
+              <div>Pull one member aside before class:</div>
+              <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
+            </div>
+
+            <div className="mb-1">
+              <div className="font-bold">PERFORMANCE SUMMARY (TV screen — intro + SA present)</div>
+              <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]. That's you."</div>
+              <div>Stop. Let it land.</div>
             </div>
           </div>
         </div>
