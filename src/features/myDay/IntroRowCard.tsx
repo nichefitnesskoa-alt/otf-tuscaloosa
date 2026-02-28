@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Copy, User, Eye, Dumbbell, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, User, Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
@@ -156,6 +156,9 @@ export default function IntroRowCard({
   // ── Q escalation: 3 hours before class ──
   const isQOverdue = !item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
 
+  // ── Outcome urgency: 1 hour after class time, no outcome logged ──
+  const isOutcomeOverdue = !item.latestRunResult && minutesUntilClass !== null && minutesUntilClass <= -60;
+
   // Auto-prep 2nd visits
   useEffect(() => {
     if (item.isSecondIntro && !item.prepped && !prepped) {
@@ -293,6 +296,8 @@ export default function IntroRowCard({
   // Determine border color from banner color
   const borderColor = needsOutcome
     ? '#7c3aed'
+    : isOutcomeOverdue
+    ? '#f97316'
     : isQOverdue
     ? '#dc2626'
     : item.isSecondIntro
@@ -328,6 +333,8 @@ export default function IntroRowCard({
       {/* Top status banner */}
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
+      ) : isOutcomeOverdue ? (
+        <StatusBanner bgColor="#f97316" text="🟠 Outcome needed" />
       ) : isQOverdue ? (
         <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
@@ -477,17 +484,6 @@ export default function IntroRowCard({
           >
             <Send className="w-3.5 h-3.5" />
             Script
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 flex-1 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('myday:open-coach', { detail: { bookingId: item.bookingId } }));
-            }}
-          >
-            <Dumbbell className="w-3.5 h-3.5" />
-            Coach
           </Button>
           <Button
             size="sm"
@@ -696,7 +692,7 @@ export default function IntroRowCard({
           currentResult={item.latestRunResult}
           editedBy={userName}
           initialPrepped={prepped}
-          initialCoach={item.latestRunCoach || ''}
+          initialCoach={item.latestRunCoach || item.coachName || ''}
           initialObjection={item.latestRunObjection || ''}
           initialNotes={item.latestRunNotes || ''}
           onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
