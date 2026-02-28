@@ -1,19 +1,38 @@
-## Plan: Remove Progress Bar from Sticky Header
 
-The user wants to keep the Activity Tracker / contact logs but remove the progress bar in the sticky floating header (the "11/21 actions · 52%" section directly under the greeting and dark mode toggle).
 
-### Change
+## Plan: Restore Questionnaire Link Auto-Generation
 
-**File:** `src/features/myDay/MyDayPage.tsx`
+### Problem
+The `handleLogAsSent` function in `IntroRowCard.tsx` creates questionnaire records **without a slug**, meaning the generated questionnaire has no working URL. The DB trigger handles new bookings, but for any fallback creation (e.g., older bookings), the slug is missing.
 
-Remove lines 287–304 — the entire `{totalActions > 0 && (...)}` block that renders the progress bar with completed/total actions count and percentage. This is the section immediately below the greeting row in the sticky header.
+Additionally, the script context pipeline (`buildScriptContext` in `script-context.ts` and `ScriptPickerSheet.tsx`) already resolves and auto-injects `{questionnaire-link}` into scripts — this part is intact. The issue is upstream: if the questionnaire record has no slug, the link is broken.
 
-The `completedActions`, `totalActions`, and `progressPct` computed values (lines 224–230) can also be removed since they'll be unused, along with related state that only feeds them if no longer referenced elsewhere.
+### Changes
 
-The sticky header will then contain only the greeting + date + dark mode toggle — nothing else.
+**1. Fix `IntroRowCard.tsx` — `handleLogAsSent` slug generation (lines 222-232)**
 
-One file, one deletion. No other changes.  
-  
-  
-  
-Bring back my Shift dropdown, Calls, texts, DMs made log
+When creating a new questionnaire record as a fallback, generate a proper slug using `generateSlug` (from `@/lib/utils`) before inserting. Import `generateSlug` at the top.
+
+```typescript
+const newSlug = generateSlug(firstName, lastName, item.classDate);
+await supabase.from('intro_questionnaires').insert({
+  booking_id: item.bookingId,
+  client_first_name: firstName,
+  client_last_name: lastName,
+  scheduled_class_date: item.classDate,
+  status: 'sent',
+  slug: newSlug,
+} as any);
+```
+
+**2. Fix `IntroRowCard.tsx` — Ensure `buildScriptContext` receives questionnaire link when opening Script drawer**
+
+The `myday:open-script` event already passes `bookingId` and `isSecondIntro`. The `ScriptPickerSheet` already resolves the questionnaire URL from the booking's linked questionnaire record (lines 112-172). This path is intact — no changes needed here.
+
+**3. Verify `script-context.ts` — `buildScriptContext` questionnaire link resolution**
+
+Already fetches questionnaire by `booking_id`, builds URL from slug, and sets `ctx['questionnaire-link']`. No changes needed — this is working.
+
+### Summary
+One file change: add `generateSlug` import and slug generation to the fallback questionnaire creation in `IntroRowCard.tsx`. The rest of the pipeline (script context, ScriptPickerSheet auto-injection) is intact and will work once records have proper slugs.
+
