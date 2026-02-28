@@ -34,7 +34,7 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import FollowUpTabs from '@/features/followUp/FollowUpTabs';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
-import { ContactLogger } from '@/components/myday/ContactLogger';
+
 
 // Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
@@ -286,9 +286,8 @@ export default function MyDayPage() {
       {/* End Shift floating bar rendered below */}
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
-      <div className="px-4 pt-3 space-y-2">
+      <div className="px-4 pt-3">
         <MyDayShiftSummary compact />
-        <ContactLogger userName={user?.name || ''} />
       </div>
 
       {/* ═══ WIN THE DAY CHECKLIST ═══ */}
