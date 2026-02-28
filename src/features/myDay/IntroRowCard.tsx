@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
@@ -223,12 +223,14 @@ export default function IntroRowCard({
         const nameParts = item.memberName.trim().split(/\s+/);
         const firstName = nameParts[0] || item.memberName;
         const lastName = nameParts.slice(1).join(' ') || '';
+        const newSlug = generateSlug(firstName, lastName, item.classDate);
         await supabase.from('intro_questionnaires').insert({
           booking_id: item.bookingId,
           client_first_name: firstName,
           client_last_name: lastName,
           scheduled_class_date: item.classDate,
           status: 'sent',
+          slug: newSlug,
         } as any);
       }
       setLocalQStatus('Q_SENT');
