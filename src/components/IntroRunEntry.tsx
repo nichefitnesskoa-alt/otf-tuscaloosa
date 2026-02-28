@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { COACHES } from '@/types';
 import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { EirmaPlaybook } from '@/components/dashboard/EirmaPlaybook';
+import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 
 // Lead Sources (alphabetized)
 const LEAD_SOURCES = [
@@ -212,21 +213,15 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Run Date *</Label>
-          <Input
-            type="date"
-            value={intro.runDate || ''}
-            onChange={(e) => onUpdate(index, { runDate: e.target.value })}
-            className="mt-1"
-          />
+          <div className="mt-1">
+            <DatePickerField value={intro.runDate || ''} onChange={(v) => onUpdate(index, { runDate: v })} />
+          </div>
         </div>
         <div>
           <Label className="text-xs">Run Time</Label>
-          <Input
-            type="time"
-            value={intro.runTime || ''}
-            onChange={(e) => onUpdate(index, { runTime: e.target.value })}
-            className="mt-1"
-          />
+          <div className="mt-1">
+            <ClassTimeSelect value={intro.runTime || ''} onValueChange={(v) => onUpdate(index, { runTime: v })} />
+          </div>
         </div>
       </div>
 
@@ -402,21 +397,15 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">2nd Intro Date *</Label>
-              <Input
-                type="date"
-                value={intro.secondIntroDate || ''}
-                onChange={(e) => onUpdate(index, { secondIntroDate: e.target.value })}
-                className="mt-1"
-              />
+              <div className="mt-1">
+                <DatePickerField value={intro.secondIntroDate || ''} onChange={(v) => onUpdate(index, { secondIntroDate: v })} />
+              </div>
             </div>
             <div>
               <Label className="text-xs">2nd Intro Time</Label>
-              <Input
-                type="time"
-                value={intro.secondIntroTime || ''}
-                onChange={(e) => onUpdate(index, { secondIntroTime: e.target.value })}
-                className="mt-1"
-              />
+              <div className="mt-1">
+                <ClassTimeSelect value={intro.secondIntroTime || ''} onValueChange={(v) => onUpdate(index, { secondIntroTime: v })} />
+              </div>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -451,10 +440,10 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
                 type="tel"
                 value={intro.phoneCollected || ''}
                 onChange={(e) => onUpdate(index, { 
-                  phoneCollected: e.target.value,
+                  phoneCollected: formatPhoneAsYouType(e.target.value),
                   phoneMissing: !e.target.value.trim(),
                 })}
-                placeholder={formatPhoneDisplay('(555) 123-4567') || '(555) 123-4567'}
+                placeholder="(555) 123-4567"
                 className="mt-1"
               />
             </div>

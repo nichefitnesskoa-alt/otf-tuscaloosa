@@ -19,6 +19,7 @@ import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES, COACHES } from '@/types';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
+import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 
 export interface IntroBookingData {
   id: string;
@@ -324,7 +325,7 @@ export default function IntroBookingEntry({
             <Input
               type="tel"
               value={booking.phone}
-              onChange={(e) => onUpdate(index, { phone: e.target.value })}
+              onChange={(e) => onUpdate(index, { phone: formatPhoneAsYouType(e.target.value) })}
               placeholder="(555) 123-4567"
               className="mt-1"
             />
@@ -344,21 +345,15 @@ export default function IntroBookingEntry({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs">Intro Date *</Label>
-            <Input
-              type="date"
-              value={booking.introDate}
-              onChange={(e) => onUpdate(index, { introDate: e.target.value })}
-              className="mt-1"
-            />
+            <div className="mt-1">
+              <DatePickerField value={booking.introDate} onChange={(v) => onUpdate(index, { introDate: v })} />
+            </div>
           </div>
           <div>
             <Label className="text-xs">Intro Time</Label>
-            <Input
-              type="time"
-              value={booking.introTime}
-              onChange={(e) => onUpdate(index, { introTime: e.target.value })}
-              className="mt-1"
-            />
+            <div className="mt-1">
+              <ClassTimeSelect value={booking.introTime} onValueChange={(v) => onUpdate(index, { introTime: v })} />
+            </div>
           </div>
         </div>
 
@@ -434,8 +429,8 @@ export default function IntroBookingEntry({
                     <Input
                       type="tel"
                       value={booking.friendPhone}
-                      onChange={(e) => onUpdate(index, { friendPhone: e.target.value })}
-                      placeholder="Phone number"
+                      onChange={(e) => onUpdate(index, { friendPhone: formatPhoneAsYouType(e.target.value) })}
+                      placeholder="(555) 123-4567"
                       className="mt-1"
                     />
                   </div>

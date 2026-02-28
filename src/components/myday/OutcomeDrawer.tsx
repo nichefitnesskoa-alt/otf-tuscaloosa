@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { applyIntroOutcomeUpdate } from '@/lib/domain/outcomes/applyIntroOutcomeUpdate';
 import { COACHES } from '@/types';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { computeCommission, isSaleOutcome } from '@/lib/outcomes/commissionRules';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { toast } from 'sonner';
@@ -491,7 +492,7 @@ export function OutcomeDrawer({
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Time <span className="text-destructive">*</span></Label>
-              <Input type="time" value={secondIntroTime} onChange={e => setSecondIntroTime(e.target.value)} className="h-8 text-sm" />
+              <ClassTimeSelect value={secondIntroTime} onValueChange={setSecondIntroTime} triggerClassName="h-8 text-sm" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
@@ -531,7 +532,7 @@ export function OutcomeDrawer({
           </div>
           <div className="space-y-1">
             <Label className="text-xs">New Time <span className="text-destructive">*</span></Label>
-            <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} className="h-8 text-sm" />
+              <ClassTimeSelect value={rescheduleTime} onValueChange={setRescheduleTime} triggerClassName="h-8 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
@@ -640,15 +641,10 @@ export function OutcomeDrawer({
                 </Popover>
               </div>
 
-              {/* Time input */}
+              {/* Time dropdown */}
               <div className="space-y-1">
-                <Label className="text-xs">Time (HH:MM)</Label>
-                <Input
-                  type="time"
-                  value={secondIntroTime}
-                  onChange={e => setSecondIntroTime(e.target.value)}
-                  className="h-8 text-sm"
-                />
+                <Label className="text-xs">Time</Label>
+                <ClassTimeSelect value={secondIntroTime} onValueChange={setSecondIntroTime} triggerClassName="h-8 text-sm" />
               </div>
 
               {/* Coach selector */}

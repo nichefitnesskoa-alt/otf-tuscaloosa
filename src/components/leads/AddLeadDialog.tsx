@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 
 const LEAD_SOURCE_OPTIONS = [
   'Manual Entry',
@@ -96,16 +97,16 @@ export function AddLeadDialog({ open, onOpenChange, onLeadAdded }: AddLeadDialog
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>First Name *</Label>
-              <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" />
+              <Input value={firstName} onChange={e => setFirstName(autoCapitalizeName(e.target.value))} placeholder="First" />
             </div>
             <div>
               <Label>Last Name *</Label>
-              <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" />
+              <Input value={lastName} onChange={e => setLastName(autoCapitalizeName(e.target.value))} placeholder="Last" />
             </div>
           </div>
           <div>
             <Label>Phone *</Label>
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" type="tel" />
+            <Input value={phone} onChange={e => setPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 123-4567" type="tel" />
           </div>
           <div>
             <Label>Email</Label>

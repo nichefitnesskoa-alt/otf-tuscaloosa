@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { COACHES, LEAD_SOURCES } from '@/types';
 import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
+import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 
 interface BookIntroSheetProps {
   open: boolean;
@@ -213,30 +214,30 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="book-first">First Name <span className="text-destructive">*</span></Label>
-              <Input id="book-first" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" autoFocus />
+              <Input id="book-first" value={firstName} onChange={e => setFirstName(autoCapitalizeName(e.target.value))} placeholder="First" autoFocus />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="book-last">Last Name <span className="text-destructive">*</span></Label>
-              <Input id="book-last" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" />
+              <Input id="book-last" value={lastName} onChange={e => setLastName(autoCapitalizeName(e.target.value))} placeholder="Last" />
             </div>
           </div>
 
           {/* Phone */}
           <div className="space-y-1.5">
             <Label htmlFor="book-phone">Phone <span className="text-destructive">*</span></Label>
-            <Input id="book-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" />
+            <Input id="book-phone" type="tel" value={phone} onChange={e => setPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 555-5555" />
           </div>
 
           {/* Class Date */}
           <div className="space-y-1.5">
-            <Label htmlFor="book-date">Class Date <span className="text-destructive">*</span></Label>
-            <Input id="book-date" type="date" value={classDate} onChange={e => setClassDate(e.target.value)} />
+            <Label>Class Date <span className="text-destructive">*</span></Label>
+            <DatePickerField value={classDate} onChange={setClassDate} />
           </div>
 
           {/* Class Time */}
           <div className="space-y-1.5">
-            <Label htmlFor="book-time">Class Time <span className="text-destructive">*</span></Label>
-            <Input id="book-time" type="time" value={classTime} onChange={e => setClassTime(e.target.value)} />
+            <Label>Class Time <span className="text-destructive">*</span></Label>
+            <ClassTimeSelect value={classTime} onValueChange={setClassTime} />
           </div>
 
           {/* Coach */}
@@ -261,7 +262,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">Who referred them?</Label>
-              <Input id="book-referred-by" value={referredBy} onChange={e => setReferredBy(e.target.value)} placeholder="Referring member's name" />
+              <Input id="book-referred-by" value={referredBy} onChange={e => setReferredBy(autoCapitalizeName(e.target.value))} placeholder="Referring member's name" />
             </div>
           )}
 
@@ -287,16 +288,16 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Friend's First Name <span className="text-destructive">*</span></Label>
-                      <Input value={friendFirstName} onChange={e => setFriendFirstName(e.target.value)} placeholder="First" className="h-8 text-sm" />
+                      <Input value={friendFirstName} onChange={e => setFriendFirstName(autoCapitalizeName(e.target.value))} placeholder="First" className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Last Name</Label>
-                      <Input value={friendLastName} onChange={e => setFriendLastName(e.target.value)} placeholder="Last" className="h-8 text-sm" />
+                      <Input value={friendLastName} onChange={e => setFriendLastName(autoCapitalizeName(e.target.value))} placeholder="Last" className="h-8 text-sm" />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Phone (optional)</Label>
-                    <Input type="tel" value={friendPhone} onChange={e => setFriendPhone(e.target.value)} placeholder="(555) 555-5555" className="h-8 text-sm" />
+                    <Input type="tel" value={friendPhone} onChange={e => setFriendPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 555-5555" className="h-8 text-sm" />
                   </div>
                   <Button size="sm" variant="ghost" className="text-xs text-muted-foreground h-6" onClick={() => { setFriendAnswer('no'); setFriendFirstName(''); setFriendLastName(''); setFriendPhone(''); }}>
                     ✕ Remove friend
