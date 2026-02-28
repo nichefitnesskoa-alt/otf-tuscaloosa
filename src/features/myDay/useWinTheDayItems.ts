@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { format, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
-import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { formatDisplayTime, buildClassStartDateTime } from '@/lib/time/timeUtils';
 
 export type ChecklistItemType =
   | 'q_send'
@@ -186,8 +186,7 @@ export function useWinTheDayItems() {
       for (const intro of (todayIntros || [])) {
         if (intro.originating_booking_id) continue; // skip 2nd intros
 
-        const classStartISO = intro.class_start_at || `${intro.class_date}T${intro.intro_time || '23:59'}:00`;
-        const classStart = new Date(classStartISO);
+        const classStart = buildClassStartDateTime(intro.class_date, intro.intro_time) || new Date(`${intro.class_date}T23:59:00`);
         const minutesUntil = differenceInMinutes(classStart, now);
         const timeDisplay = formatDisplayTime(intro.intro_time);
 
