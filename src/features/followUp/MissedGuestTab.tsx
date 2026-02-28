@@ -1,17 +1,17 @@
 /**
- * No-Show tab — people who didn't show up or missed their booking.
- * Actions: [Send Text] [Book 2nd Intro]
+ * Missed Guest tab — people who showed up but didn't buy (past bookings with no run record).
+ * Actions: [Send Text] [Log Outcome]
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, CalendarPlus } from 'lucide-react';
+import { Send, ClipboardEdit } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import IntroCard from '@/components/shared/IntroCard';
 import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
-interface NoShowTabProps {
+interface MissedGuestTabProps {
   items: FollowUpItem[];
   isLoading: boolean;
   onRefresh: () => void;
@@ -19,13 +19,13 @@ interface NoShowTabProps {
 
 const PAGE_SIZE = 20;
 
-export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProps) {
+export default function MissedGuestTab({ items, isLoading, onRefresh }: MissedGuestTabProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { user } = useAuth();
 
   if (isLoading) return <p className="text-sm text-muted-foreground py-4">Loading...</p>;
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground italic py-4">No no-shows right now. Great day.</p>;
+    return <p className="text-sm text-muted-foreground italic py-4">No missed guests right now.</p>;
   }
 
   const visible = items.slice(0, visibleCount);
@@ -47,8 +47,8 @@ export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProp
           editedBy={user?.name || ''}
           onFieldSaved={onRefresh}
           outcomeBadge={
-             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-destructive/15 text-destructive border">
-              🚫 No-Show
+            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">
+              👻 Missed Guest
             </Badge>
           }
           timingInfo={item.lastContactAt
@@ -74,13 +74,13 @@ export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProp
                 variant="outline"
                 className="h-8 flex-1 text-xs gap-1"
                 onClick={() => {
-                  window.dispatchEvent(new CustomEvent('followup:book-second-intro', {
-                    detail: { bookingId: item.bookingId, memberName: item.memberName, phone: item.phone },
+                  window.dispatchEvent(new CustomEvent('myday:open-outcome', {
+                    detail: { bookingId: item.bookingId },
                   }));
                 }}
               >
-                <CalendarPlus className="w-3.5 h-3.5" />
-                Book 2nd Intro
+                <ClipboardEdit className="w-3.5 h-3.5" />
+                Log Outcome
               </Button>
             </>
           }
