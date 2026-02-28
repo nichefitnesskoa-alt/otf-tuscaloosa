@@ -33,7 +33,6 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import FollowUpTabs from '@/features/followUp/FollowUpTabs';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
-import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 
 // Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
@@ -42,7 +41,6 @@ import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
-import { MyDayShiftSummary } from './MyDayShiftSummary';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
 import { WinTheDay } from './WinTheDay';
@@ -310,38 +308,8 @@ export default function MyDayPage() {
 
       {/* End Shift floating bar rendered below */}
 
-      {/* ═══ ACTIVITY TRACKER ═══ */}
-      <div className="border-b border-primary/30 bg-background px-4 py-3">
-        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
-          Quick view of your shift stats. Log activity from the + button.
-        </p>
-        <MyDayShiftSummary compact />
-      </div>
-
-      {/* ═══ STUDIO INTELLIGENCE (admin only) ═══ */}
-      {isAdmin && !intelligenceDismissed && (
-        <div className="px-4 py-3 border-b border-primary/30">
-          <StudioIntelligenceCard
-            dismissible
-            onDismiss={() => {
-              const todayKey = `si-dismissed-${format(new Date(), 'yyyy-MM-dd')}`;
-              localStorage.setItem(todayKey, 'true');
-              setIntelligenceDismissed(true);
-            }}
-          />
-        </div>
-      )}
-
       {/* ═══ WIN THE DAY CHECKLIST ═══ */}
       <WinTheDay onSwitchTab={setActiveTab} />
-
-      {/* ═══ THIS WEEK'S SCHEDULE ═══ */}
-      <div className="px-4 py-3 border-b border-primary/30">
-        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
-          Your upcoming schedule at a glance.
-        </p>
-        <WeeklySchedule />
-      </div>
 
       {/* ═══ INTERNAL TABS ═══ */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -73,7 +73,7 @@ export default function IntroDayGroup({
                 <div className="flex-1 border-t border-border/50" />
               </div>
             )}
-            <div className="space-y-2">
+            <div className="space-y-4">
               {items.map(item => (
                 <IntroRowCard
                   key={item.bookingId}

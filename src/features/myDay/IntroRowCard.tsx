@@ -1,25 +1,24 @@
 /**
- * Single intro row card with Prep | Script | Coach | Outcome buttons.
- * Outcome expands an inline drawer that routes through canonical applyIntroOutcomeUpdate.
- * Q status is displayed as a bold full-width top banner.
+ * Single intro row card using shared IntroCard for visual layout.
+ * MyDay-specific logic: prep checkbox, Q status, focus mode, outcome drawer.
  */
 import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Copy, User, Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatDisplayTime } from '@/lib/time/timeUtils';
-import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
+import { Copy, Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
+import IntroCard from '@/components/shared/IntroCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { COACHES } from '@/types';
 import { InlineEditField } from '@/components/dashboard/InlineEditField';
+import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 
 /** Inline coach picker — always tappable */
 function InlineCoachPicker({ bookingId, currentCoach, userName, onSaved }: { bookingId: string; currentCoach: string | null; userName: string; onSaved: () => void }) {
@@ -76,23 +75,6 @@ function InlineCoachPicker({ bookingId, currentCoach, userName, onSaved }: { boo
   );
 }
 
-interface IntroRowCardProps {
-  item: UpcomingIntroItem;
-  isOnline: boolean;
-  userName: string;
-  onSendQ: (bookingId: string) => void;
-  onConfirm: (bookingId: string) => void;
-  onRefresh: () => void;
-  /** When true, show the purple Needs Outcome banner instead of Q status */
-  needsOutcome?: boolean;
-  /** Confirmation result from Win the Day reflection */
-  confirmationResult?: string | null;
-  /** When true, this card is the focused (nearest upcoming) intro */
-  isFocused?: boolean;
-  /** When true, another card is focused so dim this one */
-  anyFocused?: boolean;
-}
-
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
@@ -103,6 +85,19 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
     default:
       return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
   }
+}
+
+interface IntroRowCardProps {
+  item: UpcomingIntroItem;
+  isOnline: boolean;
+  userName: string;
+  onSendQ: (bookingId: string) => void;
+  onConfirm: (bookingId: string) => void;
+  onRefresh: () => void;
+  needsOutcome?: boolean;
+  confirmationResult?: string | null;
+  isFocused?: boolean;
+  anyFocused?: boolean;
 }
 
 export default function IntroRowCard({
@@ -125,10 +120,6 @@ export default function IntroRowCard({
   const [prevIntroOpen, setPrevIntroOpen] = useState(false);
   const [prevIntro, setPrevIntro] = useState<any>(null);
   const [prevIntroLoading, setPrevIntroLoading] = useState(false);
-  const [editingTime, setEditingTime] = useState(false);
-  const [editTimeValue, setEditTimeValue] = useState(item.introTime || '');
-  const [timeSaving, setTimeSaving] = useState(false);
-  const timeInputRef = useRef<HTMLInputElement>(null);
   const qBar = getQBar(localQStatus);
 
   // ── Focus mode: compute minutesUntilClass ──
@@ -153,10 +144,7 @@ export default function IntroRowCard({
   const focusHours = minutesUntilClass !== null ? Math.floor(minutesUntilClass / 60) : 0;
   const focusMins = minutesUntilClass !== null ? minutesUntilClass % 60 : 0;
 
-  // ── Q escalation: 3 hours before class ──
   const isQOverdue = !item.isSecondIntro && localQStatus === 'Q_SENT' && minutesUntilClass !== null && minutesUntilClass <= 180 && minutesUntilClass > 0;
-
-  // ── Outcome urgency: 1 hour after class time, no outcome logged ──
   const isOutcomeOverdue = !item.latestRunResult && minutesUntilClass !== null && minutesUntilClass <= -60;
 
   // Auto-prep 2nd visits
@@ -208,7 +196,6 @@ export default function IntroRowCard({
     return () => clearInterval(interval);
   }, [item.bookingId, item.isSecondIntro, localQStatus]);
 
-  // Sync from parent when item changes
   useEffect(() => {
     setLocalQStatus(item.questionnaireStatus);
   }, [item.questionnaireStatus]);
@@ -217,7 +204,6 @@ export default function IntroRowCard({
     if (!isOnline) { toast.error('Offline'); return; }
     setLogSentLoading(true);
     try {
-      // Check if Q exists for this booking
       const { data: existing } = await supabase
         .from('intro_questionnaires')
         .select('id, status')
@@ -235,7 +221,6 @@ export default function IntroRowCard({
           await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', existing.id);
         }
       } else {
-        // Create a minimal Q record marked as sent
         const nameParts = item.memberName.trim().split(/\s+/);
         const firstName = nameParts[0] || item.memberName;
         const lastName = nameParts.slice(1).join(' ') || '';
@@ -271,7 +256,7 @@ export default function IntroRowCard({
       }).eq('id', item.bookingId);
       if (error) throw error;
     } catch {
-      setPrepped(!checked); // revert
+      setPrepped(!checked);
       toast.error('Failed to save prep status');
     } finally {
       setPreppedSaving(false);
@@ -293,7 +278,7 @@ export default function IntroRowCard({
     fn();
   };
 
-  // Determine border color from banner color
+  // Border color for urgency
   const borderColor = needsOutcome
     ? '#7c3aed'
     : isOutcomeOverdue
@@ -308,20 +293,9 @@ export default function IntroRowCard({
     ? '#d97706'
     : '#dc2626';
 
-  return (
-    <div
-      id={`intro-card-${item.bookingId}`}
-      className={cn(
-        'rounded-lg bg-card overflow-hidden transition-all',
-        isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
-        !isFocused && anyFocused && 'opacity-80',
-      )}
-      style={{
-        border: `2px solid ${borderColor}`,
-        ...(isInFocusWindow ? { animationDuration: '3s' } : {}),
-      }}
-    >
-      {/* Focus countdown badge */}
+  // Build top banner
+  const topBanner = (
+    <>
       {isInFocusWindow && (
         <div className="flex items-center justify-center py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
           <Badge className="text-[10px] px-2 py-0 h-4 bg-amber-500 text-white border-transparent">
@@ -329,8 +303,6 @@ export default function IntroRowCard({
           </Badge>
         </div>
       )}
-
-      {/* Top status banner */}
       {needsOutcome ? (
         <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
       ) : isOutcomeOverdue ? (
@@ -347,269 +319,207 @@ export default function IntroRowCard({
           text={qBar.bannerLabel}
         />
       )}
+    </>
+  );
 
-      {/* Intro number label */}
-      <div className="w-full flex items-center justify-center py-0.5 bg-muted/30 border-b">
-        <span className="text-[10px] text-muted-foreground font-medium">
-          {item.isSecondIntro ? '2nd Intro Visit' : '1st Intro'}
-        </span>
+  // Build badges for member name row
+  const badges = (
+    <>
+      {item.isVip && (
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
+      )}
+    </>
+  );
+
+  // Outcome badge
+  const outcomeBadge = item.latestRunResult ? (
+    <button type="button" onClick={() => setOutcomeOpen(true)} className="cursor-pointer hover:opacity-90 transition-opacity">
+      <Badge
+        variant="outline"
+        className={cn(
+          'text-[10px] px-1.5 py-0 h-4',
+          item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
+            : item.latestRunResult === 'Booked 2nd intro'
+            ? 'bg-blue-500/15 text-blue-700 border-blue-500/30'
+            : item.latestRunResult === 'No-show'
+            ? 'bg-muted text-muted-foreground border-border'
+            : 'bg-amber-500/15 text-amber-700 border-amber-500/30',
+        )}
+      >
+        {item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
+          ? `✓ ${item.latestRunResult}`
+          : item.latestRunResult === 'Booked 2nd intro'
+          ? '📅 2nd Intro Booked'
+          : item.latestRunResult === 'No-show'
+          ? '👻 No-show'
+          : `⏳ ${item.latestRunResult}`}
+      </Badge>
+    </button>
+  ) : null;
+
+  // Primary action buttons
+  const actionButtons = (
+    <>
+      <Button
+        size="sm"
+        className={cn(
+          'h-8 flex-1 text-xs gap-1',
+          isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
+        )}
+        style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId: item.bookingId } }));
+        }}
+      >
+        <Eye className="w-3.5 h-3.5" />
+        Prep
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="h-8 flex-1 text-xs gap-1"
+        onClick={guardOnline(() => {
+          window.dispatchEvent(new CustomEvent('myday:open-script', {
+            detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
+          }));
+        })}
+      >
+        <Send className="w-3.5 h-3.5" />
+        Script
+      </Button>
+      <Button
+        size="sm"
+        variant={outcomeOpen ? 'default' : 'outline'}
+        className="h-8 flex-1 text-xs gap-1"
+        onClick={() => setOutcomeOpen(v => !v)}
+      >
+        <ClipboardList className="w-3.5 h-3.5" />
+        Outcome
+      </Button>
+    </>
+  );
+
+  // Secondary actions: prepped checkbox + copy Q link + log Q as sent (collapsed into one row)
+  const secondaryActions = (
+    <>
+      {/* Prepped checkbox — compact inline */}
+      <div className={cn(
+        'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs',
+        prepped ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-muted/20 border-border'
+      )}>
+        <Checkbox
+          id={`prepped-${item.bookingId}`}
+          checked={prepped}
+          onCheckedChange={(val) => handleTogglePrepped(!!val)}
+          disabled={preppedSaving}
+          className="h-3.5 w-3.5"
+        />
+        <label
+          htmlFor={`prepped-${item.bookingId}`}
+          className={cn(
+            'cursor-pointer select-none',
+            prepped ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-muted-foreground'
+          )}
+        >
+          {prepped ? '✓ Prepped' : 'Prep'}
+        </label>
+        {preppedSaving && <span className="text-[10px] text-muted-foreground">…</span>}
       </div>
 
-      {/* Main content */}
-      <div className="p-3 space-y-2">
-        {/* Row 1: Name + badges */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-sm leading-tight">{item.memberName}</span>
-            {item.isVip && (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
-            )}
-            {item.isSecondIntro && (
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
-            )}
-          </div>
-          {/* Time + Coach + Owner */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs text-muted-foreground">
-            {editingTime ? (
-              <input
-                ref={timeInputRef}
-                type="time"
-                value={editTimeValue}
-                onChange={(e) => setEditTimeValue(e.target.value)}
-                onBlur={async () => {
-                  if (!editTimeValue) { setEditingTime(false); return; }
-                  setTimeSaving(true);
-                  try {
-                    const { error } = await supabase.from('intros_booked').update({
-                      intro_time: editTimeValue,
-                      class_start_at: `${item.classDate}T${editTimeValue}:00`,
-                      last_edited_at: new Date().toISOString(),
-                      last_edited_by: userName,
-                    }).eq('id', item.bookingId);
-                    if (error) throw error;
-                    toast.success('Time updated');
-                    onRefresh();
-                  } catch {
-                    toast.error('Failed to update time');
-                  } finally {
-                    setTimeSaving(false);
-                    setEditingTime(false);
-                  }
-                }}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                className="w-24 h-5 text-xs border rounded px-1 bg-background text-foreground"
-                autoFocus
-                disabled={timeSaving}
-              />
-            ) : item.introTime ? (
-              <button
-                type="button"
-                onClick={() => { setEditTimeValue(item.introTime || ''); setEditingTime(true); }}
-                className="hover:underline cursor-pointer text-foreground"
-              >
-                {formatDisplayTime(item.introTime)}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { setEditTimeValue(''); setEditingTime(true); }}
-                className="text-destructive font-semibold hover:underline cursor-pointer"
-              >
-                ⏰ Add Time
-              </button>
-            )}
-            <span>·</span>
-            <span>·</span>
-            <InlineCoachPicker bookingId={item.bookingId} currentCoach={item.coachName} userName={userName} onSaved={onRefresh} />
-            {item.introOwner && (
-              <>
-                <span>·</span>
-                <span>{item.introOwner}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Row 2: Contact + lead source */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Inline phone edit */}
-          <InlineEditField
-            value={item.phone || ''}
-            displayValue={item.phone ? (formatPhoneDisplay(item.phone) || item.phone) : undefined}
-            placeholder="Add phone"
-            type="tel"
-            onSave={async (val) => {
-              const stripped = val.replace(/\D/g, '');
-              await supabase.from('intros_booked').update({
-                phone: val,
-                phone_e164: stripped.length === 10 ? '+1' + stripped : (stripped.length === 11 && stripped.startsWith('1') ? '+' + stripped : val),
-                phone_source: 'inline_edit',
-              }).eq('id', item.bookingId);
-              onRefresh();
-            }}
-            muted={!item.phone}
-          />
-          {item.leadSource && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-              {item.leadSource}
-            </Badge>
-          )}
-        </div>
-
-        {/* Row 4: PRIMARY BUTTONS – Prep | Script | Coach | Outcome */}
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            className={cn(
-              'h-8 flex-1 text-xs gap-1',
-              isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
-            )}
-            style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId: item.bookingId } }));
-            }}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            Prep
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-8 flex-1 text-xs gap-1"
-            onClick={guardOnline(() => {
-              window.dispatchEvent(new CustomEvent('myday:open-script', {
-                detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
-              }));
-            })}
-          >
-            <Send className="w-3.5 h-3.5" />
-            Script
-          </Button>
-          <Button
-            size="sm"
-            variant={outcomeOpen ? 'default' : 'outline'}
-            className="h-8 flex-1 text-xs gap-1"
-            onClick={() => setOutcomeOpen(v => !v)}
-          >
-            <ClipboardList className="w-3.5 h-3.5" />
-            Outcome
-          </Button>
-        </div>
-
-        {/* Prepped & Role Played checkbox */}
-        <div className={cn(
-          'flex items-start gap-2 px-2 py-1.5 rounded-md border transition-colors',
-          prepped ? 'bg-success/10 border-success/30' : 'bg-muted/20 border-border'
-        )}>
-          <Checkbox
-            id={`prepped-${item.bookingId}`}
-            checked={prepped}
-            onCheckedChange={(val) => handleTogglePrepped(!!val)}
-            disabled={preppedSaving}
-            className="mt-0.5"
-          />
-          <div className="flex-1 min-w-0">
-            <label
-              htmlFor={`prepped-${item.bookingId}`}
-              className={cn(
-                'text-xs font-medium cursor-pointer select-none block',
-                prepped ? 'text-success' : 'text-muted-foreground'
-              )}
-              title="This means you reviewed their prep card AND role played digging deeper on their why and handling their likely objection before they walked in."
-            >
-              {prepped ? '✓ Prepped & Role Played' : 'Prepped & Role Played (tap to mark)'}
-            </label>
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              Reviewed card + practiced dig deeper + objection handling
-            </p>
-          </div>
-          {preppedSaving && <span className="text-[10px] text-muted-foreground">saving…</span>}
-        </div>
-
-        {/* Row 5: Log as Sent + Secondary actions */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          
-          {!item.isSecondIntro && (localQStatus === 'NO_Q') && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] gap-1 border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-              onClick={handleLogAsSent}
-              disabled={logSentLoading}
-            >
-              <CheckCircle className="w-3 h-3" />
-              {logSentLoading ? 'Saving…' : 'Log Q as Sent'}
-            </Button>
-          )}
-          {!item.isSecondIntro && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] gap-1"
-              onClick={async () => {
-                try {
-                  const { data: qRecord } = await supabase
-                    .from('intro_questionnaires')
-                    .select('slug, id')
-                    .eq('booking_id', item.bookingId)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-                  if (qRecord?.slug) {
-                    const link = `https://otf-tuscaloosa.lovable.app/q/${(qRecord as any).slug}`;
-                    await navigator.clipboard.writeText(link);
-                    toast.success(`Q link copied for ${item.memberName}`);
-                  } else {
-                    const nameParts = item.memberName.trim().split(/\s+/);
-                    const firstName = nameParts[0] || item.memberName;
-                    const lastName = nameParts.slice(1).join(' ') || '';
-                    const d = new Date(item.classDate + 'T12:00:00');
-                    const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-                    const slug = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${lastName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${monthNames[d.getMonth()]}${String(d.getDate()).padStart(2, '0')}`;
-                    const { data: created } = await supabase.from('intro_questionnaires').insert({
-                      booking_id: item.bookingId,
-                      client_first_name: firstName,
-                      client_last_name: lastName,
-                      scheduled_class_date: item.classDate,
-                      slug,
-                      status: 'not_sent',
-                    } as any).select('slug').single();
-                    if (created?.slug) {
-                      const link = `https://otf-tuscaloosa.lovable.app/q/${(created as any).slug}`;
-                      await navigator.clipboard.writeText(link);
-                      toast.success(`Q link generated & copied for ${item.memberName}`);
-                    } else {
-                      toast.error('Failed to generate Q link');
-                    }
-                  }
-                } catch {
-                  toast.error('Failed to copy Q link');
+      {!item.isSecondIntro && localQStatus === 'NO_Q' && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] gap-1 border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+          onClick={handleLogAsSent}
+          disabled={logSentLoading}
+        >
+          <CheckCircle className="w-3 h-3" />
+          {logSentLoading ? 'Saving…' : 'Log Q Sent'}
+        </Button>
+      )}
+      {!item.isSecondIntro && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-[11px] gap-1"
+          onClick={async () => {
+            try {
+              const { data: qRecord } = await supabase
+                .from('intro_questionnaires')
+                .select('slug, id')
+                .eq('booking_id', item.bookingId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (qRecord?.slug) {
+                const link = `https://otf-tuscaloosa.lovable.app/q/${(qRecord as any).slug}`;
+                await navigator.clipboard.writeText(link);
+                toast.success(`Q link copied for ${item.memberName}`);
+              } else {
+                const nameParts = item.memberName.trim().split(/\s+/);
+                const firstName = nameParts[0] || item.memberName;
+                const lastName = nameParts.slice(1).join(' ') || '';
+                const d = new Date(item.classDate + 'T12:00:00');
+                const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+                const slug = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${lastName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${monthNames[d.getMonth()]}${String(d.getDate()).padStart(2, '0')}`;
+                const { data: created } = await supabase.from('intro_questionnaires').insert({
+                  booking_id: item.bookingId,
+                  client_first_name: firstName,
+                  client_last_name: lastName,
+                  scheduled_class_date: item.classDate,
+                  slug,
+                  status: 'not_sent',
+                } as any).select('slug').single();
+                if (created?.slug) {
+                  const link = `https://otf-tuscaloosa.lovable.app/q/${(created as any).slug}`;
+                  await navigator.clipboard.writeText(link);
+                  toast.success(`Q link generated & copied for ${item.memberName}`);
+                } else {
+                  toast.error('Failed to generate Q link');
                 }
-              }}
-            >
-              <Copy className="w-3 h-3" />
-              Copy Q Link
-            </Button>
-          )}
-          {/* Copy Phone button */}
-          {item.phone && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-[11px] gap-1"
-              onClick={handleCopyPhone}
-            >
-              <Phone className="w-3 h-3" />
-              Copy Phone
-            </Button>
-          )}
-          {!item.isSecondIntro && localQStatus === 'Q_SENT' && (
-            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 border">
-              ⏳ Waiting for response
-            </Badge>
-          )}
-        </div>
+              }
+            } catch {
+              toast.error('Failed to copy Q link');
+            }
+          }}
+        >
+          <Copy className="w-3 h-3" />
+          Copy Q Link
+        </Button>
+      )}
+      {!item.isSecondIntro && localQStatus === 'Q_SENT' && (
+        <Badge className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 border">
+          ⏳ Waiting
+        </Badge>
+      )}
+    </>
+  );
 
+  return (
+    <>
+      <IntroCard
+        id={`intro-card-${item.bookingId}`}
+        memberName={item.memberName}
+        classDate={item.classDate}
+        introTime={item.introTime}
+        coachName={item.coachName}
+        leadSource={item.leadSource}
+        phone={item.phone}
+        badges={badges}
+        outcomeBadge={outcomeBadge}
+        actionButtons={actionButtons}
+        secondaryActions={secondaryActions}
+        onCopyPhone={handleCopyPhone}
+        borderColor={borderColor}
+        topBanner={topBanner}
+        className={cn(
+          isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
+          !isFocused && anyFocused && 'opacity-80',
+        )}
+        style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
+      >
         {/* 2nd Visit: Previous Intro Info */}
         {item.isSecondIntro && prevIntro && (
           <Collapsible open={prevIntroOpen} onOpenChange={setPrevIntroOpen}>
@@ -648,37 +558,7 @@ export default function IntroRowCard({
             </CollapsibleContent>
           </Collapsible>
         )}
-      </div>
-
-      {/* Outcome result bottom banner */}
-      {item.latestRunResult && (
-        <button type="button" onClick={() => setOutcomeOpen(true)} className="w-full cursor-pointer hover:opacity-90 transition-opacity">
-          <StatusBanner
-            bgColor={
-              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-                ? '#16a34a'
-                : item.latestRunResult === 'Booked 2nd intro'
-                ? '#2563eb'
-                : item.latestRunResult === 'Follow-up needed'
-                ? '#dc2626'
-                : item.latestRunResult === 'No-show'
-                ? '#64748b'
-                : '#d97706'
-            }
-            text={
-              item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-                ? `✓ Purchased — ${item.latestRunResult}`
-                : item.latestRunResult === 'Booked 2nd intro'
-                ? '📅 Booked 2nd Intro'
-                : item.latestRunResult === 'Follow-up needed'
-                ? '📋 Follow-up Needed'
-                : item.latestRunResult === 'No-show'
-                ? '👻 No-show'
-                : `⏳ ${item.latestRunResult}`
-            }
-          />
-        </button>
-      )}
+      </IntroCard>
 
       {/* Outcome drawer – expands below the card */}
       {outcomeOpen && (
@@ -699,6 +579,6 @@ export default function IntroRowCard({
           onCancel={() => setOutcomeOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }
