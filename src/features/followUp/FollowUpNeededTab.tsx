@@ -11,6 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import IntroCard from '@/components/shared/IntroCard';
+import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
 interface Props {
@@ -24,6 +25,7 @@ const PAGE_SIZE = 20;
 export default function FollowUpNeededTab({ items, isLoading, onRefresh }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [markingNotInterested, setMarkingNotInterested] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const handleMarkNotInterested = async (item: FollowUpItem) => {
     setMarkingNotInterested(item.bookingId);
@@ -64,6 +66,10 @@ export default function FollowUpNeededTab({ items, isLoading, onRefresh }: Props
             leadSource={item.leadSource}
             phone={item.phone}
             borderColor={isStateB ? '#d97706' : '#dc2626'}
+            editable
+            bookingId={item.bookingId}
+            editedBy={user?.name || ''}
+            onFieldSaved={onRefresh}
             outcomeBadge={
               <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${
                 isStateB

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import IntroCard from '@/components/shared/IntroCard';
+import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
 interface Props {
@@ -79,6 +80,7 @@ function ContactDatePicker({ item, onRefresh }: { item: FollowUpItem; onRefresh:
 
 export default function PlansToRescheduleTab({ items, isLoading, onRefresh }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { user } = useAuth();
 
   if (isLoading) return <p className="text-sm text-muted-foreground py-4">Loading...</p>;
   if (items.length === 0) {
@@ -99,6 +101,10 @@ export default function PlansToRescheduleTab({ items, isLoading, onRefresh }: Pr
           leadSource={item.leadSource}
           phone={item.phone}
           borderColor="#2563eb"
+          editable
+          bookingId={item.bookingId}
+          editedBy={user?.name || ''}
+          onFieldSaved={onRefresh}
           outcomeBadge={
             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-blue-100 text-blue-700 border-blue-300 border">
               📅 Plans to Reschedule
