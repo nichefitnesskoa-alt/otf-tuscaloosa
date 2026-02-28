@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Send, CalendarPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import IntroCard from '@/components/shared/IntroCard';
+import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
 interface NoShowTabProps {
@@ -20,6 +21,7 @@ const PAGE_SIZE = 20;
 
 export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { user } = useAuth();
 
   if (isLoading) return <p className="text-sm text-muted-foreground py-4">Loading...</p>;
   if (items.length === 0) {
@@ -40,6 +42,10 @@ export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProp
           leadSource={item.leadSource}
           phone={item.phone}
           borderColor="#64748b"
+          editable
+          bookingId={item.bookingId}
+          editedBy={user?.name || ''}
+          onFieldSaved={onRefresh}
           outcomeBadge={
             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">
               👻 {item.result || 'Missed Guest'}

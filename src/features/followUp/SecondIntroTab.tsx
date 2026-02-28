@@ -10,6 +10,7 @@ import { CheckCircle, Eye, ClipboardList } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import IntroCard from '@/components/shared/IntroCard';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
 interface Props {
@@ -22,6 +23,7 @@ const PAGE_SIZE = 20;
 
 export default function SecondIntroTab({ items, isLoading, onRefresh }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const { user } = useAuth();
 
   if (isLoading) return <p className="text-sm text-muted-foreground py-4">Loading...</p>;
   if (items.length === 0) {
@@ -46,6 +48,10 @@ export default function SecondIntroTab({ items, isLoading, onRefresh }: Props) {
             leadSource={item.leadSource}
             phone={item.phone}
             borderColor="#2563eb"
+            editable
+            bookingId={item.bookingId}
+            editedBy={user?.name || ''}
+            onFieldSaved={onRefresh}
             badges={
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
             }
