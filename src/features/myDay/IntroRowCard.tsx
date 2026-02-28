@@ -14,63 +14,8 @@ import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
 import { supabase } from '@/integrations/supabase/client';
-import { COACHES } from '@/types';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 
-/** Inline coach picker — always tappable */
-function InlineCoachPicker({ bookingId, currentCoach, userName, onSaved }: { bookingId: string; currentCoach: string | null; userName: string; onSaved: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const isTbd = !currentCoach || currentCoach === 'TBD';
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className={cn(
-          'cursor-pointer hover:underline',
-          isTbd ? 'text-destructive font-semibold' : 'text-foreground hover:bg-muted/50 rounded px-0.5 -mx-0.5',
-        )}
-      >
-        {isTbd ? '🏋️ Coach TBD' : currentCoach}
-      </button>
-    );
-  }
-
-  return (
-    <select
-      className="h-5 text-xs border rounded px-1 bg-background text-foreground"
-      defaultValue=""
-      autoFocus
-      disabled={saving}
-      onChange={async (e) => {
-        const val = e.target.value;
-        if (!val) return;
-        setSaving(true);
-        try {
-          await supabase.from('intros_booked').update({
-            coach_name: val,
-            last_edited_at: new Date().toISOString(),
-            last_edited_by: userName,
-          }).eq('id', bookingId);
-          toast.success(`Coach set to ${val}`);
-          onSaved();
-        } catch {
-          toast.error('Failed to update coach');
-        } finally {
-          setSaving(false);
-          setEditing(false);
-        }
-      }}
-      onBlur={() => setEditing(false)}
-    >
-      <option value="">Select coach…</option>
-      {COACHES.map(c => <option key={c} value={c}>{c}</option>)}
-    </select>
-  );
-}
 
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
@@ -428,6 +373,10 @@ export default function IntroRowCard({
         coachName={item.coachName}
         leadSource={item.leadSource}
         phone={item.phone}
+        bookingId={item.bookingId}
+        editable={true}
+        editedBy={userName}
+        onFieldSaved={onRefresh}
         badges={badges}
         outcomeBadge={undefined}
         actionButtons={actionButtons}

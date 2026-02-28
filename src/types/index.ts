@@ -63,6 +63,25 @@ export interface IGLead {
   updatedAt: string;
 }
 
+// Class Times (preset OTF schedule)
+export const CLASS_TIMES = [
+  '05:00', '06:15', '07:30', '08:45', '10:00',
+  '11:15', '12:30', '15:00', '16:15', '17:30',
+] as const;
+
+export const CLASS_TIME_LABELS: Record<string, string> = {
+  '05:00': '5:00AM',
+  '06:15': '6:15AM',
+  '07:30': '7:30AM',
+  '08:45': '8:45AM',
+  '10:00': '10AM',
+  '11:15': '11:15AM',
+  '12:30': '12:30PM',
+  '15:00': '3:00PM',
+  '16:15': '4:15PM',
+  '17:30': '5:30PM',
+};
+
 // Shift Types
 export const SHIFT_TYPES = ['AM Shift', 'PM Shift', 'Mid Shift'] as const;
 export type ShiftType = typeof SHIFT_TYPES[number];
