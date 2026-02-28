@@ -29,7 +29,7 @@ type ReflectionTarget = {
 type ReflectionType = 'q_send' | 'q_resend' | 'confirm_tomorrow' | 'followups_due' | 'leads_overdue' | 'cold_texts' | 'cold_dms';
 
 const INFLUENCED_TYPES: ReflectionType[] = ['q_send', 'q_resend', 'confirm_tomorrow', 'followups_due', 'leads_overdue', 'cold_texts', 'cold_dms'];
-const DIRECT_COMPLETE_TYPES = ['prep_roleplay', 'log_ig', 'shift_recap'];
+const DIRECT_COMPLETE_TYPES = ['prep_roleplay', 'log_ig', 'shift_recap', 'log_outcome'];
 
 function isInfluencedType(type: string): type is ReflectionType {
   return INFLUENCED_TYPES.includes(type as ReflectionType);
@@ -69,6 +69,17 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       case 'shift_recap': {
         const fab = document.querySelector('[data-end-shift-trigger]') as HTMLElement;
         if (fab) fab.click();
+        break;
+      }
+      case 'log_outcome': {
+        // Navigate to today tab and scroll to the card
+        onSwitchTab?.('today');
+        if (item.targetId) {
+          setTimeout(() => {
+            const el = document.getElementById(`intro-card-${item.targetId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
         break;
       }
     }
@@ -161,6 +172,16 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       case 'cold_dms': {
         setOutreachCount(0);
         setReflectionTarget({ item });
+        break;
+      }
+      case 'log_outcome': {
+        onSwitchTab?.('today');
+        if (item.targetId) {
+          setTimeout(() => {
+            const el = document.getElementById(`intro-card-${item.targetId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
         break;
       }
     }
@@ -594,6 +615,7 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
 }
 
 function ChecklistRow({ item, onAction, onCircleTap }: { item: ChecklistItem; onAction: (item: ChecklistItem) => void; onCircleTap: (item: ChecklistItem) => void }) {
+  const isOutcomeUrgent = item.type === 'log_outcome' && !item.completed;
   const urgencyBorder = item.urgency === 'red'
     ? 'border-l-destructive'
     : item.urgency === 'amber'
@@ -606,7 +628,9 @@ function ChecklistRow({ item, onAction, onCircleTap }: { item: ChecklistItem; on
         'flex items-center gap-2 rounded-md px-2 py-1.5 border-l-2 transition-all',
         urgencyBorder,
         item.completed ? 'opacity-60' : 'bg-muted/30',
+        isOutcomeUrgent && 'animate-pulse ring-1 ring-orange-400/60 bg-orange-50/30 dark:bg-orange-950/20',
       )}
+      style={isOutcomeUrgent ? { animationDuration: '3s' } : undefined}
     >
       {/* Tappable status indicator */}
       <button

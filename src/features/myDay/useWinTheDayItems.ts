@@ -19,7 +19,8 @@ export type ChecklistItemType =
   | 'log_ig'
   | 'shift_recap'
   | 'cold_texts'
-  | 'cold_dms';
+  | 'cold_dms'
+  | 'log_outcome';
 
 export interface ChecklistItem {
   id: string;
@@ -274,6 +275,31 @@ export function useWinTheDayItems() {
             targetId: intro.id,
             memberName: intro.member_name,
           });
+        }
+
+        // Log outcome — 1 hour after class time, no run logged
+        if (minutesUntil <= -60) {
+          // Check if there's a run for this booking
+          const { data: runCheck } = await supabase
+            .from('intros_run')
+            .select('id')
+            .eq('linked_intro_booked_id', intro.id)
+            .limit(1);
+          if (!runCheck || runCheck.length === 0) {
+            newItems.push({
+              id: `outcome_${intro.id}`,
+              type: 'log_outcome',
+              text: `Log outcome for ${intro.member_name} — class was at ${timeDisplay}`,
+              actionLabel: 'Log Outcome',
+              completed: false,
+              urgency: 'amber',
+              sortOrder: 100 + Math.abs(minutesUntil),
+              targetId: intro.id,
+              memberName: intro.member_name,
+              classTime: intro.intro_time || undefined,
+              minutesUntilClass: minutesUntil,
+            });
+          }
         }
       }
 

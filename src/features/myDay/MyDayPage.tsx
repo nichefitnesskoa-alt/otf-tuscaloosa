@@ -38,7 +38,7 @@ import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 // Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
-import { CoachDrawer } from '@/components/myday/CoachDrawer';
+
 
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
@@ -89,7 +89,7 @@ export default function MyDayPage() {
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
-  const [coachBookingId, setCoachBookingId] = useState<string | null>(null);
+  
   const [scriptQLink, setScriptQLink] = useState<string | undefined>();
 
   // Fetch Q link when script drawer opens
@@ -117,7 +117,7 @@ export default function MyDayPage() {
 
   const prepBooking = prepBookingId ? getBookingById(prepBookingId) : null;
   const scriptBooking = scriptBookingId ? getBookingById(scriptBookingId) : null;
-  const coachBooking = coachBookingId ? getBookingById(coachBookingId) : null;
+  
 
   // Today's stats
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -169,14 +169,11 @@ export default function MyDayPage() {
       setScriptBookingId(detail.bookingId);
       setScriptIsSecondIntro(!!detail.isSecondIntro);
     };
-    const onCoach = (e: Event) => setCoachBookingId((e as CustomEvent).detail.bookingId);
     window.addEventListener('myday:open-prep', onPrep);
     window.addEventListener('myday:open-script', onScript);
-    window.addEventListener('myday:open-coach', onCoach);
     return () => {
       window.removeEventListener('myday:open-prep', onPrep);
       window.removeEventListener('myday:open-script', onScript);
-      window.removeEventListener('myday:open-coach', onCoach);
     };
   }, []);
 
@@ -507,16 +504,6 @@ export default function MyDayPage() {
         />
       )}
 
-      {coachBooking && (
-        <CoachDrawer
-          open={!!coachBookingId}
-          onOpenChange={(open) => { if (!open) setCoachBookingId(null); }}
-          memberName={coachBooking.member_name}
-          bookingId={coachBooking.id}
-          classTime={coachBooking.intro_time}
-          coachName={coachBooking.coach_name}
-        />
-      )}
 
       {bookIntroLead && (
         <BookIntroDialog
