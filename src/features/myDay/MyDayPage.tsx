@@ -433,6 +433,7 @@ export default function MyDayPage() {
           coachName={prepBooking.coach_name}
           leadSource={prepBooking.lead_source}
           isSecondIntro={!!prepBooking.originating_booking_id}
+          originatingBookingId={prepBooking.originating_booking_id}
           phone={null}
           email={null}
         />
