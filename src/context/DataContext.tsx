@@ -127,9 +127,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [pendingQueueCount, setPendingQueueCount] = useState(getPendingCount());
   const [usingCachedData, setUsingCachedData] = useState(false);
 
-  const getCutoff = () => {
+  /**
+   * Configurable lookback window for all queries.
+   * null = fetch ALL historical data (no date filter).
+   * number = fetch data from today minus that many days.
+   */
+  const DATA_LOOKBACK_DAYS: number | null = null;
+
+  const getCutoffFilter = () => {
+    if (DATA_LOOKBACK_DAYS === null) return null;
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 120);
+    cutoffDate.setDate(cutoffDate.getDate() - DATA_LOOKBACK_DAYS);
     return cutoffDate.toISOString();
   };
 
@@ -161,15 +169,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const cutoff = getCutoff();
+      const cutoff = getCutoffFilter();
+
+      const applyDateFilter = (query: any) => cutoff ? query.gte('created_at', cutoff) : query;
 
       const [recapsResult, bookingsResult, runsResult, salesResult, fuQueueResult, touchesResult] = await Promise.all([
-        supabase.from('shift_recaps').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
-        supabase.from('intros_booked').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
-        supabase.from('intros_run').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
-        supabase.from('sales_outside_intro').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
-        supabase.from('follow_up_queue').select('*').gte('created_at', cutoff).order('scheduled_date', { ascending: true }),
-        supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false }),
+        applyDateFilter(supabase.from('shift_recaps').select('*')).order('created_at', { ascending: false }),
+        applyDateFilter(supabase.from('intros_booked').select('*')).order('created_at', { ascending: false }),
+        applyDateFilter(supabase.from('intros_run').select('*')).order('created_at', { ascending: false }),
+        applyDateFilter(supabase.from('sales_outside_intro').select('*')).order('created_at', { ascending: false }),
+        applyDateFilter(supabase.from('follow_up_queue').select('*')).order('scheduled_date', { ascending: true }),
+        applyDateFilter(supabase.from('followup_touches').select('*')).order('created_at', { ascending: false }),
       ]);
 
       if (recapsResult.data) { setShiftRecaps(recapsResult.data as ShiftRecap[]); writeCache('shift_recaps', recapsResult.data); }
@@ -229,8 +239,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const refreshFollowUps = useCallback(async () => {
     try {
-      const cutoff = getCutoff();
-      const { data } = await supabase.from('follow_up_queue').select('*').gte('created_at', cutoff).order('scheduled_date', { ascending: true });
+      const cutoff = getCutoffFilter();
+      let query = supabase.from('follow_up_queue').select('*');
+      if (cutoff) query = query.gte('created_at', cutoff);
+      const { data } = await query.order('scheduled_date', { ascending: true });
       if (data) {
         setFollowUpQueue(data);
         writeCache('follow_up_queue', data);
@@ -243,8 +255,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTouches = useCallback(async () => {
     try {
-      const cutoff = getCutoff();
-      const { data } = await supabase.from('followup_touches').select('*').gte('created_at', cutoff).order('created_at', { ascending: false });
+      const cutoff = getCutoffFilter();
+      let query = supabase.from('followup_touches').select('*');
+      if (cutoff) query = query.gte('created_at', cutoff);
+      const { data } = await query.order('created_at', { ascending: false });
       if (data) {
         setFollowupTouches(data);
         writeCache('followup_touches', data);

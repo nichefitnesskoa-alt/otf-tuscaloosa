@@ -36,15 +36,27 @@ function useQAndPrepRates(
       });
       if (firstIntros.length === 0) { setQRate(undefined); setPrepRate(undefined); return; }
       const ids = firstIntros.map(b => b.id);
-      const [{ data: qs }, { data: preppedBookings }] = await Promise.all([
-        supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids.slice(0, 500)),
-        supabase.from('intros_booked').select('id').in('id', ids.slice(0, 500)).eq('prepped', true),
-      ]);
+      // Batch IDs in chunks of 500 for .in() and merge results
+      const chunkSize = 500;
+      const chunks: string[][] = [];
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        chunks.push(ids.slice(i, i + chunkSize));
+      }
+      const allQs: any[] = [];
+      const allPrepped: any[] = [];
+      await Promise.all(chunks.map(async (chunk) => {
+        const [{ data: qs }, { data: preppedBookings }] = await Promise.all([
+          supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', chunk),
+          supabase.from('intros_booked').select('id').in('id', chunk).eq('prepped', true),
+        ]);
+        if (qs) allQs.push(...qs);
+        if (preppedBookings) allPrepped.push(...preppedBookings);
+      }));
       const completed = new Set(
-        (qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
+        allQs.filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
       );
       setQRate((completed.size / firstIntros.length) * 100);
-      setPrepRate(((preppedBookings?.length || 0) / firstIntros.length) * 100);
+      setPrepRate((allPrepped.length / firstIntros.length) * 100);
     })();
   }, [introsBooked, dateRange]);
 

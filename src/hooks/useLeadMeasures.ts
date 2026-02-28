@@ -41,7 +41,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         { data: activities },
       ] = await Promise.all([
         supabase.from('intros_booked')
-          .select('id, sa_working_shift, booked_by, intro_owner, questionnaire_status_canon, prepped, class_date, is_vip, originating_booking_id, deleted_at')
+          .select('id, sa_working_shift, booked_by, intro_owner, prepped_by, questionnaire_status_canon, prepped, class_date, is_vip, originating_booking_id, deleted_at')
           .gte('class_date', start).lte('class_date', end)
           .is('deleted_at', null),
         supabase.from('intros_run')
@@ -78,7 +78,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Q completion & prep rate by SA
       allBookings.forEach((b: any) => {
-        const sa = [b.intro_owner, b.booked_by].find(n => n && ALL_STAFF.includes(n)) || '';
+        const sa = [b.intro_owner, b.prepped_by, b.booked_by].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
         ensure(sa);
         const s = saMap.get(sa);
