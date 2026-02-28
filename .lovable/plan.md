@@ -1,46 +1,127 @@
-confirm which specific task is showing the "10 follow-ups" label — is it the follow-up queue task or the cold outreach task? They're different. If it's cold outreach showing incorrectly that's a different fix than what's planned.  
+*One addition to the plan: the MyDay card visual redesign needs to happen in the same pass as building the shared IntroCard component. When refactoring IntroRowCard to use the shared IntroCard, apply the full visual redesign at the same time:*
+
+- *Section divider header is a full-width dark bar above each card containing date, class time, coach, lead source, and phone all on one line*
+- *Large gap between cards*
+- *Member name large and dominant in card body*
+- *Prepped status and copy buttons collapsed into one row*
+- *Completed intros collapsed into dropdown at bottom*
+- *Outcome needed orange left border and label appears 1 hour after class time*
+
+*Do not build the shared component with the old visual language and plan to update it later. Build it right the first time.*  
   
-Also for fix 5 — contact log tasks like cold texts and DMs should auto-complete based on the actual count logged in script_actions or contact_logs for today, not based on a manual check-off. If the SA has already logged 30 texts today the cold texts task should show as complete automatically without them tapping the circle  
-  
-Plan: Six Fixes for MyDay
+Revised Plan: Follow-Up System Inside MyDay + Nav Changes
 
-### 1. Remove Action Bar above End Shift + Make End Shift a floating bottom bar
+Four corrections applied per user feedback. No new page, no new route, no new nav item. Everything lives inside the existing MyDay F/U tab.
 
-- **MyDayPage.tsx**: Remove the End Shift `<div>` section (lines 311-327) from its current position
-- Add a new sticky/fixed bottom bar above the BottomNav that contains the End Shift button, styled as a floating bar with `fixed bottom-20 left-0 right-0 z-30`
+---
 
-### 2. Remove "Submit your shift recap" Win the Day task
+### 1. Shared IntroCard Component
 
-- **useWinTheDayItems.ts**: Delete the shift_recap item generation block (lines 370-384) entirely
-- **WinTheDay.tsx**: Remove `'shift_recap'` from `DIRECT_COMPLETE_TYPES` array and its case in `handleDirectComplete` and `handleAction`
+**Create:** `src/components/shared/IntroCard.tsx`
 
-### 3. Fix Log Outcome task — recognize existing outcomes
+Extract the section divider header + card body pattern from `IntroRowCard` into a shared component. Props:
 
-- **useWinTheDayItems.ts** (line 280-303): The `log_outcome` task checks `intros_run` for a linked run, but outcomes like "Plans to Reschedule" may store differently. The query uses `linked_intro_booked_id` — need to also check `intros_booked.booking_status_canon` for non-ACTIVE statuses (RESCHEDULED, etc.) to detect already-resolved bookings
-- Also add `intros_run` table to the realtime subscription so outcome logging triggers immediate refresh
-- Make the circle tappable for `log_outcome` — currently it calls `handleDirectComplete` which just scrolls. Instead, it should navigate to the card AND the task should auto-complete when an outcome exists
+- `memberName`, `classDate`, `introTime`, `coachName`, `leadSource`, `phone` (header fields)
+- `outcomeBadge?: ReactNode` (status badge)
+- `timingInfo?: string` (e.g. "3 days since last contact")
+- `actionButtons: ReactNode` (tab-specific buttons passed as children/prop)
+- `lastContactSummary?: string`
+- `onCopyPhone?: () => void`
 
-### 4. Follow-ups task: only show when there are actually pending follow-ups
+**Section divider header format** (full-width dark bar):
 
-- **useWinTheDayItems.ts** (lines 325-336): The follow-ups task shows `fuDueCount` pending items but marks complete based on `followupLogExists` (whether a daily log was submitted). Change logic: if `fuDueCount === 0`, don't add the task at all (already works). The real issue: verify the query is correct — it queries `follow_up_queue` with `status = 'pending'` and `scheduled_date <= today`. If the queue is empty, the task shouldn't appear. The user says there's nothing in the queue but it still shows — likely the follow-up task text says "10 follow-ups" which is from the cold outreach targets being confused. Actually re-reading: the follow-ups task only shows `if (fuDueCount > 0)`. So it shouldn't show if queue is empty. Need to verify no other task is being confused. Possibly the user means cold texts/DMs targets. Will check and ensure follow-ups only appears with actual pending items.
+```
+[Date] · [Class Time] · [Coach] · [Lead Source] · [Phone]
+```
 
-### 5. Auto-detect completion for all Win the Day tasks
+**Card body format:**
 
-- **Questionnaire tasks**: Already check `questionnaire_status_canon`. Good.
-- **Prep tasks**: Already check `intro.prepped`. Good.
-- **Outcome tasks**: Fix to check `intros_run` AND `booking_status_canon` changes
-- **Follow-ups**: Mark complete when `fuDueCount === 0` (all resolved), not just when a log entry exists
-- **Confirmations**: Already check `script_actions` for `confirmation_sent`. Good.
+```
+[Member Name] — large, dominant
+[Outcome badge] · [Timing info]
+[Action buttons]
+[Last contact log] · Copy Phone
+```
 
-### 6. Add Copy Phone button to Script Drawer
+**Refactor** `IntroRowCard.tsx` to import and use `IntroCard` internally for the header/body layout, keeping all MyDay-specific logic (prep checkbox, Q status, focus mode, outcome drawer) in IntroRowCard.
 
-- **ScriptPickerSheet.tsx**: Add a "Copy Phone" button next to the existing "Copy questionnaire link" section (around line 347). Fetch phone from the booking record (already available from the booking context fetch). Add phone to the `memberCtx` state and render a copy button.
+---
 
-### Technical Details
+### 2. Four-Tab Follow-Up System Inside MyDay F/U Tab
 
-**Files to modify:**
+**Replace** the current `<FollowUpsDueToday>` content in the MyDay `followups` tab with a new sub-tab system.
 
-1. `src/features/myDay/MyDayPage.tsx` — Move End Shift to floating bottom bar, remove static section
-2. `src/features/myDay/useWinTheDayItems.ts` — Remove shift_recap task, fix outcome detection, fix follow-up completion logic
-3. `src/features/myDay/WinTheDay.tsx` — Remove shift_recap handling
-4. `src/components/scripts/ScriptPickerSheet.tsx` — Add copy phone button, fetch phone from booking
+**Create:** `src/features/followUp/useFollowUpData.ts` — single data hook returning four arrays + counts:
+
+- **No-Show:** `result_canon = 'NO_SHOW'` on any `intros_run`, OR past `intros_booked` with no linked run and no outcome. Exclude anyone with a future unrun booking.
+- **Follow-Up Needed:** `result` = 'Follow-up needed' AND no unrun future 2nd intro booking. OR 2nd intro ran with non-terminal outcome (anything except Purchased or Not Interested).
+- **2nd Intro:** `booking_type_canon = 'SECOND_INTRO'` AND no matching `intros_run`.
+- **Plans to Reschedule:** `booking_status_canon = 'PLANNING_RESCHEDULE'` AND no future booking.
+
+**Create tab components** (all use shared `IntroCard`):
+
+- `src/features/followUp/NoShowTab.tsx` — actions: [Send Text] [Book 2nd Intro]
+- `src/features/followUp/FollowUpNeededTab.tsx` — State A: [Send Text] [Book 2nd Intro]. State B (2nd intro ran, non-terminal): [Gather Feedback] [Mark Not Interested]. State C: auto-moves to 2nd Intro tab.
+- `src/features/followUp/SecondIntroTab.tsx` — actions: [Confirm] [Prep] [Outcome]. Show class date/time prominently.
+- `src/features/followUp/PlansToRescheduleTab.tsx` — "Suggested contact: [date]" with inline date picker. Actions: [Send Text] [Book Intro]. Default 2 days from cancelled class date. Editable, saves `reschedule_contact_date` to DB.
+
+**State B definition:** After a 2nd intro is run, card reappears in Follow-Up Needed if the 2nd intro outcome is anything other than Purchased or Not Interested. Specifically: Follow-Up Needed, No-Show, Plans to Reschedule, or any other non-terminal result removes the card from 2nd Intro tab and puts it back in Follow-Up Needed State B.
+
+Each tab: badge count in sub-tab header, empty state message, pagination at 20 cards.
+
+**Modify:** `src/features/myDay/MyDayPage.tsx` — replace the followups TabsContent with the new four-sub-tab component.
+
+---
+
+### 3. Database Migration
+
+Add `reschedule_contact_date` column to `intros_booked`:
+
+```sql
+ALTER TABLE intros_booked ADD COLUMN reschedule_contact_date date;
+```
+
+---
+
+### 4. Navigation Changes
+
+`**src/components/BottomNav.tsx`:**
+
+- SA sees: My Day · Studio (2 tabs only)
+- Admin sees: My Day · Studio · Pipeline · Admin (4 tabs)
+
+Remove Pipeline from SA nav entirely. No Follow-Up nav item added.
+
+`**src/pages/Admin.tsx`:**
+
+- Add "All Bookings" tab (9th tab) that renders `<PipelinePage />` for redundancy.
+
+---
+
+### 5. MyDay: Completed Intros Collapse
+
+`**src/features/myDay/UpcomingIntrosCard.tsx`:**
+
+- In the Today view, separate completed intros (has `latestRunResult`) from active.
+- Show active intros normally.
+- Collapsed section at bottom: "Completed Intros ([count])" — hidden by default, expandable. Still fully editable.
+
+---
+
+### Files to Create
+
+1. `src/components/shared/IntroCard.tsx`
+2. `src/features/followUp/useFollowUpData.ts`
+3. `src/features/followUp/FollowUpTabs.tsx` (orchestrator with 4 sub-tabs)
+4. `src/features/followUp/NoShowTab.tsx`
+5. `src/features/followUp/FollowUpNeededTab.tsx`
+6. `src/features/followUp/SecondIntroTab.tsx`
+7. `src/features/followUp/PlansToRescheduleTab.tsx`
+
+### Files to Modify
+
+1. `src/features/myDay/IntroRowCard.tsx` — refactor to use shared IntroCard
+2. `src/features/myDay/MyDayPage.tsx` — replace followups tab content, remove actions bar if present
+3. `src/features/myDay/UpcomingIntrosCard.tsx` — collapse completed intros
+4. `src/components/BottomNav.tsx` — SA: My Day + Studio only; Admin: + Pipeline + Admin
+5. `src/pages/Admin.tsx` — add All Bookings tab with PipelinePage
