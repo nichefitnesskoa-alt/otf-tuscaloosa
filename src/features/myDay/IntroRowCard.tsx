@@ -2,7 +2,7 @@
  * Single intro row card using shared IntroCard for visual layout.
  * MyDay-specific logic: prep checkbox, Q status, focus mode, outcome drawer.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,7 +17,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { COACHES } from '@/types';
-import { InlineEditField } from '@/components/dashboard/InlineEditField';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 
 /** Inline coach picker — always tappable */
@@ -270,6 +269,20 @@ export default function IntroRowCard({
     }
   };
 
+  const handleLogScriptSent = async () => {
+    if (!isOnline) { toast.error('Offline'); return; }
+    try {
+      await supabase.from('script_actions').insert({
+        action_type: 'script_sent',
+        booking_id: item.bookingId,
+        completed_by: userName,
+      });
+      toast.success('Logged as sent');
+    } catch {
+      toast.error('Failed to log');
+    }
+  };
+
   const guardOnline = (fn: () => void) => () => {
     if (!isOnline) {
       toast.error('You are offline. This action requires network.');
@@ -277,21 +290,6 @@ export default function IntroRowCard({
     }
     fn();
   };
-
-  // Border color for urgency
-  const borderColor = needsOutcome
-    ? '#7c3aed'
-    : isOutcomeOverdue
-    ? '#f97316'
-    : isQOverdue
-    ? '#dc2626'
-    : item.isSecondIntro
-    ? (item.confirmedAt ? '#16a34a' : '#2563eb')
-    : localQStatus === 'Q_COMPLETED'
-    ? '#16a34a'
-    : localQStatus === 'Q_SENT'
-    ? '#d97706'
-    : '#dc2626';
 
   // Build top banner
   const topBanner = (
@@ -322,9 +320,12 @@ export default function IntroRowCard({
     </>
   );
 
-  // Build badges for member name row
+  // Build badges for header
   const badges = (
     <>
+      {item.isSecondIntro && (
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+      )}
       {item.isVip && (
         <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
       )}
@@ -358,13 +359,24 @@ export default function IntroRowCard({
     </button>
   ) : null;
 
-  // Primary action buttons
+  // Outcome banner at bottom
+  const outcomeBanner = item.latestRunResult ? (() => {
+    const result = item.latestRunResult!;
+    const isPurchased = result.includes('Premier') || result.includes('Elite') || result.includes('Basic');
+    const isNoShow = result === 'No-show';
+    const isBooked2nd = result === 'Booked 2nd intro';
+    const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : '#d97706';
+    const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : `⏳ ${result}`;
+    return <StatusBanner bgColor={bgColor} text={label} />;
+  })() : null;
+
+  // ROW 1 — Primary action buttons (each is a grid child, 1/3 width)
   const actionButtons = (
     <>
       <Button
         size="sm"
         className={cn(
-          'h-8 flex-1 text-xs gap-1',
+          'h-9 flex-1 text-xs gap-1 rounded-none',
           isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
         )}
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
@@ -378,7 +390,7 @@ export default function IntroRowCard({
       <Button
         size="sm"
         variant="secondary"
-        className="h-8 flex-1 text-xs gap-1"
+        className="h-9 flex-1 text-xs gap-1 rounded-none"
         onClick={guardOnline(() => {
           window.dispatchEvent(new CustomEvent('myday:open-script', {
             detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
@@ -391,7 +403,7 @@ export default function IntroRowCard({
       <Button
         size="sm"
         variant={outcomeOpen ? 'default' : 'outline'}
-        className="h-8 flex-1 text-xs gap-1"
+        className="h-9 flex-1 text-xs gap-1 rounded-none"
         onClick={() => setOutcomeOpen(v => !v)}
       >
         <ClipboardList className="w-3.5 h-3.5" />
@@ -400,50 +412,35 @@ export default function IntroRowCard({
     </>
   );
 
-  // Secondary actions: prepped checkbox + copy Q link + log Q as sent (collapsed into one row)
+  // ROW 2 — Secondary actions (each is a grid child, 1/4 width)
   const secondaryActions = (
     <>
-      {/* Prepped checkbox — compact inline */}
-      <div className={cn(
-        'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs',
-        prepped ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-muted/20 border-border'
-      )}>
+      {/* Prepped & Role Played checkbox */}
+      <button
+        type="button"
+        onClick={() => handleTogglePrepped(!prepped)}
+        disabled={preppedSaving}
+        className={cn(
+          'flex-1 flex items-center justify-center gap-1 h-9 text-[10px] border-r border-border/30 transition-colors',
+          prepped
+            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+            : 'bg-muted/20 text-muted-foreground hover:bg-muted/40',
+        )}
+      >
         <Checkbox
-          id={`prepped-${item.bookingId}`}
           checked={prepped}
           onCheckedChange={(val) => handleTogglePrepped(!!val)}
           disabled={preppedSaving}
-          className="h-3.5 w-3.5"
+          className="h-3 w-3 pointer-events-none"
         />
-        <label
-          htmlFor={`prepped-${item.bookingId}`}
-          className={cn(
-            'cursor-pointer select-none',
-            prepped ? 'text-emerald-700 dark:text-emerald-400 font-medium' : 'text-muted-foreground'
-          )}
-        >
-          {prepped ? '✓ Prepped' : 'Prep'}
-        </label>
-        {preppedSaving && <span className="text-[10px] text-muted-foreground">…</span>}
-      </div>
+        <span className="leading-none">{prepped ? 'Prepped ✓' : 'Prep & RP'}</span>
+      </button>
 
-      {!item.isSecondIntro && localQStatus === 'NO_Q' && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px] gap-1 border-amber-400 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/30"
-          onClick={handleLogAsSent}
-          disabled={logSentLoading}
-        >
-          <CheckCircle className="w-3 h-3" />
-          {logSentLoading ? 'Saving…' : 'Log Q Sent'}
-        </Button>
-      )}
-      {!item.isSecondIntro && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-[11px] gap-1"
+      {/* Copy Q Link */}
+      {!item.isSecondIntro ? (
+        <button
+          type="button"
+          className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 transition-colors"
           onClick={async () => {
             try {
               const { data: qRecord } = await supabase
@@ -486,14 +483,33 @@ export default function IntroRowCard({
           }}
         >
           <Copy className="w-3 h-3" />
-          Copy Q Link
-        </Button>
+          <span>Copy Q</span>
+        </button>
+      ) : (
+        <div className="flex-1 flex items-center justify-center h-9 text-[10px] text-muted-foreground/50 border-r border-border/30">—</div>
       )}
-      {!item.isSecondIntro && localQStatus === 'Q_SENT' && (
-        <Badge className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 border">
-          ⏳ Waiting
-        </Badge>
-      )}
+
+      {/* Log as Sent */}
+      <button
+        type="button"
+        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 transition-colors"
+        onClick={item.isSecondIntro ? handleLogScriptSent : handleLogAsSent}
+        disabled={logSentLoading}
+      >
+        <CheckCircle className="w-3 h-3" />
+        <span>{logSentLoading ? '…' : 'Log Sent'}</span>
+      </button>
+
+      {/* Copy Phone */}
+      <button
+        type="button"
+        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 transition-colors"
+        onClick={handleCopyPhone}
+        disabled={!item.phone}
+      >
+        <Phone className="w-3 h-3" />
+        <span>Phone</span>
+      </button>
     </>
   );
 
@@ -511,9 +527,8 @@ export default function IntroRowCard({
         outcomeBadge={outcomeBadge}
         actionButtons={actionButtons}
         secondaryActions={secondaryActions}
-        onCopyPhone={handleCopyPhone}
-        borderColor={borderColor}
         topBanner={topBanner}
+        outcomeBanner={outcomeBanner}
         className={cn(
           isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
           !isFocused && anyFocused && 'opacity-80',

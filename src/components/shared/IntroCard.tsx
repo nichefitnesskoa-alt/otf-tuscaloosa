@@ -1,18 +1,14 @@
 /**
  * Shared IntroCard component — unified visual language for all intro/follow-up cards.
  *
- * Section divider header: full-width dark bar with metadata
- * Card body: member name large, outcome badge, timing, action buttons, copy phone
+ * Header bar: full-width, inverted colors, member name + metadata
+ * Card body: banners, action rows, outcome banner
  */
 import { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Phone, Copy } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { formatDisplayTime } from '@/lib/time/timeUtils';
-import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { formatPhoneDisplay } from '@/lib/parsing/phone';
 
 export interface IntroCardProps {
   memberName: string;
@@ -22,31 +18,34 @@ export interface IntroCardProps {
   leadSource: string | null;
   phone: string | null;
 
-  /** Rendered after member name */
+  /** Rendered after member name in header */
   badges?: ReactNode;
-  /** Status badge (e.g. outcome result) */
+  /** Status badge (e.g. outcome result) — rendered in card body */
   outcomeBadge?: ReactNode;
   /** Timing context (e.g. "3 days since last contact") */
   timingInfo?: string;
-  /** Primary action buttons row */
+  /** Primary action buttons row — rendered as 3 equal columns */
   actionButtons: ReactNode;
-  /** Secondary actions row (e.g. copy Q link, log as sent) */
+  /** Secondary actions row — rendered as 4 equal columns */
   secondaryActions?: ReactNode;
   /** Last contact log summary text */
   lastContactSummary?: string;
 
-  /** Custom phone copy handler */
-  onCopyPhone?: () => void;
-  /** Left border color for urgency states */
+  /** Left border color — REMOVED, kept for API compat but ignored */
   borderColor?: string;
-  /** Banner above card body (e.g. status banner) */
+  /** Banner above card body (e.g. Q status banner) */
   topBanner?: ReactNode;
+  /** Outcome banner at bottom of card */
+  outcomeBanner?: ReactNode;
 
   /** Additional content rendered inside card body */
   children?: ReactNode;
   className?: string;
   id?: string;
   style?: React.CSSProperties;
+
+  /** @deprecated — use header phone display instead */
+  onCopyPhone?: () => void;
 }
 
 function formatCardDate(dateStr: string): string {
@@ -71,91 +70,68 @@ export default function IntroCard({
   actionButtons,
   secondaryActions,
   lastContactSummary,
-  onCopyPhone,
-  borderColor,
   topBanner,
+  outcomeBanner,
   children,
   className,
   id,
   style,
 }: IntroCardProps) {
-  const handleCopyPhone = () => {
-    if (onCopyPhone) {
-      onCopyPhone();
-    } else if (phone) {
-      navigator.clipboard.writeText(stripCountryCode(phone) || phone);
-      toast.success('Phone copied');
-    }
-  };
-
-  // Build header segments
-  const headerSegments: string[] = [formatCardDate(classDate)];
-  if (introTime) headerSegments.push(formatDisplayTime(introTime));
-  if (coachName && coachName !== 'TBD') headerSegments.push(coachName);
-  if (leadSource) headerSegments.push(leadSource);
+  // Build metadata segments for line 2
+  const metaSegments: string[] = [];
+  if (introTime) metaSegments.push(formatDisplayTime(introTime));
+  if (coachName && coachName !== 'TBD') metaSegments.push(coachName);
+  if (leadSource) metaSegments.push(leadSource);
+  if (phone) metaSegments.push(formatPhoneDisplay(phone) || phone);
 
   return (
-    <div className={cn('space-y-0', className)} id={id}>
-      {/* ── Section divider header ── */}
-      <div className="w-full bg-[#1c1c1e] dark:bg-[#1c1c1e] rounded-t-lg px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium truncate min-w-0">
-          {headerSegments.map((seg, i) => (
-            <span key={i} className="flex items-center gap-1.5 shrink-0">
-              {i > 0 && <span className="text-muted-foreground/50">·</span>}
-              <span className="truncate">{seg}</span>
-            </span>
-          ))}
+    <div className={cn('mb-6', className)} id={id} style={style}>
+      {/* ── HEADER BAR — full width, inverted colors ── */}
+      <div className="w-full bg-white dark:bg-black px-3 py-2.5">
+        {/* Line 1: Member name */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-lg font-bold leading-tight text-black dark:text-white">
+            {memberName}
+          </h3>
+          {badges}
         </div>
-        {phone && (
-          <button
-            onClick={handleCopyPhone}
-            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            <Phone className="w-3 h-3" />
-            <span className="hidden sm:inline">{formatPhoneDisplay(phone) || phone}</span>
-          </button>
+        {/* Line 2: metadata */}
+        {metaSegments.length > 0 && (
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex-wrap">
+            {metaSegments.map((seg, i) => (
+              <span key={i} className="flex items-center gap-1.5 shrink-0">
+                {i > 0 && <span className="opacity-50">·</span>}
+                <span>{seg}</span>
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* ── Card body ── */}
-      <div
-        className={cn(
-          'bg-card rounded-b-lg overflow-hidden transition-all',
-          borderColor && 'border-l-4',
-        )}
-        style={{
-          ...(borderColor ? { borderLeftColor: borderColor } : {}),
-          ...style,
-        }}
-      >
-        {/* Top banner slot */}
+      {/* ── CARD BODY — directly below header, no gap ── */}
+      <div className="bg-card overflow-hidden">
+        {/* Top banner slot (Q status, focus timer, etc.) */}
         {topBanner}
 
-        <div className="p-4 space-y-3">
-          {/* Member name — large and dominant */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-bold leading-tight">{memberName}</h3>
-            {badges}
+        {/* Outcome badge + timing info */}
+        {(outcomeBadge || timingInfo) && (
+          <div className="flex items-center gap-2 flex-wrap px-4 pt-3">
+            {outcomeBadge}
+            {timingInfo && (
+              <span className="text-xs text-muted-foreground">{timingInfo}</span>
+            )}
           </div>
+        )}
 
-          {/* Outcome badge + timing info */}
-          {(outcomeBadge || timingInfo) && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {outcomeBadge}
-              {timingInfo && (
-                <span className="text-xs text-muted-foreground">{timingInfo}</span>
-              )}
-            </div>
-          )}
-
-          {/* Primary action buttons */}
-          <div className="flex items-center gap-2">
+        <div className="p-4 space-y-3">
+          {/* ROW 1 — Primary action buttons — equal columns */}
+          <div className="flex w-full">
             {actionButtons}
           </div>
 
-          {/* Secondary actions */}
+          {/* ROW 2 — Secondary actions — equal columns */}
           {secondaryActions && (
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex w-full">
               {secondaryActions}
             </div>
           )}
@@ -163,27 +139,22 @@ export default function IntroCard({
           {/* Additional content */}
           {children}
 
-          {/* Last contact summary + copy phone */}
-          {(lastContactSummary || phone) && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t border-border/50">
-              {lastContactSummary && (
-                <span className="flex-1 truncate">{lastContactSummary}</span>
-              )}
-              {phone && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-[11px] gap-1 px-2"
-                  onClick={handleCopyPhone}
-                >
-                  <Copy className="w-3 h-3" />
-                  Copy Phone
-                </Button>
-              )}
+          {/* Last contact summary */}
+          {lastContactSummary && (
+            <div className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+              <span className="truncate">{lastContactSummary}</span>
             </div>
           )}
         </div>
+
+        {/* OUTCOME BANNER — full width bottom */}
+        {outcomeBanner}
       </div>
+
+      {/* If no outcome banner, thin bottom border */}
+      {!outcomeBanner && (
+        <div className="w-full h-px bg-white dark:bg-white" />
+      )}
     </div>
   );
 }
