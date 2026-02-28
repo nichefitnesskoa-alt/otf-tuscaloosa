@@ -1,8 +1,8 @@
 /**
  * Shared IntroCard component — unified visual language for all intro/follow-up cards.
  *
- * Header bar: full-width, inverted colors, member name + metadata
- * Card body: banners, action rows, outcome banner
+ * Rounded card with full border. White header inside (dark mode) / near-black (light mode).
+ * Card body: banners, action rows, outcome banner.
  */
 import { ReactNode } from 'react';
 import { format } from 'date-fns';
@@ -48,15 +48,6 @@ export interface IntroCardProps {
   onCopyPhone?: () => void;
 }
 
-function formatCardDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr + 'T12:00:00');
-    return format(d, 'EEE, MMM d');
-  } catch {
-    return dateStr;
-  }
-}
-
 export default function IntroCard({
   memberName,
   classDate,
@@ -85,19 +76,23 @@ export default function IntroCard({
   if (phone) metaSegments.push(formatPhoneDisplay(phone) || phone);
 
   return (
-    <div className={cn('mb-6', className)} id={id} style={style}>
-      {/* ── HEADER BAR — full width, inverted colors ── */}
-      <div className="w-full bg-white dark:bg-black px-3 py-2.5">
+    <div
+      className={cn('mb-5 rounded-lg border border-border overflow-hidden', className)}
+      id={id}
+      style={style}
+    >
+      {/* ── HEADER BAR — inside card, rounded top, sharp bottom ── */}
+      <div className="bg-white dark:bg-zinc-900 px-3 py-2.5">
         {/* Line 1: Member name */}
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-lg font-bold leading-tight text-black dark:text-white">
+          <h3 className="text-lg font-bold leading-tight text-zinc-900 dark:text-zinc-100">
             {memberName}
           </h3>
           {badges}
         </div>
         {/* Line 2: metadata */}
         {metaSegments.length > 0 && (
-          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex-wrap">
             {metaSegments.map((seg, i) => (
               <span key={i} className="flex items-center gap-1.5 shrink-0">
                 {i > 0 && <span className="opacity-50">·</span>}
@@ -109,7 +104,7 @@ export default function IntroCard({
       </div>
 
       {/* ── CARD BODY — directly below header, no gap ── */}
-      <div className="bg-card overflow-hidden">
+      <div className="bg-card">
         {/* Top banner slot (Q status, focus timer, etc.) */}
         {topBanner}
 
@@ -125,7 +120,7 @@ export default function IntroCard({
 
         <div className="p-4 space-y-3">
           {/* ROW 1 — Primary action buttons — equal columns */}
-          <div className="flex w-full">
+          <div className="flex w-full gap-1.5">
             {actionButtons}
           </div>
 
@@ -150,11 +145,6 @@ export default function IntroCard({
         {/* OUTCOME BANNER — full width bottom */}
         {outcomeBanner}
       </div>
-
-      {/* If no outcome banner, thin bottom border */}
-      {!outcomeBanner && (
-        <div className="w-full h-px bg-white dark:bg-white" />
-      )}
     </div>
   );
 }
