@@ -1,54 +1,58 @@
+No shows are people who didn't show up at all (result_canon = 'NO_SHOW')   
+"Missed guests" is our term for people who didn't buy a membership that showed up. They belong in the Follow Up internal tab. They are one in the same to us at OTF  
+but if that missed guest has a 2nd intro booked they should not be in that category just yet.   
+  
+Make those edits  to the plan  
+  
+Plan: Filter VIP from Follow-Up System + Split No-Show vs Missed Guest
 
+### Problem 1: VIP people appearing in follow-up queues
 
-## Plan: Auto-Close Indicator, 2nd Intro Owner Fix, and Inline Owner Edit Fix
+`useFollowUpData.ts` fetches from `intros_booked` and `intros_run` with zero VIP/COMP filtering. Every VIP class attendee leaks into No-Show, Follow-Up Needed, and other tabs.
 
-### 1. Add auto-close visual indicator on shift recaps
+### Problem 2: No-Show ≠ Missed Guest
 
-**Files**: `src/components/admin/ShiftRecapsEditor.tsx`, `src/components/admin/ShiftRecapDetails.tsx`
+Currently the "No-Show" tab lumps together:
 
-- In `ShiftRecapsEditor.tsx`, add a badge next to the shift type when `shift_type === 'Auto-closed'` or when `other_info` contains "Auto-submitted". Show an amber/yellow badge: "Auto-closed".
-- Also show the badge inline in the table row and in the detail view.
-- In `ShiftRecapDetails.tsx`, add a banner at the top if the recap was auto-closed.
+- **No-shows**: people who didn't show up at all (result_canon = 'NO_SHOW')
+- **Missed guests**: past bookings with no run record (they came but nobody logged an outcome, OR genuinely no-showed but weren't marked)
 
-Additionally, update the `CloseOutShift.tsx` summary dialog: when viewing a recap that was auto-submitted, show a note like "This recap was auto-submitted at 7:00 PM".
+These are different situations requiring different actions. The current badge even says "Missed Guest" for everything.
 
-### 2. Fix 2nd intro owner attribution
+---
 
-**Root cause**: When a 2nd intro booking is created in `PipelineDialogs.tsx` (line 806), `intro_owner` is not set. Then when the run is created via `applyIntroOutcomeUpdate`, the owner defaults to `params.editedBy` (the SA logging the outcome) instead of the original booking's owner.
+### Changes
 
-**Fix in `PipelineDialogs.tsx`** (line 806-822):
-- When inserting the 2nd intro booking, also set `intro_owner: first.intro_owner` and `intro_owner_locked: true` to inherit from the original booking.
+**1. `src/features/followUp/useFollowUpData.ts**`
 
-**Fix in `applyIntroOutcomeUpdate.ts`** (lines 112-124):
-- When creating a run for a booking that has `originating_booking_id` (2nd intro), fetch the original booking's `intro_owner` and use that as the resolved owner instead of `params.editedBy`.
-- This ensures 2nd intro runs always inherit attribution from the first intro's owner.
+- Add `booking_type_canon, is_vip` to the bookings select clause
+- Add `.not('booking_type_canon', 'in', '("VIP","COMP")')` to the bookings query
+- Add a new `missedGuest` state array
+- In the runs loop: `NO_SHOW` result → noShow array (actual no-shows, confirmed by a run)
+- In the "past bookings with no run" loop (line 208-240): these become **missed guests** (showed up but no outcome logged, or genuinely unresolved) → move to `missedGuest` array instead of `noShow`
+- Also add `is_vip` check: skip any booking where `is_vip === true` or `booking_type_canon` is VIP/COMP
+- Export `missedGuest` array and add `missedGuest` count to `counts`
 
-**Data remediation**: Write a one-time SQL migration to fix existing 2nd intro bookings:
-```sql
-UPDATE intros_booked b2
-SET intro_owner = b1.intro_owner
-FROM intros_booked b1
-WHERE b2.originating_booking_id = b1.id
-  AND b1.intro_owner IS NOT NULL
-  AND (b2.intro_owner IS NULL OR b2.intro_owner != b1.intro_owner);
-```
-Also fix the corresponding `intros_run` records linked to those 2nd intro bookings.
+**2. `src/features/followUp/MissedGuestTab.tsx**` (new file)
 
-### 3. Fix inline owner dropdown not saving
+- Copy structure from `NoShowTab.tsx`
+- Badge: "👻 Missed Guest" (no outcome logged)
+- Actions: [Send Text] [Log Outcome]
+- "Log Outcome" dispatches event to open outcome editor for that booking
 
-**Root cause**: The `IntroCard` `InlineSelect` component (lines 86-108) writes to `intros_booked` using `[field]: val`. However, the `intro_owner` field is not currently exposed as an inline-editable field in IntroCard (only `coach_name` and `lead_source` are). The user is likely using the Pipeline "Set Intro Owner" dialog which does save correctly but the UI doesn't refresh the journey list because `onRefresh` may not trigger a full re-render of the row.
+**3. `src/features/followUp/NoShowTab.tsx**`
 
-**Investigation needed**: The Pipeline "Set Intro Owner" dialog (line 428-434) does call `withSave` which calls `onRefresh`. If the dropdown value isn't visually updating, it could be a stale state issue with `newIntroOwner` not being initialized when the dialog opens.
+- Update badge to show "🚫 No-Show" instead of "👻 Missed Guest"
+- These are confirmed no-shows (have a run with NO_SHOW result)
 
-**Fix in `PipelineDialogs.tsx`**: Initialize `newIntroOwner` from `booking.intro_owner` when the `set_owner` dialog opens. Currently `newIntroOwner` starts as `''` (line 74) and is never pre-populated when the dialog opens, so the Select shows empty and selecting a value should work — but the value might be sent as empty on first render. Add initialization logic when `type === 'set_owner'`.
+**4. `src/features/followUp/FollowUpTabs.tsx**`
 
-### Summary of file changes
+- Add 5th tab: "Missed Guest" between No-Show and Follow-Up
+- Import and render `MissedGuestTab`
+- Update grid from `grid-cols-4` to `grid-cols-5`
+- Add `missedGuest` count badge
 
-| File | Change |
-|------|--------|
-| `src/components/admin/ShiftRecapsEditor.tsx` | Add "Auto-closed" badge in table rows |
-| `src/components/admin/ShiftRecapDetails.tsx` | Add auto-close banner at top |
-| `src/features/pipeline/components/PipelineDialogs.tsx` | Set `intro_owner` on 2nd intro booking creation; initialize owner dialog state |
-| `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` | Inherit owner from original booking for 2nd intros |
-| SQL migration | Remediate existing 2nd intro owner mismatches |
+**5. `src/components/leads/FollowUpQueue.tsx**` (script-based follow-up queue)
 
+- This is a separate component but also lacks VIP filtering on its bookings query
+- Add `.not('booking_status', 'eq', 'Cancelled')` check already exists, but add VIP exclusion: skip bookings where the linked booking is VIP/COMP
