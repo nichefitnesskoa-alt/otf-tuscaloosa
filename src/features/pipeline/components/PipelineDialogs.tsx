@@ -405,6 +405,10 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
 
   // ── SET OWNER ──
   if (type === 'set_owner' && booking) {
+    // Initialize from current owner if not yet set
+    if (!newIntroOwner && booking.intro_owner) {
+      setTimeout(() => setNewIntroOwner(booking.intro_owner!), 0);
+    }
     return (
       <Dialog open onOpenChange={onClose}>
         <DialogContent>
@@ -819,6 +823,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     rebook_reason: 'second_intro',
                     email: first.email || null,
                     phone: first.phone || null,
+                    intro_owner: first.intro_owner || null,
+                    intro_owner_locked: !!first.intro_owner,
                   }).select().single();
                   if (error) throw error;
                   // Pre-fill run form with the new booking id, then stay in dialog
