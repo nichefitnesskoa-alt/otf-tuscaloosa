@@ -467,7 +467,17 @@ export function useDashboardMetrics(
     // STUDIO METRICS (aggregated from perSA)
     // =========================================
     const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsRun, 0);
-    const studioIntroSales = perSAData.reduce((sum, m) => sum + m.sales, 0);
+    // Count unattributed sales (runs with no valid intro_owner) so scoreboard matches funnel
+    const attributedSANames = new Set(perSAData.map(m => m.saName));
+    let unattributedSales = 0;
+    activeRuns.forEach(run => {
+      const owner = run.intro_owner;
+      const isUnattributed = !owner || EXCLUDED_NAMES.includes(owner) || !attributedSANames.has(owner);
+      if (isUnattributed && run.result !== 'No-show' && isSaleInRange(run, dateRange)) {
+        unattributedSales++;
+      }
+    });
+    const studioIntroSales = perSAData.reduce((sum, m) => sum + m.sales, 0) + unattributedSales;
     // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
     // This can exceed 100% when follow-up purchases from previous periods
     // land in a period with fewer new intros. This is correct behavior:
