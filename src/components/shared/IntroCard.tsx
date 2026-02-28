@@ -77,22 +77,22 @@ export default function IntroCard({
 
   return (
     <div
-      className={cn('mb-5 rounded-lg border border-border overflow-hidden', className)}
+      className={cn('mb-5 rounded-lg border-2 border-black dark:border-white overflow-hidden', className)}
       id={id}
       style={style}
     >
       {/* ── HEADER BAR — inside card, rounded top, sharp bottom ── */}
-      <div className="bg-white dark:bg-zinc-900 px-3 py-2.5">
+      <div className="px-3 py-2.5" style={{ background: 'var(--intro-header-bg)' }}>
         {/* Line 1: Member name */}
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-lg font-bold leading-tight text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-lg font-bold leading-tight" style={{ color: 'var(--intro-header-text)' }}>
             {memberName}
           </h3>
           {badges}
         </div>
         {/* Line 2: metadata */}
         {metaSegments.length > 0 && (
-          <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[11px] mt-0.5 flex-wrap" style={{ color: 'var(--intro-header-meta)' }}>
             {metaSegments.map((seg, i) => (
               <span key={i} className="flex items-center gap-1.5 shrink-0">
                 {i > 0 && <span className="opacity-50">·</span>}

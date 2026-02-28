@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* IntroCard header theming */
+:root {
+  --intro-header-bg: #111111;
+  --intro-header-text: #ffffff;
+  --intro-header-meta: #bbbbbb;
+}
+.dark {
+  --intro-header-bg: #ffffff;
+  --intro-header-text: #000000;
+  --intro-header-meta: #444444;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
