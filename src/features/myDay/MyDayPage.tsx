@@ -20,7 +20,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, CheckCircle2, UserPlus, Instagram } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram } from 'lucide-react';
 import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
@@ -33,6 +33,8 @@ import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 import FollowUpTabs from '@/features/followUp/FollowUpTabs';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
+import { MyDayShiftSummary } from './MyDayShiftSummary';
+import { ContactLogger } from '@/components/myday/ContactLogger';
 
 // Prep/Script/Coach drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
@@ -221,13 +223,6 @@ export default function MyDayPage() {
     }
   };
 
-  const { completedActions, totalActions } = useMemo(() => {
-    const total = todayBookingsCount + followUpsDueCount;
-    const completed = completedTodayCount + todayFollowUpsSent;
-    return { completedActions: completed, totalActions: total };
-  }, [todayBookingsCount, completedTodayCount, followUpsDueCount, todayFollowUpsSent]);
-
-  const progressPct = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
 
   // Build script merge context for ScriptPickerSheet
   const scriptMergeContext = useMemo(() => {
@@ -284,29 +279,17 @@ export default function MyDayPage() {
           </Button>
         </div>
 
-        {/* Progress bar */}
-        {totalActions > 0 && (
-          <div>
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                {completedActions}/{totalActions} actions
-              </span>
-              <span className="font-semibold text-primary">{progressPct}%</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-1.5">
-              <div
-                className="bg-primary h-1.5 rounded-full transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       <OfflineBanner />
 
       {/* End Shift floating bar rendered below */}
+
+      {/* ═══ ACTIVITY TRACKER ═══ */}
+      <div className="px-4 pt-3 space-y-2">
+        <MyDayShiftSummary compact />
+        <ContactLogger userName={user?.name || ''} />
+      </div>
 
       {/* ═══ WIN THE DAY CHECKLIST ═══ */}
       <WinTheDay onSwitchTab={setActiveTab} />
