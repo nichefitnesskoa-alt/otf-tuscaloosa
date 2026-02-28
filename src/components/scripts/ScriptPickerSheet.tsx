@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Search, Link2, Check, Sparkles, Copy, RefreshCw, Loader2 } from 'lucide-react';
+import { Search, Link2, Check, Sparkles, Copy, RefreshCw, Loader2, Phone } from 'lucide-react';
 import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
@@ -66,6 +66,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const [search, setSearch] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<ScriptTemplate | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiScript, setAiScript] = useState('');
@@ -79,6 +80,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     obstacle: string | null;
     why: string | null;
     isSecondIntro?: boolean;
+    phone?: string | null;
   } | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
   // Auto-resolved questionnaire data from the booking
@@ -101,7 +103,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
         // Fetch the booking row
         const { data: booking } = await supabase
           .from('intros_booked')
-          .select('member_name, lead_source, originating_booking_id')
+          .select('member_name, lead_source, originating_booking_id, phone, phone_e164')
           .eq('id', bookingId)
           .maybeSingle();
 
@@ -148,12 +150,19 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
         const trim = (s: string | null | undefined, max = 45) =>
           s ? (s.length > max ? s.slice(0, max) + '…' : s) : null;
 
+        // Resolve phone: prefer phone_e164, fall back to phone field
+        const rawPhone = (booking as any).phone_e164 || (booking as any).phone || null;
+        const displayPhone = rawPhone
+          ? rawPhone.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
+          : null;
+
         setMemberCtx({
           name: booking.member_name,
           goal: q ? trim(q.q1_fitness_goal) : null,
           obstacle: q ? trim(q.q3_obstacle) : null,
           why: q ? trim(q.q5_emotional_driver) : null,
           isSecondIntro: !!booking.originating_booking_id,
+          phone: displayPhone,
         });
 
         // Store resolved questionnaire URL for auto-injection into script body
@@ -343,9 +352,27 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
               )}
             </div>
 
-            {/* Copy Q link only — low-priority, 1st intros only, only when URL exists */}
-            {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
-              <div className="pt-2 border-t border-dashed flex justify-center">
+            {/* Copy Phone / Copy Q link */}
+            <div className="pt-2 border-t border-dashed flex justify-center gap-4">
+              {memberCtx?.phone && (
+                <button
+                  className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(memberCtx.phone!);
+                      setPhoneCopied(true);
+                      setTimeout(() => setPhoneCopied(false), 2000);
+                      toast.success('Phone copied');
+                    } catch {
+                      toast.error('Failed to copy');
+                    }
+                  }}
+                >
+                  {phoneCopied ? <Check className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
+                  {phoneCopied ? 'Copied!' : `Copy phone`}
+                </button>
+              )}
+              {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
                 <button
                   className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
                   onClick={async () => {
@@ -360,10 +387,10 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
                   }}
                 >
                   {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
-                  {linkCopied ? 'Copied!' : 'Copy questionnaire link only'}
+                  {linkCopied ? 'Copied!' : 'Copy Q link'}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </ScrollArea>
         </DrawerContent>
       </Drawer>

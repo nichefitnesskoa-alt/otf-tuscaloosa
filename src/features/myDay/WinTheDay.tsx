@@ -29,7 +29,7 @@ type ReflectionTarget = {
 type ReflectionType = 'q_send' | 'q_resend' | 'confirm_tomorrow' | 'followups_due' | 'leads_overdue' | 'cold_texts' | 'cold_dms';
 
 const INFLUENCED_TYPES: ReflectionType[] = ['q_send', 'q_resend', 'confirm_tomorrow', 'followups_due', 'leads_overdue', 'cold_texts', 'cold_dms'];
-const DIRECT_COMPLETE_TYPES = ['prep_roleplay', 'log_ig', 'shift_recap', 'log_outcome'];
+const DIRECT_COMPLETE_TYPES = ['prep_roleplay', 'log_ig', 'log_outcome'];
 
 function isInfluencedType(type: string): type is ReflectionType {
   return INFLUENCED_TYPES.includes(type as ReflectionType);
@@ -64,11 +64,6 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       }
       case 'log_ig': {
         onSwitchTab?.('igdm');
-        break;
-      }
-      case 'shift_recap': {
-        const fab = document.querySelector('[data-end-shift-trigger]') as HTMLElement;
-        if (fab) fab.click();
         break;
       }
       case 'log_outcome': {
@@ -161,11 +156,6 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
       }
       case 'log_ig': {
         onSwitchTab?.('igdm');
-        break;
-      }
-      case 'shift_recap': {
-        const fab = document.querySelector('[data-end-shift-trigger]') as HTMLElement;
-        if (fab) fab.click();
         break;
       }
       case 'cold_texts':

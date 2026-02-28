@@ -308,23 +308,7 @@ export default function MyDayPage() {
 
       <OfflineBanner />
 
-      {/* ═══ END SHIFT — prominent at top ═══ */}
-      <div className="border-b border-primary/30 bg-background px-4 py-3">
-        <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2 mb-2">
-          Close out your shift with a recap when you're done.
-        </p>
-        <CloseOutShift
-          completedIntros={completedTodayCount}
-          activeIntros={todayBookingsCount - completedTodayCount}
-          scriptsSent={todayScriptsSent}
-          followUpsSent={todayFollowUpsSent}
-          purchaseCount={purchaseTodayCount}
-          noShowCount={noShowTodayCount}
-          didntBuyCount={didntBuyTodayCount}
-          topObjection={topObjectionToday}
-          asButton
-        />
-      </div>
+      {/* End Shift floating bar rendered below */}
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
       <div className="border-b border-primary/30 bg-background px-4 py-3">
@@ -460,6 +444,21 @@ export default function MyDayPage() {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* ═══ FLOATING END SHIFT BAR ═══ */}
+      <div className="fixed bottom-[4.5rem] left-0 right-0 z-30 px-4 py-2 bg-background/95 backdrop-blur border-t border-primary/30 shadow-lg">
+        <CloseOutShift
+          completedIntros={completedTodayCount}
+          activeIntros={todayBookingsCount - completedTodayCount}
+          scriptsSent={todayScriptsSent}
+          followUpsSent={todayFollowUpsSent}
+          purchaseCount={purchaseTodayCount}
+          noShowCount={noShowTodayCount}
+          didntBuyCount={didntBuyTodayCount}
+          topObjection={topObjectionToday}
+          asButton
+        />
+      </div>
 
       {/* FAB */}
       <QuickAddFAB
