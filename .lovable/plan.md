@@ -1,55 +1,38 @@
-The previous intro info for 2nd intros should show in the prep drawer instead of a specific button on the card.   
+I want to move the time, coach, lead source, and phone to the left next to the name instead of the right side. Make sure these changes are univeral across the app  
   
-I also want to move the info in the 2nd line in the header to the side of the name in one line to make that header thinner.   
-  
-  
-Investigation Results
+Plan: Make IntroCard Header Fields Inline-Editable
 
-I audited every booking creation path, the database trigger, and the script merge pipeline end-to-end. Here's what I found:
+### Current State
 
-### The system IS working
+The IntroCard header displays memberName, introTime, coachName, leadSource, and phone as static text. Only coach has an inline editor (InlineCoachPicker in IntroRowCard). The user wants all fields tappable/editable directly in the header.
 
-The database trigger `trg_auto_create_questionnaire` fires automatically on every `INSERT` into `intros_booked`. It:
+### Changes
 
-1. Creates an `intro_questionnaires` record with a human-readable slug (e.g. `bailie-smith-feb18`)
-2. Sets the `questionnaire_link` field on the booking record to `https://otf-tuscaloosa.lovable.app/q/{slug}`
-3. Skips VIP, COMP, and 2nd intros (as intended)
+**1. Add class time constants to `src/types/index.ts**`
+Add a `CLASS_TIMES` array with the 11 preset times plus support for custom.
 
-**Database proof**: 0 first-intro bookings exist without a questionnaire record (checked all time). 0 questionnaires exist without slugs.
+**2. Refactor `IntroCard.tsx` to accept editable header**
 
-Every booking creation path fires this trigger:
+- Add new optional props: `bookingId`, `onFieldSaved`, and `editable` boolean
+- When `editable` is true, each header field becomes tappable:
+  - **Member Name**: taps to inline text input
+  - **Time**: taps to a dropdown with the 11 preset times + "Custom" option (custom shows a time input)
+  - **Coach**: taps to dropdown with COACHES list
+  - **Lead Source**: taps to dropdown with LEAD_SOURCES list  
+  - **Phone**: taps to inline tel input
+- When `editable` is false (default), behavior unchanged
+- Each field saves directly to `intros_booked` via supabase on selection/blur
+- For class_date: add it as a tappable field that opens a calendar popover (date-fns + Calendar component)
 
-- BookIntroSheet (manual booking)
-- WalkInIntroSheet (walk-in)
-- ShiftRecap (shift submission)
-- PipelineDialogs (pipeline booking)
-- FriendReferralDialog (friend add)
-- `import-lead` edge function (email-parsed leads)
-- `import-sheet-leads` edge function (spreadsheet sync)
+**3. Update `IntroRowCard.tsx**`
 
-The script merge pipeline (`ScriptPickerSheet` + `buildScriptContext`) fetches the questionnaire by `booking_id`, reads the slug, and auto-injects `{questionnaire-link}` into every script template that uses it. No manual action needed.
+- Pass `bookingId={item.bookingId}` and `editable={true}` and `onFieldSaved={onRefresh}` to IntroCard
+- Remove the separate `InlineCoachPicker` component since coach editing will be handled by IntroCard's inline edit
+- Pass `userName` for audit trail (`last_edited_by`)
 
-### One minor gap to fix
+**4. Implementation detail for each field type**
 
-Some older bookings (created before the trigger was updated) have `questionnaire_link = null` on the `intros_booked` record, even though they have valid questionnaire records with slugs. The script pipeline doesn't care (it reads the slug directly), but the Win The Day checklist uses `questionnaire_link` as a fallback.
-
-### Plan
-
-**1. Backfill `questionnaire_link` on older bookings** (database migration)
-
-Run a one-time UPDATE to populate `questionnaire_link` on any booking that has a questionnaire with a slug but a null link field:
-
-```sql
-UPDATE intros_booked b
-SET questionnaire_link = 'https://otf-tuscaloosa.lovable.app/q/' || q.slug
-FROM intro_questionnaires q
-WHERE q.booking_id = b.id
-  AND q.slug IS NOT NULL
-  AND b.questionnaire_link IS NULL;
-```
-
-**2. No frontend code changes needed**
-
-The DB trigger handles all auto-generation. The frontend `autoCreateQuestionnaire()` calls in BookIntroSheet, WalkInIntroSheet, PipelineDialogs, and QuestionnaireHub are redundant safety nets that run after the trigger has already created the record -- they check `if existing return` and exit. They're harmless to keep.
-
-The `handleLogAsSent` function in IntroRowCard correctly handles the edge case where somehow a questionnaire doesn't exist (creates one with a slug as a fallback) -- but this path should never be hit for new bookings because the trigger already created it.
+- **Dropdowns** (coach, lead source, class time): Use Select component, save on selection
+- **Text/tel inputs** (name, phone): Use Input, save on blur/Enter
+- **Date** (class date): Use Popover + Calendar component, save on date select
+- **Time dropdown**: 11 preset options rendered as SelectItems, plus a "Custom" option that switches to a time Input
