@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Copy, Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -332,32 +332,7 @@ export default function IntroRowCard({
     </>
   );
 
-  // Outcome badge
-  const outcomeBadge = item.latestRunResult ? (
-    <button type="button" onClick={() => setOutcomeOpen(true)} className="cursor-pointer hover:opacity-90 transition-opacity">
-      <Badge
-        variant="outline"
-        className={cn(
-          'text-[10px] px-1.5 py-0 h-4',
-          item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-            ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-            : item.latestRunResult === 'Booked 2nd intro'
-            ? 'bg-blue-500/15 text-blue-700 border-blue-500/30'
-            : item.latestRunResult === 'No-show'
-            ? 'bg-muted text-muted-foreground border-border'
-            : 'bg-amber-500/15 text-amber-700 border-amber-500/30',
-        )}
-      >
-        {item.latestRunResult.includes('Premier') || item.latestRunResult.includes('Elite') || item.latestRunResult.includes('Basic')
-          ? `✓ ${item.latestRunResult}`
-          : item.latestRunResult === 'Booked 2nd intro'
-          ? '📅 2nd Intro Booked'
-          : item.latestRunResult === 'No-show'
-          ? '👻 No-show'
-          : `⏳ ${item.latestRunResult}`}
-      </Badge>
-    </button>
-  ) : null;
+  // Outcome badge — removed from card body (lives in outcome banner at bottom)
 
   // Outcome banner at bottom
   const outcomeBanner = item.latestRunResult ? (() => {
@@ -436,63 +411,10 @@ export default function IntroRowCard({
         <span className="leading-none">{prepped ? 'Prepped ✓' : 'Prep & RP'}</span>
       </button>
 
-      {/* Copy Q Link */}
-      {!item.isSecondIntro ? (
-        <button
-          type="button"
-          className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 transition-colors"
-          onClick={async () => {
-            try {
-              const { data: qRecord } = await supabase
-                .from('intro_questionnaires')
-                .select('slug, id')
-                .eq('booking_id', item.bookingId)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              if (qRecord?.slug) {
-                const link = `https://otf-tuscaloosa.lovable.app/q/${(qRecord as any).slug}`;
-                await navigator.clipboard.writeText(link);
-                toast.success(`Q link copied for ${item.memberName}`);
-              } else {
-                const nameParts = item.memberName.trim().split(/\s+/);
-                const firstName = nameParts[0] || item.memberName;
-                const lastName = nameParts.slice(1).join(' ') || '';
-                const d = new Date(item.classDate + 'T12:00:00');
-                const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-                const slug = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${lastName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${monthNames[d.getMonth()]}${String(d.getDate()).padStart(2, '0')}`;
-                const { data: created } = await supabase.from('intro_questionnaires').insert({
-                  booking_id: item.bookingId,
-                  client_first_name: firstName,
-                  client_last_name: lastName,
-                  scheduled_class_date: item.classDate,
-                  slug,
-                  status: 'not_sent',
-                } as any).select('slug').single();
-                if (created?.slug) {
-                  const link = `https://otf-tuscaloosa.lovable.app/q/${(created as any).slug}`;
-                  await navigator.clipboard.writeText(link);
-                  toast.success(`Q link generated & copied for ${item.memberName}`);
-                } else {
-                  toast.error('Failed to generate Q link');
-                }
-              }
-            } catch {
-              toast.error('Failed to copy Q link');
-            }
-          }}
-        >
-          <Copy className="w-3 h-3" />
-          <span>Copy Q</span>
-        </button>
-      ) : (
-        <div className="flex-1 flex items-center justify-center h-9 text-[10px] text-muted-foreground/50 border-r border-border/30">—</div>
-      )}
-
       {/* Log as Sent */}
       <button
         type="button"
-        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 transition-colors"
+        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 rounded transition-colors"
         onClick={item.isSecondIntro ? handleLogScriptSent : handleLogAsSent}
         disabled={logSentLoading}
       >
@@ -524,7 +446,7 @@ export default function IntroRowCard({
         leadSource={item.leadSource}
         phone={item.phone}
         badges={badges}
-        outcomeBadge={outcomeBadge}
+        outcomeBadge={undefined}
         actionButtons={actionButtons}
         secondaryActions={secondaryActions}
         topBanner={topBanner}
