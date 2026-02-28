@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, ClipboardList, Send, CheckCircle, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Eye, ClipboardList, Send, CheckCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -14,8 +14,6 @@ import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
 import { supabase } from '@/integrations/supabase/client';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { COACHES } from '@/types';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 
@@ -116,9 +114,6 @@ export default function IntroRowCard({
   const [preppedSaving, setPreppedSaving] = useState(false);
   const [logSentLoading, setLogSentLoading] = useState(false);
   const [localQStatus, setLocalQStatus] = useState(item.questionnaireStatus);
-  const [prevIntroOpen, setPrevIntroOpen] = useState(false);
-  const [prevIntro, setPrevIntro] = useState<any>(null);
-  const [prevIntroLoading, setPrevIntroLoading] = useState(false);
   const qBar = getQBar(localQStatus);
 
   // ── Focus mode: compute minutesUntilClass ──
@@ -158,20 +153,6 @@ export default function IntroRowCard({
     }
   }, [item.isSecondIntro, item.prepped, item.bookingId]);
 
-  // Fetch previous intro data for 2nd visits
-  useEffect(() => {
-    if (!item.isSecondIntro || !item.originatingBookingId) return;
-    setPrevIntroLoading(true);
-    (async () => {
-      const [{ data: booking }, { data: run }] = await Promise.all([
-        supabase.from('intros_booked').select('class_date, intro_time, coach_name, lead_source, fitness_goal').eq('id', item.originatingBookingId!).maybeSingle(),
-        supabase.from('intros_run').select('result, primary_objection, notes, coach_name, run_date').eq('linked_intro_booked_id', item.originatingBookingId!).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      ]);
-      const { data: q } = await supabase.from('intro_questionnaires').select('q1_fitness_goal, q3_obstacle, q5_emotional_driver').eq('booking_id', item.originatingBookingId!).limit(1).maybeSingle();
-      setPrevIntro({ booking, run, questionnaire: q });
-      setPrevIntroLoading(false);
-    })();
-  }, [item.isSecondIntro, item.originatingBookingId]);
 
   // Auto-detect questionnaire completion every 30s
   useEffect(() => {
@@ -458,46 +439,8 @@ export default function IntroRowCard({
           !isFocused && anyFocused && 'opacity-80',
         )}
         style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
-      >
-        {/* 2nd Visit: Previous Intro Info */}
-        {item.isSecondIntro && prevIntro && (
-          <Collapsible open={prevIntroOpen} onOpenChange={setPrevIntroOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-full text-[11px] gap-1 justify-between">
-                <span>Previous Intro Info</span>
-                {prevIntroOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="rounded-md border bg-muted/20 p-2 space-y-1 text-xs text-muted-foreground">
-                {prevIntro.booking && (
-                  <>
-                    <p><span className="font-medium text-foreground">Date:</span> {formatDateShort(prevIntro.booking.class_date)}</p>
-                    {prevIntro.booking.intro_time && <p><span className="font-medium text-foreground">Time:</span> {formatTime12h(prevIntro.booking.intro_time)}</p>}
-                    <p><span className="font-medium text-foreground">Coach:</span> {prevIntro.booking.coach_name}</p>
-                    <p><span className="font-medium text-foreground">Source:</span> {prevIntro.booking.lead_source}</p>
-                  </>
-                )}
-                {prevIntro.run && (
-                  <>
-                    <p><span className="font-medium text-foreground">Result:</span> {prevIntro.run.result}</p>
-                    {prevIntro.run.primary_objection && <p><span className="font-medium text-foreground">Objection:</span> {prevIntro.run.primary_objection}</p>}
-                    {prevIntro.run.notes && <p><span className="font-medium text-foreground">Notes:</span> {prevIntro.run.notes}</p>}
-                  </>
-                )}
-                {prevIntro.questionnaire && (
-                  <>
-                    {prevIntro.questionnaire.q1_fitness_goal && <p><span className="font-medium text-foreground">Goal:</span> {prevIntro.questionnaire.q1_fitness_goal}</p>}
-                    {prevIntro.questionnaire.q3_obstacle && <p><span className="font-medium text-foreground">Obstacle:</span> {prevIntro.questionnaire.q3_obstacle}</p>}
-                    {prevIntro.questionnaire.q5_emotional_driver && <p><span className="font-medium text-foreground">Why:</span> {prevIntro.questionnaire.q5_emotional_driver}</p>}
-                  </>
-                )}
-                {!prevIntro.booking && !prevIntro.run && <p>No previous data found</p>}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-      </IntroCard>
+      />
+
 
       {/* Outcome drawer – expands below the card */}
       {outcomeOpen && (

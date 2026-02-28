@@ -81,26 +81,24 @@ export default function IntroCard({
       id={id}
       style={style}
     >
-      {/* ── HEADER BAR — inside card, rounded top, sharp bottom ── */}
-      <div className="px-3 py-2.5" style={{ background: 'var(--intro-header-bg)' }}>
-        {/* Line 1: Member name */}
+      {/* ── HEADER BAR — single line: name + meta ── */}
+      <div className="px-3 py-2" style={{ background: 'var(--intro-header-bg)' }}>
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-lg font-bold leading-tight" style={{ color: 'var(--intro-header-text)' }}>
+          <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>
             {memberName}
           </h3>
           {badges}
+          {metaSegments.length > 0 && (
+            <div className="flex items-center gap-1.5 text-[11px] flex-wrap ml-auto" style={{ color: 'var(--intro-header-meta)' }}>
+              {metaSegments.map((seg, i) => (
+                <span key={i} className="flex items-center gap-1.5 shrink-0">
+                  {i > 0 && <span className="opacity-50">·</span>}
+                  <span>{seg}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-        {/* Line 2: metadata */}
-        {metaSegments.length > 0 && (
-          <div className="flex items-center gap-1.5 text-[11px] mt-0.5 flex-wrap" style={{ color: 'var(--intro-header-meta)' }}>
-            {metaSegments.map((seg, i) => (
-              <span key={i} className="flex items-center gap-1.5 shrink-0">
-                {i > 0 && <span className="opacity-50">·</span>}
-                <span>{seg}</span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── CARD BODY — directly below header, no gap ── */}

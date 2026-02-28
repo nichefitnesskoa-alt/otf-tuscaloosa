@@ -60,6 +60,7 @@ interface PrepDrawerProps {
   coachName: string;
   leadSource: string;
   isSecondIntro: boolean;
+  originatingBookingId?: string | null;
   phone?: string | null;
   email?: string | null;
   bookings?: Array<{
@@ -152,7 +153,7 @@ function getEirma(
 
 export function PrepDrawer({
   open, onOpenChange, memberName, memberKey, bookingId, classDate, classTime,
-  coachName, leadSource, isSecondIntro, phone, email, bookings, runs,
+  coachName, leadSource, isSecondIntro, originatingBookingId, phone, email, bookings, runs,
   onGenerateScript, onSendQ,
 }: PrepDrawerProps) {
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
@@ -162,7 +163,7 @@ export function PrepDrawer({
   const [shoutoutConsent, setShoutoutConsent] = useState<boolean | null>(null);
   const [savingConsent, setSavingConsent] = useState(false);
   const [studioTrend, setStudioTrend] = useState<{ objection: string; percent: number } | null>(null);
-  const [prevVisitData, setPrevVisitData] = useState<{ objection: string | null; notes: string | null; goal: string | null; why: string | null } | null>(null);
+  const [prevVisitData, setPrevVisitData] = useState<{ objection: string | null; notes: string | null; goal: string | null; why: string | null; coachName: string | null; classDate: string | null; introTime: string | null; leadSource: string | null; result: string | null; obstacle: string | null } | null>(null);
   const [buyingCriteria, setBuyingCriteria] = useState('');
   const [saObjection, setSaObjection] = useState('');
   const [savingBrief, setSavingBrief] = useState(false);
@@ -225,24 +226,30 @@ export function PrepDrawer({
         });
     }
 
-    // 2nd intro: load previous visit data
+    // 2nd intro: load previous visit data (rich version)
     if (isSecondIntro) {
-      const origBooking = defaultBookings.find(b => b.id !== bookingId) || defaultBookings[0];
-      supabase
-        .from('intros_run')
-        .select('primary_objection, notes, linked_intro_booked_id')
-        .eq('linked_intro_booked_id', origBooking?.id || bookingId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .then(({ data: runRows }) => {
-          const run = (runRows || [])[0] as any;
-          setPrevVisitData({
-            objection: run?.primary_objection || null,
-            notes: run?.notes || null,
-            goal: null,
-            why: null,
-          });
+      const origId = originatingBookingId || defaultBookings.find(b => b.id !== bookingId)?.id || bookingId;
+      Promise.all([
+        supabase.from('intros_booked').select('class_date, intro_time, coach_name, lead_source, fitness_goal').eq('id', origId).maybeSingle(),
+        supabase.from('intros_run').select('result, primary_objection, notes, coach_name, run_date').eq('linked_intro_booked_id', origId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('intro_questionnaires').select('q1_fitness_goal, q3_obstacle, q5_emotional_driver').eq('booking_id', origId).limit(1).maybeSingle(),
+      ]).then(([{ data: booking }, { data: run }, { data: q }]) => {
+        const b = booking as any;
+        const r = run as any;
+        const qd = q as any;
+        setPrevVisitData({
+          objection: r?.primary_objection || null,
+          notes: r?.notes || null,
+          goal: qd?.q1_fitness_goal || b?.fitness_goal || null,
+          why: qd?.q5_emotional_driver || null,
+          coachName: r?.coach_name || b?.coach_name || null,
+          classDate: b?.class_date || null,
+          introTime: b?.intro_time || null,
+          leadSource: b?.lead_source || null,
+          result: r?.result || null,
+          obstacle: qd?.q3_obstacle || null,
         });
+      });
     }
   }, [open, bookingId]);
 
@@ -539,18 +546,36 @@ export function PrepDrawer({
                     <Dumbbell className="w-3.5 h-3.5" /> COACH CARD
                   </h3>
 
-                  {/* 2nd Intro: Previous Visit Data */}
+                  {/* 2nd Intro: Previous Visit Data — rich version */}
                   {isSecondIntro && prevVisitData && (
-                    <div className="rounded-xl p-4 border-2 border-primary bg-primary/5">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">FROM THEIR FIRST VISIT</p>
+                    <div className="rounded-xl p-4 border-2 border-primary bg-primary/5 space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">FROM THEIR FIRST VISIT</p>
+                      {prevVisitData.classDate && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Date:</span> {prevVisitData.classDate}{prevVisitData.introTime ? ` @ ${prevVisitData.introTime.substring(0, 5)}` : ''}
+                        </p>
+                      )}
+                      {prevVisitData.coachName && (
+                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Coach:</span> {prevVisitData.coachName}</p>
+                      )}
+                      {prevVisitData.leadSource && (
+                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Source:</span> {prevVisitData.leadSource}</p>
+                      )}
+                      {prevVisitData.result && (
+                        <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Result:</span> {prevVisitData.result}</p>
+                      )}
                       {prevVisitData.objection && (
-                        <p className="text-base font-bold text-primary mb-1">Previous objection: {prevVisitData.objection}</p>
+                        <p className="text-base font-bold text-primary">Previous objection: {prevVisitData.objection}</p>
                       )}
                       {prevVisitData.notes && (
-                        <p className="text-xs text-foreground mb-1">What they said: {prevVisitData.notes}</p>
+                        <p className="text-xs text-foreground">What they said: {prevVisitData.notes}</p>
                       )}
-                      {goal && <p className="text-xs text-foreground">Goal: {goal}</p>}
-                      {emotionalDriver && <p className="text-xs text-foreground">Why: {emotionalDriver}</p>}
+                      {prevVisitData.goal && <p className="text-xs text-foreground">Goal: {prevVisitData.goal}</p>}
+                      {prevVisitData.obstacle && <p className="text-xs text-foreground">Obstacle: {prevVisitData.obstacle}</p>}
+                      {prevVisitData.why && <p className="text-xs text-foreground">Why: {prevVisitData.why}</p>}
+                      {!prevVisitData.classDate && !prevVisitData.result && !prevVisitData.objection && (
+                        <p className="text-xs text-muted-foreground">No previous data found</p>
+                      )}
                     </div>
                   )}
 
