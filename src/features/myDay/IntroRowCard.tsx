@@ -376,7 +376,7 @@ export default function IntroRowCard({
       <Button
         size="sm"
         className={cn(
-          'h-9 flex-1 text-xs gap-1 rounded-none',
+          'h-9 flex-1 text-xs gap-1',
           isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
         )}
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
@@ -390,7 +390,7 @@ export default function IntroRowCard({
       <Button
         size="sm"
         variant="secondary"
-        className="h-9 flex-1 text-xs gap-1 rounded-none"
+        className="h-9 flex-1 text-xs gap-1"
         onClick={guardOnline(() => {
           window.dispatchEvent(new CustomEvent('myday:open-script', {
             detail: { bookingId: item.bookingId, isSecondIntro: item.isSecondIntro },
@@ -403,7 +403,7 @@ export default function IntroRowCard({
       <Button
         size="sm"
         variant={outcomeOpen ? 'default' : 'outline'}
-        className="h-9 flex-1 text-xs gap-1 rounded-none"
+        className="h-9 flex-1 text-xs gap-1"
         onClick={() => setOutcomeOpen(v => !v)}
       >
         <ClipboardList className="w-3.5 h-3.5" />
