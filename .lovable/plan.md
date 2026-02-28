@@ -1,38 +1,55 @@
+The previous intro info for 2nd intros should show in the prep drawer instead of a specific button on the card.   
+  
+I also want to move the info in the 2nd line in the header to the side of the name in one line to make that header thinner.   
+  
+  
+Investigation Results
 
+I audited every booking creation path, the database trigger, and the script merge pipeline end-to-end. Here's what I found:
 
-## Plan: Restore Questionnaire Link Auto-Generation
+### The system IS working
 
-### Problem
-The `handleLogAsSent` function in `IntroRowCard.tsx` creates questionnaire records **without a slug**, meaning the generated questionnaire has no working URL. The DB trigger handles new bookings, but for any fallback creation (e.g., older bookings), the slug is missing.
+The database trigger `trg_auto_create_questionnaire` fires automatically on every `INSERT` into `intros_booked`. It:
 
-Additionally, the script context pipeline (`buildScriptContext` in `script-context.ts` and `ScriptPickerSheet.tsx`) already resolves and auto-injects `{questionnaire-link}` into scripts — this part is intact. The issue is upstream: if the questionnaire record has no slug, the link is broken.
+1. Creates an `intro_questionnaires` record with a human-readable slug (e.g. `bailie-smith-feb18`)
+2. Sets the `questionnaire_link` field on the booking record to `https://otf-tuscaloosa.lovable.app/q/{slug}`
+3. Skips VIP, COMP, and 2nd intros (as intended)
 
-### Changes
+**Database proof**: 0 first-intro bookings exist without a questionnaire record (checked all time). 0 questionnaires exist without slugs.
 
-**1. Fix `IntroRowCard.tsx` — `handleLogAsSent` slug generation (lines 222-232)**
+Every booking creation path fires this trigger:
 
-When creating a new questionnaire record as a fallback, generate a proper slug using `generateSlug` (from `@/lib/utils`) before inserting. Import `generateSlug` at the top.
+- BookIntroSheet (manual booking)
+- WalkInIntroSheet (walk-in)
+- ShiftRecap (shift submission)
+- PipelineDialogs (pipeline booking)
+- FriendReferralDialog (friend add)
+- `import-lead` edge function (email-parsed leads)
+- `import-sheet-leads` edge function (spreadsheet sync)
 
-```typescript
-const newSlug = generateSlug(firstName, lastName, item.classDate);
-await supabase.from('intro_questionnaires').insert({
-  booking_id: item.bookingId,
-  client_first_name: firstName,
-  client_last_name: lastName,
-  scheduled_class_date: item.classDate,
-  status: 'sent',
-  slug: newSlug,
-} as any);
+The script merge pipeline (`ScriptPickerSheet` + `buildScriptContext`) fetches the questionnaire by `booking_id`, reads the slug, and auto-injects `{questionnaire-link}` into every script template that uses it. No manual action needed.
+
+### One minor gap to fix
+
+Some older bookings (created before the trigger was updated) have `questionnaire_link = null` on the `intros_booked` record, even though they have valid questionnaire records with slugs. The script pipeline doesn't care (it reads the slug directly), but the Win The Day checklist uses `questionnaire_link` as a fallback.
+
+### Plan
+
+**1. Backfill `questionnaire_link` on older bookings** (database migration)
+
+Run a one-time UPDATE to populate `questionnaire_link` on any booking that has a questionnaire with a slug but a null link field:
+
+```sql
+UPDATE intros_booked b
+SET questionnaire_link = 'https://otf-tuscaloosa.lovable.app/q/' || q.slug
+FROM intro_questionnaires q
+WHERE q.booking_id = b.id
+  AND q.slug IS NOT NULL
+  AND b.questionnaire_link IS NULL;
 ```
 
-**2. Fix `IntroRowCard.tsx` — Ensure `buildScriptContext` receives questionnaire link when opening Script drawer**
+**2. No frontend code changes needed**
 
-The `myday:open-script` event already passes `bookingId` and `isSecondIntro`. The `ScriptPickerSheet` already resolves the questionnaire URL from the booking's linked questionnaire record (lines 112-172). This path is intact — no changes needed here.
+The DB trigger handles all auto-generation. The frontend `autoCreateQuestionnaire()` calls in BookIntroSheet, WalkInIntroSheet, PipelineDialogs, and QuestionnaireHub are redundant safety nets that run after the trigger has already created the record -- they check `if existing return` and exit. They're harmless to keep.
 
-**3. Verify `script-context.ts` — `buildScriptContext` questionnaire link resolution**
-
-Already fetches questionnaire by `booking_id`, builds URL from slug, and sets `ctx['questionnaire-link']`. No changes needed — this is working.
-
-### Summary
-One file change: add `generateSlug` import and slug generation to the fallback questionnaire creation in `IntroRowCard.tsx`. The rest of the pipeline (script context, ScriptPickerSheet auto-injection) is intact and will work once records have proper slugs.
-
+The `handleLogAsSent` function in IntroRowCard correctly handles the edge case where somehow a questionnaire doesn't exist (creates one with a slug as a fallback) -- but this path should never be hit for new bookings because the trigger already created it.
