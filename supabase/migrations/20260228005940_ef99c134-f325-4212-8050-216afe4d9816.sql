@@ -1,0 +1,1 @@
+ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS sa_buying_criteria text, ADD COLUMN IF NOT EXISTS sa_objection text;

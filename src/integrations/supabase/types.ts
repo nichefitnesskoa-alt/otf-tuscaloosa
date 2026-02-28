@@ -691,6 +691,8 @@ export type Database = {
           rebooked_at: string | null
           rebooked_from_booking_id: string | null
           referred_by_member_name: string | null
+          sa_buying_criteria: string | null
+          sa_objection: string | null
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
@@ -745,6 +747,8 @@ export type Database = {
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
           referred_by_member_name?: string | null
+          sa_buying_criteria?: string | null
+          sa_objection?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
@@ -799,6 +803,8 @@ export type Database = {
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
           referred_by_member_name?: string | null
+          sa_buying_criteria?: string | null
+          sa_objection?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
