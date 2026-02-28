@@ -3,11 +3,13 @@
  * Two tabs: Today / Rest of week.
  * No at-risk banners, no scary styling.
  * Cards show Prep | Script | Coach buttons.
+ * Today view: completed intros collapsed at bottom.
  */
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -61,6 +63,19 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
+
+  // Split completed vs active intros for Today view
+  const isTodayView = fixedTimeRange === 'today' || timeRange === 'today';
+  const { activeItems, completedItems } = useMemo(() => {
+    if (!isTodayView) return { activeItems: items, completedItems: [] };
+    return {
+      activeItems: items.filter(i => !i.latestRunResult),
+      completedItems: items.filter(i => !!i.latestRunResult),
+    };
+  }, [items, isTodayView]);
+  const activeDayGroups = useMemo(() => groupByDay(activeItems), [activeItems]);
+  const completedDayGroups = useMemo(() => groupByDay(completedItems), [completedItems]);
+  const [completedOpen, setCompletedOpen] = useState(false);
 
   // Compute focused booking: nearest today's intro within 2 hours
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -307,7 +322,8 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           </p>
         ) : (
           <div className="space-y-4">
-            {filteredDayGroups.map(group => (
+            {/* Active intros (or all intros if not today view) */}
+            {(isTodayView ? activeDayGroups : filteredDayGroups).map(group => (
               <IntroDayGroup
                 key={group.date}
                 group={group}
@@ -321,6 +337,34 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 focusedBookingId={focusedBookingId}
               />
             ))}
+
+            {/* Completed intros collapsed at bottom (Today view only) */}
+            {isTodayView && completedItems.length > 0 && (
+              <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium">
+                    <span>Completed Intros ({completedItems.length})</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 space-y-4">
+                  {completedDayGroups.map(group => (
+                    <IntroDayGroup
+                      key={group.date}
+                      group={group}
+                      isOnline={isOnline}
+                      userName={userName}
+                      onSendQ={handleSendQ}
+                      onConfirm={handleConfirm}
+                      onRefresh={refreshAll}
+                      needsOutcome={false}
+                      confirmResults={confirmResults}
+                      focusedBookingId={null}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
       </CardContent>

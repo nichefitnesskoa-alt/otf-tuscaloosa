@@ -27,6 +27,7 @@ import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
 import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import ScriptsPage from '@/pages/Scripts';
+import PipelinePage from '@/features/pipeline/PipelinePage';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -522,7 +523,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -554,6 +555,10 @@ export default function Admin() {
           <TabsTrigger value="scripts" className="gap-1">
             <FileText className="w-4 h-4" />
             <span className="hidden sm:inline">Scripts</span>
+          </TabsTrigger>
+          <TabsTrigger value="bookings" className="gap-1">
+            <CalendarDays className="w-4 h-4" />
+            <span className="hidden sm:inline">Bookings</span>
           </TabsTrigger>
         </TabsList>
 
@@ -633,6 +638,11 @@ export default function Admin() {
         {/* Scripts Tab */}
         <TabsContent value="scripts" className="space-y-4">
           <ScriptsPage />
+        </TabsContent>
+
+        {/* All Bookings Tab */}
+        <TabsContent value="bookings" className="space-y-4">
+          <PipelinePage />
         </TabsContent>
       </Tabs>
     </div>

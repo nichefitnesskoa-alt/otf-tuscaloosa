@@ -31,7 +31,7 @@ import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
-import { FollowUpsDueToday } from '@/components/dashboard/FollowUpsDueToday';
+import FollowUpTabs from '@/features/followUp/FollowUpTabs';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WeeklySchedule } from '@/components/dashboard/WeeklySchedule';
 
@@ -408,11 +408,7 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
-            <div className="mb-1">
-              <h2 className="text-sm font-semibold">Follow-Up Queue</h2>
-              <p className="text-xs text-muted-foreground">All pending follow-ups due today and overdue</p>
-            </div>
-            <FollowUpsDueToday onRefresh={fetchMetrics} onCountChange={setFollowUpsDueCount} />
+            <FollowUpTabs onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
           <TabsContent value="leads" className="mt-0 space-y-3">
