@@ -277,7 +277,7 @@ export function useWinTheDayItems() {
           });
         }
 
-        // Log outcome — 1 hour after class time, no run logged
+        // Log outcome — 1 hour after class time, no run logged AND booking still ACTIVE
         if (minutesUntil <= -60) {
           // Check if there's a run for this booking
           const { data: runCheck } = await supabase
@@ -285,7 +285,15 @@ export function useWinTheDayItems() {
             .select('id')
             .eq('linked_intro_booked_id', intro.id)
             .limit(1);
-          if (!runCheck || runCheck.length === 0) {
+          // Also check if booking status has changed from ACTIVE (e.g. RESCHEDULED, CANCELLED, PURCHASED, etc.)
+          const { data: bookingCheck } = await supabase
+            .from('intros_booked')
+            .select('booking_status_canon')
+            .eq('id', intro.id)
+            .single();
+          const isStillActive = !bookingCheck || bookingCheck.booking_status_canon === 'ACTIVE';
+          const hasRun = runCheck && runCheck.length > 0;
+          if (!hasRun && isStillActive) {
             newItems.push({
               id: `outcome_${intro.id}`,
               type: 'log_outcome',
@@ -322,16 +330,16 @@ export function useWinTheDayItems() {
         });
       }
 
-      // Follow-ups due
+      // Follow-ups due — only show when there are actually pending items
       if (fuDueCount > 0) {
         newItems.push({
           id: 'followups_due',
           type: 'followups_due',
           text: `${fuDueCount} follow-up${fuDueCount !== 1 ? 's' : ''} due today`,
           actionLabel: 'Go to Follow-Ups',
-          completed: followupLogExists,
-          urgency: followupLogExists ? 'normal' : 'normal',
-          sortOrder: followupLogExists ? 9000 : 600,
+          completed: false,
+          urgency: 'normal',
+          sortOrder: 600,
         });
       }
 
@@ -367,21 +375,7 @@ export function useWinTheDayItems() {
         });
       }
 
-      // Shift recap (only in last 2 hours of shift)
-      const currentShift = detectCurrentShift();
-      const shiftEndHour = getShiftEndHour(currentShift);
-      const hoursUntilEnd = shiftEndHour - now.getHours();
-      if (hoursUntilEnd <= 2) {
-        newItems.push({
-          id: 'shift_recap',
-          type: 'shift_recap',
-          text: 'Submit your shift recap',
-          actionLabel: 'End Shift',
-          completed: recapSubmitted,
-          urgency: recapSubmitted ? 'normal' : 'low',
-          sortOrder: recapSubmitted ? 9000 : 900,
-        });
-      }
+      // Shift recap removed — End Shift is now a floating bottom bar
 
       // Cold lead texts (studio-wide target: 30)
       newItems.push({
@@ -426,11 +420,11 @@ export function useWinTheDayItems() {
     const channel = supabase
       .channel('win-the-day')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intro_questionnaires' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'script_actions' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'follow_up_queue' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchItems())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_recaps' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ig_leads' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'win_the_day_reflections' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'followup_daily_log' }, () => fetchItems())
