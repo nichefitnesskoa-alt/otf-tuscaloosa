@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,6 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { PotentialMatch } from '@/hooks/useDuplicateDetection';
 import { Calendar, Clock, User } from 'lucide-react';
 import { LEAD_SOURCES } from '@/types';
+import { ClassTimeSelect, DatePickerField } from '@/components/shared/FormHelpers';
 
 interface RescheduleClientDialogProps {
   open: boolean;
@@ -114,23 +114,15 @@ export default function RescheduleClientDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="newDate">New Intro Date *</Label>
-              <Input
-                id="newDate"
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="mt-1"
-              />
+              <div className="mt-1">
+                <DatePickerField value={newDate} onChange={setNewDate} />
+              </div>
             </div>
             <div>
-              <Label htmlFor="newTime">New Intro Time</Label>
-              <Input
-                id="newTime"
-                type="time"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="mt-1"
-              />
+              <Label>New Intro Time</Label>
+              <div className="mt-1">
+                <ClassTimeSelect value={newTime} onValueChange={setNewTime} />
+              </div>
             </div>
           </div>
 

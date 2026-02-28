@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ClassTimeSelect, DatePickerField } from '@/components/shared/FormHelpers';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -117,8 +118,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <div className="space-y-3">
               <div><Label className="text-xs">Member Name</Label><Input value={editBooking.member_name} onChange={e => setEditBooking({ ...editBooking, member_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-xs">Date</Label><Input type="date" value={editBooking.class_date} onChange={e => setEditBooking({ ...editBooking, class_date: e.target.value })} /></div>
-                <div><Label className="text-xs">Time</Label><Input type="time" value={editBooking.intro_time || ''} onChange={e => setEditBooking({ ...editBooking, intro_time: e.target.value })} /></div>
+                <div><Label className="text-xs">Date</Label><DatePickerField value={editBooking.class_date} onChange={v => setEditBooking({ ...editBooking, class_date: v })} /></div>
+                <div><Label className="text-xs">Time</Label><ClassTimeSelect value={editBooking.intro_time || ''} onValueChange={v => setEditBooking({ ...editBooking, intro_time: v })} /></div>
               </div>
               <div><Label className="text-xs">Booked By</Label>
                 <Select value={editBooking.booked_by || editBooking.sa_working_shift || ''} onValueChange={v => setEditBooking({ ...editBooking, booked_by: v, sa_working_shift: v })}>
@@ -207,8 +208,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
           {editRun && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-xs">Run Date</Label><Input type="date" value={editRun.run_date || ''} onChange={e => setEditRun({ ...editRun, run_date: e.target.value })} /></div>
-                <div><Label className="text-xs">Time</Label><Input type="time" value={editRun.class_time} onChange={e => setEditRun({ ...editRun, class_time: e.target.value })} /></div>
+                <div><Label className="text-xs">Run Date</Label><DatePickerField value={editRun.run_date || ''} onChange={v => setEditRun({ ...editRun, run_date: v })} /></div>
+                <div><Label className="text-xs">Time</Label><ClassTimeSelect value={editRun.class_time} onValueChange={v => setEditRun({ ...editRun, class_time: v })} /></div>
               </div>
               <div><Label className="text-xs">Ran By</Label>
                 <Select value={editRun.ran_by || ''} onValueChange={v => setEditRun({ ...editRun, ran_by: v })}>
@@ -245,7 +246,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               </div>
               <div className="border-t pt-3"><Label className="text-xs font-semibold mb-2 block">Sale Info</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <div><Label className="text-xs">Buy Date</Label><Input type="date" value={editRun.buy_date || ''} onChange={e => setEditRun({ ...editRun, buy_date: e.target.value })} /></div>
+                  <div><Label className="text-xs">Buy Date</Label><DatePickerField value={editRun.buy_date || ''} onChange={v => setEditRun({ ...editRun, buy_date: v })} /></div>
                   <div><Label className="text-xs">Commission $</Label><Input type="number" step="0.01" value={editRun.commission_amount || ''} onChange={e => setEditRun({ ...editRun, commission_amount: parseFloat(e.target.value) || 0 })} /></div>
                 </div>
               </div>
@@ -340,7 +341,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
         <DialogContent>
           <DialogHeader><DialogTitle>Mark as Purchased</DialogTitle><DialogDescription>Record a sale for {booking.member_name}</DialogDescription></DialogHeader>
           <div className="space-y-3">
-            <div><Label className="text-xs">Date Closed</Label><Input type="date" value={purchaseData.date_closed} onChange={e => setPurchaseData({ ...purchaseData, date_closed: e.target.value })} /></div>
+            <div><Label className="text-xs">Date Closed</Label><DatePickerField value={purchaseData.date_closed} onChange={v => setPurchaseData({ ...purchaseData, date_closed: v })} /></div>
             <div><Label className="text-xs">Membership Type *</Label>
               <Select value={purchaseData.membership_type} onValueChange={v => setPurchaseData({ ...purchaseData, membership_type: v })}>
                 <SelectTrigger><SelectValue placeholder="Select membership..." /></SelectTrigger>
@@ -659,8 +660,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             )}
             <div className="flex items-center gap-2"><Switch checked={isSelfBooked} onCheckedChange={setIsSelfBooked} /><Label className="text-sm">Self-booked</Label></div>
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">Date *</Label><Input type="date" value={newBooking.class_date} onChange={e => setNewBooking({ ...newBooking, class_date: e.target.value })} /></div>
-              <div><Label className="text-xs">Time</Label><Input type="time" value={newBooking.intro_time} onChange={e => setNewBooking({ ...newBooking, intro_time: e.target.value })} /></div>
+              <div><Label className="text-xs">Date *</Label><DatePickerField value={newBooking.class_date} onChange={v => setNewBooking({ ...newBooking, class_date: v })} /></div>
+              <div><Label className="text-xs">Time</Label><ClassTimeSelect value={newBooking.intro_time} onValueChange={v => setNewBooking({ ...newBooking, intro_time: v })} /></div>
             </div>
             {!isSelfBooked && (
               <>
@@ -765,8 +766,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             // Step 2: run form (inline — no dialog switch needed)
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-xs">Run Date *</Label><Input type="date" value={newRun.run_date} onChange={e => setNewRun({ ...newRun, run_date: e.target.value })} /></div>
-                <div><Label className="text-xs">Time *</Label><Input type="time" value={newRun.class_time} onChange={e => setNewRun({ ...newRun, class_time: e.target.value })} /></div>
+                <div><Label className="text-xs">Run Date *</Label><DatePickerField value={newRun.run_date} onChange={v => setNewRun({ ...newRun, run_date: v })} /></div>
+                <div><Label className="text-xs">Time *</Label><ClassTimeSelect value={newRun.class_time} onValueChange={v => setNewRun({ ...newRun, class_time: v })} /></div>
               </div>
               <div><Label className="text-xs">Ran By *</Label>
                 <Select value={newRun.ran_by} onValueChange={v => setNewRun({ ...newRun, ran_by: v })}>
@@ -895,8 +896,8 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
           <DialogHeader><DialogTitle>Add Intro Run</DialogTitle><DialogDescription>Log intro run for {journey.memberName}</DialogDescription></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <div><Label className="text-xs">Run Date *</Label><Input type="date" value={newRun.run_date} onChange={e => setNewRun({ ...newRun, run_date: e.target.value })} /></div>
-              <div><Label className="text-xs">Time *</Label><Input type="time" value={newRun.class_time} onChange={e => setNewRun({ ...newRun, class_time: e.target.value })} /></div>
+              <div><Label className="text-xs">Run Date *</Label><DatePickerField value={newRun.run_date} onChange={v => setNewRun({ ...newRun, run_date: v })} /></div>
+              <div><Label className="text-xs">Time *</Label><ClassTimeSelect value={newRun.class_time} onValueChange={v => setNewRun({ ...newRun, class_time: v })} /></div>
             </div>
             <div><Label className="text-xs">Ran By *</Label>
               <Select value={newRun.ran_by} onValueChange={v => setNewRun({ ...newRun, ran_by: v })}>

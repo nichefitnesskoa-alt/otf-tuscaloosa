@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { COACHES, LEAD_SOURCES } from '@/types';
 import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
+import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 
 interface WalkInIntroSheetProps {
   open: boolean;
@@ -77,7 +78,6 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
-    // Reset friend answer when source changes
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
@@ -124,7 +124,6 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         return;
       }
 
-      // Insert referral record if referred by someone
       if (inserted?.id && leadSource === 'Member Referral' && referredBy.trim()) {
         await supabase.from('referrals').insert({
           referrer_name: referredBy.trim(),
@@ -135,14 +134,12 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         });
       }
 
-      // Auto-create questionnaire
       if (inserted?.id) {
         import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
           autoCreateQuestionnaire({ bookingId: inserted.id, memberName, classDate: today }).catch(() => {});
         });
       }
 
-      // Handle inline friend booking
       if (inserted?.id && friendAnswer === 'yes' && friendFirstName.trim()) {
         const friendFullName = `${friendFirstName.trim()} ${friendLastName.trim()}`.trim();
         const friendLeadSource = `Referral (Friend of ${memberName})`;
@@ -168,7 +165,6 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         }).select('id').single();
 
         if (friendBooking?.id) {
-          // Cross-link and write referral atomically
           await Promise.all([
             supabase.from('intros_booked').update({ paired_booking_id: friendBooking.id }).eq('id', inserted.id),
             supabase.from('referrals').insert({
@@ -180,7 +176,6 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
             }),
           ]);
 
-          // Auto-create questionnaire for friend
           const fNameParts = friendFullName.split(' ');
           try {
             const slug = await generateUniqueSlug(fNameParts[0], fNameParts.slice(1).join(' '), supabase);
@@ -226,24 +221,24 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="walk-in-first">First Name <span className="text-destructive">*</span></Label>
-              <Input id="walk-in-first" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" autoFocus />
+              <Input id="walk-in-first" value={firstName} onChange={e => setFirstName(autoCapitalizeName(e.target.value))} placeholder="First" autoFocus />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="walk-in-last">Last Name <span className="text-destructive">*</span></Label>
-              <Input id="walk-in-last" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" />
+              <Input id="walk-in-last" value={lastName} onChange={e => setLastName(autoCapitalizeName(e.target.value))} placeholder="Last" />
             </div>
           </div>
 
           {/* Phone */}
           <div className="space-y-1.5">
             <Label htmlFor="walk-in-phone">Phone <span className="text-destructive">*</span></Label>
-            <Input id="walk-in-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" />
+            <Input id="walk-in-phone" type="tel" value={phone} onChange={e => setPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 555-5555" />
           </div>
 
           {/* Class Time */}
           <div className="space-y-1.5">
-            <Label htmlFor="walk-in-time">Class Time <span className="text-destructive">*</span></Label>
-            <Input id="walk-in-time" type="time" value={classTime} onChange={e => setClassTime(e.target.value)} />
+            <Label>Class Time <span className="text-destructive">*</span></Label>
+            <ClassTimeSelect value={classTime} onValueChange={setClassTime} />
           </div>
 
           {/* Coach */}
@@ -264,15 +259,15 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
             </Select>
           </div>
 
-          {/* ── Who Referred Them? (Member Referral only) ── */}
+          {/* ── Who Referred Them? ── */}
           {leadSource === 'Member Referral' && (
             <div className="space-y-1.5">
               <Label htmlFor="walk-in-referred-by">Who referred them?</Label>
-              <Input id="walk-in-referred-by" value={referredBy} onChange={e => setReferredBy(e.target.value)} placeholder="Referring member's name" />
+              <Input id="walk-in-referred-by" value={referredBy} onChange={e => setReferredBy(autoCapitalizeName(e.target.value))} placeholder="Referring member's name" />
             </div>
           )}
 
-          {/* ── Inline Friend Prompt (referral sources only) ── */}
+          {/* ── Inline Friend Prompt ── */}
           {showFriendPrompt && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -294,16 +289,16 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Friend's First Name <span className="text-destructive">*</span></Label>
-                      <Input value={friendFirstName} onChange={e => setFriendFirstName(e.target.value)} placeholder="First" className="h-8 text-sm" />
+                      <Input value={friendFirstName} onChange={e => setFriendFirstName(autoCapitalizeName(e.target.value))} placeholder="First" className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Last Name</Label>
-                      <Input value={friendLastName} onChange={e => setFriendLastName(e.target.value)} placeholder="Last" className="h-8 text-sm" />
+                      <Input value={friendLastName} onChange={e => setFriendLastName(autoCapitalizeName(e.target.value))} placeholder="Last" className="h-8 text-sm" />
                     </div>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Phone (optional)</Label>
-                    <Input type="tel" value={friendPhone} onChange={e => setFriendPhone(e.target.value)} placeholder="(555) 555-5555" className="h-8 text-sm" />
+                    <Input type="tel" value={friendPhone} onChange={e => setFriendPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 555-5555" className="h-8 text-sm" />
                   </div>
                   <Button size="sm" variant="ghost" className="text-xs text-muted-foreground h-6" onClick={() => { setFriendAnswer('no'); setFriendFirstName(''); setFriendLastName(''); setFriendPhone(''); }}>
                     ✕ Remove friend
