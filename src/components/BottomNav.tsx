@@ -13,10 +13,12 @@ export function BottomNav() {
 
   const visibleItems = [
     { path: '/my-day', label: 'My Day', icon: Home },
-    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
-    // Admin tab only visible to users with Admin role
-    ...(user?.role === 'Admin' ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []),
+    // Pipeline + Admin tabs only visible to users with Admin role
+    ...(user?.role === 'Admin' ? [
+      { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+      { path: '/admin', label: 'Admin', icon: Settings },
+    ] : []),
   ];
 
   return (

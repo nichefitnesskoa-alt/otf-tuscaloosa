@@ -1,0 +1,1 @@
+ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS reschedule_contact_date date;
