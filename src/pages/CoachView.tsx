@@ -73,9 +73,7 @@ export default function CoachView() {
       .is('deleted_at', null)
       .neq('booking_status_canon', 'DELETED_SOFT');
 
-    if (!isAdmin) {
-      query = query.eq('coach_name', coachName);
-    }
+    // All coaches see all intros — no coach_name filter
 
     const { data } = await query.order('class_date').order('intro_time');
     const rows = (data || []) as unknown as CoachBooking[];
@@ -109,11 +107,11 @@ export default function CoachView() {
 
   const filteredBookings = useMemo(() => {
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
-    if (isAdmin && coachFilter !== 'all') {
+    if (coachFilter !== 'all') {
       result = result.filter(b => b.coach_name === coachFilter);
     }
     return result;
-  }, [bookings, isAdmin, coachFilter]);
+  }, [bookings, coachFilter]);
 
   // All unique coach names for filter
   const allCoachNames = useMemo(() => {
@@ -171,8 +169,8 @@ export default function CoachView() {
 
       <TheSystemSection />
 
-      {/* Admin coach filter */}
-      {isAdmin && allCoachNames.length > 0 && (
+      {/* Coach filter — navigation only, not access restriction */}
+      {allCoachNames.length > 0 && (
         <Select value={coachFilter} onValueChange={setCoachFilter}>
           <SelectTrigger className="w-full max-w-xs">
             <SelectValue placeholder="Filter by coach" />
@@ -281,7 +279,7 @@ function DateGroupView({
                   )}>
                     <span className="text-base">
                       {formatTime(time)} — {intros.length} intro{intros.length !== 1 ? 's' : ''}
-                      {isAdmin && <span className="text-muted-foreground font-normal"> — Coach: {coachNames}</span>}
+                      <span className="text-muted-foreground font-normal"> — Coach: {coachNames}</span>
                     </span>
                     <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                   </CollapsibleTrigger>
