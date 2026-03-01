@@ -3,7 +3,7 @@
  * ClassTimeSelect, DatePickerField, auto-format helpers.
  */
 import { useState } from 'react';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -71,6 +71,21 @@ export function ClassTimeSelect({ value, onValueChange, className, triggerClassN
 }
 
 /* ── Date Picker Field ── */
+function parseLocalDateString(value: string): Date | undefined {
+  if (!value) return undefined;
+  const normalized = value.slice(0, 10);
+  const [year, month, day] = normalized.split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
+}
+
+function formatLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 interface DatePickerFieldProps {
   value: string; // yyyy-MM-dd
   onChange: (val: string) => void;
@@ -81,17 +96,17 @@ interface DatePickerFieldProps {
 
 export function DatePickerField({ value, onChange, className, placeholder = 'Pick a date', disablePast = false }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
-  const dateObj = value ? parse(value, 'yyyy-MM-dd', new Date()) : undefined;
+  const dateObj = parseLocalDateString(value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className={cn('w-full justify-start text-left font-normal', !value && 'text-muted-foreground', className)}
+          className={cn('w-full justify-start text-left font-normal', !dateObj && 'text-muted-foreground', className)}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? format(parse(value, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy') : placeholder}
+          {dateObj ? format(dateObj, 'MMM d, yyyy') : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -100,7 +115,7 @@ export function DatePickerField({ value, onChange, className, placeholder = 'Pic
           selected={dateObj}
           onSelect={(d) => {
             if (d) {
-              onChange(format(d, 'yyyy-MM-dd'));
+              onChange(formatLocalDateString(d));
               setOpen(false);
             }
           }}
