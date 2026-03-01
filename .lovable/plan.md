@@ -1,38 +1,27 @@
 
 
-## Plan: Admin Sales Editing in Membership Purchases Panel
+## Plan: Add Tabs and Sortable Columns to Members Who Bought
 
-### Current State
-- **Members Who Bought** (`MembershipPurchasesPanel`): Read-only table showing all sales with no edit/delete actions.
-- **Pay Period Commission**: Already has a "zero-out commission" trash icon for admins, but no full editing.
-- Admin is determined by `user?.role === 'Admin'` from AuthContext.
+### Changes to `src/components/admin/MembershipPurchasesPanel.tsx`
 
-### Changes
+**1. Add internal tabs: All, Intro Sales, Outside Sales**
+- Use Radix `Tabs` component with three tabs: "All", "Intro Sales", "Outside Sales"
+- Filter the `purchases` array by `source` field based on active tab
+- Stats summary recalculates based on the filtered view
 
-**1. Add Edit/Delete Actions to MembershipPurchasesPanel (primary change)**
+**2. Make all columns sortable**
+- Add `sortColumn` and `sortDirection` state (`asc`/`desc`)
+- Clicking a column header toggles sort direction (or sets new column)
+- Add `ArrowUpDown` / `ArrowUp` / `ArrowDown` icons from lucide to each `TableHead` to indicate sort state
+- Sortable columns: Member, Date, Type, Commission, Ran By, Coach, Lead Source, Booked By
+- String columns sort alphabetically, Date sorts chronologically, Commission sorts numerically
+- `TableHead` elements become clickable buttons with cursor-pointer styling
 
-Add an actions column (visible to Admins only) to each row in the Members Who Bought table with:
-- **Edit button** — opens a dialog allowing the admin to edit: member name, membership type, commission amount, lead source, intro owner, and buy date.
-- **Delete button** — opens a confirmation dialog, then hard-deletes the record from `intros_run` or `sales_outside_intro` depending on the `source` field.
+**3. Implementation details**
+- Tab state: `activeTab: 'all' | 'intro' | 'outside'`
+- Filtered + sorted list computed in a single `useMemo` that first filters by tab, then sorts by the active column
+- Stats summary uses the tab-filtered data so numbers reflect the current view
 
-The edit dialog will update the correct source table (`intros_run` for intro sales, `sales_outside_intro` for outside sales) and refresh the list.
-
-**2. Files Modified**
-
-- `src/components/admin/MembershipPurchasesPanel.tsx` — Add edit dialog state, delete confirmation dialog, actions column, and the mutation handlers. Pass `useAuth()` to check admin role.
-
-**3. Edit Dialog Fields**
-| Field | Source: `intros_run` column | Source: `sales_outside_intro` column |
-|---|---|---|
-| Member Name | `member_name` | `member_name` |
-| Membership Type | `result` | `membership_type` |
-| Commission | `commission_amount` | `commission_amount` |
-| Lead Source | `lead_source` | `lead_source` |
-| Intro Owner | `intro_owner` | `intro_owner` |
-| Date | `buy_date` | `date_closed` |
-
-**4. Delete Behavior**
-- For `intros_run`: set `commission_amount = 0` and `result = 'Deleted'` (soft-delete approach preserving the run record).
-- For `sales_outside_intro`: hard-delete the row since these are manually entered records.
-- Confirmation dialog required before either action.
+### Files Modified
+- `src/components/admin/MembershipPurchasesPanel.tsx`
 
