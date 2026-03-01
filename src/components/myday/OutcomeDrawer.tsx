@@ -142,7 +142,8 @@ export function OutcomeDrawer({
   useEffect(() => {
     if (!linkedSecondIntro) return;
     if (linkedSecondIntro.date) {
-      setSecondIntroDate(new Date(linkedSecondIntro.date + 'T00:00:00'));
+      const [y, m, d] = linkedSecondIntro.date.split('-').map(Number);
+      setSecondIntroDate(new Date(y, m - 1, d));
     }
     if (linkedSecondIntro.time) setSecondIntroTime(linkedSecondIntro.time);
     if (linkedSecondIntro.coach) setSecondIntroCoach(linkedSecondIntro.coach);
@@ -352,7 +353,7 @@ export function OutcomeDrawer({
   };
 
   return (
-    <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg">
+    <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg" onClick={(e) => e.stopPropagation()}>
       {/* Header: member name + date/time */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium border-b pb-2">
         <span className="text-sm font-semibold text-foreground">{memberName}</span>
@@ -600,70 +601,14 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* 2nd intro booking fields */}
-      {isBookedSecondIntro && (
-        <>
-          {savedSecondIntro ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded-md p-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>
-                2nd intro booked: {formatDateShort(savedSecondIntro.date)} at {formatTime12h(savedSecondIntro.time)} with {savedSecondIntro.coach}
-              </span>
-            </div>
-          ) : (
-            <div className="space-y-2 border rounded-md p-2 bg-muted/20">
-              <p className="text-xs font-medium text-muted-foreground">2nd Intro Details</p>
-
-              {/* Date picker */}
-              <div className="space-y-1">
-                <Label className="text-xs">Date</Label>
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn('w-full h-8 text-sm justify-start font-normal', !secondIntroDate && 'text-muted-foreground')}
-                    >
-                      <CalendarIcon className="w-3.5 h-3.5 mr-2" />
-                      {secondIntroDate ? format(secondIntroDate, 'MMM d, yyyy') : 'Pick a date'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={secondIntroDate}
-                      onSelect={(d) => { setSecondIntroDate(d); setCalendarOpen(false); }}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                      disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Time dropdown */}
-              <div className="space-y-1">
-                <Label className="text-xs">Time</Label>
-                <ClassTimeSelect value={secondIntroTime} onValueChange={setSecondIntroTime} triggerClassName="h-8 text-sm" />
-              </div>
-
-              {/* Coach selector */}
-              <div className="space-y-1">
-                <Label className="text-xs">Coach</Label>
-                <Select value={secondIntroCoach} onValueChange={setSecondIntroCoach}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select coach…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COACHES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-        </>
+      {/* Confirmation banner after successful 2nd intro save */}
+      {isBookedSecondIntro && savedSecondIntro && (
+        <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 rounded-md p-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>
+            2nd intro booked: {formatDateShort(savedSecondIntro.date)} at {formatTime12h(savedSecondIntro.time)} with {savedSecondIntro.coach}
+          </span>
+        </div>
       )}
 
       {/* Notes */}

@@ -319,15 +319,18 @@ export default function IntroRowCard({
   const secondaryActions = (
     <>
       {/* Prepped & Role Played checkbox */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => handleTogglePrepped(!prepped)}
-        disabled={preppedSaving}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTogglePrepped(!prepped); } }}
+        aria-disabled={preppedSaving}
         className={cn(
-          'flex-1 flex items-center justify-center gap-1 h-9 text-[10px] border-r border-border/30 transition-colors',
+          'flex-1 flex items-center justify-center gap-1 h-9 text-[10px] border-r border-border/30 transition-colors cursor-pointer select-none',
           prepped
             ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
             : 'bg-muted/20 text-muted-foreground hover:bg-muted/40',
+          preppedSaving && 'opacity-50 pointer-events-none',
         )}
       >
         <Checkbox
@@ -337,7 +340,7 @@ export default function IntroRowCard({
           className="h-3 w-3 pointer-events-none"
         />
         <span className="leading-none">{prepped ? 'Prepped ✓' : 'Prep & RP'}</span>
-      </button>
+      </div>
 
       {/* Log as Sent */}
       <button
