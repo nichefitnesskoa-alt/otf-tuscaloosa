@@ -26,6 +26,7 @@ interface SearchResult {
   introOwner: string | null;
   runId?: string;
   leadSource?: string | null;
+  runBy?: string | null;
 }
 
 interface FABFollowUpPurchaseSheetProps {
@@ -64,19 +65,19 @@ export function FABFollowUpPurchaseSheet({ open, onOpenChange, onSaved }: FABFol
     try {
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_owner, booking_status_canon, lead_source')
+        .select('id, member_name, class_date, intro_owner, booking_status_canon, lead_source, phone_e164')
         .ilike('member_name', `%${q.trim()}%`)
         .neq('booking_status_canon', 'CANCELLED')
         .is('deleted_at', null)
         .order('class_date', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       if (!bookings) { setResults([]); return; }
 
       const bookingIds = bookings.map(b => b.id);
       const { data: runs } = await supabase
         .from('intros_run')
-        .select('linked_intro_booked_id, result_canon, id')
+        .select('linked_intro_booked_id, result_canon, id, run_date, ran_by')
         .in('linked_intro_booked_id', bookingIds);
 
       const soldBookingIds = new Set(
@@ -86,21 +87,33 @@ export function FABFollowUpPurchaseSheet({ open, onOpenChange, onSaved }: FABFol
           .filter(Boolean)
       );
 
-      const filtered: SearchResult[] = bookings
+      // Dedup by person: group by phone_e164 (if available) or normalized name
+      const personMap = new Map<string, SearchResult>();
+
+      bookings
         .filter(b => !soldBookingIds.has(b.id))
-        .map(b => {
+        .forEach(b => {
+          const personKey = b.phone_e164
+            ? b.phone_e164
+            : b.member_name.toLowerCase().replace(/\s+/g, '');
           const run = (runs || []).find(r => r.linked_intro_booked_id === b.id);
-          return {
-            bookingId: b.id,
-            memberName: b.member_name,
-            introDate: b.class_date,
-            introOwner: b.intro_owner,
-            runId: run?.id,
-            leadSource: b.lead_source,
-          };
+          const introDate = run?.run_date || b.class_date;
+
+          // Keep the most recent intro per person (bookings already sorted desc)
+          if (!personMap.has(personKey)) {
+            personMap.set(personKey, {
+              bookingId: b.id,
+              memberName: b.member_name,
+              introDate,
+              introOwner: b.intro_owner,
+              runId: run?.id,
+              leadSource: b.lead_source,
+              runBy: run?.ran_by || b.intro_owner,
+            });
+          }
         });
 
-      setResults(filtered);
+      setResults(Array.from(personMap.values()));
     } finally {
       setSearching(false);
     }
@@ -229,7 +242,7 @@ export function FABFollowUpPurchaseSheet({ open, onOpenChange, onSaved }: FABFol
                       >
                         <p className="text-sm font-medium">{r.memberName}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          Intro: {r.introDate} · Run by: {r.introOwner || 'Unknown'}
+                          Most recent intro: {r.introDate} · Run by: {r.runBy || r.introOwner || 'Unknown'}
                         </p>
                       </button>
                     ))}
