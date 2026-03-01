@@ -18,12 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Loader2, Users } from 'lucide-react';
+import { RefreshCw, Loader2, Users, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
 import { isMembershipSale, getSaleDate } from '@/lib/sales-detection';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import EditSaleDialog from './EditSaleDialog';
+import DeleteSaleDialog from './DeleteSaleDialog';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
@@ -51,6 +54,10 @@ interface MembershipPurchasesPanelProps {
 }
 
 export default function MembershipPurchasesPanel({ externalDateRange }: MembershipPurchasesPanelProps = {}) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
+  const [editPurchase, setEditPurchase] = useState<MembershipPurchase | null>(null);
+  const [deletePurchase, setDeletePurchase] = useState<MembershipPurchase | null>(null);
   const [purchases, setPurchases] = useState<MembershipPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<DatePreset>('pay_period');
@@ -290,10 +297,11 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                   <TableHead>Ran By</TableHead>
                   <TableHead>Coach</TableHead>
                   <TableHead>Lead Source</TableHead>
-                  <TableHead>Booked By</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                   <TableHead>Booked By</TableHead>
+                   {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
                 {purchases.map(purchase => (
                   <TableRow key={purchase.id}>
                     <TableCell className="font-medium">
@@ -325,16 +333,41 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                     <TableCell className="text-xs">
                       {purchase.lead_source || <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {purchase.booked_by || <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        )}
-      </CardContent>
-    </Card>
-  );
+                     <TableCell className="text-sm">
+                       {purchase.booked_by || <span className="text-muted-foreground">—</span>}
+                     </TableCell>
+                     {isAdmin && (
+                       <TableCell>
+                         <div className="flex gap-1">
+                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditPurchase(purchase)}>
+                             <Pencil className="h-3.5 w-3.5" />
+                           </Button>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeletePurchase(purchase)}>
+                             <Trash2 className="h-3.5 w-3.5" />
+                           </Button>
+                         </div>
+                       </TableCell>
+                     )}
+                   </TableRow>
+                 ))}
+               </TableBody>
+             </Table>
+           </ScrollArea>
+         )}
+
+         <EditSaleDialog
+           open={!!editPurchase}
+           onOpenChange={(o) => !o && setEditPurchase(null)}
+           purchase={editPurchase}
+           onSaved={fetchPurchases}
+         />
+         <DeleteSaleDialog
+           open={!!deletePurchase}
+           onOpenChange={(o) => !o && setDeletePurchase(null)}
+           purchase={deletePurchase}
+           onDeleted={fetchPurchases}
+         />
+       </CardContent>
+     </Card>
+   );
 }
