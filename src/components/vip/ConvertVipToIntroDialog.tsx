@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 interface ConvertVipToIntroDialogProps {
   open: boolean;

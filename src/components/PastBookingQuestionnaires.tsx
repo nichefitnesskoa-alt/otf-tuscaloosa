@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { generateSlug } from '@/lib/utils';
 import QuestionnaireResponseViewer from '@/components/QuestionnaireResponseViewer';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
 
