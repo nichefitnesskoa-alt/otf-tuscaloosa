@@ -167,6 +167,7 @@ export function PrepDrawer({
   const [buyingCriteria, setBuyingCriteria] = useState('');
   const [saObjection, setSaObjection] = useState('');
   const [savingBrief, setSavingBrief] = useState(false);
+  const [coachNotesOnBooking, setCoachNotesOnBooking] = useState<string | null>(null);
 
   const defaultBookings = bookings || [{
     id: bookingId, class_date: classDate, intro_time: classTime, coach_name: coachName,
@@ -193,7 +194,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent, sa_buying_criteria, sa_objection' as any)
+        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
@@ -205,6 +206,7 @@ export function PrepDrawer({
       setShoutoutConsent(bookingData?.shoutout_consent ?? null);
       setBuyingCriteria(bookingData?.sa_buying_criteria || '');
       setSaObjection(bookingData?.sa_objection || '');
+      setCoachNotesOnBooking(bookingData?.coach_notes || null);
       setLoading(false);
     });
 
@@ -460,6 +462,18 @@ export function PrepDrawer({
                     </div>
                   </div>
 
+                  {/* Coach Notes (if coach added notes) */}
+                  {coachNotesOnBooking && (
+                    <div className="rounded-lg border-2 border-green-300 dark:border-green-700 overflow-hidden">
+                      <div className="px-3 py-2 bg-green-50/60 dark:bg-green-950/30">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-green-800 dark:text-green-300">COACH NOTES</p>
+                      </div>
+                      <div className="p-3 text-xs">
+                        <p className="font-medium">{coachNotesOnBooking}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Section 3 — Dig Deeper (3 waypoints only) */}
                   <div className="rounded-lg border overflow-hidden">
                     <div className="px-3 py-2 bg-muted/40">
@@ -682,10 +696,10 @@ export function PrepDrawer({
                       </div>
                     </div>
 
-                    {/* ACT 3 */}
+                    {/* THE FOURTH QUARTER */}
                     <div className="rounded-lg border-2 border-primary overflow-hidden">
                       <div className="px-3 py-1.5 bg-primary/10">
-                        <p className="text-[10px] font-bold uppercase text-primary">ACT 3 — The All-Out Sequence (non-negotiable)</p>
+                        <p className="text-[10px] font-bold uppercase text-primary">THE FOURTH QUARTER — ALL-OUT CALLOUT (non-negotiable)</p>
                       </div>
                       <div className="p-3 text-xs space-y-3">
                         <p className="font-bold text-foreground">If class has a traditional all-out:</p>
@@ -905,6 +919,13 @@ export function PrepDrawer({
           </div>
 
           <div style={{ fontSize: '11px' }}>
+            <div className="mb-2 p-1 border border-gray-300" style={{ fontSize: '9px' }}>
+              <div className="font-bold" style={{ fontSize: '10px' }}>THE SYSTEM</div>
+              <div>Goal: they leave with a story worth telling about themselves. Decision made before SA sits down.</div>
+              <div>Your role: plant two seeds. No selling. No pressure.</div>
+              <div>Raffle: members invested in their experience = genuine energy = real close.</div>
+            </div>
+
             <div className="mb-2 p-1.5 border border-gray-400">
               <div className="font-bold">THE SPINE</div>
               <div>"{firstName} leaves with a story worth telling about themselves."</div>
@@ -923,7 +944,7 @@ export function PrepDrawer({
             </div>
 
             <div className="mb-2">
-              <div className="font-bold">ACT 3 — ALL-OUT SEQUENCE</div>
+              <div className="font-bold">THE FOURTH QUARTER — ALL-OUT CALLOUT</div>
               <div>DRUMROLL: "First-timer in the house — {firstName} let's go."</div>
               <div>DURING: "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div>
               <div>CALLOUT: "Everybody — {firstName} just hit their first all-out. Let's go." Hold it.</div>

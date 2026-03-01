@@ -656,6 +656,7 @@ export type Database = {
           closed_at: string | null
           closed_by: string | null
           coach_name: string
+          coach_notes: string | null
           converted_to_booking_id: string | null
           created_at: string
           delete_reason: string | null
@@ -714,6 +715,7 @@ export type Database = {
           closed_at?: string | null
           closed_by?: string | null
           coach_name: string
+          coach_notes?: string | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -772,6 +774,7 @@ export type Database = {
           closed_at?: string | null
           closed_by?: string | null
           coach_name?: string
+          coach_notes?: string | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
