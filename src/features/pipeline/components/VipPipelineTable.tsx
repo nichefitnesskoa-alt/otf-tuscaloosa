@@ -40,6 +40,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

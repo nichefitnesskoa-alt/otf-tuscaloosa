@@ -76,6 +76,7 @@ import { capitalizeName, getLocalDateString } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';

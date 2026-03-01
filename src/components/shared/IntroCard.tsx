@@ -33,7 +33,7 @@ export interface IntroCardProps {
 
   badges?: ReactNode;
   outcomeBadge?: ReactNode;
-  timingInfo?: string;
+  timingInfo?: ReactNode;
   actionButtons: ReactNode;
   secondaryActions?: ReactNode;
   lastContactSummary?: string;

@@ -59,6 +59,7 @@ import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES } from '@/types';
 import { DateRange } from '@/lib/pay-period';
 import { useAuth } from '@/context/AuthContext';
 import { capitalizeName, getLocalDateString } from '@/lib/utils';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 interface DataHealthIssue {
   id: string;
