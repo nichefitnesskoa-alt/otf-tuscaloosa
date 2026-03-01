@@ -6,6 +6,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Shift end times in CST (24h). Auto-close only runs after last shift ends.
+const SHIFT_END_HOURS: Record<string, number> = {
+  'AM Shift': 13,    // 1 PM
+  'Mid Shift': 16,   // 4 PM
+  'PM Shift': 20,    // 8 PM
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,23 +23,38 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const today = new Date().toLocaleDateString("en-CA", {
+    const now = new Date();
+    const today = now.toLocaleDateString("en-CA", {
       timeZone: "America/Chicago",
     }); // YYYY-MM-DD in CST
 
-    console.log(`Auto-close shifts for ${today}`);
+    // Current hour in Central Time for shift-end guard
+    const centralHour = parseInt(
+      now.toLocaleString("en-US", { timeZone: "America/Chicago", hour: "2-digit", hour12: false }),
+      10
+    );
 
-    // 1. Close unsubmitted shift recaps for today
+    console.log(`Auto-close shifts for ${today} (Central hour: ${centralHour})`);
+
+    // 1. Close unsubmitted shift recaps for today — only if their shift has ended
     const { data: openRecaps } = await supabase
       .from("shift_recaps")
-      .select("id, staff_name, shift_date, calls_made, texts_sent, dms_sent, emails_sent")
+      .select("id, staff_name, shift_date, shift_type, calls_made, texts_sent, dms_sent, emails_sent")
       .eq("shift_date", today)
       .is("submitted_at", null);
 
     const closedRecaps: string[] = [];
+    const skippedActiveShifts: string[] = [];
 
     if (openRecaps && openRecaps.length > 0) {
       for (const recap of openRecaps) {
+        // Guard: don't auto-close if the shift hasn't ended yet
+        const shiftEndHour = SHIFT_END_HOURS[recap.shift_type] ?? 20;
+        if (centralHour < shiftEndHour) {
+          skippedActiveShifts.push(`${recap.staff_name} (${recap.shift_type} ends at ${shiftEndHour}:00)`);
+          continue;
+        }
+
         await supabase
           .from("shift_recaps")
           .update({ submitted_at: new Date().toISOString() })
@@ -128,6 +150,9 @@ Deno.serve(async (req) => {
       if (autoCreated.length > 0) {
         lines.push(`Auto-created for: ${autoCreated.join(", ")}`);
       }
+      if (skippedActiveShifts.length > 0) {
+        lines.push(`⏳ Still on shift: ${skippedActiveShifts.join(", ")}`);
+      }
 
       await fetch("https://api.groupme.com/v3/bots/post", {
         method: "POST",
@@ -138,8 +163,10 @@ Deno.serve(async (req) => {
 
     const summary = {
       date: today,
+      centralHour,
       closedRecaps,
       autoCreated,
+      skippedActiveShifts,
       totalProcessed: closedRecaps.length + autoCreated.length,
     };
 

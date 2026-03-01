@@ -8,6 +8,7 @@ import { CheckCircle, Eye, ClipboardList, CheckCheck, Trash2 } from 'lucide-reac
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,9 +93,12 @@ export default function SecondIntroTab({ items, isLoading, onRefresh }: Props) {
                 {item.lastContactAt && (
                   <p>Last contact {formatDistanceToNow(new Date(item.lastContactAt), { addSuffix: true })}</p>
                 )}
-                {item.contactNextDate && (
-                  <p className="text-muted-foreground">Contact next: {format(new Date(item.contactNextDate + 'T12:00:00'), 'MMM d')}</p>
-                )}
+                <ContactNextEditor
+                  bookingId={item.bookingId}
+                  contactNextDate={item.contactNextDate}
+                  rescheduleContactDate={item.rescheduleContactDate}
+                  onSaved={onRefresh}
+                />
               </div>
             }
             actionButtons={

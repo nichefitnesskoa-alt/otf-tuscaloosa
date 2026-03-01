@@ -188,9 +188,9 @@ export default function Recaps() {
 
       {/* Top-level tabs: Members | Commissions | Studio */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="commissions">Commissions</TabsTrigger>
+          {isAdmin && <TabsTrigger value="commissions">Commissions</TabsTrigger>}
           <TabsTrigger value="studio">Studio</TabsTrigger>
         </TabsList>
 
