@@ -9,6 +9,7 @@ import { Send, CalendarPlus, CheckCheck, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -81,9 +82,12 @@ export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProp
               <p>{item.lastContactAt
                 ? `Last contact ${formatDistanceToNow(new Date(item.lastContactAt), { addSuffix: true })}${item.lastContactSummary ? ` via ${item.lastContactSummary}` : ''}`
                 : 'Never contacted'}</p>
-              {item.contactNextDate && (
-                <p className="text-muted-foreground">Contact next: {format(new Date(item.contactNextDate + 'T12:00:00'), 'MMM d')}</p>
-              )}
+              <ContactNextEditor
+                bookingId={item.bookingId}
+                contactNextDate={item.contactNextDate}
+                rescheduleContactDate={item.rescheduleContactDate}
+                onSaved={onRefresh}
+              />
             </div>
           }
           actionButtons={
