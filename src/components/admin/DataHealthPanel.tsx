@@ -1197,10 +1197,9 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
                 </div>
                 <div>
                   <Label className="text-xs">Time</Label>
-                  <Input
-                    type="time"
+                  <ClassTimeSelect
                     value={newBooking.intro_time}
-                    onChange={(e) => setNewBooking({...newBooking, intro_time: e.target.value})}
+                    onValueChange={(v) => setNewBooking({...newBooking, intro_time: v})}
                   />
                 </div>
               </div>

@@ -352,11 +352,10 @@ export default function PastBookingQuestionnaires() {
                         onChange={(e) => setQuickDate(e.target.value)}
                         className="h-8 text-sm w-[140px]"
                       />
-                      <Input
-                        type="time"
+                      <ClassTimeSelect
                         value={quickTime}
-                        onChange={(e) => setQuickTime(e.target.value)}
-                        className="h-8 text-sm w-[110px]"
+                        onValueChange={setQuickTime}
+                        triggerClassName="h-8 text-sm w-[110px]"
                         placeholder="Time (opt)"
                       />
                       <Button size="sm" className="h-8 text-xs" onClick={handleQuickAdd} disabled={quickAdding}>

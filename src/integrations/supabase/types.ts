@@ -664,6 +664,7 @@ export type Database = {
           edit_reason: string | null
           email: string | null
           fitness_goal: string | null
+          followup_dismissed_at: string | null
           id: string
           ignore_from_metrics: boolean | null
           intro_owner: string | null
@@ -721,6 +722,7 @@ export type Database = {
           edit_reason?: string | null
           email?: string | null
           fitness_goal?: string | null
+          followup_dismissed_at?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null
@@ -778,6 +780,7 @@ export type Database = {
           edit_reason?: string | null
           email?: string | null
           fitness_goal?: string | null
+          followup_dismissed_at?: string | null
           id?: string
           ignore_from_metrics?: boolean | null
           intro_owner?: string | null

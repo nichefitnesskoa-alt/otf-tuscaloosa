@@ -600,6 +600,41 @@ export function PrepDrawer({
                     </div>
                   </div>
 
+                  {/* WHAT THEY TOLD US — Coach view (read-only) */}
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/40">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                        <ClipboardList className="w-3.5 h-3.5" /> WHAT THEY TOLD US
+                      </p>
+                    </div>
+                    <div className="p-3 space-y-1.5 text-xs">
+                      {hasQ ? (
+                        <>
+                          {fitnessLevel != null && (
+                            <div><span className="text-muted-foreground">Level:</span> <span className="font-semibold">{fitnessLevel}/5</span></div>
+                          )}
+                          {goal && (
+                            <div><span className="text-muted-foreground">Goal:</span> <span className="font-semibold">"{goal}"</span></div>
+                          )}
+                          {emotionalDriver && (
+                            <div><span className="text-muted-foreground">Why:</span> <span className="font-semibold">"{emotionalDriver}"</span></div>
+                          )}
+                          {obstacle && (
+                            <div><span className="text-muted-foreground">Obstacle:</span> <span className="font-semibold">"{obstacle}"</span></div>
+                          )}
+                          {commitment && (
+                            <div><span className="text-muted-foreground">Commit:</span> <span className="font-semibold">{commitment} days/week</span>{questionnaire?.q6b_available_days ? ` | Days: ${questionnaire.q6b_available_days}` : ''}</div>
+                          )}
+                          {questionnaire?.q7_coach_notes && (
+                            <div><span className="text-muted-foreground">Notes:</span> <span className="font-semibold">"{questionnaire.q7_coach_notes}"</span></div>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground italic">No questionnaire answers yet</p>
+                      )}
+                    </div>
+                  </div>
+
                   <Separator />
 
                   {/* THE ARC */}

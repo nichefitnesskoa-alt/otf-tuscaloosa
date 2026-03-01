@@ -139,13 +139,14 @@ export function useWinTheDayItems() {
 
       const hasLoggedIgToday = (todayIgLeads || []).length > 0;
 
-      // ── 6b. Daily outreach log for cold texts/DMs ──
-      const { data: outreachLogs } = await supabase
-        .from('daily_outreach_log')
-        .select('cold_texts_sent, cold_dms_sent')
-        .eq('log_date', todayStr);
-      const totalTexts = (outreachLogs || []).reduce((sum, l) => sum + (l.cold_texts_sent || 0), 0);
-      const totalDms = (outreachLogs || []).reduce((sum, l) => sum + (l.cold_dms_sent || 0), 0);
+      // ── 6b. Shift recap as single source of truth for texts/DMs ──
+      const { data: shiftRecapData } = await supabase
+        .from('shift_recaps')
+        .select('texts_sent, dms_sent')
+        .eq('staff_name', userName)
+        .eq('shift_date', todayStr);
+      const totalTexts = (shiftRecapData || []).reduce((sum, r) => sum + (r.texts_sent || 0), 0);
+      const totalDms = (shiftRecapData || []).reduce((sum, r) => sum + (r.dms_sent || 0), 0);
 
       // ── 7. Shift recap submitted today ──
       const { data: todayRecap } = await supabase
@@ -427,7 +428,7 @@ export function useWinTheDayItems() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ig_leads' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'win_the_day_reflections' }, () => fetchItems())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'followup_daily_log' }, () => fetchItems())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_outreach_log' }, () => fetchItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_recaps' }, () => fetchItems())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };

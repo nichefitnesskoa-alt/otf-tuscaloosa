@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Tables } from '@/integrations/supabase/types';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { generateUniqueSlug } from '@/lib/utils';
 
 interface BookIntroDialogProps {
@@ -189,7 +190,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           </div>
           <div>
             <Label>Class Time</Label>
-            <Input type="time" value={classTime} onChange={e => setClassTime(e.target.value)} />
+            <ClassTimeSelect value={classTime} onValueChange={setClassTime} />
           </div>
 
           {/* Friend booking toggle */}

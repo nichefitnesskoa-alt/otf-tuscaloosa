@@ -1794,11 +1794,10 @@ export default function ClientJourneyPanel() {
                           onChange={(e) => setBulkDate(e.target.value)}
                           className="h-7 text-xs w-36"
                         />
-                        <Input
-                          type="time"
+                        <ClassTimeSelect
                           value={bulkTime}
-                          onChange={(e) => setBulkTime(e.target.value)}
-                          className="h-7 text-xs w-28"
+                          onValueChange={(v) => setBulkTime(v)}
+                          triggerClassName="h-7 text-xs w-28"
                         />
                         <Button
                           size="sm"
@@ -2239,10 +2238,9 @@ export default function ClientJourneyPanel() {
                   </div>
                   <div>
                     <Label className="text-xs">Time</Label>
-                    <Input
-                      type="time"
+                    <ClassTimeSelect
                       value={editingBooking.intro_time || ''}
-                      onChange={(e) => setEditingBooking({...editingBooking, intro_time: e.target.value})}
+                      onValueChange={(v) => setEditingBooking({...editingBooking, intro_time: v})}
                     />
                   </div>
                 </div>
@@ -2361,10 +2359,9 @@ export default function ClientJourneyPanel() {
                   </div>
                   <div>
                     <Label className="text-xs">Time</Label>
-                    <Input
-                      type="time"
+                    <ClassTimeSelect
                       value={editingRun.class_time || ''}
-                      onChange={(e) => setEditingRun({...editingRun, class_time: e.target.value})}
+                      onValueChange={(v) => setEditingRun({...editingRun, class_time: v})}
                     />
                   </div>
                 </div>
@@ -2939,10 +2936,9 @@ export default function ClientJourneyPanel() {
                 </div>
                 <div>
                   <Label className="text-xs">Time</Label>
-                  <Input
-                    type="time"
+                  <ClassTimeSelect
                     value={newBooking.intro_time}
-                    onChange={(e) => setNewBooking({...newBooking, intro_time: e.target.value})}
+                    onValueChange={(v) => setNewBooking({...newBooking, intro_time: v})}
                   />
                 </div>
               </div>
@@ -3034,10 +3030,9 @@ export default function ClientJourneyPanel() {
                 </div>
                 <div>
                   <Label className="text-xs">Time *</Label>
-                  <Input
-                    type="time"
+                  <ClassTimeSelect
                     value={newRun.class_time}
-                    onChange={(e) => setNewRun({...newRun, class_time: e.target.value})}
+                    onValueChange={(v) => setNewRun({...newRun, class_time: v})}
                   />
                 </div>
               </div>

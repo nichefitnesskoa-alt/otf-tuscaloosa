@@ -808,7 +808,7 @@ export function VipPipelineTable() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Time (optional)</Label>
-              <Input type="time" value={assignTime} onChange={e => setAssignTime(e.target.value)} className="h-8 text-sm" />
+              <ClassTimeSelect value={assignTime} onValueChange={setAssignTime} triggerClassName="h-8 text-sm" />
             </div>
             <Button
               className="w-full h-8 text-sm"
@@ -835,7 +835,7 @@ export function VipPipelineTable() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Time (optional)</Label>
-              <Input type="time" value={bulkTime} onChange={e => setBulkTime(e.target.value)} className="h-8 text-sm" />
+              <ClassTimeSelect value={bulkTime} onValueChange={setBulkTime} triggerClassName="h-8 text-sm" />
             </div>
             <Button
               className="w-full h-8 text-sm"
