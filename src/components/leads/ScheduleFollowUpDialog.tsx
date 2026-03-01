@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { DatePickerField } from '@/components/shared/FormHelpers';
+import { DatePickerField, ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 interface ScheduleFollowUpDialogProps {
   open: boolean;
@@ -65,7 +65,7 @@ export function ScheduleFollowUpDialog({ open, onOpenChange, leadId, onDone }: S
           </div>
           <div>
             <Label>Time</Label>
-            <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+            <ClassTimeSelect value={time} onValueChange={setTime} />
           </div>
           <Button onClick={handleSubmit} disabled={saving || !date} className="w-full">
             {saving ? 'Saving...' : 'Set Follow-Up'}
