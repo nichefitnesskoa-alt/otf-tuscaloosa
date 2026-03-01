@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Loader2, Users, Pencil, Trash2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RefreshCw, Loader2, Users, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
@@ -62,6 +63,9 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<DatePreset>('pay_period');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'intro' | 'outside'>('all');
+  const [sortColumn, setSortColumn] = useState<string>('purchase_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const hasExternalRange = externalDateRange !== undefined;
 
   useEffect(() => {
@@ -189,24 +193,49 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
     }
   }, [dateRange]);
 
-  const stats = useMemo(() => {
-    const total = purchases.reduce((sum, p) => sum + p.commission_amount, 0);
-    const premierCount = purchases.filter(p => 
-      p.membership_type.toLowerCase().includes('premier')
-    ).length;
-    const eliteCount = purchases.filter(p => 
-      p.membership_type.toLowerCase().includes('elite')
-    ).length;
-    const basicCount = purchases.filter(p => 
-      p.membership_type.toLowerCase().includes('basic')
-    ).length;
-    const withOtbeat = purchases.filter(p => 
-      p.membership_type.toLowerCase().includes('+ otbeat')
-    ).length;
-    const outsideCount = purchases.filter(p => p.source === 'outside_intro').length;
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
-    return { total, premierCount, eliteCount, basicCount, withOtbeat, outsideCount };
-  }, [purchases]);
+  const SortIcon = ({ column }: { column: string }) => {
+    if (sortColumn !== column) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="w-3 h-3 ml-1" />
+      : <ArrowDown className="w-3 h-3 ml-1" />;
+  };
+
+  const filteredAndSorted = useMemo(() => {
+    let list = purchases;
+    if (activeTab === 'intro') list = list.filter(p => p.source === 'intro_run');
+    if (activeTab === 'outside') list = list.filter(p => p.source === 'outside_intro');
+
+    return [...list].sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      const col = sortColumn as keyof MembershipPurchase;
+      const av = a[col] ?? '';
+      const bv = b[col] ?? '';
+      if (col === 'commission_amount') return ((av as number) - (bv as number)) * dir;
+      return String(av).localeCompare(String(bv)) * dir;
+    });
+  }, [purchases, activeTab, sortColumn, sortDirection]);
+
+  const stats = useMemo(() => {
+    const list = activeTab === 'all' ? purchases
+      : activeTab === 'intro' ? purchases.filter(p => p.source === 'intro_run')
+      : purchases.filter(p => p.source === 'outside_intro');
+    const total = list.reduce((sum, p) => sum + p.commission_amount, 0);
+    const premierCount = list.filter(p => p.membership_type.toLowerCase().includes('premier')).length;
+    const eliteCount = list.filter(p => p.membership_type.toLowerCase().includes('elite')).length;
+    const basicCount = list.filter(p => p.membership_type.toLowerCase().includes('basic')).length;
+    const withOtbeat = list.filter(p => p.membership_type.toLowerCase().includes('+ otbeat')).length;
+    const outsideCount = list.filter(p => p.source === 'outside_intro').length;
+    return { total, count: list.length, premierCount, eliteCount, basicCount, withOtbeat, outsideCount };
+  }, [purchases, activeTab]);
 
   const getMembershipBadgeVariant = (type: string) => {
     const lower = type.toLowerCase();
@@ -245,6 +274,15 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
         </div>
       </CardHeader>
       <CardContent>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'intro' | 'outside')} className="mb-4">
+          <TabsList className="w-full">
+            <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
+            <TabsTrigger value="intro" className="flex-1">Intro Sales</TabsTrigger>
+            <TabsTrigger value="outside" className="flex-1">Outside Sales</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Stats Summary */}
         <div className="grid grid-cols-7 gap-1.5 mb-4">
           <div className="bg-muted/50 p-2 rounded text-center">
@@ -252,7 +290,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
             <p className="text-[10px] text-muted-foreground leading-tight">Commission</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
-            <p className="text-base font-bold">{purchases.length}</p>
+            <p className="text-base font-bold">{stats.count}</p>
             <p className="text-[10px] text-muted-foreground leading-tight">Total Sales</p>
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
@@ -281,7 +319,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
           <div className="flex justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : purchases.length === 0 ? (
+        ) : filteredAndSorted.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             No membership purchases in this period
           </p>
@@ -290,19 +328,35 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Ran By</TableHead>
-                  <TableHead>Coach</TableHead>
-                  <TableHead>Lead Source</TableHead>
-                   <TableHead>Booked By</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('member_name')}>
+                    <span className="inline-flex items-center">Member<SortIcon column="member_name" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('purchase_date')}>
+                    <span className="inline-flex items-center">Date<SortIcon column="purchase_date" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('membership_type')}>
+                    <span className="inline-flex items-center">Type<SortIcon column="membership_type" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('commission_amount')}>
+                    <span className="inline-flex items-center">Commission<SortIcon column="commission_amount" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('intro_owner')}>
+                    <span className="inline-flex items-center">Ran By<SortIcon column="intro_owner" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('coach')}>
+                    <span className="inline-flex items-center">Coach<SortIcon column="coach" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('lead_source')}>
+                    <span className="inline-flex items-center">Lead Source<SortIcon column="lead_source" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => handleSort('booked_by')}>
+                    <span className="inline-flex items-center">Booked By<SortIcon column="booked_by" /></span>
+                  </TableHead>
                    {isAdmin && <TableHead className="w-[80px]">Actions</TableHead>}
                  </TableRow>
                </TableHeader>
                <TableBody>
-                {purchases.map(purchase => (
+                {filteredAndSorted.map(purchase => (
                   <TableRow key={purchase.id}>
                     <TableCell className="font-medium">
                       {purchase.member_name}
