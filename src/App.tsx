@@ -20,6 +20,7 @@ import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
 import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
+import CoachView from "./pages/CoachView";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
 
@@ -30,11 +31,16 @@ function QuestionnaireRedirect() {
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode; requireAdmin?: boolean }) {
-  const { isAuthenticated, canAccessAdmin } = useAuth();
+function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: React.ReactNode; requireAdmin?: boolean; blockCoach?: boolean }) {
+  const { isAuthenticated, canAccessAdmin, user } = useAuth();
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Coach role can only access /coach-view
+  if (blockCoach && user?.role === 'Coach') {
+    return <Navigate to="/coach-view" replace />;
   }
 
   if (requireAdmin && !canAccessAdmin) {
@@ -45,13 +51,15 @@ function ProtectedRoute({ children, requireAdmin }: { children: React.ReactNode;
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const isCoach = user?.role === 'Coach';
+  const defaultRoute = isCoach ? '/coach-view' : '/my-day';
 
   return (
     <Routes>
       <Route 
         path="/login" 
-        element={isAuthenticated ? <Navigate to="/my-day" replace /> : <Login />} 
+        element={isAuthenticated ? <Navigate to={defaultRoute} replace /> : <Login />} 
       />
       {/* DEPRECATED: functionality moved to MyDay */}
       <Route path="/shift-recap" element={<Navigate to="/my-day" replace />} />
@@ -62,7 +70,7 @@ function AppRoutes() {
       <Route
         path="/recaps"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <Recaps />
           </ProtectedRoute>
         }
@@ -71,7 +79,7 @@ function AppRoutes() {
       <Route
         path="/my-shifts"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <MyShifts />
           </ProtectedRoute>
         }
@@ -79,7 +87,7 @@ function AppRoutes() {
       <Route
         path="/scripts"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <Scripts />
           </ProtectedRoute>
         }
@@ -87,7 +95,7 @@ function AppRoutes() {
       <Route
         path="/pipeline"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <Pipeline />
           </ProtectedRoute>
         }
@@ -103,7 +111,7 @@ function AppRoutes() {
       <Route
         path="/settings"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <SettingsPage />
           </ProtectedRoute>
         }
@@ -111,7 +119,7 @@ function AppRoutes() {
       <Route
         path="/meeting"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <Meeting />
           </ProtectedRoute>
         }
@@ -123,12 +131,20 @@ function AppRoutes() {
       <Route
         path="/my-day"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute blockCoach>
             <MyDay />
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/my-day" replace />} />
+      <Route
+        path="/coach-view"
+        element={
+          <ProtectedRoute>
+            <CoachView />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

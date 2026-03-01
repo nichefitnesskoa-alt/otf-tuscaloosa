@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -9,14 +9,34 @@ export function BottomNav() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
+  const isCoach = user?.role === 'Coach';
   const { failCount } = useDataAudit(isAdmin);
+
+  // Coach sees only Coach View
+  if (isCoach) {
+    return (
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
+        <div className="flex items-center justify-around h-16">
+          <button
+            onClick={() => navigate('/coach-view')}
+            className="flex flex-col items-center justify-center flex-1 h-full px-1 text-primary"
+          >
+            <Eye className="w-5 h-5 mb-0.5 stroke-[2.5px]" />
+            <span className="text-[11px] font-semibold">Coach View</span>
+            <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />
+          </button>
+        </div>
+      </nav>
+    );
+  }
 
   const visibleItems = [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
-    // Pipeline + Admin tabs only visible to users with Admin role
-    ...(user?.role === 'Admin' ? [
+    // Pipeline + Admin + Coach View tabs only visible to users with Admin role
+    ...(isAdmin ? [
       { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+      { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/admin', label: 'Admin', icon: Settings },
     ] : []),
   ];

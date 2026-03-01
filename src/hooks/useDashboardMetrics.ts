@@ -247,6 +247,13 @@ export function useDashboardMetrics(
       const runsByBooking = new Map<string, IntroRun[]>();
       const unlinkedRuns: IntroRun[] = [];
       
+      let introsRunCount = 0;
+      let salesCount = 0;
+      let salesCommission = 0;
+      let salesFromSecondIntros = 0;
+      let secondIntroCommission = 0;
+      const saFirstRuns: IntroRun[] = [];
+
       saRuns.forEach(run => {
         if (run.linked_intro_booked_id) {
           if (firstIntroBookingIds.has(run.linked_intro_booked_id)) {
@@ -265,13 +272,6 @@ export function useDashboardMetrics(
           unlinkedRuns.push(run);
         }
       });
-
-      let introsRunCount = 0;
-      let salesCount = 0;
-      let salesCommission = 0;
-      let salesFromSecondIntros = 0;
-      let secondIntroCommission = 0;
-      const saFirstRuns: IntroRun[] = [];
       
       // Count linked runs - use run_date for intros, sale date for sales
       runsByBooking.forEach((runs) => {
