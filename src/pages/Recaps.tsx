@@ -32,7 +32,7 @@ export default function Recaps() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, shiftRecaps, followUpQueue, followupTouches, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [mainTab, setMainTab] = useState('sales');
+  const [mainTab, setMainTab] = useState('studio');
 
   // Date filter state
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
