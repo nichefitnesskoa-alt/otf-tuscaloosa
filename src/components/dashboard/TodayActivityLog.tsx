@@ -83,7 +83,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
     if (!user?.name) return;
     setLoading(true);
     try {
-      const [bookingsRes, outcomesRes, salesRes] = await Promise.all([
+      const [bookingsRes, outcomesCreatedRes, outcomesEditedRes, salesRes] = await Promise.all([
         // Bookings created today by this SA (exclude VIP/COMP)
         supabase
           .from('intros_booked')
@@ -94,26 +94,53 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
           .not('booking_type_canon', 'in', '("VIP","COMP")')
           .order('created_at', { ascending: true }),
 
-        // Outcomes logged today by this SA (intros_run)
+        // Outcomes CREATED today (standard logging)
         supabase
           .from('intros_run')
-          .select('id, member_name, result, commission_amount, created_at, linked_intro_booked_id')
-          .eq('sa_name', user.name)
+          .select('id, member_name, result, commission_amount, created_at, linked_intro_booked_id, sa_name, intro_owner, last_edited_at')
           .gte('created_at', todayStart)
           .order('created_at', { ascending: true }),
 
-        // Outside sales logged today by this SA
+        // Outcomes EDITED today but created earlier (follow-up purchases)
+        supabase
+          .from('intros_run')
+          .select('id, member_name, result, commission_amount, created_at, linked_intro_booked_id, sa_name, intro_owner, last_edited_at')
+          .lt('created_at', todayStart)
+          .gte('last_edited_at', todayStart)
+          .order('last_edited_at', { ascending: true }),
+
+        // Outside sales logged today
         supabase
           .from('sales_outside_intro')
           .select('id, member_name, membership_type, sale_type, commission_amount, created_at')
-          .eq('intro_owner', user.name)
           .gte('created_at', todayStart)
           .order('created_at', { ascending: true }),
       ]);
 
       setBookings((bookingsRes.data || []) as TodayBooking[]);
-      setOutcomes((outcomesRes.data || []) as TodayOutcome[]);
-      setSales((salesRes.data || []) as TodaySale[]);
+
+      // Merge created + edited outcomes, dedup by id, filter to this SA
+      const allOutcomes = [
+        ...(outcomesCreatedRes.data || []),
+        ...(outcomesEditedRes.data || []),
+      ] as (TodayOutcome & { sa_name?: string; intro_owner?: string })[];
+
+      const seenIds = new Set<string>();
+      const dedupedOutcomes: TodayOutcome[] = [];
+      for (const o of allOutcomes) {
+        if (seenIds.has(o.id)) continue;
+        seenIds.add(o.id);
+        // Show if this SA created it, owns it, or edited it
+        const belongsToUser = o.sa_name === user.name || o.intro_owner === user.name;
+        if (belongsToUser) {
+          dedupedOutcomes.push(o);
+        }
+      }
+      setOutcomes(dedupedOutcomes);
+
+      // Filter outside sales to this SA
+      const allSales = (salesRes.data || []) as TodaySale[];
+      setSales(allSales.filter((s: any) => s.intro_owner === user.name || !s.intro_owner));
     } finally {
       setLoading(false);
     }
