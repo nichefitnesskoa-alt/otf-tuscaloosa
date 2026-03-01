@@ -1,13 +1,13 @@
 /**
  * Follow-Up data hook — queries intros_run + intros_booked to build 4 follow-up arrays.
  *
- * Tab 1: No-Show — result_canon = 'NO_SHOW' OR past booking with no run. Exclude future unrun bookings.
- * Tab 2: Follow-Up Needed — result = 'Follow-up needed' AND no future 2nd intro. OR 2nd intro ran non-terminal.
+ * Tab 1: No-Show — result_canon = 'NO_SHOW'.
+ * Tab 2: Missed Guests — merged missed guest (no outcome, past) + follow-up needed.
  * Tab 3: 2nd Intro — originating_booking_id IS NOT NULL AND no matching run.
  * Tab 4: Plans to Reschedule — booking_status_canon = 'PLANNING_RESCHEDULE' AND no future booking.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface FollowUpItem {
@@ -30,6 +30,10 @@ export interface FollowUpItem {
   /** Last touch info */
   lastContactAt: string | null;
   lastContactSummary: string | null;
+  /** Contact next date */
+  contactNextDate: string | null;
+  /** Badge type for merged tab */
+  badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
@@ -41,10 +45,25 @@ function isTerminal(result: string | null): boolean {
   return PURCHASE_RESULTS.some(p => result.includes(p));
 }
 
+function computeContactNext(classDate: string, type: 'noshow' | 'missed' | 'secondintro' | 'reschedule'): string | null {
+  try {
+    const d = new Date(classDate + 'T12:00:00');
+    switch (type) {
+      case 'noshow':
+        return format(addDays(d, 1), 'yyyy-MM-dd');
+      case 'missed':
+        return format(addDays(d, 3), 'yyyy-MM-dd');
+      case 'secondintro':
+        return format(addDays(d, 1), 'yyyy-MM-dd');
+      case 'reschedule':
+        return format(addDays(d, 2), 'yyyy-MM-dd');
+    }
+  } catch { return null; }
+}
+
 export function useFollowUpData() {
   const [noShow, setNoShow] = useState<FollowUpItem[]>([]);
-  const [missedGuest, setMissedGuest] = useState<FollowUpItem[]>([]);
-  const [followUpNeeded, setFollowUpNeeded] = useState<FollowUpItem[]>([]);
+  const [missedGuests, setMissedGuests] = useState<FollowUpItem[]>([]);
   const [secondIntro, setSecondIntro] = useState<FollowUpItem[]>([]);
   const [plansToReschedule, setPlansToReschedule] = useState<FollowUpItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +74,6 @@ export function useFollowUpData() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const cutoff = format(subDays(new Date(), 90), 'yyyy-MM-dd');
 
-      // Fetch all runs in last 90 days (exclude VIP)
       const { data: runs } = await supabase
         .from('intros_run')
         .select('id, member_name, result, result_canon, linked_intro_booked_id, coach_name, run_date, class_time, lead_source, primary_objection, notes, is_vip')
@@ -63,15 +81,14 @@ export function useFollowUpData() {
         .eq('is_vip', false)
         .order('run_date', { ascending: false });
 
-      // Fetch all bookings in last 90 days (exclude VIP/COMP)
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip')
+        .select('id, member_name, class_date, intro_time, coach_name, lead_source, phone, email, booking_status_canon, originating_booking_id, deleted_at, reschedule_contact_date, booking_type_canon, is_vip, followup_dismissed_at')
         .gte('class_date', cutoff)
         .is('deleted_at', null)
+        .is('followup_dismissed_at' as any, null)
         .not('booking_type_canon', 'in', '("VIP","COMP")');
 
-      // Fetch recent touches for last contact info
       const { data: touches } = await supabase
         .from('script_actions')
         .select('booking_id, completed_at, action_type, script_category')
@@ -90,7 +107,15 @@ export function useFollowUpData() {
         runsByBookingId.set(r.linked_intro_booked_id, arr);
       }
 
-      // Future unrun bookings by member name (for exclusion)
+      // Check terminal outcomes across ALL runs for a member name
+      const terminalMembers = new Set<string>();
+      for (const r of runs) {
+        if (isTerminal(r.result)) {
+          terminalMembers.add(r.member_name.toLowerCase());
+        }
+      }
+
+      // Future unrun bookings by member name
       const futureUnrunByName = new Map<string, typeof bookings>();
       for (const b of bookings) {
         if (b.class_date >= today && !runsByBookingId.has(b.id)) {
@@ -101,7 +126,7 @@ export function useFollowUpData() {
         }
       }
 
-      // 2nd intro bookings (unrun) by originating_booking_id
+      // 2nd intro bookings by originating_booking_id
       const secondIntroByOrigin = new Map<string, (typeof bookings)[0]>();
       for (const b of bookings) {
         if (b.originating_booking_id && !runsByBookingId.has(b.id) && b.class_date >= today) {
@@ -109,7 +134,7 @@ export function useFollowUpData() {
         }
       }
 
-      // Touch lookup by booking_id
+      // Touch lookup
       const touchByBooking = new Map<string, { at: string; summary: string }>();
       for (const t of (touches || [])) {
         if (!t.booking_id || touchByBooking.has(t.booking_id)) continue;
@@ -121,22 +146,32 @@ export function useFollowUpData() {
 
       const noShowItems: FollowUpItem[] = [];
       const missedGuestItems: FollowUpItem[] = [];
-      const fuNeededItems: FollowUpItem[] = [];
       const secondIntroItems: FollowUpItem[] = [];
       const plansItems: FollowUpItem[] = [];
 
-      // Track processed member names to avoid duplicates
       const processed = new Set<string>();
+      // Track names in 2nd intro tab for priority dedup
+      const inSecondIntroTab = new Set<string>();
 
-      // Process runs for No-Show and Follow-Up Needed
+      // First pass: collect 2nd intro tab members
+      for (const b of bookings) {
+        if (b.originating_booking_id && !runsByBookingId.has(b.id)) {
+          inSecondIntroTab.add(b.member_name.toLowerCase());
+        }
+      }
+
+      // Process runs for No-Show, Missed Guests (follow-up needed), Plans to Reschedule
       for (const r of runs) {
         const bookingId = r.linked_intro_booked_id;
         if (!bookingId) continue;
         const key = `${r.member_name.toLowerCase()}-${bookingId}`;
         if (processed.has(key)) continue;
+        const memberNameLower = r.member_name.toLowerCase();
+
+        // Skip terminal outcomes
+        if (terminalMembers.has(memberNameLower)) continue;
 
         const booking = bookings.find(b => b.id === bookingId);
-        const memberNameLower = r.member_name.toLowerCase();
         const hasFutureUnrun = futureUnrunByName.has(memberNameLower);
         const touch = touchByBooking.get(bookingId);
 
@@ -158,50 +193,54 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
+          contactNextDate: null,
+          badgeType: undefined,
         };
 
         // No-Show tab
         if (r.result_canon === 'NO_SHOW' && !hasFutureUnrun) {
           processed.add(key);
+          item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'noshow');
           noShowItems.push(item);
           continue;
         }
 
-        // Follow-Up Needed tab
+        // Follow-Up Needed → merged into Missed Guests tab
         const isFUNeeded = r.result === 'Follow-up needed' || r.result_canon === 'DIDNT_BUY';
         if (isFUNeeded) {
-          // Check if 2nd intro already booked (unrun)
           if (secondIntroByOrigin.has(bookingId)) {
-            // State C: auto-moves to 2nd Intro tab — skip here
-          } else {
+            // Auto-moves to 2nd Intro tab
+          } else if (!inSecondIntroTab.has(memberNameLower)) {
             processed.add(key);
             item.followUpState = 'A';
-            fuNeededItems.push(item);
+            item.badgeType = 'follow_up_needed';
+            item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'missed');
+            missedGuestItems.push(item);
           }
           continue;
         }
 
-        // State B: 2nd intro ran with non-terminal outcome
+        // State B: 2nd intro ran with non-terminal outcome → merged into Missed Guests
         if (booking?.originating_booking_id && !isTerminal(r.result)) {
-          processed.add(key);
-          item.followUpState = 'B';
-          item.isSecondIntro = true;
-          fuNeededItems.push(item);
+          if (!inSecondIntroTab.has(memberNameLower)) {
+            processed.add(key);
+            item.followUpState = 'B';
+            item.isSecondIntro = true;
+            item.badgeType = 'state_b';
+            item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'secondintro');
+            missedGuestItems.push(item);
+          }
           continue;
         }
 
-        // Plans to Reschedule (from run result)
+        // Plans to Reschedule
         if (r.result === 'Plans to Reschedule' || r.result_canon === 'PLANNING_RESCHEDULE') {
           if (!hasFutureUnrun) {
             processed.add(key);
-            // Default contact date: 2 days after class
             if (!item.rescheduleContactDate && item.classDate) {
-              try {
-                const d = new Date(item.classDate + 'T12:00:00');
-                d.setDate(d.getDate() + 2);
-                item.rescheduleContactDate = format(d, 'yyyy-MM-dd');
-              } catch {}
+              item.rescheduleContactDate = computeContactNext(item.classDate, 'reschedule');
             }
+            item.contactNextDate = item.rescheduleContactDate;
             plansItems.push(item);
           }
           continue;
@@ -210,17 +249,20 @@ export function useFollowUpData() {
 
       // Process bookings for missed guests (past, no run, no outcome)
       for (const b of bookings) {
-        if (b.class_date >= today) continue; // not past
-        if (runsByBookingId.has(b.id)) continue; // has a run
-        if (b.originating_booking_id) continue; // 2nd intro booking handled separately
+        if (b.class_date >= today) continue;
+        if (runsByBookingId.has(b.id)) continue;
+        if (b.originating_booking_id) continue;
         const memberNameLower = b.member_name.toLowerCase();
+        if (terminalMembers.has(memberNameLower)) continue;
+        if (inSecondIntroTab.has(memberNameLower)) continue;
         const key = `${memberNameLower}-${b.id}`;
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
         if (b.booking_status_canon === 'CANCELLED') continue;
 
         const touch = touchByBooking.get(b.id);
-        const item: FollowUpItem = {
+        processed.add(key);
+        missedGuestItems.push({
           bookingId: b.id,
           runId: null,
           memberName: b.member_name,
@@ -238,15 +280,17 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
-        };
-        processed.add(key);
-        missedGuestItems.push(item);
+          contactNextDate: computeContactNext(b.class_date, 'missed'),
+          badgeType: 'no_outcome',
+        });
       }
 
-      // Process bookings for 2nd Intro tab (unrun 2nd intro bookings)
+      // Process bookings for 2nd Intro tab
       for (const b of bookings) {
         if (!b.originating_booking_id) continue;
-        if (runsByBookingId.has(b.id)) continue; // already ran
+        if (runsByBookingId.has(b.id)) continue;
+        const memberNameLower = b.member_name.toLowerCase();
+        if (terminalMembers.has(memberNameLower)) continue;
         const key = `2nd-${b.id}`;
         if (processed.has(key)) continue;
 
@@ -270,13 +314,16 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
+          contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
+          badgeType: undefined,
         });
       }
 
-      // Process bookings for Plans to Reschedule (by booking status)
+      // Process bookings for Plans to Reschedule
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
         const memberNameLower = b.member_name.toLowerCase();
+        if (terminalMembers.has(memberNameLower)) continue;
         const key = `plan-${b.id}`;
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
@@ -284,11 +331,7 @@ export function useFollowUpData() {
         const touch = touchByBooking.get(b.id);
         let contactDate = (b as any).reschedule_contact_date;
         if (!contactDate && b.class_date) {
-          try {
-            const d = new Date(b.class_date + 'T12:00:00');
-            d.setDate(d.getDate() + 2);
-            contactDate = format(d, 'yyyy-MM-dd');
-          } catch {}
+          contactDate = computeContactNext(b.class_date, 'reschedule');
         }
 
         processed.add(key);
@@ -310,16 +353,16 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
+          contactNextDate: contactDate,
+          badgeType: undefined,
         });
       }
 
-      // Sort all by class date descending (most recent first)
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
 
       setNoShow(noShowItems.sort(sortByDate));
-      setMissedGuest(missedGuestItems.sort(sortByDate));
-      setFollowUpNeeded(fuNeededItems.sort(sortByDate));
+      setMissedGuests(missedGuestItems.sort(sortByDate));
       setSecondIntro(secondIntroItems.sort(sortByDate));
       setPlansToReschedule(plansItems.sort(sortByDate));
     } catch (err) {
@@ -333,17 +376,15 @@ export function useFollowUpData() {
 
   const counts = useMemo(() => ({
     noShow: noShow.length,
-    missedGuest: missedGuest.length,
-    followUpNeeded: followUpNeeded.length,
+    missedGuests: missedGuests.length,
     secondIntro: secondIntro.length,
     plansToReschedule: plansToReschedule.length,
-    total: noShow.length + missedGuest.length + followUpNeeded.length + secondIntro.length + plansToReschedule.length,
-  }), [noShow, missedGuest, followUpNeeded, secondIntro, plansToReschedule]);
+    total: noShow.length + missedGuests.length + secondIntro.length + plansToReschedule.length,
+  }), [noShow, missedGuests, secondIntro, plansToReschedule]);
 
   return {
     noShow,
-    missedGuest,
-    followUpNeeded,
+    missedGuests,
     secondIntro,
     plansToReschedule,
     counts,

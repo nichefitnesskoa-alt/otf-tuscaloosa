@@ -11,7 +11,7 @@ interface UpcomingIntrosFiltersProps {
 
 const RANGES: { value: TimeRange; label: string }[] = [
   { value: 'today', label: 'Today' },
-  { value: 'restOfWeek', label: 'Rest of week' },
+  { value: 'restOfWeek', label: 'Week' },
   { value: 'needsOutcome', label: 'Needs Outcome' },
 ];
 

@@ -25,13 +25,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
 import { isMembershipSale } from '@/lib/sales-detection';
+import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
+import PayPeriodCommission from '@/components/PayPeriodCommission';
 
 export default function Recaps() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, shiftRecaps, followUpQueue, followupTouches, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [mainTab, setMainTab] = useState('studio');
 
-  // Date filter state - same as Personal Dashboard
+  // Date filter state
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   
@@ -135,8 +138,6 @@ export default function Recaps() {
     setIsRefreshing(false);
   };
 
-  
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -147,11 +148,11 @@ export default function Recaps() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Studio Scoreboard
+            Studio
           </h1>
           <Button
             variant="ghost"
@@ -163,9 +164,6 @@ export default function Recaps() {
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground mb-1">
-          Studio-wide performance metrics and leaderboards
-        </p>
         {lastUpdated && (
           <p className="text-xs text-muted-foreground/70">
             Last updated: {format(lastUpdated, 'h:mm:ss a')}
@@ -174,13 +172,10 @@ export default function Recaps() {
         
         {/* Filters Row */}
         <div className="flex flex-wrap items-center gap-2 mt-3">
-          {/* Admin View-as Employee Filter */}
           <EmployeeFilter 
             selectedEmployee={selectedEmployee}
             onEmployeeChange={setSelectedEmployee}
           />
-          
-          {/* Global Date Filter - same as Personal Dashboard */}
           <DateRangeFilter
             preset={datePreset}
             customRange={customRange}
@@ -191,63 +186,69 @@ export default function Recaps() {
         </div>
       </div>
 
-      {/* Studio Scoreboard Card */}
-      <StudioScoreboard
-        introsRun={scoreboardIntrosRun}
-        introSales={scoreboardSales}
-        closingRate={scoreboardClosingRate}
-        qCompletionRate={qCompletionRate}
-        prepRate={prepRate}
-        introsBooked={scoreboardBooked}
-        introsShowed={scoreboardShowed}
-        noShows={scoreboardNoShows}
-      />
-
-      {/* Lead Measures by SA */}
-      <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
-
-      {/* Conversion Funnel with 1st/2nd Intro dual-row view */}
-
-      {/* Conversion Funnel with 1st/2nd Intro toggle */}
-      <ConversionFunnel dateRange={dateRange} />
-
-      {/* Lead Source Analytics */}
-      <LeadSourceChart data={filteredLeadSource} />
-
-      {/* Referral Leaderboard */}
-      <ReferralLeaderboard />
-
-      {/* Top Performers - only show when viewing all staff */}
-      {/* Runner & Booker Stats Tabs */}
-      <Tabs defaultValue="runner">
+      {/* Top-level tabs: Members | Commissions | Studio */}
+      <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="runner">Runner Stats</TabsTrigger>
-          <TabsTrigger value="booker">Booker Stats</TabsTrigger>
-          <TabsTrigger value="outreach">Outreach</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="commissions">Commissions</TabsTrigger>
+          <TabsTrigger value="studio">Studio</TabsTrigger>
         </TabsList>
-        <TabsContent value="runner">
-          <PerSATable data={filteredPerSA} />
+
+        <TabsContent value="members" className="mt-4">
+          <MembershipPurchasesPanel externalDateRange={dateRange} />
         </TabsContent>
-        <TabsContent value="booker">
-          <BookerStatsTable data={filteredBookerStats} />
+
+        <TabsContent value="commissions" className="mt-4">
+          <PayPeriodCommission dateRange={dateRange} />
         </TabsContent>
-        <TabsContent value="outreach">
-          <OutreachTable data={filteredOutreach} loading={leadMeasuresLoading} />
+
+        <TabsContent value="studio" className="space-y-4 mt-4">
+          <StudioScoreboard
+            introsRun={scoreboardIntrosRun}
+            introSales={scoreboardSales}
+            closingRate={scoreboardClosingRate}
+            qCompletionRate={qCompletionRate}
+            prepRate={prepRate}
+            introsBooked={scoreboardBooked}
+            introsShowed={scoreboardShowed}
+            noShows={scoreboardNoShows}
+          />
+
+          <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
+          <ConversionFunnel dateRange={dateRange} />
+          <LeadSourceChart data={filteredLeadSource} />
+          <ReferralLeaderboard />
+
+          <Tabs defaultValue="runner">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="runner">Runner Stats</TabsTrigger>
+              <TabsTrigger value="booker">Booker Stats</TabsTrigger>
+              <TabsTrigger value="outreach">Outreach</TabsTrigger>
+            </TabsList>
+            <TabsContent value="runner">
+              <PerSATable data={filteredPerSA} />
+            </TabsContent>
+            <TabsContent value="booker">
+              <BookerStatsTable data={filteredBookerStats} />
+            </TabsContent>
+            <TabsContent value="outreach">
+              <OutreachTable data={filteredOutreach} loading={leadMeasuresLoading} />
+            </TabsContent>
+          </Tabs>
+
+          <Card className="bg-muted/30">
+            <CardContent className="p-3">
+              <p className="text-xs text-muted-foreground">
+                <strong>Studio Scoreboard</strong> = all metrics across all staff
+                <br />
+                <strong>Runner Stats</strong> = metrics credited to intro_owner (who ran first intro)
+                <br />
+                <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Legend Card */}
-      <Card className="bg-muted/30">
-        <CardContent className="p-3">
-          <p className="text-xs text-muted-foreground">
-            <strong>Studio Scoreboard</strong> = all metrics across all staff
-            <br />
-            <strong>Runner Stats</strong> = metrics credited to intro_owner (who ran first intro)
-            <br />
-            <strong>Booker Stats</strong> = credit for scheduling intros (as booked_by)
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

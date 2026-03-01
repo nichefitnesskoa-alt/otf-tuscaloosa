@@ -290,6 +290,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
               const dayLabel = format(d, 'EEE');
               const dateLabel = format(d, 'M/d');
               const isActive = selectedWeekDay === g.date;
+              const isToday = g.date === format(new Date(), 'yyyy-MM-dd');
               return (
                 <button
                   key={g.date}
@@ -297,10 +298,12 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                   className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     isActive
                       ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
+                      : isToday
+                        ? 'bg-accent/60 text-accent-foreground border-primary/50 ring-1 ring-primary/30'
+                        : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
                   }`}
                 >
-                  <span>{dayLabel}</span>
+                  <span>{dayLabel}{isToday && !isActive ? ' •' : ''}</span>
                   <span className="text-[10px]">{dateLabel}</span>
                   <Badge variant={isActive ? 'secondary' : 'outline'} className="h-3.5 px-1 text-[9px] mt-0.5">
                     {g.items.length}
@@ -317,7 +320,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
         ) : dayGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {timeRange === 'today' ? 'No intros scheduled for today' 
-              : timeRange === 'restOfWeek' ? 'No intros for the rest of this week'
+              : timeRange === 'restOfWeek' ? 'No intros this week'
               : 'No past intros need an outcome — you\'re all caught up!'}
           </p>
         ) : (

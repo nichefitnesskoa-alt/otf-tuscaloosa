@@ -109,7 +109,7 @@ export function ConvertVipToIntroDialog({
           </div>
           <div>
             <Label className="text-xs">Intro Time (optional)</Label>
-            <Input type="time" value={introTime} onChange={e => setIntroTime(e.target.value)} />
+            <ClassTimeSelect value={introTime} onValueChange={setIntroTime} placeholder="Select time..." />
           </div>
           <div>
             <Label className="text-xs">Coach</Label>

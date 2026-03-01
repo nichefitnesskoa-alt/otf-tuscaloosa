@@ -10,7 +10,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import PayPeriodCommission from '@/components/PayPeriodCommission';
+
 import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 
 // CoachPerformance removed from Overview - available in Coaching tab and Studio
@@ -611,8 +611,6 @@ export default function Admin() {
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
 
-          {/* Pay Period Commission */}
-          <PayPeriodCommission dateRange={dateRange} />
         </TabsContent>
 
         {/* Data Management Tab */}

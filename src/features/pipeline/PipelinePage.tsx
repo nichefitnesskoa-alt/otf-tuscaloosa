@@ -44,7 +44,7 @@ import { PipelineSpreadsheet } from './components/PipelineSpreadsheet';
 import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import { VipPipelineTable } from './components/VipPipelineTable';
-import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
+
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
 
@@ -199,8 +199,6 @@ export default function PipelinePage() {
         </CardContent>
       </Card>
 
-      {/* Members Who Bought */}
-      <MembershipPurchasesPanel />
 
       {/* All dialogs */}
       <PipelineDialogs

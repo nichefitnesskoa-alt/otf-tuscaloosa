@@ -1,6 +1,6 @@
 /**
  * Four-tab follow-up system that lives inside the MyDay F/U tab.
- * Tabs: No-Show · Follow-Up Needed · 2nd Intro · Plans to Reschedule
+ * Tabs: No-Show · Missed Guests · 2nd Intro · Plans to Reschedule
  */
 import { useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,7 +9,6 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFollowUpData } from './useFollowUpData';
 import NoShowTab from './NoShowTab';
-import MissedGuestTab from './MissedGuestTab';
 import FollowUpNeededTab from './FollowUpNeededTab';
 import SecondIntroTab from './SecondIntroTab';
 import PlansToRescheduleTab from './PlansToRescheduleTab';
@@ -20,7 +19,7 @@ interface FollowUpTabsProps {
 }
 
 export default function FollowUpTabs({ onCountChange, onRefresh }: FollowUpTabsProps) {
-  const { noShow, missedGuest, followUpNeeded, secondIntro, plansToReschedule, counts, isLoading, refresh } = useFollowUpData();
+  const { noShow, missedGuests, secondIntro, plansToReschedule, counts, isLoading, refresh } = useFollowUpData();
 
   useEffect(() => {
     onCountChange?.(counts.total);
@@ -50,23 +49,17 @@ export default function FollowUpTabs({ onCountChange, onRefresh }: FollowUpTabsP
       </div>
 
       <Tabs defaultValue="noshow" className="w-full">
-        <TabsList className="w-full grid grid-cols-5 h-auto gap-0 bg-muted/60 p-0 rounded-lg">
+        <TabsList className="w-full grid grid-cols-4 h-auto gap-0 bg-muted/60 p-0 rounded-lg">
           <TabsTrigger value="noshow" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <span>No-Show</span>
             <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px]">
               {counts.noShow}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="missedguest" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="missedguests" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <span>Missed</span>
             <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px]">
-              {counts.missedGuest}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="followup" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <span>Follow-Up</span>
-            <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px]">
-              {counts.followUpNeeded}
+              {counts.missedGuests}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="secondintro" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -86,11 +79,8 @@ export default function FollowUpTabs({ onCountChange, onRefresh }: FollowUpTabsP
         <TabsContent value="noshow" className="mt-3">
           <NoShowTab items={noShow} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
-        <TabsContent value="missedguest" className="mt-3">
-          <MissedGuestTab items={missedGuest} isLoading={isLoading} onRefresh={handleRefresh} />
-        </TabsContent>
-        <TabsContent value="followup" className="mt-3">
-          <FollowUpNeededTab items={followUpNeeded} isLoading={isLoading} onRefresh={handleRefresh} />
+        <TabsContent value="missedguests" className="mt-3">
+          <FollowUpNeededTab items={missedGuests} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
         <TabsContent value="secondintro" className="mt-3">
           <SecondIntroTab items={secondIntro} isLoading={isLoading} onRefresh={handleRefresh} />

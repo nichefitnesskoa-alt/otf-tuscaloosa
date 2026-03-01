@@ -46,16 +46,25 @@ interface MembershipPurchase {
   source: 'intro_run' | 'outside_intro';
 }
 
-export default function MembershipPurchasesPanel() {
+interface MembershipPurchasesPanelProps {
+  externalDateRange?: DateRange | null;
+}
+
+export default function MembershipPurchasesPanel({ externalDateRange }: MembershipPurchasesPanelProps = {}) {
   const [purchases, setPurchases] = useState<MembershipPurchase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<DatePreset>('pay_period');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const hasExternalRange = externalDateRange !== undefined;
 
   useEffect(() => {
-    const range = getDateRangeForPreset(selectedPeriod);
-    setDateRange(range);
-  }, [selectedPeriod]);
+    if (hasExternalRange) {
+      setDateRange(externalDateRange || null);
+    } else {
+      const range = getDateRangeForPreset(selectedPeriod);
+      setDateRange(range);
+    }
+  }, [selectedPeriod, externalDateRange, hasExternalRange]);
 
   const fetchPurchases = async () => {
     if (!dateRange) return;
@@ -208,18 +217,20 @@ export default function MembershipPurchasesPanel() {
             Members Who Bought
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as DatePreset)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DATE_PRESETS.map(preset => (
-                  <SelectItem key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!hasExternalRange && (
+              <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as DatePreset)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_PRESETS.map(preset => (
+                    <SelectItem key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button variant="ghost" size="sm" onClick={fetchPurchases} disabled={isLoading}>
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>

@@ -695,7 +695,7 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Time <span className="text-destructive">*</span></Label>
-                <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} className="h-8 text-sm" />
+                <ClassTimeSelect value={rescheduleTime} onValueChange={setRescheduleTime} triggerClassName="h-8 text-sm" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Coach <span className="text-destructive">*</span></Label>

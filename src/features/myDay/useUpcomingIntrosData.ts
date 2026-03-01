@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, endOfWeek, addDays, subDays } from 'date-fns';
+import { format, endOfWeek, startOfWeek, addDays, subDays } from 'date-fns';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayTypes';
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
@@ -31,15 +31,10 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
     case 'today':
       return { start: today, end: today };
     case 'restOfWeek': {
-      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
-      // End of week = Sunday
+      // Full week: Monday through Sunday
+      const monday = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      // If today is Sunday, show next week
-      if (tomorrow > sunday) {
-        const nextSunday = format(endOfWeek(addDays(new Date(), 7), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-        return { start: tomorrow, end: nextSunday };
-      }
-      return { start: tomorrow, end: sunday };
+      return { start: monday, end: sunday };
     }
     case 'needsOutcome': {
       // Past 45 days, excluding today
