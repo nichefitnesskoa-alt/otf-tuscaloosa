@@ -32,7 +32,7 @@ export default function Recaps() {
   const { user } = useAuth();
   const { introsBooked, introsRun, sales, shiftRecaps, followUpQueue, followupTouches, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [mainTab, setMainTab] = useState('studio');
+  const [mainTab, setMainTab] = useState('sales');
 
   // Date filter state
   const [datePreset, setDatePreset] = useState<DatePreset>('pay_period');
@@ -186,19 +186,15 @@ export default function Recaps() {
         </div>
       </div>
 
-      {/* Top-level tabs: Members | Commissions | Studio */}
+      {/* Top-level tabs: Sales | Studio */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          {isAdmin && <TabsTrigger value="commissions">Commissions</TabsTrigger>}
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="studio">Studio</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="members" className="mt-4">
+        <TabsContent value="sales" className="space-y-4 mt-4">
           <MembershipPurchasesPanel externalDateRange={dateRange} />
-        </TabsContent>
-
-        <TabsContent value="commissions" className="mt-4">
           <PayPeriodCommission dateRange={dateRange} />
         </TabsContent>
 
