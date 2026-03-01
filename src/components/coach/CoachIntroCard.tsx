@@ -1,6 +1,4 @@
 import { useState, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -8,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { FileEdit, Plus, CheckCircle, AlertTriangle } from 'lucide-react';
+import { FileEdit, Plus } from 'lucide-react';
 
 interface CoachBooking {
   id: string;
@@ -124,34 +122,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
   return (
     <>
-      <Card className="border-2 border-border">
-        <CardContent className="p-4 space-y-3" style={{ fontSize: '15px' }}>
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-bold">{booking.member_name}</span>
-            <Badge variant={isSecondIntro ? 'secondary' : 'default'} className="text-xs">
-              {isSecondIntro ? '2nd Intro' : '1st Intro'}
-            </Badge>
-          </div>
-
-          <div className="text-sm">
-            Shoutout: <strong>{booking.shoutout_consent === true ? 'YES' : booking.shoutout_consent === false ? 'NO' : '—'}</strong>
-          </div>
-
-          {/* Questionnaire Status */}
-          {isQComplete ? (
-            <div className="flex items-center gap-1.5 text-sm text-[hsl(var(--success))]">
-              <CheckCircle className="w-4 h-4" />
-              <span className="font-medium">Questionnaire complete</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 text-sm text-[hsl(var(--warning))]">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="font-medium">No questionnaire — SA will dig deeper live</span>
-            </div>
-          )}
-
-          <Separator />
+      <div>
+        <div className="p-4 space-y-3" style={{ fontSize: '15px' }}>
 
           {/* THE BRIEF */}
           <div>
@@ -303,8 +275,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               Last edited by {booking.last_edited_by} · {new Date(booking.last_edited_at).toLocaleString()}
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Edit Brief Sheet */}
       <Sheet open={editBriefOpen} onOpenChange={setEditBriefOpen}>
