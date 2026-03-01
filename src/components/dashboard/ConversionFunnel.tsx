@@ -204,7 +204,17 @@ interface FunnelRowProps {
   highlight?: boolean;
 }
 
-function FunnelRow({ label, data, highlight }: FunnelRowProps) {
+interface FunnelRowProps {
+  label: string;
+  data: { booked: number; showed: number; sold: number };
+  highlight?: boolean;
+  journey?: boolean;
+  bookedLabel?: string;
+  showedLabel?: string;
+  soldLabel?: string;
+}
+
+function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, soldLabel }: FunnelRowProps) {
   const showRate = data.booked > 0 ? (data.showed / data.booked) * 100 : 0;
   const closeRate = data.showed > 0 ? (data.sold / data.showed) * 100 : 0;
   const bookingToSale = data.booked > 0 ? (data.sold / data.booked) * 100 : 0;
@@ -213,49 +223,40 @@ function FunnelRow({ label, data, highlight }: FunnelRowProps) {
     rate >= 75 ? 'text-success' : rate >= 50 ? 'text-warning' : 'text-destructive';
 
   return (
-    <div className={cn('rounded-lg border p-3 space-y-2', highlight && 'bg-primary/5 border-primary/30')}>
+    <div className={cn(
+      'rounded-lg border p-3 space-y-2',
+      highlight && 'bg-primary/5 border-primary/30',
+      journey && 'bg-accent/10 border-accent ring-1 ring-accent/30',
+    )}>
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className={cn('text-xs font-semibold uppercase tracking-wide', journey ? 'text-accent-foreground' : 'text-muted-foreground')}>{label}</span>
         <span className={cn('text-[11px] font-medium', rateColor(bookingToSale))}>
           {bookingToSale.toFixed(0)}% book→sale
         </span>
       </div>
       <div className="flex items-center gap-1">
-        {/* Booked */}
         <div className="flex-1 text-center p-2 rounded bg-info/10 border border-info/20">
           <Users className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
           <p className="text-lg font-bold text-info">{data.booked}</p>
-          <p className="text-[10px] text-muted-foreground">Booked</p>
+          <p className="text-[10px] text-muted-foreground">{bookedLabel || 'Booked'}</p>
         </div>
-
-        {/* Arrow + Show Rate */}
         <div className="flex flex-col items-center gap-0.5">
           <ArrowDown className="w-3 h-3 text-muted-foreground" />
-          <span className={cn('text-[10px] font-medium', rateColor(showRate))}>
-            {showRate.toFixed(0)}%
-          </span>
+          <span className={cn('text-[10px] font-medium', rateColor(showRate))}>{showRate.toFixed(0)}%</span>
         </div>
-
-        {/* Showed */}
         <div className="flex-1 text-center p-2 rounded bg-warning/10 border border-warning/20">
           <UserCheck className="w-3.5 h-3.5 mx-auto mb-0.5 text-warning" />
           <p className="text-lg font-bold text-warning">{data.showed}</p>
-          <p className="text-[10px] text-muted-foreground">Showed</p>
+          <p className="text-[10px] text-muted-foreground">{showedLabel || 'Showed'}</p>
         </div>
-
-        {/* Arrow + Close Rate */}
         <div className="flex flex-col items-center gap-0.5">
           <ArrowDown className="w-3 h-3 text-muted-foreground" />
-          <span className={cn('text-[10px] font-medium', rateColor(closeRate))}>
-            {closeRate.toFixed(0)}%
-          </span>
+          <span className={cn('text-[10px] font-medium', rateColor(closeRate))}>{closeRate.toFixed(0)}%</span>
         </div>
-
-        {/* Sold */}
         <div className="flex-1 text-center p-2 rounded bg-success/10 border border-success/20">
           <Target className="w-3.5 h-3.5 mx-auto mb-0.5 text-success" />
           <p className="text-lg font-bold text-success">{data.sold}</p>
-          <p className="text-[10px] text-muted-foreground">Sold</p>
+          <p className="text-[10px] text-muted-foreground leading-tight">{soldLabel || 'Sold'}</p>
         </div>
       </div>
     </div>
@@ -282,7 +283,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
           <Filter className="w-4 h-4 text-primary" />
           Conversion Funnel
         </CardTitle>
-        <p className="text-xs text-muted-foreground">1st and 2nd intro attribution — separate rows</p>
+        <p className="text-xs text-muted-foreground">1st and 2nd intro attribution — separate rows · Total Journey shows full close rate</p>
       </CardHeader>
       <CardContent className="space-y-3">
         <FunnelRow label="1st Intro" data={first} />
@@ -291,6 +292,18 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
         {/* Totals divider */}
         <div className="border-t pt-2">
           <FunnelRow label="Total (All Intros)" data={total} highlight />
+        </div>
+
+        {/* Total Journey row */}
+        <div className="border-t-2 border-dashed border-accent/40 pt-3">
+          <FunnelRow
+            label="Total Journey (1st Intro → Any Sale)"
+            data={{ booked: first.booked, showed: first.showed, sold: total.sold }}
+            journey
+            bookedLabel="1st Booked"
+            showedLabel="1st Showed"
+            soldLabel="Total Sold (1st + 2nd intros)"
+          />
         </div>
 
         <p className="text-[10px] text-muted-foreground/70 text-center">Excludes VIP events · Sale date anchored</p>
