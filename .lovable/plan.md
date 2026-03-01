@@ -1,27 +1,38 @@
 
 
-## Root Cause
+## Plan: Admin Sales Editing in Membership Purchases Panel
 
-The Studio Scoreboard sales count is computed by summing `perSAData[].sales + unattributedSales`. The perSA logic (line 244 of `useDashboardMetrics.ts`) **only processes runs linked to first-intro bookings** (`firstIntroBookingIds`). Any run linked to a 2nd-intro booking (one with `originating_booking_id`) is silently skipped, so its sale is never counted.
+### Current State
+- **Members Who Bought** (`MembershipPurchasesPanel`): Read-only table showing all sales with no edit/delete actions.
+- **Pay Period Commission**: Already has a "zero-out commission" trash icon for admins, but no full editing.
+- Admin is determined by `user?.role === 'Admin'` from AuthContext.
 
-The Conversion Funnel and Sales tab both count ALL membership sales (1st + 2nd intro), which is why they show 10 while the Scoreboard shows 6.
+### Changes
 
-## Fix
+**1. Add Edit/Delete Actions to MembershipPurchasesPanel (primary change)**
 
-Modify the perSA sales counting in `useDashboardMetrics.ts` to also include runs linked to **2nd-intro bookings**. The `introsRun` count should remain first-intro-only (that's the correct denominator for close rate), but **sales** from 2nd-intro runs should be counted and attributed to the original intro owner.
+Add an actions column (visible to Admins only) to each row in the Members Who Bought table with:
+- **Edit button** — opens a dialog allowing the admin to edit: member name, membership type, commission amount, lead source, intro owner, and buy date.
+- **Delete button** — opens a confirmation dialog, then hard-deletes the record from `intros_run` or `sales_outside_intro` depending on the `source` field.
 
-### Implementation Steps
+The edit dialog will update the correct source table (`intros_run` for intro sales, `sales_outside_intro` for outside sales) and refresh the list.
 
-1. **In `useDashboardMetrics.ts` — perSA loop (lines 239-252)**: Add a second map for runs linked to 2nd-intro bookings. Instead of skipping runs whose `linked_intro_booked_id` is not in `firstIntroBookingIds`, check if it's in the full `activeBookings` set and track those sales separately.
+**2. Files Modified**
 
-2. **Specifically**:
-   - Create `activeBookingIds` set from all `activeBookings` (not just first intros)
-   - When a run is linked to a booking NOT in `firstIntroBookingIds` but IS in `activeBookingIds`, still check it for `isSaleInRange` and add to `salesCount` (but do NOT add to `introsRunCount` — that stays first-intro-only)
+- `src/components/admin/MembershipPurchasesPanel.tsx` — Add edit dialog state, delete confirmation dialog, actions column, and the mutation handlers. Pass `useAuth()` to check admin role.
 
-3. **Studio-wide unattributed sales (lines 471-479)**: Apply the same fix — currently unattributed sales also only fire for runs with valid owners, but the booking-link filter should also allow 2nd-intro-linked runs.
+**3. Edit Dialog Fields**
+| Field | Source: `intros_run` column | Source: `sales_outside_intro` column |
+|---|---|---|
+| Member Name | `member_name` | `member_name` |
+| Membership Type | `result` | `membership_type` |
+| Commission | `commission_amount` | `commission_amount` |
+| Lead Source | `lead_source` | `lead_source` |
+| Intro Owner | `intro_owner` | `intro_owner` |
+| Date | `buy_date` | `date_closed` |
 
-4. **Close rate formula stays unchanged**: `Sales / Intros Run` — intros run remains first-intro-only, but sales now includes 2nd-intro conversions. This means close rate can exceed 100% (which is already documented as expected behavior for follow-up sales).
-
-### Files Changed
-- `src/hooks/useDashboardMetrics.ts` — expand sales counting to include 2nd-intro-linked runs
+**4. Delete Behavior**
+- For `intros_run`: set `commission_amount = 0` and `result = 'Deleted'` (soft-delete approach preserving the run record).
+- For `sales_outside_intro`: hard-delete the row since these are manually entered records.
+- Confirmation dialog required before either action.
 
