@@ -117,8 +117,8 @@ export default function CoachView() {
 
   // All unique coach names for filter
   const allCoachNames = useMemo(() => {
-    const names = new Set(bookings.filter(b => !b.is_vip && !b.deleted_at).map(b => b.coach_name));
-    return Array.from(names).sort();
+    const names = new Set(bookings.filter(b => !b.is_vip && !b.deleted_at && b.coach_name).map(b => b.coach_name));
+    return Array.from(names).filter(n => n.length > 0).sort();
   }, [bookings]);
 
   // Group by date → time
