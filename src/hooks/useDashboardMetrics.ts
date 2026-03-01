@@ -212,6 +212,14 @@ export function useDashboardMetrics(
 
     // Get first intro booking IDs for filtering runs
     const firstIntroBookingIds = new Set(firstIntroBookings.map(b => b.id));
+    // All active booking IDs (including 2nd intros) — used to capture 2nd-intro sales
+    const allActiveBookingIds = new Set(activeBookings.map(b => b.id));
+    // Map 2nd-intro booking → originating booking, so we can attribute sales to the original intro owner
+    const secondIntroToOriginating = new Map<string, string>();
+    activeBookings.forEach(b => {
+      const origId = (b as any).originating_booking_id;
+      if (origId) secondIntroToOriginating.set(b.id, origId);
+    });
 
     // =========================================
     // PER-SA METRICS (attributed to intro_owner)
@@ -242,9 +250,16 @@ export function useDashboardMetrics(
       saRuns.forEach(run => {
         if (run.linked_intro_booked_id) {
           if (firstIntroBookingIds.has(run.linked_intro_booked_id)) {
+            // First-intro run — counts for both introsRun and sales
             const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
             existing.push(run);
             runsByBooking.set(run.linked_intro_booked_id, existing);
+          } else if (allActiveBookingIds.has(run.linked_intro_booked_id)) {
+            // 2nd-intro run — counts for sales only (not introsRun)
+            if (isSaleInRange(run, dateRange)) {
+              salesFromSecondIntros++;
+              secondIntroCommission += run.commission_amount || 0;
+            }
           }
         } else {
           unlinkedRuns.push(run);
@@ -254,6 +269,8 @@ export function useDashboardMetrics(
       let introsRunCount = 0;
       let salesCount = 0;
       let salesCommission = 0;
+      let salesFromSecondIntros = 0;
+      let secondIntroCommission = 0;
       const saFirstRuns: IntroRun[] = [];
       
       // Count linked runs - use run_date for intros, sale date for sales
@@ -290,6 +307,10 @@ export function useDashboardMetrics(
           salesCommission += run.commission_amount || 0;
         }
       });
+
+      // Add 2nd-intro sales to totals
+      salesCount += salesFromSecondIntros;
+      salesCommission += secondIntroCommission;
 
       // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
       // This can exceed 100% when follow-up purchases from previous periods
