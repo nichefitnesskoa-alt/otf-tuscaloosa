@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { IntroActionBar } from '@/components/ActionBar';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 interface VipSession {
   id: string;
@@ -758,11 +759,10 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Time</Label>
-                  <Input
-                    type="time"
+                  <ClassTimeSelect
                     value={newSessionTime}
-                    onChange={e => setNewSessionTime(e.target.value)}
-                    className="h-8 text-sm"
+                    onValueChange={setNewSessionTime}
+                    triggerClassName="h-8 text-sm"
                   />
                 </div>
               </div>

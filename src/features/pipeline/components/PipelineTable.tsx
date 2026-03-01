@@ -7,6 +7,7 @@ import { Loader2, Star, CalendarPlus, X, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -99,7 +100,7 @@ export function PipelineTable({
                   {bulkScheduleGroup === groupName && (
                     <div className="flex items-center gap-2 mt-1.5 px-2 py-2 rounded-md bg-purple-50/50 border border-purple-100">
                       <Input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} className="h-7 text-xs w-36" />
-                      <Input type="time" value={bulkTime} onChange={(e) => setBulkTime(e.target.value)} className="h-7 text-xs w-28" />
+                      <ClassTimeSelect value={bulkTime} onValueChange={setBulkTime} triggerClassName="h-7 text-xs w-28" />
                       <Button size="sm" className="h-7 text-xs gap-1" disabled={isBulkUpdating || !bulkDate || !bulkTime} onClick={() => handleBulkSchedule(groupName)}>
                         {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Apply
                       </Button>
