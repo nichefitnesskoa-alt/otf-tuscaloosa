@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { FileEdit, Plus } from 'lucide-react';
+import { FileEdit, Plus, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface CoachBooking {
   id: string;
@@ -23,8 +23,12 @@ interface CoachBooking {
   sa_objection: string | null;
   shoutout_consent: boolean | null;
   coach_notes: string | null;
+  booking_status_canon: string;
+  is_vip: boolean;
+  deleted_at: string | null;
   last_edited_by: string | null;
   last_edited_at: string | null;
+  questionnaire_status_canon?: string;
 }
 
 interface QuestionnaireData {
@@ -43,6 +47,14 @@ interface Props {
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
 }
+
+/* ── Styling helpers ── */
+const ScriptLine = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-sm font-bold text-foreground">"{children}"</p>
+);
+const CueLine = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-sm italic text-muted-foreground">↳ {children}</p>
+);
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const [editBriefOpen, setEditBriefOpen] = useState(false);
@@ -66,7 +78,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const availDays = q?.q6b_available_days;
   const coachNotes = q?.q7_coach_notes;
 
-  // Fitness level descriptions
+  const qStatus = booking.questionnaire_status_canon;
+  const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
+
   const levelDesc = fitnessLevel != null ? (() => {
     if (fitnessLevel <= 1) return 'Haven\'t worked out in a long time';
     if (fitnessLevel <= 2) return 'Occasional activity';
@@ -124,6 +138,19 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             Shoutout: <strong>{booking.shoutout_consent === true ? 'YES' : booking.shoutout_consent === false ? 'NO' : '—'}</strong>
           </div>
 
+          {/* Questionnaire Status */}
+          {isQComplete ? (
+            <div className="flex items-center gap-1.5 text-sm text-[hsl(var(--success))]">
+              <CheckCircle className="w-4 h-4" />
+              <span className="font-medium">Questionnaire complete</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-sm text-[hsl(var(--warning))]">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="font-medium">No questionnaire — SA will dig deeper live</span>
+            </div>
+          )}
+
           <Separator />
 
           {/* THE BRIEF */}
@@ -141,34 +168,39 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           <Separator />
 
           {/* WHAT THEY TOLD US */}
-          {hasQ && (
-            <>
-              <div>
-                <h4 className="font-bold text-sm mb-1">WHAT THEY TOLD US</h4>
-                <div className="text-sm space-y-0.5">
-                  {fitnessLevel != null && <p>Level: {fitnessLevel}/5</p>}
-                  {goal && <p>Goal: "{goal}"</p>}
-                  {why && <p>Why: "{why}"</p>}
-                  {obstacle && <p>Obstacle: "{obstacle}"</p>}
-                  {commitment && (
-                    <p>
-                      Commit: {commitment} days/week
-                      {availDays ? ` | Days: ${availDays}` : ''}
-                    </p>
-                  )}
-                  {coachNotes && <p>Notes: "{coachNotes}"</p>}
-                </div>
+          <div>
+            <h4 className="font-bold text-sm mb-1">WHAT THEY TOLD US</h4>
+            {hasQ ? (
+              <div className="text-sm space-y-0.5">
+                {fitnessLevel != null && <p>Level: {fitnessLevel}/5</p>}
+                {goal && <p>Goal: "{goal}"</p>}
+                {why && <p>Why: "{why}"</p>}
+                {obstacle && <p>Obstacle: "{obstacle}"</p>}
+                {commitment && (
+                  <p>
+                    Commit: {commitment} days/week
+                    {availDays ? ` | Days: ${availDays}` : ''}
+                  </p>
+                )}
+                {coachNotes && <p>Notes: "{coachNotes}"</p>}
               </div>
-              <Separator />
-            </>
-          )}
+            ) : (
+              <div className="text-sm text-muted-foreground italic space-y-0.5">
+                <p>No questionnaire on file.</p>
+                <p>SA conducting dig deeper during tour.</p>
+                <p>Brief will update when filled in.</p>
+              </div>
+            )}
+          </div>
+
+          <Separator />
 
           {/* PRE-ENTRY */}
           <div>
             <h4 className="font-bold text-sm mb-1">PRE-ENTRY</h4>
-            <p className="text-sm">While intro is on tour — Koa or SA briefs the room:</p>
-            <p className="text-sm italic">"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong."</p>
-            <p className="text-sm">Raffle is live.</p>
+            <CueLine>While intro is on tour — Koa or SA briefs the room:</CueLine>
+            <ScriptLine>First-timer today. When they hit their all-out — make some noise. Make them feel like they belong.</ScriptLine>
+            <CueLine>Raffle is live.</CueLine>
           </div>
 
           <Separator />
@@ -176,20 +208,35 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* THE FOURTH QUARTER */}
           <div>
             <h4 className="font-bold text-sm mb-1">THE FOURTH QUARTER — ALL-OUT CALLOUT</h4>
-            <p className="text-xs text-muted-foreground mb-2">(non-negotiable — every intro — every class)</p>
-            <div className="text-sm space-y-2">
-              <p><strong>DRUMROLL:</strong> "First-timer in the house — {firstName} let's go."</p>
-              <p><strong>DURING:</strong> "{firstName} — this is what {booking.sa_buying_criteria || '[their words]'} looks like. Don't stop."</p>
+            <CueLine>Non-negotiable — every intro — every class.</CueLine>
+            <div className="text-sm space-y-2 mt-2">
               <div>
-                <p><strong>SEED 1</strong> — quietly under the noise:</p>
-                <p>Option A: "Remember this feeling. This is what you came for."</p>
-                <p>Option B: "Remember this. Right here."</p>
-                <p className="text-muted-foreground text-xs">Use A if you know why they came. Use B if you don't.</p>
+                <p className="font-bold text-xs text-primary">DRUMROLL</p>
+                <ScriptLine>First-timer in the house — {firstName} let's go.</ScriptLine>
               </div>
-              <p><strong>CALLOUT:</strong> "Everybody — {firstName} just hit their first all-out. Let's go." Hold it.</p>
-              <p><strong>AFTERGLOW:</strong> "Lock in what you just felt. That's yours now."</p>
-              <p className="text-xs text-muted-foreground italic mt-1">No traditional all-out → final 30-60 sec of last tread block. Same sequence.</p>
+              <div>
+                <p className="font-bold text-xs text-primary">DURING</p>
+                <ScriptLine>{firstName} — this is what {booking.sa_buying_criteria || '[their words]'} looks like. Don't stop.</ScriptLine>
+              </div>
+              <div>
+                <p className="font-bold text-xs text-primary">SEED 1</p>
+                <CueLine>Quietly under the noise:</CueLine>
+                <ScriptLine>Remember this feeling. This is what you came for.</ScriptLine>
+                <p className="text-sm font-bold text-foreground ml-4">or</p>
+                <ScriptLine>Remember this. Right here.</ScriptLine>
+                <CueLine>Use A if you know why they came. Use B if you don't.</CueLine>
+              </div>
+              <div>
+                <p className="font-bold text-xs text-primary">CALLOUT</p>
+                <ScriptLine>Everybody — {firstName} just hit their first all-out. Let's go.</ScriptLine>
+                <CueLine>Hold the mic. Let the room respond fully. Don't rush it. Studio-wide celebration. Let it sink in before moving on.</CueLine>
+              </div>
+              <div>
+                <p className="font-bold text-xs text-primary">AFTERGLOW</p>
+                <ScriptLine>Lock in what you just felt. That's all you.</ScriptLine>
+              </div>
             </div>
+            <CueLine>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</CueLine>
           </div>
 
           <Separator />
@@ -197,8 +244,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* VETERAN TORCH PASS */}
           <div>
             <h4 className="font-bold text-sm mb-1">VETERAN TORCH PASS</h4>
-            <p className="text-sm">Pull one member aside before class:</p>
-            <p className="text-sm italic">"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</p>
+            <CueLine>Before class — pull one member aside. Best pick: someone who joined in the last 90 days and is still coming consistently. They remember the feeling. Their credibility with the intro is highest.</CueLine>
+            <ScriptLine>Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome.</ScriptLine>
           </div>
 
           <Separator />
@@ -206,29 +253,22 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* THE PERFORMANCE SUMMARY */}
           <div>
             <h4 className="font-bold text-sm mb-1">THE PERFORMANCE SUMMARY</h4>
-            <p className="text-xs text-muted-foreground mb-1">(TV screen — intro + SA present)</p>
-            <p className="text-sm italic">"You came in looking for {booking.sa_buying_criteria || '[their words]'}. You found it in that [moment]. That's you."</p>
-            <p className="text-sm">Stop. Let it land.</p>
+            <CueLine>TV screen. Intro + SA both present.</CueLine>
+            <div className="mt-1">
+              <ScriptLine>You came in looking for {booking.sa_buying_criteria || '[their words]'}. You found it in that [moment].</ScriptLine>
+              <CueLine>[moment] = the all-out callout if it was the clear peak. If a different moment defined their class — name that instead. Use what you actually saw.</CueLine>
+              <ScriptLine>That's you.</ScriptLine>
+              <CueLine>Stop. Stay silent. Do not fill the silence. Let it land completely before moving to the handoff.</CueLine>
+            </div>
           </div>
 
           <Separator />
 
-          {/* THE SEEDS */}
+          {/* SEED 2 — HANDOFF */}
           <div>
-            <h4 className="font-bold text-sm mb-1">THE SEEDS</h4>
-            <p className="text-xs text-muted-foreground mb-2">(plant these on the floor — SA harvests at the close)</p>
-            <div className="text-sm space-y-2">
-              <div>
-                <p><strong>SEED 1</strong> — Quietly under the noise during all-out</p>
-                <p>Option A: "Remember this feeling. This is what you came for."</p>
-                <p>Option B: "Remember this. Right here."</p>
-                <p className="text-muted-foreground text-xs">Use A if you know why they came. Use B if you don't.</p>
-              </div>
-              <div>
-                <p><strong>SEED 2</strong> — After performance summary. Go straight to handoff. No pause.</p>
-                <p className="italic">"{saName} — this one's special."</p>
-              </div>
-            </div>
+            <h4 className="font-bold text-sm mb-1">SEED 2 — HANDOFF</h4>
+            <CueLine>After performance summary. Go straight to handoff. No pause.</CueLine>
+            <ScriptLine>{saName} — this one's special.</ScriptLine>
           </div>
 
           {/* Coach Notes (if saved) */}
@@ -276,21 +316,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           <div className="p-4 space-y-4">
             <div className="space-y-1">
               <Label className="text-sm font-semibold">Looking for</Label>
-              <Textarea
-                value={briefLookingFor}
-                onChange={e => setBriefLookingFor(e.target.value)}
-                placeholder="Use their exact words…"
-                className="min-h-[60px] text-sm"
-              />
+              <Textarea value={briefLookingFor} onChange={e => setBriefLookingFor(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
             </div>
             <div className="space-y-1">
               <Label className="text-sm font-semibold">Would come down to</Label>
-              <Textarea
-                value={briefComeDownTo}
-                onChange={e => setBriefComeDownTo(e.target.value)}
-                placeholder="Use their exact words…"
-                className="min-h-[60px] text-sm"
-              />
+              <Textarea value={briefComeDownTo} onChange={e => setBriefComeDownTo(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
             </div>
             <Button onClick={handleSaveBrief} disabled={saving} className="w-full">
               {saving ? 'Saving...' : 'Save Brief'}
@@ -307,12 +337,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <SheetDescription>Post-class note for this intro</SheetDescription>
           </SheetHeader>
           <div className="p-4 space-y-4">
-            <Textarea
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              placeholder="What happened during class? Any observations?"
-              className="min-h-[100px] text-sm"
-            />
+            <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="What happened during class? Any observations?" className="min-h-[100px] text-sm" />
             <Button onClick={handleSaveNote} disabled={saving} className="w-full">
               {saving ? 'Saving...' : 'Save Note'}
             </Button>

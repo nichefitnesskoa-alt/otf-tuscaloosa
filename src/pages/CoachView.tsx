@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ interface CoachBooking {
   deleted_at: string | null;
   last_edited_by: string | null;
   last_edited_at: string | null;
+  questionnaire_status_canon?: string;
 }
 
 interface QuestionnaireMap {
@@ -51,12 +53,12 @@ export default function CoachView() {
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [loading, setLoading] = useState(true);
+  const [coachFilter, setCoachFilter] = useState<string>('all');
 
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const weekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
   const weekEnd = useMemo(() => format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
 
-  // Fetch bookings
   const fetchBookings = async () => {
     setLoading(true);
     const dateStart = tab === 'today' ? today : weekStart;
@@ -64,7 +66,7 @@ export default function CoachView() {
 
     let query = supabase
       .from('intros_booked')
-      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at' as any)
+      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon' as any)
       .gte('class_date', dateStart)
       .lte('class_date', dateEnd)
       .is('deleted_at', null)
@@ -78,7 +80,6 @@ export default function CoachView() {
     const rows = (data || []) as unknown as CoachBooking[];
     setBookings(rows);
 
-    // Fetch questionnaires for these bookings
     if (rows.length > 0) {
       const ids = rows.map(b => b.id);
       const { data: qs } = await supabase
@@ -95,32 +96,31 @@ export default function CoachView() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, [tab, coachName, isAdmin]);
+  useEffect(() => { fetchBookings(); }, [tab, coachName, isAdmin]);
 
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel('coach-view-bookings')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'intros_booked',
-      }, () => {
-        fetchBookings();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [tab, coachName, isAdmin]);
 
-  // Filter out VIP and soft-deleted
   const filteredBookings = useMemo(() => {
-    return bookings.filter(b => !b.is_vip && !b.deleted_at);
+    let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
+    if (isAdmin && coachFilter !== 'all') {
+      result = result.filter(b => b.coach_name === coachFilter);
+    }
+    return result;
+  }, [bookings, isAdmin, coachFilter]);
+
+  // All unique coach names for filter
+  const allCoachNames = useMemo(() => {
+    const names = new Set(bookings.filter(b => !b.is_vip && !b.deleted_at).map(b => b.coach_name));
+    return Array.from(names).sort();
   }, [bookings]);
 
-  // Group by class_date, then by intro_time
+  // Group by date → time
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Map<string, CoachBooking[]>>();
     filteredBookings.forEach(b => {
@@ -144,9 +144,8 @@ export default function CoachView() {
     if (!classTime || !isToday(parseISO(classDate))) return false;
     const now = new Date();
     const [h, m] = classTime.split(':').map(Number);
-    const classStart = new Date();
-    classStart.setHours(h, m, 0, 0);
-    const classEnd = new Date(classStart.getTime() + 60 * 60 * 1000); // 1 hour
+    const classStart = new Date(); classStart.setHours(h, m, 0, 0);
+    const classEnd = new Date(classStart.getTime() + 60 * 60 * 1000);
     return now >= classStart && now <= classEnd;
   };
 
@@ -157,8 +156,7 @@ export default function CoachView() {
     if (!classTime) return false;
     const now = new Date();
     const [h, m] = classTime.split(':').map(Number);
-    const classEnd = new Date();
-    classEnd.setHours(h, m + 60, 0, 0);
+    const classEnd = new Date(); classEnd.setHours(h, m + 60, 0, 0);
     return now > classEnd;
   };
 
@@ -171,6 +169,21 @@ export default function CoachView() {
       <h1 className="text-2xl font-bold">Coach View</h1>
 
       <TheSystemSection />
+
+      {/* Admin coach filter */}
+      {isAdmin && allCoachNames.length > 0 && (
+        <Select value={coachFilter} onValueChange={setCoachFilter}>
+          <SelectTrigger className="w-full max-w-xs">
+            <SelectValue placeholder="Filter by coach" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Coaches</SelectItem>
+            {allCoachNames.map(name => (
+              <SelectItem key={name} value={name}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -222,7 +235,7 @@ export default function CoachView() {
   );
 }
 
-// Sub-component: renders date groups with time sections
+// ── DateGroupView with name dropdown per class time ──
 function DateGroupView({
   groupedByDate, questionnaires, formatTime, isClassTimeNow, isClassTimePast, isAdmin, onUpdateBooking, userName, defaultExpanded,
 }: {
@@ -271,16 +284,13 @@ function DateGroupView({
                     </span>
                     <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-4 mt-3">
-                    {intros.map(booking => (
-                      <CoachIntroCard
-                        key={booking.id}
-                        booking={booking}
-                        questionnaire={questionnaires[booking.id] || null}
-                        onUpdateBooking={onUpdateBooking}
-                        userName={userName}
-                      />
-                    ))}
+                  <CollapsibleContent className="mt-3">
+                    <ClassTimeIntroSelector
+                      intros={intros}
+                      questionnaires={questionnaires}
+                      onUpdateBooking={onUpdateBooking}
+                      userName={userName}
+                    />
                   </CollapsibleContent>
                 </Collapsible>
               );
@@ -288,6 +298,49 @@ function DateGroupView({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Per-class-time: dropdown name selector + expanded card ──
+function ClassTimeIntroSelector({
+  intros, questionnaires, onUpdateBooking, userName,
+}: {
+  intros: CoachBooking[];
+  questionnaires: QuestionnaireMap;
+  onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
+  userName: string;
+}) {
+  const [selectedId, setSelectedId] = useState(intros[0]?.id || '');
+
+  // Keep selection valid if intros change
+  const selected = intros.find(i => i.id === selectedId) || intros[0];
+
+  if (!selected) return null;
+
+  return (
+    <div className="space-y-3">
+      {intros.length > 1 && (
+        <Select value={selected.id} onValueChange={setSelectedId}>
+          <SelectTrigger className="w-full text-base h-12">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {intros.map(intro => (
+              <SelectItem key={intro.id} value={intro.id} className="text-base py-2">
+                {intro.member_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      <CoachIntroCard
+        key={selected.id}
+        booking={selected}
+        questionnaire={questionnaires[selected.id] || null}
+        onUpdateBooking={onUpdateBooking}
+        userName={userName}
+      />
     </div>
   );
 }
