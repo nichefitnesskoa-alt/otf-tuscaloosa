@@ -853,129 +853,119 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT ══════════ */}
-        <div data-print-card className="hidden print:block fixed inset-0 bg-white p-4 text-black" style={{ zIndex: 9999, fontSize: '11px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden' }}>
-          {/* SA HALF */}
-          <div className="font-bold text-sm border-b pb-1 mb-2">
+        <div data-print-card className="hidden print:block fixed inset-0 bg-white p-2 text-black" style={{ zIndex: 9999, fontSize: '9.5px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.3 }}>
+          {/* ═══ SA HALF ═══ */}
+          <div className="font-bold text-xs border-b border-black pb-0.5 mb-1">
             {memberName} | {classDate}{classTime ? ` | ${classTime.substring(0, 5)}` : ''}
           </div>
 
-          {oneLiner && (
-            <div className="mb-2 p-1.5 border-2 border-black">
-              <div className="font-bold">"{oneLiner}"</div>
-            </div>
-          )}
-
-          {/* WHAT THEY TOLD US — Print */}
-          {hasQ && (
-            <div className="mb-2" style={{ fontSize: '10px' }}>
-              <div className="font-bold mb-0.5">WHAT THEY TOLD US</div>
-              {fitnessLevel != null && <div>Level: {fitnessLevel}/5</div>}
-              {goal && <div>Goal: "{goal}"</div>}
-              {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
-              {obstacle && <div>Obstacle: "{obstacle}"</div>}
-              {(commitment || questionnaire?.q6b_available_days) && (
-                <div>
-                  {commitment ? `Commit: ${commitment} days/week` : ''}
-                  {commitment && questionnaire?.q6b_available_days ? ' | ' : ''}
-                  {questionnaire?.q6b_available_days ? `Days: ${questionnaire.q6b_available_days}` : ''}
-                </div>
-              )}
-              {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
-            </div>
-          )}
-
-          <div className="mb-2 p-1.5 border border-gray-400">
-            <div className="font-bold mb-0.5">SHOUTOUT CONSENT</div>
-            <div style={{ fontSize: '10px' }}>"One thing about our coaches — they're going to hype you up out there.</div>
-            <div style={{ fontSize: '10px' }}>Would you be against the coach shouting you out and getting the room hyped for you?"</div>
-            <div className="mt-1">□ Yes — good to go &nbsp;&nbsp;&nbsp; □ No — keep it low key</div>
+          <div className="mb-1 p-1 border border-gray-400">
+            <div className="font-bold" style={{ fontSize: '9px' }}>SHOUTOUT CONSENT</div>
+            <div style={{ fontSize: '8.5px' }}>"One thing about our coaches — they're going to hype you up out there.</div>
+            <div style={{ fontSize: '8.5px' }}>Would you be against the coach shouting you out and getting the room hyped for you?"</div>
+            <div className="mt-0.5" style={{ fontSize: '9px' }}>□ Yes — good to go &nbsp;&nbsp;&nbsp; □ No — keep it low key</div>
           </div>
 
-          {/* DIG DEEPER — Print (3 waypoints only) */}
-          <div className="mb-2">
-            <div className="font-bold mb-0.5">DIG DEEPER</div>
-            <div style={{ fontSize: '10px' }} className="italic mb-1">Opener: "Looking at your questionnaire — I'd love to get the coach a few more details I was curious about."</div>
-            <div className="ml-1 space-y-0.5" style={{ fontSize: '10px' }}>
+          <div className="mb-1">
+            <div className="font-bold" style={{ fontSize: '9px' }}>DIG DEEPER</div>
+            <div style={{ fontSize: '8.5px' }} className="italic mb-0.5">Opener: "Looking at your questionnaire — I'd love to get the coach a few more details I was curious about."</div>
+            <div className="ml-1" style={{ fontSize: '8.5px' }}>
               <div className="font-bold">FITNESS LEVEL {fitnessLevel ? `${fitnessLevel}/5` : '[X]/5'}</div>
               <div>→ "Why did you give yourself that rating?"</div>
               <div>→ "What would you being at a 5 look like to you?"</div>
-              <div className="font-bold mt-1">WHAT ARE YOU LOOKING FOR</div>
+              <div className="font-bold mt-0.5">WHAT ARE YOU LOOKING FOR</div>
               <div>→ "What are you looking for in a gym membership?"</div>
-              <div className="ml-3 italic">Note: use their exact words in your close.</div>
-              <div className="font-bold mt-1">WHAT WOULD IT COME DOWN TO</div>
+              <div className="ml-2 italic">Note: use their exact words in your close.</div>
+              <div className="font-bold mt-0.5">WHAT WOULD IT COME DOWN TO</div>
               <div>→ "If you ended up not joining after today — what do you think it would come down to?"</div>
-              <div className="ml-3 italic">Note: don't reassure. just listen. you have the whole class to prepare.</div>
+              <div className="ml-2 italic">Note: don't reassure. just listen. you have the whole class to prepare.</div>
             </div>
           </div>
 
-          <div className="mb-2 p-1.5 border-2 border-black">
-            <div className="font-bold">⚡ RISK FREE GUARANTEE</div>
-            <div style={{ fontSize: '10px' }}>"If you come consistently for 30 days and don't love it, we'll give you your money back.</div>
-            <div style={{ fontSize: '10px' }}>So there is no downside to just trying us out for a month."</div>
+          <div className="p-1 border-2 border-black mb-1">
+            <div className="font-bold" style={{ fontSize: '9px' }}>⚡ RISK FREE GUARANTEE</div>
+            <div style={{ fontSize: '8.5px' }}>"If you come consistently for 30 days and don't love it, we'll give you your money back.</div>
+            <div style={{ fontSize: '8.5px' }}>So there is no downside to just trying us out for a month."</div>
           </div>
 
-          {/* CUT LINE */}
-          <div className="my-2 text-center" style={{ fontSize: '10px', letterSpacing: '2px' }}>
+          {/* ═══ CUT LINE ═══ */}
+          <div className="my-1 text-center" style={{ fontSize: '9px', letterSpacing: '2px' }}>
             ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
           </div>
 
-          {/* COACH HALF — Print */}
-          <div className="font-bold text-sm mb-1">
+          {/* ═══ COACH HALF ═══ */}
+          <div className="font-bold text-xs mb-0.5">
             COACH COPY — {memberName} | {classTime ? classTime.substring(0, 5) : '—'}
           </div>
 
-          <div style={{ fontSize: '10px' }}>
-            <div className="mb-1.5 p-1 border border-gray-400">
-              <div className="font-bold">THE SPINE</div>
+          <div style={{ fontSize: '8.5px' }}>
+            <div className="mb-1 p-1 border border-gray-400">
+              <div className="font-bold" style={{ fontSize: '9px' }}>THE SPINE</div>
               <div>"{firstName} leaves with a story worth telling about themselves."</div>
             </div>
 
-            <div className="mb-1.5 p-1 border border-gray-400">
-              <div className="font-bold">THE BRIEF (SA fills in after dig deeper)</div>
+            <div className="mb-1 p-1 border border-gray-400">
+              <div className="font-bold" style={{ fontSize: '9px' }}>THE BRIEF (SA fills in after dig deeper)</div>
               <div>Looking for: {buyingCriteria || '___________________________'}</div>
               <div>Would come down to: {saObjection || '____________________'}</div>
             </div>
 
             <div className="mb-1">
-              <div className="font-bold">PRE-ENTRY</div>
+              <div className="font-bold" style={{ fontSize: '9px' }}>PRE-ENTRY</div>
               <div>While intro is on tour — Koa or SA briefs the room:</div>
-              <div>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong."</div>
-              <div>Raffle is live.</div>
+              <div>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong." Raffle is live.</div>
             </div>
 
             <div className="mb-1">
-              <div className="font-bold">ACT 1 — THRESHOLD + TINY WIN</div>
-              <div>Step on tread: "This is it. Everything starts here." (quiet — just them)</div>
-              <div>Block 1: "You can go one higher." Let them. Just nod.</div>
-            </div>
-
-            <div className="mb-1">
-              <div className="font-bold">ACT 2 — STRUGGLE HOLD + MIRROR DROP</div>
-              <div>Block 2: Hold back. No rescue. Let them feel the valley.</div>
-              <div>Once — appear next to them:</div>
-              <div>"That's what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like right now."</div>
-            </div>
-
-            <div className="mb-1">
-              <div className="font-bold">ACT 3 — ALL-OUT (non-negotiable)</div>
+              <div className="font-bold" style={{ fontSize: '9px' }}>ACT 3 — ALL-OUT SEQUENCE</div>
               <div>DRUMROLL: "First-timer in the house — {firstName} let's go."</div>
               <div>DURING: "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div>
               <div>CALLOUT: "Everybody — {firstName} just hit their first all-out. Let's go." Hold it.</div>
               <div>AFTERGLOW: "Lock in what you just felt. That's yours now."</div>
-              <div className="mt-0.5 italic">No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div>
+              <div className="italic">No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div>
             </div>
 
             <div className="mb-1">
-              <div className="font-bold">VETERAN TORCH PASS</div>
+              <div className="font-bold" style={{ fontSize: '9px' }}>VETERAN TORCH PASS</div>
               <div>Pull one member aside before class:</div>
               <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
             </div>
 
             <div className="mb-1">
-              <div className="font-bold">PERFORMANCE SUMMARY (TV screen — intro + SA present)</div>
+              <div className="font-bold" style={{ fontSize: '9px' }}>THE PERFORMANCE SUMMARY (TV screen — intro + SA present)</div>
               <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]. That's you."</div>
               <div>Stop. Let it land.</div>
             </div>
+
+            <div className="mb-1">
+              <div className="font-bold" style={{ fontSize: '9px' }}>STANDOUT MEMBER</div>
+              <div>After intro leaves SA asks: "Was there a member who made you feel especially welcome today?"</div>
+              <div>If named — SA texts that member:</div>
+              <div>"hey — [name] just left and before they walked out they asked me who made them feel the most welcome today. they said you."</div>
+              <div>Name goes on Member of the Moment board.</div>
+            </div>
+
+            {/* WHAT THEY TOLD US — condensed, coach reference */}
+            {hasQ && (
+              <div className="p-1 border-t border-gray-300">
+                <div className="font-bold" style={{ fontSize: '9px' }}>WHAT THEY TOLD US</div>
+                <div>
+                  {fitnessLevel != null && <>Level: {fitnessLevel}/5</>}
+                  {fitnessLevel != null && goal && <> &nbsp;|&nbsp; </>}
+                  {goal && <>Goal: "{goal}"</>}
+                </div>
+                {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
+                {obstacle && <div>Obstacle: "{obstacle}"</div>}
+                {(commitment || questionnaire?.q6b_available_days) && (
+                  <div>
+                    {commitment ? `Commit: ${commitment} days/week` : ''}
+                    {commitment && questionnaire?.q6b_available_days ? ' | ' : ''}
+                    {questionnaire?.q6b_available_days ? `Days: ${questionnaire.q6b_available_days}` : ''}
+                  </div>
+                )}
+                {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
+              </div>
+            )}
           </div>
         </div>
       </SheetContent>
