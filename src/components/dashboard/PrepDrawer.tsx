@@ -717,14 +717,12 @@ export function PrepDrawer({
                           </div>
                           <div>
                             <p className="font-bold text-primary">CALLOUT</p>
-                            <p>The moment the timer hits zero. Full stop.</p>
-                            <p className="italic">"Everybody — {firstName} just hit their first all-out. Let's go."</p>
-                            <p className="text-muted-foreground">Hold the mic. Let the room respond. Don't rush past this moment.</p>
+                            <p className="italic font-semibold">"Everybody — {firstName} just hit their first all-out. Let's go."</p>
+                            <p className="text-muted-foreground italic">↳ Hold the mic. Let the room respond fully. Don't rush it. Studio-wide celebration. Let it sink in before moving on.</p>
                           </div>
                           <div>
                             <p className="font-bold text-primary">AFTERGLOW</p>
-                            <p>10 seconds after the room settles. Quietly on mic:</p>
-                            <p className="italic">"Lock in what you just felt. That's yours now."</p>
+                            <p className="italic font-semibold">"Lock in what you just felt. That's all you."</p>
                           </div>
                         </div>
 
@@ -746,9 +744,8 @@ export function PrepDrawer({
                         <p className="text-[10px] font-bold uppercase text-blue-800 dark:text-blue-300">VETERAN TORCH PASS</p>
                       </div>
                       <div className="p-3 text-xs space-y-1.5">
-                        <p>Before class — coach or Koa pulls one member aside.</p>
-                        <p>Ask them: <span className="italic">"Would you be willing to say one thing to our first-timer at the end? Just: I remember my first. Welcome."</span></p>
-                        <p className="text-muted-foreground">That's it.</p>
+                        <p className="italic text-muted-foreground">↳ Before class — pull one member aside. Best pick: someone who joined in the last 90 days and is still coming consistently. They remember the feeling. Their credibility with the intro is highest.</p>
+                        <p className="font-semibold">"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</p>
                       </div>
                     </div>
                   </div>
@@ -761,12 +758,13 @@ export function PrepDrawer({
                       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">THE PERFORMANCE SUMMARY</p>
                     </div>
                     <div className="p-3 text-xs space-y-1.5">
-                      <p className="text-muted-foreground">At the TV screen. Intro and SA both present.</p>
-                      <p className="text-muted-foreground">One sentence. Built from the brief. Their exact words.</p>
-                      <p className="italic font-semibold text-foreground leading-relaxed">
-                        "You came in looking for {buyingCriteria || '[their words]'}. You found it in that {'{all-out / final push}'}. That's you."
+                      <p className="italic text-muted-foreground">↳ TV screen. Intro + SA both present.</p>
+                      <p className="font-bold text-foreground leading-relaxed">
+                        "You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."
                       </p>
-                      <p className="text-muted-foreground font-semibold">Stop. Let it land.</p>
+                      <p className="italic text-muted-foreground">↳ [moment] = the all-out callout if it was the clear peak. If a different moment defined their class — name that instead. Use what you actually saw.</p>
+                      <p className="font-bold text-foreground">"That's you."</p>
+                      <p className="italic text-muted-foreground">↳ Stop. Stay silent. Do not fill the silence. Let it land completely before moving to the handoff.</p>
                     </div>
                   </div>
 
@@ -947,21 +945,25 @@ export function PrepDrawer({
               <div className="font-bold">THE FOURTH QUARTER — ALL-OUT CALLOUT</div>
               <div>DRUMROLL: "First-timer in the house — {firstName} let's go."</div>
               <div>DURING: "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div>
-              <div>CALLOUT: "Everybody — {firstName} just hit their first all-out. Let's go." Hold it.</div>
-              <div>AFTERGLOW: "Lock in what you just felt. That's yours now."</div>
+              <div>CALLOUT: "Everybody — {firstName} just hit their first all-out. Let's go."</div>
+              <div className="italic" style={{ fontSize: '10px' }}>↳ Hold the mic. Let the room respond fully. Studio-wide celebration.</div>
+              <div>AFTERGLOW: "Lock in what you just felt. That's all you."</div>
               <div className="italic" style={{ fontSize: '10px' }}>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div>
             </div>
 
             <div className="mb-2">
               <div className="font-bold">VETERAN TORCH PASS</div>
-              <div>Pull one member aside before class:</div>
+              <div className="italic" style={{ fontSize: '10px' }}>↳ Before class — pull one member aside. Best pick: someone who joined in the last 90 days and still coming consistently.</div>
               <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
             </div>
 
             <div className="mb-2">
-              <div className="font-bold">THE PERFORMANCE SUMMARY (TV screen — intro + SA present)</div>
-              <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]. That's you."</div>
-              <div>Stop. Let it land.</div>
+              <div className="font-bold">THE PERFORMANCE SUMMARY</div>
+              <div className="italic" style={{ fontSize: '10px' }}>↳ TV screen. Intro + SA present.</div>
+              <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."</div>
+              <div className="italic" style={{ fontSize: '10px' }}>↳ [moment] = the all-out if clear peak, otherwise name what you actually saw.</div>
+              <div>"That's you."</div>
+              <div className="italic" style={{ fontSize: '10px' }}>↳ Stop. Stay silent. Let it land completely before handoff.</div>
             </div>
 
             <div className="mb-2">
