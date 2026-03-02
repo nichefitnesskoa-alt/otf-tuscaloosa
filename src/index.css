@@ -202,4 +202,64 @@ All colors MUST be HSL.
   [data-radix-portal]:has([data-print-card]) [role="dialog"] > *:not([data-print-card]) {
     display: none !important;
   }
+
+  /* ── B&W Print Overrides ── */
+  /* Beat labels: orange → black bold */
+  .print-beat-label {
+    color: black !important;
+    text-transform: uppercase;
+  }
+
+  /* Spine bar coach WHY line: orange → bold black italic */
+  .print-spine-coach-line {
+    color: white !important;
+    font-weight: bold !important;
+  }
+
+  /* Struggle Hold already B&W — ensure print-color-adjust */
+  .print-struggle-hold {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Spine bar — ensure print-color-adjust */
+  .print-spine-bar {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* WHY field: bold black dashed underline */
+  .print-why-field {
+    color: black !important;
+    border-bottom: 2px dashed black !important;
+    padding-bottom: 1px;
+    font-weight: bold;
+  }
+
+  /* Human detail field: standard black underline */
+  .print-human-detail-field {
+    border-bottom: 1px solid black !important;
+    padding-bottom: 1px;
+  }
+
+  /* RFG box: thick black border */
+  .print-rfg-box {
+    border: 2px solid black !important;
+  }
+
+  /* All orange text in print → black */
+  [data-print-card] .text-primary {
+    color: black !important;
+  }
+
+  /* All orange borders in print → black */
+  [data-print-card] .border-primary {
+    border-color: black !important;
+  }
+
+  /* All orange backgrounds in print → transparent */
+  [data-print-card] .bg-primary\/5,
+  [data-print-card] .bg-primary\/10 {
+    background: transparent !important;
+  }
 }

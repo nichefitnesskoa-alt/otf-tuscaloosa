@@ -27,6 +27,8 @@ interface CoachBooking {
   last_edited_by: string | null;
   last_edited_at: string | null;
   questionnaire_status_canon?: string;
+  coach_brief_human_detail?: string | null;
+  coach_brief_why_moment?: string | null;
 }
 
 interface QuestionnaireData {
@@ -59,6 +61,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [addNoteOpen, setAddNoteOpen] = useState(false);
   const [briefLookingFor, setBriefLookingFor] = useState(booking.sa_buying_criteria || '');
   const [briefComeDownTo, setBriefComeDownTo] = useState(booking.sa_objection || '');
+  const [briefHumanDetail, setBriefHumanDetail] = useState((booking as any).coach_brief_human_detail || '');
+  const [briefWhyMoment, setBriefWhyMoment] = useState((booking as any).coach_brief_why_moment || '');
   const [noteText, setNoteText] = useState(booking.coach_notes || '');
   const [saving, setSaving] = useState(false);
 
@@ -93,19 +97,23 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     await supabase.from('intros_booked').update({
       sa_buying_criteria: briefLookingFor,
       sa_objection: briefComeDownTo,
+      coach_brief_human_detail: briefHumanDetail || null,
+      coach_brief_why_moment: briefWhyMoment || null,
       last_edited_by: userName,
       last_edited_at: now,
     } as any).eq('id', booking.id);
     onUpdateBooking(booking.id, {
       sa_buying_criteria: briefLookingFor,
       sa_objection: briefComeDownTo,
+      coach_brief_human_detail: briefHumanDetail || null,
+      coach_brief_why_moment: briefWhyMoment || null,
       last_edited_by: userName,
       last_edited_at: now,
-    });
+    } as any);
     setSaving(false);
     setEditBriefOpen(false);
     toast.success('Brief updated ✓');
-  }, [booking.id, briefLookingFor, briefComeDownTo, userName]);
+  }, [booking.id, briefLookingFor, briefComeDownTo, briefHumanDetail, briefWhyMoment, userName]);
 
   const handleSaveNote = useCallback(async () => {
     setSaving(true);
@@ -134,6 +142,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               {fitnessLevel != null && (
                 <p>Gap: <strong>{fitnessLevel}/5</strong> → "{levelDesc}"</p>
               )}
+              <p>One human detail: <strong>{(booking as any).coach_brief_human_detail || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
             </div>
           </div>
 
@@ -155,12 +164,14 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                   </p>
                 )}
                 {coachNotes && <p>Notes: "{coachNotes}"</p>}
+                <p className="text-primary font-bold mt-1">Use their WHY at: <span className="font-normal">{(booking as any).coach_brief_why_moment || <span className="text-muted-foreground italic">___________________________</span>}</span></p>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground italic space-y-0.5">
                 <p>No questionnaire on file.</p>
                 <p>SA conducting dig deeper during tour.</p>
                 <p>Brief will update when filled in.</p>
+                <p className="text-primary font-bold not-italic mt-1">Use their WHY at: <span className="font-normal italic text-muted-foreground">___________________________</span></p>
               </div>
             )}
           </div>
@@ -173,6 +184,17 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <CueLine>While intro is on tour — Koa or SA briefs the room:</CueLine>
             <ScriptLine>First-timer today. When they hit their all-out — make some noise. Make them feel like they belong.</ScriptLine>
             <CueLine>Raffle is live.</CueLine>
+          </div>
+
+          <Separator />
+
+          {/* STRUGGLE HOLD */}
+          <div className="rounded-lg overflow-hidden" style={{ background: '#111', color: '#fff', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+            <div className="p-3">
+              <p className="font-bold text-sm text-primary mb-1">STRUGGLE HOLD</p>
+              <CueLine>Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</CueLine>
+              <CueLine>The valley before the peak is what makes the all-out land. Without it the callout is noise.</CueLine>
+            </div>
           </div>
 
           <Separator />
@@ -264,6 +286,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <Button variant="outline" size="sm" onClick={() => {
               setBriefLookingFor(booking.sa_buying_criteria || '');
               setBriefComeDownTo(booking.sa_objection || '');
+              setBriefHumanDetail((booking as any).coach_brief_human_detail || '');
+              setBriefWhyMoment((booking as any).coach_brief_why_moment || '');
               setEditBriefOpen(true);
             }} className="flex-1 gap-1">
               <FileEdit className="w-4 h-4" /> Edit Brief
@@ -293,6 +317,14 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <div className="space-y-1">
               <Label className="text-sm font-semibold">Would come down to</Label>
               <Textarea value={briefComeDownTo} onChange={e => setBriefComeDownTo(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold">One human detail</Label>
+              <Textarea value={briefHumanDetail} onChange={e => setBriefHumanDetail(e.target.value)} placeholder="Something personal — their dog's name, where they're from, what they do…" className="min-h-[48px] text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold">Use their WHY at</Label>
+              <Textarea value={briefWhyMoment} onChange={e => setBriefWhyMoment(e.target.value)} placeholder="Pre-plan when to weave in their WHY — e.g. 'during the all-out callout'" className="min-h-[48px] text-sm" />
             </div>
             <Button onClick={handleSaveBrief} disabled={saving} className="w-full">
               {saving ? 'Saving...' : 'Save Brief'}

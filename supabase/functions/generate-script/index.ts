@@ -55,6 +55,7 @@ CURRENT PROMOTIONS (use when relevant)
 
 - 5 Days for $5: lead generation, gets people in the door, almost zero friction
 - $62 First Month Premier: close incentive, specific number creates curiosity, proven closer with the team
+- Risk Free Guarantee: "If you come to at least 12 classes within your first 30 days of Premier and don't love it, we'll give you your money back." Use when they hesitate on price or commitment.
 
 SCRIPT TYPES AND HOW TO WRITE THEM
 
@@ -68,7 +69,7 @@ No-show follow up (didn't come to their intro):
 Never mention they missed it. New opportunity framing. Keep it short. One ask.
 
 Post-intro follow up (came but didn't join):
-Lead with what you saw in them specifically. Not generic. Reference their goal if you have it. Identity frame not price frame.
+Lead with what you saw in them specifically. Not generic. Reference their goal if you have it. Identity frame not price frame. Premier is about $7 a day. Never discuss pricing before the class experience — pricing only comes up after the identity question.
 
 Promo text to leads:
 Deal first, deadline second, trial option third. Current members can't use it. Be clear upfront if texting members to refer.
