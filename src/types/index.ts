@@ -121,7 +121,7 @@ export type BookingSource = typeof BOOKING_SOURCES[number];
 // Process Checklist Items
 export const PROCESS_CHECKLIST = [
   'FVC (First Visit Card) completed',
-  'RFG (Risk Free Guaranteed) presented',
+  'RFG (12 classes in 30 days guarantee) presented',
   'Choice Architecture used',
 ] as const;
 
