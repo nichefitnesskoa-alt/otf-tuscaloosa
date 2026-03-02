@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon } from 'lucide-react';
+import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,7 @@ interface QuestionnaireMap {
 
 export default function CoachView() {
   const { user, logout } = useAuth();
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const isAdmin = user?.role === 'Admin';
   const coachName = user?.name || '';
 
@@ -182,6 +184,9 @@ export default function CoachView() {
                 <span className="text-sm font-medium">{user?.name}</span>
                 <Badge className="bg-success text-success-foreground" variant="secondary">Coach</Badge>
               </div>
+              <Button variant="ghost" size="icon" onClick={toggleDark} className="text-muted-foreground h-8 w-8" title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
               <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
                 <LogOut className="w-5 h-5" />
               </Button>
