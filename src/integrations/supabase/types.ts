@@ -1900,6 +1900,71 @@ export type Database = {
         }
         Relationships: []
       }
+      ten_x_ideas: {
+        Row: {
+          created_at: string
+          id: string
+          idea_text: string
+          participant_name: string
+          participant_role: string
+          session_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idea_text?: string
+          participant_name: string
+          participant_role?: string
+          session_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idea_text?: string
+          participant_name?: string
+          participant_role?: string
+          session_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ten_x_ideas_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ten_x_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ten_x_sessions: {
+        Row: {
+          created_at: string
+          created_by: string
+          goal: string
+          id: string
+          session_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          goal: string
+          id?: string
+          session_date?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          goal?: string
+          id?: string
+          session_date?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

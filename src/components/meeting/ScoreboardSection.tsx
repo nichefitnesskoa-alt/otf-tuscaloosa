@@ -46,6 +46,7 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
           <div className="text-center">
             <p className={cn("text-6xl font-black", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-400' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-400' : 'text-red-400')}>{m.closeRate.toFixed(0)}%</p>
             <p className="text-lg text-white/60 mt-1">Close Rate</p>
+            <p className="text-xs text-white/40">(booked → any sale)</p>
             <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
           </div>
         </div>
@@ -63,12 +64,10 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         </div>
 
         {/* Lead Measures */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           {[
             { label: 'Q Completion', value: `${m.qCompletion.toFixed(0)}%`, trend: <Trend current={m.qCompletion} previous={m.qCompletionPrev} suffix="%" /> },
-            { label: 'Follow-Up', value: `${m.followUpCompleted}/${m.followUpTotal}`, trend: null },
-            { label: 'Speed-to-Lead', value: m.speedToLead > 0 ? `${m.speedToLead}m` : 'N/A', trend: null },
-            { label: 'Confirmations', value: `${m.confirmationsSent}/${m.confirmationsTotal}`, trend: null },
+            { label: 'Prepped & Role Played', value: `${(m as any).prepRate?.toFixed(0) ?? '—'}%`, trend: (m as any).prepRatePrev !== undefined ? <Trend current={(m as any).prepRate ?? 0} previous={(m as any).prepRatePrev ?? 0} suffix="%" /> : null },
           ].map((item, i) => (
             <div key={i} className="bg-white/10 rounded-lg p-4 text-center">
               <p className="text-3xl font-bold text-white">{item.value}</p>
@@ -120,7 +119,7 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         </div>
         <div className="text-center p-3 bg-muted rounded-lg">
           <p className={cn("text-2xl font-bold", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-600' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-600' : 'text-red-600')}>{m.closeRate.toFixed(0)}%</p>
-          <p className="text-xs text-muted-foreground">Close Rate</p>
+          <p className="text-xs text-muted-foreground">Close Rate <span className="text-[10px] opacity-70">(booked → any sale)</span></p>
           <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
         </div>
       </div>
@@ -130,9 +129,7 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
       </p>
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="p-2 bg-muted rounded">Q Completion: {m.qCompletion.toFixed(0)}%</div>
-        <div className="p-2 bg-muted rounded">Follow-Up: {m.followUpCompleted}/{m.followUpTotal}</div>
-        <div className="p-2 bg-muted rounded">Speed-to-Lead: {m.speedToLead > 0 ? `${m.speedToLead}m` : 'N/A'}</div>
-        <div className="p-2 bg-muted rounded">Leads: {m.newLeads} new ({m.leadsContacted} contacted)</div>
+        <div className="p-2 bg-muted rounded">Prepped & Role Played: {(m as any).prepRate?.toFixed(0) ?? '—'}%</div>
       </div>
       {m.biggestOpportunity && (
         <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm">

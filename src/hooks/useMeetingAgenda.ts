@@ -42,6 +42,8 @@ export interface MeetingMetrics {
   /* Lead measures */
   qCompletion: number;
   qCompletionPrev: number;
+  prepRate: number;
+  prepRatePrev: number;
   confirmationRate: number;
   followUpCompletionRate: number;
   followUpTotal: number;
@@ -49,6 +51,8 @@ export interface MeetingMetrics {
   speedToLead: number;
   confirmationsSent: number;
   confirmationsTotal: number;
+  /* Per-SA lead measures for WIG section */
+  perSALeadMeasures: { saName: string; qCompletionPct: number | null; prepRatePct: number | null; closeRatePct: number | null }[];
   /* Leads */
   newLeads: number;
   leadsContacted: number;
@@ -224,14 +228,14 @@ export function useGenerateAgenda() {
         nextWeekBookingsRes, nextWeekFollowUpsRes, nextWeekLeadsRes, vipEventsRes,
       ] = await Promise.all([
         supabase.from('intros_booked')
-          .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, booking_status')
+          .select('id, member_name, lead_source, sa_working_shift, intro_owner, booked_by, phone, class_date, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, booking_status, prepped, prepped_by, questionnaire_status_canon')
           .gte('class_date', startStr).lte('class_date', endStr),
         // Dual-date query: fetch runs where run_date OR buy_date is in range
         supabase.from('intros_run')
           .select('id, member_name, result, sa_name, intro_owner, primary_objection, linked_intro_booked_id, run_date, buy_date, commission_amount, lead_source, ignore_from_metrics, created_at')
           .or(`and(run_date.gte.${startStr},run_date.lte.${endStr}),and(buy_date.gte.${startStr},buy_date.lte.${endStr})`),
         supabase.from('intros_booked')
-          .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source, booking_status')
+          .select('id, is_vip, originating_booking_id, deleted_at, ignore_from_metrics, lead_source, booking_status, prepped, prepped_by, questionnaire_status_canon, intro_owner, booked_by')
           .gte('class_date', prevStartStr).lte('class_date', prevEndStr),
         // Dual-date query for previous period too
         supabase.from('intros_run')
@@ -371,18 +375,29 @@ export function useGenerateAgenda() {
 
       // Keep arrays for downstream use (objections, shoutouts still need full run list)
       const showed = runs.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr));
-      const sales = runs.filter((r: any) => isSaleInStrRange(r, startStr, endStr));
-      const totalSales = salesLen + salesOutside.length;
+      const allRunSales = runs.filter((r: any) => isSaleInStrRange(r, startStr, endStr));
+      const prevAllRunSales = prevRuns.filter((r: any) => isSaleInStrRange(r, prevStartStr, prevEndStr));
+      const totalSales = allRunSales.length + salesOutside.length;
 
-      // Close Rate = Sales / Showed (both deduplicated to first-intro bookings)
-      const closeRate = showedLen > 0 ? (salesLen / showedLen) * 100 : 0;
-      const prevCloseRate = prevShowedLen > 0 ? (prevSalesLen / prevShowedLen) * 100 : 0;
+      // Close Rate = Total Journey: all sales (1st + 2nd intro + outside) / 1st intros booked
+      const closeRate = filteredBooked.length > 0 ? (totalSales / filteredBooked.length) * 100 : 0;
+      const prevTotalSales = prevAllRunSales.length + (salesOutside.length > 0 ? 0 : 0); // prev outside sales not fetched, use run sales only
+      const prevCloseRate = prevFilteredBooked.length > 0 ? (prevTotalSales / prevFilteredBooked.length) * 100 : 0;
       // Show rate denominator excludes future bookings
       const todayYMD = format(new Date(), 'yyyy-MM-dd');
       const pastAndTodayBooked = filteredBooked.filter((b: any) => b.class_date <= todayYMD);
       const prevPastAndTodayBooked = prevFilteredBooked.filter((b: any) => b.class_date <= todayYMD);
       const showRate = pastAndTodayBooked.length > 0 ? (showedLen / pastAndTodayBooked.length) * 100 : 0;
       const prevShowRate = prevPastAndTodayBooked.length > 0 ? (prevShowedLen / prevPastAndTodayBooked.length) * 100 : 0;
+
+      // Prep Rate: bookings where prepped=true / intros showed (run_date in range, not no-show)
+      const preppedBookingIds = new Set(filteredBooked.filter((b: any) => b.prepped).map((b: any) => b.id));
+      const showedWithPrep = showed.filter((r: any) => r.linked_intro_booked_id && preppedBookingIds.has(r.linked_intro_booked_id));
+      const prepRate = showed.length > 0 ? (showedWithPrep.length / showed.length) * 100 : 0;
+      const prevPreppedBookingIds = new Set(prevFilteredBooked.filter((b: any) => b.prepped).map((b: any) => b.id));
+      const prevShowed = prevRuns.filter((r: any) => !isNoShow(r.result) && isRunDateInStrRange(r.run_date, prevStartStr, prevEndStr));
+      const prevShowedWithPrep = prevShowed.filter((r: any) => r.linked_intro_booked_id && prevPreppedBookingIds.has(r.linked_intro_booked_id));
+      const prepRatePrev = prevShowed.length > 0 ? (prevShowedWithPrep.length / prevShowed.length) * 100 : 0;
 
       // AMC
       const amc = amcRes.data?.[0]?.amc_value || 0;
@@ -477,6 +492,9 @@ export function useGenerateAgenda() {
         name: v.vip_class_name, date: v.session_date, count: v.capacity,
       }));
 
+      // Per-SA Lead Measures for WIG section (Q%, Prep%, Close Rate Total Journey)
+      const perSALeadMeasures = computePerSALeadMeasures(filteredBooked, runs, allRunSales, salesOutside, startStr, endStr);
+
       const metrics: MeetingMetrics = {
         amc, amcChange: amc - prevAmc,
         sales: totalSales, introSales: salesLen, salesPrev: prevSalesLen,
@@ -485,6 +503,7 @@ export function useGenerateAgenda() {
         booked: filteredBooked.length, showed: showedLen,
         noShows: filteredBooked.length - showedLen, noShowRate,
         qCompletion, qCompletionPrev: prevQCompletion,
+        prepRate, prepRatePrev: prepRatePrev,
         confirmationRate,
         followUpCompletionRate,
         followUpTotal: followUps.length, followUpCompleted: fuCompleted,
@@ -497,6 +516,7 @@ export function useGenerateAgenda() {
         topObjection, outreach,
         shoutoutCategories, shoutouts,
         biggestOpportunity,
+        perSALeadMeasures,
         weekAhead: {
           introsByDay, totalIntros: nextWeekBookings.length,
           followUpsDue: nextWeekFollowUpsRes.data?.length || 0,
@@ -528,6 +548,70 @@ export function useGenerateAgenda() {
       queryClient.invalidateQueries({ queryKey: ['meeting_agenda', format(monday, 'yyyy-MM-dd')] });
     },
   });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Per-SA Lead Measures (Q%, Prep%, Close Rate Total Journey)          */
+/* ------------------------------------------------------------------ */
+
+function computePerSALeadMeasures(
+  filteredBooked: any[], runs: any[], allRunSales: any[], salesOutside: any[],
+  startStr: string, endStr: string,
+) {
+  const ok = (n: string) => !!n && !EXCLUDED_SA_NAMES.includes(n);
+
+  // Per-SA: booked count, Q completed count, showed count, prepped count, sales count
+  const saMap = new Map<string, { booked: number; qCompleted: number; showed: number; prepped: number; sales: number }>();
+
+  const ensure = (n: string) => {
+    if (!saMap.has(n)) saMap.set(n, { booked: 0, qCompleted: 0, showed: 0, prepped: 0, sales: 0 });
+    return saMap.get(n)!;
+  };
+
+  // Bookings: attribute to intro_owner or booked_by
+  filteredBooked.forEach((b: any) => {
+    const owner = b.intro_owner || b.booked_by || '';
+    if (!ok(owner)) return;
+    const s = ensure(owner);
+    s.booked++;
+    if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+  });
+
+  // Runs: showed + prepped
+  const preppedBookingIds = new Set(filteredBooked.filter((b: any) => b.prepped).map((b: any) => b.id));
+  runs.forEach((r: any) => {
+    if (isNoShow(r.result)) return;
+    if (!isRunDateInStrRange(r.run_date, startStr, endStr)) return;
+    const owner = r.intro_owner || r.sa_name || '';
+    if (!ok(owner)) return;
+    const s = ensure(owner);
+    s.showed++;
+    if (r.linked_intro_booked_id && preppedBookingIds.has(r.linked_intro_booked_id)) s.prepped++;
+  });
+
+  // Sales from runs
+  allRunSales.forEach((r: any) => {
+    const owner = r.intro_owner || r.sa_name || '';
+    if (!ok(owner)) return;
+    ensure(owner).sales++;
+  });
+
+  // Sales outside intro
+  (salesOutside || []).forEach((so: any) => {
+    const owner = so.intro_owner || '';
+    if (!ok(owner)) return;
+    ensure(owner).sales++;
+  });
+
+  return Array.from(saMap.entries())
+    .filter(([_, s]) => s.booked > 0 || s.showed > 0)
+    .map(([name, s]) => ({
+      saName: name,
+      qCompletionPct: s.booked > 0 ? Math.round((s.qCompleted / s.booked) * 100) : null,
+      prepRatePct: s.showed > 0 ? Math.round((s.prepped / s.showed) * 100) : null,
+      closeRatePct: s.booked > 0 ? Math.round((s.sales / s.booked) * 100) : null,
+    }))
+    .sort((a, b) => (b.closeRatePct ?? 0) - (a.closeRatePct ?? 0));
 }
 
 /* ------------------------------------------------------------------ */
@@ -590,30 +674,7 @@ function generateShoutoutCategories(
   });
   addCategory(categories, 'Booked', '📅', bookerC, (_, v) => `${v} booked`);
 
-  // 3) Show Rate
-  const showStat = new Map<string, { b: number; s: number }>();
-  booked.forEach((bk: any) => {
-    const n = bk.intro_owner || bk.sa_working_shift || '';
-    if (!ok(n)) return;
-    if (!showStat.has(n)) showStat.set(n, { b: 0, s: 0 });
-    showStat.get(n)!.b++;
-  });
-  runs.forEach(r => {
-    const linked = booked.find((b: any) => b.id === r.linked_intro_booked_id);
-    if (linked && !isNoShow(r.result) && isRunDateInStrRange(r.run_date, startStr, endStr)) {
-      const n = linked.intro_owner || linked.sa_working_shift || '';
-      if (showStat.has(n)) showStat.get(n)!.s++;
-    }
-  });
-  const showEntries = Array.from(showStat.entries())
-    .filter(([_, s]) => s.b >= MIN_INTROS)
-    .map(([n, s]) => ({ name: n, rate: (s.s / s.b) * 100, s: s.s, b: s.b }))
-    .sort((a, b) => b.rate - a.rate).slice(0, 3);
-  if (showEntries.length) {
-    categories.push({
-      category: 'Show Rate', icon: '📈',
-      entries: showEntries.map(e => ({ name: e.name, metric: `${e.rate.toFixed(0)}% (${e.s} of ${e.b})` })),
-    });
+   // 3) Show Rate — REMOVED from shoutouts per team meeting update
   }
 
   // 4) Intros Showed — only count runs whose run_date is in range
