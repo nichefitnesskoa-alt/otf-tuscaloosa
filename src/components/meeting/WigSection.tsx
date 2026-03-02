@@ -1,17 +1,13 @@
 import { MeetingSection } from './MeetingSection';
-import { Target, Timer, ClipboardCheck, BookOpen, MessageCircle, Users } from 'lucide-react';
+import { Target, ClipboardCheck, BookOpen } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 
 interface PerSAMetric {
   saName: string;
-  speedToLead: number | null;
   qCompletionPct: number | null;
   prepRatePct: number | null;
-  followUpTouches: number;
-  dmsSent: number;
-  leadsReachedOut: number;
+  closeRatePct: number | null;
 }
 
 interface Props {
@@ -24,21 +20,6 @@ interface Props {
   isAdmin: boolean;
   isPresentMode: boolean;
   perSAMetrics?: PerSAMetric[];
-}
-
-function formatSpeed(minutes: number | null): string {
-  if (minutes === null) return '—';
-  if (minutes < 60) return `${minutes}m`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function speedColor(minutes: number | null): string {
-  if (minutes === null) return 'text-muted-foreground';
-  if (minutes <= 15) return 'text-success';
-  if (minutes <= 60) return 'text-warning';
-  return 'text-destructive';
 }
 
 function pctColor(pct: number | null): string {
@@ -57,7 +38,7 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
 
           <div className="text-center">
             <p className="text-5xl font-black">{closeRate.toFixed(0)}%</p>
-            <p className="text-xl text-white/60 mt-2">Current Close Rate</p>
+            <p className="text-xl text-white/60 mt-2">Current Close Rate <span className="text-sm text-white/40">(booked → any sale)</span></p>
             {wigTarget && <p className="text-lg text-yellow-400 mt-1">Target: {wigTarget}</p>}
           </div>
 
@@ -69,28 +50,23 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
                 <thead>
                   <tr className="border-b border-white/20">
                     <th className="text-left py-2 pr-3 text-white/60">SA</th>
-                    <th className="text-center py-2 px-2 text-white/60">Speed</th>
                     <th className="text-center py-2 px-2 text-white/60">Q %</th>
                     <th className="text-center py-2 px-2 text-white/60">Prep %</th>
-                    <th className="text-center py-2 px-2 text-white/60">FU</th>
-                    <th className="text-center py-2 px-2 text-white/60">DMs</th>
-                    <th className="text-center py-2 px-2 text-white/60">Leads</th>
+                    <th className="text-center py-2 px-2 text-white/60">Close Rate</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perSAMetrics.map(sa => (
                     <tr key={sa.saName} className="border-b border-white/10">
                       <td className="py-2 pr-3 font-medium">{sa.saName}</td>
-                      <td className={`text-center py-2 px-2 font-semibold ${speedColor(sa.speedToLead)}`}>{formatSpeed(sa.speedToLead)}</td>
                       <td className={`text-center py-2 px-2 font-semibold ${pctColor(sa.qCompletionPct)}`}>{sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}</td>
                       <td className={`text-center py-2 px-2 font-semibold ${pctColor(sa.prepRatePct)}`}>{sa.prepRatePct !== null ? `${sa.prepRatePct}%` : '—'}</td>
-                      <td className="text-center py-2 px-2 font-semibold">{sa.followUpTouches}</td>
-                      <td className="text-center py-2 px-2 font-semibold">{sa.dmsSent}</td>
-                      <td className="text-center py-2 px-2 font-semibold">{sa.leadsReachedOut}</td>
+                      <td className="text-center py-2 px-2 font-semibold">{sa.closeRatePct !== null ? `${sa.closeRatePct}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <p className="text-[10px] text-white/30 mt-2 text-right">Close Rate = booked → any sale</p>
             </div>
           )}
 
@@ -116,6 +92,7 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
             <div className="text-center p-3 bg-muted rounded-lg">
               <p className="text-2xl font-bold">{closeRate.toFixed(0)}%</p>
               <p className="text-xs text-muted-foreground">Close Rate</p>
+              <p className="text-[10px] text-muted-foreground/70">(booked → any sale)</p>
             </div>
             {isAdmin ? (
               <div className="flex-1">
@@ -135,25 +112,16 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
                   <tr className="border-b bg-muted/40">
                     <th className="text-left py-2 px-2 font-medium text-muted-foreground">SA</th>
                     <th className="text-center py-2 px-1 font-medium text-muted-foreground">
-                      <Timer className="w-3 h-3 mx-auto" />
-                      <span className="block text-[9px]">Speed</span>
-                    </th>
-                    <th className="text-center py-2 px-1 font-medium text-muted-foreground">
                       <ClipboardCheck className="w-3 h-3 mx-auto" />
                       <span className="block text-[9px]">Q %</span>
                     </th>
                     <th className="text-center py-2 px-1 font-medium text-muted-foreground">
                       <BookOpen className="w-3 h-3 mx-auto" />
-                      <span className="block text-[9px]">Prep</span>
+                      <span className="block text-[9px]">Prep %</span>
                     </th>
                     <th className="text-center py-2 px-1 font-medium text-muted-foreground">
-                      <MessageCircle className="w-3 h-3 mx-auto" />
-                      <span className="block text-[9px]">FU</span>
-                    </th>
-                    <th className="text-center py-2 px-1 font-medium text-muted-foreground text-[9px]">DMs</th>
-                    <th className="text-center py-2 px-1 font-medium text-muted-foreground">
-                      <Users className="w-3 h-3 mx-auto" />
-                      <span className="block text-[9px]">Leads</span>
+                      <Target className="w-3 h-3 mx-auto" />
+                      <span className="block text-[9px]">Close</span>
                     </th>
                   </tr>
                 </thead>
@@ -161,16 +129,14 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
                   {perSAMetrics.map(sa => (
                     <tr key={sa.saName} className="border-b border-border/30 last:border-0">
                       <td className="py-1.5 px-2 font-medium truncate max-w-[80px]">{sa.saName}</td>
-                      <td className={`text-center py-1.5 px-1 font-semibold ${speedColor(sa.speedToLead)}`}>{formatSpeed(sa.speedToLead)}</td>
                       <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.qCompletionPct)}`}>{sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}</td>
                       <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.prepRatePct)}`}>{sa.prepRatePct !== null ? `${sa.prepRatePct}%` : '—'}</td>
-                      <td className="text-center py-1.5 px-1 font-semibold">{sa.followUpTouches}</td>
-                      <td className="text-center py-1.5 px-1 font-semibold">{sa.dmsSent}</td>
-                      <td className="text-center py-1.5 px-1 font-semibold">{sa.leadsReachedOut}</td>
+                      <td className="text-center py-1.5 px-1 font-semibold">{sa.closeRatePct !== null ? `${sa.closeRatePct}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <p className="text-[9px] text-muted-foreground/60 px-2 pb-1 text-right">Close Rate = booked → any sale</p>
             </div>
           )}
 

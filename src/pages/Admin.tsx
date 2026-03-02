@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import ScriptsPage from '@/pages/Scripts';
 import PipelinePage from '@/features/pipeline/PipelinePage';
+import TenXExercise from '@/components/admin/TenXExercise';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
@@ -523,7 +524,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -559,6 +560,10 @@ export default function Admin() {
           <TabsTrigger value="bookings" className="gap-1">
             <CalendarDays className="w-4 h-4" />
             <span className="hidden sm:inline">Bookings</span>
+          </TabsTrigger>
+          <TabsTrigger value="10x" className="gap-1">
+            <Zap className="w-4 h-4" />
+            <span className="hidden sm:inline">10x</span>
           </TabsTrigger>
         </TabsList>
 
@@ -641,6 +646,11 @@ export default function Admin() {
         {/* All Bookings Tab */}
         <TabsContent value="bookings" className="space-y-4">
           <PipelinePage />
+        </TabsContent>
+
+        {/* 10x Exercise Tab */}
+        <TabsContent value="10x" className="space-y-4">
+          <TenXExercise />
         </TabsContent>
       </Tabs>
     </div>
