@@ -166,27 +166,29 @@ export default function CoachView() {
 
   return (
     <div className="p-4 space-y-4" style={{ fontSize: '16px' }}>
-      {/* ═══ HEADER — greeting + user + logout ═══ */}
-      <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 shadow-sm -mx-4 -mt-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-bold leading-tight">
-              Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋
-            </h1>
-            <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <User className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{user?.name}</span>
-              <Badge className="bg-success text-success-foreground" variant="secondary">Coach</Badge>
+      {/* ═══ HEADER — greeting + user + logout (Coach only; Admins use global Header) ═══ */}
+      {user?.role === 'Coach' && (
+        <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 shadow-sm -mx-4 -mt-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-bold leading-tight">
+                Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋
+              </h1>
+              <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
             </div>
-            <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
-              <LogOut className="w-5 h-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{user?.name}</span>
+                <Badge className="bg-success text-success-foreground" variant="secondary">Coach</Badge>
+              </div>
+              <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <TheSystemSection />
 
