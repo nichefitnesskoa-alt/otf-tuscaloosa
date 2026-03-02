@@ -917,7 +917,7 @@ export function PrepDrawer({
           <div className="mb-1" style={{ fontSize: '9px' }}>
             <div className="font-bold" style={{ fontSize: '9px' }}>DIG DEEPER</div>
             <div className="ml-2 space-y-0.5">
-              <div><span className="font-bold">FITNESS LEVEL</span> → "Why did you give yourself that rating?" → "What would being a 5 look like?"</div>
+              <div><span className="font-bold">FITNESS LEVEL{fitnessLevel != null ? ` ${fitnessLevel}/5` : ''}</span> → "Why did you give yourself that rating?" → "What would being a 5 look like?"</div>
               <div><span className="font-bold">LOOKING FOR</span> → "What are you looking for in a gym membership?"</div>
               <div><span className="font-bold">COME DOWN TO</span> → "If you ended up not joining — what would it come down to?"</div>
             </div>
@@ -1022,39 +1022,39 @@ export function PrepDrawer({
             </div>
 
             <div className="mb-1">
+              <div className="font-bold">SEED 2 — HANDOFF</div>
+              <div className="italic" style={{ color: '#666', fontSize: '8px' }}>↳ After performance summary. Go straight to handoff. No pause.</div>
+              <div>"{bookings?.[0]?.booked_by || 'SA'} — this one's special."</div>
+            </div>
+
+            <div className="mb-1">
               <div className="font-bold">STANDOUT MEMBER</div>
               <div>After intro leaves SA asks: "Was there a member who made you feel especially welcome?"</div>
             </div>
 
-            {/* WHAT THEY TOLD US — condensed */}
-            {hasQ && (
-              <div className="p-1 border-t-2 border-gray-400 mt-0.5" style={{ fontSize: '8.5px' }}>
-                <div className="font-bold">WHAT THEY TOLD US</div>
-                <div>
-                  {fitnessLevel != null && <>Level: {fitnessLevel}/5</>}
-                  {fitnessLevel != null && goal && <> &nbsp;|&nbsp; </>}
-                  {goal && <>Goal: "{goal}"</>}
-                </div>
-                {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
-                {obstacle && <div>Obstacle: "{obstacle}"</div>}
-                {(commitment || questionnaire?.q6b_available_days) && (
-                  <div>
-                    {commitment ? `Commit: ${commitment} days/week` : ''}
-                    {commitment && questionnaire?.q6b_available_days ? ' | ' : ''}
-                    {questionnaire?.q6b_available_days ? `Days: ${questionnaire.q6b_available_days}` : ''}
-                  </div>
-                )}
-                {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
-                <div className="print-why-field" style={{ marginTop: '2px' }}><span className="font-bold" style={{ fontSize: '9px' }}>Use their WHY at:</span> {coachBriefWhyMoment || '___________________________'}</div>
-              </div>
-            )}
-            {!hasQ && (
-              <div className="p-1 border-t-2 border-gray-400 mt-0.5" style={{ fontSize: '8.5px' }}>
-                <div className="font-bold">WHAT THEY TOLD US</div>
-                <div className="italic" style={{ color: '#666' }}>No questionnaire on file. SA conducting dig deeper during tour.</div>
-                <div className="print-why-field" style={{ marginTop: '2px' }}><span className="font-bold" style={{ fontSize: '9px' }}>Use their WHY at:</span> ___________________________</div>
-              </div>
-            )}
+            {/* WHAT THEY TOLD US — condensed — always last section on coach half */}
+            <div className="p-1 border-t-2 border-gray-400 mt-0.5" style={{ fontSize: '8.5px' }}>
+              <div className="font-bold">WHAT THEY TOLD US</div>
+              {hasQ ? (
+                <>
+                  {fitnessLevel != null && <div>Level: {fitnessLevel}/5</div>}
+                  {goal && <div>Goal: "{goal}"</div>}
+                  {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
+                  {obstacle && <div>Obstacle: "{obstacle}"</div>}
+                  {(commitment || questionnaire?.q6b_available_days) && (
+                    <div>
+                      {commitment ? `Commit: ${commitment} days/week` : ''}
+                      {commitment && questionnaire?.q6b_available_days ? ' | ' : ''}
+                      {questionnaire?.q6b_available_days ? `Days: ${questionnaire.q6b_available_days}` : ''}
+                    </div>
+                  )}
+                  {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
+                </>
+              ) : (
+                <div className="italic" style={{ color: '#666' }}>No questionnaire — SA conducting dig deeper during tour.</div>
+              )}
+              <div className="print-why-field" style={{ marginTop: '2px' }}><span className="font-bold" style={{ fontSize: '9px' }}>Use their WHY at:</span> {coachBriefWhyMoment || '___________________________'}</div>
+            </div>
           </div>
         </div>
       </SheetContent>
