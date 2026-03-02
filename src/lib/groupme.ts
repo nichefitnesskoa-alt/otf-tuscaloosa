@@ -219,22 +219,3 @@ export async function testGroupMeConnection(): Promise<{ success: boolean; error
   }
 }
 
-export async function postSaleCelebration(
-  saName: string,
-  memberName: string,
-  membershipType: string,
-  payPeriodSalesCount: number
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const text = `🎉 SALE! ${saName} just closed ${memberName} on ${membershipType}! That's ${payPeriodSalesCount} sale${payPeriodSalesCount !== 1 ? 's' : ''} this pay period. 💪🔥`;
-
-    const { data, error } = await supabase.functions.invoke('post-groupme', {
-      body: { text },
-    });
-
-    if (error) return { success: false, error: error.message };
-    return { success: data?.success ?? false, error: data?.error };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
-  }
-}
