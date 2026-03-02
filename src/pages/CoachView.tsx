@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, startOfWeek, endOfWeek, isToday, isBefore, parseISO } from 'date-fns';
 import { CoachIntroCard } from '@/components/coach/CoachIntroCard';
@@ -46,7 +47,7 @@ interface QuestionnaireMap {
 }
 
 export default function CoachView() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === 'Admin';
   const coachName = user?.name || '';
 
@@ -165,7 +166,12 @@ export default function CoachView() {
 
   return (
     <div className="p-4 space-y-4" style={{ fontSize: '16px' }}>
-      <h1 className="text-2xl font-bold">Coach View</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Coach View</h1>
+        <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground">
+          <LogOut className="w-5 h-5" />
+        </Button>
+      </div>
 
       <TheSystemSection />
 
