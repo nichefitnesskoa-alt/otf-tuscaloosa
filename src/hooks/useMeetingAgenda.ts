@@ -675,7 +675,6 @@ function generateShoutoutCategories(
   addCategory(categories, 'Booked', '📅', bookerC, (_, v) => `${v} booked`);
 
    // 3) Show Rate — REMOVED from shoutouts per team meeting update
-  }
 
   // 4) Intros Showed — only count runs whose run_date is in range
   const showedBy = new Map<string, number>();
