@@ -97,10 +97,24 @@ export default function IntroDayGroup({
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors",
                 "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
               )}>
-                <span className="text-sm">
-                  {timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}
+                <span className="text-sm flex items-center gap-1 flex-wrap min-w-0">
+                  <span className="shrink-0">{timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}</span>
+                  {(() => {
+                    const notSent = items.filter(i => i.questionnaireStatus === 'NO_Q').length;
+                    const sent = items.filter(i => i.questionnaireStatus === 'Q_SENT').length;
+                    const done = items.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
+                    const allDone = done === items.length && items.length > 0;
+                    if (allDone) return <span className="text-emerald-300 font-medium ml-1">· ✓ All done</span>;
+                    return (
+                      <>
+                        {notSent > 0 && <span className="text-red-300 font-medium ml-1 shrink-0">· <span className="hidden min-[400px]:inline">✉ {notSent} not sent</span><span className="inline min-[400px]:hidden">✉{notSent}</span></span>}
+                        {sent > 0 && <span className="text-amber-300 font-medium ml-1 shrink-0">· <span className="hidden min-[400px]:inline">⏳ {sent} sent</span><span className="inline min-[400px]:hidden">⏳{sent}</span></span>}
+                        {done > 0 && <span className="text-emerald-300 font-medium ml-1 shrink-0">· <span className="hidden min-[400px]:inline">✓ {done} done</span><span className="inline min-[400px]:hidden">✓{done}</span></span>}
+                      </>
+                    );
+                  })()}
                 </span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180 shrink-0 ml-1" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
                 <div className="space-y-4">
