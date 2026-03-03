@@ -90,7 +90,6 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
           questionnaire_status_canon: 'not_sent',
           is_vip: false,
           paired_booking_id: originalBooking.id,
-          originating_booking_id: originalBooking.id,
           referred_by_member_name: originalBooking.memberName,
         })
         .select('id')

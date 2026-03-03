@@ -224,9 +224,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       // ── 2nd intro detection: check originating_booking_id + prior runs ──
       {
         // 1) originating_booking_id with same member name = definitive 2nd intro
+        //    BUT skip friend bookings (referred_by_member_name set)
         for (const item of rawItems) {
           const b = bookings.find(bk => bk.id === item.bookingId);
-          if (!b || !b.originating_booking_id) continue;
+          if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
             item.isSecondIntro = true;
@@ -296,11 +297,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           }
         }
 
-        // 3) Handle originating_booking_id pointing outside the batch
+        // 3) Handle originating_booking_id pointing outside the batch (skip friends)
         for (const item of rawItems) {
           if (item.isSecondIntro) continue;
           const b = bookings.find(bk => bk.id === item.bookingId);
-          if (!b || !b.originating_booking_id) continue;
+          if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
           // Originating booking is outside batch — check if same member
           const { data: origBooking } = await supabase

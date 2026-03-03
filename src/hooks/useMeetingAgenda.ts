@@ -296,7 +296,7 @@ export function useGenerateAgenda() {
         return !isExcludedStatus &&
           !b.ignore_from_metrics &&
           !b.is_vip &&
-          !b.originating_booking_id;
+          (!b.originating_booking_id || b.referred_by_member_name);
       });
 
       const filteredBooked = filterBookings(allBooked);

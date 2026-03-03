@@ -5,6 +5,21 @@
 import { supabase } from '@/integrations/supabase/client';
 import { generateUniqueSlug } from '@/lib/utils';
 
+// ─── Friend vs 2nd Intro Detection ────────────────────────────────────────────
+
+/**
+ * Returns true only if the booking is a genuine 2nd intro (returning member),
+ * NOT a friend referral. Friend bookings have referred_by_member_name set.
+ */
+export function isTrueSecondIntro(booking: {
+  originating_booking_id?: string | null;
+  referred_by_member_name?: string | null;
+}): boolean {
+  if (!booking.originating_booking_id) return false;
+  if (booking.referred_by_member_name) return false;
+  return true;
+}
+
 // ─── 2nd Intro Detection ──────────────────────────────────────────────────────
 
 /**

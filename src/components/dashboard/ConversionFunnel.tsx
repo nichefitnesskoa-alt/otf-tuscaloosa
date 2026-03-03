@@ -70,7 +70,7 @@ function computeFunnelBothRows(
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
-    const hasOrig = !!((b as any).originating_booking_id);
+    const hasOrig = !!((b as any).originating_booking_id) && !(b as any).referred_by_member_name;
     bookingIsSecond.set(b.id, hasOrig);
     if (hasOrig) personHasSecondBooking.set(key, true);
     // Also map the normalized name → key so runs with different booking IDs
@@ -130,7 +130,7 @@ function computeFunnelBothRows(
 
   // Is this booking the person's FIRST booking (1st intro)?
   const isFirstBooking = (b: IntroBooked): boolean => {
-    if ((b as any).originating_booking_id) return false;
+    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
     const key = bookingPersonKey.get(b.id)!;
     const dates = personBookingDates.get(key) || [];
     return dates[0] === b.class_date;
