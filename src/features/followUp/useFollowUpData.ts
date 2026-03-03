@@ -153,10 +153,17 @@ export function useFollowUpData() {
       // Track names in 2nd intro tab for priority dedup
       const inSecondIntroTab = new Set<string>();
 
-      // First pass: collect 2nd intro tab members
+      // Build a map for quick originating booking name lookup
+      const bookingById = new Map(bookings.map(b => [b.id, b]));
+
+      // First pass: collect 2nd intro tab members (only true 2nd intros, not friend bookings)
       for (const b of bookings) {
         if (b.originating_booking_id && !runsByBookingId.has(b.id)) {
-          inSecondIntroTab.add(b.member_name.toLowerCase());
+          const orig = bookingById.get(b.originating_booking_id);
+          const isSameMember = orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
+          if (isSameMember) {
+            inSecondIntroTab.add(b.member_name.toLowerCase());
+          }
         }
       }
 
@@ -187,7 +194,11 @@ export function useFollowUpData() {
           email: booking?.email || null,
           result: r.result,
           resultCanon: r.result_canon,
-          isSecondIntro: !!booking?.originating_booking_id,
+          isSecondIntro: (() => {
+            if (!booking?.originating_booking_id) return false;
+            const orig = bookingById.get(booking.originating_booking_id);
+            return !!orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '');
+          })(),
           originatingBookingId: booking?.originating_booking_id || null,
           rescheduleContactDate: (booking as any)?.reschedule_contact_date || null,
           followUpState: null,

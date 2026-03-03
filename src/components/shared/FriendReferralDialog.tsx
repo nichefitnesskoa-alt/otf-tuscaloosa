@@ -25,6 +25,7 @@ export interface OriginalBookingInfo {
   coachName: string;
   saWorkingShift: string;
   bookedBy: string;
+  leadSource: string;
 }
 
 interface FriendReferralDialogProps {
@@ -63,7 +64,11 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
       const nameParts = trimmedName.split(' ');
       const firstName = nameParts[0] || trimmedName;
       const lastName = nameParts.slice(1).join(' ') || '';
-      const leadSource = `Referral (Friend of ${originalBooking.memberName})`;
+      // Lead source inherits channel from original booking with (Friend) suffix
+      const origSource = originalBooking.leadSource;
+      const leadSource = origSource.includes('(Friend)')
+        ? origSource
+        : `${origSource} (Friend)`;
 
       // Insert friend booking — booked_by MUST be the currently logged-in SA
       const { data: friendBooking, error: bookingErr } = await supabase
@@ -85,7 +90,8 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
           questionnaire_status_canon: 'not_sent',
           is_vip: false,
           paired_booking_id: originalBooking.id,
-          originating_booking_id: originalBooking.id,  // Links friend to original booking
+          originating_booking_id: originalBooking.id,
+          referred_by_member_name: originalBooking.memberName,
         })
         .select('id')
         .single();
@@ -191,7 +197,7 @@ export function FriendReferralDialog({ open, onOpenChange, originalBooking }: Fr
                 <div><span className="font-medium">Time:</span> {originalBooking.introTime}</div>
               )}
               <div><span className="font-medium">Coach:</span> {originalBooking.coachName}</div>
-              <div><span className="font-medium">Source:</span> Referral (Friend of {originalBooking.memberName})</div>
+              <div><span className="font-medium">Source:</span> {originalBooking.leadSource.includes('(Friend)') ? originalBooking.leadSource : `${originalBooking.leadSource} (Friend)`}</div>
             </div>
 
             <div className="space-y-1.5">

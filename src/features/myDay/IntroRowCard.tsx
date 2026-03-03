@@ -376,6 +376,7 @@ export default function IntroRowCard({
         coachName={item.coachName}
         leadSource={item.leadSource}
         phone={item.phone}
+        referredBy={item.referredBy}
         bookingId={item.bookingId}
         editable={true}
         editedBy={userName}

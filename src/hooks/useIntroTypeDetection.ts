@@ -48,10 +48,17 @@ export function useIntroTypeDetection(
         map.set(b.id, false);
         return;
       }
-      // 1) originating_booking_id is definitive
+      // 1) originating_booking_id — only counts as 2nd intro if the
+      //    originating booking belongs to the SAME member (same person returning).
+      //    Friend bookings also set originating_booking_id but point to a
+      //    DIFFERENT person's booking, so those must NOT be treated as 2nd intros.
       if (b.originating_booking_id) {
-        map.set(b.id, true);
-        return;
+        const orig = allBookings.find(o => o.id === b.originating_booking_id);
+        if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
+          map.set(b.id, true);
+          return;
+        }
+        // Different member → friend booking, fall through to name/phone grouping
       }
 
       // 2) Check name-based grouping

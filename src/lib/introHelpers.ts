@@ -28,8 +28,14 @@ export function isSecondIntroFromList(
   const booking = allBookings.find(b => b.id === bookingId);
   if (!booking) return false;
   if (booking.is_vip) return false;
-  // Definitive: has originating link
-  if (booking.originating_booking_id) return true;
+  // originating_booking_id only counts as 2nd intro if same member (not a friend booking)
+  if (booking.originating_booking_id) {
+    const orig = allBookings.find(b => b.id === booking.originating_booking_id);
+    if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '')) {
+      return true;
+    }
+    // Different member = friend booking, not a 2nd intro — fall through
+  }
 
   const nonVip = allBookings.filter(b => !b.is_vip);
 
