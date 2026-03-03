@@ -9,6 +9,7 @@ import { useData } from '@/context/DataContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
+import { getTodayStartISO, getTomorrowStartISO } from '@/lib/dateUtils';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -88,10 +89,8 @@ export function CloseOutShift({
     if (!user?.name) return;
     setLoadingSummary(true);
     const today = getLocalDateString();
-    const todayStart = today + 'T00:00:00';
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStart = format(tomorrow, 'yyyy-MM-dd') + 'T00:00:00';
+    const todayStart = getTodayStartISO();
+    const tomorrowStart = getTomorrowStartISO();
 
     try {
       const SALE_RESULTS = ['Premier + OTbeat', 'Premier', 'Elite + OTbeat', 'Elite', 'Basic + OTbeat', 'Basic'];

@@ -15,6 +15,7 @@ import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { getTodayStartISO } from '@/lib/dateUtils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -176,7 +177,7 @@ export default function MyDayPage() {
     if (!user?.name) return;
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
-      const todayStart = today + 'T00:00:00';
+      const todayStart = getTodayStartISO();
 
       const { data: actionsData } = await supabase
         .from('script_actions')

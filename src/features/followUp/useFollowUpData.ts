@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, subDays, addDays } from 'date-fns';
+import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface FollowUpItem {
@@ -92,7 +93,7 @@ export function useFollowUpData() {
       const { data: touches } = await supabase
         .from('script_actions')
         .select('booking_id, completed_at, action_type, script_category')
-        .gte('completed_at', cutoff + 'T00:00:00')
+        .gte('completed_at', localDateToStartISO(cutoff))
         .order('completed_at', { ascending: false })
         .limit(500);
 

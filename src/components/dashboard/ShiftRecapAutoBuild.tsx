@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
+import { getTodayStartISO } from '@/lib/dateUtils';
 
 interface AutoCapturedItem {
   type: 'intro_logged' | 'script_sent' | 'follow_up_sent' | 'booking_made' | 'phone_copied';
@@ -30,7 +31,7 @@ export function ShiftRecapAutoBuild({ onItemCount }: ShiftRecapAutoBuildProps) {
   const fetchAutoItems = async () => {
     if (!user?.name) return;
     const today = getLocalDateString();
-    const todayStart = today + 'T00:00:00';
+    const todayStart = getTodayStartISO();
 
     try {
       const [actionsRes, followUpsRes, introsRunRes] = await Promise.all([
