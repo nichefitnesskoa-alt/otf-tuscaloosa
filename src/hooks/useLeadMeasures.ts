@@ -62,7 +62,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
       ]);
 
-      const allBookings = (bookings || []).filter((b: any) => !b.is_vip && !b.originating_booking_id);
+      const allBookings = (bookings || []).filter((b: any) => !b.is_vip && (!b.originating_booking_id || b.referred_by_member_name));
 
       // Per-SA aggregation
       const saMap = new Map<string, {

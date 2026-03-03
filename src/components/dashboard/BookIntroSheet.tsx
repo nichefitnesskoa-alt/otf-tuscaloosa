@@ -154,7 +154,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           questionnaire_status_canon: 'not_sent',
           is_vip: false,
           paired_booking_id: inserted.id,
-          originating_booking_id: inserted.id,
+          referred_by_member_name: memberName,
         }).select('id').single();
 
         if (friendBooking?.id) {

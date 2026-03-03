@@ -63,7 +63,7 @@ export default function Recaps() {
   useEffect(() => {
     (async () => {
       const firstIntros = introsBooked.filter(b => {
-        if ((b as any).is_vip === true || (b as any).originating_booking_id) return false;
+        if ((b as any).is_vip === true || ((b as any).originating_booking_id && !(b as any).referred_by_member_name)) return false;
         if (!dateRange) return true;
         try {
           const d = parseLocalDate(b.class_date);

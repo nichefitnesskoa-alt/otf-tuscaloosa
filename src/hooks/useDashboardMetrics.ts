@@ -152,9 +152,11 @@ export function useDashboardMetrics(
     });
     
     // FIRST INTRO BOOKINGS ONLY (for leaderboards - show rate)
+    // Friends (referred_by_member_name set) count as 1st intros even if originating_booking_id is set
     const firstIntroBookings = activeBookings.filter(b => {
       const originatingId = (b as any).originating_booking_id;
-      const isFirstIntro = originatingId === null || originatingId === undefined;
+      const referredBy = (b as any).referred_by_member_name;
+      const isFirstIntro = !originatingId || !!referredBy;
       const isInDateRange = isDateInRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
     });
