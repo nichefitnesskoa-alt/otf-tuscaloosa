@@ -1,24 +1,30 @@
 
 
-## Root Cause
+## Change Per-SA Performance to Total Journey
 
-The database confirms all 3 bookings by Koa exist and are correctly configured — no exclusions, no `originating_booking_id`, proper statuses. The filtering logic in `useDashboardMetrics` would count all 3.
+The Per-SA table currently shows `Run` (1st intros showed) as the denominator for close rate. You want it to match the "Total Journey" definition: **1st intros booked → any sale**.
 
-The real problem is **stale data in DataContext**. When you book intros (via BookIntroSheet, WalkInIntroSheet, or FriendReferralDialog), those components dispatch a `myday:walk-in-added` event, but **DataContext never listens for it**. Only the MyDay page's `UpcomingIntrosCard` refreshes on that event. So when you navigate to Recaps, the Booker Stats shows whatever DataContext loaded when the app first started — before your newest bookings existed.
+### Changes
 
-The previous friend-booking fix (removing `originating_booking_id`) was correct and is working — all 3 DB records look clean. This is purely a data freshness issue.
+**1. `PerSATable.tsx` — rename column and update interface**
+- Rename `introsRun` to `introsBooked` in the `PerSAMetrics` interface
+- Change column header from "Run" to "Booked"
+- Update sort key references
 
-## Fix
+**2. `useDashboardMetrics.ts` — change Per-SA computation**
+- Count 1st intro **bookings** per SA (using `intro_owner` on the booking record) instead of 1st intro runs
+- Keep sales logic unchanged (already includes 1st + 2nd intro sales)
+- Close rate becomes `salesCount / introsBookedCount * 100`
+- Update the return object to use `introsBooked` instead of `introsRun`
 
-### 1. DataContext: auto-refresh on booking events
+**3. Studio aggregates (same file)**
+- Update `studioIntrosRun` aggregation to sum from `introsBooked` instead of `introsRun`
+- Update leaderboard filter that checks `m.introsRun >= MIN_INTROS_FOR_CLOSING`
 
-Add a listener for `myday:walk-in-added` in `DataContext.tsx` so that ANY new booking automatically refreshes all data app-wide. This means Recaps, Pipeline, Shift Recap, and every other DataContext consumer immediately reflects new bookings.
+**4. Header subtitle**
+- Update the PerSATable subtitle from "credited to intro_owner (first intro runner)" to "Total Journey · 1st booked → any sale"
 
-### 2. Also add `referred_by_member_name` to `useLeadMeasures` select
-
-The `useLeadMeasures` hook queries `intros_booked` directly (not via DataContext) but its `select()` does NOT include `referred_by_member_name`. The filter on line 65 checks `b.referred_by_member_name` — which will always be `undefined` since the column isn't fetched. This doesn't cause the current bug (since all 3 bookings have `originating_booking_id = NULL`), but it will break for any future friend booking that somehow gets an `originating_booking_id`. Add it to the select to be safe.
-
-### 3. Add `referred_by_member_name` to the IntroBooked interface
-
-The `IntroBooked` interface in DataContext doesn't declare `referred_by_member_name`, forcing all consumers to use `(b as any)` casts. Adding it makes the code type-safe and prevents future bugs.
+**5. Downstream consumers**
+- `WigSection.tsx` references a separate `PerSAMetric` type (different from `PerSAMetrics`) — no change needed there
+- `Recaps.tsx` just renders `<PerSATable>` — no change needed
 
