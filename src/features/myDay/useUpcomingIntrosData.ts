@@ -78,7 +78,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       let query = supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by, referred_by_member_name')
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
@@ -183,6 +183,24 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           displayPhone = stripCountryCode(extractPhone(b.email));
         }
 
+        // Determine if this is a true 2nd intro (same member returning)
+        // vs a friend booking (different member, originating_booking_id points to friend's host)
+        let isSecond = false;
+        if (b.originating_booking_id) {
+          const orig = bookings.find(o => o.id === b.originating_booking_id);
+          if (orig) {
+            // Same member = true 2nd intro; different member = friend booking
+            isSecond = orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
+          } else {
+            // Originating booking not in current batch — check if this booking was
+            // added to the originatingSet (meaning another booking references it)
+            // For safety, don't assume 2nd intro if we can't verify same member
+            isSecond = false;
+          }
+        }
+        // Also mark as 2nd if another booking in this batch originates from this one
+        // AND shares the same member name (handled by the hook/selector layer)
+
         return {
           bookingId: b.id,
           memberName: b.member_name,
@@ -208,10 +226,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunObjection: run?.primary_objection || null,
           latestRunNotes: run?.notes || null,
           originatingBookingId: b.originating_booking_id,
-          isSecondIntro: !!b.originating_booking_id || originatingSet.has(b.id),
+          isSecondIntro: isSecond,
           prepped: (b as any).prepped ?? false,
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
+          referredBy: (b as any).referred_by_member_name || null,
           timeStartISO,
           riskFlags: { noQ: false, qIncomplete: false, unconfirmed: false, coachTbd: false, missingOwner: false },
           riskScore: 0,

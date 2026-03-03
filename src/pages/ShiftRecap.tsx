@@ -394,6 +394,7 @@ export default function ShiftRecap() {
           intro_owner_locked: false,
           paired_booking_id: insertedBooking.id,
           originating_booking_id: friendOriginatingId,
+          referred_by_member_name: booking.memberName,
           phone: friendPhone,
           email: booking.friendEmail?.trim() || null,
         } as any).select().single();
@@ -602,6 +603,7 @@ export default function ShiftRecap() {
               intro_owner_locked: false,
               paired_booking_id: insertedBooking.id,
               originating_booking_id: friendOriginatingId,
+              referred_by_member_name: booking.memberName,
               phone: friendPhone,
               email: booking.friendEmail?.trim() || null,
             } as any).select().single();

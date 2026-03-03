@@ -24,6 +24,7 @@ export interface IntroCardProps {
   coachName: string | null;
   leadSource: string | null;
   phone: string | null;
+  referredBy?: string | null;
 
   /** Inline editing support */
   bookingId?: string;
@@ -195,7 +196,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
 }
 
 export default function IntroCard({
-  memberName, classDate, introTime, coachName, leadSource, phone,
+  memberName, classDate, introTime, coachName, leadSource, phone, referredBy,
   bookingId, editable = false, editedBy = '', onFieldSaved,
   badges, outcomeBadge, timingInfo, actionButtons, secondaryActions,
   lastContactSummary, topBanner, outcomeBanner, children, className, id, style,
@@ -220,6 +221,11 @@ export default function IntroCard({
           {/* Name — always static */}
           <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>{memberName}</h3>
           {badges}
+          {referredBy && (
+            <span className="text-[10px] px-1.5 py-0 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0 font-medium">
+              Referred by {referredBy}
+            </span>
+          )}
 
           {/* Editable meta fields inline next to name */}
           {canEdit ? (

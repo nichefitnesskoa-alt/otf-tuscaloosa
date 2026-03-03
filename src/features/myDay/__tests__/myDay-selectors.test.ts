@@ -41,6 +41,7 @@ function makeItem(overrides: Partial<UpcomingIntroItem> = {}): UpcomingIntroItem
     latestRunNotes: null,
     originatingBookingId: null,
     isSecondIntro: false,
+    referredBy: null,
     prepped: false,
     preppedAt: null,
     preppedBy: null,

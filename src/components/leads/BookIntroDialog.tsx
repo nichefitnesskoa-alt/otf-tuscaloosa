@@ -108,6 +108,11 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
       if (bringingFriend && friendFirstName.trim()) {
         const friendFullName = `${friendFirstName.trim()} ${friendLastName.trim()}`.trim();
 
+        // Create friend lead source based on original lead's source channel
+        const friendLeadSource = lead.source.includes('(Friend)')
+          ? lead.source
+          : `${lead.source} (Friend)`;
+
         // Create friend lead
         const { data: friendLead } = await supabase
           .from('leads')
@@ -116,7 +121,7 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             last_name: friendLastName.trim() || '',
             phone: friendPhone.trim(),
             email: friendEmail.trim() || null,
-            source: `Referral from ${lead.first_name} ${lead.last_name}`,
+            source: friendLeadSource,
             stage: 'new',
           })
           .select('id')
@@ -131,10 +136,14 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
             intro_time: classTime || null,
             coach_name: '',
             sa_working_shift: user?.name || 'Unknown',
-            lead_source: `Referral from ${lead.first_name} ${lead.last_name}`,
+            lead_source: friendLeadSource,
             booked_by: user?.name || 'Unknown',
             paired_booking_id: booking.id,
-          })
+            originating_booking_id: booking.id,
+            referred_by_member_name: `${lead.first_name} ${lead.last_name}`,
+            phone: friendPhone.trim() || null,
+            email: friendEmail.trim() || null,
+          } as any)
           .select('id')
           .single();
 
@@ -145,6 +154,14 @@ export function BookIntroDialog({ open, onOpenChange, lead, onDone }: BookIntroD
           await supabase.from('intros_booked')
             .update({ paired_booking_id: friendBooking.id })
             .eq('id', booking.id);
+
+          // Create referral record
+          await supabase.from('referrals').insert({
+            referrer_booking_id: booking.id,
+            referred_booking_id: friendBooking.id,
+            referrer_name: `${lead.first_name} ${lead.last_name}`,
+            referred_name: friendFullName,
+          } as any);
 
           // Update friend lead with booking
           if (friendLead) {
