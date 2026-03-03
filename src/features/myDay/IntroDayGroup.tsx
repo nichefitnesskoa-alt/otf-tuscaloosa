@@ -92,12 +92,10 @@ export default function IntroDayGroup({
           const timeLabel = time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time);
 
           return (
-            <Collapsible key={time} defaultOpen={shouldDefaultOpen}>
+            <Collapsible key={time} defaultOpen={false}>
               <CollapsibleTrigger className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors",
-                isCurrent
-                  ? "bg-primary/20 border-2 border-primary text-foreground"
-                  : "bg-muted/50 border border-border text-foreground hover:bg-muted"
+                "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
               )}>
                 <span className="text-sm">
                   {timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}
