@@ -1,9 +1,13 @@
 /**
  * Day group: header with date label, count, Q ratio, and bulk actions.
- * Renders intro row cards grouped by class time with time headers.
+ * Renders intro row cards grouped by class time with collapsible time sections.
+ * Past class times are collapsed by default; current/upcoming are expanded.
  */
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { DayGroup } from './myDayTypes';
 import IntroRowCard from './IntroRowCard';
 import BulkActionsBar from './BulkActionsBar';
@@ -19,6 +23,28 @@ interface IntroDayGroupProps {
   needsOutcome?: boolean;
   confirmResults?: Record<string, string>;
   focusedBookingId?: string | null;
+}
+
+/**
+ * Determine if a class time is "past" (>15 min ago), "current" (within -15min to +3hr), or "future".
+ */
+function getTimeStatus(classDate: string, classTime: string | null): 'past' | 'current' | 'future' {
+  if (!classTime) return 'future'; // TBD times default to expanded
+  try {
+    const classStart = new Date(`${classDate}T${classTime}:00`);
+    const now = new Date();
+    const diffMs = classStart.getTime() - now.getTime();
+    const diffMin = diffMs / 60000;
+
+    // Past: class started more than 15 min ago
+    if (diffMin < -15) return 'past';
+    // Current: started within last 15 min or within next 3 hours
+    if (diffMin >= -15 && diffMin <= 180) return 'current';
+    // Future: more than 3 hours away
+    return 'future';
+  } catch {
+    return 'future';
+  }
 }
 
 export default function IntroDayGroup({
@@ -59,39 +85,47 @@ export default function IntroDayGroup({
       </div>
       <BulkActionsBar items={group.items} userName={userName} isOnline={isOnline} onDone={onRefresh} />
       <div className="space-y-2">
-        {timeGroups.map(([time, items]) => (
-          <div key={time}>
-            {/* Time group header */}
-            {timeGroups.length > 1 && (
-              <div className="flex items-center gap-2 px-2 py-1 mb-1">
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  {time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time)}
+        {timeGroups.map(([time, items]) => {
+          const timeStatus = getTimeStatus(group.date, time === 'unscheduled' ? null : time);
+          const shouldDefaultOpen = timeStatus !== 'past';
+          const isCurrent = timeStatus === 'current';
+          const timeLabel = time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time);
+
+          return (
+            <Collapsible key={time} defaultOpen={shouldDefaultOpen}>
+              <CollapsibleTrigger className={cn(
+                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors",
+                isCurrent
+                  ? "bg-primary/20 border-2 border-primary text-foreground"
+                  : "bg-muted/50 border border-border text-foreground hover:bg-muted"
+              )}>
+                <span className="text-sm">
+                  {timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}
                 </span>
-                <span className="text-[10px] text-muted-foreground">
-                  — {items.length} intro{items.length !== 1 ? 's' : ''}
-                </span>
-                <div className="flex-1 border-t border-border/50" />
-              </div>
-            )}
-            <div className="space-y-4">
-              {items.map(item => (
-                <IntroRowCard
-                  key={item.bookingId}
-                  item={item}
-                  isOnline={isOnline}
-                  userName={userName}
-                  onSendQ={onSendQ}
-                  onConfirm={onConfirm}
-                  onRefresh={onRefresh}
-                  needsOutcome={needsOutcome}
-                  confirmationResult={confirmResults[item.bookingId] || null}
-                  isFocused={item.bookingId === focusedBookingId}
-                  anyFocused={!!focusedBookingId}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+                <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <div className="space-y-4">
+                  {items.map(item => (
+                    <IntroRowCard
+                      key={item.bookingId}
+                      item={item}
+                      isOnline={isOnline}
+                      userName={userName}
+                      onSendQ={onSendQ}
+                      onConfirm={onConfirm}
+                      onRefresh={onRefresh}
+                      needsOutcome={needsOutcome}
+                      confirmationResult={confirmResults[item.bookingId] || null}
+                      isFocused={item.bookingId === focusedBookingId}
+                      anyFocused={!!focusedBookingId}
+                    />
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
       </div>
     </div>
   );
