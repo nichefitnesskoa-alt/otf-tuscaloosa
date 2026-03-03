@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
 import { ALL_STAFF } from '@/types';
 
 export interface SALeadMeasure {
@@ -49,16 +50,16 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
           .select('id, created_by, created_at')
-          .gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+          .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('shift_recaps')
           .select('staff_name, dms_sent')
           .gte('shift_date', start).lte('shift_date', end),
         supabase.from('leads')
           .select('id, created_at, stage, updated_at')
-          .gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+          .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('lead_activities')
           .select('id, lead_id, activity_type, performed_by, created_at')
-          .gte('created_at', start + 'T00:00:00').lte('created_at', end + 'T23:59:59'),
+          .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
       ]);
 
       const allBookings = (bookings || []).filter((b: any) => !b.is_vip && !b.originating_booking_id);

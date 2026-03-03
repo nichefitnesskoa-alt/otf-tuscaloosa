@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
+import { getTodayStartISO } from '@/lib/dateUtils';
 import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -77,7 +78,7 @@ export function TodayActivityLog({ onEditBooking, onEditOutcome, refreshKey }: T
   const [loading, setLoading] = useState(false);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const todayStart = today + 'T00:00:00';
+  const todayStart = getTodayStartISO();
 
   const fetchData = useCallback(async () => {
     if (!user?.name) return;

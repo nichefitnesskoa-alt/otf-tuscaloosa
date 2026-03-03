@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, addDays, subWeeks, subDays, startOfDay } from 'date-fns';
+import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
 import {
   EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
   isPurchased, isNoShow,
@@ -256,10 +257,10 @@ export function useGenerateAgenda() {
           .select('staff_name, calls_made, texts_sent, dms_sent, emails_sent')
           .gte('shift_date', startStr).lte('shift_date', endStr),
         supabase.from('leads').select('id, source, created_at, stage')
-          .gte('created_at', startStr + 'T00:00:00').lte('created_at', endStr + 'T23:59:59'),
+          .gte('created_at', localDateToStartISO(startStr)).lte('created_at', localDateToEndISO(endStr)),
         supabase.from('script_actions')
           .select('action_type, completed_by, completed_at, booking_id, lead_id, script_category')
-          .gte('completed_at', startStr + 'T00:00:00').lte('completed_at', endStr + 'T23:59:59'),
+          .gte('completed_at', localDateToStartISO(startStr)).lte('completed_at', localDateToEndISO(endStr)),
         supabase.from('sales_outside_intro').select('id, intro_owner, date_closed')
           .gte('date_closed', startStr).lte('date_closed', endStr),
         supabase.from('intros_booked').select('id, class_date')

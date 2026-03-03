@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { format, addDays, differenceInHours, differenceInMinutes } from 'date-fns';
+import { getTodayStartISO } from '@/lib/dateUtils';
 import { formatDisplayTime, buildClassStartDateTime } from '@/lib/time/timeUtils';
 
 export type ChecklistItemType =
@@ -72,7 +73,7 @@ export function useWinTheDayItems() {
 
     try {
       const now = new Date();
-      const todayStart = todayStr + 'T00:00:00';
+      const todayStart = getTodayStartISO();
       const newItems: ChecklistItem[] = [];
 
       // ── 1. Fetch today's intros (non-VIP, non-deleted) ──
