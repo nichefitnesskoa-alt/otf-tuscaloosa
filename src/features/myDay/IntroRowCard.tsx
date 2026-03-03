@@ -304,9 +304,7 @@ export default function IntroRowCard({
       ) : isQOverdue ? (
         <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
-        item.confirmedAt
-          ? <StatusBanner bgColor="#16a34a" text="✓ 2nd Intro Confirmed" />
-          : <StatusBanner bgColor="#2563eb" text="📱 Send 2nd Intro Confirmation Text" />
+        <StatusBanner bgColor="#2563eb" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
       ) : (
         <StatusBanner
           bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}

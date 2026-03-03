@@ -77,12 +77,14 @@ export function groupByDay(items: UpcomingIntroItem[]): DayGroup[] {
   const sortedDates = [...groups.keys()].sort();
   for (const date of sortedDates) {
     const dayItems = groups.get(date)!;
-    const qSentOrDone = dayItems.filter(i => i.questionnaireStatus !== 'NO_Q').length;
+    // Q ratio uses only 1st intros — 2nd intros don't need questionnaires
+    const firstIntros = dayItems.filter(i => !i.isSecondIntro);
+    const qSentOrDone = firstIntros.filter(i => i.questionnaireStatus !== 'NO_Q').length;
     result.push({
       date,
       label: formatDayLabel(date),
       items: dayItems,
-      qSentRatio: dayItems.length > 0 ? qSentOrDone / dayItems.length : 0,
+      qSentRatio: firstIntros.length > 0 ? qSentOrDone / firstIntros.length : 1,
     });
   }
 
@@ -100,7 +102,7 @@ function formatDayLabel(dateStr: string): string {
 // ── Bulk filtering helpers ──
 
 export function filterNoQ(items: UpcomingIntroItem[]): UpcomingIntroItem[] {
-  return items.filter(i => i.questionnaireStatus === 'NO_Q');
+  return items.filter(i => i.questionnaireStatus === 'NO_Q' && !i.isSecondIntro);
 }
 
 export function filterUnconfirmed24h(items: UpcomingIntroItem[], nowISO: string): UpcomingIntroItem[] {
