@@ -896,7 +896,7 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT ══════════ */}
-        <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '10px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.35, padding: '4mm 7mm' }}>
+        <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '10px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.3, padding: '3mm 7mm' }}>
           {/* ═══ SA HALF ═══ */}
 
           {/* SPINE BAR — SA */}
@@ -904,19 +904,19 @@ export function PrepDrawer({
             "{firstName} leaves with a story worth telling — and eagerly asks us how to join before we can ask her."
           </div>
 
-          <div className="font-bold border-b-2 border-black pb-0.5 mb-1" style={{ fontSize: '12px' }}>
+          <div className="font-bold border-b-2 border-black pb-0.5 mb-0.5" style={{ fontSize: '11px' }}>
             {memberName} &nbsp;|&nbsp; {classDate}{classTime ? ` | ${classTime.substring(0, 5)}` : ''}
           </div>
 
-          <div className="mb-1 p-1.5 border border-gray-400" style={{ fontSize: '9px' }}>
+          <div className="mb-0.5 p-1 border border-gray-400" style={{ fontSize: '8.5px' }}>
             <div className="font-bold" style={{ fontSize: '9px' }}>SHOUTOUT CONSENT</div>
             <div>"Would you be against the coach shouting you out and getting the room hyped for you?"</div>
             <div className="mt-0.5 font-semibold">□ Yes — good to go &nbsp;&nbsp;&nbsp;&nbsp; □ No — keep it low key</div>
           </div>
 
-          <div className="mb-1" style={{ fontSize: '9px' }}>
+          <div className="mb-0.5" style={{ fontSize: '8.5px' }}>
             <div className="font-bold" style={{ fontSize: '9px' }}>DIG DEEPER</div>
-            <div className="ml-2 space-y-0.5">
+            <div className="ml-2">
               <div><span className="font-bold">FITNESS LEVEL{fitnessLevel != null ? ` ${fitnessLevel}/5` : ''}</span> → "Why did you give yourself that rating?" → "What would being a 5 look like?"</div>
               <div><span className="font-bold">LOOKING FOR</span> → "What are you looking for in a gym membership?"</div>
               <div><span className="font-bold">COME DOWN TO</span> → "If you ended up not joining — what would it come down to?"</div>
@@ -924,8 +924,8 @@ export function PrepDrawer({
           </div>
 
           {/* THE CLOSE — SA half */}
-          <div className="mb-1" style={{ fontSize: '9px' }}>
-            <div className="font-bold underline" style={{ fontSize: '9.5px' }}>THE CLOSE</div>
+          <div className="mb-0.5" style={{ fontSize: '8.5px' }}>
+            <div className="font-bold underline" style={{ fontSize: '9px' }}>THE CLOSE</div>
             <div className="ml-1 space-y-0.5">
               <div><span className="font-bold">THE BRIDGE</span></div>
               <div className="ml-2">"That was horrible right?" <span className="italic" style={{ color: '#666' }}>↳ High energy, big smile, sarcastic.</span></div>
@@ -951,7 +951,7 @@ export function PrepDrawer({
           </div>
 
           {/* ═══ CUT LINE ═══ */}
-          <div className="my-1 text-center" style={{ fontSize: '10px', letterSpacing: '3px' }}>
+          <div className="my-0.5 text-center" style={{ fontSize: '9px', letterSpacing: '3px' }}>
             ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
           </div>
 
@@ -965,18 +965,18 @@ export function PrepDrawer({
             </div>
           </div>
 
-          <div className="font-bold border-b-2 border-black pb-0.5 mb-1" style={{ fontSize: '12px' }}>
+          <div className="font-bold border-b-2 border-black pb-0.5 mb-0.5" style={{ fontSize: '11px' }}>
             COACH COPY — {memberName} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'}
           </div>
 
-          <div style={{ fontSize: '9px' }}>
-            <div className="mb-1 p-1 border border-gray-300" style={{ fontSize: '8px' }}>
-              <div className="font-bold" style={{ fontSize: '9px' }}>THE SYSTEM</div>
+          <div style={{ fontSize: '8.5px' }}>
+            <div className="mb-0.5 p-1 border border-gray-300" style={{ fontSize: '7.5px' }}>
+              <div className="font-bold" style={{ fontSize: '8.5px' }}>THE SYSTEM</div>
               <div>Goal: they leave with a story worth telling. Decision made before SA sits down.</div>
               <div>Your role: plant two seeds. No selling. No pressure. Raffle: genuine energy = real close.</div>
             </div>
 
-            <div className="mb-1 p-1 border border-gray-400" style={{ fontSize: '9px' }}>
+            <div className="mb-0.5 p-1 border border-gray-400" style={{ fontSize: '8.5px' }}>
               <div className="font-bold">THE BRIEF</div>
               <div>Looking for: {buyingCriteria || '___________________________'}</div>
               <div>Would come down to: {saObjection || '____________________'}</div>
@@ -985,19 +985,19 @@ export function PrepDrawer({
               <div className="mt-0.5 font-semibold">Shoutout: {shoutoutConsent === true ? '■ YES' : shoutoutConsent === false ? '□ NO' : '□ YES □ NO'}</div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">PRE-ENTRY</div>
               <div>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong." Raffle is live.</div>
             </div>
 
             {/* STRUGGLE HOLD */}
-            <div className="print-struggle-hold mb-1 p-1" style={{ background: '#000', color: '#fff', fontSize: '9px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
-              <div className="font-bold" style={{ fontSize: '9px' }}>STRUGGLE HOLD</div>
+            <div className="print-struggle-hold mb-0.5 p-1" style={{ background: '#000', color: '#fff', fontSize: '8.5px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+              <div className="font-bold" style={{ fontSize: '8.5px' }}>STRUGGLE HOLD</div>
               <div>↳ Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</div>
               <div>↳ The valley before the peak is what makes the all-out land. Without it the callout is noise.</div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">THE FOURTH QUARTER — ALL-OUT CALLOUT</div>
               <div><span className="font-bold print-beat-label">DRUMROLL:</span> "First-timer in the house — {firstName} let's go."</div>
               <div><span className="font-bold print-beat-label">DURING:</span> "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div>
@@ -1008,33 +1008,33 @@ export function PrepDrawer({
               <div className="italic" style={{ color: '#666', fontSize: '8px' }}>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">VETERAN TORCH PASS</div>
-              <div className="italic" style={{ color: '#666', fontSize: '8px' }}>↳ Before class — pull one member aside (joined last 90 days, still coming).</div>
+              <div className="italic" style={{ color: '#666', fontSize: '7.5px' }}>↳ Before class — pull one member aside (joined last 90 days, still coming).</div>
               <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">THE PERFORMANCE SUMMARY</div>
               <div className="italic" style={{ color: '#666', fontSize: '8px' }}>↳ TV screen. Intro + SA present.</div>
               <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."</div>
               <div>"That's you." <span className="italic" style={{ color: '#666', fontSize: '8px' }}>↳ Stop. Stay silent. Let it land.</span></div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">SEED 2 — HANDOFF</div>
-              <div className="italic" style={{ color: '#666', fontSize: '8px' }}>↳ After performance summary. Go straight to handoff. No pause.</div>
+              <div className="italic" style={{ color: '#666', fontSize: '7.5px' }}>↳ After performance summary. Go straight to handoff. No pause.</div>
               <div>"{bookings?.[0]?.booked_by || 'SA'} — this one's special."</div>
             </div>
 
-            <div className="mb-1">
+            <div className="mb-0.5">
               <div className="font-bold">STANDOUT MEMBER</div>
               <div>After intro leaves SA asks: "Was there a member who made you feel especially welcome?"</div>
             </div>
 
             {/* WHAT THEY TOLD US — condensed — always last section on coach half */}
-            <div className="p-1 border-t-2 border-gray-400 mt-0.5" style={{ fontSize: '8.5px' }}>
-              <div className="font-bold">WHAT THEY TOLD US</div>
+            <div className="p-1 border-t-2 border-black mt-0.5" style={{ fontSize: '8px' }}>
+              <div className="font-bold" style={{ fontSize: '9px' }}>WHAT THEY TOLD US</div>
               {hasQ ? (
                 <>
                   {fitnessLevel != null && <div>Level: {fitnessLevel}/5</div>}
@@ -1053,7 +1053,7 @@ export function PrepDrawer({
               ) : (
                 <div className="italic" style={{ color: '#666' }}>No questionnaire — SA conducting dig deeper during tour.</div>
               )}
-              <div className="print-why-field" style={{ marginTop: '2px' }}><span className="font-bold" style={{ fontSize: '9px' }}>Use their WHY at:</span> {coachBriefWhyMoment || '___________________________'}</div>
+              <div className="print-why-field" style={{ marginTop: '2px', borderBottom: '2px dashed #000', paddingBottom: '1px' }}><span className="font-bold" style={{ fontSize: '8.5px' }}>Use their WHY at:</span> {coachBriefWhyMoment || <span>&nbsp;</span>}</div>
             </div>
           </div>
         </div>
