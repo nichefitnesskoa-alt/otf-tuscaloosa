@@ -183,23 +183,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           displayPhone = stripCountryCode(extractPhone(b.email));
         }
 
-        // Determine if this is a true 2nd intro (same member returning)
-        // vs a friend booking (different member, originating_booking_id points to friend's host)
-        let isSecond = false;
-        if (b.originating_booking_id) {
-          const orig = bookings.find(o => o.id === b.originating_booking_id);
-          if (orig) {
-            // Same member = true 2nd intro; different member = friend booking
-            isSecond = orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
-          } else {
-            // Originating booking not in current batch — check if this booking was
-            // added to the originatingSet (meaning another booking references it)
-            // For safety, don't assume 2nd intro if we can't verify same member
-            isSecond = false;
-          }
-        }
-        // Also mark as 2nd if another booking in this batch originates from this one
-        // AND shares the same member name (handled by the hook/selector layer)
+        // isSecond will be set after the loop using priorRunMembers lookup
 
         return {
           bookingId: b.id,
@@ -226,7 +210,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunObjection: run?.primary_objection || null,
           latestRunNotes: run?.notes || null,
           originatingBookingId: b.originating_booking_id,
-          isSecondIntro: isSecond,
+          isSecondIntro: false, // will be set after prior-run lookup
           prepped: (b as any).prepped ?? false,
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
@@ -236,6 +220,99 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           riskScore: 0,
         };
       });
+
+      // ── 2nd intro detection: check originating_booking_id + prior runs ──
+      {
+        // 1) originating_booking_id with same member name = definitive 2nd intro
+        for (const item of rawItems) {
+          const b = bookings.find(bk => bk.id === item.bookingId);
+          if (!b || !b.originating_booking_id) continue;
+          const orig = bookings.find(o => o.id === b.originating_booking_id);
+          if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
+            item.isSecondIntro = true;
+          }
+          // If originating booking not in batch, query it
+          if (!orig && b.originating_booking_id) {
+            // Will be resolved below via prior-run check
+          }
+        }
+
+        // 2) Check for prior intros_run records for each member name
+        const uniqueNames = [...new Set(bookings.map(b => b.member_name))];
+        // Query in batches of 50 to avoid URL length limits
+        const priorRunMembers = new Set<string>();
+        for (let i = 0; i < uniqueNames.length; i += 50) {
+          const batch = uniqueNames.slice(i, i + 50);
+          const { data: priorRuns } = await supabase
+            .from('intros_run')
+            .select('member_name, linked_intro_booked_id')
+            .in('member_name', batch);
+          if (priorRuns) {
+            for (const pr of priorRuns) {
+              priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
+            }
+          }
+        }
+
+        // For items not yet marked as 2nd intro, check if they have a prior run
+        // A booking is 2nd intro if ANOTHER booking for the same member has a run
+        for (const item of rawItems) {
+          if (item.isSecondIntro) continue; // already determined
+          const nameKey = item.memberName.toLowerCase().replace(/\s+/g, '');
+          if (!priorRunMembers.has(nameKey)) continue;
+          
+          // Member has runs — check if any run is linked to a DIFFERENT booking
+          // (not the current one) to confirm this is a subsequent visit
+          const memberBookings = rawItems.filter(ri => 
+            ri.memberName.toLowerCase().replace(/\s+/g, '') === nameKey
+          );
+          // Sort by class_date to find the earliest
+          const sorted = [...memberBookings].sort((a, c) => {
+            const d = a.classDate.localeCompare(c.classDate);
+            if (d !== 0) return d;
+            return (a.introTime || '').localeCompare(c.introTime || '');
+          });
+          // The first booking in chronological order is the 1st intro (or might be)
+          // But we need to check if prior runs exist from BEFORE this batch
+          // Since priorRunMembers confirms runs exist, and if this isn't the earliest booking,
+          // it's a 2nd intro
+          if (sorted.length > 1 && sorted[0].bookingId !== item.bookingId) {
+            item.isSecondIntro = true;
+          } else if (sorted.length === 1 || sorted[0].bookingId === item.bookingId) {
+            // This is the only/earliest booking in batch — check if prior run is from outside batch
+            // Query for runs NOT linked to any booking in current batch
+            const batchIds = new Set(rawItems.map(ri => ri.bookingId));
+            const { data: externalRuns } = await supabase
+              .from('intros_run')
+              .select('id, linked_intro_booked_id')
+              .eq('member_name', item.memberName)
+              .limit(5);
+            const hasExternalRun = (externalRuns || []).some(r => 
+              r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
+            );
+            if (hasExternalRun) {
+              item.isSecondIntro = true;
+            }
+          }
+        }
+
+        // 3) Handle originating_booking_id pointing outside the batch
+        for (const item of rawItems) {
+          if (item.isSecondIntro) continue;
+          const b = bookings.find(bk => bk.id === item.bookingId);
+          if (!b || !b.originating_booking_id) continue;
+          if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
+          // Originating booking is outside batch — check if same member
+          const { data: origBooking } = await supabase
+            .from('intros_booked')
+            .select('member_name')
+            .eq('id', b.originating_booking_id)
+            .maybeSingle();
+          if (origBooking && origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
+            item.isSecondIntro = true;
+          }
+        }
+      }
 
       // ── 2nd intro phone inheritance: fill missing phone from originating booking ──
       const phoneMap = new Map<string, string>();

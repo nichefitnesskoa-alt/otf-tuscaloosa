@@ -100,10 +100,13 @@ export default function IntroDayGroup({
                 <span className="text-sm flex items-center gap-1 flex-wrap min-w-0">
                   <span className="shrink-0">{timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}</span>
                   {(() => {
-                    const notSent = items.filter(i => i.questionnaireStatus === 'NO_Q').length;
-                    const sent = items.filter(i => i.questionnaireStatus === 'Q_SENT').length;
-                    const done = items.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
-                    const allDone = done === items.length && items.length > 0;
+                    // Only count 1st intros for Q status — 2nd intros don't need questionnaires
+                    const firstIntros = items.filter(i => !i.isSecondIntro);
+                    if (firstIntros.length === 0) return null; // all 2nd intros, no Q needed
+                    const notSent = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
+                    const sent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT').length;
+                    const done = firstIntros.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
+                    const allDone = done === firstIntros.length && firstIntros.length > 0;
                     if (allDone) return <span className="text-emerald-300 font-medium ml-1">· ✓ All done</span>;
                     return (
                       <>
