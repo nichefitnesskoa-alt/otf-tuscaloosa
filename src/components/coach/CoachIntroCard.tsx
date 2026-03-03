@@ -188,8 +188,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
           <Separator />
 
-          {/* STRUGGLE HOLD */}
-          <div className="rounded-lg overflow-hidden" style={{ background: '#111', color: '#fff', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+          {/* STRUGGLE HOLD — temporarily hidden */}
+          {/* <div className="rounded-lg overflow-hidden" style={{ background: '#111', color: '#fff', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
             <div className="p-3">
               <p className="font-bold text-sm text-primary mb-1">STRUGGLE HOLD</p>
               <CueLine>Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</CueLine>
@@ -197,52 +197,56 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           </div>
 
-          <Separator />
+          <Separator /> */}
 
           {/* THE FOURTH QUARTER */}
           <div>
             <h4 className="font-bold text-sm mb-1">THE FOURTH QUARTER — ALL-OUT CALLOUT</h4>
-            <CueLine>Non-negotiable — every intro — every class.</CueLine>
             <div className="text-sm space-y-2 mt-2">
-              <div>
+              {/* DRUMROLL — temporarily hidden */}
+              {/* <div>
                 <p className="font-bold text-xs text-primary">DRUMROLL</p>
                 <ScriptLine>First-timer in the house — {firstName} let's go.</ScriptLine>
-              </div>
-              <div>
+              </div> */}
+              {/* DURING — temporarily hidden */}
+              {/* <div>
                 <p className="font-bold text-xs text-primary">DURING</p>
                 <ScriptLine>{firstName} — this is what {booking.sa_buying_criteria || '[their words]'} looks like. Don't stop.</ScriptLine>
-              </div>
-              <div>
+              </div> */}
+              {/* SEED 1 — temporarily hidden */}
+              {/* <div>
                 <p className="font-bold text-xs text-primary">SEED 1</p>
                 <CueLine>Quietly under the noise:</CueLine>
                 <ScriptLine>Remember this feeling. This is what you came for.</ScriptLine>
                 <p className="text-sm font-bold text-foreground ml-4">or</p>
                 <ScriptLine>Remember this. Right here.</ScriptLine>
                 <CueLine>Use A if you know why they came. Use B if you don't.</CueLine>
-              </div>
+              </div> */}
               <div>
                 <p className="font-bold text-xs text-primary">CALLOUT</p>
                 <ScriptLine>Everybody — {firstName} just hit their first all-out. Let's go.</ScriptLine>
                 <CueLine>Hold the mic. Let the room respond fully. Don't rush it. Studio-wide celebration. Let it sink in before moving on.</CueLine>
               </div>
-              <div>
+              {/* AFTERGLOW — temporarily hidden */}
+              {/* <div>
                 <p className="font-bold text-xs text-primary">AFTERGLOW</p>
                 <ScriptLine>Lock in what you just felt. That's all you.</ScriptLine>
-              </div>
+              </div> */}
             </div>
-            <CueLine>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</CueLine>
+            {/* No traditional all-out fallback — temporarily hidden */}
+            {/* <CueLine>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</CueLine> */}
           </div>
 
           <Separator />
 
-          {/* VETERAN TORCH PASS */}
-          <div>
+          {/* VETERAN TORCH PASS — temporarily hidden */}
+          {/* <div>
             <h4 className="font-bold text-sm mb-1">VETERAN TORCH PASS</h4>
             <CueLine>Before class — pull one member aside. Best pick: someone who joined in the last 90 days and is still coming consistently. They remember the feeling. Their credibility with the intro is highest.</CueLine>
             <ScriptLine>Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome.</ScriptLine>
           </div>
 
-          <Separator />
+          <Separator /> */}
 
           {/* THE PERFORMANCE SUMMARY */}
           <div>
