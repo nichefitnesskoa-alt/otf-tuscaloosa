@@ -42,7 +42,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         { data: activities },
       ] = await Promise.all([
         supabase.from('intros_booked')
-          .select('id, sa_working_shift, booked_by, intro_owner, prepped_by, questionnaire_status_canon, prepped, class_date, is_vip, originating_booking_id, deleted_at')
+          .select('id, sa_working_shift, booked_by, intro_owner, prepped_by, questionnaire_status_canon, prepped, class_date, is_vip, originating_booking_id, referred_by_member_name, deleted_at')
           .gte('class_date', start).lte('class_date', end)
           .is('deleted_at', null),
         supabase.from('intros_run')

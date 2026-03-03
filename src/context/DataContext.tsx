@@ -44,6 +44,7 @@ export interface IntroBooked {
   vip_session_id?: string | null;
   vip_class_name?: string | null;
   converted_to_booking_id?: string | null;
+  referred_by_member_name?: string | null;
   created_at: string;
 }
 
@@ -215,6 +216,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Auto-refresh when a booking is added anywhere in the app
+  useEffect(() => {
+    const handleBookingAdded = () => fetchData();
+    window.addEventListener('myday:walk-in-added', handleBookingAdded);
+    return () => window.removeEventListener('myday:walk-in-added', handleBookingAdded);
+  }, [fetchData]);
 
   // Auto-sync when coming back online
   useEffect(() => {
