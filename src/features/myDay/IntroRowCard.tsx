@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, ClipboardList, Send, CheckCircle, Phone } from 'lucide-react';
+import { Eye, ClipboardList, Send, CheckCircle, Phone, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -15,6 +15,10 @@ import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
@@ -59,6 +63,8 @@ export default function IntroRowCard({
   const [preppedSaving, setPreppedSaving] = useState(false);
   const [logSentLoading, setLogSentLoading] = useState(false);
   const [localQStatus, setLocalQStatus] = useState(item.questionnaireStatus);
+  const [clearOutcomeOpen, setClearOutcomeOpen] = useState(false);
+  const [clearingOutcome, setClearingOutcome] = useState(false);
   const qBar = getQBar(localQStatus);
 
   // ── Focus mode: compute minutesUntilClass ──
@@ -219,6 +225,68 @@ export default function IntroRowCard({
     fn();
   };
 
+  // ── Clear outcome handler ──
+  const handleClearOutcome = async () => {
+    if (!isOnline) { toast.error('Offline'); return; }
+    setClearingOutcome(true);
+    try {
+      const firstName = item.memberName.split(' ')[0];
+
+      // 1. Delete the run record
+      if (item.latestRunId) {
+        // Log a note before deleting if follow-up touches exist
+        const { data: touches } = await supabase
+          .from('followup_touches')
+          .select('id')
+          .eq('booking_id', item.bookingId)
+          .limit(1);
+        if (touches && touches.length > 0) {
+          await supabase.from('followup_touches').insert({
+            booking_id: item.bookingId,
+            touch_type: 'internal_note',
+            created_by: userName,
+            notes: `Outcome "${item.latestRunResult}" cleared by ${userName}. Previous follow-up history preserved.`,
+          });
+        }
+        await supabase.from('intros_run').delete().eq('id', item.latestRunId);
+      }
+
+      // 2. Reset booking status to ACTIVE
+      await supabase.from('intros_booked').update({
+        booking_status_canon: 'ACTIVE',
+        booking_status: 'Active',
+        closed_at: null,
+        closed_by: null,
+        last_edited_at: new Date().toISOString(),
+        last_edited_by: userName,
+        edit_reason: `Outcome cleared by ${userName}`,
+      }).eq('id', item.bookingId);
+
+      // 3. Remove follow-up queue entries for this booking
+      await supabase.from('follow_up_queue').delete().eq('booking_id', item.bookingId);
+
+      // 4. Log audit event
+      await supabase.from('outcome_events').insert({
+        booking_id: item.bookingId,
+        run_id: item.latestRunId,
+        old_result: item.latestRunResult,
+        new_result: 'Cleared',
+        edited_by: userName,
+        source_component: 'IntroRowCard:clearOutcome',
+        edit_reason: `Outcome cleared by ${userName}`,
+      });
+
+      toast.success(`Outcome cleared for ${firstName}`);
+      setClearOutcomeOpen(false);
+      onRefresh();
+    } catch (err) {
+      console.error('Clear outcome error:', err);
+      toast.error('Failed to clear outcome');
+    } finally {
+      setClearingOutcome(false);
+    }
+  };
+
   // Build top banner
   const topBanner = (
     <>
@@ -262,7 +330,7 @@ export default function IntroRowCard({
 
   // Outcome badge — removed from card body (lives in outcome banner at bottom)
 
-  // Outcome banner at bottom
+  // Outcome banner at bottom — with clear option
   const outcomeBanner = item.latestRunResult ? (() => {
     const result = item.latestRunResult!;
     const isPurchased = result.includes('Premier') || result.includes('Elite') || result.includes('Basic');
@@ -270,7 +338,20 @@ export default function IntroRowCard({
     const isBooked2nd = result === 'Booked 2nd intro';
     const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : '#d97706';
     const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : `⏳ ${result}`;
-    return <StatusBanner bgColor={bgColor} text={label} />;
+    return (
+      <div className="relative">
+        <StatusBanner bgColor={bgColor} text={label} />
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setClearOutcomeOpen(true); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-white/70 hover:text-white text-[10px] py-1 px-1.5 rounded transition-colors min-w-[44px] min-h-[44px] justify-center"
+          title="Clear outcome"
+        >
+          <X className="w-3 h-3" />
+          <span className="hidden sm:inline">Clear</span>
+        </button>
+      </div>
+    );
   })() : null;
 
   // ROW 1 — Primary action buttons (each is a grid child, 1/3 width)
@@ -414,6 +495,24 @@ export default function IntroRowCard({
           onCancel={() => setOutcomeOpen(false)}
         />
       )}
+
+      {/* Clear outcome confirmation */}
+      <AlertDialog open={clearOutcomeOpen} onOpenChange={setClearOutcomeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear outcome for {item.memberName.split(' ')[0]}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the logged outcome and return the card to its original state.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearingOutcome}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearOutcome} disabled={clearingOutcome}>
+              {clearingOutcome ? 'Clearing…' : 'Clear'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
