@@ -100,7 +100,7 @@ export default function MyPerformance() {
   // Scatter plot data: this SA vs all others
   const scatterData = useMemo(() => {
     return metrics.perSA
-      .filter(m => m.introsRun >= 1)
+      .filter(m => m.introsBooked >= 1)
       .map(m => ({
         name: m.saName,
         closeRate: m.closingRate,
@@ -226,9 +226,9 @@ export default function MyPerformance() {
         <CardContent>
           <div className="grid grid-cols-3 gap-3">
             <StatCard
-              label="Intros Run"
-              value={personalStats?.introsRun ?? 0}
-              prev={prevStats?.introsRun}
+              label="Intros Booked"
+              value={personalStats?.introsBooked ?? 0}
+              prev={prevStats?.introsBooked}
             />
             <StatCard
               label="Sales"

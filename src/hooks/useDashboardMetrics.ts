@@ -225,14 +225,18 @@ export function useDashboardMetrics(
 
     // =========================================
     // PER-SA METRICS (attributed to intro_owner)
-    // Uses shared utilities from sales-detection.ts:
-    //   - isRunInRange() for intros-run count (booking metric)
-    //   - isSaleInRange() for sales count (conversion metric)
-    //   - getRunSaleDate() for purchase date fallback
+    // Total Journey: 1st intros booked → any sale
     // =========================================
 
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
-      // Get ALL runs by this SA (no date filter yet - we apply date logic per-metric)
+      // Count 1st intro BOOKINGS for this SA (using intro_owner on booking)
+      const saFirstBookings = firstIntroBookings.filter(b => {
+        const owner = (b as any).intro_owner || b.sa_working_shift;
+        return owner === saName;
+      });
+      const introsBookedCount = saFirstBookings.length;
+
+      // Get ALL runs by this SA (for sales counting)
       const saAllRuns = activeRuns.filter(run => {
         return run.intro_owner === saName && run.result !== 'No-show';
       });
@@ -244,30 +248,24 @@ export function useDashboardMetrics(
         return runInRange || saleInRange;
       });
 
-      // For linked runs, group by booking to get first runs only
-      // For unlinked runs, count each one as a unique intro
-      const runsByBooking = new Map<string, IntroRun[]>();
-      const unlinkedRuns: IntroRun[] = [];
-      
-      let introsRunCount = 0;
       let salesCount = 0;
       let salesCommission = 0;
-      let salesFromSecondIntros = 0;
-      let secondIntroCommission = 0;
-      const saFirstRuns: IntroRun[] = [];
+
+      // For linked runs, group by booking to get first runs only
+      const runsByBooking = new Map<string, IntroRun[]>();
+      const unlinkedRuns: IntroRun[] = [];
 
       saRuns.forEach(run => {
         if (run.linked_intro_booked_id) {
           if (firstIntroBookingIds.has(run.linked_intro_booked_id)) {
-            // First-intro run — counts for both introsRun and sales
             const existing = runsByBooking.get(run.linked_intro_booked_id) || [];
             existing.push(run);
             runsByBooking.set(run.linked_intro_booked_id, existing);
           } else if (allActiveBookingIds.has(run.linked_intro_booked_id)) {
-            // 2nd-intro run — counts for sales only (not introsRun)
+            // 2nd-intro run — counts for sales only
             if (isSaleInRange(run, dateRange)) {
-              salesFromSecondIntros++;
-              secondIntroCommission += run.commission_amount || 0;
+              salesCount++;
+              salesCommission += run.commission_amount || 0;
             }
           }
         } else {
@@ -275,50 +273,25 @@ export function useDashboardMetrics(
         }
       });
       
-      // Count linked runs - use run_date for intros, sale date for sales
+      // Count linked run sales
       runsByBooking.forEach((runs) => {
-        const sortedRuns = [...runs].sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        const firstValidRun = sortedRuns[0];
-        if (firstValidRun) {
-          // Only count as "intro run" if run_date is in range (booking metric)
-          if (isRunInRange(firstValidRun, dateRange)) {
-            introsRunCount++;
-            saFirstRuns.push(firstValidRun);
-          }
-          
-          // Check if ANY run for this booking has a sale with sale date in range (conversion metric)
-          const saleRun = runs.find(r => isSaleInRange(r, dateRange));
-          
-          if (saleRun) {
-            salesCount++;
-            salesCommission += saleRun.commission_amount || 0;
-          }
+        const saleRun = runs.find(r => isSaleInRange(r, dateRange));
+        if (saleRun) {
+          salesCount++;
+          salesCommission += saleRun.commission_amount || 0;
         }
       });
       
-      // Add unlinked runs - same dual-date logic
+      // Add unlinked run sales
       unlinkedRuns.forEach(run => {
-        if (isRunInRange(run, dateRange)) {
-          introsRunCount++;
-          saFirstRuns.push(run);
-        }
         if (isSaleInRange(run, dateRange)) {
           salesCount++;
           salesCommission += run.commission_amount || 0;
         }
       });
 
-      // Add 2nd-intro sales to totals
-      salesCount += salesFromSecondIntros;
-      salesCommission += secondIntroCommission;
-
-      // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
-      // This can exceed 100% when follow-up purchases from previous periods
-      // land in a period with fewer new intros. This is correct behavior:
-      // it reflects real revenue attribution for the selected period.
-      const closingRate = introsRunCount > 0 ? (salesCount / introsRunCount) * 100 : 0;
+      // Close Rate = Sales / 1st Intros Booked (Total Journey)
+      const closingRate = introsBookedCount > 0 ? (salesCount / introsBookedCount) * 100 : 0;
 
       // Commission from intros
       const introCommission = salesCommission;
@@ -335,12 +308,12 @@ export function useDashboardMetrics(
 
       return {
         saName,
-        introsRun: introsRunCount,
+        introsBooked: introsBookedCount,
         sales: salesCount,
         closingRate,
         commission,
       };
-    }).filter(m => m.introsRun > 0 || m.sales > 0 || m.commission > 0)
+    }).filter(m => m.introsBooked > 0 || m.sales > 0 || m.commission > 0)
       .sort((a, b) => b.commission - a.commission);
 
     // =========================================
@@ -489,7 +462,7 @@ export function useDashboardMetrics(
     // =========================================
     // STUDIO METRICS (aggregated from perSA)
     // =========================================
-    const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsRun, 0);
+    const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsBooked, 0);
     // Count unattributed sales (runs with no valid intro_owner) so scoreboard matches funnel
     const attributedSANames = new Set(perSAData.map(m => m.saName));
     let unattributedSales = 0;
@@ -554,11 +527,11 @@ export function useDashboardMetrics(
     // Best Closing %
     const MIN_INTROS_FOR_CLOSING = 1;
     const allClosingEntries: LeaderEntry[] = perSAData
-      .filter(m => m.introsRun >= MIN_INTROS_FOR_CLOSING)
+      .filter(m => m.introsBooked >= MIN_INTROS_FOR_CLOSING)
       .map(m => ({ 
         name: m.saName, 
         value: m.closingRate, 
-        subValue: `${m.sales}/${m.introsRun}` 
+        subValue: `${m.sales}/${m.introsBooked}` 
       }))
       .sort((a, b) => b.value - a.value);
 

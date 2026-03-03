@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 export interface PerSAMetrics {
   saName: string;
-  introsRun: number;
+  introsBooked: number;
   sales: number;
   closingRate: number;
   commission: number;
@@ -16,7 +16,7 @@ interface PerSATableProps {
   data: PerSAMetrics[];
 }
 
-type SortColumn = 'saName' | 'introsRun' | 'sales' | 'closingRate' | 'commission';
+type SortColumn = 'saName' | 'introsBooked' | 'sales' | 'closingRate' | 'commission';
 type SortDirection = 'asc' | 'desc';
 
 export function PerSATable({ data }: PerSATableProps) {
@@ -91,7 +91,7 @@ export function PerSATable({ data }: PerSATableProps) {
           <Users className="w-4 h-4 text-primary" />
           Per-SA Performance
         </CardTitle>
-        <p className="text-xs text-muted-foreground">All metrics credited to intro_owner (first intro runner)</p>
+        <p className="text-xs text-muted-foreground">Total Journey · 1st booked → any sale</p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -99,7 +99,7 @@ export function PerSATable({ data }: PerSATableProps) {
             <TableHeader>
               <TableRow>
                 <SortableHeader column="saName" className="text-left">SA</SortableHeader>
-                <SortableHeader column="introsRun">Run</SortableHeader>
+                <SortableHeader column="introsBooked">Booked</SortableHeader>
                 <SortableHeader column="sales">Sales</SortableHeader>
                 <SortableHeader column="closingRate">Close%</SortableHeader>
                 <SortableHeader column="commission">Commission</SortableHeader>
@@ -109,7 +109,7 @@ export function PerSATable({ data }: PerSATableProps) {
               {sortedData.map((row) => (
                 <TableRow key={row.saName}>
                   <TableCell className="font-medium text-sm whitespace-nowrap">{row.saName}</TableCell>
-                  <TableCell className="text-center text-sm">{row.introsRun}</TableCell>
+                  <TableCell className="text-center text-sm">{row.introsBooked}</TableCell>
                   <TableCell className="text-center text-sm font-medium text-success">{row.sales}</TableCell>
                   <TableCell className="text-center text-sm">
                     <span className={row.closingRate >= 50 ? 'text-success' : row.closingRate >= 30 ? 'text-warning' : 'text-destructive'}>
