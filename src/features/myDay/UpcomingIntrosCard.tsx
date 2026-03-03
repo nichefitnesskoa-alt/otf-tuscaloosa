@@ -299,8 +299,8 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                     isActive
                       ? 'bg-primary text-primary-foreground border-primary'
                       : isToday
-                        ? 'bg-accent/60 text-accent-foreground border-primary/50 ring-1 ring-primary/30'
-                        : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted'
+                        ? 'bg-card text-card-foreground border-primary/50 ring-1 ring-primary/30'
+                        : 'bg-card text-card-foreground border-border hover:bg-muted'
                   }`}
                 >
                   <span>{dayLabel}{isToday && !isActive ? ' •' : ''}</span>
