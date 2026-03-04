@@ -55,7 +55,7 @@ export function StudioScoreboard({
                   <p className="text-xs opacity-70">Intros Run</p>
                 </div>
               </TooltipTrigger>
-              <TooltipContent><p>Total first intros run (people who showed up, not 2nd intros)</p></TooltipContent>
+              <TooltipContent><p>Total intros where the member showed up (excludes no-shows)</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -85,7 +85,7 @@ export function StudioScoreboard({
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-[220px]">
-                <p>Sales ÷ intros who showed up. Measures selling effectiveness.</p>
+                <p>Sales ÷ intros who showed up (excludes no-shows). Measures selling effectiveness.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

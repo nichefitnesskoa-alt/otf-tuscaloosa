@@ -113,7 +113,7 @@ export default function MyDayPage() {
     introsRun.filter(r => r.run_date === todayStr),
     [introsRun, todayStr],
   );
-  const completedTodayCount = todayRuns.length;
+  const completedTodayCount = todayRuns.filter(r => r.result !== 'No-show' && r.result?.toLowerCase() !== 'no show').length;
   const purchaseTodayCount = useMemo(() =>
     todayRuns.filter(r => {
       const result = r.result || '';
