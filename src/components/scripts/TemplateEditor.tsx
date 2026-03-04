@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MergeFieldReference } from './MergeFieldReference';
-import { ScriptTemplate, SCRIPT_CATEGORIES, useCreateTemplate, useUpdateTemplate, useDeleteTemplate, useSharedStepUsage } from '@/hooks/useScriptTemplates';
+import { ScriptTemplate, useCreateTemplate, useUpdateTemplate, useDeleteTemplate, useSharedStepUsage } from '@/hooks/useScriptTemplates';
+import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { toast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
 
@@ -33,6 +34,7 @@ export function TemplateEditor({ open, onOpenChange, template }: TemplateEditorP
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
   const { data: sharedUsage } = useSharedStepUsage(template?.is_shared_step ? template.id : undefined);
+  const { options: categoryOptions } = useScriptCategoryOptions();
 
   useEffect(() => {
     if (template) {
@@ -136,7 +138,7 @@ export function TemplateEditor({ open, onOpenChange, template }: TemplateEditorP
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {SCRIPT_CATEGORIES.map((c) => (
+                  {categoryOptions.map((c) => (
                     <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                   ))}
                 </SelectContent>

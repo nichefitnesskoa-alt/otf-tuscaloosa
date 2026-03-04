@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
+import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { TemplateCategoryTabs } from '@/components/scripts/TemplateCategoryTabs';
 import { TemplateCard } from '@/components/scripts/TemplateCard';
 import { TemplateEditor } from '@/components/scripts/TemplateEditor';
 import { MessageGenerator } from '@/components/scripts/MessageGenerator';
 import { ClientSearchScriptPicker } from '@/components/scripts/ClientSearchScriptPicker';
+import { CategoryManager } from '@/components/scripts/CategoryManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Wand2 } from 'lucide-react';
+import { Plus, Search, Wand2, Settings } from 'lucide-react';
 
 export default function Scripts() {
   const { user } = useAuth();
@@ -19,7 +21,9 @@ export default function Scripts() {
   const [editingTemplate, setEditingTemplate] = useState<ScriptTemplate | null>(null);
   const [generatorTemplate, setGeneratorTemplate] = useState<ScriptTemplate | null>(null);
   const [showClientSearch, setShowClientSearch] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const { data: templates = [], isLoading } = useScriptTemplates();
+  const { options: categoryOptions } = useScriptCategoryOptions();
 
   const filtered = templates.filter((t) => {
     if (selectedCategory && t.category !== selectedCategory) return false;
@@ -53,9 +57,14 @@ export default function Scripts() {
             <Wand2 className="w-4 h-4 mr-1" /> Generate
           </Button>
           {isAdmin && (
-            <Button size="sm" variant="outline" onClick={handleAdd}>
-              <Plus className="w-4 h-4 mr-1" /> Add
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={() => setShowCategoryManager(true)}>
+                <Settings className="w-4 h-4 mr-1" /> Categories
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleAdd}>
+                <Plus className="w-4 h-4 mr-1" /> Add
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -90,11 +99,17 @@ export default function Scripts() {
       )}
 
       {isAdmin && (
-        <TemplateEditor
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-          template={editingTemplate}
-        />
+        <>
+          <TemplateEditor
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+            template={editingTemplate}
+          />
+          <CategoryManager
+            open={showCategoryManager}
+            onOpenChange={setShowCategoryManager}
+          />
+        </>
       )}
 
       {generatorTemplate && (

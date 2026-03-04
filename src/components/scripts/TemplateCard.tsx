@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Clock, MessageSquare, Send, Trash2 } from 'lucide-react';
-import { ScriptTemplate, SCRIPT_CATEGORIES, useUpdateTemplate, useDeleteTemplate } from '@/hooks/useScriptTemplates';
+import { ScriptTemplate, useUpdateTemplate, useDeleteTemplate } from '@/hooks/useScriptTemplates';
+import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
 
@@ -17,7 +18,8 @@ export function TemplateCard({ template, isAdmin, onClick }: TemplateCardProps) 
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const categoryLabel = SCRIPT_CATEGORIES.find(c => c.value === template.category)?.label || template.category;
+  const { options } = useScriptCategoryOptions();
+  const categoryLabel = options.find(c => c.value === template.category)?.label || template.category;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();

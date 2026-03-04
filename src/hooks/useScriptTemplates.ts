@@ -17,6 +17,10 @@ export interface ScriptTemplate {
   updated_at: string;
 }
 
+/**
+ * @deprecated Use useScriptCategoryOptions() from '@/hooks/useScriptCategories' instead.
+ * Kept only as a build-time safety net until all consumers are migrated.
+ */
 export const SCRIPT_CATEGORIES = [
   { value: 'booking_confirmation', label: 'Booking Confirmations' },
   { value: 'pre_class_reminder', label: 'Pre-Class Reminders' },
@@ -29,6 +33,7 @@ export const SCRIPT_CATEGORIES = [
   { value: 'referral_ask', label: 'Referral Ask' },
   { value: 'cancel_freeze', label: 'Cancel/Freeze Save' },
   { value: 'promo', label: 'Promos' },
+  { value: 'reschedule', label: 'Reschedule' },
 ] as const;
 
 export function useScriptTemplates(category?: string) {
