@@ -9,7 +9,8 @@ import { Search, User, CalendarDays, ArrowRight, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
+import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
+import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { useScriptSendLog } from '@/hooks/useScriptSendLog';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
@@ -167,6 +168,7 @@ export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson
 
   const { data: searchResults = [], isLoading: searching } = useSearchPeople(searchQuery);
   const { data: templates = [] } = useScriptTemplates();
+  const { options: SCRIPT_CATEGORIES } = useScriptCategoryOptions();
   const { data: sendLogs = [] } = useScriptSendLog({
     leadId: selectedPerson?.type === 'lead' ? selectedPerson.id : undefined,
     bookingId: selectedPerson?.type === 'booking' ? selectedPerson.id : undefined,

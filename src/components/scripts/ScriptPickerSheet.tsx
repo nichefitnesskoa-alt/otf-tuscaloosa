@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Search, Link2, Check, Sparkles, Copy, RefreshCw, Loader2, Phone } from 'lucide-react';
-import { useScriptTemplates, ScriptTemplate, SCRIPT_CATEGORIES } from '@/hooks/useScriptTemplates';
+import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
+import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { TemplateCard } from './TemplateCard';
 import { MessageGenerator } from './MessageGenerator';
 import { TemplateCategoryTabs } from './TemplateCategoryTabs';
@@ -21,7 +22,7 @@ const TAB_CATEGORY_MAP: Record<string, string[]> = {
   confirmation: ['booking_confirmation', 'pre_class_reminder', 'day_before_reminder', 'confirmation'],
   questionnaire: ['booking_confirmation', 'pre_class_reminder', 'questionnaire'],
   no_show: ['no_show'],
-  follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up'],
+  follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up', 'reschedule'],
   outreach: ['web_lead', 'cold_lead', 'ig_dm', 'referral_ask', 'promo', 'outreach'],
   web_lead: ['web_lead'],
   cold_lead: ['cold_lead'],
@@ -31,6 +32,7 @@ const TAB_CATEGORY_MAP: Record<string, string[]> = {
   referral_ask: ['referral_ask'],
   cancel_freeze: ['cancel_freeze'],
   promo: ['promo'],
+  reschedule: ['reschedule'],
 };
 
 interface MergeContext {
@@ -72,6 +74,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
   const [aiScript, setAiScript] = useState('');
   const [aiCategory, setAiCategory] = useState(suggestedCategories[0] || 'follow_up');
   const { data: templates = [] } = useScriptTemplates();
+  const { options: SCRIPT_CATEGORIES } = useScriptCategoryOptions();
 
   // Member context state — populated when bookingId is provided
   const [memberCtx, setMemberCtx] = useState<{

@@ -16,5 +16,6 @@ export function normalizeCategory(
   if (lower === 'no_show' || lower === 'post_class_no_close' || lower === 'cancel_freeze' || lower.includes('follow')) return 'follow_up';
   // outreach bucket: web_lead, cold_lead, ig_dm
   if (lower === 'web_lead' || lower === 'cold_lead' || lower === 'ig_dm' || lower.includes('outreach')) return 'outreach';
+  if (lower === 'reschedule') return 'follow_up';
   return 'other';
 }
