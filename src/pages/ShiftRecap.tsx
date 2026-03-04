@@ -919,31 +919,14 @@ export default function ShiftRecap() {
       }
 
 
-      // 6. Post to GroupMe - await to ensure it completes
+      // 6. Post to GroupMe via server-side edge function
       try {
-        const groupMeResult = await postShiftRecapToGroupMe({
-          staffName: user?.name || '',
-          shiftDate: date,
+        const groupMeResult = await postShiftRecapToGroupMe(
+          user?.name || '',
+          date,
           shiftType,
-          callsMade,
-          textsSent,
-          dmsSent,
-          emailsSent,
-          introsBooked: introsBooked.map(b => ({
-            memberName: b.memberName,
-            leadSource: b.leadSource,
-            friendName: b.bringingFriend && b.friendFirstName ? `${b.friendFirstName} ${b.friendLastName}`.trim() : undefined,
-          })),
-          introsRun: introsRun.map(r => ({
-            memberName: r.memberName,
-            outcome: r.outcome,
-            goalWhyCaptured: r.goalWhyCaptured,
-            relationshipExperience: r.relationshipExperience,
-            madeAFriend: r.madeAFriend,
-          })),
-          sales: sales.filter(s => s.memberName && s.memberName.trim()).map(s => ({ memberName: s.memberName, membershipType: s.membershipType, commissionAmount: s.commissionAmount })),
-          notes,
-        }, shiftData.id);
+          shiftData.id
+        );
         
         if (!groupMeResult.success) {
           console.error('GroupMe post failed:', groupMeResult.error);

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ClipboardCheck, ArrowLeft, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +9,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
 import { getTodayStartISO, getTomorrowStartISO } from '@/lib/dateUtils';
+import { isMembershipSale } from '@/lib/sales-detection';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -29,20 +29,20 @@ interface ShiftSummaryData {
   booked: number;
   ran: number;
   sold: number;
+  soldNames: string[];
   noShow: number;
-  didntBuy: number;
   followUpNeeded: number;
+  followUpPurchases: number;
+  followUpPurchaseNames: string[];
   calls: number;
   texts: number;
   dms: number;
   shiftType: string;
-  // New MyDay activity fields
   qSent: number;
   qCompleted: number;
   scriptsSent: number;
   followUpTouches: number;
   introsPrepped: number;
-  igDmsSent: number;
 }
 
 export function CloseOutShift({
@@ -79,7 +79,6 @@ export function CloseOutShift({
     else setInternalOpen(v);
   };
 
-  // Fetch live summary data whenever dialog opens
   useEffect(() => {
     if (!open || !user?.name) return;
     fetchSummary();
@@ -93,104 +92,75 @@ export function CloseOutShift({
     const tomorrowStart = getTomorrowStartISO();
 
     try {
-      const SALE_RESULTS = ['Premier + OTbeat', 'Premier', 'Elite + OTbeat', 'Elite', 'Basic + OTbeat', 'Basic'];
-
-      // Intros booked (created) today for this SA — filter by created_at, not class_date
-      // This counts bookings the SA made during their shift, regardless of future class date
-      // Fetch both and deduplicate so friend bookings without shift_recap_id are always counted
-      // Exclude VIP/COMP bookings from counts
+      // Intros booked today by this SA (exclude VIP/COMP)
       const [bookedByShift, bookedByAttrib] = await Promise.all([
-        supabase
-          .from('intros_booked')
-          .select('id, booking_type_canon')
-          .gte('created_at', todayStart)
-          .lt('created_at', tomorrowStart)
-          .eq('sa_working_shift', user.name)
-          .is('deleted_at', null),
-        supabase
-          .from('intros_booked')
-          .select('id, booking_type_canon')
-          .gte('created_at', todayStart)
-          .lt('created_at', tomorrowStart)
-          .eq('booked_by', user.name)
-          .is('deleted_at', null),
+        supabase.from('intros_booked').select('id, booking_type_canon')
+          .gte('created_at', todayStart).lt('created_at', tomorrowStart)
+          .eq('sa_working_shift', user.name).is('deleted_at', null),
+        supabase.from('intros_booked').select('id, booking_type_canon')
+          .gte('created_at', todayStart).lt('created_at', tomorrowStart)
+          .eq('booked_by', user.name).is('deleted_at', null),
       ]);
-      // Deduplicate by id and exclude VIP/COMP
       const allBookedIds = new Set<string>();
       for (const b of [...(bookedByShift.data || []), ...(bookedByAttrib.data || [])]) {
-        const btc = (b as any).booking_type_canon;
-        if (btc !== 'VIP' && btc !== 'COMP') {
+        if ((b as any).booking_type_canon !== 'VIP' && (b as any).booking_type_canon !== 'COMP') {
           allBookedIds.add(b.id);
         }
       }
 
-      // Intros run today
-      const { data: ran } = await supabase
-        .from('intros_run')
-        .select('result, result_canon, buy_date, run_date, goal_why_captured')
+      // Intros ran today
+      const { data: ran } = await supabase.from('intros_run')
+        .select('member_name, result, result_canon, buy_date, run_date, intro_owner, sa_name')
         .or(`sa_name.eq.${user.name},intro_owner.eq.${user.name}`)
         .eq('run_date', today);
 
-      const soldCount = (ran || []).filter(r => {
+      const sameDaySales = (ran || []).filter(r => {
         const effectiveDate = r.buy_date || r.run_date || '';
-        return effectiveDate === today && SALE_RESULTS.includes(r.result);
-      }).length;
+        return effectiveDate === today && isMembershipSale(r.result);
+      });
+      const soldNames = sameDaySales.map(r => `${r.member_name}: ${r.result}`);
 
-      const noShowCount = (ran || []).filter(r => r.result_canon === 'NO_SHOW').length;
-      const didntBuyCount = (ran || []).filter(r => r.result_canon === 'DIDNT_BUY').length;
+      const noShowCnt = (ran || []).filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show').length;
       const followUpNeeded = (ran || []).filter(r =>
-        ['DIDNT_BUY', 'NO_SHOW', 'PLANNING_RESCHEDULE'].includes(r.result_canon || '')
+        ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show'
       ).length;
 
-      // Shift activity (calls/texts/DMs) from shift_recaps
+      // Follow-up purchases (buy_date = today, run_date != today)
+      const { data: fuPurch } = await supabase.from('intros_run')
+        .select('member_name, result, intro_owner, sa_name')
+        .eq('buy_date', today)
+        .neq('run_date', today)
+        .or(`sa_name.eq.${user.name},intro_owner.eq.${user.name}`);
+      const fuPurchNames = (fuPurch || []).map(r => `${r.member_name}: ${r.result}`);
+
+      // Shift activity
       const hour = new Date().getHours();
       const shiftType = hour < 12 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
 
-      const [shiftDataRes, qSentRes, qCompletedRes, scriptsRes, fuTouchesRes, preppedRes, igDmsRes] = await Promise.all([
-        supabase
-          .from('shift_recaps')
+      const [shiftDataRes, qSentRes, qCompletedRes, scriptsRes, fuTouchesRes, preppedRes] = await Promise.all([
+        supabase.from('shift_recaps')
           .select('calls_made, texts_sent, dms_sent, shift_type')
-          .eq('staff_name', user.name)
-          .eq('shift_date', today)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('intros_booked')
+          .eq('staff_name', user.name).eq('shift_date', today)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('intros_booked')
           .select('id', { count: 'exact', head: true })
-          .gte('questionnaire_sent_at', todayStart)
-          .lt('questionnaire_sent_at', tomorrowStart)
+          .gte('questionnaire_sent_at', todayStart).lt('questionnaire_sent_at', tomorrowStart)
           .or(`sa_working_shift.eq.${user.name},booked_by.eq.${user.name}`),
-        supabase
-          .from('intros_booked')
+        supabase.from('intros_booked')
           .select('id', { count: 'exact', head: true })
-          .gte('questionnaire_completed_at', todayStart)
-          .lt('questionnaire_completed_at', tomorrowStart),
-        supabase
-          .from('script_actions')
+          .gte('questionnaire_completed_at', todayStart).lt('questionnaire_completed_at', tomorrowStart),
+        supabase.from('script_actions')
           .select('id', { count: 'exact', head: true })
-          .eq('action_type', 'script_sent')
-          .eq('completed_by', user.name)
-          .gte('completed_at', todayStart)
-          .lt('completed_at', tomorrowStart),
-        supabase
-          .from('followup_touches')
+          .eq('action_type', 'script_sent').eq('completed_by', user.name)
+          .gte('completed_at', todayStart).lt('completed_at', tomorrowStart),
+        supabase.from('followup_touches')
           .select('id', { count: 'exact', head: true })
           .eq('created_by', user.name)
-          .gte('created_at', todayStart)
-          .lt('created_at', tomorrowStart),
-        supabase
-          .from('intros_booked')
+          .gte('created_at', todayStart).lt('created_at', tomorrowStart),
+        supabase.from('intros_booked')
           .select('id', { count: 'exact', head: true })
           .eq('prepped', true)
-          .gte('prepped_at', todayStart)
-          .lt('prepped_at', tomorrowStart),
-        supabase
-          .from('ig_leads')
-          .select('id', { count: 'exact', head: true })
-          .eq('sa_name', user.name)
-          .gte('created_at', todayStart)
-          .lt('created_at', tomorrowStart),
+          .gte('prepped_at', todayStart).lt('prepped_at', tomorrowStart),
       ]);
 
       const shiftData = shiftDataRes.data;
@@ -198,10 +168,12 @@ export function CloseOutShift({
       setSummary({
         booked: allBookedIds.size,
         ran: (ran || []).length,
-        sold: soldCount,
-        noShow: noShowCount,
-        didntBuy: didntBuyCount,
+        sold: sameDaySales.length,
+        soldNames,
+        noShow: noShowCnt,
         followUpNeeded,
+        followUpPurchases: (fuPurch || []).length,
+        followUpPurchaseNames: fuPurchNames,
         calls: shiftData?.calls_made ?? 0,
         texts: shiftData?.texts_sent ?? 0,
         dms: shiftData?.dms_sent ?? 0,
@@ -211,7 +183,6 @@ export function CloseOutShift({
         scriptsSent: scriptsRes.count ?? 0,
         followUpTouches: fuTouchesRes.count ?? 0,
         introsPrepped: preppedRes.count ?? 0,
-        igDmsSent: igDmsRes.count ?? 0,
       });
     } catch (err) {
       console.error('End shift summary fetch error:', err);
@@ -227,102 +198,46 @@ export function CloseOutShift({
     try {
       const today = getLocalDateString();
 
-      // 1. Save / upsert shift recap — DB write FIRST
-      const { data: existing } = await supabase
-        .from('shift_recaps')
-        .select('id')
-        .eq('staff_name', user.name)
-        .eq('shift_date', today)
-        .limit(1)
-        .maybeSingle();
+      // 1. Save / upsert shift recap
+      const { data: existing } = await supabase.from('shift_recaps')
+        .select('id').eq('staff_name', user.name).eq('shift_date', today)
+        .limit(1).maybeSingle();
 
       let recapId: string;
-
       if (existing) {
-        await supabase
-          .from('shift_recaps')
-          .update({ submitted_at: new Date().toISOString() })
-          .eq('id', existing.id);
+        await supabase.from('shift_recaps')
+          .update({ submitted_at: new Date().toISOString() }).eq('id', existing.id);
         recapId = existing.id;
       } else {
-        const { data: newRecap } = await supabase
-          .from('shift_recaps')
+        const { data: newRecap } = await supabase.from('shift_recaps')
           .insert({
             staff_name: user.name,
             shift_date: today,
             shift_type: summary.shiftType,
             submitted_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
+          }).select('id').single();
         recapId = newRecap?.id || '';
       }
 
-      // 2. Build GroupMe message (no commission figures)
-      const dateLabel = format(new Date(), 'MMM d, yyyy');
-      const groupMeText = [
-        `🏋️ ${user.name} — ${summary.shiftType} Recap (${dateLabel})`,
-        ``,
-        `📅 INTROS`,
-        `• Booked: ${summary.booked}`,
-        `• Ran: ${summary.ran}`,
-        `• Sold: ${summary.sold} ✅`,
-        `• No-Show: ${summary.noShow}`,
-        `• Didn't Buy: ${summary.didntBuy}`,
-        `• Follow-Up: ${summary.followUpNeeded}`,
-        ``,
-        `📋 PREP & Q`,
-        `• Q Sent: ${summary.qSent}`,
-        `• Q Completed: ${summary.qCompleted}`,
-        `• Prepped: ${summary.introsPrepped}`,
-        `• Scripts Sent: ${summary.scriptsSent}`,
-        ``,
-        `📞 CONTACTS & FOLLOW-UPS`,
-        `• Calls: ${summary.calls}`,
-        `• Texts: ${summary.texts}`,
-        `• DMs: ${summary.dms}`,
-        `• IG DMs: ${summary.igDmsSent}`,
-        `• FU Touches: ${summary.followUpTouches}`,
-      ].join('\n');
-
-      // 3. Post to GroupMe (after DB write succeeds)
+      // 2. Call edge function to build message server-side and post to GroupMe
       let groupMePosted = false;
       try {
         const { data: gmData, error: gmError } = await supabase.functions.invoke('post-groupme', {
-          body: { text: groupMeText, staffName: user.name },
+          body: {
+            action: 'post',
+            staffName: user.name,
+            date: today,
+            shiftType: summary.shiftType,
+          },
         });
 
         if (gmError || !gmData?.success) {
           console.error('GroupMe post failed:', gmError || gmData?.error);
-          // Store failed status in daily_recaps
-          await supabase.from('daily_recaps').insert({
-            shift_date: today,
-            staff_name: user.name,
-            recap_text: groupMeText,
-            status: 'failed',
-            shift_recap_id: recapId,
-            error_message: gmError?.message || gmData?.error || 'GroupMe post failed',
-          });
         } else {
           groupMePosted = true;
-          await supabase.from('daily_recaps').insert({
-            shift_date: today,
-            staff_name: user.name,
-            recap_text: groupMeText,
-            status: 'sent',
-            shift_recap_id: recapId,
-          });
         }
       } catch (gmErr) {
         console.error('GroupMe exception:', gmErr);
-        await supabase.from('daily_recaps').insert({
-          shift_date: today,
-          staff_name: user.name,
-          recap_text: groupMeText,
-          status: 'failed',
-          shift_recap_id: recapId,
-          error_message: gmErr instanceof Error ? gmErr.message : 'Unknown error',
-        });
       }
 
       await refreshData();
@@ -341,12 +256,21 @@ export function CloseOutShift({
     }
   };
 
-  const SummaryRow = ({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) => (
+  const SummaryRow = ({ label, value, highlight, detail }: { label: string; value: number; highlight?: boolean; detail?: string }) => (
     <div className="flex items-center justify-between py-1 border-b border-border/30 last:border-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-sm font-semibold tabular-nums ${highlight ? 'text-primary' : ''}`}>{value}</span>
+      <div className="text-right">
+        <span className={`text-sm font-semibold tabular-nums ${highlight ? 'text-primary' : ''}`}>{value}</span>
+        {detail && <p className="text-[10px] text-muted-foreground max-w-[180px] truncate">{detail}</p>}
+      </div>
     </div>
   );
+
+  const formatNames = (names: string[], max = 3) => {
+    if (names.length === 0) return undefined;
+    const shown = names.slice(0, max).join(', ');
+    return names.length > max ? `${shown} +${names.length - max} more` : shown;
+  };
 
   return (
     <>
@@ -374,13 +298,12 @@ export function CloseOutShift({
             <div className="py-8 text-center text-sm text-muted-foreground">Loading shift data…</div>
           ) : (
             <div className="space-y-4">
-              {/* Header line */}
               <div className="bg-muted/50 rounded-lg px-3 py-2 text-center">
                 <p className="text-xs font-semibold text-foreground">{user?.name} — {summary.shiftType}</p>
                 <p className="text-[11px] text-muted-foreground">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
               </div>
 
-              {/* Intros section */}
+              {/* Intros */}
               <div className="rounded-lg border border-border/60 overflow-hidden">
                 <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
                   <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📅 Intros</span>
@@ -388,14 +311,23 @@ export function CloseOutShift({
                 <div className="px-3 py-1">
                   <SummaryRow label="Booked" value={summary.booked} />
                   <SummaryRow label="Ran" value={summary.ran} />
-                  <SummaryRow label="Sold" value={summary.sold} highlight />
+                  <SummaryRow label="Sold" value={summary.sold} highlight detail={formatNames(summary.soldNames)} />
                   <SummaryRow label="No-Show" value={summary.noShow} />
-                  <SummaryRow label="Didn't Buy" value={summary.didntBuy} />
                   <SummaryRow label="Follow-Up Needed" value={summary.followUpNeeded} />
                 </div>
               </div>
 
-              {/* Prep & Questionnaires section */}
+              {/* Follow-Up Purchases */}
+              <div className="rounded-lg border border-border/60 overflow-hidden">
+                <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">💳 Follow-Up Purchases</span>
+                </div>
+                <div className="px-3 py-1">
+                  <SummaryRow label="Purchases" value={summary.followUpPurchases} highlight detail={formatNames(summary.followUpPurchaseNames)} />
+                </div>
+              </div>
+
+              {/* Prep & Q */}
               <div className="rounded-lg border border-border/60 overflow-hidden">
                 <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
                   <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📋 Prep & Questionnaires</span>
@@ -408,7 +340,7 @@ export function CloseOutShift({
                 </div>
               </div>
 
-              {/* Follow-Up & Outreach section */}
+              {/* Contacts & Follow-Ups */}
               <div className="rounded-lg border border-border/60 overflow-hidden">
                 <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40">
                   <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">📞 Contacts & Follow-Ups</span>
@@ -416,8 +348,7 @@ export function CloseOutShift({
                 <div className="px-3 py-1">
                   <SummaryRow label="Calls" value={summary.calls} />
                   <SummaryRow label="Texts" value={summary.texts} />
-                  <SummaryRow label="DMs" value={summary.dms} />
-                  <SummaryRow label="IG DMs Sent" value={summary.igDmsSent} />
+                  <SummaryRow label="IG DMs" value={summary.dms} />
                   <SummaryRow label="Follow-Up Touches" value={summary.followUpTouches} />
                 </div>
               </div>
