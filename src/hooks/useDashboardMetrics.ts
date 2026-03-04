@@ -363,28 +363,89 @@ export function useDashboardMetrics(
     // =========================================
     // LEAD SOURCE METRICS
     // Uses isSaleInRange for conversion-based sale detection
+    // Booked/showed anchored to class_date in range (1st intros only)
+    // Sold iterates ALL activeRuns with isSaleInRange, attributed to
+    // the earliest 1st intro booking's lead_source for that member.
     // =========================================
-    // Lead source metrics: "booked" = all bookings, showed/sold = past+today only
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
+
+    // 1) Booked & showed — from firstIntroBookings (class_date in range)
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
       existing.booked++;
-      
-      // Only count showed/sold for past+today bookings
+
+      // Only count showed for past+today bookings
       if (pastAndTodayBookingIds.has(b.id)) {
         const runs = bookingToRuns.get(b.id) || [];
-        const nonNoShowRun = runs.find(r => r.result !== 'No-show');
-        if (nonNoShowRun) {
+        if (runs.some(r => r.result !== 'No-show')) {
           existing.showed++;
-          const saleRun = runs.find(r => isSaleInRange(r, dateRange));
-          if (saleRun) {
-            existing.sold++;
-            existing.revenue += saleRun.commission_amount || 0;
-          }
         }
       }
-      
+
+      leadSourceMap.set(source, existing);
+    });
+
+    // 2) Sold — iterate ALL activeRuns where isSaleInRange is true,
+    //    attribute each to the member's earliest 1st intro booking's lead_source.
+    //    This captures follow-up purchases and 2nd-intro sales whose buy_date
+    //    falls in range even if the original booking's class_date does not.
+
+    // Build a lookup: booking id → booking object for quick access
+    const bookingById = new Map<string, IntroBooked>();
+    activeBookings.forEach(b => bookingById.set(b.id, b));
+
+    // Build member name → earliest 1st intro booking (for fallback attribution)
+    const memberFirstBooking = new Map<string, IntroBooked>();
+    // Sort all non-VIP active bookings by class_date asc to find earliest
+    const sortedBookings = [...activeBookings].sort((a, b) => a.class_date.localeCompare(b.class_date));
+    sortedBookings.forEach(b => {
+      const originatingId = (b as any).originating_booking_id;
+      const referredBy = (b as any).referred_by_member_name;
+      const isFirst = !originatingId || !!referredBy;
+      if (isFirst) {
+        const nameKey = b.member_name.toLowerCase().replace(/\s+/g, '');
+        if (!memberFirstBooking.has(nameKey)) {
+          memberFirstBooking.set(nameKey, b);
+        }
+      }
+    });
+
+    // Helper: resolve a run to the lead_source of the member's earliest 1st intro booking
+    const resolveLeadSource = (run: IntroRun): string => {
+      // 1) Try linked booking
+      if (run.linked_intro_booked_id) {
+        const linkedBooking = bookingById.get(run.linked_intro_booked_id);
+        if (linkedBooking) {
+          // If the linked booking is a 2nd intro, follow originating_booking_id
+          const origId = (linkedBooking as any).originating_booking_id;
+          if (origId) {
+            const origBooking = bookingById.get(origId);
+            if (origBooking) return origBooking.lead_source || 'Unknown';
+          }
+          // Either it's a 1st intro booking or we can't find the originating → use its lead_source
+          return linkedBooking.lead_source || 'Unknown';
+        }
+      }
+      // 2) Fallback: name-based matching to earliest 1st intro
+      const nameKey = run.member_name.toLowerCase().replace(/\s+/g, '');
+      const firstBooking = memberFirstBooking.get(nameKey);
+      if (firstBooking) return firstBooking.lead_source || 'Unknown';
+      // 3) Final fallback
+      return 'Unknown';
+    };
+
+    // Track which runs we've already counted to prevent double-counting
+    const countedRunIds = new Set<string>();
+    activeRuns.forEach(run => {
+      if (!isSaleInRange(run, dateRange)) return;
+      if (countedRunIds.has(run.id)) return;
+      countedRunIds.add(run.id);
+
+      const source = resolveLeadSource(run);
+      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      existing.sold++;
+      existing.revenue += run.commission_amount || 0;
       leadSourceMap.set(source, existing);
     });
 

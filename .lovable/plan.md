@@ -1,69 +1,38 @@
-*Bug fix —* `useLeadMeasures.ts` *missing* `result` *field causing no-shows to be counted as ran.*
-
-*Single change in* `src/hooks/useLeadMeasures.ts` *line 49:*
-
-```
-// Before:
-.select('id, sa_name, intro_owner, run_date')
-
-// After:
-.select('id, sa_name, intro_owner, run_date, result, result_canon')
-```
-
-*This allows the existing no-show filter on lines 95–96 to actually fire. No other files need changes.*
-
-*Verify after fix:*
-
-- *Katie's ran count in Lead Measures by SA drops from 9 to 8*
-- *All other SA ran counts in Lead Measures table reflect showed = true only*
-- *Studio Scoreboard, Conversion Funnel, Lead Source Analytics unchanged — they use a different code path that was already correct*
-- *No regression to any other metric*
-
-&nbsp;
-
-&nbsp;
-
-## Bug: `useLeadMeasures` missing `result` field in query
+## Bug Fix: Follow-up purchases missing from Lead Source Analytics (COMPLETED)
 
 ### Root Cause
 
-In `src/hooks/useLeadMeasures.ts` line 48-50, the `intros_run` query selects only `id, sa_name, intro_owner, run_date` — it does **not** include `result` or `result_canon`. The no-show filter on lines 95-96 checks `r.result`, which is always `undefined`, so the filter never fires and no-shows are counted as ran.
+Lead Source Metrics block in `useDashboardMetrics.ts` (lines 363–392) iterated only over `firstIntroBookings` filtered by `class_date` in the date range. Sold was counted only when a run linked to that specific booking passed `isSaleInRange`. This missed:
+1. Follow-up purchases where `buy_date` is in range but original booking's `class_date` is outside
+2. 2nd intro sales that should attribute back to the original booking's lead source
 
-This is why Katie shows 9 ran instead of 8 — her 1 no-show is never excluded.
+### Fix Applied
 
-### Audit Results
+**Single file changed:** `src/hooks/useDashboardMetrics.ts` (Lead Source Metrics block)
 
+Rewrote sold counting to:
+1. **Booked/showed**: Unchanged — anchored to booking `class_date` in range (1st intros only)
+2. **Sold**: Iterates ALL `activeRuns` where `isSaleInRange(run, dateRange)` is true
+3. **Attribution**: `run.linked_intro_booked_id` → if 2nd intro, follow `originating_booking_id` → get lead source from original booking. Fallback: name-based matching to earliest 1st intro. Final fallback: "Unknown"
+4. **No double-counting**: `countedRunIds` Set prevents any run from being counted twice
 
-| Location                                                 | Status     | Issue                                                                                         |
-| -------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
-| `src/hooks/useLeadMeasures.ts`                           | **BROKEN** | Query missing `result` field; no-shows never excluded                                         |
-| `src/hooks/useDashboardMetrics.ts`                       | OK         | Uses `run.result !== 'No-show'` correctly; data comes from DataContext which fetches `result` |
-| `src/hooks/useMeetingAgenda.ts`                          | OK         | Fetches `result` in query; uses `isNoShow()` filter correctly                                 |
-| `src/components/admin/CoachingView.tsx`                  | OK         | Uses DataContext `introsRun` which includes `result`; filters `No-show` on line 75            |
-| `supabase/functions/post-groupme/index.ts`               | OK         | Fetches `result, result_canon`; filters correctly on line 114-115                             |
-| `src/features/myDay/MyDayPage.tsx`                       | OK         | Already filters no-shows from completed count                                                 |
-| `src/components/admin/ShiftRecapDetails.tsx`             | OK         | Already filters no-shows                                                                      |
-| `src/components/dashboard/CloseOutShift.tsx`             | OK         | Uses `intros_run` with result field via direct query                                          |
-| Lead Source Analytics / Conversion Funnel / Per-SA Table | OK         | All use `useDashboardMetrics` which correctly excludes no-shows                               |
+### Files Audited — No Change Needed
 
+| File | Reason |
+|---|---|
+| `src/components/dashboard/ConversionFunnel.tsx` | Already iterates all runs with `isSaleInRange` — correct |
+| `src/hooks/useDashboardMetrics.ts` per-SA section | Already uses dual-date filtering — correct |
+| `src/hooks/useDashboardMetrics.ts` pipeline section | Only counts past+today bookings for show rate — correct by design |
+| `src/hooks/useDashboardMetrics.ts` studio metrics | Aggregates from per-SA — correct |
+| `supabase/functions/post-groupme/index.ts` | Counts same-day sales separately by date — correct |
+| `src/components/dashboard/CloseOutShift.tsx` | Counts same-day sales separately — correct |
+| `src/hooks/useLeadMeasures.ts` | Shows ran/booked counts per SA, not sold — unaffected |
+| `src/components/dashboard/LeadSourceChart.tsx` | Pure display component — unaffected |
+| `src/lib/sales-detection.ts` | Shared utilities — correct |
 
-### Fix
+### Verification
 
-**Single change** in `src/hooks/useLeadMeasures.ts` line 49: add `result, result_canon` to the select statement.
-
-```
-// Before:
-.select('id, sa_name, intro_owner, run_date')
-
-// After:
-.select('id, sa_name, intro_owner, run_date, result, result_canon')
-```
-
-This ensures the existing no-show filter on lines 95-96 actually works. No other files need changes.
-
-### Verification After Fix
-
-- Katie's ran count drops from 9 to 8 (her 1 no-show excluded)
-- All other SA ran counts in Lead Measures table reflect `showed = true` only
-- Studio Scoreboard, Conversion Funnel, Lead Source Analytics already correct (different code path)
-- No regression to any other metric since this only adds fields to the query
+- Lead Source total sold now = Conversion Funnel total sold for any date range
+- Follow-up purchases with `buy_date` in range appear under correct lead source
+- `book→sale` rate recalculates: denominator = 1st intros booked in range, numerator = all sales with purchase date in range
+- No regression to other metrics sections
