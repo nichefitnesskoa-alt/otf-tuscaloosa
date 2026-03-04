@@ -19,6 +19,7 @@ import { useWinTheDayItems, ChecklistItem } from './useWinTheDayItems';
 
 interface WinTheDayProps {
   onSwitchTab?: (tab: string) => void;
+  defaultCollapsed?: boolean;
 }
 
 type ReflectionTarget = {
@@ -35,16 +36,16 @@ function isInfluencedType(type: string): type is ReflectionType {
   return INFLUENCED_TYPES.includes(type as ReflectionType);
 }
 
-export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
+export function WinTheDay({ onSwitchTab, defaultCollapsed }: WinTheDayProps) {
   const { user } = useAuth();
   const { items, isLoading, completedCount, totalCount, allComplete, progressPct, refresh } = useWinTheDayItems();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(!defaultCollapsed);
   const [reflectionTarget, setReflectionTarget] = useState<ReflectionTarget>(null);
   const [followupContacted, setFollowupContacted] = useState(0);
   const [followupResponded, setFollowupResponded] = useState(0);
   const [outreachCount, setOutreachCount] = useState(0);
 
-  const effectiveOpen = allComplete ? isOpen : true;
+  const incompleteCount = totalCount - completedCount;
   const userName = user?.name || '';
 
   // Direct complete for SA-controlled tasks
@@ -310,49 +311,47 @@ export function WinTheDay({ onSwitchTab }: WinTheDayProps) {
   const firstName = reflectionItem?.memberName?.split(' ')[0] || '';
 
   return (
-    <div className="border-b border-primary/30 bg-background">
-      <Collapsible open={effectiveOpen} onOpenChange={setIsOpen}>
-        {/* Section guidance */}
-        <div className="px-4 pt-2 pb-1">
-          <p className="text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2">
-            Your shift checklist. Tap ○ to reflect, tap the button to take action. Complete every item to win the day.
-          </p>
-        </div>
-        {/* Header */}
-        <div className="px-4 pt-1 pb-2">
-          <div className="flex items-center justify-between">
+    <div className={cn("bg-background", defaultCollapsed ? "rounded-lg border border-primary/30" : "border-b border-primary/30")}>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        {/* Collapsible header — always visible */}
+        <CollapsibleTrigger asChild>
+          <button className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" />
               <span className="text-sm font-bold">Win the Day</span>
-              <span className="text-xs text-muted-foreground">{format(new Date(), 'MMM d')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                {completedCount} of {totalCount} complete
-              </span>
-              {allComplete && (
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    {effectiveOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </Button>
-                </CollapsibleTrigger>
+              <span className="text-xs text-muted-foreground">·</span>
+              {allComplete ? (
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ All done</span>
+              ) : (
+                <span className={cn(
+                  "text-xs font-semibold px-1.5 py-0.5 rounded-full",
+                  incompleteCount >= 4
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                )}>
+                  {incompleteCount} incomplete
+                </span>
               )}
             </div>
-          </div>
-          <div className="mt-2">
-            <Progress value={progressPct} className="h-2 bg-muted" />
-          </div>
-        </div>
-
-        {allComplete && (
-          <div className="mx-4 mb-2 rounded-lg bg-primary py-2.5 px-4 flex items-center justify-center gap-2">
-            <Flame className="w-4 h-4 text-primary-foreground" />
-            <span className="text-sm font-bold text-primary-foreground">You're winning today!</span>
-            <Flame className="w-4 h-4 text-primary-foreground" />
-          </div>
-        )}
+            {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+        </CollapsibleTrigger>
 
         <CollapsibleContent>
+          {/* Progress bar */}
+          <div className="px-4 pb-2">
+            <Progress value={progressPct} className="h-2 bg-muted" />
+            <p className="text-[11px] text-muted-foreground mt-1">{completedCount} of {totalCount} complete</p>
+          </div>
+
+          {allComplete && (
+            <div className="mx-4 mb-2 rounded-lg bg-primary py-2.5 px-4 flex items-center justify-center gap-2">
+              <Flame className="w-4 h-4 text-primary-foreground" />
+              <span className="text-sm font-bold text-primary-foreground">You're winning today!</span>
+              <Flame className="w-4 h-4 text-primary-foreground" />
+            </div>
+          )}
+
           <div className="px-4 pb-3 space-y-1">
             {items.filter(i => !i.completed).map(item => (
               <ChecklistRow
