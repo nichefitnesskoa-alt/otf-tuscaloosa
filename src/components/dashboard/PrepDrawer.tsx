@@ -170,6 +170,7 @@ export function PrepDrawer({
   const [coachNotesOnBooking, setCoachNotesOnBooking] = useState<string | null>(null);
   const [coachBriefHumanDetail, setCoachBriefHumanDetail] = useState<string | null>(null);
   const [coachBriefWhyMoment, setCoachBriefWhyMoment] = useState<string | null>(null);
+  const [coachBriefFiveVision, setCoachBriefFiveVision] = useState<string | null>(null);
 
   const defaultBookings = bookings || [{
     id: bookingId, class_date: classDate, intro_time: classTime, coach_name: coachName,
@@ -196,7 +197,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment' as any)
+        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
@@ -211,6 +212,7 @@ export function PrepDrawer({
       setCoachNotesOnBooking(bookingData?.coach_notes || null);
       setCoachBriefHumanDetail(bookingData?.coach_brief_human_detail || null);
       setCoachBriefWhyMoment(bookingData?.coach_brief_why_moment || null);
+      setCoachBriefFiveVision(bookingData?.coach_brief_five_vision || null);
       setLoading(false);
     });
 
@@ -415,7 +417,7 @@ export function PrepDrawer({
                             <div><span className="text-muted-foreground">Why:</span> <span className="font-semibold">"{emotionalDriver}"</span></div>
                           )}
                           {obstacle && (
-                            <div><span className="text-muted-foreground">Obstacle:</span> <span className="font-semibold">"{obstacle}"</span></div>
+                            <div><span className="text-muted-foreground">Potential Objection:</span> <span className="font-semibold">"{obstacle}"</span></div>
                           )}
                           {pastExp && (
                             <div><span className="text-muted-foreground">Past experience:</span> <span className="font-semibold">"{pastExp}"</span></div>
@@ -454,7 +456,7 @@ export function PrepDrawer({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs font-semibold">What it would come down to</Label>
+                        <Label className="text-xs font-semibold">Potential Objection</Label>
                         <Textarea
                           value={saObjection}
                           onChange={e => setSaObjection(e.target.value)}
@@ -505,7 +507,7 @@ export function PrepDrawer({
 
                       {/* Waypoint 3: What would it come down to */}
                       <div className="border-l-2 border-primary pl-3 space-y-1">
-                        <p className="font-bold text-foreground">WHAT WOULD IT COME DOWN TO</p>
+                        <p className="font-bold text-foreground">POTENTIAL OBJECTION</p>
                         <p className="text-muted-foreground">→ "If you ended up not joining after today — what do you think it would come down to?"</p>
                         <p className="text-[10px] text-muted-foreground/60 italic">↓ don't reassure them yet. just listen. nod. say "that makes sense."</p>
                         <p className="text-[10px] text-muted-foreground/60 italic">↓ you have the whole class to prepare for it.</p>
@@ -640,7 +642,7 @@ export function PrepDrawer({
                     </div>
                     <div className="p-3 space-y-1.5 text-xs">
                       <div><span className="font-bold text-blue-800 dark:text-blue-300">What they're looking for:</span> <span>{buyingCriteria || '—'}</span></div>
-                      <div><span className="font-bold text-blue-800 dark:text-blue-300">What it would come down to:</span> <span>{saObjection || '—'}</span></div>
+                      <div><span className="font-bold text-blue-800 dark:text-blue-300">Potential Objection:</span> <span>{saObjection || '—'}</span></div>
                       <p className="text-[10px] text-muted-foreground italic mt-1">Use their exact words. Not paraphrases. These two lines build your mirror drop and your performance summary.</p>
                     </div>
                   </div>
@@ -665,7 +667,7 @@ export function PrepDrawer({
                             <div><span className="text-muted-foreground">Why:</span> <span className="font-semibold">"{emotionalDriver}"</span></div>
                           )}
                           {obstacle && (
-                            <div><span className="text-muted-foreground">Obstacle:</span> <span className="font-semibold">"{obstacle}"</span></div>
+                            <div><span className="text-muted-foreground">Potential Objection:</span> <span className="font-semibold">"{obstacle}"</span></div>
                           )}
                           {commitment && (
                             <div><span className="text-muted-foreground">Commit:</span> <span className="font-semibold">{commitment} days/week</span>{questionnaire?.q6b_available_days ? ` | Days: ${questionnaire.q6b_available_days}` : ''}</div>
@@ -899,46 +901,60 @@ export function PrepDrawer({
         </ScrollArea>
 
         {/* ══════════ PRINT LAYOUT ══════════ */}
-        <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '12px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.45, padding: '3mm 7mm' }}>
+        <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '13px', fontFamily: 'system-ui, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.5, padding: '3mm 7mm' }}>
           {/* ═══ SA HALF ═══ */}
 
           {/* SPINE BAR — SA */}
-          <div className="print-spine-bar" style={{ background: '#000', color: '#fff', padding: '5px 10px', marginBottom: '5px', fontStyle: 'italic', fontWeight: 'bold', fontSize: '11px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+          <div className="print-spine-bar" style={{ background: '#000', color: '#fff', padding: '6px 12px', marginBottom: '6px', fontStyle: 'italic', fontWeight: 'bold', fontSize: '12px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
             "{firstName} leaves with a story worth telling — and eagerly asks us how to join before we can ask her."
           </div>
 
-          <div className="font-bold border-b-2 border-black pb-1 mb-1" style={{ fontSize: '13px' }}>
+          <div className="font-bold border-b-2 border-black pb-1 mb-2" style={{ fontSize: '14px' }}>
             {memberName} &nbsp;|&nbsp; {classDate}{classTime ? ` | ${classTime.substring(0, 5)}` : ''}
           </div>
 
-          <div className="mb-1 p-1.5 border border-gray-400" style={{ fontSize: '10.5px' }}>
-            <div className="font-bold" style={{ fontSize: '11px' }}>SHOUTOUT CONSENT</div>
+          <div className="mb-2 p-2 border border-gray-400" style={{ fontSize: '12px' }}>
+            <div className="font-bold underline" style={{ fontSize: '12px' }}>SHOUTOUT CONSENT</div>
             <div>"Would you be against the coach shouting you out and getting the room hyped for you?"</div>
             <div className="mt-1 font-semibold">□ Yes — good to go &nbsp;&nbsp;&nbsp;&nbsp; □ No — keep it low key</div>
           </div>
 
-          <div className="mb-1" style={{ fontSize: '10.5px' }}>
-            <div className="font-bold" style={{ fontSize: '11px' }}>DIG DEEPER</div>
-            <div className="ml-2">
-              <div><span className="font-bold">FITNESS LEVEL{fitnessLevel != null ? ` ${fitnessLevel}/5` : ''}</span> → "Why did you give yourself that rating?" → "What would being a 5 look like?"</div>
-              <div><span className="font-bold">LOOKING FOR</span> → "What are you looking for in a gym membership?"</div>
-              <div><span className="font-bold">COME DOWN TO</span> → "If you ended up not joining — what would it come down to?"</div>
+          {/* DIG DEEPER — visually prominent */}
+          <div className="mb-2" style={{ fontSize: '12px' }}>
+            <div className="font-bold underline" style={{ fontSize: '13px', marginBottom: '6px' }}>DIG DEEPER</div>
+
+            <div style={{ marginBottom: '8px' }}>
+              <div className="font-bold underline" style={{ fontSize: '12px' }}>FITNESS LEVEL{fitnessLevel != null ? ` ${fitnessLevel}/5` : ''}</div>
+              <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '2px' }}>"Why did you give yourself that rating?"</div>
+              <div style={{ fontSize: '14px', fontWeight: 'bold' }}>"What would being a 5 look like to you?"</div>
+            </div>
+
+            <div style={{ marginBottom: '8px' }}>
+              <div className="font-bold underline" style={{ fontSize: '12px' }}>LOOKING FOR</div>
+              <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '2px' }}>"What are you looking for in a gym membership?"</div>
+              <div className="italic" style={{ color: '#666', fontSize: '11px' }}>↳ Use their exact words in your close.</div>
+            </div>
+
+            <div style={{ marginBottom: '4px' }}>
+              <div className="font-bold underline" style={{ fontSize: '12px' }}>POTENTIAL OBJECTION</div>
+              <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '2px' }}>"If you ended up not joining — what would it come down to?"</div>
+              <div className="italic" style={{ color: '#666', fontSize: '11px' }}>↳ Don't reassure. Just listen.</div>
             </div>
           </div>
 
           {/* THE CLOSE — SA half */}
-          <div className="mb-1" style={{ fontSize: '10.5px' }}>
-            <div className="font-bold underline" style={{ fontSize: '11px' }}>THE CLOSE</div>
-            <div className="ml-1 space-y-0.5">
+          <div className="mb-1" style={{ fontSize: '12px' }}>
+            <div className="font-bold underline" style={{ fontSize: '13px' }}>THE CLOSE</div>
+            <div className="ml-1 space-y-0.5" style={{ marginTop: '3px' }}>
               <div><span className="font-bold">THE BRIDGE</span></div>
               <div className="ml-2">"That was horrible right?" <span className="italic" style={{ color: '#666' }}>↳ High energy, big smile, sarcastic.</span></div>
               <div className="ml-2">"So — what did that feel like?" <span className="italic" style={{ color: '#666' }}>↳ Let them answer fully.</span></div>
 
-              <div><span className="font-bold">THE IDENTITY QUESTION</span> <span style={{ color: '#666', fontSize: '9.5px' }}>(every close — no exceptions)</span></div>
+              <div><span className="font-bold">THE IDENTITY QUESTION</span> <span style={{ color: '#666', fontSize: '10px' }}>(every close — no exceptions)</span></div>
               <div className="ml-2">"Based on everything you just did today — what is your gut telling you?"</div>
               <div className="ml-2 italic" style={{ color: '#666' }}>↳ Stop. Let silence work. If yes → paperwork immediately.</div>
 
-              <div className="print-rfg-box p-1 border-2 border-black" style={{ marginTop: '2px', marginBottom: '2px' }}>
+              <div className="print-rfg-box p-1.5 border-2 border-black" style={{ marginTop: '3px', marginBottom: '3px' }}>
                 <span className="font-bold">IF THEY HESITATE — RISK FREE GUARANTEE</span><br />
                 "If you come to at least 12 classes within your first 30 days of Premier and don't love it, we'll give you your money back. There's no downside to just trying us out for a month."
               </div>
@@ -954,102 +970,49 @@ export function PrepDrawer({
           </div>
 
           {/* ═══ CUT LINE ═══ */}
-          <div className="my-1 text-center" style={{ fontSize: '11px', letterSpacing: '3px' }}>
+          <div className="my-2 text-center" style={{ fontSize: '12px', letterSpacing: '3px' }}>
             ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
           </div>
 
           {/* ═══ COACH HALF ═══ */}
 
           {/* SPINE BAR — Coach */}
-          <div className="print-spine-bar" style={{ background: '#000', color: '#fff', padding: '5px 10px', marginBottom: '5px', fontStyle: 'italic', fontWeight: 'bold', fontSize: '11px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+          <div className="print-spine-bar" style={{ background: '#000', color: '#fff', padding: '6px 12px', marginBottom: '6px', fontStyle: 'italic', fontWeight: 'bold', fontSize: '12px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
             "{firstName} leaves with a story worth telling — and eagerly asks us how to join before we can ask her."
-            <div className="print-spine-coach-line" style={{ color: '#FF6900', fontStyle: 'italic', fontWeight: 'normal', fontSize: '10px', marginTop: '2px' }}>
+            <div className="print-spine-coach-line" style={{ color: '#FF6900', fontStyle: 'italic', fontWeight: 'normal', fontSize: '10.5px', marginTop: '2px' }}>
               Because a story worth telling becomes a referral we never had to ask for.
             </div>
           </div>
 
-          <div className="font-bold border-b-2 border-black pb-1 mb-1" style={{ fontSize: '13px' }}>
+          <div className="font-bold border-b-2 border-black pb-1 mb-2" style={{ fontSize: '14px' }}>
             COACH COPY — {memberName} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'}
           </div>
 
-          <div style={{ fontSize: '10.5px' }}>
-            <div className="mb-1 p-1.5 border border-gray-300" style={{ fontSize: '9.5px' }}>
-              <div className="font-bold" style={{ fontSize: '10.5px' }}>THE SYSTEM</div>
-              <div>Goal: they leave with a story worth telling. Decision made before SA sits down.</div>
-              <div>Your role: plant two seeds. No selling. No pressure. Raffle: genuine energy = real close.</div>
-            </div>
-
-            <div className="mb-1 p-1.5 border border-gray-400" style={{ fontSize: '10.5px' }}>
-              <div className="font-bold">THE BRIEF</div>
-              <div>Looking for: {buyingCriteria || '___________________________'}</div>
-              <div>Would come down to: {saObjection || '____________________'}</div>
-              {fitnessLevel != null && <div>Gap: {fitnessLevel}/5 → "{fitnessLevel <= 1 ? 'Haven\'t worked out in a long time' : fitnessLevel <= 3 ? 'Somewhat active' : 'Regular exerciser'}"</div>}
-              <div className="print-human-detail-field"><span className="font-bold">One human detail:</span> {coachBriefHumanDetail || '___________________________'}</div>
+          <div style={{ fontSize: '12px' }}>
+            {/* THE BRIEF — Coach primary reference */}
+            <div className="mb-2 p-2 border-2 border-black" style={{ fontSize: '12px' }}>
+              <div className="font-bold underline" style={{ fontSize: '13px' }}>THE BRIEF</div>
+              <div style={{ marginTop: '3px' }}>Looking for: <strong>{buyingCriteria || '___________________________'}</strong></div>
+              <div>Potential Objection: <strong>{saObjection || '___________________________'}</strong></div>
+              {fitnessLevel != null && (
+                <>
+                  <div>What would 5/5 look like: <strong>{coachBriefFiveVision || '___________________________'}</strong></div>
+                </>
+              )}
+              <div>Any additional notes: <strong>{coachBriefHumanDetail || '___________________________'}</strong></div>
               <div className="mt-1 font-semibold">Shoutout: {shoutoutConsent === true ? '■ YES' : shoutoutConsent === false ? '□ NO' : '□ YES □ NO'}</div>
             </div>
 
-            <div className="mb-1">
-              <div className="font-bold">PRE-ENTRY</div>
-              <div>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong." Raffle is live.</div>
-            </div>
-
-            {/* STRUGGLE HOLD — temporarily hidden */}
-            {/* <div className="print-struggle-hold mb-0.5 p-1" style={{ background: '#000', color: '#fff', fontSize: '8.5px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
-              <div className="font-bold" style={{ fontSize: '8.5px' }}>STRUGGLE HOLD</div>
-              <div>↳ Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</div>
-              <div>↳ The valley before the peak is what makes the all-out land. Without it the callout is noise.</div>
-            </div> */}
-
-            <div className="mb-1">
-              <div className="font-bold">THE FOURTH QUARTER — ALL-OUT CALLOUT</div>
-              {/* DRUMROLL — temporarily hidden */}
-              {/* <div><span className="font-bold print-beat-label">DRUMROLL:</span> "First-timer in the house — {firstName} let's go."</div> */}
-              {/* DURING — temporarily hidden */}
-              {/* <div><span className="font-bold print-beat-label">DURING:</span> "{firstName} — this is what {buyingCriteria ? `${buyingCriteria}` : '[their words]'} looks like. Don't stop."</div> */}
-              {/* SEED 1 — temporarily hidden */}
-              {/* <div><span className="font-bold print-beat-label">SEED 1:</span> <span className="italic" style={{ color: '#666' }}>Quietly:</span> "Remember this feeling. This is what you came for."</div> */}
-              <div><span className="font-bold print-beat-label">CALLOUT:</span> "Everybody — {firstName} just hit their first all-out. Let's go."</div>
-              <div className="italic" style={{ color: '#666' }}>↳ Hold the mic. Let the room respond fully. Studio-wide celebration. Let it sink in. Don't rush it.</div>
-              {/* AFTERGLOW — temporarily hidden */}
-              {/* <div><span className="font-bold print-beat-label">AFTERGLOW:</span> "Lock in what you just felt. That's all you."</div> */}
-              {/* No traditional all-out fallback — temporarily hidden */}
-              {/* <div className="italic" style={{ color: '#666', fontSize: '8px' }}>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</div> */}
-            </div>
-
-            {/* VETERAN TORCH PASS — temporarily hidden */}
-            {/* <div className="mb-0.5">
-              <div className="font-bold">VETERAN TORCH PASS</div>
-              <div className="italic" style={{ color: '#666', fontSize: '7.5px' }}>↳ Before class — pull one member aside (joined last 90 days, still coming).</div>
-              <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
-            </div> */}
-
-            <div className="mb-1">
-              <div className="font-bold">THE PERFORMANCE SUMMARY</div>
-              <div className="italic" style={{ color: '#666', fontSize: '9.5px' }}>↳ TV screen. Intro + SA present.</div>
-              <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."</div>
-              <div>"That's you." <span className="italic" style={{ color: '#666', fontSize: '9.5px' }}>↳ Stop. Stay silent. Let it land.</span></div>
-            </div>
-
-            <div className="mb-1">
-              <div className="font-bold">SEED 2 — HANDOFF</div>
-              <div className="italic" style={{ color: '#666', fontSize: '9.5px' }}>↳ After performance summary. Go straight to handoff. No pause.</div>
-              <div>"{bookings?.[0]?.booked_by || 'SA'} — this one's special."</div>
-            </div>
-
-            <div className="mb-1">
-              <div className="font-bold">STANDOUT MEMBER</div>
-              <div>After intro leaves SA asks: "Was there a member who made you feel especially welcome?"</div>
-            </div>
-
-            {/* WHAT THEY TOLD US — condensed — always last section on coach half */}
-            <div className="p-1.5 border-t-2 border-black mt-1" style={{ fontSize: '10px' }}>
-              <div className="font-bold" style={{ fontSize: '11px' }}>WHAT THEY TOLD US</div>
+            {/* WHAT THEY TOLD US */}
+            <div className="mb-2 p-2 border-t-2 border-black" style={{ fontSize: '12px' }}>
+              <div className="font-bold underline" style={{ fontSize: '13px' }}>WHAT THEY TOLD US</div>
               {hasQ ? (
-                <>
+                <div style={{ marginTop: '3px' }}>
                   {fitnessLevel != null && <div>Level: {fitnessLevel}/5</div>}
+                  {coachBriefFiveVision && <div>What would 5/5 look like: "{coachBriefFiveVision}"</div>}
                   {goal && <div>Goal: "{goal}"</div>}
                   {emotionalDriver && <div>Why: "{emotionalDriver}"</div>}
-                  {obstacle && <div>Obstacle: "{obstacle}"</div>}
+                  {obstacle && <div>Potential Objection: "{obstacle}"</div>}
                   {(commitment || questionnaire?.q6b_available_days) && (
                     <div>
                       {commitment ? `Commit: ${commitment} days/week` : ''}
@@ -1058,11 +1021,58 @@ export function PrepDrawer({
                     </div>
                   )}
                   {questionnaire?.q7_coach_notes && <div>Notes: "{questionnaire.q7_coach_notes}"</div>}
-                </>
+                </div>
               ) : (
-                <div className="italic" style={{ color: '#666' }}>No questionnaire — SA conducting dig deeper during tour.</div>
+                <div className="italic" style={{ color: '#666', marginTop: '3px' }}>No questionnaire — SA conducting dig deeper during tour.</div>
               )}
-              <div className="print-why-field" style={{ marginTop: '3px', borderBottom: '2px dashed #000', paddingBottom: '2px' }}><span className="font-bold" style={{ fontSize: '10.5px' }}>Use their WHY at:</span> {coachBriefWhyMoment || <span>&nbsp;</span>}</div>
+              <div className="print-why-field" style={{ marginTop: '4px', borderBottom: '2px dashed #000', paddingBottom: '2px' }}><span className="font-bold" style={{ fontSize: '12px' }}>Use their WHY at:</span> {coachBriefWhyMoment || <span>&nbsp;</span>}</div>
+            </div>
+
+            {/* PRE-ENTRY */}
+            <div className="mb-2">
+              <div className="font-bold underline" style={{ fontSize: '13px' }}>PRE-ENTRY</div>
+              <div style={{ marginTop: '2px' }}>"First-timer today. When they hit their all-out — make some noise. Make them feel like they belong." Raffle is live.</div>
+            </div>
+
+            {/* STRUGGLE HOLD — temporarily hidden */}
+            {/* <div className="print-struggle-hold mb-0.5 p-1" style={{ background: '#000', color: '#fff', fontSize: '10px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+              <div className="font-bold">STRUGGLE HOLD</div>
+              <div>↳ Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</div>
+              <div>↳ The valley before the peak is what makes the all-out land. Without it the callout is noise.</div>
+            </div> */}
+
+            {/* THE FOURTH QUARTER — temporarily hidden */}
+            {/* <div className="mb-1">
+              <div className="font-bold underline">THE FOURTH QUARTER — ALL-OUT CALLOUT</div>
+              <div><span className="font-bold print-beat-label">CALLOUT:</span> "Everybody — {firstName} just hit their first all-out. Let's go."</div>
+              <div className="italic" style={{ color: '#666' }}>↳ Hold the mic. Let the room respond fully. Studio-wide celebration. Let it sink in. Don't rush it.</div>
+            </div> */}
+
+            {/* VETERAN TORCH PASS — temporarily hidden */}
+            {/* <div className="mb-0.5">
+              <div className="font-bold underline">VETERAN TORCH PASS</div>
+              <div className="italic" style={{ color: '#666', fontSize: '9px' }}>↳ Before class — pull one member aside (joined last 90 days, still coming).</div>
+              <div>"Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome."</div>
+            </div> */}
+
+            {/* THE PERFORMANCE SUMMARY — temporarily hidden */}
+            {/* <div className="mb-1">
+              <div className="font-bold underline">THE PERFORMANCE SUMMARY</div>
+              <div className="italic" style={{ color: '#666' }}>↳ TV screen. Intro + SA present.</div>
+              <div>"You came in looking for {buyingCriteria || '[their words]'}. You found it in that [moment]."</div>
+              <div>"That's you." <span className="italic" style={{ color: '#666' }}>↳ Stop. Stay silent. Let it land.</span></div>
+            </div> */}
+
+            {/* SEED 2 — HANDOFF — temporarily hidden */}
+            {/* <div className="mb-1">
+              <div className="font-bold underline">SEED 2 — HANDOFF</div>
+              <div className="italic" style={{ color: '#666' }}>↳ After performance summary. Go straight to handoff. No pause.</div>
+              <div>"{bookings?.[0]?.booked_by || 'SA'} — this one's special."</div>
+            </div> */}
+
+            <div className="mb-1">
+              <div className="font-bold underline" style={{ fontSize: '13px' }}>STANDOUT MEMBER</div>
+              <div style={{ marginTop: '2px' }}>After intro leaves SA asks: "Was there a member who made you feel especially welcome?"</div>
             </div>
           </div>
         </div>

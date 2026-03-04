@@ -655,6 +655,7 @@ export type Database = {
           class_start_at: string | null
           closed_at: string | null
           closed_by: string | null
+          coach_brief_five_vision: string | null
           coach_brief_human_detail: string | null
           coach_brief_why_moment: string | null
           coach_name: string
@@ -716,6 +717,7 @@ export type Database = {
           class_start_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
           coach_brief_why_moment?: string | null
           coach_name: string
@@ -777,6 +779,7 @@ export type Database = {
           class_start_at?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
           coach_brief_why_moment?: string | null
           coach_name?: string
