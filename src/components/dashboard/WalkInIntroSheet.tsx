@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { autoComplete2ndIntroFollowups } from '@/lib/domain/outcomes/autoComplete2ndIntroFollowups';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -122,6 +123,11 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
         console.error('[WalkInIntroSheet] Insert error:', error);
         toast.error(`Failed to save: ${error.message || 'Unknown error'}`);
         return;
+      }
+
+      // Auto-complete any "Planning 2nd Intro" follow-ups for this member
+      if (inserted?.id) {
+        autoComplete2ndIntroFollowups(memberName).catch(() => {});
       }
 
       if (inserted?.id && leadSource === 'Member Referral' && referredBy.trim()) {

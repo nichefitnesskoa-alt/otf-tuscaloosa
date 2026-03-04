@@ -334,8 +334,9 @@ export default function IntroRowCard({
     const isPurchased = result.includes('Premier') || result.includes('Elite') || result.includes('Basic');
     const isNoShow = result === 'No-show';
     const isBooked2nd = result === 'Booked 2nd intro';
-    const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : '#d97706';
-    const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : `⏳ ${result}`;
+    const isPlanning2nd = result === 'Planning to Book 2nd Intro';
+    const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : isPlanning2nd ? '#7c3aed' : '#d97706';
+    const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : isPlanning2nd ? '🟣 2nd Intro Planned' : `⏳ ${result}`;
     return (
       <div className="relative">
         <StatusBanner bgColor={bgColor} text={label} />

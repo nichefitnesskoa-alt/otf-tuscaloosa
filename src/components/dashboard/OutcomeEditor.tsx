@@ -32,8 +32,9 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
   const wasPurchased = isMembershipSale(currentResult);
   const wasFollowUp = currentResult === "Didn't Buy" || currentResult === 'Follow-up needed';
   const wasNoShow = currentResult === 'No-show';
+  const wasPlanning2nd = currentResult === 'Planning to Book 2nd Intro';
 
-  const initialOutcome = wasPurchased ? 'purchased' : wasFollowUp ? 'follow_up' : wasNoShow ? 'no_show' : '';
+  const initialOutcome = wasPurchased ? 'purchased' : wasFollowUp ? 'follow_up' : wasNoShow ? 'no_show' : wasPlanning2nd ? 'planning_2nd' : '';
   const [outcome, setOutcome] = useState(initialOutcome);
   const [objection, setObjection] = useState(currentObjection || '');
   const initialMembership = wasPurchased
@@ -58,6 +59,8 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         newResult = 'Follow-up needed';
       } else if (outcome === 'no_show') {
         newResult = 'No-show';
+      } else if (outcome === 'planning_2nd') {
+        newResult = 'Planning to Book 2nd Intro';
       }
 
       const result = await applyIntroOutcomeUpdate({
@@ -88,10 +91,11 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
 
   return (
     <div className="mt-2 p-2 rounded border bg-muted/30 space-y-2" onClick={e => e.stopPropagation()}>
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5">
         <Button variant={outcome === 'purchased' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('purchased')}>Purchased</Button>
         <Button variant={outcome === 'follow_up' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('follow_up')}>Follow-up</Button>
         <Button variant={outcome === 'no_show' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px]" onClick={() => setOutcome('no_show')}>No Show</Button>
+        <Button variant={outcome === 'planning_2nd' ? 'default' : 'outline'} size="sm" className="h-7 text-[10px] bg-purple-600/10 border-purple-300 dark:border-purple-700" onClick={() => setOutcome('planning_2nd')}>Plan 2nd</Button>
       </div>
       {outcome === 'purchased' && (
         <Select value={membershipType} onValueChange={setMembershipType}>
