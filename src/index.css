@@ -236,7 +236,8 @@ All colors MUST be HSL.
     font-weight: bold;
   }
 
-  /* Human detail field: standard black underline */
+  /* Additional notes field: standard black underline */
+  .print-additional-notes-field,
   .print-human-detail-field {
     border-bottom: 1px solid black !important;
     padding-bottom: 1px;

@@ -29,6 +29,7 @@ interface CoachBooking {
   questionnaire_status_canon?: string;
   coach_brief_human_detail?: string | null;
   coach_brief_why_moment?: string | null;
+  coach_brief_five_vision?: string | null;
 }
 
 interface QuestionnaireData {
@@ -60,9 +61,10 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [editBriefOpen, setEditBriefOpen] = useState(false);
   const [addNoteOpen, setAddNoteOpen] = useState(false);
   const [briefLookingFor, setBriefLookingFor] = useState(booking.sa_buying_criteria || '');
-  const [briefComeDownTo, setBriefComeDownTo] = useState(booking.sa_objection || '');
-  const [briefHumanDetail, setBriefHumanDetail] = useState((booking as any).coach_brief_human_detail || '');
+  const [briefObjection, setBriefObjection] = useState(booking.sa_objection || '');
+  const [briefAdditionalNotes, setBriefAdditionalNotes] = useState((booking as any).coach_brief_human_detail || '');
   const [briefWhyMoment, setBriefWhyMoment] = useState((booking as any).coach_brief_why_moment || '');
+  const [briefFiveVision, setBriefFiveVision] = useState((booking as any).coach_brief_five_vision || '');
   const [noteText, setNoteText] = useState(booking.coach_notes || '');
   const [saving, setSaving] = useState(false);
 
@@ -83,37 +85,31 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const qStatus = booking.questionnaire_status_canon;
   const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
 
-  const levelDesc = fitnessLevel != null ? (() => {
-    if (fitnessLevel <= 1) return 'Haven\'t worked out in a long time';
-    if (fitnessLevel <= 2) return 'Occasional activity';
-    if (fitnessLevel <= 3) return 'Somewhat active';
-    if (fitnessLevel <= 4) return 'Regular exerciser';
-    return 'Very fit, consistent routine';
-  })() : '';
-
   const handleSaveBrief = useCallback(async () => {
     setSaving(true);
     const now = new Date().toISOString();
     await supabase.from('intros_booked').update({
       sa_buying_criteria: briefLookingFor,
-      sa_objection: briefComeDownTo,
-      coach_brief_human_detail: briefHumanDetail || null,
+      sa_objection: briefObjection,
+      coach_brief_human_detail: briefAdditionalNotes || null,
       coach_brief_why_moment: briefWhyMoment || null,
+      coach_brief_five_vision: briefFiveVision || null,
       last_edited_by: userName,
       last_edited_at: now,
     } as any).eq('id', booking.id);
     onUpdateBooking(booking.id, {
       sa_buying_criteria: briefLookingFor,
-      sa_objection: briefComeDownTo,
-      coach_brief_human_detail: briefHumanDetail || null,
+      sa_objection: briefObjection,
+      coach_brief_human_detail: briefAdditionalNotes || null,
       coach_brief_why_moment: briefWhyMoment || null,
+      coach_brief_five_vision: briefFiveVision || null,
       last_edited_by: userName,
       last_edited_at: now,
     } as any);
     setSaving(false);
     setEditBriefOpen(false);
     toast.success('Brief updated ✓');
-  }, [booking.id, briefLookingFor, briefComeDownTo, briefHumanDetail, briefWhyMoment, userName]);
+  }, [booking.id, briefLookingFor, briefObjection, briefAdditionalNotes, briefWhyMoment, briefFiveVision, userName]);
 
   const handleSaveNote = useCallback(async () => {
     setSaving(true);
@@ -138,11 +134,15 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <h4 className="font-bold text-sm mb-1">THE BRIEF</h4>
             <div className="text-sm space-y-0.5">
               <p>Looking for: <strong>{booking.sa_buying_criteria || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
-              <p>Would come down to: <strong>{booking.sa_objection || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
+              <p>Potential Objection: <strong>{booking.sa_objection || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
               {fitnessLevel != null && (
-                <p>Gap: <strong>{fitnessLevel}/5</strong> → "{levelDesc}"</p>
+                <>
+                  <p>Gap: <strong>{fitnessLevel}/5</strong></p>
+                  <p>What would 5/5 look like: <strong>{(booking as any).coach_brief_five_vision || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
+                </>
               )}
-              <p>One human detail: <strong>{(booking as any).coach_brief_human_detail || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
+              <p>Any additional notes: <strong>{(booking as any).coach_brief_human_detail || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
+              <p className="mt-1">Shoutout: {booking.shoutout_consent === true ? '■ YES' : booking.shoutout_consent === false ? '□ NO' : '□ YES □ NO'}</p>
             </div>
           </div>
 
@@ -154,9 +154,10 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             {hasQ ? (
               <div className="text-sm space-y-0.5">
                 {fitnessLevel != null && <p>Level: {fitnessLevel}/5</p>}
+                {(booking as any).coach_brief_five_vision && <p>What would 5/5 look like: "{(booking as any).coach_brief_five_vision}"</p>}
                 {goal && <p>Goal: "{goal}"</p>}
                 {why && <p>Why: "{why}"</p>}
-                {obstacle && <p>Obstacle: "{obstacle}"</p>}
+                {obstacle && <p>Potential Objection: "{obstacle}"</p>}
                 {commitment && (
                   <p>
                     Commit: {commitment} days/week
@@ -168,9 +169,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               </div>
             ) : (
               <div className="text-sm text-muted-foreground italic space-y-0.5">
-                <p>No questionnaire on file.</p>
-                <p>SA conducting dig deeper during tour.</p>
-                <p>Brief will update when filled in.</p>
+                <p>No questionnaire — SA conducting dig deeper during tour.</p>
                 <p className="text-primary font-bold not-italic mt-1">Use their WHY at: <span className="font-normal italic text-muted-foreground">___________________________</span></p>
               </div>
             )}
@@ -186,69 +185,21 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <CueLine>Raffle is live.</CueLine>
           </div>
 
-          <Separator />
-
-          {/* STRUGGLE HOLD — temporarily hidden */}
-          {/* <div className="rounded-lg overflow-hidden" style={{ background: '#111', color: '#fff', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
-            <div className="p-3">
-              <p className="font-bold text-sm text-primary mb-1">STRUGGLE HOLD</p>
-              <CueLine>Block 2 — hold back encouragement deliberately. No rescue. No coaching in.</CueLine>
-              <CueLine>The valley before the peak is what makes the all-out land. Without it the callout is noise.</CueLine>
-            </div>
-          </div>
-
-          <Separator /> */}
-
-          {/* THE FOURTH QUARTER */}
+          {/* THE FOURTH QUARTER — hidden for now (information only when restored) */}
+          {/* <Separator />
           <div>
             <h4 className="font-bold text-sm mb-1">THE FOURTH QUARTER — ALL-OUT CALLOUT</h4>
             <div className="text-sm space-y-2 mt-2">
-              {/* DRUMROLL — temporarily hidden */}
-              {/* <div>
-                <p className="font-bold text-xs text-primary">DRUMROLL</p>
-                <ScriptLine>First-timer in the house — {firstName} let's go.</ScriptLine>
-              </div> */}
-              {/* DURING — temporarily hidden */}
-              {/* <div>
-                <p className="font-bold text-xs text-primary">DURING</p>
-                <ScriptLine>{firstName} — this is what {booking.sa_buying_criteria || '[their words]'} looks like. Don't stop.</ScriptLine>
-              </div> */}
-              {/* SEED 1 — temporarily hidden */}
-              {/* <div>
-                <p className="font-bold text-xs text-primary">SEED 1</p>
-                <CueLine>Quietly under the noise:</CueLine>
-                <ScriptLine>Remember this feeling. This is what you came for.</ScriptLine>
-                <p className="text-sm font-bold text-foreground ml-4">or</p>
-                <ScriptLine>Remember this. Right here.</ScriptLine>
-                <CueLine>Use A if you know why they came. Use B if you don't.</CueLine>
-              </div> */}
               <div>
                 <p className="font-bold text-xs text-primary">CALLOUT</p>
                 <ScriptLine>Everybody — {firstName} just hit their first all-out. Let's go.</ScriptLine>
                 <CueLine>Hold the mic. Let the room respond fully. Don't rush it. Studio-wide celebration. Let it sink in before moving on.</CueLine>
               </div>
-              {/* AFTERGLOW — temporarily hidden */}
-              {/* <div>
-                <p className="font-bold text-xs text-primary">AFTERGLOW</p>
-                <ScriptLine>Lock in what you just felt. That's all you.</ScriptLine>
-              </div> */}
             </div>
-            {/* No traditional all-out fallback — temporarily hidden */}
-            {/* <CueLine>No traditional all-out → final 30-60 sec of last tread block. Same sequence.</CueLine> */}
-          </div>
+          </div> */}
 
-          <Separator />
-
-          {/* VETERAN TORCH PASS — temporarily hidden */}
-          {/* <div>
-            <h4 className="font-bold text-sm mb-1">VETERAN TORCH PASS</h4>
-            <CueLine>Before class — pull one member aside. Best pick: someone who joined in the last 90 days and is still coming consistently. They remember the feeling. Their credibility with the intro is highest.</CueLine>
-            <ScriptLine>Would you say one thing to our first-timer at the end? Just: I remember my first. Welcome.</ScriptLine>
-          </div>
-
-          <Separator /> */}
-
-          {/* THE PERFORMANCE SUMMARY */}
+          {/* THE PERFORMANCE SUMMARY — hidden for now */}
+          {/* <Separator />
           <div>
             <h4 className="font-bold text-sm mb-1">THE PERFORMANCE SUMMARY</h4>
             <CueLine>TV screen. Intro + SA both present.</CueLine>
@@ -258,16 +209,15 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               <ScriptLine>That's you.</ScriptLine>
               <CueLine>Stop. Stay silent. Do not fill the silence. Let it land completely before moving to the handoff.</CueLine>
             </div>
-          </div>
+          </div> */}
 
-          <Separator />
-
-          {/* SEED 2 — HANDOFF */}
+          {/* SEED 2 — HANDOFF — hidden for now */}
+          {/* <Separator />
           <div>
             <h4 className="font-bold text-sm mb-1">SEED 2 — HANDOFF</h4>
             <CueLine>After performance summary. Go straight to handoff. No pause.</CueLine>
             <ScriptLine>{saName} — this one's special.</ScriptLine>
-          </div>
+          </div> */}
 
           {/* Coach Notes (if saved) */}
           {booking.coach_notes && (
@@ -289,9 +239,10 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </Button>
             <Button variant="outline" size="sm" onClick={() => {
               setBriefLookingFor(booking.sa_buying_criteria || '');
-              setBriefComeDownTo(booking.sa_objection || '');
-              setBriefHumanDetail((booking as any).coach_brief_human_detail || '');
+              setBriefObjection(booking.sa_objection || '');
+              setBriefAdditionalNotes((booking as any).coach_brief_human_detail || '');
               setBriefWhyMoment((booking as any).coach_brief_why_moment || '');
+              setBriefFiveVision((booking as any).coach_brief_five_vision || '');
               setEditBriefOpen(true);
             }} className="flex-1 gap-1">
               <FileEdit className="w-4 h-4" /> Edit Brief
@@ -319,12 +270,16 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               <Textarea value={briefLookingFor} onChange={e => setBriefLookingFor(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm font-semibold">Would come down to</Label>
-              <Textarea value={briefComeDownTo} onChange={e => setBriefComeDownTo(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
+              <Label className="text-sm font-semibold">Potential Objection</Label>
+              <Textarea value={briefObjection} onChange={e => setBriefObjection(e.target.value)} placeholder="Use their exact words…" className="min-h-[60px] text-sm" />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm font-semibold">One human detail</Label>
-              <Textarea value={briefHumanDetail} onChange={e => setBriefHumanDetail(e.target.value)} placeholder="Something personal — their dog's name, where they're from, what they do…" className="min-h-[48px] text-sm" />
+              <Label className="text-sm font-semibold">What would 5/5 look like</Label>
+              <Textarea value={briefFiveVision} onChange={e => setBriefFiveVision(e.target.value)} placeholder="Their answer to 'What would being a 5 look like to you?'" className="min-h-[48px] text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-semibold">Any additional notes</Label>
+              <Textarea value={briefAdditionalNotes} onChange={e => setBriefAdditionalNotes(e.target.value)} placeholder="Anything else — their dog's name, where they're from, what they do…" className="min-h-[48px] text-sm" />
             </div>
             <div className="space-y-1">
               <Label className="text-sm font-semibold">Use their WHY at</Label>
