@@ -228,7 +228,7 @@ export default function ShiftRecapDetails({
       <div>
         <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
           <Users className="w-4 h-4" />
-          Intros Run ({introsRun.length})
+          Intros Run ({introsRun.filter(r => r.result !== 'No-show' && r.result?.toLowerCase() !== 'no show').length})
         </h4>
         {introsRun.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">No intros run this shift</p>

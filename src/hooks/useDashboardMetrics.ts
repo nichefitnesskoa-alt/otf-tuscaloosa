@@ -462,7 +462,9 @@ export function useDashboardMetrics(
     // =========================================
     // STUDIO METRICS (aggregated from perSA)
     // =========================================
-    const studioIntrosRun = perSAData.reduce((sum, m) => sum + m.introsBooked, 0);
+    // Intros Run = members who physically showed up (not no-shows)
+    // This uses pipelineShowed which already excludes no-shows
+    const studioIntrosRun = pipelineShowed;
     // Count unattributed sales (runs with no valid intro_owner) so scoreboard matches funnel
     const attributedSANames = new Set(perSAData.map(m => m.saName));
     let unattributedSales = 0;
@@ -474,10 +476,7 @@ export function useDashboardMetrics(
       }
     });
     const studioIntroSales = perSAData.reduce((sum, m) => sum + m.sales, 0) + unattributedSales;
-    // Close Rate = Sales (purchase-date filtered) / Intros Showed (run-date filtered)
-    // This can exceed 100% when follow-up purchases from previous periods
-    // land in a period with fewer new intros. This is correct behavior:
-    // it reflects real revenue attribution for the selected period.
+    // Close Rate = Sales ÷ Intros Showed (people who physically showed up)
     const studioClosingRate = studioIntrosRun > 0 ? (studioIntroSales / studioIntrosRun) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + m.commission, 0);
 

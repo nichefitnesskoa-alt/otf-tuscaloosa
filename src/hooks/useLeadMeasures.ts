@@ -90,8 +90,10 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (b.prepped) s.prepDone++;
       });
 
-      // Intros ran per SA
+      // Intros ran per SA (exclude no-shows — a no-show is not a ran intro)
       (runs || []).forEach((r: any) => {
+        const result = (r.result || '').toLowerCase();
+        if (result === 'no-show' || result === 'no show') return;
         const sa = r.intro_owner || r.sa_name || '';
         if (!sa) return;
         ensure(sa);

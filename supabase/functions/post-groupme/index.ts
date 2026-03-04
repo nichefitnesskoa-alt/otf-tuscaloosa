@@ -108,12 +108,15 @@ async function buildRecapMessage(
     ranQuery = ranQuery.or(`sa_name.eq.${saFilter},intro_owner.eq.${saFilter}`);
   }
   const { data: ranData } = await ranQuery;
-  const runs = ranData || [];
+  const allRuns = ranData || [];
+
+  // No-shows are booked-but-not-ran — exclude from "ran" count
+  const noShows = allRuns.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show');
+  const runs = allRuns.filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show');
 
   // Separate same-day sales from follow-up purchases
   const sameDaySales = runs.filter(r => isSale(r.result) && (r.buy_date === r.run_date || !r.buy_date));
-  const noShows = runs.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show');
-  const followUpNeeded = runs.filter(r => ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show');
+  const followUpNeeded = allRuns.filter(r => ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show');
 
   // 3. Follow-up Purchases (buy_date = date, run_date != date)
   let fuPurchQuery = supabaseAdmin
@@ -201,7 +204,7 @@ async function buildRecapMessage(
   const { count: fuTouchCount } = await fuTouchQuery;
 
   // Check if there's any activity at all
-  const totalActivity = (bookedCount || 0) + runs.length + fuPurchases.length +
+  const totalActivity = (bookedCount || 0) + allRuns.length + fuPurchases.length +
     (qSentCount || 0) + (qCompCount || 0) + (preppedCount || 0) + (scriptsCount || 0) +
     contacts.calls + contacts.texts + contacts.dms + (fuTouchCount || 0);
 
