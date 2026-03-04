@@ -49,9 +49,45 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
     return m >= 60 && m < 240;
   }).length;
 
-  const responseTimes = contactedLeads
-    .map(l => differenceInMinutes(parseISO(l.updated_at), parseISO(l.created_at)))
-    .filter(m => m >= 0);
+  // Fetch first-contact time from lead_activities for accurate speed-to-lead
+  const [responseTimes, setResponseTimes] = useState<number[]>([]);
+  const [activityLoaded, setActivityLoaded] = useState(false);
+
+  useEffect(() => {
+    if (contactedLeads.length === 0) {
+      setResponseTimes([]);
+      setActivityLoaded(true);
+      return;
+    }
+    const contactedIds = contactedLeads.map(l => l.id);
+    supabase
+      .from('lead_activities')
+      .select('lead_id, created_at')
+      .in('lead_id', contactedIds)
+      .eq('activity_type', 'contacted')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        // Build map: lead_id → earliest contact timestamp
+        const firstContactMap = new Map<string, string>();
+        for (const row of data || []) {
+          if (!firstContactMap.has(row.lead_id)) {
+            firstContactMap.set(row.lead_id, row.created_at);
+          }
+        }
+        // Compute per-lead response time
+        const times: number[] = [];
+        for (const lead of contactedLeads) {
+          const contactTime = firstContactMap.get(lead.id);
+          if (contactTime) {
+            const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
+            if (mins >= 0) times.push(mins);
+          }
+        }
+        setResponseTimes(times);
+        setActivityLoaded(true);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactedLeads.length, contactedLeads.map(l => l.id).join(',')]);
 
   const avgResponse = responseTimes.length > 0
     ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
@@ -66,15 +102,15 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
     <div className={`rounded-lg border-2 ${statusColor} p-2.5`}>
       <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">Speed to Lead</p>
       <div className="flex items-center gap-3 flex-wrap text-[12px]">
-        {avgResponse !== null ? (
-          <span className="text-foreground font-medium">Avg: {formatDuration(avgResponse)}</span>
+        {!activityLoaded ? (
+          <span className="text-muted-foreground">Loading…</span>
+        ) : avgResponse !== null ? (
+          <>
+            <span className="text-foreground font-medium">Avg: {formatDuration(avgResponse)}</span>
+            <span className="text-foreground font-medium">Best: {formatDuration(bestResponse!)}</span>
+          </>
         ) : (
-          <span className="text-muted-foreground">Avg: —</span>
-        )}
-        {bestResponse !== null ? (
-          <span className="text-foreground font-medium">Best: {formatDuration(bestResponse)}</span>
-        ) : (
-          <span className="text-muted-foreground">Best: —</span>
+          <span className="text-muted-foreground">No contacts yet</span>
         )}
         {overdue > 0 && (
           <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">🔴 {overdue} Overdue</Badge>
@@ -82,7 +118,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
         {warning > 0 && (
           <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 text-white">⚠ {warning} Soon</Badge>
         )}
-        {overdue === 0 && warning === 0 && newLeads.length === 0 && (
+        {overdue === 0 && warning === 0 && newLeads.length === 0 && activityLoaded && avgResponse !== null && (
           <span className="text-muted-foreground">All clear</span>
         )}
         {overdue === 0 && warning === 0 && newLeads.length > 0 && (

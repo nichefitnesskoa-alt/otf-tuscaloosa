@@ -148,7 +148,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
 
       if (inserted?.id && friendAnswer === 'yes' && friendFirstName.trim()) {
         const friendFullName = `${friendFirstName.trim()} ${friendLastName.trim()}`.trim();
-        const friendLeadSource = `Referral (Friend of ${memberName})`;
+        const friendLeadSource = leadSource.includes('(Friend)') ? leadSource : `${leadSource} (Friend)`;
 
         const { data: friendBooking } = await supabase.from('intros_booked').insert({
           member_name: friendFullName,
