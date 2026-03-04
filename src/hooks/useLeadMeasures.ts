@@ -46,7 +46,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .gte('class_date', start).lte('class_date', end)
           .is('deleted_at', null),
         supabase.from('intros_run')
-          .select('id, sa_name, intro_owner, run_date')
+          .select('id, sa_name, intro_owner, run_date, result, result_canon')
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
           .select('id, created_by, created_at')
