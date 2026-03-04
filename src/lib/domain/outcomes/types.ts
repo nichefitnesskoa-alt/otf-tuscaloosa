@@ -24,6 +24,7 @@ export type IntroResult =
   | 'NOT_INTERESTED'
   | 'FOLLOW_UP_NEEDED'
   | 'SECOND_INTRO_SCHEDULED'
+  | 'PLANNING_2ND_INTRO'
   | 'UNRESOLVED';
 
 // ── Normalizers ──
@@ -69,6 +70,8 @@ const RESULT_MAP: Record<string, IntroResult> = {
   'follow_up_needed': 'FOLLOW_UP_NEEDED',
   'booked 2nd intro': 'SECOND_INTRO_SCHEDULED',
   'second_intro_scheduled': 'SECOND_INTRO_SCHEDULED',
+  'planning to book 2nd intro': 'PLANNING_2ND_INTRO',
+  'planning_2nd_intro': 'PLANNING_2ND_INTRO',
   'unresolved': 'UNRESOLVED',
 };
 
@@ -125,6 +128,8 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
       return 'SECOND_INTRO_SCHEDULED';
     case 'FOLLOW_UP_NEEDED':
       return 'ACTIVE';
+    case 'PLANNING_2ND_INTRO':
+      return 'ACTIVE';
     case 'UNRESOLVED':
     default:
       return 'ACTIVE';
@@ -165,6 +170,8 @@ export function formatIntroResultForDb(result: IntroResult, membershipType?: str
       return 'Follow-up needed';
     case 'SECOND_INTRO_SCHEDULED':
       return 'Booked 2nd intro';
+    case 'PLANNING_2ND_INTRO':
+      return 'Planning to Book 2nd Intro';
     case 'UNRESOLVED':
     default:
       return 'Unresolved';

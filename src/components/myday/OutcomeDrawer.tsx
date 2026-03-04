@@ -18,7 +18,7 @@ import { computeCommission, isSaleOutcome } from '@/lib/outcomes/commissionRules
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { toast } from 'sonner';
 import { Loader2, CalendarIcon, CheckCircle2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -37,6 +37,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Follow-up needed', label: '📋 Follow-up needed' },
   { value: 'No-show', label: '👻 No-show' },
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
+  { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
   { value: 'Not interested', label: '🚫 Not interested' },
 ];
 
@@ -164,11 +165,12 @@ export function OutcomeDrawer({
   const isBookedSecondIntro = outcome === 'Booked 2nd intro';
   const isReschedule = outcome === 'Reschedule';
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
+  const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const needsObjection = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
@@ -212,6 +214,73 @@ export function OutcomeDrawer({
         onSaved();
       } catch (err: any) {
         toast.error(err?.message || 'Failed to reschedule');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+  // Planning to Book 2nd Intro: log outcome + create day-2 and day-7 follow-up tasks
+    if (isPlanningToBook2ndIntro) {
+      setSaving(true);
+      try {
+        // 1. Log the outcome via canonical path
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'Planning to Book 2nd Intro',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'Planning to Book 2nd Intro',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
+
+        // 2. Clear existing pending follow-ups for this booking
+        await supabase.from('follow_up_queue')
+          .update({ status: 'dormant' })
+          .eq('booking_id', bookingId)
+          .eq('status', 'pending');
+
+        // 3. Day 2 follow-up (class_date + 2 days)
+        const classDateObj = new Date(classDate + 'T12:00:00');
+        const day2Date = format(addDays(classDateObj, 2), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'book_2nd_intro_day2',
+          trigger_date: classDate,
+          scheduled_date: day2Date,
+          touch_number: 1,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+          fitness_goal: notes || null,
+        });
+
+        // 4. Day 7 follow-up (class_date + 7 days)
+        const day7Date = format(addDays(classDateObj, 7), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'book_2nd_intro_day7',
+          trigger_date: classDate,
+          scheduled_date: day7Date,
+          touch_number: 2,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+        });
+
+        toast.success(`${memberName} — 2nd Intro follow-ups created (Day 2 & Day 7)`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
       } finally {
         setSaving(false);
       }

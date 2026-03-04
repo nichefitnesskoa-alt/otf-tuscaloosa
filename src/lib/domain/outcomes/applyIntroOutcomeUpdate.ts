@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
 import { generateFollowUpEntries } from '@/components/dashboard/FollowUpQueue';
+import { autoComplete2ndIntroFollowups } from './autoComplete2ndIntroFollowups';
 import { computeCommission } from '@/lib/outcomes/commissionRules';
 import {
   normalizeIntroResult,
@@ -74,6 +75,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowDidntBuy = params.newResult === "Didn't Buy" || params.newResult === 'Follow-up needed';
     const isNowNoShow = params.newResult === 'No-show';
     const isNowNotInterested = params.newResult === 'Not interested';
+    const isNowPlanning2nd = params.newResult === 'Planning to Book 2nd Intro';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
 
     // Compute commission internally — callers no longer pass this
@@ -306,6 +308,14 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           .eq('status', 'pending');
       }
 
+      // Planning to Book 2nd Intro → clear existing pending and let OutcomeDrawer handle specific follow-up creation
+      if (isNowPlanning2nd) {
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', params.bookingId)
+          .eq('status', 'pending');
+      }
+
       // Sale from any state → clear all pending
       if (isNowSale && !wasSale) {
         await supabase.from('follow_up_queue')
@@ -428,6 +438,9 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .single();
 
       if (newBooking) {
+        // Auto-complete any "Planning 2nd Intro" follow-ups for this member
+        await autoComplete2ndIntroFollowups(params.memberName);
+
         return {
           success: true,
           runId: existingRun?.id || params.runId,

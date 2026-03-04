@@ -114,6 +114,9 @@ async function buildRecapMessage(
   const noShows = allRuns.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show');
   const runs = allRuns.filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show');
 
+  // Planning to Book 2nd Intro
+  const planning2nd = allRuns.filter(r => r.result_canon === 'PLANNING_2ND_INTRO' || r.result === 'Planning to Book 2nd Intro');
+
   // Separate same-day sales from follow-up purchases
   const sameDaySales = runs.filter(r => isSale(r.result) && (r.buy_date === r.run_date || !r.buy_date));
   const followUpNeeded = allRuns.filter(r => ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show');
@@ -231,6 +234,7 @@ async function buildRecapMessage(
     `• Sold: ${sameDaySales.length}${formatSalesList(soldList)}`,
     `• No-Show: ${noShows.length}`,
     `• Follow-Up Needed: ${followUpNeeded.length}`,
+    `• Planning 2nd: ${planning2nd.length}`,
     '',
     '💳 FOLLOW-UP PURCHASES',
     `• ${fuPurchases.length} purchase(s)${formatSalesList(fuPurchList)}`,
