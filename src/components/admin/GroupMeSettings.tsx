@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { MessageSquare, Send, RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { testGroupMeConnection, resendRecapToGroupMe } from '@/lib/groupme';
+import { testGroupMeConnection } from '@/lib/groupme';
 import { format } from 'date-fns';
 
 interface DailyRecap {
@@ -77,17 +77,20 @@ export function GroupMeSettings() {
 
   const handleResend = async (recapId: string) => {
     setResendingId(recapId);
-    const result = await resendRecapToGroupMe(recapId);
-    setResendingId(null);
-
-    if (result.success) {
-      toast.success('Recap resent successfully!');
-      fetchRecaps();
-    } else {
-      toast.error('Failed to resend', {
-        description: result.error || 'Unknown error',
+    try {
+      const { data, error } = await supabase.functions.invoke('post-groupme', {
+        body: { action: 'resend', recapId },
       });
+      if (error || !data?.success) {
+        toast.error('Failed to resend', { description: error?.message || data?.error || 'Unknown error' });
+      } else {
+        toast.success('Recap resent successfully!');
+        fetchRecaps();
+      }
+    } catch {
+      toast.error('Failed to resend');
     }
+    setResendingId(null);
   };
 
   const getStatusBadge = (status: string) => {
