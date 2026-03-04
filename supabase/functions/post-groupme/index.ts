@@ -114,9 +114,6 @@ async function buildRecapMessage(
   const noShows = allRuns.filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show');
   const runs = allRuns.filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show');
 
-  // Planning to Book 2nd Intro
-  const planning2nd = allRuns.filter(r => r.result_canon === 'PLANNING_2ND_INTRO' || r.result === 'Planning to Book 2nd Intro');
-
   // Separate same-day sales from follow-up purchases
   const sameDaySales = runs.filter(r => isSale(r.result) && (r.buy_date === r.run_date || !r.buy_date));
   const followUpNeeded = allRuns.filter(r => ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show');
@@ -139,6 +136,19 @@ async function buildRecapMessage(
   // Format sales lists
   const soldList = sameDaySales.map(r => ({ name: r.member_name, type: membershipLabel(r.result) }));
   const fuPurchList = fuPurchases.map(r => ({ name: r.member_name, type: membershipLabel(r.result) }));
+
+  // 3b. Planning to Book 2nd Intro (from intros_booked, outcome logged within shift window)
+  let planning2ndQuery = supabaseAdmin
+    .from('intros_booked')
+    .select('id', { count: 'exact', head: true })
+    .eq('booking_status_canon', 'PLANNING_2ND_INTRO')
+    .gte('closed_at', window.start)
+    .lte('closed_at', window.end)
+    .is('deleted_at', null);
+  if (saFilter) {
+    planning2ndQuery = planning2ndQuery.or(`sa_working_shift.eq.${saFilter},intro_owner.eq.${saFilter}`);
+  }
+  const { count: planning2ndCount } = await planning2ndQuery;
 
   // 4. Prep & Q metrics (timestamp-based, use shift window)
   const qSentQuery = supabaseAdmin
@@ -234,7 +244,7 @@ async function buildRecapMessage(
     `• Sold: ${sameDaySales.length}${formatSalesList(soldList)}`,
     `• No-Show: ${noShows.length}`,
     `• Follow-Up Needed: ${followUpNeeded.length}`,
-    `• Planning 2nd: ${planning2nd.length}`,
+    ...((planning2ndCount || 0) > 0 ? [`• Planning 2nd Intro: ${planning2ndCount}`] : []),
     '',
     '💳 FOLLOW-UP PURCHASES',
     `• ${fuPurchases.length} purchase(s)${formatSalesList(fuPurchList)}`,
