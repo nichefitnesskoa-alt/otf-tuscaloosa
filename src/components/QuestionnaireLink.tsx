@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Loader2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { generateSlug } from '@/lib/utils';
@@ -156,9 +156,31 @@ export default function QuestionnaireLink({
 
   const link = slug ? `${PUBLISHED_URL}/q/${slug}` : `${PUBLISHED_URL}/q/${questionnaireId}`;
 
+  const fallbackCopy = (text: string): boolean => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const copyLink = async () => {
+    let success = false;
     try {
       await navigator.clipboard.writeText(link);
+      success = true;
+    } catch {
+      success = fallbackCopy(link);
+    }
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       if (questionnaireStatus === 'not_sent') {
@@ -166,8 +188,20 @@ export default function QuestionnaireLink({
         onStatusChange('sent');
       }
       toast.success('Link copied!');
-    } catch {
+    } else {
       toast.error('Failed to copy');
+    }
+  };
+
+  const shareLink = async () => {
+    try {
+      await navigator.share({ title: `Pre-Intro Questionnaire for ${memberName}`, url: link });
+      if (questionnaireStatus === 'not_sent') {
+        await supabase.from('intro_questionnaires').update({ status: 'sent' }).eq('id', questionnaireId);
+        onStatusChange('sent');
+      }
+    } catch {
+      // user cancelled share — ignore
     }
   };
 
@@ -202,6 +236,16 @@ export default function QuestionnaireLink({
       >
         {copied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
       </Button>
+      {typeof navigator !== 'undefined' && 'share' in navigator && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5"
+          onClick={shareLink}
+        >
+          <Share2 className="w-3 h-3" />
+        </Button>
+      )}
     </div>
   );
 }

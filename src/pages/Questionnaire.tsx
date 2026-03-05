@@ -667,6 +667,7 @@ export default function Questionnaire() {
                         const willSelect = !q6bDays.includes(day);
                         (e.currentTarget as any).__dragMode = willSelect ? 'add' : 'remove';
                         setQ6bDays(prev => willSelect ? [...prev, day] : prev.filter(d => d !== day));
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                       }}
                       onPointerMove={(e) => {
                         const mode = (e.currentTarget as any).__dragMode;
@@ -687,6 +688,10 @@ export default function Questionnaire() {
                         }
                       }}
                       onPointerUp={(e) => {
+                        (e.currentTarget as any).__dragMode = null;
+                        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                      }}
+                      onPointerCancel={(e) => {
                         (e.currentTarget as any).__dragMode = null;
                       }}
                     >
