@@ -207,6 +207,7 @@ export type Database = {
       candidates: {
         Row: {
           application_notes: string | null
+          application_slug: string | null
           application_submitted_at: string | null
           application_token: string | null
           availability_schedule: Json | null
@@ -221,7 +222,7 @@ export type Database = {
           hours_per_week: number | null
           id: string
           phone: string
-          role: string
+          role: string[]
           stage: string
           three_step_complete: boolean
           token_expires_at: string | null
@@ -229,6 +230,7 @@ export type Database = {
         }
         Insert: {
           application_notes?: string | null
+          application_slug?: string | null
           application_submitted_at?: string | null
           application_token?: string | null
           availability_schedule?: Json | null
@@ -243,7 +245,7 @@ export type Database = {
           hours_per_week?: number | null
           id?: string
           phone: string
-          role: string
+          role?: string[]
           stage?: string
           three_step_complete?: boolean
           token_expires_at?: string | null
@@ -251,6 +253,7 @@ export type Database = {
         }
         Update: {
           application_notes?: string | null
+          application_slug?: string | null
           application_submitted_at?: string | null
           application_token?: string | null
           availability_schedule?: Json | null
@@ -265,7 +268,7 @@ export type Database = {
           hours_per_week?: number | null
           id?: string
           phone?: string
-          role?: string
+          role?: string[]
           stage?: string
           three_step_complete?: boolean
           token_expires_at?: string | null
