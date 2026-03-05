@@ -17,7 +17,7 @@ const ROLES = [
   'Head Coach',
 ] as const;
 
-const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Either — open to both'] as const;
+const EMPLOYMENT_TYPES = ['Full time', 'Part time', 'Either, open to both'] as const;
 
 const DAYS_CONFIG: { day: string; slots: string[] }[] = [
   { day: 'Monday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
@@ -39,7 +39,7 @@ function formatSlot(s: string) {
   return `${h - 12} PM`;
 }
 
-/** Normalize role field — could be text[] from DB or legacy single string */
+/** Normalize role field: could be text[] from DB or legacy single string */
 function normalizeRoles(val: unknown): string[] {
   if (Array.isArray(val)) return val;
   if (typeof val === 'string' && val) return [val];
@@ -74,7 +74,6 @@ export default function Apply() {
       return;
     }
     (async () => {
-      // Try by slug first, then by token
       let candidate: any = null;
       const { data: bySlug } = await (supabase
         .from('candidates')
@@ -109,6 +108,8 @@ export default function Apply() {
     })();
   }, [token]);
 
+  const firstName = tokenCandidate?.full_name?.split(' ')[0] || '';
+
   const formatPhone = (v: string) => {
     const digits = v.replace(/\D/g, '').slice(0, 10);
     if (digits.length <= 3) return digits;
@@ -121,12 +122,12 @@ export default function Apply() {
     setVideoError('');
     if (!file) return;
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['mp4', 'mov', 'heic'].includes(ext || '')) {
-      setVideoError('Please upload an MP4, MOV, or HEIC file.');
+    if (!['mp4', 'mov'].includes(ext || '')) {
+      setVideoError('We need an MP4 or MOV file for this one.');
       return;
     }
     if (file.size > 500 * 1024 * 1024) {
-      setVideoError('File must be under 500MB.');
+      setVideoError('That file is too big. Keep it under 500MB.');
       return;
     }
     setVideoFile(file);
@@ -175,7 +176,7 @@ export default function Apply() {
       const { error: uploadError } = await supabase.storage
         .from('candidate-videos')
         .upload(fileName, videoFile, { cacheControl: '3600', upsert: false });
-      if (uploadError) throw new Error('Video upload failed. Please try again.');
+      if (uploadError) throw new Error('The video didn\'t upload. Give it another try.');
 
       const { data: urlData } = supabase.storage
         .from('candidate-videos')
@@ -237,10 +238,12 @@ export default function Apply() {
       setStep('done');
     } catch (err: any) {
       setUploadProgress(false);
-      toast.error(err?.message || 'Something went wrong. Please try again.');
+      toast.error(err?.message || 'Something went wrong. Give it another try.');
       setStep('form');
     }
   };
+
+  // --- Status screens ---
 
   if (step === 'loading') {
     return (
@@ -256,7 +259,8 @@ export default function Apply() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-            <p className="text-lg font-semibold">This link is not valid.</p>
+            <p className="text-lg font-semibold">This link isn't valid.</p>
+            <p className="text-muted-foreground text-sm">Reach out to OTF Tuscaloosa directly if you think something went wrong.</p>
           </CardContent>
         </Card>
       </div>
@@ -269,8 +273,8 @@ export default function Apply() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-orange-500 mx-auto" />
-            <p className="text-lg font-semibold">This application link has already been used.</p>
-            <p className="text-muted-foreground text-sm">Please contact OTF Tuscaloosa if you believe this is an error.</p>
+            <p className="text-lg font-semibold">This one's already been used.</p>
+            <p className="text-muted-foreground text-sm">Reach out to OTF Tuscaloosa if you need a new link.</p>
           </CardContent>
         </Card>
       </div>
@@ -283,9 +287,9 @@ export default function Apply() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-4">
             <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto" />
-            <p className="text-lg font-semibold">We got it.</p>
+            <p className="text-lg font-semibold">You did it. 🧡</p>
             <p className="text-muted-foreground">
-              We review every application personally. If we feel the energy — you'll hear from us. 🧡
+              We read every single one of these personally. If we feel it, you'll hear from us.
             </p>
           </CardContent>
         </Card>
@@ -299,7 +303,7 @@ export default function Apply() {
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-orange-500 mx-auto" />
-            <p className="text-lg font-semibold">We already have your application.</p>
+            <p className="text-lg font-semibold">We already have yours.</p>
             <p className="text-muted-foreground">We'll be in touch.</p>
           </CardContent>
         </Card>
@@ -310,16 +314,27 @@ export default function Apply() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold">Join the Team</h1>
-          <p className="text-muted-foreground">OTF Tuscaloosa — Application</p>
+
+        {/* 1. Greeting */}
+        <div className="text-center space-y-3 py-4">
+          <h1 className="text-3xl font-bold">
+            {tokenCandidate ? `Hey ${firstName}!` : 'Hey, welcome!'}
+          </h1>
+          <p className="text-muted-foreground text-base leading-relaxed max-w-md mx-auto">
+            {tokenCandidate
+              ? "We're really glad you're here. This isn't your typical application. We don't do those. Take your time, be yourself, and show us what you're made of. That's all we're looking for. 🧡"
+              : "We're really glad you found us. This isn't your typical application. We don't do those. Take your time, be yourself, and show us what you're made of. That's all we're looking for. 🧡"
+            }
+          </p>
         </div>
 
-        {/* Section 1 — Role (Checkbox Cards — Multi-select) */}
+        {/* 2. Role Selection */}
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <h2 className="font-semibold text-lg">What role(s) are you applying for? <span className="text-sm font-normal text-muted-foreground">(Select all that apply)</span></h2>
+            <div>
+              <h2 className="font-semibold text-lg">What are you applying for?</h2>
+              <p className="text-sm text-muted-foreground">Pick everything that fits. You can select more than one.</p>
+            </div>
             <div className="space-y-2">
               {ROLES.map((r) => {
                 const checked = selectedRoles.includes(r);
@@ -345,10 +360,10 @@ export default function Apply() {
           </CardContent>
         </Card>
 
-        {/* Section 2 — Basic Info */}
+        {/* 3. Basic Info */}
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <h2 className="font-semibold text-lg">Basic Info</h2>
+            <h2 className="font-semibold text-lg">The basics</h2>
             <div className="space-y-3">
               <div>
                 <Label>Full Name</Label>
@@ -366,68 +381,15 @@ export default function Apply() {
           </CardContent>
         </Card>
 
-        {/* Section 3 — The Three Steps */}
+        {/* 4. Scheduling & Availability */}
         <Card>
           <CardContent className="pt-6 space-y-8">
-            <h2 className="font-semibold text-lg">The Three Steps</h2>
-
-            {/* Step 1 — Video */}
-            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 1 — The Video Introduction</h3>
-              <p className="text-sm text-muted-foreground italic leading-relaxed">
-                "Tell us who you are — not what you've done. What lights you up, what drives you, and why OTF Tuscaloosa feels like your kind of place."
-              </p>
-              <p className="text-xs text-muted-foreground">Record a 60–90 second video and upload it here.</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".mp4,.mov,.heic,video/mp4,video/quicktime"
-                onChange={handleVideoChange}
-                className="hidden"
-              />
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                <Upload className="w-4 h-4" />
-                {videoFile ? videoFile.name : 'Upload video file'}
-              </Button>
-              <p className="text-[10px] text-muted-foreground">Accepted formats: MP4, MOV, HEIC. Max 500MB.</p>
-              {videoError && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {videoError}
-                </p>
-              )}
-            </div>
-
-            {/* Step 2 — Belonging Essay */}
-            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 2 — The Belonging Essay</h3>
-              <p className="text-sm text-muted-foreground italic leading-relaxed">
-                "OTF Tuscaloosa runs on two beliefs: extraordinary experience, always — and we don't sell, we belong. Describe a moment in your life, inside or outside of fitness, where you created an extraordinary experience for someone else. What did you do, why did you do it, and what happened?"
-              </p>
-              <p className="text-xs text-muted-foreground">One page maximum. Write directly below.</p>
-              <Textarea value={belongingEssay} onChange={(e) => setBelongingEssay(e.target.value)} className="min-h-[200px]" placeholder="Write your response here..." />
-            </div>
-
-            {/* Step 3 — Future Resume */}
-            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 3 — The Future Resume</h3>
-              <p className="text-sm text-muted-foreground italic leading-relaxed">
-                "Forget your past jobs. What do you want to build, become, and be known for — in your career and your life? This is your future resume. Write it like it already happened."
-              </p>
-              <p className="text-xs text-muted-foreground">One page maximum. Write directly below.</p>
-              <Textarea value={futureResume} onChange={(e) => setFutureResume(e.target.value)} className="min-h-[200px]" placeholder="Write your response here..." />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Section 4 — Availability, Employment, Hours */}
-        <Card>
-          <CardContent className="pt-6 space-y-8">
-            <h2 className="font-semibold text-lg">Scheduling & Availability</h2>
-
             {/* Availability Grid */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-sm">What is your availability?</h3>
-              <p className="text-xs text-muted-foreground">Select all times you're available each week.</p>
+              <div>
+                <h3 className="font-semibold text-sm">When are you available?</h3>
+                <p className="text-xs text-muted-foreground">Tap the times that work for you each week.</p>
+              </div>
               <div className="overflow-x-auto -mx-2 px-2">
                 <table className="border-collapse text-xs">
                   <thead>
@@ -473,7 +435,7 @@ export default function Apply() {
 
             {/* Employment Type */}
             <div className="space-y-3">
-              <h3 className="font-semibold text-sm">Are you looking for full-time or part-time?</h3>
+              <h3 className="font-semibold text-sm">Are you looking for full time or part time?</h3>
               <div className="space-y-2">
                 {EMPLOYMENT_TYPES.map((et) => {
                   const checked = employmentType === et;
@@ -499,7 +461,7 @@ export default function Apply() {
 
             {/* Hours per week */}
             <div className="space-y-2">
-              <Label className="font-semibold text-sm">How many hours are you looking to work each week?</Label>
+              <Label className="font-semibold text-sm">How many hours a week are you hoping to work?</Label>
               <Input
                 type="number"
                 inputMode="numeric"
@@ -514,7 +476,75 @@ export default function Apply() {
           </CardContent>
         </Card>
 
-        {/* Section 5 — Submit */}
+        {/* 5. The Three Steps */}
+        <Card>
+          <CardContent className="pt-6 space-y-8">
+            <h2 className="font-semibold text-lg">The three steps</h2>
+
+            {/* Step 1 */}
+            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 1: Show us who you are</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Record a short video. 60 to 90 seconds. Just talk to us.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Tell us what lights you up, what drives you, and why OTF Tuscaloosa feels like your kind of place.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Don't overthink it. We want the real you, not a rehearsed version.
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".mp4,.mov,video/mp4,video/quicktime"
+                onChange={handleVideoChange}
+                className="hidden"
+              />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                <Upload className="w-4 h-4" />
+                {videoFile ? videoFile.name : 'Upload your video here'}
+              </Button>
+              <p className="text-[10px] text-muted-foreground">MP4 or MOV, 500MB max</p>
+              {videoError && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {videoError}
+                </p>
+              )}
+            </div>
+
+            {/* Step 2 */}
+            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 2: Tell us a story</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                We believe two things here: the experience should always be extraordinary, and we don't sell. We belong.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Think of a moment where you made something extraordinary happen for someone else. Could be at work, at school, anywhere. Tell us what you did, why you did it, and what happened for that person.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Keep it to one page. Write like you're telling a friend.
+              </p>
+              <Textarea value={belongingEssay} onChange={(e) => setBelongingEssay(e.target.value)} className="min-h-[200px]" placeholder="Start writing here..." />
+            </div>
+
+            {/* Step 3 */}
+            <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 3: Tell us where you're going</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Forget your job history. We don't care about that right now.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Write your future resume. What do you want to build, become, and be known for in your career and your life? Write it like it already happened.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                One page. Dream big.
+              </p>
+              <Textarea value={futureResume} onChange={(e) => setFutureResume(e.target.value)} className="min-h-[200px]" placeholder="Start writing here..." />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 6. Submit */}
         <Button
           className="w-full"
           size="lg"
@@ -524,10 +554,10 @@ export default function Apply() {
           {step === 'submitting' ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {uploadProgress ? 'Uploading video…' : 'Submitting…'}
+              {uploadProgress ? 'Uploading your video...' : 'Almost there...'}
             </>
           ) : (
-            'Submit Application'
+            'Submit application'
           )}
         </Button>
       </div>
