@@ -655,15 +655,45 @@ export default function Questionnaire() {
                   className="overflow-hidden"
                 >
                   <div className="space-y-3 pt-2 border-t" style={{ borderColor: '#f3f4f6' }}>
-                    <h3 className="text-lg font-semibold" style={{ color: '#1a1a1a' }}>What days are you most likely available to block out an hour of time to work out?</h3>
-                    <div className="grid grid-cols-4 gap-2">
+                    <h3 className="text-lg font-semibold" style={{ color: '#1a1a1a' }}>What days work best for you?</h3>
+                    <p className="text-sm" style={{ color: '#666' }}>Our classes run from 4 AM to 7 PM, seven days a week. Tap or drag to select multiple days.</p>
+                    <div
+                      className="grid grid-cols-4 gap-2 select-none touch-none"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        const target = (e.target as HTMLElement).closest('[data-day]');
+                        if (!target) return;
+                        const day = target.getAttribute('data-day')!;
+                        const willSelect = !q6bDays.includes(day);
+                        (e.currentTarget as any).__dragMode = willSelect ? 'add' : 'remove';
+                        setQ6bDays(prev => willSelect ? [...prev, day] : prev.filter(d => d !== day));
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      }}
+                      onPointerMove={(e) => {
+                        const mode = (e.currentTarget as any).__dragMode;
+                        if (!mode) return;
+                        const el = document.elementFromPoint(e.clientX, e.clientY);
+                        const btn = el?.closest('[data-day]');
+                        if (!btn) return;
+                        const day = btn.getAttribute('data-day')!;
+                        setQ6bDays(prev => {
+                          if (mode === 'add' && !prev.includes(day)) return [...prev, day];
+                          if (mode === 'remove' && prev.includes(day)) return prev.filter(d => d !== day);
+                          return prev;
+                        });
+                      }}
+                      onPointerUp={(e) => {
+                        (e.currentTarget as any).__dragMode = null;
+                        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                      }}
+                    >
                       {DAY_OPTIONS.map(day => {
                         const selected = q6bDays.includes(day);
                         const short = day.substring(0, 3);
                         return (
                           <button
                             key={day}
-                            onClick={() => setQ6bDays(prev => selected ? prev.filter(d => d !== day) : [...prev, day])}
+                            data-day={day}
                             className="h-12 rounded-xl font-medium text-sm border-2 transition-all duration-200"
                             style={{
                               borderColor: selected ? OTF_ORANGE : '#e5e7eb',
