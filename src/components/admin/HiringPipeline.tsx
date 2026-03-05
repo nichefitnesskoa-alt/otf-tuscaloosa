@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Video, FileText, User, ArrowRight, Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, Video, FileText, User, ArrowRight, Loader2, Trash2, RefreshCw, Link2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -51,6 +52,11 @@ type Candidate = {
   application_notes: string | null;
   three_step_complete: boolean;
   created_at: string;
+  application_token?: string | null;
+  application_submitted_at?: string | null;
+  availability_schedule?: Record<string, string[]> | null;
+  employment_type?: string | null;
+  hours_per_week?: number | null;
 };
 
 type Interview = {
@@ -73,6 +79,25 @@ type HistoryEntry = {
   performed_by: string;
   created_at: string;
 };
+
+// Availability grid config (same as Apply form)
+const DAYS_CONFIG: { day: string; slots: string[] }[] = [
+  { day: 'Monday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
+  { day: 'Tuesday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
+  { day: 'Wednesday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
+  { day: 'Thursday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
+  { day: 'Friday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
+  { day: 'Saturday', slots: ['07:00', '08:00', '09:00', '10:00'] },
+  { day: 'Sunday', slots: ['10:00', '11:00', '12:00', '13:00'] },
+];
+const ALL_SLOTS = Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`);
+function formatSlot(s: string) {
+  const h = parseInt(s);
+  if (h === 0) return '12 AM';
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return '12 PM';
+  return `${h - 12} PM`;
+}
 
 export default function HiringPipeline() {
   const { user } = useAuth();
@@ -127,6 +152,18 @@ export default function HiringPipeline() {
     fetchCandidates();
   };
 
+  const sendApplicationLink = async (candidate: Candidate) => {
+    const token = crypto.randomUUID();
+    const { error } = await supabase.from('candidates').update({
+      application_token: token,
+    } as any).eq('id', candidate.id);
+    if (error) { toast.error('Failed to generate link'); return; }
+    const url = `${window.location.origin}/apply/${token}`;
+    await navigator.clipboard.writeText(url);
+    toast.success('Link copied — ready to send');
+    fetchCandidates();
+  };
+
   const getNextStage = (current: string) => {
     const idx = STAGES.indexOf(current as any);
     return idx < STAGES.length - 1 ? STAGES[idx + 1] : null;
@@ -150,6 +187,9 @@ export default function HiringPipeline() {
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" onClick={fetchCandidates} disabled={loading}>
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open('/apply', '_blank')}>
+            <Eye className="w-4 h-4 mr-1" /> Preview Application
           </Button>
           <Button size="sm" onClick={() => setAddDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-1" /> Add Candidate
@@ -175,6 +215,7 @@ export default function HiringPipeline() {
                     const next = getNextStage(c.stage);
                     if (next) moveCandidate(c, next);
                   }}
+                  onSendLink={() => sendApplicationLink(c)}
                   nextStage={getNextStage(c.stage)}
                 />
               ))}
@@ -205,6 +246,7 @@ export default function HiringPipeline() {
         <CandidateDetailSheet
           candidate={selectedCandidate}
           onClose={() => { setSelectedCandidate(null); fetchCandidates(); }}
+          onDeleted={() => { setSelectedCandidate(null); fetchCandidates(); }}
           userName={user?.name || 'Admin'}
         />
       )}
@@ -213,8 +255,8 @@ export default function HiringPipeline() {
 }
 
 /* ─── Candidate Card ─── */
-function CandidateCard({ candidate, onSelect, onMove, nextStage }: {
-  candidate: Candidate; onSelect: () => void; onMove: () => void; nextStage: string | null;
+function CandidateCard({ candidate, onSelect, onMove, onSendLink, nextStage }: {
+  candidate: Candidate; onSelect: () => void; onMove: () => void; onSendLink: () => void; nextStage: string | null;
 }) {
   return (
     <Card className="cursor-pointer hover:bg-muted/50 transition" onClick={onSelect}>
@@ -239,16 +281,27 @@ function CandidateCard({ candidate, onSelect, onMove, nextStage }: {
             </Badge>
           )}
         </div>
-        {nextStage && (
+        <div className="flex gap-1">
+          {nextStage && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-xs h-7"
+              onClick={(e) => { e.stopPropagation(); onMove(); }}
+            >
+              Move to {STAGE_LABELS[nextStage]} <ArrowRight className="w-3 h-3 ml-1" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs h-7"
-            onClick={(e) => { e.stopPropagation(); onMove(); }}
+            className="text-xs h-7 px-2"
+            onClick={(e) => { e.stopPropagation(); onSendLink(); }}
+            title="Send Application Link"
           >
-            Move to {STAGE_LABELS[nextStage]} <ArrowRight className="w-3 h-3 ml-1" />
+            <Link2 className="w-3 h-3" />
           </Button>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -367,17 +420,18 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
 }
 
 /* ─── Candidate Detail Sheet ─── */
-function CandidateDetailSheet({ candidate, onClose, userName }: {
-  candidate: Candidate; onClose: () => void; userName: string;
+function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
+  candidate: Candidate; onClose: () => void; onDeleted: () => void; userName: string;
 }) {
   const [tab, setTab] = useState('application');
   const [interview, setInterview] = useState<Interview | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [notes, setNotes] = useState(candidate.application_notes || '');
   const [loadingInterview, setLoadingInterview] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    // Fetch interview
     const fetchInterview = async () => {
       setLoadingInterview(true);
       const { data } = await supabase
@@ -390,7 +444,6 @@ function CandidateDetailSheet({ candidate, onClose, userName }: {
       setInterview(data as any);
       setLoadingInterview(false);
     };
-    // Fetch history
     const fetchHistory = async () => {
       const { data } = await supabase
         .from('candidate_history')
@@ -407,6 +460,31 @@ function CandidateDetailSheet({ candidate, onClose, userName }: {
     await supabase.from('candidates').update({ application_notes: notes } as any).eq('id', candidate.id);
     toast.success('Notes saved');
   };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      // Delete video from storage
+      if (candidate.video_url) {
+        const parts = candidate.video_url.split('/');
+        const fileName = parts[parts.length - 1];
+        if (fileName) {
+          await supabase.storage.from('candidate-videos').remove([fileName]);
+        }
+      }
+      // Cascade delete
+      await supabase.from('candidate_interviews').delete().eq('candidate_id', candidate.id);
+      await supabase.from('candidate_history').delete().eq('candidate_id', candidate.id);
+      await supabase.from('candidates').delete().eq('id', candidate.id);
+      toast.success(`${candidate.full_name} deleted`);
+      onDeleted();
+    } catch {
+      toast.error('Failed to delete candidate');
+    }
+    setDeleting(false);
+  };
+
+  const avail = candidate.availability_schedule as Record<string, string[]> | null;
 
   return (
     <Sheet open onOpenChange={onClose}>
@@ -435,6 +513,61 @@ function CandidateDetailSheet({ candidate, onClose, userName }: {
               <div><span className="text-muted-foreground">Role:</span> {candidate.role}</div>
               <div><span className="text-muted-foreground">3-Step:</span> {candidate.three_step_complete ? 'Yes' : 'No'}</div>
             </div>
+
+            {/* Availability, Employment Type, Hours — only if data exists */}
+            {(avail || candidate.employment_type || candidate.hours_per_week) && (
+              <>
+                <Separator />
+                {avail && Object.values(avail).some(v => v && v.length > 0) && (
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">Availability</h3>
+                    <div className="overflow-x-auto -mx-2 px-2">
+                      <table className="border-collapse text-xs">
+                        <thead>
+                          <tr>
+                            <th className="p-1 text-left w-14"></th>
+                            {DAYS_CONFIG.map(d => (
+                              <th key={d.day} className="p-1 text-center font-medium" style={{ minWidth: 36 }}>
+                                {d.day.slice(0, 3)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ALL_SLOTS.map(slot => (
+                            <tr key={slot}>
+                              <td className="p-0.5 text-muted-foreground whitespace-nowrap text-[10px]">{formatSlot(slot)}</td>
+                              {DAYS_CONFIG.map(d => {
+                                const dayAvailable = d.slots.includes(slot);
+                                if (!dayAvailable) return <td key={d.day} className="p-0.5"><div className="w-8 h-5" /></td>;
+                                const selected = (avail[d.day] || []).includes(slot);
+                                return (
+                                  <td key={d.day} className="p-0.5">
+                                    <div className={`w-8 h-5 rounded ${selected ? 'bg-orange-500' : 'bg-muted'}`} />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {candidate.employment_type && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground font-semibold uppercase tracking-wide text-xs">Employment Type</span>
+                    <p className="mt-1">{candidate.employment_type}</p>
+                  </div>
+                )}
+                {candidate.hours_per_week && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground font-semibold uppercase tracking-wide text-xs">Hours Per Week</span>
+                    <p className="mt-1">{candidate.hours_per_week} hours/week</p>
+                  </div>
+                )}
+              </>
+            )}
 
             <Separator />
 
@@ -482,6 +615,30 @@ function CandidateDetailSheet({ candidate, onClose, userName }: {
               <h3 className="font-semibold text-sm">Application Notes</h3>
               <Textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={saveNotes} className="min-h-[80px]" />
             </div>
+
+            <Separator />
+
+            {/* Delete */}
+            <Button variant="destructive" size="sm" className="w-full" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="w-4 h-4 mr-1" /> Delete Candidate
+            </Button>
+
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Permanently delete {candidate.full_name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove their application, interview notes, and all history. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
 
           <TabsContent value="interview" className="mt-4">
@@ -587,7 +744,6 @@ function InterviewTab({ candidate, interview, loading, userName, onSaved, onHist
       question_set_type: questionSetType,
       interviewed_by: userName,
     };
-    // Calc overall score
     const scores = [updated.q1_score, updated.q2_score, updated.q3_score, updated.q4_score].filter(s => s > 0);
     payload.overall_score = scores.length > 0 ? parseFloat((scores.reduce((a: number, b: number) => a + b, 0) / scores.length).toFixed(1)) : null;
 
@@ -623,7 +779,6 @@ function InterviewTab({ candidate, interview, loading, userName, onSaved, onHist
       if (data) setInterviewId((data as any).id);
     }
 
-    // Log history
     await supabase.from('candidate_history').insert({
       candidate_id: candidate.id,
       action: `Interview conducted by ${userName} — Score: ${overallScore ?? '—'}/5`,
