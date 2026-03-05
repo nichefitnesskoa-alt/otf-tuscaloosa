@@ -107,6 +107,154 @@ export type Database = {
         }
         Relationships: []
       }
+      candidate_history: {
+        Row: {
+          action: string
+          candidate_id: string
+          created_at: string
+          id: string
+          performed_by: string
+        }
+        Insert: {
+          action: string
+          candidate_id: string
+          created_at?: string
+          id?: string
+          performed_by: string
+        }
+        Update: {
+          action?: string
+          candidate_id?: string
+          created_at?: string
+          id?: string
+          performed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_history_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_interviews: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          id: string
+          interviewed_at: string | null
+          interviewed_by: string | null
+          overall_notes: string | null
+          overall_score: number | null
+          q1_answer: string | null
+          q1_score: number | null
+          q2_answer: string | null
+          q2_score: number | null
+          q3_answer: string | null
+          q3_score: number | null
+          q4_answer: string | null
+          q4_score: number | null
+          question_set_type: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          id?: string
+          interviewed_at?: string | null
+          interviewed_by?: string | null
+          overall_notes?: string | null
+          overall_score?: number | null
+          q1_answer?: string | null
+          q1_score?: number | null
+          q2_answer?: string | null
+          q2_score?: number | null
+          q3_answer?: string | null
+          q3_score?: number | null
+          q4_answer?: string | null
+          q4_score?: number | null
+          question_set_type?: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          id?: string
+          interviewed_at?: string | null
+          interviewed_by?: string | null
+          overall_notes?: string | null
+          overall_score?: number | null
+          q1_answer?: string | null
+          q1_score?: number | null
+          q2_answer?: string | null
+          q2_score?: number | null
+          q3_answer?: string | null
+          q3_score?: number | null
+          q4_answer?: string | null
+          q4_score?: number | null
+          question_set_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_interviews_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          application_notes: string | null
+          belonging_essay: string | null
+          created_at: string
+          decision: string | null
+          decision_date: string | null
+          email: string
+          full_name: string
+          future_resume: string | null
+          id: string
+          phone: string
+          role: string
+          stage: string
+          three_step_complete: boolean
+          video_url: string | null
+        }
+        Insert: {
+          application_notes?: string | null
+          belonging_essay?: string | null
+          created_at?: string
+          decision?: string | null
+          decision_date?: string | null
+          email: string
+          full_name: string
+          future_resume?: string | null
+          id?: string
+          phone: string
+          role: string
+          stage?: string
+          three_step_complete?: boolean
+          video_url?: string | null
+        }
+        Update: {
+          application_notes?: string | null
+          belonging_essay?: string | null
+          created_at?: string
+          decision?: string | null
+          decision_date?: string | null
+          email?: string
+          full_name?: string
+          future_resume?: string | null
+          id?: string
+          phone?: string
+          role?: string
+          stage?: string
+          three_step_complete?: boolean
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       changelog: {
         Row: {
           changes: Json
