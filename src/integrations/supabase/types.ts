@@ -207,50 +207,68 @@ export type Database = {
       candidates: {
         Row: {
           application_notes: string | null
+          application_submitted_at: string | null
+          application_token: string | null
+          availability_schedule: Json | null
           belonging_essay: string | null
           created_at: string
           decision: string | null
           decision_date: string | null
           email: string
+          employment_type: string | null
           full_name: string
           future_resume: string | null
+          hours_per_week: number | null
           id: string
           phone: string
           role: string
           stage: string
           three_step_complete: boolean
+          token_expires_at: string | null
           video_url: string | null
         }
         Insert: {
           application_notes?: string | null
+          application_submitted_at?: string | null
+          application_token?: string | null
+          availability_schedule?: Json | null
           belonging_essay?: string | null
           created_at?: string
           decision?: string | null
           decision_date?: string | null
           email: string
+          employment_type?: string | null
           full_name: string
           future_resume?: string | null
+          hours_per_week?: number | null
           id?: string
           phone: string
           role: string
           stage?: string
           three_step_complete?: boolean
+          token_expires_at?: string | null
           video_url?: string | null
         }
         Update: {
           application_notes?: string | null
+          application_submitted_at?: string | null
+          application_token?: string | null
+          availability_schedule?: Json | null
           belonging_essay?: string | null
           created_at?: string
           decision?: string | null
           decision_date?: string | null
           email?: string
+          employment_type?: string | null
           full_name?: string
           future_resume?: string | null
+          hours_per_week?: number | null
           id?: string
           phone?: string
           role?: string
           stage?: string
           three_step_complete?: boolean
+          token_expires_at?: string | null
           video_url?: string | null
         }
         Relationships: []
