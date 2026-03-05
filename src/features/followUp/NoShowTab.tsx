@@ -9,6 +9,7 @@ import { Send, CalendarPlus, CheckCheck, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,6 +73,7 @@ export default function NoShowTab({ items, isLoading, onRefresh }: NoShowTabProp
           bookingId={item.bookingId}
           editedBy={user?.name || ''}
           onFieldSaved={onRefresh}
+          topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
           outcomeBadge={
             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-destructive/15 text-destructive border">
               🚫 No-Show
