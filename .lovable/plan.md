@@ -1,25 +1,20 @@
 
 
-## Use Published URL for Application Links
+## Update Apply Page Prompts
 
-The application link currently uses `window.location.origin` which produces the long preview URL (`https://2a28a5d2-96cf-4364-9f40-4b9187f6bbfa.lovableproject.com/apply/koa-vincent`). The questionnaires already solve this by using the hardcoded published URL `https://otf-tuscaloosa.lovable.app`.
+**File:** `src/pages/Apply.tsx` — Replace the copy in the three step sections (around lines 250-290) with the exact text provided. No functionality changes.
 
-### Change
+### Step 1 (currently ~line 253-259)
+- Title: `STEP 1 — Video Cover Letter`
+- Body: "Tell me who you are, not what you've done. What lights you up and why does this place feel like your kind of place?"
 
-**One file**: `src/components/admin/HiringPipeline.tsx` — line 213
+### Step 2 (currently ~line 274-280)
+- Title: `STEP 2 — The One Person`
+- Body: Two paragraphs — the core value statement, then the prompt about a specific person.
 
-Replace:
-```typescript
-const url = `${window.location.origin}/apply/${slug}`;
-```
-With:
-```typescript
-const url = `https://otf-tuscaloosa.lovable.app/apply/${slug}`;
-```
+### Step 3 (currently ~line 291-298)
+- Title: `STEP 3 — Future Resume`
+- Body: "Forget your past. What do you want to build, become, and be known for in your career and your life? Tell me like it already happened."
 
-This matches the exact pattern used across 11 other files for questionnaire and story links. The copied URL will read:
-
-`otf-tuscaloosa.lovable.app/apply/koa-vincent`
-
-No other files affected. No database changes.
+One file, copy-only change.
 
