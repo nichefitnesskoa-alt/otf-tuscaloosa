@@ -483,15 +483,9 @@ export default function Apply() {
 
             {/* Step 1 */}
             <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 1: Show us who you are</h3>
+              <h3 className="font-semibold uppercase text-sm tracking-wide">STEP 1 — Video Cover Letter</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Record a short video. 60 to 90 seconds. Just talk to us.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Tell us what lights you up, what drives you, and why OTF Tuscaloosa feels like your kind of place.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Don't overthink it. We want the real you, not a rehearsed version.
+                Tell me who you are, not what you've done. What lights you up and why does this place feel like your kind of place?
               </p>
               <input
                 ref={fileInputRef}
@@ -514,30 +508,21 @@ export default function Apply() {
 
             {/* Step 2 */}
             <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 2: Tell us a story</h3>
+              <h3 className="font-semibold uppercase text-sm tracking-wide">STEP 2 — The One Person</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                We believe two things here: the experience should always be extraordinary, and we don't sell. We belong.
+                My core value as the Studio Leader is that the experience should be so extraordinary and the relationships so genuine that people ask us how to join before we ever ask them to and they refer their friends before we ever suggest it.
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Think of a moment where you made something extraordinary happen for someone else. Could be at work, at school, anywhere. Tell us what you did, why you did it, and what happened for that person.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Keep it to one page. Write like you're telling a friend.
+                Tell us about a specific person whose life you made better just by how you showed up for them. What did you do, what did they feel, and what happened because of it?
               </p>
               <Textarea value={belongingEssay} onChange={(e) => setBelongingEssay(e.target.value)} className="min-h-[200px]" placeholder="Start writing here..." />
             </div>
 
             {/* Step 3 */}
             <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-              <h3 className="font-semibold uppercase text-sm tracking-wide">Step 3: Tell us where you're going</h3>
+              <h3 className="font-semibold uppercase text-sm tracking-wide">STEP 3 — Future Resume</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Forget your job history. We don't care about that right now.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Write your future resume. What do you want to build, become, and be known for in your career and your life? Write it like it already happened.
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                One page. Dream big.
+                Forget your past. What do you want to build, become, and be known for in your career and your life? Tell me like it already happened.
               </p>
               <Textarea value={futureResume} onChange={(e) => setFutureResume(e.target.value)} className="min-h-[200px]" placeholder="Start writing here..." />
             </div>
