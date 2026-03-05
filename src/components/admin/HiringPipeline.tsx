@@ -439,13 +439,13 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
   };
 
   const handleSave = async () => {
-    if (!fullName.trim() || !email.trim() || selectedRoles.length === 0) return;
+    if (!fullName.trim()) return;
     setSaving(true);
     const { data, error } = await supabase.from('candidates').insert({
       full_name: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      role: selectedRoles,
+      email: email.trim().toLowerCase() || null,
+      phone: phone.trim() || null,
+      role: selectedRoles.length > 0 ? selectedRoles : [],
       three_step_complete: threeStep === 'yes',
       application_notes: notes.trim() || null,
       stage: 'applied',
@@ -504,7 +504,7 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={!fullName.trim() || !email.trim() || selectedRoles.length === 0 || saving} onClick={handleSave}>
+          <Button disabled={!fullName.trim() || saving} onClick={handleSave}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
           </Button>
         </DialogFooter>

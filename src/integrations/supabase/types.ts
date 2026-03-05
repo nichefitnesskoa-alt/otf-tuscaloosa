@@ -215,13 +215,13 @@ export type Database = {
           created_at: string
           decision: string | null
           decision_date: string | null
-          email: string
+          email: string | null
           employment_type: string | null
           full_name: string
           future_resume: string | null
           hours_per_week: number | null
           id: string
-          phone: string
+          phone: string | null
           role: string[]
           stage: string
           three_step_complete: boolean
@@ -238,13 +238,13 @@ export type Database = {
           created_at?: string
           decision?: string | null
           decision_date?: string | null
-          email: string
+          email?: string | null
           employment_type?: string | null
           full_name: string
           future_resume?: string | null
           hours_per_week?: number | null
           id?: string
-          phone: string
+          phone?: string | null
           role?: string[]
           stage?: string
           three_step_complete?: boolean
@@ -261,13 +261,13 @@ export type Database = {
           created_at?: string
           decision?: string | null
           decision_date?: string | null
-          email?: string
+          email?: string | null
           employment_type?: string | null
           full_name?: string
           future_resume?: string | null
           hours_per_week?: number | null
           id?: string
-          phone?: string
+          phone?: string | null
           role?: string[]
           stage?: string
           three_step_complete?: boolean
