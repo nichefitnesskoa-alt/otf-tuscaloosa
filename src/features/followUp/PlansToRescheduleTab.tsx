@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
 
@@ -126,6 +127,7 @@ export default function PlansToRescheduleTab({ items, isLoading, onRefresh }: Pr
           bookingId={item.bookingId}
           editedBy={user?.name || ''}
           onFieldSaved={onRefresh}
+          topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
           outcomeBadge={
             <Badge className="text-[10px] px-1.5 py-0 h-5 bg-blue-100 text-blue-700 border-blue-300 border">
               📅 Plans to Reschedule

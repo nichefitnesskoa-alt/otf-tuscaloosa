@@ -8,6 +8,7 @@ import { CheckCircle, Eye, ClipboardList, CheckCheck, Trash2 } from 'lucide-reac
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { useAuth } from '@/context/AuthContext';
@@ -77,6 +78,7 @@ export default function SecondIntroTab({ items, isLoading, onRefresh }: Props) {
             bookingId={item.bookingId}
             editedBy={user?.name || ''}
             onFieldSaved={onRefresh}
+            topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             badges={
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
             }

@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import IntroCard from '@/components/shared/IntroCard';
+import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
@@ -101,6 +102,7 @@ export default function FollowUpNeededTab({ items, isLoading, onRefresh }: Props
             bookingId={item.bookingId}
             editedBy={user?.name || ''}
             onFieldSaved={onRefresh}
+            topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             outcomeBadge={badge}
             timingInfo={
               <div className="space-y-0.5">
