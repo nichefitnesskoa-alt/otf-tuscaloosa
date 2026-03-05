@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,12 +38,27 @@ const DECISION_OPTIONS = [
   { value: 'denied_reapply', label: 'Denied — Reapply Later' },
 ];
 
+const ALL_ROLES = ['Sales Associate (SA)', 'Assistant Studio Leader (ASL)', 'Coach', 'Head Coach'] as const;
+
+/** Normalize role — could be text[] or legacy single string */
+function displayRoles(val: unknown): string {
+  if (Array.isArray(val)) return val.join(', ');
+  if (typeof val === 'string' && val) return val;
+  return '—';
+}
+
+function normalizeRolesToArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val) return [val];
+  return [];
+}
+
 type Candidate = {
   id: string;
   full_name: string;
   email: string;
   phone: string;
-  role: string;
+  role: string | string[];
   stage: string;
   decision: string | null;
   decision_date: string | null;
@@ -53,6 +69,7 @@ type Candidate = {
   three_step_complete: boolean;
   created_at: string;
   application_token?: string | null;
+  application_slug?: string | null;
   application_submitted_at?: string | null;
   availability_schedule?: Record<string, string[]> | null;
   employment_type?: string | null;
@@ -80,7 +97,7 @@ type HistoryEntry = {
   created_at: string;
 };
 
-// Availability grid config (same as Apply form)
+// Availability grid config
 const DAYS_CONFIG: { day: string; slots: string[] }[] = [
   { day: 'Monday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
   { day: 'Tuesday', slots: Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`) },
@@ -97,6 +114,17 @@ function formatSlot(s: string) {
   if (h < 12) return `${h} AM`;
   if (h === 12) return '12 PM';
   return `${h - 12} PM`;
+}
+
+/** Generate a slug like "koa-vincent" from a full name */
+function generateSlugBase(fullName: string): string {
+  return fullName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 export default function HiringPipeline() {
@@ -153,12 +181,36 @@ export default function HiringPipeline() {
   };
 
   const sendApplicationLink = async (candidate: Candidate) => {
-    const token = crypto.randomUUID();
+    // Generate token if not present
+    let token = candidate.application_token;
+    if (!token) {
+      token = crypto.randomUUID();
+    }
+
+    // Generate unique slug
+    const slugBase = generateSlugBase(candidate.full_name);
+    // Check for slug collisions
+    const { data: existing } = await supabase
+      .from('candidates')
+      .select('application_slug')
+      .like('application_slug' as any, `${slugBase}%`)
+      .neq('id', candidate.id);
+
+    const existingSlugs = ((existing as any[]) || []).map((c: any) => c.application_slug).filter(Boolean);
+    let slug = slugBase;
+    if (existingSlugs.includes(slug)) {
+      let counter = 2;
+      while (existingSlugs.includes(`${slugBase}-${counter}`)) counter++;
+      slug = `${slugBase}-${counter}`;
+    }
+
     const { error } = await supabase.from('candidates').update({
       application_token: token,
+      application_slug: slug,
     } as any).eq('id', candidate.id);
     if (error) { toast.error('Failed to generate link'); return; }
-    const url = `${window.location.origin}/apply/${token}`;
+
+    const url = `${window.location.origin}/apply/${slug}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copied — ready to send');
     fetchCandidates();
@@ -264,7 +316,7 @@ function CandidateCard({ candidate, onSelect, onMove, onSendLink, nextStage }: {
         <div className="flex items-start justify-between">
           <div>
             <p className="font-medium text-sm">{candidate.full_name}</p>
-            <p className="text-xs text-muted-foreground">{candidate.role}</p>
+            <p className="text-xs text-muted-foreground">{displayRoles(candidate.role)}</p>
           </div>
           <div className="flex items-center gap-1">
             {candidate.video_url && <Video className="w-3 h-3 text-green-500" />}
@@ -342,19 +394,25 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [threeStep, setThreeStep] = useState('no');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
+  };
+
   const handleSave = async () => {
-    if (!fullName.trim() || !email.trim() || !role) return;
+    if (!fullName.trim() || !email.trim() || selectedRoles.length === 0) return;
     setSaving(true);
     const { data, error } = await supabase.from('candidates').insert({
       full_name: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      role,
+      role: selectedRoles,
       three_step_complete: threeStep === 'yes',
       application_notes: notes.trim() || null,
       stage: 'applied',
@@ -376,7 +434,7 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
 
     toast.success('Candidate added');
     setSaving(false);
-    setFullName(''); setEmail(''); setPhone(''); setRole(''); setThreeStep('no'); setNotes('');
+    setFullName(''); setEmail(''); setPhone(''); setSelectedRoles([]); setThreeStep('no'); setNotes('');
     onSaved();
   };
 
@@ -389,15 +447,18 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
           <div><Label>Email</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
           <div><Label>Phone</Label><Input value={phone} onChange={e => setPhone(e.target.value)} /></div>
           <div>
-            <Label>Role</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
-              <SelectContent>
-                {['Sales Associate (SA)', 'Assistant Studio Leader (ASL)', 'Coach', 'Head Coach'].map(r => (
-                  <SelectItem key={r} value={r}>{r}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Role(s) <span className="text-xs text-muted-foreground">(select all that apply)</span></Label>
+            <div className="space-y-1 mt-1">
+              {ALL_ROLES.map(r => (
+                <label key={r} className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox
+                    checked={selectedRoles.includes(r)}
+                    onCheckedChange={() => toggleRole(r)}
+                  />
+                  <span className="text-sm">{r}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <Label>Applied through 3-step process?</Label>
@@ -410,7 +471,7 @@ function AddCandidateDialog({ open, onClose, onSaved, userName }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={!fullName.trim() || !email.trim() || !role || saving} onClick={handleSave}>
+          <Button disabled={!fullName.trim() || !email.trim() || selectedRoles.length === 0 || saving} onClick={handleSave}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
           </Button>
         </DialogFooter>
@@ -464,7 +525,6 @@ function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      // Delete video from storage
       if (candidate.video_url) {
         const parts = candidate.video_url.split('/');
         const fileName = parts[parts.length - 1];
@@ -472,7 +532,6 @@ function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
           await supabase.storage.from('candidate-videos').remove([fileName]);
         }
       }
-      // Cascade delete
       await supabase.from('candidate_interviews').delete().eq('candidate_id', candidate.id);
       await supabase.from('candidate_history').delete().eq('candidate_id', candidate.id);
       await supabase.from('candidates').delete().eq('id', candidate.id);
@@ -493,7 +552,7 @@ function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
           <SheetTitle>{candidate.full_name}</SheetTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge className={STAGE_COLORS[candidate.stage]}>{STAGE_LABELS[candidate.stage]}</Badge>
-            <span>{candidate.role}</span>
+            <span>{displayRoles(candidate.role)}</span>
             <span>•</span>
             <span>{format(new Date(candidate.created_at), 'MMM d, yyyy')}</span>
           </div>
@@ -510,7 +569,7 @@ function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div><span className="text-muted-foreground">Email:</span> {candidate.email}</div>
               <div><span className="text-muted-foreground">Phone:</span> {candidate.phone}</div>
-              <div><span className="text-muted-foreground">Role:</span> {candidate.role}</div>
+              <div><span className="text-muted-foreground">Role(s):</span> {displayRoles(candidate.role)}</div>
               <div><span className="text-muted-foreground">3-Step:</span> {candidate.three_step_complete ? 'Yes' : 'No'}</div>
             </div>
 
@@ -843,15 +902,13 @@ function InterviewTab({ candidate, interview, loading, userName, onSaved, onHist
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Overall Notes</Label>
-        <Textarea
-          value={answers.overall_notes}
-          onChange={e => setAnswers(prev => ({ ...prev, overall_notes: e.target.value }))}
-          onBlur={() => autoSaveField('overall_notes', answers.overall_notes)}
-          className="min-h-[80px]"
-        />
-      </div>
+      <Textarea
+        value={answers.overall_notes}
+        onChange={e => setAnswers(prev => ({ ...prev, overall_notes: e.target.value }))}
+        onBlur={() => autoSaveField('overall_notes', answers.overall_notes)}
+        placeholder="Overall interview notes..."
+        className="min-h-[80px]"
+      />
 
       <Button onClick={handleSaveInterview} disabled={saving} className="w-full">
         {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}

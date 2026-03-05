@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,7 +29,6 @@ const DAYS_CONFIG: { day: string; slots: string[] }[] = [
   { day: 'Sunday', slots: ['10:00', '11:00', '12:00', '13:00'] },
 ];
 
-// All unique time slots across all days for rows
 const ALL_SLOTS = Array.from({ length: 14 }, (_, i) => `${String(5 + i).padStart(2, '0')}:00`);
 
 function formatSlot(s: string) {
@@ -40,13 +39,20 @@ function formatSlot(s: string) {
   return `${h - 12} PM`;
 }
 
+/** Normalize role field — could be text[] from DB or legacy single string */
+function normalizeRoles(val: unknown): string[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val) return [val];
+  return [];
+}
+
 export default function Apply() {
   const { token } = useParams<{ token?: string }>();
   const [step, setStep] = useState<'loading' | 'form' | 'submitting' | 'done' | 'duplicate' | 'invalid' | 'expired'>('loading');
   const [tokenCandidate, setTokenCandidate] = useState<any>(null);
 
   // Form state
-  const [role, setRole] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -57,36 +63,48 @@ export default function Apply() {
   const [uploadProgress, setUploadProgress] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // New fields
   const [availability, setAvailability] = useState<Record<string, string[]>>({});
   const [employmentType, setEmploymentType] = useState('');
   const [hoursPerWeek, setHoursPerWeek] = useState('');
 
-  // Token resolution
+  // Token / slug resolution
   useEffect(() => {
     if (!token) {
       setStep('form');
       return;
     }
     (async () => {
-      const { data } = await (supabase
+      // Try by slug first, then by token
+      let candidate: any = null;
+      const { data: bySlug } = await (supabase
         .from('candidates')
         .select('*') as any)
-        .eq('application_token', token)
+        .eq('application_slug', token)
         .maybeSingle();
-      if (!data) {
+      if (bySlug) {
+        candidate = bySlug;
+      } else {
+        const { data: byToken } = await (supabase
+          .from('candidates')
+          .select('*') as any)
+          .eq('application_token', token)
+          .maybeSingle();
+        candidate = byToken;
+      }
+
+      if (!candidate) {
         setStep('invalid');
         return;
       }
-      if ((data as any).application_submitted_at) {
+      if (candidate.application_submitted_at) {
         setStep('expired');
         return;
       }
-      setTokenCandidate(data);
-      setFullName((data as any).full_name || '');
-      setRole((data as any).role || '');
-      setEmail((data as any).email || '');
-      setPhone((data as any).phone || '');
+      setTokenCandidate(candidate);
+      setFullName(candidate.full_name || '');
+      setSelectedRoles(normalizeRoles(candidate.role));
+      setEmail(candidate.email || '');
+      setPhone(candidate.phone || '');
       setStep('form');
     })();
   }, [token]);
@@ -118,16 +136,19 @@ export default function Apply() {
     setAvailability(prev => {
       const daySlots = prev[day] || [];
       const has = daySlots.includes(slot);
-      return {
-        ...prev,
-        [day]: has ? daySlots.filter(s => s !== slot) : [...daySlots, slot],
-      };
+      return { ...prev, [day]: has ? daySlots.filter(s => s !== slot) : [...daySlots, slot] };
     });
+  };
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    );
   };
 
   const hasAnyAvailability = Object.values(availability).some(v => v.length > 0);
 
-  const isValid = role && fullName.trim() && email.trim() && phone.replace(/\D/g, '').length === 10
+  const isValid = selectedRoles.length > 0 && fullName.trim() && email.trim() && phone.replace(/\D/g, '').length === 10
     && videoFile && belongingEssay.trim() && futureResume.trim()
     && hasAnyAvailability && employmentType && hoursPerWeek && parseInt(hoursPerWeek) >= 1 && parseInt(hoursPerWeek) <= 40;
 
@@ -136,7 +157,6 @@ export default function Apply() {
     setStep('submitting');
 
     try {
-      // For public form (no token), check duplicate
       if (!tokenCandidate) {
         const { data: existing } = await supabase
           .from('candidates')
@@ -149,7 +169,6 @@ export default function Apply() {
         }
       }
 
-      // Upload video
       setUploadProgress(true);
       const ext = videoFile.name.split('.').pop();
       const fileName = `${Date.now()}-${fullName.replace(/\s+/g, '-').toLowerCase()}.${ext}`;
@@ -167,7 +186,7 @@ export default function Apply() {
         full_name: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        role,
+        role: selectedRoles,
         video_url: urlData.publicUrl,
         belonging_essay: belongingEssay.trim(),
         future_resume: futureResume.trim(),
@@ -179,7 +198,6 @@ export default function Apply() {
       } as any;
 
       if (tokenCandidate) {
-        // Update existing candidate record
         candidatePayload.application_submitted_at = new Date().toISOString();
         const { error: updateError } = await supabase
           .from('candidates')
@@ -193,7 +211,6 @@ export default function Apply() {
           performed_by: 'System',
         } as any);
       } else {
-        // Insert new candidate
         const { error: insertError } = await supabase.from('candidates').insert(candidatePayload);
         if (insertError) {
           if (insertError.message?.includes('candidates_email_unique')) {
@@ -203,7 +220,6 @@ export default function Apply() {
           throw insertError;
         }
 
-        // Log history
         const { data: candidate } = await supabase
           .from('candidates')
           .select('id')
@@ -300,26 +316,32 @@ export default function Apply() {
           <p className="text-muted-foreground">OTF Tuscaloosa — Application</p>
         </div>
 
-        {/* Section 1 — Role (Card Radio) */}
+        {/* Section 1 — Role (Checkbox Cards — Multi-select) */}
         <Card>
           <CardContent className="pt-6 space-y-4">
-            <h2 className="font-semibold text-lg">What role are you applying for? <span className="text-sm font-normal text-muted-foreground">(Select one)</span></h2>
-            <RadioGroup value={role} onValueChange={setRole} className="space-y-2">
-              {ROLES.map((r) => (
-                <label
-                  key={r}
-                  htmlFor={`role-${r}`}
-                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    role === r
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
-                      : 'border-border hover:border-muted-foreground/30'
-                  }`}
-                >
-                  <RadioGroupItem value={r} id={`role-${r}`} className={role === r ? 'text-orange-500 border-orange-500' : ''} />
-                  <span className={`font-medium ${role === r ? 'text-orange-700 dark:text-orange-300' : ''}`}>{r}</span>
-                </label>
-              ))}
-            </RadioGroup>
+            <h2 className="font-semibold text-lg">What role(s) are you applying for? <span className="text-sm font-normal text-muted-foreground">(Select all that apply)</span></h2>
+            <div className="space-y-2">
+              {ROLES.map((r) => {
+                const checked = selectedRoles.includes(r);
+                return (
+                  <label
+                    key={r}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      checked
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
+                        : 'border-border hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => toggleRole(r)}
+                      className={checked ? 'text-orange-500 border-orange-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500' : ''}
+                    />
+                    <span className={`font-medium ${checked ? 'text-orange-700 dark:text-orange-300' : ''}`}>{r}</span>
+                  </label>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -452,22 +474,27 @@ export default function Apply() {
             {/* Employment Type */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm">Are you looking for full-time or part-time?</h3>
-              <RadioGroup value={employmentType} onValueChange={setEmploymentType} className="space-y-2">
-                {EMPLOYMENT_TYPES.map((et) => (
-                  <label
-                    key={et}
-                    htmlFor={`emp-${et}`}
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      employmentType === et
-                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
-                        : 'border-border hover:border-muted-foreground/30'
-                    }`}
-                  >
-                    <RadioGroupItem value={et} id={`emp-${et}`} className={employmentType === et ? 'text-orange-500 border-orange-500' : ''} />
-                    <span className={`font-medium ${employmentType === et ? 'text-orange-700 dark:text-orange-300' : ''}`}>{et}</span>
-                  </label>
-                ))}
-              </RadioGroup>
+              <div className="space-y-2">
+                {EMPLOYMENT_TYPES.map((et) => {
+                  const checked = employmentType === et;
+                  return (
+                    <label
+                      key={et}
+                      className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                        checked
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30'
+                          : 'border-border hover:border-muted-foreground/30'
+                      }`}
+                      onClick={() => setEmploymentType(et)}
+                    >
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${checked ? 'border-orange-500' : 'border-muted-foreground/40'}`}>
+                        {checked && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                      </div>
+                      <span className={`font-medium ${checked ? 'text-orange-700 dark:text-orange-300' : ''}`}>{et}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Hours per week */}
