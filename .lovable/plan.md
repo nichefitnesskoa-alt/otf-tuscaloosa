@@ -1,24 +1,43 @@
 
+Goal: fix the two issues in the hiring flow (not the intro questionnaire flow), since the last changes were applied to the wrong components.
 
-## Two Fixes
+What I found:
+- The availability schedule you’re referring to is in `src/pages/Apply.tsx` (hiring questionnaire), and it currently only supports single-cell click toggles via `onClick` on each slot button.
+- The “Link copied — ready to send” toast comes from `src/components/admin/HiringPipeline.tsx`, where link copy still uses only `navigator.clipboard.writeText(...)` with no mobile fallback/share.
+- The previous fixes were made in `src/pages/Questionnaire.tsx` and `src/components/QuestionnaireLink.tsx`, which are different flows.
 
-### 1. Drag-to-select not working on the questionnaire availability grid
+Implementation plan:
 
-**Root cause**: The `onPointerMove` fires on the grid container, but on touch devices the pointer events don't continue firing after the initial `pointerdown` unless `setPointerCapture` is used. The previous fix removed `setPointerCapture` (which broke `elementFromPoint`), but without it, touch drag events stop firing on the container.
+1) Add drag multi-select to hiring availability grid (`src/pages/Apply.tsx`)
+- Introduce drag state for the grid (mode: add/remove, active pointer, and last-processed cell to avoid repeated toggles while hovering same cell).
+- Add pointer handlers on a common grid container:
+  - `onPointerDown`: determine initial cell and drag mode (add/remove), apply first toggle, capture pointer.
+  - `onPointerMove`: hit-test current cell and apply according to mode while dragging.
+  - `onPointerUp` + `onPointerCancel`: clear drag state and release pointer capture.
+- Keep current visual layout and selection model (`availability` object keyed by day) unchanged.
+- Ensure mobile reliability:
+  - apply `touch-none`/`select-none` on the interactive grid wrapper,
+  - call `preventDefault()` where appropriate during drag to avoid scroll interference.
 
-**Fix**: Use `setPointerCapture` on the **grid container** (not buttons) so pointer events keep firing during drag, but use the `getBoundingClientRect` hit-testing approach (not `elementFromPoint`) to find which button the pointer is over. This gives us both: continuous events during drag AND correct element detection.
+2) Fix mobile link copy in hiring pipeline (`src/components/admin/HiringPipeline.tsx`)
+- Replace single clipboard write with robust copy utility:
+  - try `navigator.clipboard.writeText`,
+  - fallback to hidden `textarea` + `document.execCommand('copy')`,
+  - show success/error toast based on actual result.
+- Add optional Web Share fallback when available (`navigator.share`) so mobile users can still send the link even if clipboard APIs fail.
+- Keep existing candidate token/slug generation and status refresh behavior unchanged.
 
-Also add `onPointerCancel` to clear drag mode, and ensure `e.preventDefault()` in `onPointerDown` to prevent scrolling during drag.
+3) Validate behavior (targeted)
+- Hiring questionnaire (`/apply/:slug`):
+  - drag across multiple time cells to “paint” selected cells,
+  - drag starting from selected cell removes cells.
+- Admin hiring pipeline:
+  - “Send link” on desktop still copies,
+  - on mobile/simulated mobile, copy works via fallback or share path, and toast reflects outcome.
 
-**File**: `src/pages/Questionnaire.tsx` (~lines 660-691)
-
-### 2. Copy link not working on mobile
-
-**Root cause**: `navigator.clipboard.writeText()` can fail on mobile browsers (especially in iframes or non-HTTPS contexts). Need a fallback using the legacy `document.execCommand('copy')` approach.
-
-**Fix**: In `QuestionnaireLink.tsx`, wrap the clipboard call in a try/catch and fall back to creating a temporary textarea element + `execCommand('copy')`. Also add `navigator.share()` as an alternative on mobile — if the Web Share API is available, offer a share button alongside copy.
-
-**File**: `src/components/QuestionnaireLink.tsx` (~lines 164-178)
-- Add clipboard fallback function
-- Add a Share button (visible on mobile) that uses `navigator.share()` for native sharing
-
+Technical details
+- Files to update:
+  - `src/pages/Apply.tsx` (new drag interaction on availability table)
+  - `src/components/admin/HiringPipeline.tsx` (clipboard fallback + share fallback)
+- No schema/backend changes required; this is front-end interaction logic only.
+- No change to data structure or submission payload shape (`availability_schedule` remains identical).
