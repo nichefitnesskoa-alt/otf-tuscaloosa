@@ -667,24 +667,27 @@ export default function Questionnaire() {
                         const willSelect = !q6bDays.includes(day);
                         (e.currentTarget as any).__dragMode = willSelect ? 'add' : 'remove';
                         setQ6bDays(prev => willSelect ? [...prev, day] : prev.filter(d => d !== day));
-                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                       }}
                       onPointerMove={(e) => {
                         const mode = (e.currentTarget as any).__dragMode;
                         if (!mode) return;
-                        const el = document.elementFromPoint(e.clientX, e.clientY);
-                        const btn = el?.closest('[data-day]');
-                        if (!btn) return;
-                        const day = btn.getAttribute('data-day')!;
-                        setQ6bDays(prev => {
-                          if (mode === 'add' && !prev.includes(day)) return [...prev, day];
-                          if (mode === 'remove' && prev.includes(day)) return prev.filter(d => d !== day);
-                          return prev;
-                        });
+                        const grid = e.currentTarget as HTMLElement;
+                        const buttons = grid.querySelectorAll('[data-day]');
+                        for (const btn of buttons) {
+                          const rect = btn.getBoundingClientRect();
+                          if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                            const day = btn.getAttribute('data-day')!;
+                            setQ6bDays(prev => {
+                              if (mode === 'add' && !prev.includes(day)) return [...prev, day];
+                              if (mode === 'remove' && prev.includes(day)) return prev.filter(d => d !== day);
+                              return prev;
+                            });
+                            break;
+                          }
+                        }
                       }}
                       onPointerUp={(e) => {
                         (e.currentTarget as any).__dragMode = null;
-                        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
                       }}
                     >
                       {DAY_OPTIONS.map(day => {
