@@ -1,20 +1,24 @@
 
 
-## Update Apply Page Prompts
+## Two Fixes
 
-**File:** `src/pages/Apply.tsx` — Replace the copy in the three step sections (around lines 250-290) with the exact text provided. No functionality changes.
+### 1. Drag-to-select not working on the questionnaire availability grid
 
-### Step 1 (currently ~line 253-259)
-- Title: `STEP 1 — Video Cover Letter`
-- Body: "Tell me who you are, not what you've done. What lights you up and why does this place feel like your kind of place?"
+**Root cause**: The `onPointerMove` fires on the grid container, but on touch devices the pointer events don't continue firing after the initial `pointerdown` unless `setPointerCapture` is used. The previous fix removed `setPointerCapture` (which broke `elementFromPoint`), but without it, touch drag events stop firing on the container.
 
-### Step 2 (currently ~line 274-280)
-- Title: `STEP 2 — The One Person`
-- Body: Two paragraphs — the core value statement, then the prompt about a specific person.
+**Fix**: Use `setPointerCapture` on the **grid container** (not buttons) so pointer events keep firing during drag, but use the `getBoundingClientRect` hit-testing approach (not `elementFromPoint`) to find which button the pointer is over. This gives us both: continuous events during drag AND correct element detection.
 
-### Step 3 (currently ~line 291-298)
-- Title: `STEP 3 — Future Resume`
-- Body: "Forget your past. What do you want to build, become, and be known for in your career and your life? Tell me like it already happened."
+Also add `onPointerCancel` to clear drag mode, and ensure `e.preventDefault()` in `onPointerDown` to prevent scrolling during drag.
 
-One file, copy-only change.
+**File**: `src/pages/Questionnaire.tsx` (~lines 660-691)
+
+### 2. Copy link not working on mobile
+
+**Root cause**: `navigator.clipboard.writeText()` can fail on mobile browsers (especially in iframes or non-HTTPS contexts). Need a fallback using the legacy `document.execCommand('copy')` approach.
+
+**Fix**: In `QuestionnaireLink.tsx`, wrap the clipboard call in a try/catch and fall back to creating a temporary textarea element + `execCommand('copy')`. Also add `navigator.share()` as an alternative on mobile — if the Web Share API is available, offer a share button alongside copy.
+
+**File**: `src/components/QuestionnaireLink.tsx` (~lines 164-178)
+- Add clipboard fallback function
+- Add a Share button (visible on mobile) that uses `navigator.share()` for native sharing
 
