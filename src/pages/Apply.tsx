@@ -141,6 +141,59 @@ export default function Apply() {
     });
   };
 
+  // Drag-to-select state
+  const dragRef = useRef<{ mode: 'add' | 'remove'; lastKey: string } | null>(null);
+  const gridRef = useRef<HTMLTableElement>(null);
+
+  const hitTestSlot = (clientX: number, clientY: number): { day: string; slot: string } | null => {
+    if (!gridRef.current) return null;
+    const buttons = gridRef.current.querySelectorAll<HTMLButtonElement>('[data-day][data-slot]');
+    for (const btn of buttons) {
+      const r = btn.getBoundingClientRect();
+      if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+        return { day: btn.dataset.day!, slot: btn.dataset.slot! };
+      }
+    }
+    return null;
+  };
+
+  const applyDrag = (day: string, slot: string) => {
+    const key = `${day}-${slot}`;
+    if (!dragRef.current || dragRef.current.lastKey === key) return;
+    dragRef.current.lastKey = key;
+    setAvailability(prev => {
+      const daySlots = prev[day] || [];
+      if (dragRef.current!.mode === 'add') {
+        return daySlots.includes(slot) ? prev : { ...prev, [day]: [...daySlots, slot] };
+      } else {
+        return !daySlots.includes(slot) ? prev : { ...prev, [day]: daySlots.filter(s => s !== slot) };
+      }
+    });
+  };
+
+  const onGridPointerDown = (e: React.PointerEvent) => {
+    const hit = hitTestSlot(e.clientX, e.clientY);
+    if (!hit) return;
+    e.preventDefault();
+    const isSelected = (availability[hit.day] || []).includes(hit.slot);
+    const mode = isSelected ? 'remove' : 'add';
+    dragRef.current = { mode, lastKey: '' };
+    applyDrag(hit.day, hit.slot);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onGridPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const hit = hitTestSlot(e.clientX, e.clientY);
+    if (hit) applyDrag(hit.day, hit.slot);
+  };
+
+  const onGridPointerEnd = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+  };
+
   const toggleRole = (role: string) => {
     setSelectedRoles(prev =>
       prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
@@ -390,8 +443,14 @@ export default function Apply() {
                 <h3 className="font-semibold text-sm">When are you available?</h3>
                 <p className="text-xs text-muted-foreground">Tap the times that work for you each week.</p>
               </div>
-              <div className="overflow-x-auto -mx-2 px-2">
-                <table className="border-collapse text-xs">
+              <div
+                className="overflow-x-auto -mx-2 px-2 touch-none select-none"
+                onPointerDown={onGridPointerDown}
+                onPointerMove={onGridPointerMove}
+                onPointerUp={onGridPointerEnd}
+                onPointerCancel={onGridPointerEnd}
+              >
+                <table ref={gridRef} className="border-collapse text-xs">
                   <thead>
                     <tr>
                       <th className="p-1 text-left w-16"></th>
@@ -416,7 +475,8 @@ export default function Apply() {
                             <td key={d.day} className="p-0.5">
                               <button
                                 type="button"
-                                onClick={() => toggleSlot(d.day, slot)}
+                                data-day={d.day}
+                                data-slot={slot}
                                 className={`w-11 h-11 rounded transition-colors ${
                                   selected
                                     ? 'bg-orange-500 border-orange-600'

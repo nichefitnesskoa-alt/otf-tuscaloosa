@@ -211,8 +211,41 @@ export default function HiringPipeline() {
     if (error) { toast.error('Failed to generate link'); return; }
 
     const url = `https://otf-tuscaloosa.lovable.app/apply/${slug}`;
-    await navigator.clipboard.writeText(url);
-    toast.success('Link copied — ready to send');
+
+    // Try native share first on mobile, then clipboard with fallback
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({ title: `Apply – ${candidate.full_name}`, url });
+        toast.success('Link shared');
+        fetchCandidates();
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch { copied = false; }
+    }
+
+    if (copied) {
+      toast.success('Link copied — ready to send');
+    } else {
+      toast.error('Could not copy link. Try manually: ' + url);
+    }
     fetchCandidates();
   };
 
