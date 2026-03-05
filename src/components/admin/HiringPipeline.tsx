@@ -210,7 +210,7 @@ export default function HiringPipeline() {
     } as any).eq('id', candidate.id);
     if (error) { toast.error('Failed to generate link'); return; }
 
-    const url = `${window.location.origin}/apply/${slug}`;
+    const url = `https://otf-tuscaloosa.lovable.app/apply/${slug}`;
     await navigator.clipboard.writeText(url);
     toast.success('Link copied — ready to send');
     fetchCandidates();
