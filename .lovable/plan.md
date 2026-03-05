@@ -1,128 +1,85 @@
-*Accept the plan with one addition:*
 
-*In CandidateDetailSheet Application tab — after the basic info grid and before the video section, add a display block showing the three new fields for candidates who submitted them:*
 
+## Apply.tsx Full Rewrite — Copy, Reorder, Tone
+
+### Scope
+
+**One file changed**: `src/pages/Apply.tsx` — full rewrite of copy and section order. No database changes. No other files affected.
+
+**Files audited, no changes needed**:
+- `src/components/admin/HiringPipeline.tsx` — reads candidate data, no candidate-facing copy
+- `src/App.tsx` — routes only, no copy
+- Edge functions — no hiring form references
+
+### Changes
+
+**1. Section Reorder** (current → new):
+```text
+Current:                          New:
+1. Header ("Join the Team")       1. Greeting (personalized/generic)
+2. Role selection                 2. Role selection  
+3. Basic Info                     3. Basic Info
+4. Three Steps                    4. Scheduling & Availability
+5. Scheduling & Availability      5. The Three Steps
+6. Submit                         6. Submit
 ```
-AVAILABILITY
-[Read-only visual grid showing selected times — 
-same grid layout as the form, selected cells 
-highlighted orange, unselected gray]
 
-EMPLOYMENT TYPE
-[Full-time / Part-time / Either]
+**2. Personalized Greeting** — replaces the generic "Join the Team" header:
+- If `tokenCandidate` exists → extract first name from `full_name`, show `Hey [First Name]!`
+- If public `/apply` → show `Hey, welcome!`
+- Greeting is open text (not in a Card), centered, warm tone, with 🧡
+- Body text: "We're really glad you're here..." / "We're really glad you found us..."
 
-HOURS PER WEEK
-[X hours/week]
-```
+**3. Complete Copy Rewrite** — every text string replaced:
 
-*If any field is null (manually added candidate with no submission) — hide that field entirely. Only show fields that have data.*
+| Location | Current | New |
+|---|---|---|
+| Role label | "What role(s) are you applying for? (Select all that apply)" | "What are you applying for?" + helper "Pick everything that fits. You can select more than one." |
+| Basic Info heading | "Basic Info" | "The basics" |
+| Employment types | "Either — open to both" | "Either, open to both" (no em dash) |
+| Three Steps heading | "The Three Steps" | "The three steps" |
+| Step 1 heading | "Step 1 — The Video Introduction" | "Step 1: Show us who you are" |
+| Step 1 prompt | Em-dash-heavy quoted text | Warm rewrite: "Record a short video..." |
+| Step 1 helper | "Record a 60–90 second video..." | Merged into prompt |
+| Step 1 upload label | "Upload video file" | "Upload your video here" |
+| Step 1 format note | "Accepted formats: MP4, MOV, HEIC. Max 500MB." | "MP4 or MOV, 500MB max" |
+| Step 2 heading | "Step 2 — The Belonging Essay" | "Step 2: Tell us a story" |
+| Step 2 prompt | Corporate quoted text with em dashes | Warm rewrite: "We believe two things here..." |
+| Step 3 heading | "Step 3 — The Future Resume" | "Step 3: Tell us where you're going" |
+| Step 3 prompt | Corporate quoted text | Warm rewrite: "Forget your job history..." |
+| Availability heading | "Scheduling & Availability" | removed, questions stand alone |
+| Availability label | "What is your availability?" | "When are you available?" |
+| Availability helper | "Select all times you're available each week." | "Tap the times that work for you each week." |
+| Employment label | "Are you looking for full-time or part-time?" | "Are you looking for full time or part time?" |
+| Hours label | "How many hours are you looking to work each week?" | "How many hours a week are you hoping to work?" |
+| Submit button | "Submit Application" | "Submit application" |
+| Done screen | "We got it." + em-dash text | "You did it. 🧡" + "We read every single one of these personally. If we feel it, you'll hear from us." |
+| Duplicate screen | "We already have your application." | "We already have yours. We'll be in touch." |
+| Invalid screen | "This link is not valid." | "This link isn't valid. Reach out to OTF Tuscaloosa directly if you think something went wrong." |
+| Expired screen | "This application link has already been used." | "This one's already been used. Reach out to OTF Tuscaloosa if you need a new link." |
+| Video error | "Please upload an MP4, MOV, or HEIC file." | "We need an MP4 or MOV file for this one." |
+| Size error | "File must be under 500MB." | "That file is too big. Keep it under 500MB." |
+| Upload fail | "Video upload failed. Please try again." | "The video didn't upload. Give it another try." |
+| Textarea placeholder | "Write your response here..." | "Start writing here..." |
+| Name placeholder | "Your full name" | "Your full name" (keep) |
+| Submitting text | "Uploading video…" / "Submitting…" | "Uploading your video..." / "Almost there..." |
+| Normalize roles comment | "— could be text[] from DB or legacy single string" | remove em dash from comment |
 
-*All other plan details accepted as written. Proceed with build.*  
-  
-Five Hiring Pipeline Fixes — Implementation Plan
+**4. AI Tell Audit**:
+- Remove all em dashes from prose (names and URLs keep hyphens)
+- Remove all colons-as-list-intros in candidate-facing text
+- "60–90" → "60 to 90"
+- No two consecutive sentences starting with the same word
+- No "ensure", "utilize", "leverage" etc.
+- Remove italic quoted formatting from step prompts — plain warm text instead
 
-### Files to Change
-
-
-| File                                      | Changes                                                                                                                                                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/pages/Apply.tsx`                     | Major rewrite: token-based routing, role card selector, availability grid, employment type, hours per week, pre-fill from token, expired/invalid states                                                             |
-| `src/components/admin/HiringPipeline.tsx` | Add: "Send Application Link" button, "Preview Application" button, delete candidate (single + bulk), copy-link toast, token generation                                                                              |
-| `src/App.tsx`                             | Add route `/apply/:token` pointing to `Apply`                                                                                                                                                                       |
-| SQL migration                             | Add columns: `application_token`, `token_expires_at`, `application_submitted_at`, `availability_schedule`, `employment_type`, `hours_per_week` to `candidates` table. Add unique constraint on `application_token`. |
-
-
-### Files Audited — No Changes Needed
-
-
-| File                          | Why                                                      |
-| ----------------------------- | -------------------------------------------------------- |
-| `src/pages/Admin.tsx`         | Only renders `HiringPipeline` as a tab — no hiring logic |
-| `src/context/AuthContext.tsx` | No hiring references                                     |
-| Edge functions                | No hiring references                                     |
-
-
----
-
-### FIX 1 — Unique Application Links
-
-**Database**: Add `application_token text UNIQUE`, `token_expires_at timestamptz`, `application_submitted_at timestamptz` to `candidates`.
-
-**HiringPipeline.tsx**: Add "Send Application Link" button on each candidate card. On click:
-
-- Generate a random token (`crypto.randomUUID()`)
-- Save token to candidate record via `UPDATE candidates SET application_token = [token]`
-- Copy `/apply/[token]` URL to clipboard
-- Toast: "Link copied — ready to send"
-
-**App.tsx**: Add route `<Route path="/apply/:token" element={<Apply />} />`.
-
-**Apply.tsx**: Use `useParams()` to detect token. If token present:
-
-- Query `candidates` by `application_token`
-- If no match → show "This link is not valid."
-- If match but `application_submitted_at` is not null → show "This application link has already been used."
-- If valid → pre-fill name and role from candidate record, submit updates the existing record (UPDATE not INSERT), sets `application_submitted_at` to now
-
-Public `/apply` and `/join-the-team` routes remain unchanged — new record created as before.
-
----
-
-### FIX 2 — Role Selection as Card Radio Buttons
-
-Replace the `RadioGroup` + small radio buttons with large tappable cards. Each role gets a full-width card with:
-
-- OTF orange border + filled indicator when selected (`border-orange-500 bg-orange-50`)
-- Gray border when unselected
-- Bold label text
-- Label above: "What role are you applying for? (Select one)"
-
-Same `RadioGroup` primitive underneath for accessibility, just styled as cards.
-
----
-
-### FIX 3 — Three New Questions
-
-Add Section 4 between "The Three Steps" and Submit:
-
-1. **Availability Grid**: Days as columns, 1-hour time slots as rows. Tappable cells (toggle orange/gray). Stored as JSONB (`{ "Monday": ["05:00","06:00",...], ... }`). Mobile-friendly with horizontal scroll if needed, minimum 44px cell size.
-2. **Employment Type**: Radio cards (same style as role). Three options: Full-time, Part-time, Either.
-3. **Hours Per Week**: Number input with `inputMode="numeric"`, min 1 max 40.
-
-All three required in `isValid` check. Database columns: `availability_schedule jsonb`, `employment_type text`, `hours_per_week integer`.
-
----
-
-### FIX 4 — Candidate Delete
-
-**CandidateDetailSheet**: Add red "Delete Candidate" button at bottom of Application tab. Confirmation dialog with candidate name and "cannot be undone" warning.
-
-On confirm:
-
-1. Extract video filename from `video_url` and delete from `candidate-videos` storage bucket
-2. Delete from `candidate_interviews` where `candidate_id`
-3. Delete from `candidate_history` where `candidate_id`
-4. Delete from `candidates` where `id`
-5. Close sheet, toast "[Name] deleted", refresh pipeline
-
-**Bulk delete**: Not implementing drag-select for v1 — single delete covers the need. Flag for Koa: bulk delete adds UI complexity; recommend adding only if volume warrants it.
-
----
-
-### FIX 5 — Preview Application Button
-
-**HiringPipeline.tsx**: Add "Preview Application" button in the header next to "Add Candidate". Opens `/apply` in a new tab via `window.open`.
-
----
+**5. No other changes**: Multi-select roles, availability grid, phone formatting, validation logic, submission flow all stay exactly as-is. Only copy and section order change.
 
 ### Regression Safety
+- No database schema changes
+- No submission logic changes
+- No routing changes
+- Only file touched: `src/pages/Apply.tsx`
+- All form validation unchanged
+- All Supabase queries unchanged
 
-- All changes are isolated to hiring pipeline (Apply page + HiringPipeline component + one route)
-- No changes to intro booking, questionnaire, prep card, outcome, or shift recap workflows
-- No metric calculations affected
-- No shared utilities modified
-
-### Flags for Koa
-
-1. **Bulk delete**: Skipping bulk delete checkbox mode for now — adds significant UI complexity. Single delete per candidate is implemented. Add bulk if volume warrants it?
-2. **Token security**: Tokens use `crypto.randomUUID()` — sufficiently random for this use case. Not implementing expiry timers since tokens expire on submission.
