@@ -117,15 +117,21 @@ export default function Recaps() {
       return introOwner === selectedEmployee && isFirst && inRange;
     });
     const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
-    const sourceMap = new Map<string, { source: string; booked: number; showed: number; sold: number; revenue: number }>();
+    const sourceMap = new Map<string, { source: string; booked: number; showed: number; sold: number; revenue: number; bookedPeople: { name: string; date: string; detail?: string }[]; showedPeople: { name: string; date: string; detail?: string }[]; soldPeople: { name: string; date: string; detail?: string }[] }>();
     saBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
-      const existing = sourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      const existing = sourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.booked++;
+      existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: b.coach_name || undefined });
       const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id && r.result !== 'No-show');
       if (runs.length > 0) {
         existing.showed++;
-        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) existing.sold++;
+        existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: runs[0].result || undefined });
+        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) {
+          existing.sold++;
+          const saleRun = runs.find(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)));
+          existing.soldPeople.push({ name: b.member_name, date: saleRun?.buy_date || b.class_date, detail: saleRun?.result || undefined });
+        }
       }
       sourceMap.set(source, existing);
     });
