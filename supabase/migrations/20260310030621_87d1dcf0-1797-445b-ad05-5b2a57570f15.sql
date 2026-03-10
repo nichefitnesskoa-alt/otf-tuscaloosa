@@ -1,0 +1,1 @@
+ALTER TABLE public.vip_sessions ADD COLUMN referring_member_name TEXT;

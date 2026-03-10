@@ -218,13 +218,13 @@ export function filterJourneysByTab(
   selectedLeadSource: string | null,
 ): ClientJourney[] {
   // VIP or COMP exclusion helper
+  // Only exclude journeys where ALL bookings are VIP/COMP type.
+  // Once a VIP is converted (STANDARD booking created), the journey appears in main tabs.
   const isExcludedJourney = (j: ClientJourney) =>
-    j.bookings.some(b =>
-      b.lead_source === 'VIP Class' ||
+    j.bookings.every(b =>
       (b as any).is_vip === true ||
       (b as any).booking_type_canon === 'VIP' ||
-      (b as any).booking_type_canon === 'COMP' ||
-      (b.lead_source && b.lead_source.toLowerCase().includes('vip'))
+      (b as any).booking_type_canon === 'COMP'
     );
 
   if (tab === 'vip_class') {

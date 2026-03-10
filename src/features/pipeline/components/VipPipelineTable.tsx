@@ -1,7 +1,7 @@
 /**
  * VipPipelineTable — spreadsheet-style VIP member table for the Pipeline VIP tab.
  * Fetches vip_registrations directly so phone/email are always from the registration source.
- * Includes group creation, link generator, and copy-link per group pill.
+ * Includes group creation, link generator, copy-link per group pill, manual add, and convert-to-intro.
  */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   Star, Search, Download, Copy, ChevronUp, ChevronDown, Loader2,
   Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2, Trash2,
+  ArrowRight, UserPlus, Edit2, Check, X,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -41,6 +42,8 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
+import { useAuth } from '@/context/AuthContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,18 +51,22 @@ interface VipRow {
   bookingId: string;
   memberName: string;
   groupName: string;
-  // registration data (preferred)
   regPhone: string | null;
   regEmail: string | null;
   birthday: string | null;
   weightLbs: number | null;
-  // booking data (fallback)
   bookingPhone: string | null;
   bookingEmail: string | null;
   sessionDate: string | null;
   sessionTime: string | null;
   bookingStatus: string | null;
   vipSessionId: string | null;
+}
+
+interface VipGroupMeta {
+  id: string;
+  vip_class_name: string;
+  referring_member_name: string | null;
 }
 
 type SortKey = 'memberName' | 'groupName' | 'phone' | 'email' | 'birthday' | 'weight' | 'session' | 'status';
@@ -93,9 +100,11 @@ function displayEmail(row: VipRow) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function VipPipelineTable() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<VipRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
+  const [groupMetas, setGroupMetas] = useState<VipGroupMeta[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('All');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('memberName');
@@ -129,6 +138,20 @@ export function VipPipelineTable() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Convert to intro state
+  const [convertRow, setConvertRow] = useState<VipRow | null>(null);
+
+  // Manual add member state
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addPhone, setAddPhone] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+
+  // Inline edit referring member
+  const [editingReferrer, setEditingReferrer] = useState<string | null>(null);
+  const [referrerDraft, setReferrerDraft] = useState('');
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -149,19 +172,17 @@ export function VipPipelineTable() {
 
       if (rErr) throw rErr;
 
+      // Fetch VIP session metas for referring_member_name
+      const { data: sessions } = await supabase
+        .from('vip_sessions')
+        .select('id, vip_class_name, referring_member_name');
+
+      setGroupMetas((sessions || []) as VipGroupMeta[]);
+
       // Build reg map by booking_id
       const regMap = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
       (regs || []).forEach((r: any) => {
         if (r.booking_id) regMap.set(r.booking_id, r);
-      });
-
-      // Also try matching by vip_class_name + name if no booking_id match
-      const regByName = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
-      (regs || []).forEach((r: any) => {
-        if (!r.booking_id && r.vip_class_name) {
-          const key = `${r.vip_class_name}::${(r.first_name || '') + (r.last_name || '')}`.toLowerCase();
-          regByName.set(key, r);
-        }
       });
 
       const builtRows: VipRow[] = (bookings || []).map((b: any) => {
@@ -185,7 +206,6 @@ export function VipPipelineTable() {
 
       setRows(builtRows);
 
-      // Extract unique group names
       const uniqueGroups = Array.from(new Set(builtRows.map(r => r.groupName))).sort();
       setGroups(uniqueGroups);
     } catch (err) {
@@ -202,13 +222,9 @@ export function VipPipelineTable() {
 
   const filtered = useMemo(() => {
     let result = rows;
-
-    // Group filter
     if (selectedGroup !== 'All') {
       result = result.filter(r => r.groupName === selectedGroup);
     }
-
-    // Search filter
     if (search.trim().length >= 1) {
       const q = search.toLowerCase();
       result = result.filter(r =>
@@ -217,8 +233,6 @@ export function VipPipelineTable() {
         (displayEmail(r) || '').toLowerCase().includes(q)
       );
     }
-
-    // Sort
     result = [...result].sort((a, b) => {
       let aVal = '';
       let bVal = '';
@@ -235,7 +249,6 @@ export function VipPipelineTable() {
       const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
-
     return result;
   }, [rows, selectedGroup, search, sortKey, sortDir]);
 
@@ -248,6 +261,11 @@ export function VipPipelineTable() {
   const regLink = selectedGroup !== 'All'
     ? `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(selectedGroup)}`
     : null;
+
+  const selectedGroupMeta = useMemo(() => {
+    if (selectedGroup === 'All') return null;
+    return groupMetas.find(g => g.vip_class_name === selectedGroup) || null;
+  }, [selectedGroup, groupMetas]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -372,10 +390,9 @@ export function VipPipelineTable() {
     if (!newGroupName.trim()) { toast.error('Group name is required'); return; }
     setCreatingGroup(true);
     try {
-      // Create a placeholder booking to anchor the group, so it shows up in the selector
-      // Groups are derived from vip_class_name on bookings — we just need to ensure the group
-      // shows in the pill list. We add it to the local group list directly.
       const slug = newGroupName.trim();
+      // Create a vip_session so referring_member_name can be tracked
+      await supabase.from('vip_sessions').insert({ vip_class_name: slug } as any);
       setGroups(prev => Array.from(new Set([...prev, slug])).sort());
       setSelectedGroup(slug);
       setShowCreateGroup(false);
@@ -384,6 +401,7 @@ export function VipPipelineTable() {
       const link = `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(slug)}`;
       navigator.clipboard.writeText(link);
       toast.success(`Group "${slug}" created! Registration link copied to clipboard.`);
+      fetchData();
     } catch (err) {
       toast.error('Failed to create group');
     } finally {
@@ -443,6 +461,59 @@ export function VipPipelineTable() {
     }
   };
 
+  // Manual add member to VIP group
+  const handleAddMember = async () => {
+    const targetGroup = selectedGroup !== 'All' ? selectedGroup : null;
+    if (!addName.trim()) { toast.error('Name is required'); return; }
+    if (!targetGroup) { toast.error('Select a VIP group first'); return; }
+    setAddingMember(true);
+    try {
+      const saName = user?.name || 'Unknown';
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const { error } = await supabase.from('intros_booked').insert({
+        member_name: addName.trim(),
+        class_date: today,
+        coach_name: 'TBD',
+        sa_working_shift: saName,
+        lead_source: 'VIP Class',
+        booked_by: saName,
+        phone: addPhone.trim() || null,
+        email: addEmail.trim().toLowerCase() || null,
+        is_vip: true,
+        booking_type_canon: 'VIP',
+        booking_status: 'Active',
+        booking_status_canon: 'ACTIVE',
+        vip_class_name: targetGroup,
+      });
+      if (error) throw error;
+      toast.success(`${addName.trim()} added to ${targetGroup}`);
+      setAddName('');
+      setAddPhone('');
+      setAddEmail('');
+      setShowAddMember(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to add member');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  // Save referring member for a group
+  const handleSaveReferrer = async (groupName: string) => {
+    const meta = groupMetas.find(g => g.vip_class_name === groupName);
+    if (meta) {
+      await supabase.from('vip_sessions').update({ referring_member_name: referrerDraft.trim() || null } as any).eq('id', meta.id);
+    } else {
+      // Create session entry
+      await supabase.from('vip_sessions').insert({ vip_class_name: groupName, referring_member_name: referrerDraft.trim() || null } as any);
+    }
+    toast.success('Referral member updated');
+    setEditingReferrer(null);
+    fetchData();
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -459,7 +530,6 @@ export function VipPipelineTable() {
     <div className="space-y-3">
       {/* Group Selector + Create Group */}
       <div className="flex gap-2 flex-wrap items-center">
-        {/* All pill */}
         <button
           onClick={() => setSelectedGroup('All')}
           className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -471,7 +541,6 @@ export function VipPipelineTable() {
           All ({rows.length})
         </button>
 
-        {/* Group pills with inline Copy Link */}
         {groups.map(g => (
           <div key={g} className={`flex items-center gap-0 rounded-full overflow-hidden border transition-colors ${
             selectedGroup === g ? 'border-primary' : 'border-muted'
@@ -500,7 +569,6 @@ export function VipPipelineTable() {
           </div>
         ))}
 
-        {/* Create New Group button */}
         <Button
           variant="outline"
           size="sm"
@@ -511,32 +579,70 @@ export function VipPipelineTable() {
         </Button>
       </div>
 
-      {/* Registration Link Banner */}
+      {/* Registration Link Banner + Referring Member */}
       {regLink && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-accent border border-border flex-wrap">
-          <Star className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          <span className="text-xs font-semibold text-primary">{selectedGroup}</span>
-          <span className="text-xs text-muted-foreground hidden sm:inline">·</span>
-          <code className="text-[10px] text-muted-foreground truncate flex-1 min-w-0 hidden sm:block">{regLink}</code>
-          <div className="flex gap-1 flex-shrink-0 ml-auto">
-            <Button
-              variant="ghost" size="sm"
-              className="h-6 px-2 text-[10px] gap-1 text-primary"
-              onClick={() => { navigator.clipboard.writeText(regLink!); toast.success('Link copied!'); }}
-            >
-              <Copy className="w-3 h-3" /> Copy
-            </Button>
-            <Button
-              variant="ghost" size="sm"
-              className="h-6 px-2 text-[10px] gap-1 text-primary"
-              onClick={() => {
-                const msg = `Register for your Orangetheory Fitness VIP class here: ${regLink}`;
-                navigator.clipboard.writeText(msg);
-                toast.success('Share message copied!');
-              }}
-            >
-              <Share2 className="w-3 h-3" /> Share
-            </Button>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-accent border border-border flex-wrap">
+            <Star className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <span className="text-xs font-semibold text-primary">{selectedGroup}</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">·</span>
+            <code className="text-[10px] text-muted-foreground truncate flex-1 min-w-0 hidden sm:block">{regLink}</code>
+            <div className="flex gap-1 flex-shrink-0 ml-auto">
+              <Button
+                variant="ghost" size="sm"
+                className="h-6 px-2 text-[10px] gap-1 text-primary"
+                onClick={() => { navigator.clipboard.writeText(regLink!); toast.success('Link copied!'); }}
+              >
+                <Copy className="w-3 h-3" /> Copy
+              </Button>
+              <Button
+                variant="ghost" size="sm"
+                className="h-6 px-2 text-[10px] gap-1 text-primary"
+                onClick={() => {
+                  const msg = `Register for your Orangetheory Fitness VIP class here: ${regLink}`;
+                  navigator.clipboard.writeText(msg);
+                  toast.success('Share message copied!');
+                }}
+              >
+                <Share2 className="w-3 h-3" /> Share
+              </Button>
+            </div>
+          </div>
+
+          {/* Referring Member inline edit */}
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs">
+            <span className="text-muted-foreground font-medium">Referral Member:</span>
+            {editingReferrer === selectedGroup ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={referrerDraft}
+                  onChange={e => setReferrerDraft(e.target.value)}
+                  className="h-6 text-xs w-40"
+                  placeholder="Member name…"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleSaveReferrer(selectedGroup)}
+                />
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleSaveReferrer(selectedGroup)}>
+                  <Check className="w-3 h-3 text-success" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditingReferrer(null)}>
+                  <X className="w-3 h-3 text-destructive" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                className="flex items-center gap-1 hover:text-primary transition-colors"
+                onClick={() => {
+                  setEditingReferrer(selectedGroup);
+                  setReferrerDraft(selectedGroupMeta?.referring_member_name || '');
+                }}
+              >
+                <span className={selectedGroupMeta?.referring_member_name ? 'font-medium' : 'text-muted-foreground italic'}>
+                  {selectedGroupMeta?.referring_member_name || 'Not assigned'}
+                </span>
+                <Edit2 className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -552,6 +658,11 @@ export function VipPipelineTable() {
             className="pl-7 h-8 text-xs"
           />
         </div>
+        {selectedGroup !== 'All' && (
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setShowAddMember(true)}>
+            <UserPlus className="w-3.5 h-3.5" /> Add Member
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={handleExportCsv}>
           <Download className="w-3.5 h-3.5" /> Export CSV
         </Button>
@@ -617,7 +728,7 @@ export function VipPipelineTable() {
               <th className="p-2 text-left cursor-pointer hover:text-primary select-none min-w-[90px]" onClick={() => handleSort('status')}>
                 <div className="flex items-center gap-1">Status <SortIcon col="status" /></div>
               </th>
-              <th className="p-2 text-left min-w-[120px]">Actions</th>
+              <th className="p-2 text-left min-w-[150px]">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -700,6 +811,14 @@ export function VipPipelineTable() {
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost" size="sm"
+                          className="h-6 px-1.5 text-[10px] gap-0.5 text-primary"
+                          title="Book Intro"
+                          onClick={() => setConvertRow(row)}
+                        >
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
                           className="h-6 px-1.5 text-[10px] gap-0.5"
                           title="Open Script"
                           onClick={() => { setScriptRow(row); setScriptSheetOpen(true); }}
@@ -770,19 +889,19 @@ export function VipPipelineTable() {
                           <div className="flex items-end gap-2">
                             <Button
                               size="sm"
+                              variant="default"
+                              className="h-6 text-[10px] gap-1"
+                              onClick={() => setConvertRow(row)}
+                            >
+                              <ArrowRight className="w-3 h-3" /> Book Intro
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="h-6 text-[10px] gap-1"
                               onClick={() => { setAssignRow(row); setAssignDate(''); setAssignTime(''); }}
                             >
                               <CalendarPlus className="w-3 h-3" /> Assign Session
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="h-6 text-[10px] gap-1"
-                              onClick={() => setDeleteTarget(row)}
-                            >
-                              <Trash2 className="w-3 h-3" /> Remove from VIP List
                             </Button>
                           </div>
                         </div>
@@ -795,6 +914,57 @@ export function VipPipelineTable() {
           </tbody>
         </table>
       </div>
+
+      {/* Convert to Intro Dialog */}
+      {convertRow && (
+        <ConvertVipToIntroDialog
+          open={!!convertRow}
+          onOpenChange={open => { if (!open) setConvertRow(null); }}
+          vipBooking={{
+            id: convertRow.bookingId,
+            member_name: convertRow.memberName,
+            phone: displayPhone(convertRow),
+            email: displayEmail(convertRow),
+          }}
+          referredByMember={
+            groupMetas.find(g => g.vip_class_name === convertRow.groupName)?.referring_member_name || null
+          }
+          onConverted={fetchData}
+        />
+      )}
+
+      {/* Manual Add Member Dialog */}
+      <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <UserPlus className="w-4 h-4" /> Add Member to {selectedGroup}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Name *</Label>
+              <Input value={addName} onChange={e => setAddName(e.target.value)} placeholder="Full name" className="h-8 text-sm" autoFocus />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phone (optional)</Label>
+              <Input value={addPhone} onChange={e => setAddPhone(e.target.value)} placeholder="(205) 555-1234" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Email (optional)</Label>
+              <Input value={addEmail} onChange={e => setAddEmail(e.target.value)} placeholder="email@example.com" className="h-8 text-sm" />
+            </div>
+            <Button
+              className="w-full h-8 text-sm"
+              disabled={!addName.trim() || addingMember}
+              onClick={handleAddMember}
+            >
+              {addingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <UserPlus className="w-3.5 h-3.5 mr-1" />}
+              Add to {selectedGroup}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Single Assign Dialog */}
       <Dialog open={!!assignRow} onOpenChange={open => !open && setAssignRow(null)}>
