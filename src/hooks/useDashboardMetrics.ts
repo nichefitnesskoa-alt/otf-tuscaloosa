@@ -381,14 +381,17 @@ export function useDashboardMetrics(
     // 1) Booked & showed — from firstIntroBookings (class_date in range)
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
-      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.booked++;
+      existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: (b as any).coach_name || undefined });
 
       // Only count showed for past+today bookings
       if (pastAndTodayBookingIds.has(b.id)) {
         const runs = bookingToRuns.get(b.id) || [];
-        if (runs.some(r => r.result !== 'No-show')) {
+        const showedRun = runs.find(r => r.result !== 'No-show');
+        if (showedRun) {
           existing.showed++;
+          existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
         }
       }
 
