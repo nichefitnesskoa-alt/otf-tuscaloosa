@@ -244,10 +244,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         const priorRunMembers = new Set<string>();
         for (let i = 0; i < uniqueNames.length; i += 50) {
           const batch = uniqueNames.slice(i, i + 50);
+          // Include both original and lowercased names to handle case mismatches
+          const batchExtended = [...new Set([...batch, ...batch.map(n => n.toLowerCase())])];
           const { data: priorRuns } = await supabase
             .from('intros_run')
             .select('member_name, linked_intro_booked_id')
-            .in('member_name', batch);
+            .in('member_name', batchExtended);
           if (priorRuns) {
             for (const pr of priorRuns) {
               priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
