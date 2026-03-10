@@ -32,12 +32,21 @@ interface IndividualActivityMetrics {
   shiftsWorked: number;
 }
 
-interface LeadSourceMetrics {
+export interface LeadSourcePerson {
+  name: string;
+  date: string;
+  detail?: string;
+}
+
+export interface LeadSourceMetrics {
   source: string;
   booked: number;
   showed: number;
   sold: number;
   revenue: number;
+  bookedPeople: LeadSourcePerson[];
+  showedPeople: LeadSourcePerson[];
+  soldPeople: LeadSourcePerson[];
 }
 
 interface PipelineMetrics {
@@ -372,14 +381,17 @@ export function useDashboardMetrics(
     // 1) Booked & showed — from firstIntroBookings (class_date in range)
     firstIntroBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
-      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.booked++;
+      existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: (b as any).coach_name || undefined });
 
       // Only count showed for past+today bookings
       if (pastAndTodayBookingIds.has(b.id)) {
         const runs = bookingToRuns.get(b.id) || [];
-        if (runs.some(r => r.result !== 'No-show')) {
+        const showedRun = runs.find(r => r.result !== 'No-show');
+        if (showedRun) {
           existing.showed++;
+          existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
         }
       }
 
@@ -443,9 +455,11 @@ export function useDashboardMetrics(
       countedRunIds.add(run.id);
 
       const source = resolveLeadSource(run);
-      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0 };
+      const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.sold++;
       existing.revenue += run.commission_amount || 0;
+      const buyDate = run.buy_date || run.run_date || run.created_at.split('T')[0];
+      existing.soldPeople.push({ name: run.member_name, date: buyDate, detail: run.result || undefined });
       leadSourceMap.set(source, existing);
     });
 
