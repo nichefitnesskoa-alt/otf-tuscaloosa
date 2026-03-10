@@ -2229,6 +2229,7 @@ export type Database = {
           capacity: number
           created_at: string
           id: string
+          referring_member_name: string | null
           session_date: string | null
           session_label: string | null
           session_time: string | null
@@ -2238,6 +2239,7 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          referring_member_name?: string | null
           session_date?: string | null
           session_label?: string | null
           session_time?: string | null
@@ -2247,6 +2249,7 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          referring_member_name?: string | null
           session_date?: string | null
           session_label?: string | null
           session_time?: string | null
