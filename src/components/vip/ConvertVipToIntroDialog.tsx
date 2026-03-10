@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { COACHES } from '@/types';
 
 interface ConvertVipToIntroDialogProps {
   open: boolean;
