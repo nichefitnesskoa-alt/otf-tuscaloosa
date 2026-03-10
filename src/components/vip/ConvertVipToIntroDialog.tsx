@@ -23,11 +23,12 @@ interface ConvertVipToIntroDialogProps {
     coach_name?: string | null;
     fitness_goal?: string | null;
   };
+  referredByMember?: string | null;
   onConverted: () => void;
 }
 
 export function ConvertVipToIntroDialog({
-  open, onOpenChange, vipBooking, onConverted,
+  open, onOpenChange, vipBooking, referredByMember, onConverted,
 }: ConvertVipToIntroDialogProps) {
   const { user } = useAuth();
   const [classDate, setClassDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -53,7 +54,7 @@ export function ConvertVipToIntroDialog({
           intro_time: introTime || null,
           coach_name: coachName || 'TBD',
           sa_working_shift: saName,
-          lead_source: 'VIP Converted',
+          lead_source: 'VIP Class',
           booked_by: saName,
           phone: vipBooking.phone || null,
           email: vipBooking.email || null,
@@ -61,6 +62,8 @@ export function ConvertVipToIntroDialog({
           is_vip: false,
           booking_status: 'Active',
           booking_status_canon: 'ACTIVE',
+          booking_type_canon: 'STANDARD',
+          referred_by_member_name: referredByMember || null,
         })
         .select('id')
         .single();
@@ -116,6 +119,12 @@ export function ConvertVipToIntroDialog({
             <Label className="text-xs">Coach</Label>
             <Input value={coachName} onChange={e => setCoachName(e.target.value)} placeholder="TBD" />
           </div>
+          {referredByMember && (
+            <div className="rounded-md bg-accent px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Referral credit →</span>{' '}
+              <span className="font-medium">{referredByMember}</span>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
