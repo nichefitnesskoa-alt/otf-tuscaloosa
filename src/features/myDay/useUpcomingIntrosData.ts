@@ -285,10 +285,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             // This is the only/earliest booking in batch — check if prior run is from outside batch
             // Query for runs NOT linked to any booking in current batch
             const batchIds = new Set(rawItems.map(ri => ri.bookingId));
+            // Query with both original and lowercased name to handle case mismatches
             const { data: externalRuns } = await supabase
               .from('intros_run')
               .select('id, linked_intro_booked_id')
-              .eq('member_name', item.memberName)
+              .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
               .limit(5);
             const hasExternalRun = (externalRuns || []).some(r => 
               r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
