@@ -121,7 +121,17 @@ export function ConvertVipToIntroDialog({
           </div>
           <div>
             <Label className="text-xs">Coach</Label>
-            <Input value={coachName} onChange={e => setCoachName(e.target.value)} placeholder="TBD" />
+            <Select value={coachName} onValueChange={setCoachName}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select coach…" />
+              </SelectTrigger>
+              <SelectContent>
+                {COACHES.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+                <SelectItem value="TBD">TBD</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {referredByMember && (
             <div className="rounded-md bg-accent px-3 py-2 text-xs">
