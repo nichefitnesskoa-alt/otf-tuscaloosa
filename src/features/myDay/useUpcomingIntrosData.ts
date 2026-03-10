@@ -244,10 +244,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         const priorRunMembers = new Set<string>();
         for (let i = 0; i < uniqueNames.length; i += 50) {
           const batch = uniqueNames.slice(i, i + 50);
+          // Include both original and lowercased names to handle case mismatches
+          const batchExtended = [...new Set([...batch, ...batch.map(n => n.toLowerCase())])];
           const { data: priorRuns } = await supabase
             .from('intros_run')
             .select('member_name, linked_intro_booked_id')
-            .in('member_name', batch);
+            .in('member_name', batchExtended);
           if (priorRuns) {
             for (const pr of priorRuns) {
               priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
@@ -283,10 +285,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             // This is the only/earliest booking in batch — check if prior run is from outside batch
             // Query for runs NOT linked to any booking in current batch
             const batchIds = new Set(rawItems.map(ri => ri.bookingId));
+            // Query with both original and lowercased name to handle case mismatches
             const { data: externalRuns } = await supabase
               .from('intros_run')
               .select('id, linked_intro_booked_id')
-              .eq('member_name', item.memberName)
+              .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
               .limit(5);
             const hasExternalRun = (externalRuns || []).some(r => 
               r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
