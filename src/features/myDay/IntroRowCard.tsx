@@ -305,6 +305,11 @@ export default function IntroRowCard({
         <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
         <StatusBanner bgColor="#2563eb" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
+      ) : item.leadSource?.toLowerCase().includes('vip') ? (
+        <StatusBanner
+          bgColor="#7e22ce"
+          text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
+        />
       ) : (
         <StatusBanner
           bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
