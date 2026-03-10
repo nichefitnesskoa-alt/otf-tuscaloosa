@@ -32,12 +32,21 @@ interface IndividualActivityMetrics {
   shiftsWorked: number;
 }
 
-interface LeadSourceMetrics {
+export interface LeadSourcePerson {
+  name: string;
+  date: string;
+  detail?: string;
+}
+
+export interface LeadSourceMetrics {
   source: string;
   booked: number;
   showed: number;
   sold: number;
   revenue: number;
+  bookedPeople: LeadSourcePerson[];
+  showedPeople: LeadSourcePerson[];
+  soldPeople: LeadSourcePerson[];
 }
 
 interface PipelineMetrics {
