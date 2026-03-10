@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ArrowRight } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { COACHES } from '@/types';
 
 interface ConvertVipToIntroDialogProps {
   open: boolean;
@@ -117,7 +121,17 @@ export function ConvertVipToIntroDialog({
           </div>
           <div>
             <Label className="text-xs">Coach</Label>
-            <Input value={coachName} onChange={e => setCoachName(e.target.value)} placeholder="TBD" />
+            <Select value={coachName} onValueChange={setCoachName}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select coach…" />
+              </SelectTrigger>
+              <SelectContent>
+                {COACHES.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+                <SelectItem value="TBD">TBD</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {referredByMember && (
             <div className="rounded-md bg-accent px-3 py-2 text-xs">
