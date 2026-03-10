@@ -1,43 +1,20 @@
 
-Goal: fix the two issues in the hiring flow (not the intro questionnaire flow), since the last changes were applied to the wrong components.
 
-What I found:
-- The availability schedule you’re referring to is in `src/pages/Apply.tsx` (hiring questionnaire), and it currently only supports single-cell click toggles via `onClick` on each slot button.
-- The “Link copied — ready to send” toast comes from `src/components/admin/HiringPipeline.tsx`, where link copy still uses only `navigator.clipboard.writeText(...)` with no mobile fallback/share.
-- The previous fixes were made in `src/pages/Questionnaire.tsx` and `src/components/QuestionnaireLink.tsx`, which are different flows.
+## Plan: Purple VIP Class Banner with Questionnaire Status
 
-Implementation plan:
+### What changes
 
-1) Add drag multi-select to hiring availability grid (`src/pages/Apply.tsx`)
-- Introduce drag state for the grid (mode: add/remove, active pointer, and last-processed cell to avoid repeated toggles while hovering same cell).
-- Add pointer handlers on a common grid container:
-  - `onPointerDown`: determine initial cell and drag mode (add/remove), apply first toggle, capture pointer.
-  - `onPointerMove`: hit-test current cell and apply according to mode while dragging.
-  - `onPointerUp` + `onPointerCancel`: clear drag state and release pointer capture.
-- Keep current visual layout and selection model (`availability` object keyed by day) unchanged.
-- Ensure mobile reliability:
-  - apply `touch-none`/`select-none` on the interactive grid wrapper,
-  - call `preventDefault()` where appropriate during drag to avoid scroll interference.
+In `src/features/myDay/IntroRowCard.tsx`, add a new banner condition for VIP Class leads (detected by `lead_source` containing "vip", while NOT being a 2nd intro). This purple banner will show both the VIP origin AND the questionnaire status.
 
-2) Fix mobile link copy in hiring pipeline (`src/components/admin/HiringPipeline.tsx`)
-- Replace single clipboard write with robust copy utility:
-  - try `navigator.clipboard.writeText`,
-  - fallback to hidden `textarea` + `document.execCommand('copy')`,
-  - show success/error toast based on actual result.
-- Add optional Web Share fallback when available (`navigator.share`) so mobile users can still send the link even if clipboard APIs fail.
-- Keep existing candidate token/slug generation and status refresh behavior unchanged.
+**Banner logic update** (lines 306-313 in the top banner builder):
 
-3) Validate behavior (targeted)
-- Hiring questionnaire (`/apply/:slug`):
-  - drag across multiple time cells to “paint” selected cells,
-  - drag starting from selected cell removes cells.
-- Admin hiring pipeline:
-  - “Send link” on desktop still copies,
-  - on mobile/simulated mobile, copy works via fallback or share path, and toast reflects outcome.
+Currently, non-2nd-intro cards fall through to the plain Q status banner (red/amber/green). We'll add a check before that: if `item.leadSource` contains "vip" (case-insensitive) and it's not a 2nd intro, show a purple (`#7e22ce`) banner with combined text like:
 
-Technical details
-- Files to update:
-  - `src/pages/Apply.tsx` (new drag interaction on availability table)
-  - `src/components/admin/HiringPipeline.tsx` (clipboard fallback + share fallback)
-- No schema/backend changes required; this is front-end interaction logic only.
-- No change to data structure or submission payload shape (`availability_schedule` remains identical).
+- `"🟣 VIP Class — Questionnaire Not Sent"` (when NO_Q)
+- `"🟣 VIP Class — Questionnaire Sent"` (when Q_SENT)  
+- `"🟣 VIP Class — Questionnaire Complete ✓"` (when Q_COMPLETED)
+
+The banner color stays purple in all cases so VIP origin is always visually distinct, but the text clearly communicates the Q status. The Q-overdue and outcome-needed conditions still take priority above this.
+
+**Single file change**: `src/features/myDay/IntroRowCard.tsx` — ~5 lines modified in the `topBanner` JSX block.
+
