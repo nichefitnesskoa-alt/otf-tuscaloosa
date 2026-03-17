@@ -64,11 +64,11 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       const allBookings = (bookings || []).filter((b: any) => !b.is_vip && (!b.originating_booking_id || b.referred_by_member_name));
 
-      // Build set of booking IDs that are no-shows (exclude from Q completion denominator)
-      const noShowBookingIds = new Set(
+      // Build set of booking IDs where member actually showed (for Q completion denominator)
+      const showedBookingIds = new Set(
         (runs || []).filter((r: any) => {
           const res = (r.result || '').toLowerCase();
-          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
         }).map((r: any) => r.linked_intro_booked_id)
       );
 
