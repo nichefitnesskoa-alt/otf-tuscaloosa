@@ -40,12 +40,26 @@ export function LeadMeasuresTable({ data, loading, compact }: Props) {
                       <TooltipTrigger asChild>
                         <div className="cursor-help">
                           <ClipboardCheck className="w-3 h-3 mx-auto" />
+                          <span className="block text-[9px]">Q Done</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        <p><strong>Questionnaires Completed</strong></p>
+                        <p>Of the intros this SA ran, how many had a completed questionnaire beforehand. Shown as completed / ran.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </th>
+                  <th className="text-center py-2 px-1 font-medium text-muted-foreground">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <ClipboardCheck className="w-3 h-3 mx-auto" />
                           <span className="block text-[9px]">Q %</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[200px] text-xs">
                         <p><strong>Questionnaire Completion %</strong></p>
-                        <p>% of 1st intro bookings where the client completed the questionnaire before their intro.</p>
+                        <p>Of the intros this SA ran, what % had a completed questionnaire beforehand.</p>
                       </TooltipContent>
                     </Tooltip>
                   </th>
@@ -86,6 +100,9 @@ export function LeadMeasuresTable({ data, loading, compact }: Props) {
                       {i < 3 && <span className="mr-0.5">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>}
                       {sa.saName}
                     </td>
+                    <td className="text-center py-1.5 px-1 text-muted-foreground text-[11px]">
+                      {sa.introsRan > 0 ? `${sa.qCompletedCount}/${sa.introsRan}` : '—'}
+                    </td>
                     <td className={`text-center py-1.5 px-1 font-semibold ${pctColor(sa.qCompletionPct)}`}>
                       {sa.qCompletionPct !== null ? `${sa.qCompletionPct}%` : '—'}
                     </td>
@@ -100,7 +117,7 @@ export function LeadMeasuresTable({ data, loading, compact }: Props) {
           </div>
         </TooltipProvider>
         <p className="text-[10px] text-muted-foreground mt-2">
-          Q = questionnaire completion rate · Prep = intros prepped before class · Ran = total intros run
+          Q Done = questionnaires completed / intros ran · Q % = completion rate · Prep = intros prepped before class · Ran = total intros run
         </p>
       </CardContent>
     </Card>

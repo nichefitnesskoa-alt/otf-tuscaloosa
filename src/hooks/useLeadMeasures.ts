@@ -7,6 +7,7 @@ export interface SALeadMeasure {
   saName: string;
   speedToLead: number | null; // avg minutes
   qCompletionPct: number | null;
+  qCompletedCount: number;
   prepRatePct: number | null;
   followUpTouches: number;
   dmsSent: number;
@@ -85,23 +86,24 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0 });
       };
 
-      // Q completion & prep rate by SA
+      // Prep rate by SA (booking-side, only for showed intros)
       allBookings.forEach((b: any) => {
         const sa = [b.intro_owner, b.prepped_by].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
         ensure(sa);
         const s = saMap.get(sa);
         if (!s) return;
-        // Only count bookings where the member actually showed (matches Ran denominator)
         if (showedBookingIds.has(b.id)) {
-          s.qTotal++;
-          if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
           s.prepTotal++;
           if (b.prepped) s.prepDone++;
         }
       });
 
-      // Intros ran per SA (exclude no-shows — a no-show is not a ran intro)
+      // Build booking lookup for Q status
+      const bookingMap = new Map<string, any>();
+      allBookings.forEach((b: any) => bookingMap.set(b.id, b));
+
+      // Intros ran per SA + Q completion (run-side attribution)
       (runs || []).forEach((r: any) => {
         const result = (r.result || '').toLowerCase();
         if (result === 'no-show' || result === 'no show') return;
@@ -109,7 +111,14 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!sa) return;
         ensure(sa);
         const entry = saMap.get(sa);
-        if (entry) entry.introsRan++;
+        if (entry) {
+          entry.introsRan++;
+          entry.qTotal++;
+          const linkedBooking = r.linked_intro_booked_id ? bookingMap.get(r.linked_intro_booked_id) : null;
+          if (linkedBooking?.questionnaire_status_canon === 'completed') {
+            entry.qCompleted++;
+          }
+        }
       });
 
       // Follow-up touches
@@ -170,6 +179,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           saName,
           speedToLead: s.speedCount > 0 ? Math.round(s.speedSumMin / s.speedCount) : null,
           qCompletionPct: s.qTotal > 0 ? Math.round((s.qCompleted / s.qTotal) * 100) : null,
+          qCompletedCount: s.qCompleted,
           prepRatePct: s.prepTotal > 0 ? Math.round((s.prepDone / s.prepTotal) * 100) : null,
           followUpTouches: s.touches,
           dmsSent: s.dms,
