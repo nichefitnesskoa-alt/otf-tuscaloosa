@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
       const validRows = rows.slice(1).filter(r => {
         const idx = getRowIndices(r);
         const s = getVal(r, idx.STATUS);
-        return s.startsWith('POSTED_2xx') || s === 'NON_2XX_404';
+        return s !== 'SKIPPED' && s !== 'DUPLICATE';
       });
       steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx/NON_2XX_404 status out of ${rows.length - 1} total data rows` });
 
