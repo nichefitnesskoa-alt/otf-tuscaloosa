@@ -114,19 +114,22 @@ async function readSheet(spreadsheetId: string, tabName: string, accessToken: st
   return data.values || [];
 }
 
-// ── Column indices (fixed positional mapping) ──
-// A=0: Timestamp (skip), B=1: First, C=2: Last, D=3: Email, E=4: Phone,
-// F=5: IntroDate, G=6: IntroTime, H=7: RawSubject (skip), I=8: MessageId, J=9: Status
-const COL = {
-  FIRST: 1,
-  LAST: 2,
-  EMAIL: 3,
-  PHONE: 4,
-  INTRO_DATE: 5,
-  INTRO_TIME: 6,
-  MESSAGE_ID: 8,
-  STATUS: 9,
-} as const;
+// ── Column indices ──
+// Shared columns (same in both layouts): A=0 Timestamp, B=1 First, C=2 Last, D=3 Email, E=4 Phone
+// Date row (10 cols):   F=5 IntroDate, G=6 IntroTime, H=7 RawSubject, I=8 MessageId, J=9 Status
+// No-date row (8 cols): F=5 RawSubject, G=6 MessageId, H=7 Status
+const COL_SHARED = { FIRST: 1, LAST: 2, EMAIL: 3, PHONE: 4 } as const;
+
+function getRowIndices(row: string[]) {
+  const hasDate = row.length >= 10;
+  return {
+    ...COL_SHARED,
+    INTRO_DATE: hasDate ? 5 : -1,
+    INTRO_TIME: hasDate ? 6 : -1,
+    MESSAGE_ID: hasDate ? 8 : 6,
+    STATUS: hasDate ? 9 : 7,
+  };
+}
 
 // ── Helpers ──
 
