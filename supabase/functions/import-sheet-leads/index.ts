@@ -114,19 +114,22 @@ async function readSheet(spreadsheetId: string, tabName: string, accessToken: st
   return data.values || [];
 }
 
-// ── Column indices (fixed positional mapping) ──
-// A=0: Timestamp (skip), B=1: First, C=2: Last, D=3: Email, E=4: Phone,
-// F=5: IntroDate, G=6: IntroTime, H=7: RawSubject (skip), I=8: MessageId, J=9: Status
-const COL = {
-  FIRST: 1,
-  LAST: 2,
-  EMAIL: 3,
-  PHONE: 4,
-  INTRO_DATE: 5,
-  INTRO_TIME: 6,
-  MESSAGE_ID: 8,
-  STATUS: 9,
-} as const;
+// ── Column indices ──
+// Shared columns (same in both layouts): A=0 Timestamp, B=1 First, C=2 Last, D=3 Email, E=4 Phone
+// Date row (10 cols):   F=5 IntroDate, G=6 IntroTime, H=7 RawSubject, I=8 MessageId, J=9 Status
+// No-date row (8 cols): F=5 RawSubject, G=6 MessageId, H=7 Status
+const COL_SHARED = { FIRST: 1, LAST: 2, EMAIL: 3, PHONE: 4 } as const;
+
+function getRowIndices(row: string[]) {
+  const hasDate = row.length >= 10;
+  return {
+    ...COL_SHARED,
+    INTRO_DATE: hasDate ? 5 : -1,
+    INTRO_TIME: hasDate ? 6 : -1,
+    MESSAGE_ID: hasDate ? 8 : 6,
+    STATUS: hasDate ? 9 : 7,
+  };
+}
 
 // ── Helpers ──
 
@@ -222,13 +225,14 @@ Deno.serve(async (req) => {
       }
 
       const sampleRows = rows.slice(0, 4); // header + first 3 data rows
-      steps.push({ step: 'column_mapping', status: 'ok', detail: COL });
+      steps.push({ step: 'column_mapping', status: 'ok', detail: 'Dynamic: 10-col date rows, 8-col no-date rows' });
       steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
 
       // Count rows with POSTED_2xx or NON_2XX_404 status
       const validRows = rows.slice(1).filter(r => {
-        const s = getVal(r, COL.STATUS);
-        return s.startsWith('POSTED_2xx') || s === 'NON_2XX_404';
+        const idx = getRowIndices(r);
+        const s = getVal(r, idx.STATUS);
+        return s !== 'SKIPPED' && s !== 'DUPLICATE';
       });
       steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx/NON_2XX_404 status out of ${rows.length - 1} total data rows` });
 
@@ -265,9 +269,12 @@ Deno.serve(async (req) => {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // ── Status filter: POSTED_2xx or NON_2XX_404 ──
+        const COL = getRowIndices(row);
+
+        // ── Status filter: accept posted, error, or empty-status rows ──
         const status = getVal(row, COL.STATUS);
-        if (!status.startsWith('POSTED_2xx') && status !== 'NON_2XX_404') {
+        const isKnownSkip = status === 'SKIPPED' || status === 'DUPLICATE';
+        if (isKnownSkip) {
           skippedFiltered++;
           continue;
         }
@@ -288,8 +295,8 @@ Deno.serve(async (req) => {
         const email = getVal(row, COL.EMAIL).toLowerCase() || null;
         const rawPhone = getVal(row, COL.PHONE);
         const phone = normalizePhone(rawPhone);
-        const rawDate = getVal(row, COL.INTRO_DATE);
-        const rawTime = getVal(row, COL.INTRO_TIME);
+        const rawDate = COL.INTRO_DATE >= 0 ? getVal(row, COL.INTRO_DATE) : '';
+        const rawTime = COL.INTRO_TIME >= 0 ? getVal(row, COL.INTRO_TIME) : '';
         const classDate = parseFlexDate(rawDate);
         const introTime = parseFlexTime(rawTime);
 

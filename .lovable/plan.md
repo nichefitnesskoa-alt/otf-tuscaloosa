@@ -1,35 +1,43 @@
 
+Goal: fix the two issues in the hiring flow (not the intro questionnaire flow), since the last changes were applied to the wrong components.
 
-## Root Cause: Column Mapping Breaks for Rows Without Dates
+What I found:
+- The availability schedule you’re referring to is in `src/pages/Apply.tsx` (hiring questionnaire), and it currently only supports single-cell click toggles via `onClick` on each slot button.
+- The “Link copied — ready to send” toast comes from `src/components/admin/HiringPipeline.tsx`, where link copy still uses only `navigator.clipboard.writeText(...)` with no mobile fallback/share.
+- The previous fixes were made in `src/pages/Questionnaire.tsx` and `src/components/QuestionnaireLink.tsx`, which are different flows.
 
-The test mode output shows that **rows with a date have 10 values** and **rows without a date have 8 values**:
+Implementation plan:
 
-```text
-No-date row (8 elements):
-[timestamp, first, last, email, phone, rawSubject, messageId, status]
- index: 0        1      2     3      4        5          6        7
+1) Add drag multi-select to hiring availability grid (`src/pages/Apply.tsx`)
+- Introduce drag state for the grid (mode: add/remove, active pointer, and last-processed cell to avoid repeated toggles while hovering same cell).
+- Add pointer handlers on a common grid container:
+  - `onPointerDown`: determine initial cell and drag mode (add/remove), apply first toggle, capture pointer.
+  - `onPointerMove`: hit-test current cell and apply according to mode while dragging.
+  - `onPointerUp` + `onPointerCancel`: clear drag state and release pointer capture.
+- Keep current visual layout and selection model (`availability` object keyed by day) unchanged.
+- Ensure mobile reliability:
+  - apply `touch-none`/`select-none` on the interactive grid wrapper,
+  - call `preventDefault()` where appropriate during drag to avoid scroll interference.
 
-Date row (10 elements):
-[timestamp, first, last, email, phone, DATE, TIME, rawSubject, messageId, status]
- index: 0        1      2     3      4     5     6       7          8         9
-```
+2) Fix mobile link copy in hiring pipeline (`src/components/admin/HiringPipeline.tsx`)
+- Replace single clipboard write with robust copy utility:
+  - try `navigator.clipboard.writeText`,
+  - fallback to hidden `textarea` + `document.execCommand('copy')`,
+  - show success/error toast based on actual result.
+- Add optional Web Share fallback when available (`navigator.share`) so mobile users can still send the link even if clipboard APIs fail.
+- Keep existing candidate token/slug generation and status refresh behavior unchanged.
 
-The code has **fixed column indices**: `MESSAGE_ID = 8`, `STATUS = 9`. This works for 10-element date rows, but for 8-element no-date rows, index 9 is out of bounds and returns `''` — causing those rows to be **silently filtered** (`skippedFiltered++`).
+3) Validate behavior (targeted)
+- Hiring questionnaire (`/apply/:slug`):
+  - drag across multiple time cells to “paint” selected cells,
+  - drag starting from selected cell removes cells.
+- Admin hiring pipeline:
+  - “Send link” on desktop still copies,
+  - on mobile/simulated mobile, copy works via fallback or share path, and toast reflects outcome.
 
-Previously this didn't matter because no-date rows were imported by the Apps Script webhook (`import-lead`). Now that the Apps Script is failing (`NON_2XX_404`), the sheet importer is the fallback — but it can't read the status for these rows.
-
-**This explains the 17 skippedFiltered rows — those are your highlighted unprocessed leads.**
-
-## Plan
-
-### Fix `supabase/functions/import-sheet-leads/index.ts`
-
-Replace the fixed `COL.MESSAGE_ID` and `COL.STATUS` lookups with dynamic index detection based on row length:
-
-- If `row.length >= 10` → date row: STATUS at index 9, MESSAGE_ID at index 8 (current behavior)
-- If `row.length <= 8` → no-date row: STATUS at index 7, MESSAGE_ID at index 6
-
-This is a single change: create a helper function that returns the correct STATUS and MESSAGE_ID indices based on `row.length`, and use it in the main loop. The rest of the column mappings (FIRST through PHONE at indices 1-4) are unaffected since they're the same in both layouts.
-
-No database changes needed.
-
+Technical details
+- Files to update:
+  - `src/pages/Apply.tsx` (new drag interaction on availability table)
+  - `src/components/admin/HiringPipeline.tsx` (clipboard fallback + share fallback)
+- No schema/backend changes required; this is front-end interaction logic only.
+- No change to data structure or submission payload shape (`availability_schedule` remains identical).
