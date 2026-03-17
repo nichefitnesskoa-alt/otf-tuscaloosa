@@ -225,12 +225,13 @@ Deno.serve(async (req) => {
       }
 
       const sampleRows = rows.slice(0, 4); // header + first 3 data rows
-      steps.push({ step: 'column_mapping', status: 'ok', detail: COL });
+      steps.push({ step: 'column_mapping', status: 'ok', detail: 'Dynamic: 10-col date rows, 8-col no-date rows' });
       steps.push({ step: 'sample_rows', status: 'ok', detail: sampleRows });
 
       // Count rows with POSTED_2xx or NON_2XX_404 status
       const validRows = rows.slice(1).filter(r => {
-        const s = getVal(r, COL.STATUS);
+        const idx = getRowIndices(r);
+        const s = getVal(r, idx.STATUS);
         return s.startsWith('POSTED_2xx') || s === 'NON_2XX_404';
       });
       steps.push({ step: 'valid_rows', status: 'ok', detail: `${validRows.length} rows with POSTED_2xx/NON_2XX_404 status out of ${rows.length - 1} total data rows` });
