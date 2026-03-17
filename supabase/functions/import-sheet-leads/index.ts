@@ -269,6 +269,8 @@ Deno.serve(async (req) => {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       try {
+        const COL = getRowIndices(row);
+
         // ── Status filter: POSTED_2xx or NON_2XX_404 ──
         const status = getVal(row, COL.STATUS);
         if (!status.startsWith('POSTED_2xx') && status !== 'NON_2XX_404') {
@@ -292,8 +294,8 @@ Deno.serve(async (req) => {
         const email = getVal(row, COL.EMAIL).toLowerCase() || null;
         const rawPhone = getVal(row, COL.PHONE);
         const phone = normalizePhone(rawPhone);
-        const rawDate = getVal(row, COL.INTRO_DATE);
-        const rawTime = getVal(row, COL.INTRO_TIME);
+        const rawDate = COL.INTRO_DATE >= 0 ? getVal(row, COL.INTRO_DATE) : '';
+        const rawTime = COL.INTRO_TIME >= 0 ? getVal(row, COL.INTRO_TIME) : '';
         const classDate = parseFlexDate(rawDate);
         const introTime = parseFlexTime(rawTime);
 
