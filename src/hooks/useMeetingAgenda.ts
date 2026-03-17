@@ -583,13 +583,19 @@ function computePerSALeadMeasures(
     return saMap.get(n)!;
   };
 
-  // Bookings: attribute to intro_owner or booked_by
+  // Build set of showed booking IDs for Q completion
+  const showedBIds = new Set(
+    runs.filter((r: any) => !isNoShow(r.result) && r.linked_intro_booked_id)
+      .map((r: any) => r.linked_intro_booked_id)
+  );
+
+  // Bookings: attribute to intro_owner or booked_by (Q only counted if showed)
   filteredBooked.forEach((b: any) => {
     const owner = b.intro_owner || b.booked_by || '';
     if (!ok(owner)) return;
     const s = ensure(owner);
     s.booked++;
-    if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+    if (showedBIds.has(b.id) && b.questionnaire_status_canon === 'completed') s.qCompleted++;
   });
 
   // Runs: showed + prepped
