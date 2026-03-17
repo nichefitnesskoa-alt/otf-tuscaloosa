@@ -404,23 +404,23 @@ export function useGenerateAgenda() {
       const amc = amcRes.data?.[0]?.amc_value || 0;
       const prevAmc = prevAmcRes.data?.[0]?.amc_value || amc;
 
-      // Q completion (exclude no-show bookings from denominator)
-      const noShowBookingIds = new Set(
+      // Q completion — only count bookings where member actually showed
+      const showedBookingIds = new Set(
         runs.filter((r: any) => {
           const res = (r.result || '').toLowerCase();
-          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
         }).map((r: any) => r.linked_intro_booked_id)
       );
-      const qEligible = questionnaires.filter((q: any) => !noShowBookingIds.has(q.booking_id));
+      const qEligible = questionnaires.filter((q: any) => showedBookingIds.has(q.booking_id));
       const qSubmitted = qEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const qCompletion = qEligible.length > 0 ? (qSubmitted / qEligible.length) * 100 : 0;
-      const prevNoShowBookingIds = new Set(
+      const prevShowedBookingIds = new Set(
         prevRuns.filter((r: any) => {
           const res = (r.result || '').toLowerCase();
-          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
         }).map((r: any) => r.linked_intro_booked_id)
       );
-      const prevQEligible = prevQuestionnaires.filter((q: any) => !prevNoShowBookingIds.has(q.booking_id));
+      const prevQEligible = prevQuestionnaires.filter((q: any) => prevShowedBookingIds.has(q.booking_id));
       const prevQSubmitted = prevQEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const prevQCompletion = prevQEligible.length > 0 ? (prevQSubmitted / prevQEligible.length) * 100 : 0;
 
