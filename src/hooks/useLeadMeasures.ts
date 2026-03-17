@@ -92,8 +92,8 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         ensure(sa);
         const s = saMap.get(sa);
         if (!s) return;
-        // Exclude no-shows from Q completion denominator
-        if (!noShowBookingIds.has(b.id)) {
+        // Q completion denominator = only bookings where the member actually showed
+        if (showedBookingIds.has(b.id)) {
           s.qTotal++;
           if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
         }

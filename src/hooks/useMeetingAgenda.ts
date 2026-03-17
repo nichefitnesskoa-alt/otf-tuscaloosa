@@ -628,7 +628,7 @@ function computePerSALeadMeasures(
     .filter(([_, s]) => s.booked > 0 || s.showed > 0)
     .map(([name, s]) => ({
       saName: name,
-      qCompletionPct: s.booked > 0 ? Math.round((s.qCompleted / s.booked) * 100) : null,
+      qCompletionPct: s.showed > 0 ? Math.round((s.qCompleted / s.showed) * 100) : null,
       prepRatePct: s.showed > 0 ? Math.round((s.prepped / s.showed) * 100) : null,
       closeRatePct: s.booked > 0 ? Math.round((s.sales / s.booked) * 100) : null,
     }))
