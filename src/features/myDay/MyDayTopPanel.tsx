@@ -44,18 +44,26 @@ function useQAndPrepRates(
       }
       const allQs: any[] = [];
       const allPrepped: any[] = [];
+      const allNoShowIds = new Set<string>();
       await Promise.all(chunks.map(async (chunk) => {
-        const [{ data: qs }, { data: preppedBookings }] = await Promise.all([
+        const [{ data: qs }, { data: preppedBookings }, { data: noShowRuns }] = await Promise.all([
           supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', chunk),
           supabase.from('intros_booked').select('id').in('id', chunk).eq('prepped', true),
+          supabase.from('intros_run').select('linked_intro_booked_id, result').in('linked_intro_booked_id', chunk),
         ]);
         if (qs) allQs.push(...qs);
         if (preppedBookings) allPrepped.push(...preppedBookings);
+        if (noShowRuns) noShowRuns.forEach(r => {
+          const res = (r.result || '').toLowerCase();
+          if (res === 'no-show' || res === 'no show') allNoShowIds.add(r.linked_intro_booked_id!);
+        });
       }));
+      // Exclude no-shows from Q completion denominator
+      const qDenominator = firstIntros.filter(b => !allNoShowIds.has(b.id));
       const completed = new Set(
         allQs.filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
       );
-      setQRate((completed.size / firstIntros.length) * 100);
+      setQRate(qDenominator.length > 0 ? (completed.size / qDenominator.length) * 100 : undefined);
       setPrepRate((allPrepped.length / firstIntros.length) * 100);
     })();
   }, [introsBooked, dateRange]);

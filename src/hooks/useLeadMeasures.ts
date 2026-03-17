@@ -46,7 +46,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .gte('class_date', start).lte('class_date', end)
           .is('deleted_at', null),
         supabase.from('intros_run')
-          .select('id, sa_name, intro_owner, run_date, result, result_canon')
+          .select('id, sa_name, intro_owner, run_date, result, result_canon, linked_intro_booked_id')
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
           .select('id, created_by, created_at')
@@ -63,6 +63,14 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
       ]);
 
       const allBookings = (bookings || []).filter((b: any) => !b.is_vip && (!b.originating_booking_id || b.referred_by_member_name));
+
+      // Build set of booking IDs that are no-shows (exclude from Q completion denominator)
+      const noShowBookingIds = new Set(
+        (runs || []).filter((r: any) => {
+          const res = (r.result || '').toLowerCase();
+          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+        }).map((r: any) => r.linked_intro_booked_id)
+      );
 
       // Per-SA aggregation
       const saMap = new Map<string, {
@@ -84,8 +92,11 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         ensure(sa);
         const s = saMap.get(sa);
         if (!s) return;
-        s.qTotal++;
-        if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+        // Exclude no-shows from Q completion denominator
+        if (!noShowBookingIds.has(b.id)) {
+          s.qTotal++;
+          if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+        }
         s.prepTotal++;
         if (b.prepped) s.prepDone++;
       });

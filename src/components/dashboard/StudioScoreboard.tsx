@@ -101,7 +101,7 @@ export function StudioScoreboard({
               icon={<ClipboardList className="w-4 h-4" />}
               label="Q Completion"
               value={qCompletionRate}
-              tooltip="% of 1st intro bookings with a completed questionnaire. Prepped intros close higher. Target: 70%+"
+              tooltip="% of 1st intro bookings (excluding no-shows) with a completed questionnaire. Target: 70%+"
               thresholds={Q_COMPLETION_THRESHOLDS}
             />
             <LeadMeasureCard
