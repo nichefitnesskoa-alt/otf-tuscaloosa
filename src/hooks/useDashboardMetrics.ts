@@ -477,7 +477,10 @@ export function useDashboardMetrics(
 
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      const nonNoShowRun = runs.find(r => r.result !== 'No-show');
+      const nonNoShowRun = runs.find(r => {
+        const res = (r.result || '').toLowerCase();
+        return res !== 'no-show' && res !== 'no show' && isRunInRange(r, dateRange);
+      });
       if (nonNoShowRun) {
         pipelineShowed++;
         const saleRun = runs.find(r => isSaleInRange(r, dateRange));
@@ -492,7 +495,10 @@ export function useDashboardMetrics(
     let pipelineNoShows = 0;
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      if (runs.length > 0 && runs.every(r => r.result === 'No-show')) {
+      if (runs.length > 0 && runs.every(r => {
+        const res = (r.result || '').toLowerCase();
+        return res === 'no-show' || res === 'no show';
+      })) {
         pipelineNoShows++;
       }
     });
