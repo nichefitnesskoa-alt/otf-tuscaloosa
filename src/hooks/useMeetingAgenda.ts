@@ -404,23 +404,23 @@ export function useGenerateAgenda() {
       const amc = amcRes.data?.[0]?.amc_value || 0;
       const prevAmc = prevAmcRes.data?.[0]?.amc_value || amc;
 
-      // Q completion (exclude no-show bookings from denominator)
-      const noShowBookingIds = new Set(
+      // Q completion — only count bookings where member actually showed
+      const showedBookingIds = new Set(
         runs.filter((r: any) => {
           const res = (r.result || '').toLowerCase();
-          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
         }).map((r: any) => r.linked_intro_booked_id)
       );
-      const qEligible = questionnaires.filter((q: any) => !noShowBookingIds.has(q.booking_id));
+      const qEligible = questionnaires.filter((q: any) => showedBookingIds.has(q.booking_id));
       const qSubmitted = qEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const qCompletion = qEligible.length > 0 ? (qSubmitted / qEligible.length) * 100 : 0;
-      const prevNoShowBookingIds = new Set(
+      const prevShowedBookingIds = new Set(
         prevRuns.filter((r: any) => {
           const res = (r.result || '').toLowerCase();
-          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
         }).map((r: any) => r.linked_intro_booked_id)
       );
-      const prevQEligible = prevQuestionnaires.filter((q: any) => !prevNoShowBookingIds.has(q.booking_id));
+      const prevQEligible = prevQuestionnaires.filter((q: any) => prevShowedBookingIds.has(q.booking_id));
       const prevQSubmitted = prevQEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const prevQCompletion = prevQEligible.length > 0 ? (prevQSubmitted / prevQEligible.length) * 100 : 0;
 
@@ -583,13 +583,19 @@ function computePerSALeadMeasures(
     return saMap.get(n)!;
   };
 
-  // Bookings: attribute to intro_owner or booked_by
+  // Build set of showed booking IDs for Q completion
+  const showedBIds = new Set(
+    runs.filter((r: any) => !isNoShow(r.result) && r.linked_intro_booked_id)
+      .map((r: any) => r.linked_intro_booked_id)
+  );
+
+  // Bookings: attribute to intro_owner or booked_by (Q only counted if showed)
   filteredBooked.forEach((b: any) => {
     const owner = b.intro_owner || b.booked_by || '';
     if (!ok(owner)) return;
     const s = ensure(owner);
     s.booked++;
-    if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+    if (showedBIds.has(b.id) && b.questionnaire_status_canon === 'completed') s.qCompleted++;
   });
 
   // Runs: showed + prepped
@@ -622,7 +628,7 @@ function computePerSALeadMeasures(
     .filter(([_, s]) => s.booked > 0 || s.showed > 0)
     .map(([name, s]) => ({
       saName: name,
-      qCompletionPct: s.booked > 0 ? Math.round((s.qCompleted / s.booked) * 100) : null,
+      qCompletionPct: s.showed > 0 ? Math.round((s.qCompleted / s.showed) * 100) : null,
       prepRatePct: s.showed > 0 ? Math.round((s.prepped / s.showed) * 100) : null,
       closeRatePct: s.booked > 0 ? Math.round((s.sales / s.booked) * 100) : null,
     }))
