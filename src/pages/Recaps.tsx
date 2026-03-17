@@ -73,13 +73,18 @@ export default function Recaps() {
       if (firstIntros.length === 0) { setQCompletionRate(undefined); setPrepRate(undefined); return; }
 
       const ids = firstIntros.map(b => b.id).slice(0, 500);
-      const [{ data: qs }, { data: preppedRows }] = await Promise.all([
+      const [{ data: qs }, { data: preppedRows }, { data: noShowRuns }] = await Promise.all([
         supabase.from('intro_questionnaires').select('booking_id, status').in('booking_id', ids),
         supabase.from('intros_booked').select('id').in('id', ids).eq('prepped', true),
+        supabase.from('intros_run').select('linked_intro_booked_id, result').in('linked_intro_booked_id', ids),
       ]);
+      const noShowBookingIds = new Set(
+        (noShowRuns || []).filter(r => { const res = (r.result || '').toLowerCase(); return res === 'no-show' || res === 'no show'; }).map(r => r.linked_intro_booked_id!)
+      );
+      const qDenominator = firstIntros.filter(b => !noShowBookingIds.has(b.id));
       const completedQIds = new Set((qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id));
       const preppedIds = new Set((preppedRows || []).map(r => r.id));
-      setQCompletionRate((completedQIds.size / firstIntros.length) * 100);
+      setQCompletionRate(qDenominator.length > 0 ? (completedQIds.size / qDenominator.length) * 100 : undefined);
       setPrepRate((preppedIds.size / firstIntros.length) * 100);
     })();
   }, [introsBooked, dateRange]);

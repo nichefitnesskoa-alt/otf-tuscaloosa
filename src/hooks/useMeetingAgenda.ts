@@ -404,11 +404,25 @@ export function useGenerateAgenda() {
       const amc = amcRes.data?.[0]?.amc_value || 0;
       const prevAmc = prevAmcRes.data?.[0]?.amc_value || amc;
 
-      // Q completion
-      const qSubmitted = questionnaires.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
-      const qCompletion = questionnaires.length > 0 ? (qSubmitted / questionnaires.length) * 100 : 0;
-      const prevQSubmitted = prevQuestionnaires.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
-      const prevQCompletion = prevQuestionnaires.length > 0 ? (prevQSubmitted / prevQuestionnaires.length) * 100 : 0;
+      // Q completion (exclude no-show bookings from denominator)
+      const noShowBookingIds = new Set(
+        runs.filter((r: any) => {
+          const res = (r.result || '').toLowerCase();
+          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+        }).map((r: any) => r.linked_intro_booked_id)
+      );
+      const qEligible = questionnaires.filter((q: any) => !noShowBookingIds.has(q.booking_id));
+      const qSubmitted = qEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
+      const qCompletion = qEligible.length > 0 ? (qSubmitted / qEligible.length) * 100 : 0;
+      const prevNoShowBookingIds = new Set(
+        prevRuns.filter((r: any) => {
+          const res = (r.result || '').toLowerCase();
+          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+        }).map((r: any) => r.linked_intro_booked_id)
+      );
+      const prevQEligible = prevQuestionnaires.filter((q: any) => !prevNoShowBookingIds.has(q.booking_id));
+      const prevQSubmitted = prevQEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
+      const prevQCompletion = prevQEligible.length > 0 ? (prevQSubmitted / prevQEligible.length) * 100 : 0;
 
       // Confirmation rate
       const confirmationActions = scriptActions.filter((a: any) =>

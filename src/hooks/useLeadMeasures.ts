@@ -64,6 +64,14 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       const allBookings = (bookings || []).filter((b: any) => !b.is_vip && (!b.originating_booking_id || b.referred_by_member_name));
 
+      // Build set of booking IDs that are no-shows (exclude from Q completion denominator)
+      const noShowBookingIds = new Set(
+        (runs || []).filter((r: any) => {
+          const res = (r.result || '').toLowerCase();
+          return (res === 'no-show' || res === 'no show') && r.linked_intro_booked_id;
+        }).map((r: any) => r.linked_intro_booked_id)
+      );
+
       // Per-SA aggregation
       const saMap = new Map<string, {
         qTotal: number; qCompleted: number;
@@ -84,8 +92,11 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         ensure(sa);
         const s = saMap.get(sa);
         if (!s) return;
-        s.qTotal++;
-        if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+        // Exclude no-shows from Q completion denominator
+        if (!noShowBookingIds.has(b.id)) {
+          s.qTotal++;
+          if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+        }
         s.prepTotal++;
         if (b.prepped) s.prepDone++;
       });
