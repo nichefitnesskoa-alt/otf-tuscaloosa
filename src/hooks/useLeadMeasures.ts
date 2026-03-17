@@ -7,6 +7,7 @@ export interface SALeadMeasure {
   saName: string;
   speedToLead: number | null; // avg minutes
   qCompletionPct: number | null;
+  qCompletedCount: number;
   prepRatePct: number | null;
   followUpTouches: number;
   dmsSent: number;
