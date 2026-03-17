@@ -87,18 +87,18 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Q completion & prep rate by SA
       allBookings.forEach((b: any) => {
-        const sa = [b.intro_owner, b.prepped_by, b.booked_by].find(n => n && ALL_STAFF.includes(n)) || '';
+        const sa = [b.intro_owner, b.prepped_by].find(n => n && ALL_STAFF.includes(n)) || '';
         if (!sa) return;
         ensure(sa);
         const s = saMap.get(sa);
         if (!s) return;
-        // Q completion denominator = only bookings where the member actually showed
+        // Only count bookings where the member actually showed (matches Ran denominator)
         if (showedBookingIds.has(b.id)) {
           s.qTotal++;
           if (b.questionnaire_status_canon === 'completed') s.qCompleted++;
+          s.prepTotal++;
+          if (b.prepped) s.prepDone++;
         }
-        s.prepTotal++;
-        if (b.prepped) s.prepDone++;
       });
 
       // Intros ran per SA (exclude no-shows — a no-show is not a ran intro)
