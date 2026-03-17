@@ -271,11 +271,10 @@ Deno.serve(async (req) => {
       try {
         const COL = getRowIndices(row);
 
-        // ── Status filter: accept successfully posted OR error rows that need recovery ──
+        // ── Status filter: accept posted, error, or empty-status rows ──
         const status = getVal(row, COL.STATUS);
-        const isValidStatus = status.startsWith('POSTED_2xx') || status === 'NON_2XX_404'
-          || status === 'PARSE_FAILED' || status === 'POST_ERROR';
-        if (!isValidStatus) {
+        const isKnownSkip = status === 'SKIPPED' || status === 'DUPLICATE';
+        if (isKnownSkip) {
           skippedFiltered++;
           continue;
         }
