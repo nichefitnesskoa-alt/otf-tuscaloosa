@@ -179,6 +179,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           saName,
           speedToLead: s.speedCount > 0 ? Math.round(s.speedSumMin / s.speedCount) : null,
           qCompletionPct: s.qTotal > 0 ? Math.round((s.qCompleted / s.qTotal) * 100) : null,
+          qCompletedCount: s.qCompleted,
           prepRatePct: s.prepTotal > 0 ? Math.round((s.prepDone / s.prepTotal) * 100) : null,
           followUpTouches: s.touches,
           dmsSent: s.dms,
