@@ -359,6 +359,33 @@ export type Database = {
         }
         Relationships: []
       }
+      coaching_scripts: {
+        Row: {
+          created_at: string
+          file_url: string
+          format: string
+          id: string
+          script_date: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          format: string
+          id?: string
+          script_date: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          format?: string
+          id?: string
+          script_date?: string
+          title?: string
+        }
+        Relationships: []
+      }
       daily_goal_settings: {
         Row: {
           created_at: string
