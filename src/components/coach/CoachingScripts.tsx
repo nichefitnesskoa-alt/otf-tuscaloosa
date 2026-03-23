@@ -131,18 +131,20 @@ export function CoachingScripts() {
 
 // ── Upload form ──
 function UploadForm({ onSuccess }: { onSuccess: () => void }) {
-  const [title, setTitle] = useState('');
   const [fmt, setFmt] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState<Date>();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !fmt || !date || !file) {
+    if (!fmt || !date || !file) {
       toast.error('Please fill in all fields');
       return;
     }
+
+    const title = `${fmt} — ${format(date, 'MMM d, yyyy')}`;
+    const dateStr = format(date, 'yyyy-MM-dd');
 
     setUploading(true);
     try {
@@ -164,7 +166,7 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
         .insert({
           title,
           format: fmt,
-          script_date: date,
+          script_date: dateStr,
           file_url: urlData.publicUrl,
         } as any);
 
@@ -182,10 +184,6 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Title</Label>
-        <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Monday 2G Script" />
-      </div>
-      <div>
         <Label>Format</Label>
         <Select value={fmt} onValueChange={setFmt}>
           <SelectTrigger><SelectValue placeholder="Select format" /></SelectTrigger>
@@ -198,7 +196,29 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div>
         <Label>Date</Label>
-        <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, 'PPP') : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={setDate}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
       <div>
         <Label>PDF File</Label>
