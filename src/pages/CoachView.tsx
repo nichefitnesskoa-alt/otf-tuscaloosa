@@ -200,6 +200,15 @@ export default function CoachView() {
 
       <TheSystemSection />
 
+      <CollapsibleSection
+        id="coaching-scripts"
+        title="Coaching Scripts"
+        icon={<span>📋</span>}
+        defaultOpen={false}
+      >
+        <CoachingScripts />
+      </CollapsibleSection>
+
       {/* Coach filter — navigation only, not access restriction */}
       {allCoachNames.length > 0 && (
         <Select value={coachFilter} onValueChange={setCoachFilter}>
