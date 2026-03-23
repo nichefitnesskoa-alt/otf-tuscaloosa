@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
-import { FileText, Upload, ArrowLeft, CalendarIcon } from 'lucide-react';
+import { FileText, Upload, ArrowLeft, CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -136,6 +136,7 @@ export function CoachingScripts() {
   const [loading, setLoading] = useState(true);
   const [viewingScript, setViewingScript] = useState<CoachingScript | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchScripts = async () => {
     const { data } = await supabase
@@ -147,6 +148,26 @@ export function CoachingScripts() {
   };
 
   useEffect(() => { fetchScripts(); }, []);
+
+  const handleDelete = async (script: CoachingScript) => {
+    if (!confirm(`Delete "${script.title}"?`)) return;
+    setDeletingId(script.id);
+    try {
+      // Extract storage path from public URL
+      const urlParts = script.file_url.split('/coaching-scripts/');
+      if (urlParts[1]) {
+        await supabase.storage.from('coaching-scripts').remove([decodeURIComponent(urlParts[1])]);
+      }
+      const { error } = await supabase.from('coaching_scripts').delete().eq('id', script.id);
+      if (error) throw error;
+      toast.success('Script deleted');
+      fetchScripts();
+    } catch (err: any) {
+      toast.error(err.message || 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (viewingScript) {
     return (
@@ -187,23 +208,38 @@ export function CoachingScripts() {
         <p className="text-muted-foreground text-center py-6 text-sm">No scripts uploaded yet</p>
       ) : (
         scripts.map(s => (
-          <button
+          <div
             key={s.id}
-            type="button"
-            onClick={() => setViewingScript(s)}
-            className="w-full text-left rounded-lg border border-border bg-card px-3 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors"
           >
-            <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm truncate">{s.title}</p>
-              <span className="text-xs text-muted-foreground">
-                {format(new Date(s.script_date), 'MMM d, yyyy')}
-              </span>
-            </div>
-            <Badge className={cn('text-[10px] shrink-0', FORMAT_STYLES[s.format] || '')}>
-              {s.format}
-            </Badge>
-          </button>
+            <button
+              type="button"
+              onClick={() => setViewingScript(s)}
+              className="flex items-center gap-3 min-w-0 flex-1 text-left"
+            >
+              <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm truncate">{s.title}</p>
+                <span className="text-xs text-muted-foreground">
+                  {format(new Date(s.script_date), 'MMM d, yyyy')}
+                </span>
+              </div>
+              <Badge className={cn('text-[10px] shrink-0', FORMAT_STYLES[s.format] || '')}>
+                {s.format}
+              </Badge>
+            </button>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                disabled={deletingId === s.id}
+                onClick={(e) => { e.stopPropagation(); handleDelete(s); }}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         ))
       )}
     </div>
