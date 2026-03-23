@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { format, startOfWeek, endOfWeek, isToday, isBefore, parseISO } from 'date-fns';
 import { CoachIntroCard } from '@/components/coach/CoachIntroCard';
 import { TheSystemSection } from '@/components/coach/TheSystemSection';
+import { CoachingScripts } from '@/components/coach/CoachingScripts';
+import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
 
 interface CoachBooking {
