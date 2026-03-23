@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,106 @@ const FORMAT_STYLES: Record<string, string> = {
   '3G': 'bg-green-500/20 text-green-700 dark:text-green-300',
 };
 
+// ── Inline .docx renderer ──
+function DocxViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: () => void; script: CoachingScript }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const render = async () => {
+      try {
+        const resp = await fetch(fileUrl);
+        if (!resp.ok) throw new Error('Failed to fetch file');
+        const blob = await resp.blob();
+
+        if (cancelled || !containerRef.current) return;
+
+        const { renderAsync } = await import('docx-preview');
+        containerRef.current.innerHTML = '';
+        await renderAsync(blob, containerRef.current, undefined, {
+          className: 'docx-preview-wrapper',
+          inWrapper: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+          ignoreFonts: false,
+          breakPages: true,
+          ignoreLastRenderedPageBreak: true,
+          experimental: false,
+          trimXmlDeclaration: true,
+          useBase64URL: true,
+        });
+        setLoading(false);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || 'Failed to render document');
+          setLoading(false);
+        }
+      }
+    };
+
+    render();
+    return () => { cancelled = true; };
+  }, [fileUrl]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm truncate">{script.title}</p>
+          <div className="flex items-center gap-2">
+            <Badge className={cn('text-[10px]', FORMAT_STYLES[script.format] || '')}>
+              {script.format}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {format(new Date(script.script_date), 'MMM d, yyyy')}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto bg-muted/30">
+        {loading && !error && (
+          <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
+        )}
+        {error && (
+          <p className="text-destructive text-center py-12 text-sm">{error}</p>
+        )}
+        <div
+          ref={containerRef}
+          className="docx-viewer-container mx-auto"
+          style={{ maxWidth: '100%' }}
+        />
+      </div>
+
+      <style>{`
+        .docx-viewer-container .docx-wrapper {
+          background: transparent !important;
+          padding: 16px !important;
+        }
+        .docx-viewer-container .docx-wrapper > section.docx {
+          background: white !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+          margin: 0 auto 24px auto !important;
+          padding: 48px !important;
+          min-height: auto !important;
+        }
+        @media (max-width: 640px) {
+          .docx-viewer-container .docx-wrapper > section.docx {
+            padding: 20px !important;
+            margin: 0 8px 16px 8px !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export function CoachingScripts() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
@@ -48,32 +148,13 @@ export function CoachingScripts() {
 
   useEffect(() => { fetchScripts(); }, []);
 
-  // ── Inline PDF viewer (full-screen overlay) ──
   if (viewingScript) {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => setViewingScript(null)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">{viewingScript.title}</p>
-            <div className="flex items-center gap-2">
-              <Badge className={cn('text-[10px]', FORMAT_STYLES[viewingScript.format] || '')}>
-                {viewingScript.format}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {format(new Date(viewingScript.script_date), 'MMM d, yyyy')}
-              </span>
-            </div>
-          </div>
-        </div>
-        <iframe
-          src={viewingScript.file_url}
-          className="flex-1 w-full border-0"
-          title={viewingScript.title}
-        />
-      </div>
+      <DocxViewer
+        fileUrl={viewingScript.file_url}
+        script={viewingScript}
+        onClose={() => setViewingScript(null)}
+      />
     );
   }
 
@@ -148,12 +229,14 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'pdf';
+      const ext = file.name.split('.').pop() || 'docx';
       const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
       const { error: uploadErr } = await supabase.storage
         .from('coaching-scripts')
-        .upload(path, file, { contentType: 'application/pdf' });
+        .upload(path, file, {
+          contentType: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
 
       if (uploadErr) throw uploadErr;
 
@@ -221,8 +304,12 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
         </Popover>
       </div>
       <div>
-        <Label>PDF File</Label>
-        <Input type="file" accept=".pdf,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
+        <Label>Word Document</Label>
+        <Input
+          type="file"
+          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          onChange={e => setFile(e.target.files?.[0] || null)}
+        />
       </div>
       <Button type="submit" disabled={uploading} className="w-full">
         {uploading ? 'Uploading...' : 'Upload'}
