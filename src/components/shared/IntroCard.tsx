@@ -270,7 +270,7 @@ export default function IntroCard({
           </div>
         )}
         <div className="p-4 space-y-3">
-          <div className="flex w-full gap-1.5">{actionButtons}</div>
+          {actionButtons && <div className="flex w-full gap-1.5">{actionButtons}</div>}
           {secondaryActions && <div className="flex w-full">{secondaryActions}</div>}
           {children}
           {lastContactSummary && (
