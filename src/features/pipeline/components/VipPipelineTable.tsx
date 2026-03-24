@@ -106,7 +106,7 @@ export function VipPipelineTable() {
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
   const [groupMetas, setGroupMetas] = useState<VipGroupMeta[]>([]);
-  const [selectedGroup, setSelectedGroup] = useState<string>('All');
+  const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('memberName');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
