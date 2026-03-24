@@ -55,7 +55,7 @@ function SourceRow({ label, data, highlight, onBoxClick }: SourceRowProps) {
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
         <span className={cn('text-[11px] font-medium', bookToSaleColor(bookingToSale))}>
-          {bookingToSale.toFixed(0)}% book→sale
+          {bookingToSale.toFixed(0)}% ran→sale
         </span>
       </div>
       <div className="flex items-center gap-1">
@@ -65,7 +65,7 @@ function SourceRow({ label, data, highlight, onBoxClick }: SourceRowProps) {
         >
           <Users className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
           <p className="text-lg font-bold text-info">{data.booked}</p>
-          <p className="text-[10px] text-muted-foreground">Booked</p>
+          <p className="text-[10px] text-muted-foreground">Ran</p>
         </div>
         <div className="flex flex-col items-center gap-0.5">
           <ArrowDown className="w-3 h-3 text-muted-foreground" />
@@ -117,7 +117,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
   };
 
   const openDrill = (source: string, category: 'booked' | 'showed' | 'sold', item: LeadSourceData) => {
-    const labelMap = { booked: 'Booked', showed: 'Showed', sold: 'Sold' };
+    const labelMap = { booked: 'Ran', showed: 'Showed', sold: 'Sold' };
     setDrillTitle(`${source} — ${labelMap[category]}`);
     const people = category === 'booked' ? item.bookedPeople
       : category === 'showed' ? item.showedPeople
@@ -165,7 +165,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
   }
 
   const sortButtons: { key: SortKey; label: string }[] = [
-    { key: 'booked', label: 'Booked' },
+    { key: 'booked', label: 'Ran' },
     { key: 'showed', label: 'Showed' },
     { key: 'sold', label: 'Sold' },
     { key: 'rate', label: 'Rate' },

@@ -384,21 +384,19 @@ export function useDashboardMetrics(
     // =========================================
     const leadSourceMap = new Map<string, LeadSourceMetrics>();
 
-    // 1) Booked & showed — from firstIntroBookings (class_date in range)
+    // 1) Ran & showed — only past+today firstIntroBookings (exclude future)
     firstIntroBookings.forEach(b => {
+      if (!pastAndTodayBookingIds.has(b.id)) return; // skip future bookings
       const source = b.lead_source || 'Unknown';
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.booked++;
       existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: (b as any).coach_name || undefined });
 
-      // Only count showed for past+today bookings
-      if (pastAndTodayBookingIds.has(b.id)) {
-        const runs = bookingToRuns.get(b.id) || [];
-        const showedRun = runs.find(r => r.result !== 'No-show');
-        if (showedRun) {
-          existing.showed++;
-          existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
-        }
+      const runs = bookingToRuns.get(b.id) || [];
+      const showedRun = runs.find(r => r.result !== 'No-show');
+      if (showedRun) {
+        existing.showed++;
+        existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
       }
 
       leadSourceMap.set(source, existing);
@@ -467,6 +465,12 @@ export function useDashboardMetrics(
       const buyDate = run.buy_date || run.run_date || run.created_at.split('T')[0];
       existing.soldPeople.push({ name: run.member_name, date: buyDate, detail: run.result || undefined });
       leadSourceMap.set(source, existing);
+    });
+
+    // Pull forward: ensure showed >= sold and booked >= showed per source
+    leadSourceMap.forEach((metrics) => {
+      metrics.showed = Math.max(metrics.showed, metrics.sold);
+      metrics.booked = Math.max(metrics.booked, metrics.showed);
     });
 
     const leadSourceMetrics = Array.from(leadSourceMap.values())
