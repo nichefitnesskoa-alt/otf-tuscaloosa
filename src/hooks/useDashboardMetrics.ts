@@ -563,8 +563,10 @@ export function useDashboardMetrics(
       }
     });
     const studioIntroSales = perSAData.reduce((sum, m) => sum + m.sales, 0) + unattributedSales;
-    // Close Rate = Sales ÷ Intros Showed (people who physically showed up)
-    const studioClosingRate = studioIntrosRun > 0 ? (studioIntroSales / studioIntrosRun) * 100 : 0;
+    // Pull forward: ensure denominator is at least equal to sales count
+    // so we never show 0% when sales exist from intros that ran outside the date range
+    const effectiveStudioRan = Math.max(studioIntrosRun, studioIntroSales);
+    const studioClosingRate = effectiveStudioRan > 0 ? (studioIntroSales / effectiveStudioRan) * 100 : 0;
     const studioCommission = perSAData.reduce((sum, m) => sum + m.commission, 0);
 
     // =========================================
@@ -723,7 +725,7 @@ export function useDashboardMetrics(
 
     return {
       studio: {
-        introsRun: studioIntrosRun,
+        introsRun: effectiveStudioRan,
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
         totalCommission: studioCommission,
