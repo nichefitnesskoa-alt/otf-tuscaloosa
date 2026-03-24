@@ -335,7 +335,9 @@ export function useFollowUpData() {
         });
       }
 
-      // Process bookings for Plans to Reschedule
+      // Process bookings for Plans to Reschedule (booking-status-based)
+      // Track which booking IDs end up in reschedule tab for dedup
+      const inRescheduleTab = new Set<string>();
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
         const memberNameLower = b.member_name.toLowerCase();
@@ -351,6 +353,7 @@ export function useFollowUpData() {
         }
 
         processed.add(key);
+        inRescheduleTab.add(b.id);
         plansItems.push({
           bookingId: b.id,
           runId: null,
@@ -373,6 +376,9 @@ export function useFollowUpData() {
           badgeType: undefined,
         });
       }
+
+      // Remove any missedGuestItems that are also in the reschedule tab
+      const dedupedMissedGuests = missedGuestItems.filter(item => !inRescheduleTab.has(item.bookingId));
 
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
