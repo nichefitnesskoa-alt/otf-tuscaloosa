@@ -546,7 +546,7 @@ export function VipPipelineTable() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All ({rows.length})</SelectItem>
+            
             {groups.map(g => (
               <SelectItem key={g} value={g}>
                 {g} ({groupCounts.get(g) || 0})
