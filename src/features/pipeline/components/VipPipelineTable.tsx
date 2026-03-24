@@ -207,7 +207,10 @@ export function VipPipelineTable() {
 
       setRows(builtRows);
 
-      const uniqueGroups = Array.from(new Set(builtRows.map(r => r.groupName))).sort();
+      // Merge group names from vip_sessions so newly created (empty) groups appear
+      const sessionGroupNames = (sessions || []).map((s: any) => s.vip_class_name).filter(Boolean);
+      const allGroupNames = new Set([...builtRows.map(r => r.groupName), ...sessionGroupNames]);
+      const uniqueGroups = Array.from(allGroupNames).sort();
       setGroups(uniqueGroups);
     } catch (err) {
       console.error('VIP fetch error:', err);
@@ -219,11 +222,18 @@ export function VipPipelineTable() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Auto-select first group when groups load or current selection becomes invalid
+  useEffect(() => {
+    if (groups.length > 0 && (!selectedGroup || !groups.includes(selectedGroup))) {
+      setSelectedGroup(groups[0]);
+    }
+  }, [groups, selectedGroup]);
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     let result = rows;
-    if (selectedGroup !== 'All') {
+    if (selectedGroup) {
       result = result.filter(r => r.groupName === selectedGroup);
     }
     if (search.trim().length >= 1) {
@@ -259,12 +269,12 @@ export function VipPipelineTable() {
     return map;
   }, [rows]);
 
-  const regLink = selectedGroup !== 'All'
+  const regLink = selectedGroup
     ? `https://otf-tuscaloosa.lovable.app/vip-register?class=${encodeURIComponent(selectedGroup)}`
     : null;
 
   const selectedGroupMeta = useMemo(() => {
-    if (selectedGroup === 'All') return null;
+    if (!selectedGroup) return null;
     return groupMetas.find(g => g.vip_class_name === selectedGroup) || null;
   }, [selectedGroup, groupMetas]);
 
@@ -464,7 +474,7 @@ export function VipPipelineTable() {
 
   // Manual add member to VIP group
   const handleAddMember = async () => {
-    const targetGroup = selectedGroup !== 'All' ? selectedGroup : null;
+    const targetGroup = selectedGroup || null;
     if (!addName.trim()) { toast.error('Name is required'); return; }
     if (!targetGroup) { toast.error('Select a VIP group first'); return; }
     setAddingMember(true);
