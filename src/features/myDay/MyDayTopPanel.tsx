@@ -26,17 +26,28 @@ function useQAndPrepRates(
 
   useEffect(() => {
     (async () => {
+      const now = new Date();
       const firstIntros = introsBooked.filter(b => {
         if ((b as any).is_vip === true || (b as any).originating_booking_id) return false;
         if (!dateRange) return true;
         try {
           const d = new Date(b.class_date);
-          return d >= dateRange.start && d <= dateRange.end;
+          if (d < dateRange.start || d > dateRange.end) return false;
+          // Exclude future bookings today
+          const todayYMD = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          if (b.class_date === todayYMD) {
+            const timeParts = ((b as any).intro_time || '').match(/(\d+):(\d+)/);
+            if (timeParts) {
+              const bookingTime = new Date(now);
+              bookingTime.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
+              if (bookingTime > now) return false;
+            }
+          }
+          return true;
         } catch { return false; }
       });
       if (firstIntros.length === 0) { setQRate(undefined); setPrepRate(undefined); return; }
       const ids = firstIntros.map(b => b.id);
-      // Batch IDs in chunks of 500 for .in() and merge results
       const chunkSize = 500;
       const chunks: string[][] = [];
       for (let i = 0; i < ids.length; i += chunkSize) {
@@ -60,13 +71,14 @@ function useQAndPrepRates(
           }
         });
       }));
-      // Q completion denominator = only bookings where the member actually showed
       const qDenominator = firstIntros.filter(b => showedBookingIds.has(b.id));
       const completed = new Set(
         allQs.filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id)
       );
+      const preppedIds = new Set(allPrepped.map(p => p.id));
+      const preppedAndShowed = firstIntros.filter(b => showedBookingIds.has(b.id) && preppedIds.has(b.id));
       setQRate(qDenominator.length > 0 ? (completed.size / qDenominator.length) * 100 : undefined);
-      setPrepRate((allPrepped.length / firstIntros.length) * 100);
+      setPrepRate(qDenominator.length > 0 ? (preppedAndShowed.length / qDenominator.length) * 100 : undefined);
     })();
   }, [introsBooked, dateRange]);
 

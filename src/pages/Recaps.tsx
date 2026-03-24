@@ -62,12 +62,23 @@ export default function Recaps() {
 
   useEffect(() => {
     (async () => {
+      const now = new Date();
       const firstIntros = introsBooked.filter(b => {
         if ((b as any).is_vip === true || ((b as any).originating_booking_id && !(b as any).referred_by_member_name)) return false;
         if (!dateRange) return true;
         try {
           const d = parseLocalDate(b.class_date);
-          return isWithinInterval(d, { start: dateRange.start, end: dateRange.end });
+          if (!isWithinInterval(d, { start: dateRange.start, end: dateRange.end })) return false;
+          // Exclude future bookings today
+          if (b.class_date === format(now, 'yyyy-MM-dd')) {
+            const timeParts = ((b as any).intro_time || '').match(/(\d+):(\d+)/);
+            if (timeParts) {
+              const bookingTime = new Date(now);
+              bookingTime.setHours(Number(timeParts[1]), Number(timeParts[2]), 0, 0);
+              if (bookingTime > now) return false;
+            }
+          }
+          return true;
         } catch { return false; }
       });
       if (firstIntros.length === 0) { setQCompletionRate(undefined); setPrepRate(undefined); return; }
@@ -84,8 +95,9 @@ export default function Recaps() {
       const qDenominator = firstIntros.filter(b => showedBookingIds.has(b.id));
       const completedQIds = new Set((qs || []).filter(q => q.status === 'completed' || q.status === 'submitted').map(q => q.booking_id));
       const preppedIds = new Set((preppedRows || []).map(r => r.id));
+      const preppedAndShowed = firstIntros.filter(b => showedBookingIds.has(b.id) && preppedIds.has(b.id));
       setQCompletionRate(qDenominator.length > 0 ? (completedQIds.size / qDenominator.length) * 100 : undefined);
-      setPrepRate((preppedIds.size / firstIntros.length) * 100);
+      setPrepRate(qDenominator.length > 0 ? (preppedAndShowed.length / qDenominator.length) * 100 : undefined);
     })();
   }, [introsBooked, dateRange]);
 
