@@ -308,41 +308,19 @@ export function useDashboardMetrics(
         }
       });
       
-      // Add unlinked run sales
-      unlinkedRuns.forEach(run => {
-        if (isSaleInRange(run, dateRange)) {
-          salesCount++;
-          salesCommission += run.commission_amount || 0;
-        }
-      });
-
       // Pull forward: if sales exist in range but the original intro ran outside,
       // ensure the denominator is at least equal to sales count
       const effectiveRan = Math.max(introsRanCount, salesCount);
       // Close Rate = Sales / effective ran count
       const closingRate = effectiveRan > 0 ? (salesCount / effectiveRan) * 100 : 0;
 
-      // Commission from intros
-      const introCommission = salesCommission;
-      
-      // Commission from outside sales
-      const outsideCommission = sales
-        .filter(s => {
-          const dateClosed = (s as any).date_closed || s.created_at;
-          return s.intro_owner === saName && isDateInRange(dateClosed, dateRange);
-        })
-        .reduce((sum, s) => sum + (s.commission_amount || 0), 0);
-      
-      const commission = introCommission + outsideCommission;
-
       return {
         saName,
         introsBooked: effectiveRan,
         sales: salesCount,
         closingRate,
-        commission,
       };
-    }).filter(m => m.introsBooked > 0 || m.sales > 0 || m.commission > 0)
+    }).filter(m => m.introsBooked > 0 || m.sales > 0)
       .sort((a, b) => b.sales - a.sales);
 
     // =========================================
