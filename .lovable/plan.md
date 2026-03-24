@@ -1,56 +1,62 @@
-
-
-# Auto-Hide Recently Contacted Follow-Ups + Auto-Log on Script Send
+# Fix Per-SA Performance: Rename "Booked" → "Ran" + Pull Forward Intros for Sales
 
 ## Problem
-1. Sending a script via "Send Text" already logs a `script_sent` action, but cards stay visible in the follow-up queue even if contacted within the last 7 days.
-2. The "Log as Sent" button is separate and confusing — people don't know if the contact was tracked.
-3. Cards should hide (or clearly indicate cooling) when contacted recently.
+
+Kayla shows 0 Booked, 1 Sale, 0% Close. The sale's buy_date is in the period but the original intro was booked outside the period, so the booking count is 0 and close rate computes as 0/0 = 0%. This is misleading.
 
 ## Changes
 
-### 1. Follow-Up Data Hook — 7-Day Cooling Filter (`useFollowUpData.ts`)
-- After building all four arrays (noShow, missedGuests, secondIntro, plansToReschedule), split each into two groups:
-  - **"cooling"**: `lastContactAt` exists and is < 7 days ago
-  - **"active"**: everything else
-- Active items show normally. Cooling items are pushed to the bottom of each tab with a distinct visual treatment (dimmed, with a "Contacted X ago — next contact in Y days" banner).
-- Alternatively (simpler): just hide cooling items entirely since the ContactedBanner already exists. The user's request is "they don't need to be showing up in here" — so **hide them**.
-- Add a "Show recently contacted (N)" toggle at the bottom of each tab so they can still be found if needed.
+### 1. Rename "Booked" → "Ran" everywhere in PerSATable
 
-### 2. Auto-Log on Script Copy — Already Works, But Refresh Is Missing (`MessageGenerator.tsx`)
-- After `handleCopy` inserts the `script_actions` row, dispatch a `myday:refresh` event so the follow-up tabs re-fetch and the card either hides (cooling) or shows the updated ContactedBanner.
-- Also dispatch from `handleLog` (the explicit log button).
+- Column header: "Booked" → "Ran"
+- Subtitle: "Total Journey · 1st booked → any sale" → "Total Journey · 1st ran → any sale"
+- Interface field: `introsBooked` stays as-is internally (too many references to rename safely), but display text changes  
 
-### 3. Remove Redundant "Log as Sent" When Script Was Just Sent
-- In each follow-up tab (NoShowTab, FollowUpNeededTab, SecondIntroTab, PlansToRescheduleTab), after "Send Text" opens the script picker and the user copies/sends, the card should auto-refresh and show the ContactedBanner. The "Log as Sent" button remains for cases where the SA contacted outside the app (phone call, in-person).
 
-### 4. ContactedBanner Enhancement (`ContactedBanner.tsx`)
-- Change the hide logic: instead of hiding when `contactNextDate` has passed, hide when `lastContactAt` is older than 7 days. This ensures the banner persists for the full cooling window.
-- Add "next contact in X days" text to the banner.
+### 2. Change the denominator from "1st bookings in range" to "1st intros ran in range" (`useDashboardMetrics.ts`)
+
+- Instead of counting `firstIntroBookings` filtered by `class_date` in range, count first-intro **runs** (showed, not no-show) where `run_date` is in range
+- This aligns the label with the actual metric
+
+### 3. Pull forward: if a sale is in the period but the original intro ran outside the period, count that intro toward the "Ran" denominator
+
+- After computing sales for each SA, check: if `salesCount > 0` but `introsRanCount === 0`, find the runs that produced those sales and add their originating first-intro to the ran count
+- Simpler approach: for each sale found in range, also count its linked first-intro booking as "ran" (if not already counted). This ensures the denominator always includes at least the intros that produced in-period sales
+- Close rate = sales / max(ran count, sales count) — this prevents >100% and prevents 0-denominator
+
+### 4. Update close rate threshold check in leaderboard filter
+
+- Line 610: `m.introsBooked >= MIN_INTROS_FOR_CLOSING` stays the same field name but now reflects ran count
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `src/features/followUp/useFollowUpData.ts` | Filter out items where `lastContactAt` < 7 days ago; expose `coolingCount` per tab for toggle |
-| `src/features/followUp/NoShowTab.tsx` | Add "Show recently contacted (N)" toggle; items with cooling show dimmed at bottom |
-| `src/features/followUp/FollowUpNeededTab.tsx` | Same toggle pattern |
-| `src/features/followUp/SecondIntroTab.tsx` | Same toggle pattern |
-| `src/features/followUp/PlansToRescheduleTab.tsx` | Same toggle pattern |
-| `src/components/scripts/MessageGenerator.tsx` | Dispatch `myday:refresh` after `handleCopy` and `handleLog` so follow-up cards update immediately |
-| `src/components/shared/ContactedBanner.tsx` | Add "next contact in X days" text; use 7-day window instead of `contactNextDate` for hide logic |
+
+| File                                      | Change                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `src/hooks/useDashboardMetrics.ts`        | Change perSA `introsBooked` to count 1st intros **ran** (not booked) in range; pull forward intros for in-period sales |
+| `src/components/dashboard/PerSATable.tsx` | Rename column header "Booked" → "Ran", update subtitle                                                                 |
+
 
 ## Technical Detail
 
-The cooling filter in `useFollowUpData.ts`:
+In `useDashboardMetrics.ts` around line 240-325:
+
 ```typescript
-const COOLING_DAYS = 7;
-function isCooling(item: FollowUpItem): boolean {
-  if (!item.lastContactAt) return false;
-  const hoursSince = differenceInHours(new Date(), new Date(item.lastContactAt));
-  return hoursSince < COOLING_DAYS * 24;
-}
+// NEW: Count 1st intros RAN (showed) by this SA in date range
+const saFirstRuns = activeRuns.filter(run => {
+  if (run.intro_owner !== saName) return false;
+  if (!run.linked_intro_booked_id || !firstIntroBookingIds.has(run.linked_intro_booked_id)) return false;
+  const res = (run.result || '').toLowerCase();
+  if (res === 'no-show' || res === 'no show') return false;
+  return isRunInRange(run, dateRange);
+});
+let introsRanCount = saFirstRuns.length;
+
+// After computing salesCount...
+// Pull forward: ensure denominator >= salesCount
+const effectiveRan = Math.max(introsRanCount, salesCount);
+const closingRate = effectiveRan > 0 ? (salesCount / effectiveRan) * 100 : 0;
 ```
 
-Each tab receives both `activeItems` and `coolingItems`. By default only `activeItems` render. A small toggle shows cooling items when expanded.
-
+  
+Make sure you make any relevant subsequent changes app wide that makes sense to based off on the changes we're making to keep things efficient, clear and the same
