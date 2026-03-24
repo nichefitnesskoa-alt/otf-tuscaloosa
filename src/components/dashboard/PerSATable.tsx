@@ -91,7 +91,7 @@ export function PerSATable({ data }: PerSATableProps) {
           <Users className="w-4 h-4 text-primary" />
           Per-SA Performance
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Total Journey · 1st booked → any sale</p>
+        <p className="text-xs text-muted-foreground">Total Journey · 1st ran → any sale</p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -99,7 +99,7 @@ export function PerSATable({ data }: PerSATableProps) {
             <TableHeader>
               <TableRow>
                 <SortableHeader column="saName" className="text-left">SA</SortableHeader>
-                <SortableHeader column="introsBooked">Booked</SortableHeader>
+                <SortableHeader column="introsBooked">Ran</SortableHeader>
                 <SortableHeader column="sales">Sales</SortableHeader>
                 <SortableHeader column="closingRate">Close%</SortableHeader>
                 <SortableHeader column="commission">Commission</SortableHeader>

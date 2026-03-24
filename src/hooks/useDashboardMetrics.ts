@@ -234,16 +234,19 @@ export function useDashboardMetrics(
 
     // =========================================
     // PER-SA METRICS (attributed to intro_owner)
-    // Total Journey: 1st intros booked → any sale
+    // Total Journey: 1st intros ran (showed) → any sale
     // =========================================
 
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
-      // Count 1st intro BOOKINGS for this SA (using intro_owner on booking)
-      const saFirstBookings = firstIntroBookings.filter(b => {
-        const owner = (b as any).intro_owner || b.sa_working_shift;
-        return owner === saName;
+      // Count 1st intros RAN (showed, not no-show) for this SA in date range
+      const saFirstRuns = activeRuns.filter(run => {
+        if (run.intro_owner !== saName) return false;
+        if (!run.linked_intro_booked_id || !firstIntroBookingIds.has(run.linked_intro_booked_id)) return false;
+        const res = (run.result || '').toLowerCase();
+        if (res === 'no-show' || res === 'no show') return false;
+        return isRunInRange(run, dateRange);
       });
-      const introsBookedCount = saFirstBookings.length;
+      let introsRanCount = saFirstRuns.length;
 
       // Get ALL runs by this SA (for sales counting)
       const saAllRuns = activeRuns.filter(run => {
@@ -299,8 +302,11 @@ export function useDashboardMetrics(
         }
       });
 
-      // Close Rate = Sales / 1st Intros Booked (Total Journey)
-      const closingRate = introsBookedCount > 0 ? (salesCount / introsBookedCount) * 100 : 0;
+      // Pull forward: if sales exist in range but the original intro ran outside,
+      // ensure the denominator is at least equal to sales count
+      const effectiveRan = Math.max(introsRanCount, salesCount);
+      // Close Rate = Sales / effective ran count
+      const closingRate = effectiveRan > 0 ? (salesCount / effectiveRan) * 100 : 0;
 
       // Commission from intros
       const introCommission = salesCommission;
@@ -317,7 +323,7 @@ export function useDashboardMetrics(
 
       return {
         saName,
-        introsBooked: introsBookedCount,
+        introsBooked: effectiveRan,
         sales: salesCount,
         closingRate,
         commission,
@@ -611,7 +617,7 @@ export function useDashboardMetrics(
       .map(m => ({ 
         name: m.saName, 
         value: m.closingRate, 
-        subValue: `${m.sales}/${m.introsBooked}` 
+        subValue: `${m.sales}/${m.introsBooked} ran` 
       }))
       .sort((a, b) => b.value - a.value);
 
