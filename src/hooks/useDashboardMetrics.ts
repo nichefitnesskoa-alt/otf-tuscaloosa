@@ -326,10 +326,9 @@ export function useDashboardMetrics(
         introsBooked: effectiveRan,
         sales: salesCount,
         closingRate,
-        commission,
       };
-    }).filter(m => m.introsBooked > 0 || m.sales > 0 || m.commission > 0)
-      .sort((a, b) => b.commission - a.commission);
+    }).filter(m => m.introsBooked > 0 || m.sales > 0)
+      .sort((a, b) => b.sales - a.sales);
 
     // =========================================
     // BOOKER STATS (attributed to booked_by)

@@ -9,14 +9,13 @@ export interface PerSAMetrics {
   introsBooked: number;
   sales: number;
   closingRate: number;
-  commission: number;
 }
 
 interface PerSATableProps {
   data: PerSAMetrics[];
 }
 
-type SortColumn = 'saName' | 'introsBooked' | 'sales' | 'closingRate' | 'commission';
+type SortColumn = 'saName' | 'introsBooked' | 'sales' | 'closingRate';
 type SortDirection = 'asc' | 'desc';
 
 export function PerSATable({ data }: PerSATableProps) {
@@ -102,7 +101,6 @@ export function PerSATable({ data }: PerSATableProps) {
                 <SortableHeader column="introsBooked">Ran</SortableHeader>
                 <SortableHeader column="sales">Sales</SortableHeader>
                 <SortableHeader column="closingRate">Close%</SortableHeader>
-                <SortableHeader column="commission">Commission</SortableHeader>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,7 +114,6 @@ export function PerSATable({ data }: PerSATableProps) {
                       {row.closingRate.toFixed(0)}%
                     </span>
                   </TableCell>
-                  <TableCell className="text-center text-sm">${row.commission.toFixed(0)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

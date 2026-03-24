@@ -108,13 +108,27 @@ function computeFunnelBothRows(
     return dates[0] === b.class_date;
   };
 
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const now = new Date();
+
+  const hasBookingPassed = (b: IntroBooked): boolean => {
+    const [y, m, d] = b.class_date.split('-').map(Number);
+    const introTime = (b as any).intro_time as string | null | undefined;
+    if (introTime) {
+      const match = introTime.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        const scheduled = new Date(y, m - 1, d, +match[1], +match[2]);
+        return scheduled <= now;
+      }
+    }
+    // No start time: treat as end of day
+    return new Date(y, m - 1, d, 23, 59, 59) <= now;
+  };
 
   const firstBookings = activeBookings.filter(b =>
-    isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
+    isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
   );
   const secondBookings = activeBookings.filter(b =>
-    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
+    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
   );
 
   const firstBP: DrillPerson[] = firstBookings.map(b => ({ name: b.member_name, date: b.class_date, detail: b.lead_source }));
@@ -211,7 +225,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
       <div className="flex items-center justify-between">
         <span className={cn('text-xs font-semibold uppercase tracking-wide', journey ? 'text-accent-foreground' : 'text-muted-foreground')}>{label}</span>
         <span className={cn('text-[11px] font-medium', rateColor(bookingToSale))}>
-          {bookingToSale.toFixed(0)}% ran→sale
+          {bookingToSale.toFixed(0)}% booked→sale
         </span>
       </div>
       <div className="flex items-center gap-1">
@@ -221,7 +235,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
         >
           <Users className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
           <p className="text-lg font-bold text-info">{data.booked}</p>
-          <p className="text-[10px] text-muted-foreground">{bookedLabel || 'Ran'}</p>
+          <p className="text-[10px] text-muted-foreground">{bookedLabel || 'Booked'}</p>
         </div>
         <div className="flex flex-col items-center gap-0.5">
           <ArrowDown className="w-3 h-3 text-muted-foreground" />
@@ -271,9 +285,11 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
     return { first, second, total };
   }, [introsBooked, introsRun, dateRange]);
 
+  const journeyShowed = Math.max(first.showed, total.sold);
+  const journeyBooked = Math.max(first.booked, journeyShowed);
   const journey: FunnelData = {
-    booked: first.booked,
-    showed: first.showed,
+    booked: journeyBooked,
+    showed: journeyShowed,
     sold: total.sold,
     bookedPeople: first.bookedPeople,
     showedPeople: first.showedPeople,
@@ -281,7 +297,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
   };
 
   const openDrill = (label: string, category: 'booked' | 'showed' | 'sold', funnelData: FunnelData) => {
-    const catLabel = { booked: 'Ran', showed: 'Showed', sold: 'Sold' };
+    const catLabel = { booked: 'Booked', showed: 'Showed', sold: 'Sold' };
     setDrillTitle(`${label} — ${catLabel[category]}`);
     setDrillPeople(category === 'booked' ? funnelData.bookedPeople : category === 'showed' ? funnelData.showedPeople : funnelData.soldPeople);
     setDrillOpen(true);
@@ -310,7 +326,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
               label="Total Journey (1st Intro → Any Sale)"
               data={{ booked: first.booked, showed: first.showed, sold: total.sold }}
               journey
-              bookedLabel="1st Ran"
+              bookedLabel="1st Booked"
               showedLabel="1st Showed"
               soldLabel="Total Sold (1st + 2nd intros)"
               onBoxClick={(cat) => openDrill('Total Journey', cat, journey)}
