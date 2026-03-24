@@ -19,7 +19,7 @@ interface FollowUpTabsProps {
 }
 
 export default function FollowUpTabs({ onCountChange, onRefresh }: FollowUpTabsProps) {
-  const { noShow, missedGuests, secondIntro, plansToReschedule, counts, isLoading, refresh } = useFollowUpData();
+  const { noShow, noShowCooling, missedGuests, missedGuestsCooling, secondIntro, secondIntroCooling, plansToReschedule, plansToRescheduleCooling, counts, coolingCounts, isLoading, refresh } = useFollowUpData();
 
   useEffect(() => {
     onCountChange?.(counts.total);
@@ -77,16 +77,16 @@ export default function FollowUpTabs({ onCountChange, onRefresh }: FollowUpTabsP
         </TabsList>
 
         <TabsContent value="noshow" className="mt-3">
-          <NoShowTab items={noShow} isLoading={isLoading} onRefresh={handleRefresh} />
+          <NoShowTab items={noShow} coolingItems={noShowCooling} coolingCount={coolingCounts.noShow} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
         <TabsContent value="missedguests" className="mt-3">
-          <FollowUpNeededTab items={missedGuests} isLoading={isLoading} onRefresh={handleRefresh} />
+          <FollowUpNeededTab items={missedGuests} coolingItems={missedGuestsCooling} coolingCount={coolingCounts.missedGuests} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
         <TabsContent value="secondintro" className="mt-3">
-          <SecondIntroTab items={secondIntro} isLoading={isLoading} onRefresh={handleRefresh} />
+          <SecondIntroTab items={secondIntro} coolingItems={secondIntroCooling} coolingCount={coolingCounts.secondIntro} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
         <TabsContent value="reschedule" className="mt-3">
-          <PlansToRescheduleTab items={plansToReschedule} isLoading={isLoading} onRefresh={handleRefresh} />
+          <PlansToRescheduleTab items={plansToReschedule} coolingItems={plansToRescheduleCooling} coolingCount={coolingCounts.plansToReschedule} isLoading={isLoading} onRefresh={handleRefresh} />
         </TabsContent>
       </Tabs>
     </div>

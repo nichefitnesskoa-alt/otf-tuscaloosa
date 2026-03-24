@@ -15,16 +15,19 @@ import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
+import { CoolingToggle } from './CoolingToggle';
 
 interface Props {
   items: FollowUpItem[];
+  coolingItems: FollowUpItem[];
+  coolingCount: number;
   isLoading: boolean;
   onRefresh: () => void;
 }
 
 const PAGE_SIZE = 20;
 
-export default function FollowUpNeededTab({ items, isLoading, onRefresh }: Props) {
+export default function FollowUpNeededTab({ items, coolingItems, coolingCount, isLoading, onRefresh }: Props) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [markingNotInterested, setMarkingNotInterested] = useState<string | null>(null);
   const [dismissTarget, setDismissTarget] = useState<FollowUpItem | null>(null);
@@ -190,6 +193,26 @@ export default function FollowUpNeededTab({ items, isLoading, onRefresh }: Props
           Load More ({items.length - visibleCount} remaining)
         </Button>
       )}
+      <CoolingToggle coolingCount={coolingCount}>
+        {coolingItems.map(item => (
+          <IntroCard
+            key={item.bookingId}
+            memberName={item.memberName}
+            classDate={item.classDate}
+            introTime={item.introTime}
+            coachName={item.coachName}
+            leadSource={item.leadSource}
+            phone={item.phone}
+            borderColor="#64748b"
+            topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
+            outcomeBadge={
+              <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">
+                ✓ Recently Contacted
+              </Badge>
+            }
+          />
+        ))}
+      </CoolingToggle>
       <AlertDialog open={!!dismissTarget} onOpenChange={() => setDismissTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
