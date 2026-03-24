@@ -1,48 +1,25 @@
 
 
-# Conversion Funnel: Only Count Ran Intros, Not Future Bookings
+# Remove "All" from VIP Group Dropdown, Default to First Group
 
 ## Problem
-The funnel's "Booked" column includes future bookings (class_date hasn't happened yet), inflating the count and skewing percentages. For example, 11 "Booked" but 0 "Showed" because those intros haven't occurred yet.
+The VIP dropdown includes an "All" option that isn't needed. Newly created groups should appear, and the dropdown should default to the first available group.
 
-## Changes
+## Changes (`src/features/pipeline/components/VipPipelineTable.tsx`)
 
-### 1. Filter out future bookings (`ConversionFunnel.tsx`)
-- In `computeFunnelBothRows`, filter `firstBookings` and `secondBookings` to only include bookings where `class_date <= today` (the intro date has passed)
-- This prevents future-scheduled intros from appearing in the funnel or drill-down
-- The pull-forward logic already handles cross-period sales, so this won't break anything
+1. **Remove "All" option** from the `Select` dropdown (remove the `<SelectItem value="All">` entry)
+2. **Change default state** from `'All'` to `''` (empty), then auto-select the first group once data loads
+3. **Add a `useEffect`** that sets `selectedGroup` to the first group in the list when groups load (or when the current selection is no longer valid)
+4. **Include groups from `vip_sessions`** that have no registrations yet (newly created groups) — merge the session-based group names into the `groups` list during `fetchData`
+5. **Update `regLink`** — remove the `selectedGroup !== 'All'` guard since "All" no longer exists
+6. **Update `handleAddMember`** — remove the `selectedGroup !== 'All'` check since it's always a real group
 
-### 2. Rename "Booked" → "Ran" in the funnel UI
-- Since we're now only showing intros that have actually occurred, rename the first column from "Booked" to "Ran" to match the Per-SA table terminology
-- Update `FunnelRow` default labels: "Booked" → "Ran"
-- Update drill sheet category labels: "Booked" → "Ran"
-- Update Total Journey sub-labels: "1st Booked" → "1st Ran"
-- Update subtitle text
-
-### 3. Filter drill-down people lists
-- `bookedPeople` arrays should also only contain past-date intros (they're derived from the same filtered arrays, so this happens automatically)
-
-## Files Changed
-
-| File | Change |
+| Area | Change |
 |------|--------|
-| `src/components/dashboard/ConversionFunnel.tsx` | Add `class_date <= today` filter; rename all "Booked" labels to "Ran" |
-
-## Technical Detail
-
-```typescript
-const today = format(new Date(), 'yyyy-MM-dd');
-
-const firstBookings = activeBookings.filter(b =>
-  isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
-);
-const secondBookings = activeBookings.filter(b =>
-  !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
-);
-```
-
-Label changes in `FunnelRow` and the main render:
-- Default `bookedLabel` → "Ran"
-- `bookedLabel="1st Booked"` → `"1st Ran"`
-- Drill category label map: `booked: 'Ran'`
+| State init | `useState('')` instead of `useState('All')` |
+| `fetchData` | Merge group names from `vip_sessions` into `uniqueGroups` so empty new groups appear |
+| `useEffect` | Auto-select first group when `groups` changes and current selection is invalid |
+| Select dropdown | Remove `<SelectItem value="All">` |
+| `regLink` | Simplify — always generate if `selectedGroup` is truthy |
+| `handleAddMember` | Remove `'All'` guard |
 
