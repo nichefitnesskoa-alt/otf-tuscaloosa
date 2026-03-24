@@ -402,7 +402,7 @@ export function useFollowUpData() {
       };
 
       const noShowSplit = splitCooling(noShowItems);
-      const missedSplit = splitCooling(missedGuestItems);
+      const missedSplit = splitCooling(dedupedMissedGuests);
       const secondIntroSplit = splitCooling(secondIntroItems);
       const plansSplit = splitCooling(plansItems);
 
