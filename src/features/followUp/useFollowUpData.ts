@@ -155,6 +155,7 @@ export function useFollowUpData() {
       const plansItems: FollowUpItem[] = [];
 
       const processed = new Set<string>();
+      const plansBookingIds = new Set<string>();
       // Track names in 2nd intro tab for priority dedup
       const inSecondIntroTab = new Set<string>();
 
