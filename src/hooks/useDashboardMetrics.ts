@@ -184,14 +184,28 @@ export function useDashboardMetrics(
     // Past + today bookings only — used as denominator for show rate & no-shows
     // so future bookings don't deflate the percentage.
     const todayYMD = getTodayYMD();
-    // Past bookings + today's bookings that actually have a run record (occurred).
-    // Today's bookings with no run yet haven't happened and shouldn't count.
+    const now = new Date();
+
+    const hasBookingPassed = (b: IntroBooked): boolean => {
+      const [y, m, d] = b.class_date.split('-').map(Number);
+      const introTime = (b as any).intro_time as string | null | undefined;
+      if (introTime) {
+        const match = introTime.match(/(\d{1,2}):(\d{2})/);
+        if (match) {
+          const scheduled = new Date(y, m - 1, d, +match[1], +match[2]);
+          return scheduled <= now;
+        }
+      }
+      // No start time: treat as end of day
+      return new Date(y, m - 1, d, 23, 59, 59) <= now;
+    };
+
+    // Past bookings + today's bookings that have passed their scheduled time.
     const pastAndTodayBookings = firstIntroBookings.filter(b => {
       if (b.class_date > todayYMD) return false;
       if (b.class_date < todayYMD) return true;
-      // Today: only include if there's a run record
-      const runs = bookingToRuns.get(b.id);
-      return runs && runs.length > 0;
+      // Today: use time-aware check
+      return hasBookingPassed(b);
     });
     
     // First intro bookings excluding self-booked (for studio-wide metrics)
@@ -329,7 +343,7 @@ export function useDashboardMetrics(
         commission,
       };
     }).filter(m => m.introsBooked > 0 || m.sales > 0 || m.commission > 0)
-      .sort((a, b) => b.commission - a.commission);
+      .sort((a, b) => b.sales - a.sales);
 
     // =========================================
     // BOOKER STATS (attributed to booked_by)
