@@ -326,8 +326,9 @@ export function useDashboardMetrics(
         introsBooked: effectiveRan,
         sales: salesCount,
         closingRate,
+        commission,
       };
-    }).filter(m => m.introsBooked > 0 || m.sales > 0)
+    }).filter(m => m.introsBooked > 0 || m.sales > 0 || m.commission > 0)
       .sort((a, b) => b.sales - a.sales);
 
     // =========================================
