@@ -37,9 +37,10 @@ import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 
 
-// Prep/Script/Coach drawers
+// Prep/Script/Coach/Outcome drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 
 
 // Canonical intros queue
@@ -69,10 +70,11 @@ export default function MyDayPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 
-  // Prep/Script/Coach drawer state
+  // Prep/Script/Coach/Outcome drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
+  const [outcomeBookingId, setOutcomeBookingId] = useState<string | null>(null);
   
   const [scriptQLink, setScriptQLink] = useState<string | undefined>();
 
@@ -153,11 +155,14 @@ export default function MyDayPage() {
       setScriptBookingId(detail.bookingId);
       setScriptIsSecondIntro(!!detail.isSecondIntro);
     };
+    const onOutcome = (e: Event) => setOutcomeBookingId((e as CustomEvent).detail.bookingId);
     window.addEventListener('myday:open-prep', onPrep);
     window.addEventListener('myday:open-script', onScript);
+    window.addEventListener('myday:open-outcome', onOutcome);
     return () => {
       window.removeEventListener('myday:open-prep', onPrep);
       window.removeEventListener('myday:open-script', onScript);
+      window.removeEventListener('myday:open-outcome', onOutcome);
     };
   }, []);
 
