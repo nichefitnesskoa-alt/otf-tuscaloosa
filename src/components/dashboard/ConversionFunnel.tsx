@@ -108,11 +108,13 @@ function computeFunnelBothRows(
     return dates[0] === b.class_date;
   };
 
+  const today = format(new Date(), 'yyyy-MM-dd');
+
   const firstBookings = activeBookings.filter(b =>
-    isFirstBooking(b) && isInRange(b.class_date, dateRange || null)
+    isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
   );
   const secondBookings = activeBookings.filter(b =>
-    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null)
+    !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && b.class_date <= today
   );
 
   const firstBP: DrillPerson[] = firstBookings.map(b => ({ name: b.member_name, date: b.class_date, detail: b.lead_source }));
@@ -209,7 +211,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
       <div className="flex items-center justify-between">
         <span className={cn('text-xs font-semibold uppercase tracking-wide', journey ? 'text-accent-foreground' : 'text-muted-foreground')}>{label}</span>
         <span className={cn('text-[11px] font-medium', rateColor(bookingToSale))}>
-          {bookingToSale.toFixed(0)}% book→sale
+          {bookingToSale.toFixed(0)}% ran→sale
         </span>
       </div>
       <div className="flex items-center gap-1">
@@ -219,7 +221,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
         >
           <Users className="w-3.5 h-3.5 mx-auto mb-0.5 text-info" />
           <p className="text-lg font-bold text-info">{data.booked}</p>
-          <p className="text-[10px] text-muted-foreground">{bookedLabel || 'Booked'}</p>
+          <p className="text-[10px] text-muted-foreground">{bookedLabel || 'Ran'}</p>
         </div>
         <div className="flex flex-col items-center gap-0.5">
           <ArrowDown className="w-3 h-3 text-muted-foreground" />
@@ -279,7 +281,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
   };
 
   const openDrill = (label: string, category: 'booked' | 'showed' | 'sold', funnelData: FunnelData) => {
-    const catLabel = { booked: 'Booked', showed: 'Showed', sold: 'Sold' };
+    const catLabel = { booked: 'Ran', showed: 'Showed', sold: 'Sold' };
     setDrillTitle(`${label} — ${catLabel[category]}`);
     setDrillPeople(category === 'booked' ? funnelData.bookedPeople : category === 'showed' ? funnelData.showedPeople : funnelData.soldPeople);
     setDrillOpen(true);
@@ -293,7 +295,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
             <Filter className="w-4 h-4 text-primary" />
             Conversion Funnel
           </CardTitle>
-          <p className="text-xs text-muted-foreground">1st and 2nd intro attribution — separate rows · Tap a number to see people</p>
+          <p className="text-xs text-muted-foreground">1st and 2nd intro attribution — only past intros · Tap a number to see people</p>
         </CardHeader>
         <CardContent className="space-y-3">
           <FunnelRow label="1st Intro" data={first} onBoxClick={(cat) => openDrill('1st Intro', cat, first)} />
@@ -308,7 +310,7 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
               label="Total Journey (1st Intro → Any Sale)"
               data={{ booked: first.booked, showed: first.showed, sold: total.sold }}
               journey
-              bookedLabel="1st Booked"
+              bookedLabel="1st Ran"
               showedLabel="1st Showed"
               soldLabel="Total Sold (1st + 2nd intros)"
               onBoxClick={(cat) => openDrill('Total Journey', cat, journey)}
