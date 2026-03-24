@@ -9,7 +9,6 @@ export interface PerSAMetrics {
   introsBooked: number;
   sales: number;
   closingRate: number;
-  commission: number;
 }
 
 interface PerSATableProps {
