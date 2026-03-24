@@ -7,7 +7,7 @@
  * Tab 4: Plans to Reschedule — booking_status_canon = 'PLANNING_RESCHEDULE' AND no future booking.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, subDays, addDays } from 'date-fns';
+import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -64,9 +64,13 @@ function computeContactNext(classDate: string, type: 'noshow' | 'missed' | 'seco
 
 export function useFollowUpData() {
   const [noShow, setNoShow] = useState<FollowUpItem[]>([]);
+  const [noShowCooling, setNoShowCooling] = useState<FollowUpItem[]>([]);
   const [missedGuests, setMissedGuests] = useState<FollowUpItem[]>([]);
+  const [missedGuestsCooling, setMissedGuestsCooling] = useState<FollowUpItem[]>([]);
   const [secondIntro, setSecondIntro] = useState<FollowUpItem[]>([]);
+  const [secondIntroCooling, setSecondIntroCooling] = useState<FollowUpItem[]>([]);
   const [plansToReschedule, setPlansToReschedule] = useState<FollowUpItem[]>([]);
+  const [plansToRescheduleCooling, setPlansToRescheduleCooling] = useState<FollowUpItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -373,10 +377,37 @@ export function useFollowUpData() {
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
 
-      setNoShow(noShowItems.sort(sortByDate));
-      setMissedGuests(missedGuestItems.sort(sortByDate));
-      setSecondIntro(secondIntroItems.sort(sortByDate));
-      setPlansToReschedule(plansItems.sort(sortByDate));
+      // 7-day cooling filter: hide items contacted within the last 7 days
+      const COOLING_HOURS = 7 * 24;
+      const splitCooling = (items: FollowUpItem[]) => {
+        const active: FollowUpItem[] = [];
+        const cooling: FollowUpItem[] = [];
+        for (const item of items) {
+          if (item.lastContactAt) {
+            const hoursSince = differenceInHours(new Date(), new Date(item.lastContactAt));
+            if (hoursSince < COOLING_HOURS) {
+              cooling.push(item);
+              continue;
+            }
+          }
+          active.push(item);
+        }
+        return { active: active.sort(sortByDate), cooling: cooling.sort(sortByDate) };
+      };
+
+      const noShowSplit = splitCooling(noShowItems);
+      const missedSplit = splitCooling(missedGuestItems);
+      const secondIntroSplit = splitCooling(secondIntroItems);
+      const plansSplit = splitCooling(plansItems);
+
+      setNoShow(noShowSplit.active);
+      setNoShowCooling(noShowSplit.cooling);
+      setMissedGuests(missedSplit.active);
+      setMissedGuestsCooling(missedSplit.cooling);
+      setSecondIntro(secondIntroSplit.active);
+      setSecondIntroCooling(secondIntroSplit.cooling);
+      setPlansToReschedule(plansSplit.active);
+      setPlansToRescheduleCooling(plansSplit.cooling);
     } catch (err) {
       console.error('Follow-up data fetch error:', err);
     } finally {
@@ -385,6 +416,13 @@ export function useFollowUpData() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const coolingCounts = useMemo(() => ({
+    noShow: noShowCooling.length,
+    missedGuests: missedGuestsCooling.length,
+    secondIntro: secondIntroCooling.length,
+    plansToReschedule: plansToRescheduleCooling.length,
+  }), [noShowCooling, missedGuestsCooling, secondIntroCooling, plansToRescheduleCooling]);
 
   const counts = useMemo(() => ({
     noShow: noShow.length,
@@ -396,10 +434,15 @@ export function useFollowUpData() {
 
   return {
     noShow,
+    noShowCooling,
     missedGuests,
+    missedGuestsCooling,
     secondIntro,
+    secondIntroCooling,
     plansToReschedule,
+    plansToRescheduleCooling,
     counts,
+    coolingCounts,
     isLoading,
     refresh: fetchData,
   };

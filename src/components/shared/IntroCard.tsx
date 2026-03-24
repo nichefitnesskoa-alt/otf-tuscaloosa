@@ -35,7 +35,7 @@ export interface IntroCardProps {
   badges?: ReactNode;
   outcomeBadge?: ReactNode;
   timingInfo?: ReactNode;
-  actionButtons: ReactNode;
+  actionButtons?: ReactNode;
   secondaryActions?: ReactNode;
   lastContactSummary?: string;
   borderColor?: string;
@@ -270,7 +270,7 @@ export default function IntroCard({
           </div>
         )}
         <div className="p-4 space-y-3">
-          <div className="flex w-full gap-1.5">{actionButtons}</div>
+          {actionButtons && <div className="flex w-full gap-1.5">{actionButtons}</div>}
           {secondaryActions && <div className="flex w-full">{secondaryActions}</div>}
           {children}
           {lastContactSummary && (

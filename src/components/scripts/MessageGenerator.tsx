@@ -105,6 +105,8 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     setCopied(true);
     toast({ title: 'Copied!', description: 'Message copied to clipboard' });
     setTimeout(() => setCopied(false), 2000);
+    // Dispatch refresh so follow-up tabs update immediately
+    window.dispatchEvent(new CustomEvent('myday:refresh'));
 
     // Part 5: Log script_actions for completion tracking
     try {
@@ -153,6 +155,8 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
 
       toast({ title: 'Logged as sent' });
       onLogged?.();
+      // Dispatch refresh so follow-up tabs update immediately
+      window.dispatchEvent(new CustomEvent('myday:refresh'));
       onOpenChange(false);
     } catch (e: any) {
       toast({ title: 'Error logging', description: e.message, variant: 'destructive' });
