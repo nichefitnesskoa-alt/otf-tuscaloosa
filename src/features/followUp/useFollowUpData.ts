@@ -339,9 +339,10 @@ export function useFollowUpData() {
 
       // Process bookings for Plans to Reschedule (booking-status-based)
       // Track which booking IDs end up in reschedule tab for dedup
-      const inRescheduleTab = new Set<string>();
+      const inRescheduleTab = new Set<string>(plansBookingIds);
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
+        if (plansBookingIds.has(b.id)) { inRescheduleTab.add(b.id); continue; }
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `plan-${b.id}`;
