@@ -617,7 +617,7 @@ export function useDashboardMetrics(
       .map(m => ({ 
         name: m.saName, 
         value: m.closingRate, 
-        subValue: `${m.sales}/${m.introsBooked}` 
+        subValue: `${m.sales}/${m.introsBooked} ran` 
       }))
       .sort((a, b) => b.value - a.value);
 
