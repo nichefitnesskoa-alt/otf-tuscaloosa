@@ -563,7 +563,7 @@ export function useDashboardMetrics(
     // so we never show 0% when sales exist from intros that ran outside the date range
     const effectiveStudioRan = Math.max(studioIntrosRun, studioIntroSales);
     const studioClosingRate = effectiveStudioRan > 0 ? (studioIntroSales / effectiveStudioRan) * 100 : 0;
-    const studioCommission = perSAData.reduce((sum, m) => sum + m.commission, 0);
+    const studioCommission = perSAData.reduce((sum, m) => sum + (m.commission || 0), 0);
 
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
@@ -603,7 +603,7 @@ export function useDashboardMetrics(
 
     // Top Commission
     const allCommissionEntries: LeaderEntry[] = perSAData
-      .map(m => ({ name: m.saName, value: m.commission }))
+      .map(m => ({ name: m.saName, value: m.commission || 0 }))
       .sort((a, b) => b.value - a.value);
 
     const topCommission = allCommissionEntries.slice(0, 3);
