@@ -1,74 +1,56 @@
 
 
-# Coaching Scripts — Upload, List, and Inline PDF Viewer
+# Auto-Hide Recently Contacted Follow-Ups + Auto-Log on Script Send
 
-## What We're Building
+## Problem
+1. Sending a script via "Send Text" already logs a `script_sent` action, but cards stay visible in the follow-up queue even if contacted within the last 7 days.
+2. The "Log as Sent" button is separate and confusing — people don't know if the contact was tracked.
+3. Cards should hide (or clearly indicate cooling) when contacted recently.
 
-A "Scripts" section inside the Coach View page where Koa can upload coaching script PDFs (tagged with title, format, and date), see them listed newest-first, and tap one to read it inline as a full-screen scrollable PDF.
+## Changes
 
-## Architecture
+### 1. Follow-Up Data Hook — 7-Day Cooling Filter (`useFollowUpData.ts`)
+- After building all four arrays (noShow, missedGuests, secondIntro, plansToReschedule), split each into two groups:
+  - **"cooling"**: `lastContactAt` exists and is < 7 days ago
+  - **"active"**: everything else
+- Active items show normally. Cooling items are pushed to the bottom of each tab with a distinct visual treatment (dimmed, with a "Contacted X ago — next contact in Y days" banner).
+- Alternatively (simpler): just hide cooling items entirely since the ContactedBanner already exists. The user's request is "they don't need to be showing up in here" — so **hide them**.
+- Add a "Show recently contacted (N)" toggle at the bottom of each tab so they can still be found if needed.
 
-### 1. Database — `coaching_scripts` table
+### 2. Auto-Log on Script Copy — Already Works, But Refresh Is Missing (`MessageGenerator.tsx`)
+- After `handleCopy` inserts the `script_actions` row, dispatch a `myday:refresh` event so the follow-up tabs re-fetch and the card either hides (cooling) or shows the updated ContactedBanner.
+- Also dispatch from `handleLog` (the explicit log button).
 
-New migration creating:
+### 3. Remove Redundant "Log as Sent" When Script Was Just Sent
+- In each follow-up tab (NoShowTab, FollowUpNeededTab, SecondIntroTab, PlansToRescheduleTab), after "Send Text" opens the script picker and the user copies/sends, the card should auto-refresh and show the ContactedBanner. The "Log as Sent" button remains for cases where the SA contacted outside the app (phone call, in-person).
 
-```sql
-CREATE TABLE public.coaching_scripts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  format text NOT NULL,        -- '2G', 'S50/T50', '3G'
-  script_date date NOT NULL,
-  file_url text NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+### 4. ContactedBanner Enhancement (`ContactedBanner.tsx`)
+- Change the hide logic: instead of hiding when `contactNextDate` has passed, hide when `lastContactAt` is older than 7 days. This ensures the banner persists for the full cooling window.
+- Add "next contact in X days" text to the banner.
 
-ALTER TABLE public.coaching_scripts ENABLE ROW LEVEL SECURITY;
-
--- Read-only for all authenticated (coaches + admin)
-CREATE POLICY "Authenticated can read coaching_scripts"
-  ON public.coaching_scripts FOR SELECT TO public
-  USING (true);
-
--- Only admin can insert/update/delete
-CREATE POLICY "Admin can insert coaching_scripts"
-  ON public.coaching_scripts FOR INSERT TO public
-  WITH CHECK (true);
-
-CREATE POLICY "Admin can update coaching_scripts"
-  ON public.coaching_scripts FOR UPDATE TO public
-  USING (true);
-
-CREATE POLICY "Admin can delete coaching_scripts"
-  ON public.coaching_scripts FOR DELETE TO public
-  USING (true);
-```
-
-### 2. Storage Bucket — `coaching-scripts`
-
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('coaching-scripts', 'coaching-scripts', true);
-```
-
-Public bucket so the PDF URL can be used directly in an `<iframe>` or `<object>` tag without auth headers.
-
-### 3. New Component — `src/components/coach/CoachingScripts.tsx`
-
-Three states in one component:
-
-- **List view**: Fetches `coaching_scripts` ordered by `script_date DESC`. Each row is a card showing title, format badge (colored: 2G = orange, S50/T50 = blue, 3G = green), and date. An "Upload" button at the top (visible to Admin only).
-- **Upload form**: Dialog/sheet with title input, format select (2G / S50/T50 / 3G), date picker, and file input (accept PDF only). On submit: uploads file to `coaching-scripts` bucket, inserts row into `coaching_scripts` table with the public URL.
-- **Detail/viewer**: When a card is tapped, opens a full-screen overlay with the PDF rendered inline via `<iframe src="{file_url}" />`. Back button to return to list. The iframe approach gives native scroll/zoom on mobile — same as opening a PDF in the browser.
-
-### 4. Integration into Coach View
-
-Add the `CoachingScripts` component to `src/pages/CoachView.tsx` as a collapsible section (same pattern as `TheSystemSection`), placed below the existing content. Label: "Coaching Scripts".
-
-### Files Changed
+## Files Changed
 
 | File | Change |
 |------|--------|
-| Migration SQL | Create `coaching_scripts` table + `coaching-scripts` storage bucket |
-| `src/components/coach/CoachingScripts.tsx` | New — list, upload, inline PDF viewer |
-| `src/pages/CoachView.tsx` | Import and render `CoachingScripts` section |
+| `src/features/followUp/useFollowUpData.ts` | Filter out items where `lastContactAt` < 7 days ago; expose `coolingCount` per tab for toggle |
+| `src/features/followUp/NoShowTab.tsx` | Add "Show recently contacted (N)" toggle; items with cooling show dimmed at bottom |
+| `src/features/followUp/FollowUpNeededTab.tsx` | Same toggle pattern |
+| `src/features/followUp/SecondIntroTab.tsx` | Same toggle pattern |
+| `src/features/followUp/PlansToRescheduleTab.tsx` | Same toggle pattern |
+| `src/components/scripts/MessageGenerator.tsx` | Dispatch `myday:refresh` after `handleCopy` and `handleLog` so follow-up cards update immediately |
+| `src/components/shared/ContactedBanner.tsx` | Add "next contact in X days" text; use 7-day window instead of `contactNextDate` for hide logic |
+
+## Technical Detail
+
+The cooling filter in `useFollowUpData.ts`:
+```typescript
+const COOLING_DAYS = 7;
+function isCooling(item: FollowUpItem): boolean {
+  if (!item.lastContactAt) return false;
+  const hoursSince = differenceInHours(new Date(), new Date(item.lastContactAt));
+  return hoursSince < COOLING_DAYS * 24;
+}
+```
+
+Each tab receives both `activeItems` and `coolingItems`. By default only `activeItems` render. A small toggle shows cooling items when expanded.
 
