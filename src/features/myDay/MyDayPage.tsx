@@ -443,19 +443,26 @@ export default function MyDayPage() {
         />
       )}
 
-      {outcomeBooking && (
-        <OutcomeDrawer
-          bookingId={outcomeBooking.id}
-          memberName={outcomeBooking.member_name}
-          classDate={outcomeBooking.class_date}
-          introTime={outcomeBooking.intro_time}
-          leadSource={outcomeBooking.lead_source}
-          editedBy={user?.name || 'Unknown'}
-          initialCoach={outcomeBooking.coach_name || ''}
-          onSaved={() => { setOutcomeBookingId(null); refreshData(); fetchMetrics(); }}
-          onCancel={() => setOutcomeBookingId(null)}
-        />
-      )}
+      <Sheet open={!!outcomeBookingId} onOpenChange={(open) => { if (!open) setOutcomeBookingId(null); }}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Log Outcome</SheetTitle>
+          </SheetHeader>
+          {outcomeBooking && (
+            <OutcomeDrawer
+              bookingId={outcomeBooking.id}
+              memberName={outcomeBooking.member_name}
+              classDate={outcomeBooking.class_date}
+              introTime={outcomeBooking.intro_time}
+              leadSource={outcomeBooking.lead_source}
+              editedBy={user?.name || 'Unknown'}
+              initialCoach={outcomeBooking.coach_name || ''}
+              onSaved={() => { setOutcomeBookingId(null); refreshData(); fetchMetrics(); }}
+              onCancel={() => setOutcomeBookingId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
 
       {bookIntroLead && (
