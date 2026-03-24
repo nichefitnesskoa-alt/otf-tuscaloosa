@@ -442,6 +442,20 @@ export default function MyDayPage() {
         />
       )}
 
+      {outcomeBooking && (
+        <OutcomeDrawer
+          bookingId={outcomeBooking.id}
+          memberName={outcomeBooking.member_name}
+          classDate={outcomeBooking.class_date}
+          introTime={outcomeBooking.intro_time}
+          leadSource={outcomeBooking.lead_source}
+          editedBy={user?.name || 'Unknown'}
+          initialCoach={outcomeBooking.coach_name || ''}
+          onSaved={() => { setOutcomeBookingId(null); refreshData(); fetchMetrics(); }}
+          onCancel={() => setOutcomeBookingId(null)}
+        />
+      )}
+
 
       {bookIntroLead && (
         <BookIntroDialog
