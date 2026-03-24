@@ -529,45 +529,32 @@ export function VipPipelineTable() {
   return (
     <div className="space-y-3">
       {/* Group Selector + Create Group */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <button
-          onClick={() => setSelectedGroup('All')}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-            selectedGroup === 'All'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          }`}
-        >
-          All ({rows.length})
-        </button>
+      <div className="flex gap-2 items-center flex-wrap">
+        <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+          <SelectTrigger className="w-[220px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All ({rows.length})</SelectItem>
+            {groups.map(g => (
+              <SelectItem key={g} value={g}>
+                {g} ({groupCounts.get(g) || 0})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        {groups.map(g => (
-          <div key={g} className={`flex items-center gap-0 rounded-full overflow-hidden border transition-colors ${
-            selectedGroup === g ? 'border-primary' : 'border-muted'
-          }`}>
-            <button
-              onClick={() => setSelectedGroup(g)}
-              className={`px-3 py-1 text-xs font-medium transition-colors ${
-                selectedGroup === g
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {g} ({groupCounts.get(g) || 0})
-            </button>
-            <button
-              onClick={(e) => copyGroupLink(g, e)}
-              className={`px-2 py-1 text-[10px] transition-colors flex items-center gap-0.5 ${
-                selectedGroup === g
-                  ? 'bg-primary/80 text-primary-foreground hover:bg-primary/70'
-                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
-              }`}
-              title={`Copy link for ${g}`}
-            >
-              <Link2 className="w-2.5 h-2.5" />
-            </button>
-          </div>
-        ))}
+        {selectedGroup !== 'All' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] gap-1"
+            onClick={(e) => copyGroupLink(selectedGroup, e)}
+            title={`Copy link for ${selectedGroup}`}
+          >
+            <Link2 className="w-3 h-3" /> Copy Link
+          </Button>
+        )}
 
         <Button
           variant="outline"
