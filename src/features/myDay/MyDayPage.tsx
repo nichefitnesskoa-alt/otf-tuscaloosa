@@ -103,6 +103,7 @@ export default function MyDayPage() {
 
   const prepBooking = prepBookingId ? getBookingById(prepBookingId) : null;
   const scriptBooking = scriptBookingId ? getBookingById(scriptBookingId) : null;
+  const outcomeBooking = outcomeBookingId ? getBookingById(outcomeBookingId) : null;
   
 
   // Today's stats
