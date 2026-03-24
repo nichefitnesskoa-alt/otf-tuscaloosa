@@ -41,6 +41,7 @@ import { MyDayShiftSummary } from './MyDayShiftSummary';
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 
 // Canonical intros queue
