@@ -253,6 +253,7 @@ export function useFollowUpData() {
         if (r.result === 'Plans to Reschedule' || r.result_canon === 'PLANNING_RESCHEDULE') {
           if (!hasFutureUnrun) {
             processed.add(key);
+            plansBookingIds.add(bookingId);
             if (!item.rescheduleContactDate && item.classDate) {
               item.rescheduleContactDate = computeContactNext(item.classDate, 'reschedule');
             }
