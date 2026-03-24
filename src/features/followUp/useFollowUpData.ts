@@ -155,6 +155,7 @@ export function useFollowUpData() {
       const plansItems: FollowUpItem[] = [];
 
       const processed = new Set<string>();
+      const plansBookingIds = new Set<string>();
       // Track names in 2nd intro tab for priority dedup
       const inSecondIntroTab = new Set<string>();
 
@@ -253,6 +254,7 @@ export function useFollowUpData() {
         if (r.result === 'Plans to Reschedule' || r.result_canon === 'PLANNING_RESCHEDULE') {
           if (!hasFutureUnrun) {
             processed.add(key);
+            plansBookingIds.add(bookingId);
             if (!item.rescheduleContactDate && item.classDate) {
               item.rescheduleContactDate = computeContactNext(item.classDate, 'reschedule');
             }
@@ -335,9 +337,12 @@ export function useFollowUpData() {
         });
       }
 
-      // Process bookings for Plans to Reschedule
+      // Process bookings for Plans to Reschedule (booking-status-based)
+      // Track which booking IDs end up in reschedule tab for dedup
+      const inRescheduleTab = new Set<string>(plansBookingIds);
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
+        if (plansBookingIds.has(b.id)) { inRescheduleTab.add(b.id); continue; }
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `plan-${b.id}`;
@@ -351,6 +356,7 @@ export function useFollowUpData() {
         }
 
         processed.add(key);
+        inRescheduleTab.add(b.id);
         plansItems.push({
           bookingId: b.id,
           runId: null,
@@ -374,6 +380,9 @@ export function useFollowUpData() {
         });
       }
 
+      // Remove any missedGuestItems that are also in the reschedule tab
+      const dedupedMissedGuests = missedGuestItems.filter(item => !inRescheduleTab.has(item.bookingId));
+
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
 
@@ -396,7 +405,7 @@ export function useFollowUpData() {
       };
 
       const noShowSplit = splitCooling(noShowItems);
-      const missedSplit = splitCooling(missedGuestItems);
+      const missedSplit = splitCooling(dedupedMissedGuests);
       const secondIntroSplit = splitCooling(secondIntroItems);
       const plansSplit = splitCooling(plansItems);
 

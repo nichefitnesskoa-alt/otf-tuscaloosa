@@ -37,9 +37,11 @@ import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 
 
-// Prep/Script/Coach drawers
+// Prep/Script/Coach/Outcome drawers
 import { PrepDrawer } from '@/components/dashboard/PrepDrawer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 
 // Canonical intros queue
@@ -69,10 +71,11 @@ export default function MyDayPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 
-  // Prep/Script/Coach drawer state
+  // Prep/Script/Coach/Outcome drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
+  const [outcomeBookingId, setOutcomeBookingId] = useState<string | null>(null);
   
   const [scriptQLink, setScriptQLink] = useState<string | undefined>();
 
@@ -101,6 +104,7 @@ export default function MyDayPage() {
 
   const prepBooking = prepBookingId ? getBookingById(prepBookingId) : null;
   const scriptBooking = scriptBookingId ? getBookingById(scriptBookingId) : null;
+  const outcomeBooking = outcomeBookingId ? getBookingById(outcomeBookingId) : null;
   
 
   // Today's stats
@@ -153,11 +157,14 @@ export default function MyDayPage() {
       setScriptBookingId(detail.bookingId);
       setScriptIsSecondIntro(!!detail.isSecondIntro);
     };
+    const onOutcome = (e: Event) => setOutcomeBookingId((e as CustomEvent).detail.bookingId);
     window.addEventListener('myday:open-prep', onPrep);
     window.addEventListener('myday:open-script', onScript);
+    window.addEventListener('myday:open-outcome', onOutcome);
     return () => {
       window.removeEventListener('myday:open-prep', onPrep);
       window.removeEventListener('myday:open-script', onScript);
+      window.removeEventListener('myday:open-outcome', onOutcome);
     };
   }, []);
 
@@ -435,6 +442,27 @@ export default function MyDayPage() {
           onLogged={() => { setScriptBookingId(null); fetchMetrics(); }}
         />
       )}
+
+      <Sheet open={!!outcomeBookingId} onOpenChange={(open) => { if (!open) setOutcomeBookingId(null); }}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Log Outcome</SheetTitle>
+          </SheetHeader>
+          {outcomeBooking && (
+            <OutcomeDrawer
+              bookingId={outcomeBooking.id}
+              memberName={outcomeBooking.member_name}
+              classDate={outcomeBooking.class_date}
+              introTime={outcomeBooking.intro_time}
+              leadSource={outcomeBooking.lead_source}
+              editedBy={user?.name || 'Unknown'}
+              initialCoach={outcomeBooking.coach_name || ''}
+              onSaved={() => { setOutcomeBookingId(null); refreshData(); fetchMetrics(); }}
+              onCancel={() => setOutcomeBookingId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
 
       {bookIntroLead && (
