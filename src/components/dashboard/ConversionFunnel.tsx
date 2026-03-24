@@ -166,9 +166,14 @@ function computeFunnelBothRows(
     }
   });
 
+  // Pull forward: if sales exist from intros that ran outside the date range,
+  // ensure showed count is at least equal to sold count
+  const effectiveFirstShowed = Math.max(firstShowed, firstSold);
+  const effectiveSecondShowed = Math.max(secondShowed, secondSold);
+
   return {
-    first: { booked: firstBookings.length, showed: firstShowed, sold: firstSold, bookedPeople: firstBP, showedPeople: firstSP, soldPeople: firstSoldP },
-    second: { booked: secondBookings.length, showed: secondShowed, sold: secondSold, bookedPeople: secondBP, showedPeople: secondSP, soldPeople: secondSoldP },
+    first: { booked: firstBookings.length, showed: effectiveFirstShowed, sold: firstSold, bookedPeople: firstBP, showedPeople: firstSP, soldPeople: firstSoldP },
+    second: { booked: secondBookings.length, showed: effectiveSecondShowed, sold: secondSold, bookedPeople: secondBP, showedPeople: secondSP, soldPeople: secondSoldP },
   };
 }
 
