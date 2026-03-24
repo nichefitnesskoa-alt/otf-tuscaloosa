@@ -725,7 +725,7 @@ export function useDashboardMetrics(
 
     return {
       studio: {
-        introsRun: studioIntrosRun,
+        introsRun: effectiveStudioRan,
         introSales: studioIntroSales,
         closingRate: studioClosingRate,
         totalCommission: studioCommission,
