@@ -24,6 +24,7 @@ interface CoachingScript {
 }
 
 const FORMAT_STYLES: Record<string, string> = {
+  '1G': 'bg-purple-500/20 text-purple-700 dark:text-purple-300',
   '2G': 'bg-orange-500/20 text-orange-700 dark:text-orange-300',
   'S50/T50': 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
   '3G': 'bg-green-500/20 text-green-700 dark:text-green-300',
@@ -307,6 +308,7 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
         <Select value={fmt} onValueChange={setFmt}>
           <SelectTrigger><SelectValue placeholder="Select format" /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="1G">1G</SelectItem>
             <SelectItem value="2G">2G</SelectItem>
             <SelectItem value="S50/T50">S50/T50</SelectItem>
             <SelectItem value="3G">3G</SelectItem>
