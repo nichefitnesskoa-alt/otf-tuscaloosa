@@ -33,9 +33,9 @@ export function BottomNav() {
   const visibleItems = [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
-    // Pipeline + Admin + Coach View tabs only visible to users with Admin role
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+    // Admin + Coach View tabs only visible to users with Admin role
     ...(isAdmin ? [
-      { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/admin', label: 'Admin', icon: Settings },
     ] : []),

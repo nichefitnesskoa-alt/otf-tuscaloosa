@@ -96,7 +96,7 @@ function AppRoutes() {
       <Route
         path="/pipeline"
         element={
-          <ProtectedRoute blockCoach>
+          <ProtectedRoute>
             <Pipeline />
           </ProtectedRoute>
         }
