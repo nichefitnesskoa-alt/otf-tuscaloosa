@@ -354,10 +354,10 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
         </Popover>
       </div>
       <div>
-        <Label>Word Document</Label>
+        <Label>Document (PDF or Word)</Label>
         <Input
           type="file"
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
           onChange={e => setFile(e.target.files?.[0] || null)}
         />
       </div>
