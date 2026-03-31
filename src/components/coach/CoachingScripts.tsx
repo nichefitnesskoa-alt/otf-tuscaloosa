@@ -106,26 +106,25 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
       </div>
 
       <div className="flex-1 overflow-auto bg-muted/30">
-        {isPdf ? (
+        {loading && !error && (
+          <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
+        )}
+        {error && (
+          <p className="text-destructive text-center py-12 text-sm">{error}</p>
+        )}
+        {isPdf && blobUrl && !loading && (
           <iframe
-            src={fileUrl}
+            src={blobUrl}
             className="w-full h-full border-0"
             title={script.title}
           />
-        ) : (
-          <>
-            {loading && !error && (
-              <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
-            )}
-            {error && (
-              <p className="text-destructive text-center py-12 text-sm">{error}</p>
-            )}
-            <div
-              ref={containerRef}
-              className="docx-viewer-container mx-auto"
-              style={{ maxWidth: '100%' }}
-            />
-          </>
+        )}
+        {!isPdf && (
+          <div
+            ref={containerRef}
+            className="docx-viewer-container mx-auto"
+            style={{ maxWidth: '100%' }}
+          />
         )}
       </div>
 
