@@ -34,11 +34,11 @@ const FORMAT_STYLES: Record<string, string> = {
 function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: () => void; script: CoachingScript }) {
   const isPdf = script.file_url.toLowerCase().endsWith('.pdf') || script.file_url.toLowerCase().includes('.pdf');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(!isPdf);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isPdf) return;
     let cancelled = false;
 
     const render = async () => {
@@ -47,23 +47,30 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
         if (!resp.ok) throw new Error('Failed to fetch file');
         const blob = await resp.blob();
 
-        if (cancelled || !containerRef.current) return;
+        if (cancelled) return;
 
-        const { renderAsync } = await import('docx-preview');
-        containerRef.current.innerHTML = '';
-        await renderAsync(blob, containerRef.current, undefined, {
-          className: 'docx-preview-wrapper',
-          inWrapper: true,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          ignoreFonts: false,
-          breakPages: true,
-          ignoreLastRenderedPageBreak: true,
-          experimental: false,
-          trimXmlDeclaration: true,
-          useBase64URL: true,
-        });
-        setLoading(false);
+        if (isPdf) {
+          const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          setBlobUrl(url);
+          setLoading(false);
+        } else {
+          if (!containerRef.current) return;
+          const { renderAsync } = await import('docx-preview');
+          containerRef.current.innerHTML = '';
+          await renderAsync(blob, containerRef.current, undefined, {
+            className: 'docx-preview-wrapper',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            ignoreLastRenderedPageBreak: true,
+            experimental: false,
+            trimXmlDeclaration: true,
+            useBase64URL: true,
+          });
+          setLoading(false);
+        }
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || 'Failed to render document');
@@ -73,7 +80,10 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
     };
 
     render();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [fileUrl, isPdf]);
 
   return (
@@ -96,26 +106,25 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
       </div>
 
       <div className="flex-1 overflow-auto bg-muted/30">
-        {isPdf ? (
+        {loading && !error && (
+          <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
+        )}
+        {error && (
+          <p className="text-destructive text-center py-12 text-sm">{error}</p>
+        )}
+        {isPdf && blobUrl && !loading && (
           <iframe
-            src={fileUrl}
+            src={blobUrl}
             className="w-full h-full border-0"
             title={script.title}
           />
-        ) : (
-          <>
-            {loading && !error && (
-              <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
-            )}
-            {error && (
-              <p className="text-destructive text-center py-12 text-sm">{error}</p>
-            )}
-            <div
-              ref={containerRef}
-              className="docx-viewer-container mx-auto"
-              style={{ maxWidth: '100%' }}
-            />
-          </>
+        )}
+        {!isPdf && (
+          <div
+            ref={containerRef}
+            className="docx-viewer-container mx-auto"
+            style={{ maxWidth: '100%' }}
+          />
         )}
       </div>
 
