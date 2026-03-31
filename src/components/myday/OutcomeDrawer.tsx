@@ -167,9 +167,9 @@ export function OutcomeDrawer({
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
   const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro;
 
   // Computed commission — live recomputes on outcome change
