@@ -31,12 +31,14 @@ const FORMAT_STYLES: Record<string, string> = {
 };
 
 // ── Inline .docx renderer ──
-function DocxViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: () => void; script: CoachingScript }) {
+function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: () => void; script: CoachingScript }) {
+  const isPdf = script.file_url.toLowerCase().endsWith('.pdf') || script.file_url.toLowerCase().includes('.pdf');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isPdf);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isPdf) return;
     let cancelled = false;
 
     const render = async () => {
@@ -72,7 +74,7 @@ function DocxViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: ()
 
     render();
     return () => { cancelled = true; };
-  }, [fileUrl]);
+  }, [fileUrl, isPdf]);
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -94,17 +96,27 @@ function DocxViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: ()
       </div>
 
       <div className="flex-1 overflow-auto bg-muted/30">
-        {loading && !error && (
-          <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
+        {isPdf ? (
+          <iframe
+            src={fileUrl}
+            className="w-full h-full border-0"
+            title={script.title}
+          />
+        ) : (
+          <>
+            {loading && !error && (
+              <p className="text-muted-foreground text-center py-12 text-sm">Loading document...</p>
+            )}
+            {error && (
+              <p className="text-destructive text-center py-12 text-sm">{error}</p>
+            )}
+            <div
+              ref={containerRef}
+              className="docx-viewer-container mx-auto"
+              style={{ maxWidth: '100%' }}
+            />
+          </>
         )}
-        {error && (
-          <p className="text-destructive text-center py-12 text-sm">{error}</p>
-        )}
-        <div
-          ref={containerRef}
-          className="docx-viewer-container mx-auto"
-          style={{ maxWidth: '100%' }}
-        />
       </div>
 
       <style>{`
@@ -172,7 +184,7 @@ export function CoachingScripts() {
 
   if (viewingScript) {
     return (
-      <DocxViewer
+      <ScriptViewer
         fileUrl={viewingScript.file_url}
         script={viewingScript}
         onClose={() => setViewingScript(null)}
@@ -342,10 +354,10 @@ function UploadForm({ onSuccess }: { onSuccess: () => void }) {
         </Popover>
       </div>
       <div>
-        <Label>Word Document</Label>
+        <Label>Document (PDF or Word)</Label>
         <Input
           type="file"
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
           onChange={e => setFile(e.target.files?.[0] || null)}
         />
       </div>
