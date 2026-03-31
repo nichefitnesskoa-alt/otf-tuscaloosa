@@ -109,7 +109,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
           </SelectContent>
         </Select>
       )}
-      {outcome === 'follow_up' && (
+      {(outcome === 'follow_up' || outcome === 'planning_2nd') && (
         <Select value={objection} onValueChange={setObjection}>
           <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select objection" /></SelectTrigger>
           <SelectContent>
