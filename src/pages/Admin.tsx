@@ -535,6 +535,10 @@ export default function Admin() {
             <Brain className="w-4 h-4" />
             <span className="hidden sm:inline">Intelligence</span>
           </TabsTrigger>
+          <TabsTrigger value="objections" className="gap-1">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="hidden sm:inline">Objections</span>
+          </TabsTrigger>
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
             <span className="hidden sm:inline">Data</span>
