@@ -1,35 +1,55 @@
 
 
-# Fix Prep Rate & Q Completion to Only Count Showed 1st Intros (Recaps Page)
+# Show Objection Reasons in Drill-Downs + Require Objection on All Non-Sale Outcomes + Admin Objection Report
 
 ## Problem
-1. **Prep Rate denominator** uses `firstIntros.length` (all bookings in date range) instead of `showedBookingIds.size` (only members who showed up). A no-show morning intro inflates the denominator.
-2. **Prep Rate numerator** counts all prepped bookings, even if the member no-showed. It should only count prepped bookings where the member actually showed.
-3. **Future bookings today** are included because filtering only checks `isWithinInterval` on the date, not whether the booking's scheduled time has passed yet.
+1. When drilling into "Showed" in the Conversion Funnel and Lead Source Analytics, people who didn't buy show their raw result (e.g. "Follow-up needed") but not **why** they didn't sign.
+2. Objection is only required for "Follow-up needed" outcome — other non-sale outcomes like "No-show", "Planning to Book 2nd Intro", "Booked 2nd intro", "Not interested" don't capture a reason.
+3. No admin report exists to view objection trends across time periods.
 
 ## Changes
 
-### File: `src/pages/Recaps.tsx` (lines 63-89)
+### 1. Show objection in Showed drill-down detail (`ConversionFunnel.tsx` + `useDashboardMetrics.ts`)
 
-1. **Add time-aware filter** to `firstIntros`: reuse the `hasBookingPassed` pattern (check `class_date` + `intro_time` against `new Date()`) so today's future bookings are excluded.
-2. **Fix Prep Rate denominator**: change from `firstIntros.length` to `qDenominator.length` (same as Q Completion — only showed members).
-3. **Fix Prep Rate numerator**: intersect `preppedIds` with `showedBookingIds` so only prepped+showed bookings count.
-4. **Result**: both Q Completion and Prep Rate return `undefined` (displayed as "—") when no 1st intros have been ran (showed) in the period.
+Currently `showedPeople` uses `showedRun.result` as `detail`. Change to show the `primary_objection` when the person didn't purchase.
 
+- In `ConversionFunnel.tsx` lines ~141-156: When building `firstSP`/`secondSP`, if the run result is not a sale, set `detail` to `run.primary_objection || run.result` instead of just `run.result`.
+- In `useDashboardMetrics.ts` line ~391: Same change for `showedPeople` in lead source metrics — show `(run as any).primary_objection || showedRun.result` as the detail.
+- Update `DrillPerson` display: no structural change needed since `detail` already renders as a Badge.
+
+### 2. Require objection on all non-sale, non-no-show outcomes
+
+**`OutcomeDrawer.tsx`**: Expand `needsObjection` from just `Follow-up needed` to include `Booked 2nd intro`, `Planning to Book 2nd Intro`, and `Not interested`:
 ```typescript
-// Line 87-88 changes:
-const preppedAndShowed = firstIntros.filter(b => showedBookingIds.has(b.id) && preppedIds.has(b.id));
-setQCompletionRate(qDenominator.length > 0 ? (completedQIds.size / qDenominator.length) * 100 : undefined);
-setPrepRate(qDenominator.length > 0 ? (preppedAndShowed.length / qDenominator.length) * 100 : undefined);
+const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
 ```
+The existing validation (`if (needsObjection && !objection)`) and objection dropdown already handle the rest. The objection will be passed to `applyIntroOutcomeUpdate` which stores it in `primary_objection`.
 
-### File: `src/features/myDay/MyDayTopPanel.tsx`
-Apply the same fix to the `useQAndPrepRates` hook (parallel implementation of the same logic).
+**`OutcomeEditor.tsx`**: Similarly expand — require objection for `planning_2nd` outcome (currently only `follow_up` requires it). Add the objection selector for `planning_2nd`.
 
-| Fix | Before | After |
-|-----|--------|-------|
-| Prep denominator | All 1st intros in range | Only showed 1st intros |
-| Prep numerator | All prepped bookings | Prepped AND showed |
-| Future today bookings | Included | Excluded (time-aware) |
-| 0 showed result | Shows 0% | Shows "—" |
+### 3. New Admin Objection Report tab (`src/components/admin/ObjectionReport.tsx`)
+
+Create a new component that:
+- Queries `intros_run` table for `primary_objection`, `result`, `member_name`, `run_date`, `intro_owner`, `lead_source` within a date range
+- Shows a summary card with objection counts as a horizontal bar chart (sorted by frequency)
+- Below, a filterable table listing each person, their objection, result, SA, lead source, and date
+- Date range filter using the existing `DateRangeFilter` component
+- Filter by specific objection type
+
+Add this as a new tab in `Admin.tsx` — insert between existing tabs (e.g. after Intelligence).
+
+### 4. Pass objection through for all non-sale outcomes in OutcomeDrawer
+
+Currently line 395: `objection: needsObjection ? objection : null`. With the expanded `needsObjection`, this already works. For `Booked 2nd intro`, the objection captures "what's holding them back" — this is separate from `secondIntroReason` which is a more specific sub-field. We'll use the same OBJECTION_OPTIONS list.
+
+## Files to Create/Edit
+
+| File | Action |
+|------|--------|
+| `src/components/myday/OutcomeDrawer.tsx` | Expand `needsObjection` to cover all non-sale/non-no-show outcomes |
+| `src/components/dashboard/OutcomeEditor.tsx` | Add objection requirement for `planning_2nd` |
+| `src/components/dashboard/ConversionFunnel.tsx` | Show `primary_objection` in showed drill-down detail |
+| `src/hooks/useDashboardMetrics.ts` | Show `primary_objection` in lead source showed drill-down |
+| `src/components/admin/ObjectionReport.tsx` | **New** — admin objection analytics report |
+| `src/pages/Admin.tsx` | Add Objection Report tab |
 
