@@ -582,6 +582,11 @@ export default function Admin() {
           <IntelligenceTab />
         </TabsContent>
 
+        {/* Objections Tab */}
+        <TabsContent value="objections" className="space-y-4">
+          <ObjectionReport />
+        </TabsContent>
+
         {/* Coaching Tab */}
         <TabsContent value="coaching" className="space-y-4">
           <CoachingView />

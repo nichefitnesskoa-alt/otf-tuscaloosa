@@ -141,7 +141,8 @@ function computeFunnelBothRows(
     const showedRun = runs.find(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
     if (showedRun) {
       firstShowed++;
-      firstSP.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
+      const detailText = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
+      firstSP.push({ name: b.member_name, date: b.class_date, detail: detailText });
     }
   });
 
@@ -152,7 +153,8 @@ function computeFunnelBothRows(
     const showedRun = runs.find(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
     if (showedRun) {
       secondShowed++;
-      secondSP.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
+      const detailText = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
+      secondSP.push({ name: b.member_name, date: b.class_date, detail: detailText });
     }
   });
 

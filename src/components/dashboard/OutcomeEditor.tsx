@@ -118,7 +118,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         </Select>
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'follow_up' && !objection)}>
+        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || ((outcome === 'follow_up' || outcome === 'planning_2nd') && !objection)}>
           {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
           {saving ? 'Saving...' : 'Save'}
         </Button>
