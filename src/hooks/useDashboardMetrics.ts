@@ -388,7 +388,8 @@ export function useDashboardMetrics(
       const showedRun = runs.find(r => r.result !== 'No-show');
       if (showedRun) {
         existing.showed++;
-        existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showedRun.result || undefined });
+        const showDetail = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
+        existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showDetail });
       }
 
       leadSourceMap.set(source, existing);

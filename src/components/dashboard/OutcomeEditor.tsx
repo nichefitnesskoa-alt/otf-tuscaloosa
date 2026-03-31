@@ -71,7 +71,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         previousResult: currentResult,
         membershipType: outcome === 'purchased' ? membershipType : undefined,
         commissionAmount: newCommission,
-        objection: outcome === 'follow_up' ? objection || null : null,
+        objection: (outcome === 'follow_up' || outcome === 'planning_2nd') ? objection || null : null,
         editedBy: saName,
         sourceComponent: 'OutcomeEditor',
         editReason: `Outcome changed from ${currentResult} to ${newResult} via MyDay`,
@@ -109,7 +109,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
           </SelectContent>
         </Select>
       )}
-      {outcome === 'follow_up' && (
+      {(outcome === 'follow_up' || outcome === 'planning_2nd') && (
         <Select value={objection} onValueChange={setObjection}>
           <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Select objection" /></SelectTrigger>
           <SelectContent>
@@ -118,7 +118,7 @@ export function OutcomeEditor({ bookingId, memberName, classDate, currentResult,
         </Select>
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'follow_up' && !objection)}>
+        <Button size="sm" className="h-7 text-[10px] flex-1" onClick={handleSave} disabled={saving || (outcome === 'purchased' && !membershipType) || ((outcome === 'follow_up' || outcome === 'planning_2nd') && !objection)}>
           {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
           {saving ? 'Saving...' : 'Save'}
         </Button>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +31,7 @@ import PipelinePage from '@/features/pipeline/PipelinePage';
 import TenXExercise from '@/components/admin/TenXExercise';
 import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
+import ObjectionReport from '@/components/admin/ObjectionReport';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
@@ -525,7 +526,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-11">
+        <TabsList className="grid w-full grid-cols-12">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -533,6 +534,10 @@ export default function Admin() {
           <TabsTrigger value="intelligence" className="gap-1">
             <Brain className="w-4 h-4" />
             <span className="hidden sm:inline">Intelligence</span>
+          </TabsTrigger>
+          <TabsTrigger value="objections" className="gap-1">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="hidden sm:inline">Objections</span>
           </TabsTrigger>
           <TabsTrigger value="data" className="gap-1">
             <Database className="w-4 h-4" />
@@ -575,6 +580,11 @@ export default function Admin() {
         {/* Intelligence Tab */}
         <TabsContent value="intelligence" className="space-y-4">
           <IntelligenceTab />
+        </TabsContent>
+
+        {/* Objections Tab */}
+        <TabsContent value="objections" className="space-y-4">
+          <ObjectionReport />
         </TabsContent>
 
         {/* Coaching Tab */}
