@@ -184,7 +184,7 @@ export function CoachingScripts() {
 
   if (viewingScript) {
     return (
-      <DocxViewer
+      <ScriptViewer
         fileUrl={viewingScript.file_url}
         script={viewingScript}
         onClose={() => setViewingScript(null)}
