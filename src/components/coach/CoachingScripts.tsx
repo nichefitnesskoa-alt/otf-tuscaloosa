@@ -34,11 +34,11 @@ const FORMAT_STYLES: Record<string, string> = {
 function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: () => void; script: CoachingScript }) {
   const isPdf = script.file_url.toLowerCase().endsWith('.pdf') || script.file_url.toLowerCase().includes('.pdf');
   const containerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(!isPdf);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isPdf) return;
     let cancelled = false;
 
     const render = async () => {
@@ -47,23 +47,30 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
         if (!resp.ok) throw new Error('Failed to fetch file');
         const blob = await resp.blob();
 
-        if (cancelled || !containerRef.current) return;
+        if (cancelled) return;
 
-        const { renderAsync } = await import('docx-preview');
-        containerRef.current.innerHTML = '';
-        await renderAsync(blob, containerRef.current, undefined, {
-          className: 'docx-preview-wrapper',
-          inWrapper: true,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          ignoreFonts: false,
-          breakPages: true,
-          ignoreLastRenderedPageBreak: true,
-          experimental: false,
-          trimXmlDeclaration: true,
-          useBase64URL: true,
-        });
-        setLoading(false);
+        if (isPdf) {
+          const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+          setBlobUrl(url);
+          setLoading(false);
+        } else {
+          if (!containerRef.current) return;
+          const { renderAsync } = await import('docx-preview');
+          containerRef.current.innerHTML = '';
+          await renderAsync(blob, containerRef.current, undefined, {
+            className: 'docx-preview-wrapper',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
+            breakPages: true,
+            ignoreLastRenderedPageBreak: true,
+            experimental: false,
+            trimXmlDeclaration: true,
+            useBase64URL: true,
+          });
+          setLoading(false);
+        }
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || 'Failed to render document');
@@ -73,7 +80,10 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
     };
 
     render();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
   }, [fileUrl, isPdf]);
 
   return (
