@@ -1,0 +1,1 @@
+UPDATE intros_booked SET deleted_at = now(), booking_status = 'Deleted (soft)', booking_status_canon = 'DELETED_SOFT', delete_reason = 'Not actual intros' WHERE id IN ('f1695be1-72e9-479b-9e46-92482708cea3', 'b8578525-a6af-4545-8d1c-f9a3267b4b95');
