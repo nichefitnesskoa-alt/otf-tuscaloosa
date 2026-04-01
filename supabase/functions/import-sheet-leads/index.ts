@@ -307,22 +307,28 @@ Deno.serve(async (req) => {
           // BOOKING PATH → intros_booked
           // ═══════════════════════════════════════
 
-          // Dedup by name+date
+          // Respect active bookings and previously removed bookings so auto-import
+          // does not resurrect rows the team intentionally deleted.
           const { data: existByNameDate } = await supabase
             .from('intros_booked')
-            .select('id')
+            .select('id, deleted_at')
             .ilike('member_name', memberName)
             .eq('class_date', classDate)
-            .is('deleted_at', null)
             .limit(1)
             .maybeSingle();
 
           if (existByNameDate) {
             skippedDuplicate++;
-            // Still record the intake event for audit
             if (messageId) {
               await supabase.from('intake_events').insert({
-                source: 'sheet_import', external_id: messageId, payload: { row_index: i, member_name: memberName }, booking_id: existByNameDate.id,
+                source: 'sheet_import',
+                external_id: messageId,
+                payload: {
+                  row_index: i,
+                  member_name: memberName,
+                  skipped_reason: existByNameDate.deleted_at ? 'matched_deleted_booking' : 'matched_existing_booking',
+                },
+                booking_id: existByNameDate.id,
               });
               existingMessageIds.add(messageId);
             }
@@ -333,8 +339,7 @@ Deno.serve(async (req) => {
           if (phone) {
             const { data: existByPhone } = await supabase
               .from('intros_booked')
-              .select('id')
-              .is('deleted_at', null)
+              .select('id, deleted_at')
               .or(`phone.eq.${phone},phone_e164.eq.+1${phone}`)
               .eq('class_date', classDate)
               .limit(1)
@@ -342,7 +347,15 @@ Deno.serve(async (req) => {
             if (existByPhone) {
               skippedDuplicate++;
               if (messageId) {
-                await supabase.from('intake_events').insert({ source: 'sheet_import', external_id: messageId, payload: { row_index: i }, booking_id: existByPhone.id });
+                await supabase.from('intake_events').insert({
+                  source: 'sheet_import',
+                  external_id: messageId,
+                  payload: {
+                    row_index: i,
+                    skipped_reason: existByPhone.deleted_at ? 'matched_deleted_booking' : 'matched_existing_booking',
+                  },
+                  booking_id: existByPhone.id,
+                });
                 existingMessageIds.add(messageId);
               }
               continue;
