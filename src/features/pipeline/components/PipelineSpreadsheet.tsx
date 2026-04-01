@@ -523,6 +523,16 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
                 )}
               </>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0"><MoreVertical className="w-3 h-3" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onOpenDialog('purge_client', { journey })} className="text-destructive">
+                  <Trash2 className="w-3 h-3 mr-2" /> Delete All Data
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       default: return null;
