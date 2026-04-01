@@ -1031,5 +1031,69 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
     );
   }
 
+  // ── PURGE CLIENT (delete all data) ──
+  if (type === 'purge_client' && journey) {
+    const bookingIds = journey.bookings.map(b => b.id);
+    const runIds = journey.runs.map(r => r.id);
+    const totalRecords = bookingIds.length + runIds.length;
+
+    return (
+      <Dialog open onOpenChange={() => { setDeleteConfirmText(''); onClose(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="w-5 h-5" /> Permanently Delete All Data
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>all records</strong> for <strong>{journey.memberName}</strong>:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
+              {bookingIds.length > 0 && <p>• {bookingIds.length} booking{bookingIds.length !== 1 ? 's' : ''}</p>}
+              {runIds.length > 0 && <p>• {runIds.length} intro run{runIds.length !== 1 ? 's' : ''}</p>}
+              <p>• All linked follow-ups, questionnaires, touches, and outcome events</p>
+            </div>
+            <p className="text-destructive font-semibold text-xs">This action cannot be undone. Type DELETE to confirm.</p>
+          </div>
+          <Input value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="Type DELETE to confirm" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteConfirmText(''); onClose(); }}>Cancel</Button>
+            <Button variant="destructive" disabled={isSaving || deleteConfirmText !== 'DELETE'} onClick={() => withSave(async () => {
+              // Delete in dependency order: children first
+              if (bookingIds.length > 0) {
+                await supabase.from('follow_up_queue').delete().in('booking_id', bookingIds);
+                await supabase.from('followup_touches').delete().in('booking_id', bookingIds);
+                await supabase.from('script_actions').delete().in('booking_id', bookingIds);
+                await supabase.from('outcome_events').delete().in('booking_id', bookingIds);
+                await supabase.from('outcome_changes').delete().in('booking_id', bookingIds);
+                await supabase.from('intro_questionnaires').delete().in('booking_id', bookingIds);
+                await supabase.from('vip_registrations').delete().in('booking_id', bookingIds);
+              }
+              if (runIds.length > 0) {
+                await supabase.from('followup_touches').delete().in('run_id', runIds);
+                await supabase.from('intros_run').delete().in('id', runIds);
+              }
+              if (bookingIds.length > 0) {
+                // Clear self-referencing FKs first
+                await supabase.from('intros_booked').update({
+                  originating_booking_id: null,
+                  paired_booking_id: null,
+                  rebooked_from_booking_id: null,
+                  converted_to_booking_id: null,
+                }).in('id', bookingIds);
+                await supabase.from('intros_booked').delete().in('id', bookingIds);
+              }
+              toast.success(`All data for ${journey.memberName} permanently deleted`);
+              setDeleteConfirmText('');
+            })}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />} Delete Everything
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return null;
 }
