@@ -66,6 +66,7 @@ export function TheirStory({
   afterWhySlot,
   briefSlot,
   editedBy,
+  onConsentChange,
 }: TheirStoryProps) {
   const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
