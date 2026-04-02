@@ -36,6 +36,10 @@ interface CoachBooking {
   last_edited_at: string | null;
   questionnaire_status_canon?: string;
   coach_brief_five_vision?: string | null;
+  coach_shoutout_start?: boolean | null;
+  coach_shoutout_end?: boolean | null;
+  coach_referral_asked?: boolean | null;
+  coach_referral_names?: string | null;
 }
 
 interface QuestionnaireMap {
