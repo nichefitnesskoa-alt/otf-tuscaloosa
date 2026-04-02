@@ -196,6 +196,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             readOnly={true}
             onFieldSaved={() => onUpdateBooking(booking.id, {})}
             editedBy={userName}
+            onConsentChange={setConsentValue}
           />
 
           {/* Coach Notes (if saved) */}
