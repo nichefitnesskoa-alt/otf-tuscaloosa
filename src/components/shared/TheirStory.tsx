@@ -1,7 +1,11 @@
 /**
- * TheirStory — shared 3-field section for SA and Coach intro cards.
- * Fields: fitness level (1-5), what 5/5 looks like, what it would mean.
- * Auto-creates questionnaire record if none exists on first save.
+ * TheirStory — 3-zone section for SA and Coach intro cards.
+ *
+ * Zone 1 (left): Read-only questionnaire answers — "Before the Conversation"
+ * Zone 2 (right): Live conversation inputs — "The Conversation"
+ * Zone 3 (full width): The Brief fields — "After the Conversation"
+ *
+ * Desktop two-column layout for Zone 1 + Zone 2.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,12 +18,24 @@ interface TheirStoryProps {
   bookingId: string;
   memberName: string;
   classDate: string;
-  /** If true, fields show read-only when questionnaire is complete */
+  /** If true, Zone 2 fields show read-only */
   readOnly?: boolean;
   /** Called after any field is saved */
   onFieldSaved?: () => void;
-  /** Optional: slot rendered after Field 3 (coach WHY plan) */
+  /** Optional: slot rendered after Zone 2 Field 2 (coach WHY plan) */
   afterWhySlot?: React.ReactNode;
+  /** The Brief fields — passed as children of Zone 3 */
+  briefSlot?: React.ReactNode;
+}
+
+interface QData {
+  id: string;
+  status: string;
+  q1_fitness_goal: string | null;
+  q2_fitness_level: number | null;
+  q5_emotional_driver: string | null;
+  q6_weekly_commitment: string | null;
+  q6b_available_days: string | null;
 }
 
 function SavedIndicator({ show }: { show: boolean }) {
@@ -27,13 +43,31 @@ function SavedIndicator({ show }: { show: boolean }) {
   return <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>;
 }
 
-export function TheirStory({ bookingId, memberName, classDate, readOnly = false, onFieldSaved, afterWhySlot }: TheirStoryProps) {
+function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="space-y-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <p className="text-sm">{value || <span className="text-muted-foreground italic">Not answered</span>}</p>
+    </div>
+  );
+}
+
+export function TheirStory({
+  bookingId,
+  memberName,
+  classDate,
+  readOnly = false,
+  onFieldSaved,
+  afterWhySlot,
+  briefSlot,
+}: TheirStoryProps) {
   const [qId, setQId] = useState<string | null>(null);
-  const [qComplete, setQComplete] = useState(false);
-  const [fitnessLevel, setFitnessLevel] = useState<number | null>(null);
-  const [fitnessGoal, setFitnessGoal] = useState('');
-  const [emotionalDriver, setEmotionalDriver] = useState('');
+  const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Zone 2 fields — always start BLANK for SA, show value read-only for coach
+  const [goalText, setGoalText] = useState('');
+  const [driverText, setDriverText] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -42,26 +76,61 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
     setTimeout(() => setSavedField(null), 2000);
   };
 
+  // Load questionnaire data
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('intro_questionnaires')
-        .select('id, status, q1_fitness_goal, q2_fitness_level, q5_emotional_driver')
+        .select('id, status, q1_fitness_goal, q2_fitness_level, q5_emotional_driver, q6_weekly_commitment, q6b_available_days')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (data) {
-        setQId(data.id);
-        const s = (data as any).status;
-        setQComplete(s === 'completed' || s === 'submitted');
-        setFitnessLevel((data as any).q2_fitness_level ?? null);
-        setFitnessGoal((data as any).q1_fitness_goal || '');
-        setEmotionalDriver((data as any).q5_emotional_driver || '');
+        const d = data as any;
+        setQId(d.id);
+        setQData({
+          id: d.id,
+          status: d.status,
+          q1_fitness_goal: d.q1_fitness_goal,
+          q2_fitness_level: d.q2_fitness_level,
+          q5_emotional_driver: d.q5_emotional_driver,
+          q6_weekly_commitment: d.q6_weekly_commitment,
+          q6b_available_days: d.q6b_available_days,
+        });
       }
       setLoading(false);
     })();
   }, [bookingId]);
+
+  // Realtime subscription for coach view live updates
+  useEffect(() => {
+    if (!readOnly) return; // Only subscribe in coach/read-only mode
+    const channel = supabase
+      .channel(`theirstory-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'intro_questionnaires', filter: `booking_id=eq.${bookingId}` },
+        (payload: any) => {
+          const d = payload.new;
+          if (d) {
+            setQId(d.id);
+            setQData({
+              id: d.id,
+              status: d.status,
+              q1_fitness_goal: d.q1_fitness_goal,
+              q2_fitness_level: d.q2_fitness_level,
+              q5_emotional_driver: d.q5_emotional_driver,
+              q6_weekly_commitment: d.q6_weekly_commitment,
+              q6b_available_days: d.q6b_available_days,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [bookingId, readOnly]);
 
   const ensureQRecord = useCallback(async (): Promise<string> => {
     if (qId) return qId;
@@ -89,98 +158,140 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
     onFieldSaved?.();
   }, [ensureQRecord, onFieldSaved]);
 
-  const debounceSave = useCallback((key: string, fn: () => void, delay = 800) => {
-    if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
-    debounceTimers.current[key] = setTimeout(fn, delay);
-  }, []);
-
-  // Can edit if not in readOnly mode, OR if readOnly but questionnaire not complete
-  const canEdit = !readOnly || !qComplete;
-
-  const handleFitnessLevel = (val: string) => {
-    if (val === '') { setFitnessLevel(null); saveField('q2_fitness_level', null); return; }
-    const n = parseInt(val);
-    if (!isNaN(n) && n >= 1 && n <= 5) { setFitnessLevel(n); saveField('q2_fitness_level', n); }
+  const handleGoalBlur = () => {
+    if (goalText.trim()) {
+      saveField('q1_fitness_goal', goalText.trim());
+    }
   };
 
-  const handleGoalChange = (val: string) => {
-    setFitnessGoal(val);
-    debounceSave('goal', () => saveField('q1_fitness_goal', val || null));
-  };
-
-  const handleDriverChange = (val: string) => {
-    setEmotionalDriver(val);
-    debounceSave('driver', () => saveField('q5_emotional_driver', val || null));
+  const handleDriverBlur = () => {
+    if (driverText.trim()) {
+      saveField('q5_emotional_driver', driverText.trim());
+    }
   };
 
   if (loading) return null;
 
+  // Zone 1 read-only values
+  const fitnessLevel = qData?.q2_fitness_level;
+  const fitnessGoal = qData?.q1_fitness_goal;
+  const emotionalDriver = qData?.q5_emotional_driver;
+  const commitment = qData?.q6_weekly_commitment;
+  const availDays = qData?.q6b_available_days;
+  const commitmentDisplay = [commitment, availDays].filter(Boolean).join(' | ') || null;
+
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
-      {/* Field 1 — Fitness level */}
-      <div className="space-y-0.5">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">Current fitness level</Label>
-          <SavedIndicator show={savedField === 'q2_fitness_level'} />
-        </div>
-        {canEdit ? (
-          <Input
-            type="number"
-            min={1}
-            max={5}
-            value={fitnessLevel ?? ''}
-            onChange={e => handleFitnessLevel(e.target.value)}
-            placeholder='Ask: 1 to 5 — where are you today?'
-            className="h-8 text-sm w-full"
-          />
-        ) : (
-          <p className="text-sm font-semibold">{fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</p>
-        )}
-      </div>
+      {/* Zone 1 + Zone 2: side-by-side on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-      {/* Field 2 — What 5/5 looks like */}
-      <div className="space-y-0.5">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">What would a 5/5 look like for you?</Label>
-          <SavedIndicator show={savedField === 'q1_fitness_goal'} />
-        </div>
-        {canEdit ? (
-          <Textarea
-            value={fitnessGoal}
-            onChange={e => handleGoalChange(e.target.value)}
-            placeholder="Write their exact words."
-            className="min-h-[48px] text-sm"
-          />
-        ) : (
-          <p className="text-sm">{fitnessGoal ? `"${fitnessGoal}"` : '—'}</p>
-        )}
-      </div>
-
-      {/* Field 3 — What it would mean (orange highlight) */}
-      <div className="space-y-0.5">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">What would it mean to you if you got there?</Label>
-          <SavedIndicator show={savedField === 'q5_emotional_driver'} />
-        </div>
-        {canEdit ? (
-          <Textarea
-            value={emotionalDriver}
-            onChange={e => handleDriverChange(e.target.value)}
-            placeholder="Write their exact words. This is what the coach uses."
-            className={cn('min-h-[48px] text-sm', emotionalDriver && 'border-[#E8540A]/50')}
-          />
-        ) : null}
-        {emotionalDriver && (
-          <p className="text-sm font-semibold mt-1" style={{ color: '#E8540A' }}>
-            {!canEdit ? `"${emotionalDriver}"` : `↑ ${emotionalDriver}`}
+        {/* ── ZONE 1: Before the Conversation (read-only) ── */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            What they shared before arriving
           </p>
-        )}
+          <div className="space-y-2 pl-0.5">
+            <ReadOnlyField
+              label="Fitness level"
+              value={fitnessLevel != null ? `${fitnessLevel}/5` : null}
+            />
+            <ReadOnlyField
+              label="Looking for"
+              value={fitnessGoal}
+            />
+            <ReadOnlyField
+              label="Their why"
+              value={emotionalDriver}
+            />
+            <ReadOnlyField
+              label="Commitment"
+              value={commitmentDisplay}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground italic mt-1">
+            This is what they typed. The real answer comes from the conversation.
+          </p>
+        </div>
+
+        {/* ── ZONE 2: The Conversation (live inputs or read-only) ── */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            In their own words
+          </p>
+
+          {/* Field 1 — What would 5/5 look like */}
+          <div className="space-y-0.5">
+            <div className="flex items-center">
+              <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
+                What would a 5/5 look like for you?
+              </Label>
+              <SavedIndicator show={savedField === 'q1_fitness_goal'} />
+            </div>
+            {!readOnly ? (
+              <>
+                <p className="text-[10px] text-muted-foreground">Ask this. Write their exact words.</p>
+                <Textarea
+                  value={goalText}
+                  onChange={e => setGoalText(e.target.value)}
+                  onBlur={handleGoalBlur}
+                  className="min-h-[80px] text-sm"
+                />
+              </>
+            ) : (
+              <p className="text-sm">
+                {fitnessGoal || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
+              </p>
+            )}
+          </div>
+
+          {/* Field 2 — What would it mean */}
+          <div className="space-y-0.5">
+            <div className="flex items-center">
+              <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
+                What would it mean to you if you got there?
+              </Label>
+              <SavedIndicator show={savedField === 'q5_emotional_driver'} />
+            </div>
+            {!readOnly ? (
+              <>
+                <p className="text-[10px] text-muted-foreground">Let them dream. Write exactly what they say.</p>
+                <Textarea
+                  value={driverText}
+                  onChange={e => setDriverText(e.target.value)}
+                  onBlur={handleDriverBlur}
+                  className="min-h-[80px] text-sm"
+                />
+              </>
+            ) : (
+              <p className="text-sm">
+                {emotionalDriver || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
+              </p>
+            )}
+
+            {/* Orange highlight line — show saved value (from DB, not from local input) */}
+            {(readOnly ? emotionalDriver : driverText.trim()) && (
+              <p className="text-sm font-semibold mt-1.5" style={{ color: '#E8540A' }}>
+                ↑ {readOnly ? emotionalDriver : driverText.trim()}
+              </p>
+            )}
+          </div>
+
+          {/* Coach WHY plan slot — sits directly below the orange line */}
+          {afterWhySlot}
+        </div>
       </div>
 
-      {/* Optional slot for coach WHY plan directly below Field 3 */}
-      {afterWhySlot}
+      {/* ── ZONE 3: After the Conversation (The Brief) ── */}
+      {briefSlot && (
+        <div className="space-y-2 pt-2 border-t border-border/50">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            After dig deeper — hand to coach
+          </p>
+          {briefSlot}
+        </div>
+      )}
     </div>
   );
 }
