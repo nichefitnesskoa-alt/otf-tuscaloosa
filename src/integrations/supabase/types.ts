@@ -856,6 +856,10 @@ export type Database = {
           coach_brief_why_moment: string | null
           coach_name: string
           coach_notes: string | null
+          coach_referral_asked: boolean | null
+          coach_referral_names: string | null
+          coach_shoutout_end: boolean | null
+          coach_shoutout_start: boolean | null
           converted_to_booking_id: string | null
           created_at: string
           delete_reason: string | null
@@ -918,6 +922,10 @@ export type Database = {
           coach_brief_why_moment?: string | null
           coach_name: string
           coach_notes?: string | null
+          coach_referral_asked?: boolean | null
+          coach_referral_names?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -980,6 +988,10 @@ export type Database = {
           coach_brief_why_moment?: string | null
           coach_name?: string
           coach_notes?: string | null
+          coach_referral_asked?: boolean | null
+          coach_referral_names?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -2450,7 +2462,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      coach_wig_summary: {
+        Row: {
+          coach_name: string | null
+          member_intro_rate: number | null
+          prepped_rate: number | null
+          referral_ask_rate: number | null
+          shoutout_end_rate: number | null
+          shoutout_start_rate: number | null
+          total_first_intros_coached: number | null
+          why_used_rate: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }

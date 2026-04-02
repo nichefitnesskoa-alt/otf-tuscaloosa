@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FileEdit, Plus } from 'lucide-react';
+import { CoachPrePostClass } from './CoachPrePostClass';
 
 interface CoachBooking {
   id: string;
@@ -30,6 +31,10 @@ interface CoachBooking {
   coach_brief_human_detail?: string | null;
   coach_brief_why_moment?: string | null;
   coach_brief_five_vision?: string | null;
+  coach_shoutout_start?: boolean | null;
+  coach_shoutout_end?: boolean | null;
+  coach_referral_asked?: boolean | null;
+  coach_referral_names?: string | null;
 }
 
 interface QuestionnaireData {
@@ -67,9 +72,25 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [briefFiveVision, setBriefFiveVision] = useState((booking as any).coach_brief_five_vision || '');
   const [noteText, setNoteText] = useState(booking.coach_notes || '');
   const [saving, setSaving] = useState(false);
+  const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
+
+  const isSecondIntro = !!booking.originating_booking_id;
+
+  // Fetch linked intros_run record for 1st intros
+  useEffect(() => {
+    if (isSecondIntro) return;
+    (async () => {
+      const { data } = await supabase
+        .from('intros_run')
+        .select('id, goal_why_captured, made_a_friend, relationship_experience')
+        .eq('linked_intro_booked_id', booking.id)
+        .limit(1)
+        .maybeSingle();
+      if (data) setRunData(data as any);
+    })();
+  }, [booking.id, isSecondIntro]);
 
   const firstName = booking.member_name.split(' ')[0];
-  const isSecondIntro = !!booking.originating_booking_id;
   const saName = booking.intro_owner || 'SA';
 
   const q = questionnaire;
@@ -228,6 +249,35 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 <p className="text-sm">{booking.coach_notes}</p>
               </div>
             </>
+          )}
+
+          {/* Pre-Class / Post-Class — 1st intros only */}
+          {!isSecondIntro && (
+            <CoachPrePostClass
+              bookingId={booking.id}
+              coachBriefWhyMoment={(booking as any).coach_brief_why_moment ?? null}
+              shoutoutConsent={booking.shoutout_consent}
+              coachShoutoutStart={(booking as any).coach_shoutout_start ?? null}
+              coachShoutoutEnd={(booking as any).coach_shoutout_end ?? null}
+              coachReferralAsked={(booking as any).coach_referral_asked ?? null}
+              coachReferralNames={(booking as any).coach_referral_names ?? null}
+              runId={runData?.id ?? null}
+              goalWhyCaptured={runData?.goal_why_captured ?? null}
+              madeAFriend={runData?.made_a_friend ?? null}
+              relationshipExperience={runData?.relationship_experience ?? null}
+              onFieldSaved={() => {
+                // Re-fetch run data in case it was updated
+                if (!isSecondIntro) {
+                  supabase
+                    .from('intros_run')
+                    .select('id, goal_why_captured, made_a_friend, relationship_experience')
+                    .eq('linked_intro_booked_id', booking.id)
+                    .limit(1)
+                    .maybeSingle()
+                    .then(({ data }) => { if (data) setRunData(data as any); });
+                }
+              }}
+            />
           )}
 
           <Separator />
