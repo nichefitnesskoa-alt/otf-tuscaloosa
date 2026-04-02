@@ -485,7 +485,8 @@ export default function IntroRowCard({
           memberName={item.memberName}
           classDate={item.classDate}
           onFieldSaved={onRefresh}
-        />
+        >
+        </TheirStory>
       </IntroCard>
 
 
