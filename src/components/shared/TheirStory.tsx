@@ -65,9 +65,10 @@ export function TheirStory({
   const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Zone 2 fields — always start BLANK for SA, show value read-only for coach
+  // Zone 2 fields — persist after save, never clear
   const [goalText, setGoalText] = useState('');
   const [driverText, setDriverText] = useState('');
+  const [initialized, setInitialized] = useState(false);
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 

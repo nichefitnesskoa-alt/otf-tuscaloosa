@@ -75,45 +75,6 @@ export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
     <div className="space-y-2.5">
       <div className="space-y-0.5">
         <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">Looking for</Label>
-          <SavedIndicator show={savedField === 'sa_buying_criteria'} />
-        </div>
-        <Textarea
-          value={lookingFor}
-          onChange={e => { setLookingFor(e.target.value); debounce('lf', () => saveField('sa_buying_criteria', e.target.value || null)); }}
-          placeholder="Use their exact words…"
-          className="min-h-[48px] text-sm"
-        />
-      </div>
-
-      <div className="space-y-0.5">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">Potential objection</Label>
-          <SavedIndicator show={savedField === 'sa_objection'} />
-        </div>
-        <Textarea
-          value={objection}
-          onChange={e => { setObjection(e.target.value); debounce('obj', () => saveField('sa_objection', e.target.value || null)); }}
-          placeholder="What might hold them back?"
-          className="min-h-[48px] text-sm"
-        />
-      </div>
-
-      <div className="space-y-0.5">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">What would 5/5 look like (for coach)</Label>
-          <SavedIndicator show={savedField === 'coach_brief_five_vision'} />
-        </div>
-        <Textarea
-          value={fiveVision}
-          onChange={e => { setFiveVision(e.target.value); debounce('fv', () => saveField('coach_brief_five_vision', e.target.value || null)); }}
-          placeholder="Their answer to 'What would being a 5 look like to you?'"
-          className="min-h-[48px] text-sm"
-        />
-      </div>
-
-      <div className="space-y-0.5">
-        <div className="flex items-center">
           <Label className="text-xs font-medium text-muted-foreground">Any additional notes</Label>
           <SavedIndicator show={savedField === 'coach_brief_human_detail'} />
         </div>
