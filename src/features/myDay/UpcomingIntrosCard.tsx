@@ -4,7 +4,7 @@
  * Auto-expands the next upcoming intro on load.
  * Summary line at top: Today: X intros · Y Q complete · Z shown · W closed
  */
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, RefreshCw, AlertCircle, ChevronDown } from 'lucide-react';
