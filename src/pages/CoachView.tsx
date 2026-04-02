@@ -114,7 +114,7 @@ export default function CoachView() {
   useEffect(() => {
     const channel = supabase
       .channel('coach-view-bookings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tab, coachName, isAdmin]);
