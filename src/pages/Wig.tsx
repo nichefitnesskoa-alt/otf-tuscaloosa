@@ -537,7 +537,7 @@ export default function Wig() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">SA</TableHead>
-                      <TableHead className="text-xs text-center">Referral Asks</TableHead>
+                      <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
                       <TableHead className="text-xs text-center">Deploys</TableHead>
                       <TableHead className="text-xs text-center">Packs Gifted</TableHead>
                     </TableRow>

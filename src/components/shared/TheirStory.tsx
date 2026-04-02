@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ChevronRight } from 'lucide-react';
 
 interface TheirStoryProps {
   bookingId: string;
@@ -27,6 +28,8 @@ interface TheirStoryProps {
   briefSlot?: React.ReactNode;
   /** SA user name for edit tracking */
   editedBy?: string;
+  /** Fires when consent value changes */
+  onConsentChange?: (val: boolean | null) => void;
 }
 
 interface QData {
@@ -63,6 +66,7 @@ export function TheirStory({
   afterWhySlot,
   briefSlot,
   editedBy,
+  onConsentChange,
 }: TheirStoryProps) {
   const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,14 +205,16 @@ export function TheirStory({
     // Cycle: null → true, true → false, false → true
     const next = consent === true ? false : true;
     setConsent(next);
+    onConsentChange?.(next);
     await supabase.from('intros_booked').update({
       shoutout_consent: next,
       last_edited_at: new Date().toISOString(),
       last_edited_by: editedBy || null,
     } as any).eq('id', bookingId);
-    flashSaved('shoutout_consent');
+    setSavedField('shoutout_consent');
+    setTimeout(() => setSavedField(null), 1000);
     // Do NOT call onFieldSaved here — prevents parent re-render that collapses the card
-  }, [bookingId, consent, editedBy]);
+  }, [bookingId, consent, editedBy, onConsentChange]);
 
   if (loading) return null;
 
@@ -222,16 +228,20 @@ export function TheirStory({
   const qObstacle = qData?.q3_obstacle;
 
   // Shoutout bar display
-  const consentLabel = consent === true ? 'Shoutout: YES' : consent === false ? 'Shoutout: NO' : 'Shoutout: Not asked yet';
-  const consentBg = consent === null ? '#d97706' : '#E8540A'; // amber for null, orange for set
+  const consentLabel = consent === true
+    ? 'Shoutout: YES — tap to change'
+    : consent === false
+      ? 'Shoutout: NO — tap to change'
+      : 'Shoutout — tap to set';
+  const consentBg = consent === true ? '#22c55e' : consent === false ? '#E8540A' : '#F59E0B';
 
   return (
     <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
-      {/* ── SHOUTOUT CONSENT — orange tappable bar ── */}
+      {/* ── SHOUTOUT CONSENT — tappable bar ── */}
       <div
-        className="w-full flex items-center justify-center px-3 py-2 rounded-md cursor-pointer select-none"
+        className="w-full flex items-center justify-between px-3 py-2 rounded-md cursor-pointer select-none hover:opacity-90 transition-opacity"
         style={{ backgroundColor: consentBg, minHeight: '36px' }}
         onClick={toggleConsent}
         onMouseDown={e => e.stopPropagation()}
@@ -239,7 +249,10 @@ export function TheirStory({
         <span className="text-white text-sm font-bold tracking-wide">
           {consentLabel}
         </span>
-        <SavedIndicator show={savedField === 'shoutout_consent'} />
+        <div className="flex items-center gap-1">
+          <SavedIndicator show={savedField === 'shoutout_consent'} />
+          <ChevronRight className="w-4 h-4 text-white" />
+        </div>
       </div>
 
       {/* Zone 1 + Zone 2: side-by-side on desktop */}

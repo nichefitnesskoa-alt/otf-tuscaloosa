@@ -76,6 +76,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [memberName, setMemberName] = useState('');
   const [pairPlan, setPairPlan] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
+  const [consentValue, setConsentValue] = useState<boolean | null>(booking.shoutout_consent ?? null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isSecondIntro = !!booking.originating_booking_id;
@@ -195,6 +196,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             readOnly={true}
             onFieldSaved={() => onUpdateBooking(booking.id, {})}
             editedBy={userName}
+            onConsentChange={setConsentValue}
           />
 
           {/* Coach Notes (if saved) */}
@@ -215,8 +217,12 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               <div>
                 <h4 className="font-bold text-sm mb-2">POST-CLASS</h4>
                 <div className="space-y-3">
-                  <ToggleField label="Did you shout them out at the start of class?" checked={shoutoutStart} onChange={handleShoutoutStart} savedKey="coach_shoutout_start" />
-                  <ToggleField label="Did you shout them out at the end of class?" checked={shoutoutEnd} onChange={handleShoutoutEnd} savedKey="coach_shoutout_end" />
+                  <div className={cn(consentValue === false && 'opacity-50')}>
+                    <ToggleField label="Did you shout them out at the start of class?" checked={shoutoutStart} onChange={handleShoutoutStart} savedKey="coach_shoutout_start" />
+                  </div>
+                  <div className={cn(consentValue === false && 'opacity-50')}>
+                    <ToggleField label="Did you shout them out at the end of class?" checked={shoutoutEnd} onChange={handleShoutoutEnd} savedKey="coach_shoutout_end" />
+                  </div>
                   <ToggleField label="Did you ask follow-up questions about their goal and give personalized advice?" checked={usedWhy} onChange={handleUsedWhy} savedKey="goal_why_captured" />
 
                   {/* Member introduction */}
