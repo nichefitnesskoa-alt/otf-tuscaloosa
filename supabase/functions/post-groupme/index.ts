@@ -323,7 +323,20 @@ serve(async (req) => {
     if (action === 'post') {
       const shift = shiftType === 'PM Shift' || shiftType === 'PM' ? 'PM' : 'AM';
       const recapDate = date || new Date().toISOString().split('T')[0];
-      
+
+      // Gate: check if SA logged any shift tasks before allowing GroupMe post
+      if (staffName) {
+        const { count: taskActivity } = await supabaseAdmin
+          .from('shift_task_completions')
+          .select('id', { count: 'exact', head: true })
+          .eq('sa_name', staffName)
+          .eq('shift_date', recapDate)
+          .or('completed.eq.true,count_logged.gt.0');
+        if (!taskActivity || taskActivity === 0) {
+          return new Response(JSON.stringify({ success: true, skipped: true, message: 'No shift tasks completed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
       const { text: msgText, hasActivity } = await buildRecapMessage(supabaseAdmin, recapDate, shift, staffName);
       
       if (!hasActivity) {
