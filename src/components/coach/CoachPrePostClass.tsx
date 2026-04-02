@@ -179,23 +179,10 @@ export function CoachPrePostClass({
     <>
       <Separator />
 
-      {/* PRE-CLASS */}
+      {/* PRE-CLASS — shoutout consent only (WHY plan moved to THEIR STORY) */}
       <div>
         <h4 className="font-bold text-sm mb-2">PRE-CLASS</h4>
         <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="flex items-center">
-              <Label className="text-sm font-medium">How will you use their WHY today?</Label>
-              <SavedIndicator show={savedField === 'coach_brief_why_moment'} />
-            </div>
-            <Textarea
-              value={whyPlan}
-              onChange={e => handleWhyChange(e.target.value)}
-              placeholder="Write one sentence you'll say to this person specifically."
-              className="min-h-[56px] text-sm"
-            />
-          </div>
-
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Label className="text-sm font-medium">Shoutout consent</Label>
