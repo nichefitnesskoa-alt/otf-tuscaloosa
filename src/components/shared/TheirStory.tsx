@@ -99,6 +99,12 @@ export function TheirStory({
           q6_weekly_commitment: d.q6_weekly_commitment,
           q6b_available_days: d.q6b_available_days,
         });
+        // Initialize Zone 2 fields from DB so text persists across re-mounts
+        if (!initialized && !readOnly) {
+          if (d.q1_fitness_goal) setGoalText(d.q1_fitness_goal);
+          if (d.q5_emotional_driver) setDriverText(d.q5_emotional_driver);
+          setInitialized(true);
+        }
       }
       setLoading(false);
     })();
