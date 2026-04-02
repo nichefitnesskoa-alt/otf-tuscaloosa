@@ -175,6 +175,7 @@ export function PrepDrawer({
   const [saConv5of5, setSaConv5of5] = useState<string | null>(null);
   const [saConvMeaning, setSaConvMeaning] = useState<string | null>(null);
   const [saConvObstacle, setSaConvObstacle] = useState<string | null>(null);
+  const [coachMemberPairPlan, setCoachMemberPairPlan] = useState<string | null>(null);
   const { data: objectionPlaybooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
