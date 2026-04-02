@@ -527,7 +527,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-12">
+        <TabsList className="grid w-full grid-cols-13">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -571,6 +571,10 @@ export default function Admin() {
           <TabsTrigger value="hiring" className="gap-1">
             <UserPlus className="w-4 h-4" />
             <span className="hidden sm:inline">Hiring</span>
+          </TabsTrigger>
+          <TabsTrigger value="shifts" className="gap-1">
+            <ListChecks className="w-4 h-4" />
+            <span className="hidden sm:inline">Shifts</span>
           </TabsTrigger>
           <TabsTrigger value="10x" className="gap-1">
             <Zap className="w-4 h-4" />
