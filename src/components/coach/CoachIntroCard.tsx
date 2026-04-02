@@ -72,9 +72,23 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [briefFiveVision, setBriefFiveVision] = useState((booking as any).coach_brief_five_vision || '');
   const [noteText, setNoteText] = useState(booking.coach_notes || '');
   const [saving, setSaving] = useState(false);
+  const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
 
-  const firstName = booking.member_name.split(' ')[0];
   const isSecondIntro = !!booking.originating_booking_id;
+
+  // Fetch linked intros_run record for 1st intros
+  useEffect(() => {
+    if (isSecondIntro) return;
+    (async () => {
+      const { data } = await supabase
+        .from('intros_run')
+        .select('id, goal_why_captured, made_a_friend, relationship_experience')
+        .eq('linked_intro_booked_id', booking.id)
+        .limit(1)
+        .maybeSingle();
+      if (data) setRunData(data as any);
+    })();
+  }, [booking.id, isSecondIntro]);
   const saName = booking.intro_owner || 'SA';
 
   const q = questionnaire;
