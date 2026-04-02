@@ -268,7 +268,7 @@ export default function Recaps() {
             </CardContent>
           </Card>
 
-          <MilestonesDeploySection />
+          <PerCoachTable dateRange={dateRange} />
         </TabsContent>
       </Tabs>
     </div>

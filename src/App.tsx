@@ -103,6 +103,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/wig"
+        element={
+          <ProtectedRoute>
+            <Wig />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin"
         element={
           <ProtectedRoute requireAdmin>
