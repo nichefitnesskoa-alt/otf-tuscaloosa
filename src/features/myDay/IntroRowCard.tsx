@@ -40,19 +40,34 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
 function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q✓</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#d97706] text-white border-transparent">Q?</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Q Sent</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#dc2626] text-white border-transparent">Q!</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>;
   }
 }
 
-function ShoutoutDot({ consent }: { consent: boolean | null | undefined }) {
-  if (consent === true) return <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" title="Shoutout: Yes" />;
-  if (consent === false) return <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" title="Shoutout: No" />;
-  return <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" title="Shoutout: Not asked" />;
+function ShoutoutLabel({ consent }: { consent: boolean | null | undefined }) {
+  if (consent === true) return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-success font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" />
+      Shoutout ✓
+    </span>
+  );
+  if (consent === false) return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-destructive font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" />
+      Shoutout ✗
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-muted-foreground font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" />
+      Shoutout?
+    </span>
+  );
 }
 
 interface IntroRowCardProps {
