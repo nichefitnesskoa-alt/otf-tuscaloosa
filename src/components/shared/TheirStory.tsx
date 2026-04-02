@@ -226,7 +226,7 @@ export function TheirStory({
   const consentBg = consent === null ? '#d97706' : '#E8540A'; // amber for null, orange for set
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
       {/* ── SHOUTOUT CONSENT — orange tappable bar ── */}
