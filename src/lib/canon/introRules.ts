@@ -3,6 +3,7 @@
  * Single source of truth for VIP detection, day bucketing, and outcome resolution.
  */
 import { format, addDays, endOfWeek } from 'date-fns';
+import { getNowCentral } from '@/lib/dateUtils';
 
 /**
  * Returns true if the booking is a VIP event booking (not a normal intro).
