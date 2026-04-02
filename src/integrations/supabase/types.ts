@@ -413,6 +413,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_lead_log: {
+        Row: {
+          created_at: string
+          id: string
+          lead_count: number
+          log_date: string
+          logged_by: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_count: number
+          log_date?: string
+          logged_by: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_count?: number
+          log_date?: string
+          logged_by?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_outreach_log: {
         Row: {
           cold_dms_sent: number

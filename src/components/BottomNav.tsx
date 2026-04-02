@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings, Eye } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -33,6 +33,7 @@ export function BottomNav() {
   const visibleItems = [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
+    { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     // Admin + Coach View tabs only visible to users with Admin role
     ...(isAdmin ? [

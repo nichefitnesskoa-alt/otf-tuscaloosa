@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PerSATable } from '@/components/dashboard/PerSATable';
+import { PerCoachTable } from '@/components/dashboard/PerCoachTable';
 import { BookerStatsTable } from '@/components/dashboard/BookerStatsTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
@@ -27,7 +28,7 @@ import { isWithinInterval } from 'date-fns';
 import { isMembershipSale } from '@/lib/sales-detection';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
-import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
+
 
 export default function Recaps() {
   const { user } = useAuth();
@@ -268,7 +269,7 @@ export default function Recaps() {
             </CardContent>
           </Card>
 
-          <MilestonesDeploySection />
+          <PerCoachTable dateRange={dateRange} />
         </TabsContent>
       </Tabs>
     </div>

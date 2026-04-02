@@ -16,6 +16,7 @@ import Meeting from "./pages/Meeting";
 import Admin from "./pages/Admin";
 import SettingsPage from "./pages/Settings";
 import Pipeline from "./pages/Pipeline";
+import Wig from "./pages/Wig";
 import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
 import SuccessStory from "./pages/SuccessStory";
@@ -98,6 +99,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Pipeline />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/wig"
+        element={
+          <ProtectedRoute>
+            <Wig />
           </ProtectedRoute>
         }
       />
