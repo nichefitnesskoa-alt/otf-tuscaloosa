@@ -546,10 +546,9 @@ export default function IntroRowCard({
         topBanner={topBanner}
         outcomeBanner={outcomeBanner}
         className={cn(
-          isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
+          'border-0 rounded-none mb-0',
           !isFocused && anyFocused && 'opacity-80',
         )}
-        style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
       >
         {/* THEIR STORY — 3-zone layout */}
         <TheirStory
