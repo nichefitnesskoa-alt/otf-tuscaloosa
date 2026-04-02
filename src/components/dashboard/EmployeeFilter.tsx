@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { User, Users } from 'lucide-react';
-import { ALL_STAFF } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 
 interface EmployeeFilterProps {
   selectedEmployee: string | null;
@@ -14,6 +14,8 @@ interface EmployeeFilterProps {
 }
 
 export function EmployeeFilter({ selectedEmployee, onEmployeeChange }: EmployeeFilterProps) {
+  const { allActive } = useActiveStaff();
+
   return (
     <div className="flex items-center gap-2">
       <Select 
@@ -37,7 +39,7 @@ export function EmployeeFilter({ selectedEmployee, onEmployeeChange }: EmployeeF
               All Staff
             </span>
           </SelectItem>
-          {ALL_STAFF.map(staff => (
+          {allActive.map(staff => (
             <SelectItem key={staff} value={staff}>
               <span className="flex items-center gap-2">
                 <User className="w-4 h-4" />
