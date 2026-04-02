@@ -245,6 +245,12 @@ export default function Wig() {
         .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
         .not('coach_name', 'is', null);
 
+      // Also fetch coach_member_pair_plan from intros_booked for pairing rate
+      const pairPlanRes = await supabase
+        .from('intros_booked')
+        .select('id, coach_member_pair_plan, originating_booking_id')
+        .not('coach_member_pair_plan', 'is', null);
+
       const allCoachRuns = (coachRunsRes.data || []) as any[];
 
       // Get first intros only (check originating_booking_id)
