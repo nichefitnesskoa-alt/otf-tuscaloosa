@@ -74,8 +74,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [usedWhy, setUsedWhy] = useState(false);
   const [introducedMember, setIntroducedMember] = useState(false);
   const [memberName, setMemberName] = useState('');
-  const [referralAsked, setReferralAsked] = useState((booking as any).coach_referral_asked ?? false);
-  const [referralNames, setReferralNames] = useState((booking as any).coach_referral_names || '');
   const [pairPlan, setPairPlan] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
