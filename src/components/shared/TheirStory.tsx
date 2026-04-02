@@ -226,16 +226,20 @@ export function TheirStory({
   const qObstacle = qData?.q3_obstacle;
 
   // Shoutout bar display
-  const consentLabel = consent === true ? 'Shoutout: YES' : consent === false ? 'Shoutout: NO' : 'Shoutout: Not asked yet';
-  const consentBg = consent === null ? '#d97706' : '#E8540A'; // amber for null, orange for set
+  const consentLabel = consent === true
+    ? 'Shoutout: YES — tap to change'
+    : consent === false
+      ? 'Shoutout: NO — tap to change'
+      : 'Shoutout — tap to set';
+  const consentBg = consent === true ? '#22c55e' : consent === false ? '#E8540A' : '#F59E0B';
 
   return (
     <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
-      {/* ── SHOUTOUT CONSENT — orange tappable bar ── */}
+      {/* ── SHOUTOUT CONSENT — tappable bar ── */}
       <div
-        className="w-full flex items-center justify-center px-3 py-2 rounded-md cursor-pointer select-none"
+        className="w-full flex items-center justify-between px-3 py-2 rounded-md cursor-pointer select-none hover:opacity-90 transition-opacity"
         style={{ backgroundColor: consentBg, minHeight: '36px' }}
         onClick={toggleConsent}
         onMouseDown={e => e.stopPropagation()}
@@ -243,7 +247,10 @@ export function TheirStory({
         <span className="text-white text-sm font-bold tracking-wide">
           {consentLabel}
         </span>
-        <SavedIndicator show={savedField === 'shoutout_consent'} />
+        <div className="flex items-center gap-1">
+          <SavedIndicator show={savedField === 'shoutout_consent'} />
+          <ChevronRight className="w-4 h-4 text-white" />
+        </div>
       </div>
 
       {/* Zone 1 + Zone 2: side-by-side on desktop */}
