@@ -21,7 +21,7 @@ export function isVipBooking(booking: any): boolean {
 }
 
 function getLocalTodayYMD(): string {
-  return format(new Date(), 'yyyy-MM-dd');
+  return format(getNowCentral(), 'yyyy-MM-dd');
 }
 
 /**
