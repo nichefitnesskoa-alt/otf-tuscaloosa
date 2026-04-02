@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FileEdit, Plus } from 'lucide-react';
 import { CoachPrePostClass } from './CoachPrePostClass';
+import { TheirStory } from '@/components/shared/TheirStory';
 
 interface CoachBooking {
   id: string;
