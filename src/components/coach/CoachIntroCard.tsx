@@ -74,8 +74,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [usedWhy, setUsedWhy] = useState(false);
   const [introducedMember, setIntroducedMember] = useState(false);
   const [memberName, setMemberName] = useState('');
-  const [referralAsked, setReferralAsked] = useState((booking as any).coach_referral_asked ?? false);
-  const [referralNames, setReferralNames] = useState((booking as any).coach_referral_names || '');
   const [pairPlan, setPairPlan] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -163,41 +161,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     setPairPlan(val);
     debounceSave('pairPlan', () => saveBookingField('coach_member_pair_plan', val || null));
   };
-  const handleReferralAsked = (val: boolean) => {
-    setReferralAsked(val);
-    if (!val) { setReferralNames(''); saveBookingField('coach_referral_asked', false); saveBookingField('coach_referral_names', null); }
-    else { saveBookingField('coach_referral_asked', true); }
-  };
-  const handleReferralNamesChange = (val: string) => {
-    setReferralNames(val);
-    debounceSave('referralNames', () => {
-      saveBookingField('coach_referral_names', val || null);
-      if (val.trim()) createReferralLeads(val);
-    });
-  };
-
-  const createReferralLeads = async (namesStr: string) => {
-    const names = namesStr.split(',').map(n => n.trim()).filter(Boolean);
-    for (const name of names) {
-      const parts = name.split(/\s+/);
-      const firstName = parts[0] || name;
-      const lastName = parts.slice(1).join(' ') || '';
-      const { data: existing } = await supabase
-        .from('leads')
-        .select('id')
-        .ilike('first_name', firstName)
-        .ilike('last_name', lastName || '')
-        .limit(1);
-      if (existing && existing.length > 0) continue;
-      await supabase.from('leads').insert({
-        first_name: firstName,
-        last_name: lastName || '',
-        source: 'Coach Referral at Close',
-        stage: 'new',
-        phone: '',
-      });
-    }
-  };
 
   function ToggleField({ label, checked, onChange, savedKey }: { label: string; checked: boolean; onChange: (v: boolean) => void; savedKey: string }) {
     return (
@@ -279,19 +242,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                     <Input value={pairPlan} onChange={e => handlePairPlanChange(e.target.value)} placeholder="Member name" className="h-8 text-sm" />
                   </div>
 
-                  {/* Referral ask */}
-                  <div className="space-y-1.5">
-                    <ToggleField label="Did you ask for referral names?" checked={referralAsked} onChange={handleReferralAsked} savedKey="coach_referral_asked" />
-                    {referralAsked && (
-                      <div className="pl-4">
-                        <div className="flex items-center">
-                          <Label className="text-xs text-muted-foreground">Names given (optional)</Label>
-                          <SavedIndicator show={savedField === 'coach_referral_names'} />
-                        </div>
-                        <Input value={referralNames} onChange={e => handleReferralNamesChange(e.target.value)} placeholder="Comma-separated names" className="h-8 text-sm mt-1" />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </>
