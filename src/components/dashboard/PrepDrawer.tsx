@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { HumanizedEirma } from './HumanizedEirma';
 import { IntroTypeBadge, LeadSourceTag } from './IntroTypeBadge';
+import { useObjectionPlaybooks, matchObstaclesToPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { FollowUpStatusBadge } from './FollowUpStatusBadge';
 import { LinkQuestionnaireDialog } from './LinkQuestionnaireDialog';
 import { Separator } from '@/components/ui/separator';
