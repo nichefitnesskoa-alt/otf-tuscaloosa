@@ -173,7 +173,7 @@ export function CoachPrePostClass({
     }
   };
 
-  const isPreClassComplete = whyPlan.trim().length > 0;
+  const isPreClassComplete = (coachBriefWhyMoment || '').trim().length > 0;
 
   return (
     <>
