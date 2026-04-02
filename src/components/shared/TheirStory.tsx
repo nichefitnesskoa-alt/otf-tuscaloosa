@@ -25,6 +25,8 @@ interface TheirStoryProps {
   afterWhySlot?: React.ReactNode;
   /** The Brief fields — passed as children of Zone 3 */
   briefSlot?: React.ReactNode;
+  /** SA user name for edit tracking */
+  editedBy?: string;
 }
 
 interface QData {

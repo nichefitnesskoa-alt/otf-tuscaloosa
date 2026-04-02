@@ -1,0 +1,1 @@
+ALTER TABLE public.intros_booked ADD COLUMN sa_conversation_obstacle text;
