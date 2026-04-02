@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -70,8 +70,11 @@ export default function CoachView() {
   const weekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
   const weekEnd = useMemo(() => format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
 
-  const fetchBookings = async () => {
-    setLoading(true);
+  const initialLoadDone = useRef(false);
+
+  const fetchBookings = async (isRefetch = false) => {
+    // Only show loading spinner on initial load — not on realtime refetches
+    if (!isRefetch) setLoading(true);
     const dateStart = tab === 'today' ? today : weekStart;
     const dateEnd = tab === 'today' ? today : weekEnd;
 
@@ -102,7 +105,8 @@ export default function CoachView() {
       setQuestionnaires(qMap);
     }
 
-    setLoading(false);
+    if (!isRefetch) setLoading(false);
+    initialLoadDone.current = true;
   };
 
   useEffect(() => { fetchBookings(); }, [tab, coachName, isAdmin]);
@@ -110,7 +114,7 @@ export default function CoachView() {
   useEffect(() => {
     const channel = supabase
       .channel('coach-view-bookings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tab, coachName, isAdmin]);

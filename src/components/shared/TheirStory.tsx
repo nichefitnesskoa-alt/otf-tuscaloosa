@@ -196,7 +196,8 @@ export function TheirStory({
     // unmounting the card and losing focus / collapsing the section.
   }, [bookingId]);
 
-  const toggleConsent = useCallback(async () => {
+  const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     // Cycle: null → true, true → false, false → true
     const next = consent === true ? false : true;
     setConsent(next);
@@ -206,8 +207,8 @@ export function TheirStory({
       last_edited_by: editedBy || null,
     } as any).eq('id', bookingId);
     flashSaved('shoutout_consent');
-    onFieldSaved?.();
-  }, [bookingId, consent, editedBy, onFieldSaved]);
+    // Do NOT call onFieldSaved here — prevents parent re-render that collapses the card
+  }, [bookingId, consent, editedBy]);
 
   if (loading) return null;
 
@@ -225,7 +226,7 @@ export function TheirStory({
   const consentBg = consent === null ? '#d97706' : '#E8540A'; // amber for null, orange for set
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
       {/* ── SHOUTOUT CONSENT — orange tappable bar ── */}
@@ -233,6 +234,7 @@ export function TheirStory({
         className="w-full flex items-center justify-center px-3 py-2 rounded-md cursor-pointer select-none"
         style={{ backgroundColor: consentBg, minHeight: '36px' }}
         onClick={toggleConsent}
+        onMouseDown={e => e.stopPropagation()}
       >
         <span className="text-white text-sm font-bold tracking-wide">
           {consentLabel}
