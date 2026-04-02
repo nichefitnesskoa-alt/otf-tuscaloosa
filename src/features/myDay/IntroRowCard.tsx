@@ -326,35 +326,40 @@ export default function IntroRowCard({
     }
   };
 
-  // ══ COLLAPSED ROW ══
-  const collapsedRow = (
+  // ══ SUMMARY HEADER BAR (used in both collapsed and expanded states) ══
+  const summaryHeaderBar = (
     <button
       type="button"
       onClick={() => onExpand?.()}
       className={cn(
         "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 rounded-lg border bg-card transition-colors hover:bg-muted/50",
+        isExpanded && 'rounded-b-none border-b-0',
         isInFocusWindow && 'ring-2 ring-orange-500',
-        item.latestRunResult && 'opacity-70',
+        item.latestRunResult && !isExpanded && 'opacity-70',
       )}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-        <span className="font-semibold text-sm truncate">{item.memberName}</span>
-        <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
-          {item.isSecondIntro ? '2nd' : '1st'}
-        </Badge>
-        {getQBadge(localQStatus)}
-        <ShoutoutDot consent={shoutoutConsent} />
+      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+        <span className="font-semibold text-sm truncate pointer-events-none">{item.memberName}</span>
+        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
+          <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
+            {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
+          </Badge>
+        </span>
+        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
+          {getQBadge(localQStatus)}
+        </span>
+        <ShoutoutLabel consent={shoutoutConsent} />
         <span className="text-xs text-muted-foreground truncate">
           {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'} · {item.coachName || 'TBD'}
         </span>
       </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isExpanded && "rotate-90")} />
     </button>
   );
 
   // If not expanded, show collapsed row only
   if (!isExpanded) {
-    return collapsedRow;
+    return summaryHeaderBar;
   }
 
   // Build top banner
