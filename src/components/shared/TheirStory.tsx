@@ -205,14 +205,16 @@ export function TheirStory({
     // Cycle: null → true, true → false, false → true
     const next = consent === true ? false : true;
     setConsent(next);
+    onConsentChange?.(next);
     await supabase.from('intros_booked').update({
       shoutout_consent: next,
       last_edited_at: new Date().toISOString(),
       last_edited_by: editedBy || null,
     } as any).eq('id', bookingId);
-    flashSaved('shoutout_consent');
+    setSavedField('shoutout_consent');
+    setTimeout(() => setSavedField(null), 1000);
     // Do NOT call onFieldSaved here — prevents parent re-render that collapses the card
-  }, [bookingId, consent, editedBy]);
+  }, [bookingId, consent, editedBy, onConsentChange]);
 
   if (loading) return null;
 
