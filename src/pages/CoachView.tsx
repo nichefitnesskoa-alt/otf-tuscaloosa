@@ -70,8 +70,11 @@ export default function CoachView() {
   const weekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
   const weekEnd = useMemo(() => format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
 
-  const fetchBookings = async () => {
-    setLoading(true);
+  const initialLoadDone = useRef(false);
+
+  const fetchBookings = async (isRefetch = false) => {
+    // Only show loading spinner on initial load — not on realtime refetches
+    if (!isRefetch) setLoading(true);
     const dateStart = tab === 'today' ? today : weekStart;
     const dateEnd = tab === 'today' ? today : weekEnd;
 
@@ -102,7 +105,8 @@ export default function CoachView() {
       setQuestionnaires(qMap);
     }
 
-    setLoading(false);
+    if (!isRefetch) setLoading(false);
+    initialLoadDone.current = true;
   };
 
   useEffect(() => { fetchBookings(); }, [tab, coachName, isAdmin]);
