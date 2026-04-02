@@ -14,7 +14,7 @@ export function ShiftIntroCards() {
       .filter(b =>
         b.class_date === todayStr &&
         !b.deleted_at &&
-        b.booking_type_canon === 'STANDARD'
+        !b.is_vip
       )
       .sort((a, b) => {
         const ta = a.intro_time || '99:99';
