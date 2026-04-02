@@ -2475,6 +2475,20 @@ export type Database = {
         }
         Relationships: []
       }
+      sa_wig_summary: {
+        Row: {
+          avg_tasks_completed_per_shift: number | null
+          close_rate: number | null
+          intros_booked_count: number | null
+          referral_ask_rate: number | null
+          sa_name: string | null
+          show_rate: number | null
+          total_dms_sent: number | null
+          total_shifts_worked: number | null
+          total_texts_sent: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
