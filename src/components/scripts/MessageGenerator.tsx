@@ -84,15 +84,17 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const [manualFields, setManualFields] = useState<Record<string, string>>({});
   const [editedMessage, setEditedMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const prevOpenRef = useRef(false);
 
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       const applied = cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, {}));
       setEditedMessage(applied);
       setManualFields({});
       setCopied(false);
     }
-  }, [open, templateBody, fullContext]);
+    prevOpenRef.current = open;
+  }, [open]);
 
   const handleManualChange = (field: string, value: string) => {
     const newManual = { ...manualFields, [field]: value };
