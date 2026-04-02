@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
@@ -15,7 +14,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { isMembershipSale, isSaleInRange } from '@/lib/sales-detection';
+import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
+import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
 export default function Wig() {
   const { user } = useAuth();
@@ -27,72 +27,99 @@ export default function Wig() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
 
-  // Daily lead input
+  // Monthly lead input
   const [leadCount, setLeadCount] = useState<string>('');
   const [leadSaving, setLeadSaving] = useState(false);
   const [leadSaved, setLeadSaved] = useState(false);
 
-  // Lead log data
-  const [leadLogData, setLeadLogData] = useState<{ log_date: string; lead_count: number }[]>([]);
+  // Monthly lead totals data
+  const [monthlyLeadData, setMonthlyLeadData] = useState<{ month_year: string; lead_total: number }[]>([]);
 
-  const todayYMD = format(new Date(), 'yyyy-MM-dd');
+  // Derive selected month from date range for the input label
+  const selectedMonthYear = useMemo(() => {
+    if (dateRange) {
+      return format(dateRange.start, 'yyyy-MM');
+    }
+    return getCurrentMonthYear();
+  }, [dateRange]);
 
-  const loadLeadLog = useCallback(async () => {
+  const selectedMonthLabel = useMemo(() => {
+    if (dateRange) {
+      return format(dateRange.start, 'MMMM yyyy');
+    }
+    return format(getNowCentral(), 'MMMM yyyy');
+  }, [dateRange]);
+
+  const loadMonthlyLeads = useCallback(async () => {
     const { data } = await supabase
-      .from('daily_lead_log')
-      .select('log_date, lead_count')
-      .order('log_date', { ascending: false });
-    setLeadLogData((data as any[]) || []);
-    // Pre-fill today's value
-    const todayRecord = (data as any[])?.find((r: any) => r.log_date === todayYMD);
-    if (todayRecord) setLeadCount(String(todayRecord.lead_count));
-  }, [todayYMD]);
+      .from('monthly_lead_totals')
+      .select('month_year, lead_total')
+      .order('month_year', { ascending: false });
+    setMonthlyLeadData((data as any[]) || []);
+  }, []);
 
-  useEffect(() => { loadLeadLog(); }, [loadLeadLog]);
+  // Pre-fill input when month changes or data loads
+  useEffect(() => {
+    const currentMonthRecord = monthlyLeadData.find(r => r.month_year === selectedMonthYear);
+    if (currentMonthRecord) {
+      setLeadCount(String(currentMonthRecord.lead_total));
+    } else {
+      setLeadCount('');
+    }
+  }, [selectedMonthYear, monthlyLeadData]);
+
+  useEffect(() => { loadMonthlyLeads(); }, [loadMonthlyLeads]);
 
   const handleSaveLead = async () => {
     const count = parseInt(leadCount, 10);
     if (isNaN(count) || count < 0 || !user?.name) return;
     setLeadSaving(true);
 
-    // Check if record exists for today
+    // Upsert by month_year
     const { data: existing } = await supabase
-      .from('daily_lead_log')
+      .from('monthly_lead_totals')
       .select('id')
-      .eq('log_date', todayYMD)
+      .eq('month_year', selectedMonthYear)
       .limit(1);
 
     if (existing && existing.length > 0) {
-      await supabase.from('daily_lead_log').update({ lead_count: count, logged_by: user.name } as any).eq('id', (existing[0] as any).id);
+      await supabase.from('monthly_lead_totals').update({
+        lead_total: count,
+        last_updated_by: user.name,
+        updated_at: new Date().toISOString(),
+      } as any).eq('id', (existing[0] as any).id);
     } else {
-      await supabase.from('daily_lead_log').insert({ log_date: todayYMD, lead_count: count, logged_by: user.name } as any);
+      await supabase.from('monthly_lead_totals').insert({
+        month_year: selectedMonthYear,
+        lead_total: count,
+        last_updated_by: user.name,
+      } as any);
     }
 
     setLeadSaving(false);
     setLeadSaved(true);
     setTimeout(() => setLeadSaved(false), 2000);
-    loadLeadLog();
+    loadMonthlyLeads();
   };
 
-  // Compute metrics filtered by dateRange
+  // Compute total leads for the selected date range
   const totalLeads = useMemo(() => {
-    if (!dateRange) return leadLogData.reduce((s, r) => s + r.lead_count, 0);
-    return leadLogData
-      .filter(r => {
-        try {
-          const d = parseLocalDate(r.log_date);
-          return isWithinInterval(d, { start: dateRange.start, end: dateRange.end });
-        } catch { return false; }
-      })
-      .reduce((s, r) => s + r.lead_count, 0);
-  }, [leadLogData, dateRange]);
+    if (!dateRange) return monthlyLeadData.reduce((s, r) => s + r.lead_total, 0);
+    // Sum months that overlap with the selected date range
+    const startMonth = format(dateRange.start, 'yyyy-MM');
+    const endMonth = format(dateRange.end, 'yyyy-MM');
+    return monthlyLeadData
+      .filter(r => r.month_year >= startMonth && r.month_year <= endMonth)
+      .reduce((s, r) => s + r.lead_total, 0);
+  }, [monthlyLeadData, dateRange]);
 
+  // === FUNNEL DATA - matching Studio ConversionFunnel logic exactly ===
   const filteredBookings = useMemo(() => {
     return introsBooked.filter(b => {
       if ((b as any).is_vip) return false;
       if ((b as any).ignore_from_metrics) return false;
       const status = ((b as any).booking_status_canon || '').toUpperCase();
-      if (status === 'DELETED_SOFT') return false;
+      if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
       if (!dateRange) return true;
       try {
         return isWithinInterval(parseLocalDate(b.class_date), { start: dateRange.start, end: dateRange.end });
@@ -102,25 +129,37 @@ export default function Wig() {
 
   const totalBooked = filteredBookings.length;
 
-  const showedBookings = useMemo(() => {
-    return filteredBookings.filter(b => {
-      const canon = ((b as any).booking_status_canon || '').toUpperCase();
-      return canon === 'SHOWED';
+  // Showed: match Studio logic - check intros_run linked to bookings, result !== 'No-show'
+  const totalShowed = useMemo(() => {
+    let count = 0;
+    filteredBookings.forEach(b => {
+      const runs = introsRun.filter(r => r.linked_intro_booked_id === b.id);
+      const showedRun = runs.find(r => r.result !== 'No-show' && isRunInRange(r, dateRange || null));
+      if (showedRun) count++;
     });
-  }, [filteredBookings]);
+    return count;
+  }, [filteredBookings, introsRun, dateRange]);
 
-  const totalShowed = showedBookings.length;
-
+  // Closed: match Studio logic - sales from intros_run where linked booking is in active set
   const totalClosed = useMemo(() => {
-    return introsRun.filter(r => {
-      if (!isSaleInRange(r, dateRange || null)) return false;
-      return true;
-    }).length;
-  }, [introsRun, dateRange]);
+    const activeBookingIds = new Set(filteredBookings.map(b => b.id));
+    let count = 0;
+    introsRun.forEach(r => {
+      if (!isSaleInRange(r, dateRange || null)) return;
+      // If linked to a booking, make sure it's in our active set
+      if (r.linked_intro_booked_id && !activeBookingIds.has(r.linked_intro_booked_id)) return;
+      count++;
+    });
+    return count;
+  }, [introsRun, dateRange, filteredBookings]);
 
-  const leadToBookedRate = totalLeads > 0 ? (totalBooked / totalLeads) * 100 : 0;
-  const bookedToShownRate = totalBooked > 0 ? (totalShowed / totalBooked) * 100 : 0;
-  const closeRate = totalShowed > 0 ? (totalClosed / totalShowed) * 100 : 0;
+  // Pull-forward: ensure funnel doesn't show impossible numbers
+  const effectiveShowed = Math.max(totalShowed, totalClosed);
+  const effectiveBooked = Math.max(totalBooked, effectiveShowed);
+
+  const leadToBookedRate = totalLeads > 0 ? (effectiveBooked / totalLeads) * 100 : 0;
+  const bookedToShownRate = effectiveBooked > 0 ? (effectiveShowed / effectiveBooked) * 100 : 0;
+  const closeRate = effectiveShowed > 0 ? (totalClosed / effectiveShowed) * 100 : 0;
 
   const getStatusColor = (current: number, target: number) => {
     const ratio = current / target;
@@ -136,11 +175,12 @@ export default function Wig() {
     return 'bg-destructive';
   };
 
-  // Week boundaries for lead measures
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekStartYMD = format(weekStart, 'yyyy-MM-dd');
-  const weekEndYMD = format(weekEnd, 'yyyy-MM-dd');
+  // Week boundaries for lead measures (Central Time)
+  const centralNow = useMemo(() => getNowCentral(), []);
+  const weekStart = useMemo(() => startOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
+  const weekEnd = useMemo(() => endOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
+  const weekStartYMD = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
+  const weekEndYMD = useMemo(() => format(weekEnd, 'yyyy-MM-dd'), [weekEnd]);
 
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
@@ -149,155 +189,154 @@ export default function Wig() {
 
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
+    try {
+      const rangeStart = dateRange?.start ? format(dateRange.start, 'yyyy-MM-dd') : weekStartYMD;
+      const rangeEnd = dateRange?.end ? format(dateRange.end, 'yyyy-MM-dd') : weekEndYMD;
 
-    // SA measures: referral asks, deploy activations, milestone packs
-    const rangeStart = dateRange?.start ? format(dateRange.start, 'yyyy-MM-dd') : weekStartYMD;
-    const rangeEnd = dateRange?.end ? format(dateRange.end, 'yyyy-MM-dd') : weekEndYMD;
-
-    const [refRes, deployRes, milestoneRes] = await Promise.all([
-      supabase
-        .from('intros_booked')
-        .select('booked_by, coach_referral_asked')
-        .eq('coach_referral_asked', true)
-        .gte('class_date', rangeStart)
-        .lte('class_date', rangeEnd),
-      supabase
-        .from('milestones')
-        .select('created_by')
-        .eq('entry_type', 'deploy')
-        .gte('created_at', rangeStart)
-        .lte('created_at', rangeEnd + 'T23:59:59'),
-      supabase
-        .from('milestones')
-        .select('created_by, five_class_pack_gifted')
-        .eq('entry_type', 'milestone')
-        .eq('five_class_pack_gifted', true)
-        .gte('created_at', rangeStart)
-        .lte('created_at', rangeEnd + 'T23:59:59'),
-    ]);
-
-    // Aggregate by SA
-    const saMap = new Map<string, { referralAsks: number; deploys: number; packs: number }>();
-    (refRes.data || []).forEach((r: any) => {
-      const name = r.booked_by || 'Unknown';
-      const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
-      ex.referralAsks++;
-      saMap.set(name, ex);
-    });
-    (deployRes.data || []).forEach((r: any) => {
-      const name = r.created_by || 'Unknown';
-      const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
-      ex.deploys++;
-      saMap.set(name, ex);
-    });
-    (milestoneRes.data || []).forEach((r: any) => {
-      const name = r.created_by || 'Unknown';
-      const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
-      ex.packs++;
-      saMap.set(name, ex);
-    });
-
-    const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
-    setSaLeadMeasures(saData);
-
-    // Coach measures
-    const coachRunsRes = await supabase
-      .from('intros_run')
-      .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id')
-      .not('coach_name', 'is', null);
-
-    const allCoachRuns = (coachRunsRes.data || []) as any[];
-
-    // Get first intros only (check originating_booking_id)
-    const linkedIds = allCoachRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
-    let originatingMap = new Map<string, boolean>();
-    if (linkedIds.length > 0) {
-      const batches: string[][] = [];
-      for (let i = 0; i < linkedIds.length; i += 500) batches.push(linkedIds.slice(i, i + 500));
-      for (const batch of batches) {
-        const { data: bookings } = await supabase
+      const [refRes, deployRes, milestoneRes] = await Promise.all([
+        supabase
           .from('intros_booked')
-          .select('id, originating_booking_id')
-          .in('id', batch);
-        (bookings || []).forEach((b: any) => {
-          originatingMap.set(b.id, !!b.originating_booking_id);
-        });
+          .select('booked_by, coach_referral_asked')
+          .eq('coach_referral_asked', true)
+          .gte('class_date', rangeStart)
+          .lte('class_date', rangeEnd),
+        supabase
+          .from('milestones')
+          .select('created_by')
+          .eq('entry_type', 'deploy')
+          .gte('created_at', rangeStart)
+          .lte('created_at', rangeEnd + 'T23:59:59'),
+        supabase
+          .from('milestones')
+          .select('created_by, five_class_pack_gifted')
+          .eq('entry_type', 'milestone')
+          .eq('five_class_pack_gifted', true)
+          .gte('created_at', rangeStart)
+          .lte('created_at', rangeEnd + 'T23:59:59'),
+      ]);
+
+      // Aggregate by SA
+      const saMap = new Map<string, { referralAsks: number; deploys: number; packs: number }>();
+      (refRes.data || []).forEach((r: any) => {
+        const name = r.booked_by || 'Unknown';
+        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        ex.referralAsks++;
+        saMap.set(name, ex);
+      });
+      (deployRes.data || []).forEach((r: any) => {
+        const name = r.created_by || 'Unknown';
+        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        ex.deploys++;
+        saMap.set(name, ex);
+      });
+      (milestoneRes.data || []).forEach((r: any) => {
+        const name = r.created_by || 'Unknown';
+        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        ex.packs++;
+        saMap.set(name, ex);
+      });
+
+      const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
+      setSaLeadMeasures(saData);
+
+      // Coach measures
+      const coachRunsRes = await supabase
+        .from('intros_run')
+        .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
+        .not('coach_name', 'is', null);
+
+      const allCoachRuns = (coachRunsRes.data || []) as any[];
+
+      // Get first intros only (check originating_booking_id)
+      const linkedIds = allCoachRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
+      const originatingMap = new Map<string, boolean>();
+      if (linkedIds.length > 0) {
+        const batches: string[][] = [];
+        for (let i = 0; i < linkedIds.length; i += 500) batches.push(linkedIds.slice(i, i + 500));
+        for (const batch of batches) {
+          const { data: bookings } = await supabase
+            .from('intros_booked')
+            .select('id, originating_booking_id')
+            .in('id', batch);
+          (bookings || []).forEach((b: any) => {
+            originatingMap.set(b.id, !!b.originating_booking_id);
+          });
+        }
       }
+
+      const firstIntroRuns = allCoachRuns.filter(r => {
+        if (!r.linked_intro_booked_id) return true;
+        return !originatingMap.get(r.linked_intro_booked_id);
+      });
+
+      // Filter by date range for weekly metrics
+      const weekRuns = firstIntroRuns.filter(r => {
+        const rd = r.run_date || (r.created_at || '').split('T')[0];
+        if (!rd) return false;
+        try {
+          return isWithinInterval(parseLocalDate(rd), { start: dateRange?.start || weekStart, end: dateRange?.end || weekEnd });
+        } catch { return false; }
+      });
+
+      // All-time for close rate (or date-range filtered)
+      const closeRateRuns = firstIntroRuns.filter(r => {
+        const rd = r.run_date || (r.created_at || '').split('T')[0];
+        if (!rd) return false;
+        if (!dateRange) return true;
+        try {
+          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
+        } catch { return false; }
+      });
+
+      // Aggregate coaches
+      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number }>();
+      weekRuns.forEach(r => {
+        const name = r.coach_name;
+        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        ex.coached++;
+        if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
+        if (r.goal_why_captured === 'yes') ex.whyUsed++;
+        if (r.made_a_friend) ex.friends++;
+        coachMap.set(name, ex);
+      });
+
+      const coachCloseMap = new Map<string, { total: number; closed: number }>();
+      closeRateRuns.forEach(r => {
+        const name = r.coach_name;
+        const ex = coachCloseMap.get(name) || { total: 0, closed: 0 };
+        ex.total++;
+        if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
+        coachCloseMap.set(name, ex);
+      });
+
+      const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
+      const coachData = Array.from(allCoachNames).map(name => {
+        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
+        return {
+          name,
+          coached: wk.coached,
+          shoutoutRate: wk.coached > 0 ? (wk.shoutouts / wk.coached) * 100 : 0,
+          whyUsedRate: wk.coached > 0 ? (wk.whyUsed / wk.coached) * 100 : 0,
+          friendRate: wk.coached > 0 ? (wk.friends / wk.coached) * 100 : 0,
+          closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
+          closeTotal: cl.total,
+        };
+      }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
+
+      if (user?.role === 'Coach') {
+        setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
+      } else {
+        setCoachLeadMeasures(coachData);
+      }
+    } catch (err) {
+      console.error('Error loading lead measures:', err);
+      setSaLeadMeasures([]);
+      setCoachLeadMeasures([]);
+    } finally {
+      setMeasuresLoading(false);
     }
-
-    const firstIntroRuns = allCoachRuns.filter(r => {
-      if (!r.linked_intro_booked_id) return true;
-      return !originatingMap.get(r.linked_intro_booked_id);
-    });
-
-    // Filter by date range for weekly metrics
-    const weekRuns = firstIntroRuns.filter(r => {
-      const rd = r.run_date || (r.created_at || '').split('T')[0];
-      if (!rd) return false;
-      try {
-        return isWithinInterval(parseLocalDate(rd), { start: dateRange?.start || weekStart, end: dateRange?.end || weekEnd });
-      } catch { return false; }
-    });
-
-    // All-time for close rate (or date-range filtered)
-    const closeRateRuns = firstIntroRuns.filter(r => {
-      const rd = r.run_date || (r.created_at || '').split('T')[0];
-      if (!rd) return false;
-      if (!dateRange) return true;
-      try {
-        return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
-      } catch { return false; }
-    });
-
-    // Aggregate coaches
-    const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; closes: number; closeTotal: number }>();
-
-    // Populate from weekly runs for lead measures
-    weekRuns.forEach(r => {
-      const name = r.coach_name;
-      const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, closes: 0, closeTotal: 0 };
-      ex.coached++;
-      if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
-      if (r.goal_why_captured === 'yes') ex.whyUsed++;
-      if (r.made_a_friend) ex.friends++;
-      coachMap.set(name, ex);
-    });
-
-    // Close rate from all date-range runs
-    const coachCloseMap = new Map<string, { total: number; closed: number }>();
-    closeRateRuns.forEach(r => {
-      const name = r.coach_name;
-      const ex = coachCloseMap.get(name) || { total: 0, closed: 0 };
-      ex.total++;
-      if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
-      coachCloseMap.set(name, ex);
-    });
-
-    // Merge
-    const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
-    const coachData = Array.from(allCoachNames).map(name => {
-      const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, closes: 0, closeTotal: 0 };
-      const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
-      return {
-        name,
-        coached: wk.coached,
-        shoutoutRate: wk.coached > 0 ? (wk.shoutouts / wk.coached) * 100 : 0,
-        whyUsedRate: wk.coached > 0 ? (wk.whyUsed / wk.coached) * 100 : 0,
-        friendRate: wk.coached > 0 ? (wk.friends / wk.coached) * 100 : 0,
-        closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
-        closeTotal: cl.total,
-      };
-    }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
-
-    // Coach role filter
-    if (user?.role === 'Coach') {
-      setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
-    } else {
-      setCoachLeadMeasures(coachData);
-    }
-
-    setMeasuresLoading(false);
-  }, [dateRange, weekStart, weekEnd, weekStartYMD, weekEndYMD, user]);
+  }, [dateRange, weekStart, weekEnd, weekStartYMD, weekEndYMD, user?.role, user?.name]);
 
   useEffect(() => { loadLeadMeasures(); }, [loadLeadMeasures]);
 
@@ -305,7 +344,7 @@ export default function Wig() {
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([refreshData(), loadLeadLog(), loadLeadMeasures()]);
+    await Promise.all([refreshData(), loadMonthlyLeads(), loadLeadMeasures()]);
     setIsRefreshing(false);
   };
 
@@ -354,11 +393,13 @@ export default function Wig() {
 
       {/* SECTION 1 — SCOREBOARD */}
       <div className="space-y-4">
-        {/* Daily lead input */}
+        {/* Monthly lead input */}
         <Card>
           <CardContent className="p-3">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground whitespace-nowrap">Today's leads (from OTF report)</label>
+              <label className="text-xs text-muted-foreground whitespace-nowrap">
+                Total leads for {selectedMonthLabel} (from OTF report)
+              </label>
               <Input
                 type="number"
                 min={0}
@@ -368,7 +409,7 @@ export default function Wig() {
                 placeholder="0"
               />
               <Button size="sm" className="h-8 text-xs" onClick={handleSaveLead} disabled={leadSaving}>
-                {leadSaved ? <Check className="w-3.5 h-3.5" /> : 'Save'}
+                {leadSaved ? <Check className="w-3.5 h-3.5" /> : 'Update'}
               </Button>
               {leadSaved && <span className="text-xs text-success">Saved</span>}
             </div>
@@ -378,9 +419,7 @@ export default function Wig() {
         {/* Metric cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {scoreCards.map(card => {
-            const progressValue = card.isPercent
-              ? Math.min((card.current / card.target) * 100, 100)
-              : Math.min((card.current / card.target) * 100, 100);
+            const progressValue = Math.min((card.current / card.target) * 100, 100);
             return (
               <Card key={card.label}>
                 <CardContent className="p-3 text-center space-y-1">
@@ -413,8 +452,8 @@ export default function Wig() {
             <div className="flex flex-col items-center gap-1">
               {[
                 { label: 'Leads', value: totalLeads, color: 'bg-muted text-foreground', width: 100 },
-                { label: 'Booked', value: totalBooked, color: 'bg-info/20 text-info border border-info/30', width: 85 },
-                { label: 'Shown', value: totalShowed, color: 'bg-warning/20 text-warning border border-warning/30', width: 70 },
+                { label: 'Booked', value: effectiveBooked, color: 'bg-info/20 text-info border border-info/30', width: 85 },
+                { label: 'Shown', value: effectiveShowed, color: 'bg-warning/20 text-warning border border-warning/30', width: 70 },
                 { label: 'Closed', value: totalClosed, color: 'bg-success/20 text-success border border-success/30', width: 55 },
               ].map((stage, i, arr) => (
                 <div key={stage.label} className="w-full">
@@ -471,9 +510,12 @@ export default function Wig() {
               </div>
             </div>
             {measuresLoading ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              </div>
             ) : saLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -511,9 +553,12 @@ export default function Wig() {
           </CardHeader>
           <CardContent className="p-0">
             {measuresLoading ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                <span className="text-xs text-muted-foreground">Loading…</span>
+              </div>
             ) : coachLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
