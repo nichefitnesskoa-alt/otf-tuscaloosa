@@ -36,7 +36,7 @@ export function ShiftIntroCards() {
     <div className="space-y-2">
       {todayIntros.map((intro) => {
         const isSecond = !!intro.originating_booking_id;
-        const qStatus = intro.questionnaire_status_canon;
+        const qStatus = (intro as any).questionnaire_status_canon;
 
         return (
           <Card key={intro.id} className="border-2 border-foreground/20 overflow-hidden">
