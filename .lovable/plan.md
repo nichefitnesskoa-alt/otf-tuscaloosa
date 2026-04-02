@@ -1,49 +1,48 @@
 
 
-# Fix: Text Fields Losing Focus Across the App
+# Fix Collapsible Intro Cards — Toggle & Labels
 
-## Root Cause
+## Summary
+Two fixes across My Day and Coach View: (1) SA cards can't re-collapse because the expanded state renders IntroCard without a clickable header — add a collapsible header bar above the expanded card. (2) Update collapsed row badges to use full readable labels with shoutout text.
 
-The `MessageGenerator` component has a `useEffect` (line 88-95) that resets the `editedMessage` state whenever `open`, `templateBody`, or `fullContext` changes:
+## Root Cause — FIX 1
+In `IntroRowCard.tsx`, when `isExpanded` is true (line 341), the component skips the `collapsedRow` button entirely and renders `IntroCard` directly. `IntroCard`'s header div has no `onClick` handler — there's no way to collapse back. The Coach View (`CoachView.tsx` line 396) already works correctly because it always renders the header button above the expanded content.
 
-```typescript
-useEffect(() => {
-  if (open) {
-    const applied = applyMergeFields(templateBody, fullContext, {});
-    setEditedMessage(applied);
-    setManualFields({});
-    setCopied(false);
-  }
-}, [open, templateBody, fullContext]);
-```
+## File Changes
 
-The `fullContext` is a `useMemo` that depends on `mergeContext` — but `mergeContext` is passed as an inline object literal from multiple parent components (ScriptPickerSheet line 406, MyDayNewLeadsTab line 541, etc.). Every parent re-render creates a new object reference, causing `fullContext` to change, which triggers the effect and **resets the textarea mid-typing**.
+### 1. `src/features/myDay/IntroRowCard.tsx`
 
-The parent re-renders are triggered by the **realtime subscription** in `useRealtimeMyDay` — it listens to `script_actions`, `intros_booked`, and other tables. Any DB write (even the user's own copy action inserting into `script_actions`) fires the realtime listener, which calls `fetchMetrics()`, re-rendering the parent, re-creating `mergeContext`, and resetting the textarea.
+**FIX 1 — Add collapsible header to expanded state:**
+- When `isExpanded` is true, render a wrapper that includes the same summary header bar at the top (name, badges, time, coach, chevron) as a clickable button that calls `onExpand?.()` to toggle closed
+- The chevron rotates: `ChevronRight` when collapsed, rotated down (via CSS `rotate-90`) when expanded
+- Wrap the expanded IntroCard + header in a container div
+- Add `e.stopPropagation()` on all child interactive elements inside the header (badges) so they don't interfere
 
-This same pattern affects the `TemplateEditor` to a lesser degree — its `useEffect` depends on `[template, open]` and `template` is an object from the parent's filtered list that gets a new reference on re-render from query invalidation.
+**FIX 2 — Update collapsed row labels:**
+- Change `1st`/`2nd` badge text to `1st Intro` / `2nd Intro`
+- Change `Q✓`/`Q?`/`Q!` badge text to `Q Complete` / `Q Sent` / `No Q`
+- Replace `ShoutoutDot` with dot + text label:
+  - `consent === true`: green dot + "Shoutout ✓"
+  - `consent === false`: red dot + "Shoutout ✗"
+  - `consent === null`: gray dot + "Shoutout?"
+- Keep time and coach on the right side
 
-## Fix — 2 Files
+**Auto-expand respect:** The auto-expand `useEffect` in `UpcomingIntrosCard.tsx` already only runs on initial load (items change). The toggle in `handleExpandCard` (line 164) already supports `null` (collapsed). No change needed — manual collapse is already respected since `setExpandedBookingId(null)` persists until the next items array change. Add a ref guard so auto-expand only fires once on mount, not on every items update.
 
-### 1. `src/components/scripts/MessageGenerator.tsx`
+### 2. `src/features/myDay/UpcomingIntrosCard.tsx`
 
-Change the reset `useEffect` to only fire when `open` transitions from `false` to `true`, not on every context change:
+- Add `autoExpandDone` ref, set to `true` after the first auto-expand runs
+- Skip auto-expand effect if `autoExpandDone.current` is already true — this prevents re-expanding after manual collapse when realtime updates cause items to refresh
 
-- Add a `useRef` to track the previous `open` state
-- Only run the reset logic when `open` is `true` AND was previously `false` (i.e., the dialog just opened)
-- Remove `templateBody` and `fullContext` from the dependency array
+### 3. `src/pages/CoachView.tsx`
 
-This ensures typing in the textarea is never interrupted by parent re-renders.
+**FIX 2 — Update Coach View collapsed row labels to match:**
+- Change badge text from abbreviated to full: `1st Intro`/`2nd Intro`, `Q Complete`/`No Q`
+- Add shoutout text labels next to dots (same as SA view)
+- Coach View already has working toggle (line 381-383) — no FIX 1 needed here
 
-### 2. `src/components/scripts/TemplateEditor.tsx`
-
-Same fix: change the reset `useEffect` to only fire when `open` transitions to `true`, using a ref to track the previous value. Remove `template` from the dependency array so query invalidation (which creates new object references) does not reset the form mid-edit.
-
-### What this does NOT change
-
-- No visual changes anywhere
-- No changes to realtime subscriptions
-- No changes to any other page, component, or data fetching
-- The reset still fires correctly when the dialog first opens — fields populate as expected
-- Closing and reopening still resets fields
+## Technical Details
+- The SA card's expanded state will render: `[clickable header bar] + [IntroCard with all content]` — the header bar is the same summary row used in collapsed state, just with the chevron pointing down
+- `stopPropagation` on badge/dot children inside the header prevents accidental double-triggers
+- The `autoExpandDone` ref ensures that realtime-triggered `items` changes (from `useRealtimeMyDay`) don't re-expand a manually collapsed card
 
