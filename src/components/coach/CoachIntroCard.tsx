@@ -156,7 +156,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <h4 className="font-bold text-sm mb-1">THE BRIEF</h4>
             <div className="text-sm space-y-0.5">
               <p>Looking for: <strong>{booking.sa_buying_criteria || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
-              <p>Potential Objection: <strong>{booking.sa_objection || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
               {fitnessLevel != null && (
                 <>
                   <p>Gap: <strong>{fitnessLevel}/5</strong></p>
@@ -170,32 +169,22 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
           <Separator />
 
-          {/* WHAT THEY TOLD US */}
-          <div>
-            <h4 className="font-bold text-sm mb-1">WHAT THEY TOLD US</h4>
-            {hasQ ? (
-              <div className="text-sm space-y-0.5">
-                {fitnessLevel != null && <p>Level: {fitnessLevel}/5</p>}
-                {(booking as any).coach_brief_five_vision && <p>What would 5/5 look like: "{(booking as any).coach_brief_five_vision}"</p>}
-                {goal && <p>Goal: "{goal}"</p>}
-                {why && <p>Why: "{why}"</p>}
-                {obstacle && <p>Potential Objection: "{obstacle}"</p>}
-                {commitment && (
-                  <p>
-                    Commit: {commitment} days/week
-                    {availDays ? ` | Days: ${availDays}` : ''}
-                  </p>
-                )}
-                {coachNotes && <p>Notes: "{coachNotes}"</p>}
-                <p className="text-primary font-bold mt-1">Use their WHY at: <span className="font-normal">{(booking as any).coach_brief_why_moment || <span className="text-muted-foreground italic">___________________________</span>}</span></p>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground italic space-y-0.5">
-                <p>No questionnaire — SA conducting dig deeper during tour.</p>
-                <p className="text-primary font-bold not-italic mt-1">Use their WHY at: <span className="font-normal italic text-muted-foreground">___________________________</span></p>
-              </div>
-            )}
-          </div>
+          {/* THEIR STORY — with coach WHY plan integrated below Field 3 */}
+          <TheirStory
+            bookingId={booking.id}
+            memberName={booking.member_name}
+            classDate={booking.class_date}
+            readOnly={true}
+            onFieldSaved={() => onUpdateBooking(booking.id, {})}
+            afterWhySlot={!isSecondIntro ? (
+              <CoachWhyPlan
+                bookingId={booking.id}
+                initialValue={(booking as any).coach_brief_why_moment || ''}
+                userName={userName}
+                onSaved={() => onUpdateBooking(booking.id, {})}
+              />
+            ) : undefined}
+          />
 
           <Separator />
 
