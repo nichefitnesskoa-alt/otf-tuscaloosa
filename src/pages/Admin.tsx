@@ -534,60 +534,32 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-13">
-          <TabsTrigger value="overview" className="gap-1">
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="intelligence" className="gap-1">
-            <Brain className="w-4 h-4" />
-            <span className="hidden sm:inline">Intelligence</span>
-          </TabsTrigger>
-          <TabsTrigger value="objections" className="gap-1">
-            <AlertTriangle className="w-4 h-4" />
-            <span className="hidden sm:inline">Objections</span>
-          </TabsTrigger>
-          <TabsTrigger value="data" className="gap-1">
-            <Database className="w-4 h-4" />
-            <span className="hidden sm:inline">Data</span>
-          </TabsTrigger>
-          <TabsTrigger value="coaching" className="gap-1">
-            <BarChart3 className="w-4 h-4" />
-            <span className="hidden sm:inline">Coaching</span>
-          </TabsTrigger>
-          <TabsTrigger value="campaigns" className="gap-1">
-            <Megaphone className="w-4 h-4" />
-            <span className="hidden sm:inline">Campaigns</span>
-          </TabsTrigger>
-          <TabsTrigger value="referrals" className="gap-1">
-            <Users className="w-4 h-4" />
-            <span className="hidden sm:inline">Referrals</span>
-          </TabsTrigger>
-          <TabsTrigger value="stories" className="gap-1">
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Stories</span>
-          </TabsTrigger>
-          <TabsTrigger value="scripts" className="gap-1">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Scripts</span>
-          </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-1">
-            <CalendarDays className="w-4 h-4" />
-            <span className="hidden sm:inline">Bookings</span>
-          </TabsTrigger>
-          <TabsTrigger value="hiring" className="gap-1">
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">Hiring</span>
-          </TabsTrigger>
-          <TabsTrigger value="shifts" className="gap-1">
-            <ListChecks className="w-4 h-4" />
-            <span className="hidden sm:inline">Shifts</span>
-          </TabsTrigger>
-          <TabsTrigger value="10x" className="gap-1">
-            <Zap className="w-4 h-4" />
-            <span className="hidden sm:inline">10x</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Dropdown navigation replaces overflowing tabs grid */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full justify-between mb-4">
+              <span className="flex items-center gap-2">
+                {adminSections.find(s => s.value === activeTab)?.icon}
+                {adminSections.find(s => s.value === activeTab)?.label || 'Overview'}
+              </span>
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+            {adminSections.map(section => (
+              <DropdownMenuItem
+                key={section.value}
+                onClick={() => setActiveTab(section.value)}
+                className={activeTab === section.value ? 'bg-accent font-semibold' : ''}
+              >
+                <span className="flex items-center gap-2">
+                  {section.icon}
+                  {section.label}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Intelligence Tab */}
         <TabsContent value="intelligence" className="space-y-4">
