@@ -1410,6 +1410,59 @@ export type Database = {
         }
         Relationships: []
       }
+      milestones: {
+        Row: {
+          converted_to_lead_id: string | null
+          created_at: string
+          created_by: string
+          deploy_converted: boolean
+          deploy_item_given: string | null
+          entry_type: string
+          five_class_pack_gifted: boolean
+          friend_contact: string | null
+          friend_name: string | null
+          id: string
+          member_name: string
+          milestone_type: string | null
+        }
+        Insert: {
+          converted_to_lead_id?: string | null
+          created_at?: string
+          created_by: string
+          deploy_converted?: boolean
+          deploy_item_given?: string | null
+          entry_type: string
+          five_class_pack_gifted?: boolean
+          friend_contact?: string | null
+          friend_name?: string | null
+          id?: string
+          member_name: string
+          milestone_type?: string | null
+        }
+        Update: {
+          converted_to_lead_id?: string | null
+          created_at?: string
+          created_by?: string
+          deploy_converted?: boolean
+          deploy_item_given?: string | null
+          entry_type?: string
+          five_class_pack_gifted?: boolean
+          friend_contact?: string | null
+          friend_name?: string | null
+          id?: string
+          member_name?: string
+          milestone_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestones_converted_to_lead_id_fkey"
+            columns: ["converted_to_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string
@@ -2472,6 +2525,17 @@ export type Database = {
           shoutout_start_rate: number | null
           total_first_intros_coached: number | null
           why_used_rate: number | null
+        }
+        Relationships: []
+      }
+      milestone_summary: {
+        Row: {
+          total_birthdays: number | null
+          total_deploy_converted: number | null
+          total_deployed: number | null
+          total_friends_added_to_pipeline: number | null
+          total_milestones_celebrated: number | null
+          total_packs_gifted: number | null
         }
         Relationships: []
       }
