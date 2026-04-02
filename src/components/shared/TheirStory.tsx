@@ -196,7 +196,8 @@ export function TheirStory({
     // unmounting the card and losing focus / collapsing the section.
   }, [bookingId]);
 
-  const toggleConsent = useCallback(async () => {
+  const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     // Cycle: null → true, true → false, false → true
     const next = consent === true ? false : true;
     setConsent(next);
@@ -206,8 +207,8 @@ export function TheirStory({
       last_edited_by: editedBy || null,
     } as any).eq('id', bookingId);
     flashSaved('shoutout_consent');
-    onFieldSaved?.();
-  }, [bookingId, consent, editedBy, onFieldSaved]);
+    // Do NOT call onFieldSaved here — prevents parent re-render that collapses the card
+  }, [bookingId, consent, editedBy]);
 
   if (loading) return null;
 
