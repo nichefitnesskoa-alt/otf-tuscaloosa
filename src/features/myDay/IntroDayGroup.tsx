@@ -23,32 +23,14 @@ interface IntroDayGroupProps {
   needsOutcome?: boolean;
   confirmResults?: Record<string, string>;
   focusedBookingId?: string | null;
-}
-
-/**
- * Determine if a class time is "past" (>15 min ago), "current" (within -15min to +3hr), or "future".
- */
-function getTimeStatus(classDate: string, classTime: string | null): 'past' | 'current' | 'future' {
-  if (!classTime) return 'future'; // TBD times default to expanded
-  try {
-    const classStart = new Date(`${classDate}T${classTime}:00`);
-    const now = new Date();
-    const diffMs = classStart.getTime() - now.getTime();
-    const diffMin = diffMs / 60000;
-
-    // Past: class started more than 15 min ago
-    if (diffMin < -15) return 'past';
-    // Current: started within last 15 min or within next 3 hours
-    if (diffMin >= -15 && diffMin <= 180) return 'current';
-    // Future: more than 3 hours away
-    return 'future';
-  } catch {
-    return 'future';
-  }
+  expandedBookingId?: string | null;
+  onExpandCard?: (bookingId: string) => void;
+  shoutoutMap?: Record<string, boolean | null>;
 }
 
 export default function IntroDayGroup({
   group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {}, focusedBookingId = null,
+  expandedBookingId = null, onExpandCard, shoutoutMap = {},
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
 
@@ -86,9 +68,6 @@ export default function IntroDayGroup({
       <BulkActionsBar items={group.items} userName={userName} isOnline={isOnline} onDone={onRefresh} />
       <div className="space-y-2">
         {timeGroups.map(([time, items]) => {
-          const timeStatus = getTimeStatus(group.date, time === 'unscheduled' ? null : time);
-          const shouldDefaultOpen = timeStatus !== 'past';
-          const isCurrent = timeStatus === 'current';
           const timeLabel = time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time);
 
           return (
@@ -100,9 +79,8 @@ export default function IntroDayGroup({
                 <span className="text-sm flex items-center gap-1 flex-wrap min-w-0">
                   <span className="shrink-0">{timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}</span>
                   {(() => {
-                    // Only count 1st intros for Q status — 2nd intros don't need questionnaires
                     const firstIntros = items.filter(i => !i.isSecondIntro);
-                    if (firstIntros.length === 0) return null; // all 2nd intros, no Q needed
+                    if (firstIntros.length === 0) return null;
                     const notSent = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
                     const sent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT').length;
                     const done = firstIntros.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
@@ -120,7 +98,7 @@ export default function IntroDayGroup({
                 <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180 shrink-0 ml-1" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {items.map(item => (
                     <IntroRowCard
                       key={item.bookingId}
@@ -134,6 +112,9 @@ export default function IntroDayGroup({
                       confirmationResult={confirmResults[item.bookingId] || null}
                       isFocused={item.bookingId === focusedBookingId}
                       anyFocused={!!focusedBookingId}
+                      isExpanded={expandedBookingId === item.bookingId}
+                      onExpand={() => onExpandCard?.(item.bookingId)}
+                      shoutoutConsent={shoutoutMap[item.bookingId] ?? null}
                     />
                   ))}
                 </div>

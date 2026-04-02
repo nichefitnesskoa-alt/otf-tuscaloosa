@@ -349,7 +349,7 @@ function DateGroupView({
   );
 }
 
-// ── Per-class-time: expandable card list ──
+// ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
   intros, questionnaires, onUpdateBooking, userName,
 }: {
@@ -358,20 +358,34 @@ function ClassTimeIntroSelector({
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
 }) {
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // Auto-expand: find next upcoming intro
+  const [expandedId, setExpandedId] = useState<string | null>(() => {
+    const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
+    const todayActive = intros.filter(i => i.class_date === today && i.booking_status_canon === 'ACTIVE');
+    if (todayActive.length === 0 && intros.length > 0) return intros[0].id;
+    let bestId: string | null = null;
+    let bestDiff = Infinity;
+    for (const item of todayActive) {
+      if (!item.intro_time) continue;
+      try {
+        const classStart = new Date(`${item.class_date}T${item.intro_time}:00`);
+        const diff = classStart.getTime() - now.getTime();
+        if (diff > 0 && diff < bestDiff) { bestDiff = diff; bestId = item.id; }
+      } catch {}
+    }
+    if (!bestId && todayActive.length > 0) bestId = todayActive[todayActive.length - 1].id;
+    return bestId || (intros.length > 0 ? intros[0].id : null);
+  });
 
   const toggle = (id: string) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+    setExpandedId(prev => prev === id ? null : id);
   };
 
   return (
     <div className="space-y-2">
       {intros.map(intro => {
-        const isExpanded = expandedIds.has(intro.id);
+        const isExpanded = expandedId === intro.id;
         const isSecondIntro = !!intro.originating_booking_id;
         const qStatus = intro.questionnaire_status_canon;
         const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
@@ -390,20 +404,15 @@ function ClassTimeIntroSelector({
                   <Badge variant={isSecondIntro ? 'secondary' : 'default'} className="text-[10px] px-1.5 py-0 h-4">
                     {isSecondIntro ? '2nd Intro' : '1st Intro'}
                   </Badge>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 text-xs">
                   {isQComplete ? (
-                    <span className="flex items-center gap-1 text-[hsl(var(--success))]">
-                      <CheckCircle className="w-3 h-3" /> Q complete
-                    </span>
+                    <Badge className="text-[9px] px-1 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q✓</Badge>
                   ) : (
-                    <span className="flex items-center gap-1 text-[hsl(var(--warning))]">
-                      <AlertTriangle className="w-3 h-3" /> No Q
-                    </span>
+                    <Badge className="text-[9px] px-1 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>
                   )}
-                  <span className="text-muted-foreground">
-                    Shoutout: <strong>{intro.shoutout_consent === true ? 'YES' : intro.shoutout_consent === false ? 'NO' : '—'}</strong>
-                  </span>
+                  {/* Shoutout dot */}
+                  {intro.shoutout_consent === true && <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" title="Shoutout: Yes" />}
+                  {intro.shoutout_consent === false && <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" title="Shoutout: No" />}
+                  {intro.shoutout_consent == null && <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" title="Shoutout: Not asked" />}
                 </div>
               </div>
               <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />

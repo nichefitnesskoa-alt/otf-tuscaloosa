@@ -1,12 +1,13 @@
 /**
  * Single intro row card using shared IntroCard for visual layout.
  * MyDay-specific logic: prep checkbox, Q status, focus mode, outcome drawer.
+ * Collapsible: collapsed shows summary row, expanded shows full card.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, ClipboardList, Send, CheckCircle, Phone, X } from 'lucide-react';
+import { Eye, ClipboardList, Send, CheckCircle, Phone, X, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -17,6 +18,7 @@ import { TheirStory } from '@/components/shared/TheirStory';
 import { SABriefFields } from '@/components/shared/SABriefFields';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,6 +37,24 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   }
 }
 
+function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
+  switch (status) {
+    case 'Q_COMPLETED':
+      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q✓</Badge>;
+    case 'Q_SENT':
+      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#d97706] text-white border-transparent">Q?</Badge>;
+    case 'NO_Q':
+    default:
+      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#dc2626] text-white border-transparent">Q!</Badge>;
+  }
+}
+
+function ShoutoutDot({ consent }: { consent: boolean | null | undefined }) {
+  if (consent === true) return <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" title="Shoutout: Yes" />;
+  if (consent === false) return <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" title="Shoutout: No" />;
+  return <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" title="Shoutout: Not asked" />;
+}
+
 interface IntroRowCardProps {
   item: UpcomingIntroItem;
   isOnline: boolean;
@@ -46,6 +66,9 @@ interface IntroRowCardProps {
   confirmationResult?: string | null;
   isFocused?: boolean;
   anyFocused?: boolean;
+  isExpanded?: boolean;
+  onExpand?: () => void;
+  shoutoutConsent?: boolean | null;
 }
 
 export default function IntroRowCard({
@@ -59,6 +82,9 @@ export default function IntroRowCard({
   confirmationResult,
   isFocused = false,
   anyFocused = false,
+  isExpanded = true,
+  onExpand,
+  shoutoutConsent,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
@@ -68,6 +94,7 @@ export default function IntroRowCard({
   const [clearOutcomeOpen, setClearOutcomeOpen] = useState(false);
   const [clearingOutcome, setClearingOutcome] = useState(false);
   const qBar = getQBar(localQStatus);
+  const hasActiveField = useRef(false);
 
   // ── Focus mode: compute minutesUntilClass ──
   const [minutesUntilClass, setMinutesUntilClass] = useState<number | null>(null);
@@ -234,9 +261,7 @@ export default function IntroRowCard({
     try {
       const firstName = item.memberName.split(' ')[0];
 
-      // 1. Delete the run record
       if (item.latestRunId) {
-        // Log a note before deleting if follow-up touches exist
         const { data: touches } = await supabase
           .from('followup_touches')
           .select('id')
@@ -253,7 +278,6 @@ export default function IntroRowCard({
         await supabase.from('intros_run').delete().eq('id', item.latestRunId);
       }
 
-      // 2. Reset booking status to ACTIVE
       await supabase.from('intros_booked').update({
         booking_status_canon: 'ACTIVE',
         booking_status: 'Active',
@@ -264,10 +288,8 @@ export default function IntroRowCard({
         edit_reason: `Outcome cleared by ${userName}`,
       }).eq('id', item.bookingId);
 
-      // 3. Remove follow-up queue entries for this booking
       await supabase.from('follow_up_queue').delete().eq('booking_id', item.bookingId);
 
-      // 4. Log audit event
       await supabase.from('outcome_events').insert({
         booking_id: item.bookingId,
         run_id: item.latestRunId,
@@ -288,6 +310,37 @@ export default function IntroRowCard({
       setClearingOutcome(false);
     }
   };
+
+  // ══ COLLAPSED ROW ══
+  const collapsedRow = (
+    <button
+      type="button"
+      onClick={() => onExpand?.()}
+      className={cn(
+        "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 rounded-lg border bg-card transition-colors hover:bg-muted/50",
+        isInFocusWindow && 'ring-2 ring-orange-500',
+        item.latestRunResult && 'opacity-70',
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+        <span className="font-semibold text-sm truncate">{item.memberName}</span>
+        <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
+          {item.isSecondIntro ? '2nd' : '1st'}
+        </Badge>
+        {getQBadge(localQStatus)}
+        <ShoutoutDot consent={shoutoutConsent} />
+        <span className="text-xs text-muted-foreground truncate">
+          {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'} · {item.coachName || 'TBD'}
+        </span>
+      </div>
+      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+    </button>
+  );
+
+  // If not expanded, show collapsed row only
+  if (!isExpanded) {
+    return collapsedRow;
+  }
 
   // Build top banner
   const topBanner = (
@@ -333,8 +386,6 @@ export default function IntroRowCard({
     </>
   );
 
-  // Outcome badge — removed from card body (lives in outcome banner at bottom)
-
   // Outcome banner at bottom — with clear option
   const outcomeBanner = item.latestRunResult ? (() => {
     const result = item.latestRunResult!;
@@ -360,7 +411,7 @@ export default function IntroRowCard({
     );
   })() : null;
 
-  // ROW 1 — Primary action buttons (each is a grid child, 1/3 width)
+  // ROW 1 — Primary action buttons
   const actionButtons = (
     <>
       <Button
@@ -402,10 +453,9 @@ export default function IntroRowCard({
     </>
   );
 
-  // ROW 2 — Secondary actions (each is a grid child, 1/4 width)
+  // ROW 2 — Secondary actions
   const secondaryActions = (
     <>
-      {/* Prepped & Role Played checkbox */}
       <div
         role="button"
         tabIndex={0}
@@ -429,7 +479,6 @@ export default function IntroRowCard({
         <span className="leading-none">{prepped ? 'Prepped ✓' : 'Prep & RP'}</span>
       </div>
 
-      {/* Log as Sent */}
       <button
         type="button"
         className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 rounded transition-colors"
@@ -440,7 +489,6 @@ export default function IntroRowCard({
         <span>{logSentLoading ? '…' : 'Log Sent'}</span>
       </button>
 
-      {/* Copy Phone */}
       <button
         type="button"
         className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 transition-colors"
