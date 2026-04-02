@@ -1985,6 +1985,119 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_task_completions: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          count_logged: number | null
+          created_at: string | null
+          id: string
+          override_id: string | null
+          sa_name: string
+          shift_date: string
+          shift_type: string
+          task_template_id: string | null
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          count_logged?: number | null
+          created_at?: string | null
+          id?: string
+          override_id?: string | null
+          sa_name: string
+          shift_date?: string
+          shift_type: string
+          task_template_id?: string | null
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          count_logged?: number | null
+          created_at?: string | null
+          id?: string
+          override_id?: string | null
+          sa_name?: string
+          shift_date?: string
+          shift_type?: string
+          task_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_task_completions_task_template_id_fkey"
+            columns: ["task_template_id"]
+            isOneToOne: false
+            referencedRelation: "shift_task_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shift_task_overrides: {
+        Row: {
+          active_date: string
+          count_label: string | null
+          created_at: string | null
+          created_by: string
+          has_count: boolean
+          id: string
+          shift_type: string
+          task_name: string
+        }
+        Insert: {
+          active_date: string
+          count_label?: string | null
+          created_at?: string | null
+          created_by: string
+          has_count?: boolean
+          id?: string
+          shift_type: string
+          task_name: string
+        }
+        Update: {
+          active_date?: string
+          count_label?: string | null
+          created_at?: string | null
+          created_by?: string
+          has_count?: boolean
+          id?: string
+          shift_type?: string
+          task_name?: string
+        }
+        Relationships: []
+      }
+      shift_task_templates: {
+        Row: {
+          count_label: string | null
+          created_at: string | null
+          has_count: boolean
+          id: string
+          is_active: boolean
+          shift_type: string
+          task_name: string
+          task_order: number
+        }
+        Insert: {
+          count_label?: string | null
+          created_at?: string | null
+          has_count?: boolean
+          id?: string
+          is_active?: boolean
+          shift_type: string
+          task_name: string
+          task_order: number
+        }
+        Update: {
+          count_label?: string | null
+          created_at?: string | null
+          has_count?: boolean
+          id?: string
+          is_active?: boolean
+          shift_type?: string
+          task_name?: string
+          task_order?: number
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           created_at: string
