@@ -584,6 +584,7 @@ export default function Wig() {
                       <TableHead className="text-xs text-center">Shoutout %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
                       <TableHead className="text-xs text-center">Intro to Member %</TableHead>
+                      <TableHead className="text-xs text-center">Pairing %</TableHead>
                       <TableHead className="text-xs text-center">Close %</TableHead>
                     </TableRow>
                   </TableHeader>
