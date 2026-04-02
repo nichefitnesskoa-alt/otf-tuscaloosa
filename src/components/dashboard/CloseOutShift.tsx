@@ -219,34 +219,53 @@ export function CloseOutShift({
         recapId = newRecap?.id || '';
       }
 
-      // 2. Call edge function to build message server-side and post to GroupMe
-      let groupMePosted = false;
+      // 2. Check if any shift tasks were completed before posting to GroupMe
+      let hasShiftTaskActivity = false;
       try {
-        const { data: gmData, error: gmError } = await supabase.functions.invoke('post-groupme', {
-          body: {
-            action: 'post',
-            staffName: user.name,
-            date: today,
-            shiftType: summary.shiftType,
-          },
-        });
+        const { count } = await supabase
+          .from('shift_task_completions')
+          .select('id', { count: 'exact', head: true })
+          .eq('sa_name', user.name)
+          .eq('shift_date', today)
+          .or('completed.eq.true,count_logged.gt.0');
+        hasShiftTaskActivity = (count || 0) > 0;
+      } catch (e) {
+        console.error('Shift task check error:', e);
+      }
 
-        if (gmError || !gmData?.success) {
-          console.error('GroupMe post failed:', gmError || gmData?.error);
-        } else {
-          groupMePosted = true;
+      // 3. Only post to GroupMe if shift tasks were logged
+      let groupMePosted = false;
+      if (hasShiftTaskActivity) {
+        try {
+          const { data: gmData, error: gmError } = await supabase.functions.invoke('post-groupme', {
+            body: {
+              action: 'post',
+              staffName: user.name,
+              date: today,
+              shiftType: summary.shiftType,
+            },
+          });
+
+          if (gmError || !gmData?.success) {
+            console.error('GroupMe post failed:', gmError || gmData?.error);
+          } else {
+            groupMePosted = !gmData?.skipped;
+          }
+        } catch (gmErr) {
+          console.error('GroupMe exception:', gmErr);
         }
-      } catch (gmErr) {
-        console.error('GroupMe exception:', gmErr);
       }
 
       await refreshData();
       setOpen(false);
 
+      // Reset shift checklist back to selector
+      window.dispatchEvent(new CustomEvent('shift:reset'));
+
       if (groupMePosted) {
-        toast.success('Shift recap submitted and posted to GroupMe ✓');
+        toast.success('Shift ended. Recap sent to GroupMe.');
       } else {
-        toast.error('Recap saved — GroupMe post failed. Try resending from Studio.');
+        toast.success('Shift ended.');
       }
     } catch (err) {
       console.error('Close out error:', err);

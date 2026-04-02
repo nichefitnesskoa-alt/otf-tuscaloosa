@@ -103,6 +103,16 @@ export function ShiftChecklist() {
     if (selectedShift) loadTasks(selectedShift);
   }, [selectedShift, loadTasks]);
 
+  // Listen for shift reset event from End Shift button
+  useEffect(() => {
+    const handleReset = () => {
+      setSelectedShift(null);
+      setTasks([]);
+    };
+    window.addEventListener('shift:reset', handleReset);
+    return () => window.removeEventListener('shift:reset', handleReset);
+  }, []);
+
   const handleSelectShift = (shift: ShiftType) => {
     setSelectedShift(shift);
   };

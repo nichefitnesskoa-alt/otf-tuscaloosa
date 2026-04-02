@@ -323,7 +323,20 @@ serve(async (req) => {
     if (action === 'post') {
       const shift = shiftType === 'PM Shift' || shiftType === 'PM' ? 'PM' : 'AM';
       const recapDate = date || new Date().toISOString().split('T')[0];
-      
+
+      // Gate: check if SA logged any shift tasks before allowing GroupMe post
+      if (staffName) {
+        const { count: taskActivity } = await supabaseAdmin
+          .from('shift_task_completions')
+          .select('id', { count: 'exact', head: true })
+          .eq('sa_name', staffName)
+          .eq('shift_date', recapDate)
+          .or('completed.eq.true,count_logged.gt.0');
+        if (!taskActivity || taskActivity === 0) {
+          return new Response(JSON.stringify({ success: true, skipped: true, message: 'No shift tasks completed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+
       const { text: msgText, hasActivity } = await buildRecapMessage(supabaseAdmin, recapDate, shift, staffName);
       
       if (!hasActivity) {
@@ -380,6 +393,17 @@ serve(async (req) => {
       if (existing && existing.length > 0) {
         console.log(`Auto recap suppressed: manual recap already sent for ${centralDateStr} ${shiftLabel}`);
         return new Response(JSON.stringify({ success: true, skipped: true, message: 'Manual recap already sent' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // Gate: check if ANY SA logged shift tasks today
+      const { count: anyTaskActivity } = await supabaseAdmin
+        .from('shift_task_completions')
+        .select('id', { count: 'exact', head: true })
+        .eq('shift_date', centralDateStr)
+        .or('completed.eq.true,count_logged.gt.0');
+      if (!anyTaskActivity || anyTaskActivity === 0) {
+        console.log(`Auto recap suppressed: no shift tasks completed for ${centralDateStr}`);
+        return new Response(JSON.stringify({ success: true, skipped: true, message: 'No shift tasks completed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       // Build studio-wide message (no staffName filter)
