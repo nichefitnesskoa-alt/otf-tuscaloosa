@@ -1,7 +1,7 @@
 /**
  * TheirStory — 3-zone section for SA and Coach intro cards.
  *
- * Shoutout consent bar at top.
+ * Shoutout consent bar at top (orange, tappable).
  * Zone 1 (left): Read-only questionnaire answers — "Before the Conversation"
  * Zone 2 (right): Live conversation inputs — "The Conversation"
  * Zone 3 (full width): The Brief fields — "After the Conversation"
@@ -12,14 +12,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 
 interface TheirStoryProps {
   bookingId: string;
   memberName: string;
   classDate: string;
-  /** If true, Zone 2 fields show read-only */
+  /** If true, realtime subscription is active; Zone 2 is still editable */
   readOnly?: boolean;
   /** Called after any field is saved */
   onFieldSaved?: () => void;
@@ -79,7 +77,7 @@ export function TheirStory({
   const [savedField, setSavedField] = useState<string | null>(null);
 
   // Shoutout consent
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState<boolean | null>(null);
 
   const flashSaved = (field: string) => {
     setSavedField(field);
@@ -118,18 +116,17 @@ export function TheirStory({
         });
       }
 
-      // Zone 2 + consent: load from intros_booked
+      // Zone 2 + consent: load from intros_booked (always populate for both SA and Coach)
       if (bRes.data) {
         const b = bRes.data as any;
         setSavedGoal(b.sa_conversation_5_of_5);
         setSavedMeaning(b.sa_conversation_meaning);
         setSavedObstacle(b.sa_conversation_obstacle);
-        setConsent(b.shoutout_consent ?? false);
-        if (!readOnly) {
-          setGoalText(b.sa_conversation_5_of_5 || '');
-          setDriverText(b.sa_conversation_meaning || '');
-          setObstacleText(b.sa_conversation_obstacle || '');
-        }
+        setConsent(b.shoutout_consent ?? null);
+        // Always populate text fields so both SA and Coach can edit
+        setGoalText(b.sa_conversation_5_of_5 || '');
+        setDriverText(b.sa_conversation_meaning || '');
+        setObstacleText(b.sa_conversation_obstacle || '');
       }
 
       setLoading(false);
@@ -173,7 +170,11 @@ export function TheirStory({
             setSavedGoal(d.sa_conversation_5_of_5);
             setSavedMeaning(d.sa_conversation_meaning);
             setSavedObstacle(d.sa_conversation_obstacle);
-            setConsent(d.shoutout_consent ?? false);
+            setConsent(d.shoutout_consent ?? null);
+            // Update text fields for coach real-time view
+            setGoalText(d.sa_conversation_5_of_5 || '');
+            setDriverText(d.sa_conversation_meaning || '');
+            setObstacleText(d.sa_conversation_obstacle || '');
           }
         }
       )
@@ -195,16 +196,18 @@ export function TheirStory({
     // unmounting the card and losing focus / collapsing the section.
   }, [bookingId]);
 
-  const saveConsent = useCallback(async (value: boolean) => {
-    setConsent(value);
+  const toggleConsent = useCallback(async () => {
+    // Cycle: null → true, true → false, false → true
+    const next = consent === true ? false : true;
+    setConsent(next);
     await supabase.from('intros_booked').update({
-      shoutout_consent: value,
+      shoutout_consent: next,
       last_edited_at: new Date().toISOString(),
       last_edited_by: editedBy || null,
     } as any).eq('id', bookingId);
     flashSaved('shoutout_consent');
     onFieldSaved?.();
-  }, [bookingId, editedBy, onFieldSaved]);
+  }, [bookingId, consent, editedBy, onFieldSaved]);
 
   if (loading) return null;
 
@@ -217,29 +220,25 @@ export function TheirStory({
   const commitmentDisplay = [commitment, availDays].filter(Boolean).join(' | ') || null;
   const qObstacle = qData?.q3_obstacle;
 
+  // Shoutout bar display
+  const consentLabel = consent === true ? 'Shoutout: YES' : consent === false ? 'Shoutout: NO' : 'Shoutout: Not asked yet';
+  const consentBg = consent === null ? '#d97706' : '#E8540A'; // amber for null, orange for set
+
   return (
     <div className="space-y-3">
       <h4 className="font-bold text-sm">THEIR STORY</h4>
 
-      {/* ── SHOUTOUT CONSENT — top of section ── */}
-      {!readOnly && (
-        <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
-          <div>
-            <div className="flex items-center">
-              <Label className="text-sm font-semibold">Shoutout consent</Label>
-              <SavedIndicator show={savedField === 'shoutout_consent'} />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Ask before class. Coach needs this before they walk in.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-xs", !consent && "font-semibold")}>No</span>
-            <Switch checked={consent} onCheckedChange={saveConsent} />
-            <span className={cn("text-xs", consent && "font-semibold")}>Yes</span>
-          </div>
-        </div>
-      )}
+      {/* ── SHOUTOUT CONSENT — orange tappable bar ── */}
+      <div
+        className="w-full flex items-center justify-center px-3 py-2 rounded-md cursor-pointer select-none"
+        style={{ backgroundColor: consentBg, minHeight: '36px' }}
+        onClick={toggleConsent}
+      >
+        <span className="text-white text-sm font-bold tracking-wide">
+          {consentLabel}
+        </span>
+        <SavedIndicator show={savedField === 'shoutout_consent'} />
+      </div>
 
       {/* Zone 1 + Zone 2: side-by-side on desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -272,7 +271,7 @@ export function TheirStory({
           </p>
         </div>
 
-        {/* ── ZONE 2: The Conversation (live inputs or read-only) ── */}
+        {/* ── ZONE 2: The Conversation (always editable) ── */}
         <div className="space-y-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             In their own words
@@ -286,22 +285,14 @@ export function TheirStory({
               </Label>
               <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
             </div>
-            {!readOnly ? (
-              <>
-                <p className="text-[10px] text-muted-foreground">Ask this. Write their exact words.</p>
-                <Textarea
-                  value={goalText}
-                  onChange={e => setGoalText(e.target.value)}
-                  onBlur={() => saveZone2Field('sa_conversation_5_of_5', goalText.trim())}
-                  placeholder="They said they want to [goal] — ask: 'Paint me a picture. What does your life actually look like when you get there?'"
-                  className="min-h-[80px] text-sm"
-                />
-              </>
-            ) : (
-              <p className="text-sm">
-                {savedGoal || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
-              </p>
-            )}
+            <p className="text-[10px] text-muted-foreground">Ask this. Write their exact words.</p>
+            <Textarea
+              value={goalText}
+              onChange={e => setGoalText(e.target.value)}
+              onBlur={() => saveZone2Field('sa_conversation_5_of_5', goalText.trim())}
+              placeholder="They said they want to [goal] — ask: 'Paint me a picture. What does your life actually look like when you get there?'"
+              className="min-h-[80px] text-sm"
+            />
           </div>
 
           {/* Field 2 — What would it mean */}
@@ -312,22 +303,14 @@ export function TheirStory({
               </Label>
               <SavedIndicator show={savedField === 'sa_conversation_meaning'} />
             </div>
-            {!readOnly ? (
-              <>
-                <p className="text-[10px] text-muted-foreground">Let them dream. Write exactly what they say.</p>
-                <Textarea
-                  value={driverText}
-                  onChange={e => setDriverText(e.target.value)}
-                  onBlur={() => saveZone2Field('sa_conversation_meaning', driverText.trim())}
-                  placeholder="Now go deeper. Ask: 'What would that mean to you? Like really mean to you?' Then stop talking. Let them sit in it."
-                  className="min-h-[80px] text-sm"
-                />
-              </>
-            ) : (
-              <p className="text-sm">
-                {savedMeaning || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
-              </p>
-            )}
+            <p className="text-[10px] text-muted-foreground">Let them dream. Write exactly what they say.</p>
+            <Textarea
+              value={driverText}
+              onChange={e => setDriverText(e.target.value)}
+              onBlur={() => saveZone2Field('sa_conversation_meaning', driverText.trim())}
+              placeholder="Now go deeper. Ask: 'What would that mean to you? Like really mean to you?' Then stop talking. Let them sit in it."
+              className="min-h-[80px] text-sm"
+            />
 
             {/* Orange highlight line — from intros_booked.sa_conversation_meaning */}
             {savedMeaning && (
@@ -345,24 +328,16 @@ export function TheirStory({
               </Label>
               <SavedIndicator show={savedField === 'sa_conversation_obstacle'} />
             </div>
-            {!readOnly ? (
-              <>
-                <p className="text-[10px] text-muted-foreground">
-                  Don't fix it yet. Just listen. Nod. Say 'that makes sense.' Their exact words become your close.
-                </p>
-                <Textarea
-                  value={obstacleText}
-                  onChange={e => setObstacleText(e.target.value)}
-                  onBlur={() => saveZone2Field('sa_conversation_obstacle', obstacleText.trim())}
-                  placeholder="Don't ask this like a form question. Ask it like you genuinely want to know. Then stop talking completely. Whatever they say — nod. Say 'that makes sense.' Their exact words are your close after class."
-                  className="min-h-[80px] text-sm"
-                />
-              </>
-            ) : (
-              <p className="text-sm">
-                {savedObstacle || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
-              </p>
-            )}
+            <p className="text-[10px] text-muted-foreground">
+              Don't fix it yet. Just listen. Nod. Say 'that makes sense.' Their exact words become your close.
+            </p>
+            <Textarea
+              value={obstacleText}
+              onChange={e => setObstacleText(e.target.value)}
+              onBlur={() => saveZone2Field('sa_conversation_obstacle', obstacleText.trim())}
+              placeholder="Don't ask this like a form question. Ask it like you genuinely want to know. Then stop talking completely. Whatever they say — nod. Say 'that makes sense.' Their exact words are your close after class."
+              className="min-h-[80px] text-sm"
+            />
 
             {/* Questionnaire reference line — read-only context */}
             {qObstacle && (

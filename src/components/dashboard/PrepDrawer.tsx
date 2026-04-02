@@ -175,6 +175,7 @@ export function PrepDrawer({
   const [saConv5of5, setSaConv5of5] = useState<string | null>(null);
   const [saConvMeaning, setSaConvMeaning] = useState<string | null>(null);
   const [saConvObstacle, setSaConvObstacle] = useState<string | null>(null);
+  const [coachMemberPairPlan, setCoachMemberPairPlan] = useState<string | null>(null);
   const { data: objectionPlaybooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
@@ -202,7 +203,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle' as any)
+        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_member_pair_plan' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
@@ -221,6 +222,7 @@ export function PrepDrawer({
       setSaConv5of5(bookingData?.sa_conversation_5_of_5 || null);
       setSaConvMeaning(bookingData?.sa_conversation_meaning || null);
       setSaConvObstacle(bookingData?.sa_conversation_obstacle || null);
+      setCoachMemberPairPlan(bookingData?.coach_member_pair_plan || null);
       setLoading(false);
     });
 
@@ -986,6 +988,14 @@ export function PrepDrawer({
                   {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {emotionalDriver}</div>}
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
+
+                {coachMemberPairPlan && (
+                  <div style={{ marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: '#444' }}>Planned member pair:</div>
+                    <div>{coachMemberPairPlan}</div>
+                  </div>
+                )}
+
                 <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '6px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>The Close</div>
 
                 <div style={{ marginBottom: '3px' }}>

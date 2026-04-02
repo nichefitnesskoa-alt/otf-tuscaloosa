@@ -245,6 +245,12 @@ export default function Wig() {
         .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
         .not('coach_name', 'is', null);
 
+      // Also fetch coach_member_pair_plan from intros_booked for pairing rate
+      const pairPlanRes = await supabase
+        .from('intros_booked')
+        .select('id, coach_member_pair_plan, originating_booking_id')
+        .not('coach_member_pair_plan', 'is', null);
+
       const allCoachRuns = (coachRunsRes.data || []) as any[];
 
       // Get first intros only (check originating_booking_id)
@@ -289,14 +295,22 @@ export default function Wig() {
       });
 
       // Aggregate coaches
-      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number }>();
+      // Build pairing plan set (first intros with coach_member_pair_plan set)
+      const pairPlanBookingIds = new Set(
+        ((pairPlanRes.data || []) as any[])
+          .filter(b => !b.originating_booking_id)
+          .map(b => b.id)
+      );
+
+      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; paired: number }>();
       weekRuns.forEach(r => {
         const name = r.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         ex.coached++;
         if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
         if (r.goal_why_captured === 'yes') ex.whyUsed++;
         if (r.made_a_friend) ex.friends++;
+        if (r.linked_intro_booked_id && pairPlanBookingIds.has(r.linked_intro_booked_id)) ex.paired++;
         coachMap.set(name, ex);
       });
 
@@ -311,7 +325,7 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
         return {
           name,
@@ -319,6 +333,7 @@ export default function Wig() {
           shoutoutRate: wk.coached > 0 ? (wk.shoutouts / wk.coached) * 100 : 0,
           whyUsedRate: wk.coached > 0 ? (wk.whyUsed / wk.coached) * 100 : 0,
           friendRate: wk.coached > 0 ? (wk.friends / wk.coached) * 100 : 0,
+          pairingRate: wk.coached > 0 ? (wk.paired / wk.coached) * 100 : 0,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
         };
@@ -569,6 +584,7 @@ export default function Wig() {
                       <TableHead className="text-xs text-center">Shoutout %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
                       <TableHead className="text-xs text-center">Intro to Member %</TableHead>
+                      <TableHead className="text-xs text-center">Pairing %</TableHead>
                       <TableHead className="text-xs text-center">Close %</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -590,6 +606,11 @@ export default function Wig() {
                         <TableCell className="text-sm text-center">
                           <span className={row.friendRate >= 100 ? 'text-success' : row.friendRate >= 50 ? 'text-warning' : 'text-destructive'}>
                             {row.friendRate.toFixed(0)}%
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-center">
+                          <span className={row.pairingRate >= 100 ? 'text-success' : row.pairingRate >= 50 ? 'text-warning' : 'text-destructive'}>
+                            {row.pairingRate.toFixed(0)}%
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
