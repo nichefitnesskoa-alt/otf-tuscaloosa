@@ -604,6 +604,6 @@ export default function IntroRowCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

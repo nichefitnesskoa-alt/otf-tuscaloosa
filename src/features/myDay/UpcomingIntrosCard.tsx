@@ -103,8 +103,10 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   // Auto-expand logic: find next upcoming intro
   const todayStr = getTodayYMD();
+  const autoExpandDone = useRef(false);
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || autoExpandDone.current) return;
+    autoExpandDone.current = true;
     const now = new Date();
     
     // Find today's active intros (no outcome yet)
