@@ -61,35 +61,41 @@ export function TheirStory({
   afterWhySlot,
   briefSlot,
 }: TheirStoryProps) {
-  const [qId, setQId] = useState<string | null>(null);
   const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Zone 2 fields — persist after save, never clear
+  // Zone 2 fields — read from/write to intros_booked ONLY
   const [goalText, setGoalText] = useState('');
   const [driverText, setDriverText] = useState('');
-  const [initialized, setInitialized] = useState(false);
+  const [savedGoal, setSavedGoal] = useState<string | null>(null);
+  const [savedMeaning, setSavedMeaning] = useState<string | null>(null);
   const [savedField, setSavedField] = useState<string | null>(null);
-  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const flashSaved = (field: string) => {
     setSavedField(field);
     setTimeout(() => setSavedField(null), 2000);
   };
 
-  // Load questionnaire data
+  // Load Zone 1 data from intro_questionnaires (read-only)
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('intro_questionnaires')
-        .select('id, status, q1_fitness_goal, q2_fitness_level, q5_emotional_driver, q6_weekly_commitment, q6b_available_days')
-        .eq('booking_id', bookingId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        const d = data as any;
-        setQId(d.id);
+      const [qRes, bRes] = await Promise.all([
+        supabase
+          .from('intro_questionnaires')
+          .select('id, status, q1_fitness_goal, q2_fitness_level, q5_emotional_driver, q6_weekly_commitment, q6b_available_days')
+          .eq('booking_id', bookingId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('intros_booked')
+          .select('sa_conversation_5_of_5, sa_conversation_meaning')
+          .eq('id', bookingId)
+          .single(),
+      ]);
+
+      if (qRes.data) {
+        const d = qRes.data as any;
         setQData({
           id: d.id,
           status: d.status,
@@ -99,29 +105,36 @@ export function TheirStory({
           q6_weekly_commitment: d.q6_weekly_commitment,
           q6b_available_days: d.q6b_available_days,
         });
-        // Initialize Zone 2 fields from DB so text persists across re-mounts
-        if (!initialized && !readOnly) {
-          if (d.q1_fitness_goal) setGoalText(d.q1_fitness_goal);
-          if (d.q5_emotional_driver) setDriverText(d.q5_emotional_driver);
-          setInitialized(true);
+      }
+
+      // Zone 2: load from intros_booked
+      if (bRes.data) {
+        const b = bRes.data as any;
+        const g = b.sa_conversation_5_of_5 || '';
+        const m = b.sa_conversation_meaning || '';
+        setSavedGoal(b.sa_conversation_5_of_5);
+        setSavedMeaning(b.sa_conversation_meaning);
+        if (!readOnly) {
+          setGoalText(g);
+          setDriverText(m);
         }
       }
+
       setLoading(false);
     })();
   }, [bookingId]);
 
-  // Realtime subscription for coach view live updates
+  // Realtime subscription for coach view — Zone 1 (questionnaire) + Zone 2 (intros_booked)
   useEffect(() => {
-    if (!readOnly) return; // Only subscribe in coach/read-only mode
-    const channel = supabase
-      .channel(`theirstory-${bookingId}`)
+    if (!readOnly) return;
+    const ch1 = supabase
+      .channel(`theirstory-q-${bookingId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'intro_questionnaires', filter: `booking_id=eq.${bookingId}` },
         (payload: any) => {
           const d = payload.new;
           if (d) {
-            setQId(d.id);
             setQData({
               id: d.id,
               status: d.status,
@@ -136,45 +149,41 @@ export function TheirStory({
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const ch2 = supabase
+      .channel(`theirstory-b-${bookingId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'intros_booked', filter: `id=eq.${bookingId}` },
+        (payload: any) => {
+          const d = payload.new;
+          if (d) {
+            setSavedGoal(d.sa_conversation_5_of_5);
+            setSavedMeaning(d.sa_conversation_meaning);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
+    };
   }, [bookingId, readOnly]);
 
-  const ensureQRecord = useCallback(async (): Promise<string> => {
-    if (qId) return qId;
-    const nameParts = memberName.trim().split(/\s+/);
-    const firstName = nameParts[0] || memberName;
-    const lastName = nameParts.slice(1).join(' ') || '';
-    const slug = generateSlug(firstName, lastName, classDate);
-    const { data } = await supabase.from('intro_questionnaires').insert({
-      booking_id: bookingId,
-      client_first_name: firstName,
-      client_last_name: lastName,
-      scheduled_class_date: classDate,
-      status: 'not_sent',
-      slug,
-    } as any).select('id').single();
-    const newId = data?.id as string;
-    setQId(newId);
-    return newId;
-  }, [qId, bookingId, memberName, classDate]);
-
-  const saveField = useCallback(async (field: string, value: any) => {
-    const id = await ensureQRecord();
-    await supabase.from('intro_questionnaires').update({ [field]: value } as any).eq('id', id);
+  const saveZone2Field = useCallback(async (field: string, value: string) => {
+    await supabase.from('intros_booked').update({ [field]: value || null } as any).eq('id', bookingId);
+    if (field === 'sa_conversation_5_of_5') setSavedGoal(value || null);
+    if (field === 'sa_conversation_meaning') setSavedMeaning(value || null);
     flashSaved(field);
     onFieldSaved?.();
-  }, [ensureQRecord, onFieldSaved]);
+  }, [bookingId, onFieldSaved]);
 
   const handleGoalBlur = () => {
-    if (goalText.trim()) {
-      saveField('q1_fitness_goal', goalText.trim());
-    }
+    saveZone2Field('sa_conversation_5_of_5', goalText.trim());
   };
 
   const handleDriverBlur = () => {
-    if (driverText.trim()) {
-      saveField('q5_emotional_driver', driverText.trim());
-    }
+    saveZone2Field('sa_conversation_meaning', driverText.trim());
   };
 
   if (loading) return null;
