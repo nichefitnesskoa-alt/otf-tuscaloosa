@@ -14,10 +14,12 @@ interface TheirStoryProps {
   bookingId: string;
   memberName: string;
   classDate: string;
-  /** If true, fields are read-only when questionnaire data exists */
+  /** If true, fields show read-only when questionnaire is complete */
   readOnly?: boolean;
   /** Called after any field is saved */
   onFieldSaved?: () => void;
+  /** Optional: slot rendered after Field 3 (coach WHY plan) */
+  afterWhySlot?: React.ReactNode;
 }
 
 function SavedIndicator({ show }: { show: boolean }) {
@@ -25,7 +27,7 @@ function SavedIndicator({ show }: { show: boolean }) {
   return <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>;
 }
 
-export function TheirStory({ bookingId, memberName, classDate, readOnly = false, onFieldSaved }: TheirStoryProps) {
+export function TheirStory({ bookingId, memberName, classDate, readOnly = false, onFieldSaved, afterWhySlot }: TheirStoryProps) {
   const [qId, setQId] = useState<string | null>(null);
   const [qComplete, setQComplete] = useState(false);
   const [fitnessLevel, setFitnessLevel] = useState<number | null>(null);
@@ -40,7 +42,6 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
     setTimeout(() => setSavedField(null), 2000);
   };
 
-  // Fetch questionnaire data
   useEffect(() => {
     (async () => {
       const { data } = await supabase
@@ -93,11 +94,12 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
     debounceTimers.current[key] = setTimeout(fn, delay);
   }, []);
 
-  const isEditable = !readOnly || !qComplete;
+  // Can edit if not in readOnly mode, OR if readOnly but questionnaire not complete
+  const canEdit = !readOnly || !qComplete;
 
   const handleFitnessLevel = (val: string) => {
-    const n = parseInt(val);
     if (val === '') { setFitnessLevel(null); saveField('q2_fitness_level', null); return; }
+    const n = parseInt(val);
     if (!isNaN(n) && n >= 1 && n <= 5) { setFitnessLevel(n); saveField('q2_fitness_level', n); }
   };
 
@@ -123,18 +125,18 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
           <Label className="text-xs font-medium text-muted-foreground">Current fitness level</Label>
           <SavedIndicator show={savedField === 'q2_fitness_level'} />
         </div>
-        {isEditable ? (
+        {canEdit ? (
           <Input
             type="number"
             min={1}
             max={5}
             value={fitnessLevel ?? ''}
             onChange={e => handleFitnessLevel(e.target.value)}
-            placeholder="Ask: 1 to 5 — where are you today?"
+            placeholder='Ask: 1 to 5 — where are you today?'
             className="h-8 text-sm w-full"
           />
         ) : (
-          <p className="text-sm font-semibold">{fitnessLevel}/5</p>
+          <p className="text-sm font-semibold">{fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</p>
         )}
       </div>
 
@@ -144,7 +146,7 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
           <Label className="text-xs font-medium text-muted-foreground">What would a 5/5 look like for you?</Label>
           <SavedIndicator show={savedField === 'q1_fitness_goal'} />
         </div>
-        {isEditable ? (
+        {canEdit ? (
           <Textarea
             value={fitnessGoal}
             onChange={e => handleGoalChange(e.target.value)}
@@ -152,7 +154,7 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
             className="min-h-[48px] text-sm"
           />
         ) : (
-          <p className="text-sm">"{fitnessGoal}"</p>
+          <p className="text-sm">{fitnessGoal ? `"${fitnessGoal}"` : '—'}</p>
         )}
       </div>
 
@@ -162,23 +164,23 @@ export function TheirStory({ bookingId, memberName, classDate, readOnly = false,
           <Label className="text-xs font-medium text-muted-foreground">What would it mean to you if you got there?</Label>
           <SavedIndicator show={savedField === 'q5_emotional_driver'} />
         </div>
-        {isEditable ? (
+        {canEdit ? (
           <Textarea
             value={emotionalDriver}
             onChange={e => handleDriverChange(e.target.value)}
             placeholder="Write their exact words. This is what the coach uses."
-            className="min-h-[48px] text-sm"
+            className={cn('min-h-[48px] text-sm', emotionalDriver && 'border-[#E8540A]/50')}
           />
         ) : null}
-        {emotionalDriver ? (
-          <p className={cn('text-sm font-semibold', isEditable ? 'mt-1' : '')} style={{ color: '#E8540A' }}>
-            {!isEditable && `"${emotionalDriver}"`}
-            {isEditable && null}
+        {emotionalDriver && (
+          <p className="text-sm font-semibold mt-1" style={{ color: '#E8540A' }}>
+            {!canEdit ? `"${emotionalDriver}"` : `↑ ${emotionalDriver}`}
           </p>
-        ) : null}
-        {/* In read-only mode show orange text */}
-        {!isEditable && emotionalDriver && null}
+        )}
       </div>
+
+      {/* Optional slot for coach WHY plan directly below Field 3 */}
+      {afterWhySlot}
     </div>
   );
 }
