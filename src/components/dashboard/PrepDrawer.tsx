@@ -202,7 +202,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle' as any)
+        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_member_pair_plan' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
