@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { getTodayStartISO } from '@/lib/dateUtils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
+import { ShiftChecklist } from './ShiftChecklist';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -273,6 +274,11 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+
+      {/* ═══ SHIFT TASK CHECKLIST ═══ */}
+      <div className="px-4 pt-3">
+        <ShiftChecklist />
+      </div>
 
       {/* End Shift floating bar rendered below */}
 
