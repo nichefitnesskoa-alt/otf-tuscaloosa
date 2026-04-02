@@ -1461,6 +1461,8 @@ export type Database = {
           friend_contact: string | null
           friend_name: string | null
           id: string
+          last_edited_at: string | null
+          last_edited_by: string | null
           member_name: string
           milestone_type: string | null
         }
@@ -1475,6 +1477,8 @@ export type Database = {
           friend_contact?: string | null
           friend_name?: string | null
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           member_name: string
           milestone_type?: string | null
         }
@@ -1489,6 +1493,8 @@ export type Database = {
           friend_contact?: string | null
           friend_name?: string | null
           id?: string
+          last_edited_at?: string | null
+          last_edited_by?: string | null
           member_name?: string
           milestone_type?: string | null
         }
