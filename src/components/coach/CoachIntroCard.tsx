@@ -31,6 +31,10 @@ interface CoachBooking {
   coach_brief_human_detail?: string | null;
   coach_brief_why_moment?: string | null;
   coach_brief_five_vision?: string | null;
+  coach_shoutout_start?: boolean | null;
+  coach_shoutout_end?: boolean | null;
+  coach_referral_asked?: boolean | null;
+  coach_referral_names?: string | null;
 }
 
 interface QuestionnaireData {
