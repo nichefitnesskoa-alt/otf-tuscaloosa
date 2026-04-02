@@ -1,55 +1,59 @@
 
 
-# Show Objection Reasons in Drill-Downs + Require Objection on All Non-Sale Outcomes + Admin Objection Report
+# Coach View Card Overhaul — Plan
 
-## Problem
-1. When drilling into "Showed" in the Conversion Funnel and Lead Source Analytics, people who didn't buy show their raw result (e.g. "Follow-up needed") but not **why** they didn't sign.
-2. Objection is only required for "Follow-up needed" outcome — other non-sale outcomes like "No-show", "Planning to Book 2nd Intro", "Booked 2nd intro", "Not interested" don't capture a reason.
-3. No admin report exists to view objection trends across time periods.
+## Summary
+Six changes: orange shoutout consent bar (both views), remove stale sections, make Zone 2 editable in Coach View, add post-class debrief with new DB column, update print card, update WIG coach metrics.
 
-## Changes
-
-### 1. Show objection in Showed drill-down detail (`ConversionFunnel.tsx` + `useDashboardMetrics.ts`)
-
-Currently `showedPeople` uses `showedRun.result` as `detail`. Change to show the `primary_objection` when the person didn't purchase.
-
-- In `ConversionFunnel.tsx` lines ~141-156: When building `firstSP`/`secondSP`, if the run result is not a sale, set `detail` to `run.primary_objection || run.result` instead of just `run.result`.
-- In `useDashboardMetrics.ts` line ~391: Same change for `showedPeople` in lead source metrics — show `(run as any).primary_objection || showedRun.result` as the detail.
-- Update `DrillPerson` display: no structural change needed since `detail` already renders as a Badge.
-
-### 2. Require objection on all non-sale, non-no-show outcomes
-
-**`OutcomeDrawer.tsx`**: Expand `needsObjection` from just `Follow-up needed` to include `Booked 2nd intro`, `Planning to Book 2nd Intro`, and `Not interested`:
-```typescript
-const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
+## Database Migration
+Add one column to `intros_booked`:
+```sql
+ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS coach_member_pair_plan text;
 ```
-The existing validation (`if (needsObjection && !objection)`) and objection dropdown already handle the rest. The objection will be passed to `applyIntroOutcomeUpdate` which stores it in `primary_objection`.
 
-**`OutcomeEditor.tsx`**: Similarly expand — require objection for `planning_2nd` outcome (currently only `follow_up` requires it). Add the objection selector for `planning_2nd`.
+No view updates needed since `coach_wig_summary` is a materialized/regular view — will need to be recreated to include `planned_pairing_rate`.
 
-### 3. New Admin Objection Report tab (`src/components/admin/ObjectionReport.tsx`)
+## File Changes
 
-Create a new component that:
-- Queries `intros_run` table for `primary_objection`, `result`, `member_name`, `run_date`, `intro_owner`, `lead_source` within a date range
-- Shows a summary card with objection counts as a horizontal bar chart (sorted by frequency)
-- Below, a filterable table listing each person, their objection, result, SA, lead source, and date
-- Date range filter using the existing `DateRangeFilter` component
-- Filter by specific objection type
+### 1. `src/components/shared/TheirStory.tsx`
+**Shoutout consent bar (FIX 1):** Replace the current bordered toggle (lines 225-242) with a full-width orange bar visible in BOTH SA and Coach views (remove the `!readOnly` guard). Bar shows "Shoutout: YES" / "Shoutout: NO" / "Shoutout: Not asked yet" in white bold on orange (#E8540A) / amber background. Tapping toggles the value. Remove the Switch component for consent.
 
-Add this as a new tab in `Admin.tsx` — insert between existing tabs (e.g. after Intelligence).
+**Zone 2 editable in Coach View (FIX 3):** Remove the `readOnly` conditional rendering on Zone 2 fields (lines 289-304, 315-330, 348-365). Instead, always render the editable Textarea inputs regardless of `readOnly`. The `readOnly` prop still controls realtime subscription behavior but no longer hides inputs. Pre-populate from `savedGoal`/`savedMeaning`/`savedObstacle` when in Coach View (readOnly mode currently doesn't set goalText etc — fix by loading them regardless of readOnly flag at line 128-132).
 
-### 4. Pass objection through for all non-sale outcomes in OutcomeDrawer
+### 2. `src/components/coach/CoachIntroCard.tsx`
+**Remove stale sections (FIX 2):**
+- Remove PRE-ENTRY section (lines 226-231)
+- Remove the briefSlot prop content passed to TheirStory (lines 208-221) — this is the "After dig deeper — hand to coach" section
+- Remove CoachWhyPlan / afterWhySlot (lines 200-207) — this is the "How you'll use it today" field
+- Remove "Edit Brief" button (lines 314-323)
+- Remove the entire Edit Brief Sheet (lines 334-367)
+- Keep "Add Note" button and sheet
 
-Currently line 395: `objection: needsObjection ? objection : null`. With the expanded `needsObjection`, this already works. For `Booked 2nd intro`, the objection captures "what's holding them back" — this is separate from `secondIntroReason` which is a more specific sub-field. We'll use the same OBJECTION_OPTIONS list.
+**Pass readOnly={false} to TheirStory** so Zone 2 is editable.
 
-## Files to Create/Edit
+**Add POST-CLASS debrief section (FIX 4):** Replace `CoachPrePostClass` usage with a new inline section containing 6 fields (shoutout start/end toggles, got curious toggle, member introduction toggle + text, member pairing plan text, referral ask toggle + text). Reuse the referral lead creation logic from `CoachPrePostClass`. Fetch `coach_member_pair_plan` from intros_booked. All auto-save on change with "Saved" flash.
 
-| File | Action |
-|------|--------|
-| `src/components/myday/OutcomeDrawer.tsx` | Expand `needsObjection` to cover all non-sale/non-no-show outcomes |
-| `src/components/dashboard/OutcomeEditor.tsx` | Add objection requirement for `planning_2nd` |
-| `src/components/dashboard/ConversionFunnel.tsx` | Show `primary_objection` in showed drill-down detail |
-| `src/hooks/useDashboardMetrics.ts` | Show `primary_objection` in lead source showed drill-down |
-| `src/components/admin/ObjectionReport.tsx` | **New** — admin objection analytics report |
-| `src/pages/Admin.tsx` | Add Objection Report tab |
+### 3. `src/components/coach/CoachPrePostClass.tsx`
+No changes needed if we inline the post-class logic directly in CoachIntroCard. Alternatively, refactor CoachPrePostClass to only contain POST-CLASS fields (remove PRE-CLASS section which had shoutout consent — already moved).
+
+### 4. `src/components/dashboard/PrepDrawer.tsx` (Print Card)
+Add `coach_member_pair_plan` to the fetch query and print layout. In Coach Copy section, after the 5/5 and meaning fields, add:
+```
+Planned member pair: [coach_member_pair_plan]
+```
+Only show if not null.
+
+### 5. `src/pages/Wig.tsx`
+Add `planned_pairing_rate` column to Coach Lead Measures table. Calculate as % of first intros where `coach_member_pair_plan` is not null. Target: 100%.
+
+### 6. Database view update
+Recreate `coach_wig_summary` view to include `planned_pairing_rate` metric.
+
+## Technical Details
+
+- The shoutout consent bar uses `cursor-pointer` and `onClick` to toggle — no Switch component needed
+- Zone 2 fields in Coach View use the same `saveZone2Field` function and `onBlur` auto-save pattern
+- The realtime subscription on `intros_booked` already exists in TheirStory for coach view — SA edits will flow to coach in real time, and now coach edits will flow to SA view too
+- Referral lead creation reuses the existing `createReferralLeads` function from CoachPrePostClass
+- The `coach_member_pair_plan` field is a pre-class planning field (visible before class) — it sits in the POST-CLASS section but is editable at any time
 
