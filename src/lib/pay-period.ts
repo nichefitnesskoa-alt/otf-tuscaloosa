@@ -77,7 +77,9 @@ export function getLastPayPeriod(): DateRange {
  * Get date range for a preset
  */
 export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRange): DateRange | null {
-  const today = new Date();
+  // Use Central Time for "today" to avoid UTC date shift
+  const { getNowCentral } = require('@/lib/dateUtils');
+  const today = getNowCentral();
   
   switch (preset) {
     case 'all_time':
