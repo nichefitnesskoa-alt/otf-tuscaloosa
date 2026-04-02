@@ -29,6 +29,7 @@ export function TemplateEditor({ open, onOpenChange, template }: TemplateEditorP
   const [isActive, setIsActive] = useState(true);
   const [isSharedStep, setIsSharedStep] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const prevOpenRef = useRef(false);
 
   const createTemplate = useCreateTemplate();
   const updateTemplate = useUpdateTemplate();
@@ -37,28 +38,31 @@ export function TemplateEditor({ open, onOpenChange, template }: TemplateEditorP
   const { options: categoryOptions } = useScriptCategoryOptions();
 
   useEffect(() => {
-    if (template) {
-      setName(template.name);
-      setCategory(template.category);
-      setChannel(template.channel);
-      setSequenceOrder(template.sequence_order?.toString() || '');
-      setVariantLabel(template.variant_label || '');
-      setTimingNote(template.timing_note || '');
-      setBody(template.body);
-      setIsActive(template.is_active);
-      setIsSharedStep(template.is_shared_step);
-    } else {
-      setName('');
-      setCategory('booking_confirmation');
-      setChannel('sms');
-      setSequenceOrder('');
-      setVariantLabel('');
-      setTimingNote('');
-      setBody('');
-      setIsActive(true);
-      setIsSharedStep(false);
+    if (open && !prevOpenRef.current) {
+      if (template) {
+        setName(template.name);
+        setCategory(template.category);
+        setChannel(template.channel);
+        setSequenceOrder(template.sequence_order?.toString() || '');
+        setVariantLabel(template.variant_label || '');
+        setTimingNote(template.timing_note || '');
+        setBody(template.body);
+        setIsActive(template.is_active);
+        setIsSharedStep(template.is_shared_step);
+      } else {
+        setName('');
+        setCategory('booking_confirmation');
+        setChannel('sms');
+        setSequenceOrder('');
+        setVariantLabel('');
+        setTimingNote('');
+        setBody('');
+        setIsActive(true);
+        setIsSharedStep(false);
+      }
     }
-  }, [template, open]);
+    prevOpenRef.current = open;
+  }, [open]);
 
   const handleInsertField = (field: string) => {
     const el = bodyRef.current;
