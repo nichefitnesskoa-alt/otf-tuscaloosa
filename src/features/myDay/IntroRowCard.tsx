@@ -40,19 +40,34 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
 function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q✓</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#d97706] text-white border-transparent">Q?</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Q Sent</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1 py-0 h-4 bg-[#dc2626] text-white border-transparent">Q!</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>;
   }
 }
 
-function ShoutoutDot({ consent }: { consent: boolean | null | undefined }) {
-  if (consent === true) return <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" title="Shoutout: Yes" />;
-  if (consent === false) return <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" title="Shoutout: No" />;
-  return <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" title="Shoutout: Not asked" />;
+function ShoutoutLabel({ consent }: { consent: boolean | null | undefined }) {
+  if (consent === true) return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-success font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" />
+      Shoutout ✓
+    </span>
+  );
+  if (consent === false) return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-destructive font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" />
+      Shoutout ✗
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] text-muted-foreground font-medium shrink-0">
+      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" />
+      Shoutout?
+    </span>
+  );
 }
 
 interface IntroRowCardProps {
@@ -311,35 +326,40 @@ export default function IntroRowCard({
     }
   };
 
-  // ══ COLLAPSED ROW ══
-  const collapsedRow = (
+  // ══ SUMMARY HEADER BAR (used in both collapsed and expanded states) ══
+  const summaryHeaderBar = (
     <button
       type="button"
       onClick={() => onExpand?.()}
       className={cn(
         "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 rounded-lg border bg-card transition-colors hover:bg-muted/50",
+        isExpanded && 'rounded-b-none border-b-0',
         isInFocusWindow && 'ring-2 ring-orange-500',
-        item.latestRunResult && 'opacity-70',
+        item.latestRunResult && !isExpanded && 'opacity-70',
       )}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-        <span className="font-semibold text-sm truncate">{item.memberName}</span>
-        <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
-          {item.isSecondIntro ? '2nd' : '1st'}
-        </Badge>
-        {getQBadge(localQStatus)}
-        <ShoutoutDot consent={shoutoutConsent} />
+      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+        <span className="font-semibold text-sm truncate pointer-events-none">{item.memberName}</span>
+        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
+          <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
+            {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
+          </Badge>
+        </span>
+        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
+          {getQBadge(localQStatus)}
+        </span>
+        <ShoutoutLabel consent={shoutoutConsent} />
         <span className="text-xs text-muted-foreground truncate">
           {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'} · {item.coachName || 'TBD'}
         </span>
       </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+      <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isExpanded && "rotate-90")} />
     </button>
   );
 
   // If not expanded, show collapsed row only
   if (!isExpanded) {
-    return collapsedRow;
+    return summaryHeaderBar;
   }
 
   // Build top banner
@@ -502,7 +522,10 @@ export default function IntroRowCard({
   );
 
   return (
-    <>
+    <div className={cn("rounded-lg border bg-card overflow-hidden", isInFocusWindow && 'ring-2 ring-orange-500')}>
+      {/* Collapsible header — always visible at top of expanded card */}
+      {summaryHeaderBar}
+
       <IntroCard
         id={`intro-card-${item.bookingId}`}
         memberName={item.memberName}
@@ -523,10 +546,9 @@ export default function IntroRowCard({
         topBanner={topBanner}
         outcomeBanner={outcomeBanner}
         className={cn(
-          isInFocusWindow && 'ring-2 ring-orange-500 animate-pulse',
+          'border-0 rounded-none mb-0',
           !isFocused && anyFocused && 'opacity-80',
         )}
-        style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
       >
         {/* THEIR STORY — 3-zone layout */}
         <TheirStory
@@ -582,6 +604,6 @@ export default function IntroRowCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

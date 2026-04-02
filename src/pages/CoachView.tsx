@@ -405,14 +405,29 @@ function ClassTimeIntroSelector({
                     {isSecondIntro ? '2nd Intro' : '1st Intro'}
                   </Badge>
                   {isQComplete ? (
-                    <Badge className="text-[9px] px-1 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q✓</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q Complete</Badge>
                   ) : (
-                    <Badge className="text-[9px] px-1 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>
                   )}
-                  {/* Shoutout dot */}
-                  {intro.shoutout_consent === true && <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" title="Shoutout: Yes" />}
-                  {intro.shoutout_consent === false && <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" title="Shoutout: No" />}
-                  {intro.shoutout_consent == null && <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" title="Shoutout: Not asked" />}
+                  {/* Shoutout label */}
+                  {intro.shoutout_consent === true && (
+                    <span className="inline-flex items-center gap-1 text-[9px] text-success font-medium shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" />
+                      Shoutout ✓
+                    </span>
+                  )}
+                  {intro.shoutout_consent === false && (
+                    <span className="inline-flex items-center gap-1 text-[9px] text-destructive font-medium shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" />
+                      Shoutout ✗
+                    </span>
+                  )}
+                  {intro.shoutout_consent == null && (
+                    <span className="inline-flex items-center gap-1 text-[9px] text-muted-foreground font-medium shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" />
+                      Shoutout?
+                    </span>
+                  )}
                 </div>
               </div>
               <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
