@@ -34,6 +34,11 @@ export function useRealtimeMyDay(onUpdate: () => void) {
         { event: '*', schema: 'public', table: 'script_actions' },
         () => onUpdate()
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'intro_questionnaires' },
+        () => onUpdate()
+      )
       .subscribe();
 
     return () => {

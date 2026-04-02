@@ -14,6 +14,7 @@ import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
 import { TheirStory } from '@/components/shared/TheirStory';
+import { SABriefFields } from '@/components/shared/SABriefFields';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import {
@@ -479,12 +480,19 @@ export default function IntroRowCard({
         )}
         style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
       >
-        {/* THEIR STORY — always visible, no click required */}
+        {/* THEIR STORY — 3-zone layout */}
         <TheirStory
           bookingId={item.bookingId}
           memberName={item.memberName}
           classDate={item.classDate}
           onFieldSaved={onRefresh}
+          briefSlot={
+            <SABriefFields
+              bookingId={item.bookingId}
+              editedBy={userName}
+              onSaved={onRefresh}
+            />
+          }
         />
       </IntroCard>
 

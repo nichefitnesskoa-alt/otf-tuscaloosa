@@ -190,25 +190,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
       <div>
         <div className="p-4 space-y-3" style={{ fontSize: '15px' }}>
 
-          {/* THE BRIEF */}
-          <div>
-            <h4 className="font-bold text-sm mb-1">THE BRIEF</h4>
-            <div className="text-sm space-y-0.5">
-              <p>Looking for: <strong>{booking.sa_buying_criteria || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
-              {fitnessLevel != null && (
-                <>
-                  <p>Gap: <strong>{fitnessLevel}/5</strong></p>
-                  <p>What would 5/5 look like: <strong>{(booking as any).coach_brief_five_vision || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
-                </>
-              )}
-              <p>Any additional notes: <strong>{(booking as any).coach_brief_human_detail || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
-              <p className="mt-1">Shoutout: {booking.shoutout_consent === true ? '■ YES' : booking.shoutout_consent === false ? '□ NO' : '□ YES □ NO'}</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* THEIR STORY — with coach WHY plan integrated below Field 3 */}
+          {/* THEIR STORY — 3-zone layout with Brief in Zone 3 */}
           <TheirStory
             bookingId={booking.id}
             memberName={booking.member_name}
@@ -223,6 +205,19 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 onSaved={() => onUpdateBooking(booking.id, {})}
               />
             ) : undefined}
+            briefSlot={
+              <div className="text-sm space-y-0.5">
+                <p>Looking for: <strong>{booking.sa_buying_criteria || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
+                {fitnessLevel != null && (
+                  <>
+                    <p>Gap: <strong>{fitnessLevel}/5</strong></p>
+                    <p>What would 5/5 look like: <strong>{(booking as any).coach_brief_five_vision || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
+                  </>
+                )}
+                <p>Any additional notes: <strong>{(booking as any).coach_brief_human_detail || <span className="text-muted-foreground italic">___________________________</span>}</strong></p>
+                <p className="mt-1">Shoutout: {booking.shoutout_consent === true ? '■ YES' : booking.shoutout_consent === false ? '□ NO' : '□ YES □ NO'}</p>
+              </div>
+            }
           />
 
           <Separator />
