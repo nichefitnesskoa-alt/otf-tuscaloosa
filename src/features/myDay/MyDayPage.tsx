@@ -177,7 +177,7 @@ export default function MyDayPage() {
         .then(({ data }) => { setIsAdmin(!!data); });
     }
     // Check intelligence dismissal for today
-    const todayKey = `si-dismissed-${format(new Date(), 'yyyy-MM-dd')}`;
+    const todayKey = `si-dismissed-${getTodayYMD()}`;
     setIntelligenceDismissed(localStorage.getItem(todayKey) === 'true');
   }, [user?.name, user?.id]);
 
