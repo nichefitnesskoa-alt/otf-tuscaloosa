@@ -107,7 +107,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
             <div className="flex items-center gap-2">
               {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               <span className="font-medium">{journey.memberName}</span>
-              {journey.leadSource === 'Milestone Referral' && (
+              {journey.bookings.some(b => b.lead_source === 'Milestone Referral') && (
                 <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 hover:bg-orange-500/20 text-[9px] h-4">Milestone</Badge>
               )}
               {journey.hasInconsistency && <AlertTriangle className="w-4 h-4 text-warning" />}
