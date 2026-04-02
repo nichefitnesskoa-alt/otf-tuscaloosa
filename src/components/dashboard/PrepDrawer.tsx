@@ -222,6 +222,7 @@ export function PrepDrawer({
       setSaConv5of5(bookingData?.sa_conversation_5_of_5 || null);
       setSaConvMeaning(bookingData?.sa_conversation_meaning || null);
       setSaConvObstacle(bookingData?.sa_conversation_obstacle || null);
+      setCoachMemberPairPlan(bookingData?.coach_member_pair_plan || null);
       setLoading(false);
     });
 
