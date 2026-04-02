@@ -144,6 +144,34 @@ export function ShiftChecklist() {
     }
   };
 
+  const syncOutreachCounter = async (countLabel: string | null, value: number) => {
+    if (!user?.name || !countLabel) return;
+    const label = countLabel.toLowerCase().trim();
+    const isDms = label === 'dms sent';
+    const isTexts = label === 'texts sent';
+    if (!isDms && !isTexts) return;
+
+    const field = isDms ? 'cold_dms_sent' : 'cold_texts_sent';
+
+    const { data: existing } = await supabase
+      .from('daily_outreach_log')
+      .select('id')
+      .eq('sa_name', user.name)
+      .eq('log_date', todayStr)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('daily_outreach_log')
+        .update({ [field]: value } as any)
+        .eq('id', existing.id);
+    } else {
+      await supabase
+        .from('daily_outreach_log')
+        .insert({ sa_name: user.name, log_date: todayStr, [field]: value } as any);
+    }
+  };
+
   const updateCount = async (task: TaskRow, value: number) => {
     if (!user?.name || !selectedShift) return;
 
@@ -168,6 +196,9 @@ export function ShiftChecklist() {
         setTasks(prev => prev.map(t => t.key === task.key ? { ...t, completionId: (data as any).id } : t));
       }
     }
+
+    // Sync DMs/Texts to daily_outreach_log
+    syncOutreachCounter(task.countLabel, value);
   };
 
   const completedCount = tasks.filter(t => t.completed).length;
