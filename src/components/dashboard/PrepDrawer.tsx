@@ -172,6 +172,10 @@ export function PrepDrawer({
   const [coachBriefHumanDetail, setCoachBriefHumanDetail] = useState<string | null>(null);
   const [coachBriefWhyMoment, setCoachBriefWhyMoment] = useState<string | null>(null);
   const [coachBriefFiveVision, setCoachBriefFiveVision] = useState<string | null>(null);
+  const [saConv5of5, setSaConv5of5] = useState<string | null>(null);
+  const [saConvMeaning, setSaConvMeaning] = useState<string | null>(null);
+  const [saConvObstacle, setSaConvObstacle] = useState<string | null>(null);
+  const { data: objectionPlaybooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
     id: bookingId, class_date: classDate, intro_time: classTime, coach_name: coachName,
