@@ -76,6 +76,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [memberName, setMemberName] = useState('');
   const [pairPlan, setPairPlan] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
+  const [consentValue, setConsentValue] = useState<boolean | null>(booking.shoutout_consent ?? null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const isSecondIntro = !!booking.originating_booking_id;
