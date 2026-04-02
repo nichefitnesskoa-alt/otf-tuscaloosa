@@ -86,17 +86,7 @@ export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
         />
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <Label className="text-xs font-medium text-muted-foreground">Shoutout consent</Label>
-          <SavedIndicator show={savedField === 'shoutout_consent'} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={cn("text-xs", !consent && "font-semibold")}>No</span>
-          <Switch checked={consent} onCheckedChange={v => { setConsent(v); saveField('shoutout_consent', v); }} />
-          <span className={cn("text-xs", consent && "font-semibold")}>Yes</span>
-        </div>
-      </div>
+      {/* Shoutout consent removed — now lives at top of TheirStory */}
     </div>
   );
 }
