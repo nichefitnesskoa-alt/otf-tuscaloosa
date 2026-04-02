@@ -2462,7 +2462,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      coach_wig_summary: {
+        Row: {
+          coach_name: string | null
+          member_intro_rate: number | null
+          prepped_rate: number | null
+          referral_ask_rate: number | null
+          shoutout_end_rate: number | null
+          shoutout_start_rate: number | null
+          total_first_intros_coached: number | null
+          why_used_rate: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       backfill_booking_phones: { Args: { p_days_back?: number }; Returns: Json }
