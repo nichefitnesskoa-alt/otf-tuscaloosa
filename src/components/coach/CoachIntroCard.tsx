@@ -251,6 +251,35 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </>
           )}
 
+          {/* Pre-Class / Post-Class — 1st intros only */}
+          {!isSecondIntro && (
+            <CoachPrePostClass
+              bookingId={booking.id}
+              coachBriefWhyMoment={(booking as any).coach_brief_why_moment ?? null}
+              shoutoutConsent={booking.shoutout_consent}
+              coachShoutoutStart={(booking as any).coach_shoutout_start ?? null}
+              coachShoutoutEnd={(booking as any).coach_shoutout_end ?? null}
+              coachReferralAsked={(booking as any).coach_referral_asked ?? null}
+              coachReferralNames={(booking as any).coach_referral_names ?? null}
+              runId={runData?.id ?? null}
+              goalWhyCaptured={runData?.goal_why_captured ?? null}
+              madeAFriend={runData?.made_a_friend ?? null}
+              relationshipExperience={runData?.relationship_experience ?? null}
+              onFieldSaved={() => {
+                // Re-fetch run data in case it was updated
+                if (!isSecondIntro) {
+                  supabase
+                    .from('intros_run')
+                    .select('id, goal_why_captured, made_a_friend, relationship_experience')
+                    .eq('linked_intro_booked_id', booking.id)
+                    .limit(1)
+                    .maybeSingle()
+                    .then(({ data }) => { if (data) setRunData(data as any); });
+                }
+              }}
+            />
+          )}
+
           <Separator />
 
           {/* Action buttons */}
