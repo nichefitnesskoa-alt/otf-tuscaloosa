@@ -354,6 +354,7 @@ export function TheirStory({
                   value={obstacleText}
                   onChange={e => setObstacleText(e.target.value)}
                   onBlur={() => saveZone2Field('sa_conversation_obstacle', obstacleText.trim())}
+                  placeholder="Don't ask this like a form question. Ask it like you genuinely want to know. Then stop talking completely. Whatever they say — nod. Say 'that makes sense.' Their exact words are your close after class."
                   className="min-h-[80px] text-sm"
                 />
               </>
