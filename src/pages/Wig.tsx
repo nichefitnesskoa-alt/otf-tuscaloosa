@@ -609,6 +609,11 @@ export default function Wig() {
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
+                          <span className={row.pairingRate >= 100 ? 'text-success' : row.pairingRate >= 50 ? 'text-warning' : 'text-destructive'}>
+                            {row.pairingRate.toFixed(0)}%
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-center">
                           <div>
                             <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                               {row.closeRate.toFixed(0)}%
