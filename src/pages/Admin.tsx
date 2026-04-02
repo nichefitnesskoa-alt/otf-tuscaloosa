@@ -33,6 +33,13 @@ import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
+import StaffManagement from '@/components/admin/StaffManagement';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
