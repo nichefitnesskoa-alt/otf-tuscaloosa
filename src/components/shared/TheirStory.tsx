@@ -28,6 +28,8 @@ interface TheirStoryProps {
   briefSlot?: React.ReactNode;
   /** SA user name for edit tracking */
   editedBy?: string;
+  /** Fires when consent value changes */
+  onConsentChange?: (val: boolean | null) => void;
 }
 
 interface QData {
