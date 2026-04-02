@@ -274,6 +274,11 @@ export default function MyDayPage() {
 
       <OfflineBanner />
 
+      {/* ═══ SHIFT TASK CHECKLIST ═══ */}
+      <div className="px-4 pt-3">
+        <ShiftChecklist />
+      </div>
+
       {/* End Shift floating bar rendered below */}
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
