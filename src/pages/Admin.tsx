@@ -673,6 +673,11 @@ export default function Admin() {
           <HiringPipeline />
         </TabsContent>
 
+        {/* Shifts Tab */}
+        <TabsContent value="shifts" className="space-y-4">
+          <ShiftTasksAdmin />
+        </TabsContent>
+
         {/* 10x Exercise Tab */}
         <TabsContent value="10x" className="space-y-4">
           <TenXExercise />
