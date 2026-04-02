@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FileEdit, Plus } from 'lucide-react';
 import { CoachPrePostClass } from './CoachPrePostClass';
+import { TheirStory } from '@/components/shared/TheirStory';
 
 interface CoachBooking {
   id: string;
@@ -61,6 +62,45 @@ const ScriptLine = ({ children }: { children: React.ReactNode }) => (
 const CueLine = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm italic text-muted-foreground">↳ {children}</p>
 );
+
+/* ── Inline coach WHY plan (sits below Field 3 in THEIR STORY) ── */
+function CoachWhyPlan({ bookingId, initialValue, userName, onSaved }: {
+  bookingId: string; initialValue: string; userName: string; onSaved: () => void;
+}) {
+  const [val, setVal] = useState(initialValue);
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+
+  const save = useCallback(async (v: string) => {
+    await supabase.from('intros_booked').update({
+      coach_brief_why_moment: v || null,
+    } as any).eq('id', bookingId);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    onSaved();
+  }, [bookingId, onSaved]);
+
+  const handleChange = (v: string) => {
+    setVal(v);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => save(v), 800);
+  };
+
+  return (
+    <div className="space-y-0.5 mt-2">
+      <div className="flex items-center">
+        <Label className="text-xs font-medium" style={{ color: '#E8540A' }}>How you'll use it today:</Label>
+        {saved && <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>}
+      </div>
+      <Textarea
+        value={val}
+        onChange={e => handleChange(e.target.value)}
+        placeholder="Write one sentence you'll say to this person specifically."
+        className="min-h-[48px] text-sm border-[#E8540A]/30"
+      />
+    </div>
+  );
+}
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const [editBriefOpen, setEditBriefOpen] = useState(false);
@@ -155,7 +195,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <h4 className="font-bold text-sm mb-1">THE BRIEF</h4>
             <div className="text-sm space-y-0.5">
               <p>Looking for: <strong>{booking.sa_buying_criteria || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
-              <p>Potential Objection: <strong>{booking.sa_objection || <span className="text-muted-foreground italic">SA fills in after dig deeper</span>}</strong></p>
               {fitnessLevel != null && (
                 <>
                   <p>Gap: <strong>{fitnessLevel}/5</strong></p>
@@ -169,32 +208,22 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
           <Separator />
 
-          {/* WHAT THEY TOLD US */}
-          <div>
-            <h4 className="font-bold text-sm mb-1">WHAT THEY TOLD US</h4>
-            {hasQ ? (
-              <div className="text-sm space-y-0.5">
-                {fitnessLevel != null && <p>Level: {fitnessLevel}/5</p>}
-                {(booking as any).coach_brief_five_vision && <p>What would 5/5 look like: "{(booking as any).coach_brief_five_vision}"</p>}
-                {goal && <p>Goal: "{goal}"</p>}
-                {why && <p>Why: "{why}"</p>}
-                {obstacle && <p>Potential Objection: "{obstacle}"</p>}
-                {commitment && (
-                  <p>
-                    Commit: {commitment} days/week
-                    {availDays ? ` | Days: ${availDays}` : ''}
-                  </p>
-                )}
-                {coachNotes && <p>Notes: "{coachNotes}"</p>}
-                <p className="text-primary font-bold mt-1">Use their WHY at: <span className="font-normal">{(booking as any).coach_brief_why_moment || <span className="text-muted-foreground italic">___________________________</span>}</span></p>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground italic space-y-0.5">
-                <p>No questionnaire — SA conducting dig deeper during tour.</p>
-                <p className="text-primary font-bold not-italic mt-1">Use their WHY at: <span className="font-normal italic text-muted-foreground">___________________________</span></p>
-              </div>
-            )}
-          </div>
+          {/* THEIR STORY — with coach WHY plan integrated below Field 3 */}
+          <TheirStory
+            bookingId={booking.id}
+            memberName={booking.member_name}
+            classDate={booking.class_date}
+            readOnly={true}
+            onFieldSaved={() => onUpdateBooking(booking.id, {})}
+            afterWhySlot={!isSecondIntro ? (
+              <CoachWhyPlan
+                bookingId={booking.id}
+                initialValue={(booking as any).coach_brief_why_moment || ''}
+                userName={userName}
+                onSaved={() => onUpdateBooking(booking.id, {})}
+              />
+            ) : undefined}
+          />
 
           <Separator />
 
