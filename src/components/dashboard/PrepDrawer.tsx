@@ -927,18 +927,24 @@ export function PrepDrawer({
               <div style={{ fontSize: '12px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Their Story</div>
 
-                <div style={{ marginBottom: '5px' }}>
+              <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What a 5/5 looks like for them:</div>
+                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {goal}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div>{saConv5of5 || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What it would mean to them:</div>
+                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {emotionalDriver}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What's been holding them back:</div>
+                  {obstacle && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {obstacle}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div>{saConvObstacle || blankLine}</div>
                 </div>
 
