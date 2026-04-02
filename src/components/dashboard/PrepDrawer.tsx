@@ -218,6 +218,9 @@ export function PrepDrawer({
       setCoachBriefHumanDetail(bookingData?.coach_brief_human_detail || null);
       setCoachBriefWhyMoment(bookingData?.coach_brief_why_moment || null);
       setCoachBriefFiveVision(bookingData?.coach_brief_five_vision || null);
+      setSaConv5of5(bookingData?.sa_conversation_5_of_5 || null);
+      setSaConvMeaning(bookingData?.sa_conversation_meaning || null);
+      setSaConvObstacle(bookingData?.sa_conversation_obstacle || null);
       setLoading(false);
     });
 
