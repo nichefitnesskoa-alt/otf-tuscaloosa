@@ -480,14 +480,20 @@ export default function IntroRowCard({
         )}
         style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
       >
-        {/* THEIR STORY — always visible, no click required */}
+        {/* THEIR STORY — 3-zone layout */}
         <TheirStory
           bookingId={item.bookingId}
           memberName={item.memberName}
           classDate={item.classDate}
           onFieldSaved={onRefresh}
-        >
-        </TheirStory>
+          briefSlot={
+            <SABriefFields
+              bookingId={item.bookingId}
+              editedBy={userName}
+              onSaved={onRefresh}
+            />
+          }
+        />
       </IntroCard>
 
 
