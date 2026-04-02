@@ -912,138 +912,154 @@ export function PrepDrawer({
 
         {/* ══════════ PRINT LAYOUT ══════════ */}
         {(() => {
-          // Determine EIRMA objection for print
           const latestRunObjection = defaultRuns.find(r => r.primary_objection)?.primary_objection || null;
           const printObstacle = latestRunObjection || obstacle;
           const matchedPlaybooks = matchObstaclesToPlaybooks(printObstacle, objectionPlaybooks);
           const eirmaPlaybook = matchedPlaybooks[0] || (objectionPlaybooks.length > 0 ? objectionPlaybooks[0] : null);
           const blankLine = '___________________________________________';
+          const na = 'Not answered';
+          const fs = { fontSize: '9.5px' } as const;
+          const fsSmall = { fontSize: '8.5px' } as const;
+          const fsLabel = { fontSize: '8.5px', color: '#444' } as const;
+          const fsItalic = { fontSize: '8.5px', fontStyle: 'italic' as const, color: '#666' };
+          const meaningValue = saConvMeaning || emotionalDriver || null;
 
           return (
-            <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '12px', fontFamily: 'Georgia, serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.6, padding: '4mm 8mm' }}>
+            <div data-print-card className="hidden print:block fixed inset-0 bg-white text-black" style={{ zIndex: 9999, fontSize: '9.5px', fontFamily: 'Arial, Helvetica, sans-serif', maxHeight: '100vh', overflow: 'hidden', lineHeight: 1.45, padding: '3mm 6mm' }}>
               {/* ═══ SECTION 1 — SA SIDE ═══ */}
-              <div style={{ fontSize: '13px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '3px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '2px', marginBottom: '4px' }}>
                 {firstName} &nbsp;|&nbsp; {classDate} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'} &nbsp;|&nbsp; Coach: {coachName}
               </div>
 
-              <div style={{ fontSize: '12px' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Their Story</div>
+              <div style={{ fontWeight: 'bold', fontSize: '10px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>Their Story</div>
 
-              <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>What a 5/5 looks like for them:</div>
-                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {goal}</div>}
-                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
-                  <div>{saConv5of5 || blankLine}</div>
+              {/* Field 1 */}
+              <div style={{ marginBottom: '4px' }}>
+                <div style={fsLabel}>What a 5/5 looks like:</div>
+                <div style={fsItalic}>They wrote: {goal || na}</div>
+                <div style={fs}>They said: {blankLine}</div>
+              </div>
+
+              {/* Field 2 */}
+              <div style={{ marginBottom: '4px' }}>
+                <div style={fsLabel}>What it would mean to them:</div>
+                <div style={fsItalic}>They wrote: {emotionalDriver || na}</div>
+                <div style={fs}>They said: {blankLine}</div>
+              </div>
+
+              {/* Field 3 */}
+              <div style={{ marginBottom: '4px' }}>
+                <div style={fsLabel}>What's been holding them back:</div>
+                <div style={fsItalic}>They wrote: {obstacle || na}</div>
+                <div style={fs}>They said: {blankLine}</div>
+              </div>
+
+              {/* Two-column compact details */}
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '4px' }}>
+                <div style={{ flex: 1, ...fsSmall }}>
+                  <div>Fitness level: {fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</div>
+                  <div>Past experience: {pastExp || '—'}</div>
+                  <div>Commitment: {commitment ? `${commitment} days/week` : '—'}</div>
+                  <div>Available days: {questionnaire?.q6b_available_days || '—'}</div>
                 </div>
-
-                <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>What it would mean to them:</div>
-                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {emotionalDriver}</div>}
-                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
-                  <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
-                </div>
-
-                <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>What's been holding them back:</div>
-                  {obstacle && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {obstacle}</div>}
-                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
-                  <div>{saConvObstacle || blankLine}</div>
-                </div>
-
-                <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>Fitness level:</div>
-                  <div>{fitnessLevel != null ? `${fitnessLevel}/5` : blankLine}</div>
-                </div>
-
-                <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>Shoutout consent:</div>
-                  <div>{shoutoutConsent === true ? '☑ Yes  □ No' : shoutoutConsent === false ? '□ Yes  ☑ No' : '□ Yes  □ No'}</div>
-                </div>
-
-                <div style={{ marginBottom: '5px' }}>
-                  <div style={{ fontSize: '11px', color: '#444' }}>Any notes:</div>
-                  <div>{coachNotesOnBooking || blankLine}</div>
+                <div style={{ flex: 1, ...fsSmall }}>
+                  <div>Shoutout: {shoutoutConsent === true ? '☑ Yes  □ No' : shoutoutConsent === false ? '□ Yes  ☑ No' : '□ Yes  □ No'}</div>
+                  <div style={{ marginTop: '2px' }}>Any notes: {coachNotesOnBooking || blankLine}</div>
                 </div>
               </div>
 
               {/* ═══ CUT LINE ═══ */}
-              <div style={{ margin: '6px 0', textAlign: 'center', fontSize: '12px', letterSpacing: '3px', color: '#999' }}>
+              <div style={{ margin: '4px 0', textAlign: 'center', fontSize: '11px', letterSpacing: '3px', color: '#999' }}>
                 ✂ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
               </div>
 
               {/* ═══ SECTION 2 — COACH COPY ═══ */}
-              <div style={{ fontSize: '13px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '3px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 'bold', borderBottom: '2px solid black', paddingBottom: '2px', marginBottom: '4px' }}>
                 COACH COPY — {firstName} &nbsp;|&nbsp; {classTime ? classTime.substring(0, 5) : '—'}
               </div>
 
-              <div style={{ fontSize: '11.5px' }}>
-                <div style={{ marginBottom: '4px' }}>
-                  <div style={{ fontSize: '10px', color: '#444' }}>What a 5/5 looks like:</div>
-                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {goal}</div>}
-                  <div>{saConv5of5 || blankLine}</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {/* LEFT COLUMN — WHAT THEY TOLD US */}
+                <div style={{ flex: 1, borderRight: '1px solid #ccc', paddingRight: '8px', ...fs }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginBottom: '3px', textTransform: 'uppercase' }}>What They Told Us</div>
+                  <div>Fitness level: {fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</div>
+                  <div>Goal: {goal || '—'}</div>
+                  <div>Why: {emotionalDriver || '—'}</div>
+                  <div>Obstacle: {obstacle || '—'}</div>
+                  <div>Commit: {commitment || '—'} | {questionnaire?.q6b_available_days || '—'}</div>
+                  <div style={{ fontWeight: 'bold' }}>Shoutout: {shoutoutConsent === true ? 'YES' : shoutoutConsent === false ? 'NO' : '—'}</div>
+
+                  {(saConv5of5 || saConvMeaning || saConvObstacle) && (
+                    <div style={{ marginTop: '4px', borderTop: '1px solid #ddd', paddingTop: '3px' }}>
+                      <div style={{ fontStyle: 'italic', ...fsSmall, color: '#444' }}>In conversation they said:</div>
+                      {saConv5of5 && <div>5/5: {saConv5of5}</div>}
+                      {saConvMeaning && <div style={{ fontWeight: 'bold' }}>Meaning: {saConvMeaning}</div>}
+                      {saConvObstacle && <div>Obstacle: {saConvObstacle}</div>}
+                    </div>
+                  )}
+
+                  {coachMemberPairPlan && (
+                    <div style={{ marginTop: '3px' }}>Planned member pair: {coachMemberPairPlan}</div>
+                  )}
                 </div>
 
-                <div style={{ marginBottom: '4px' }}>
-                  <div style={{ fontSize: '10px', color: '#444' }}>What it would mean:</div>
-                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {emotionalDriver}</div>}
-                  <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
-                </div>
+                {/* RIGHT COLUMN — THE CLOSE */}
+                <div style={{ flex: 1, paddingLeft: '4px', ...fs }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginBottom: '3px', textTransform: 'uppercase' }}>The Close</div>
 
-                {coachMemberPairPlan && (
-                  <div style={{ marginBottom: '4px' }}>
-                    <div style={{ fontSize: '10px', color: '#444' }}>Planned member pair:</div>
-                    <div>{coachMemberPairPlan}</div>
+                  <div style={{ marginBottom: '3px' }}>
+                    <div style={{ fontWeight: 'bold' }}>THE BRIDGE</div>
+                    <div>"That was horrible right?"</div>
+                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ High energy. Big smile. Sarcastic.</div>
+                    <div>Option B: "So — what did that feel like?"</div>
+                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ Let them answer. Do not interrupt.</div>
                   </div>
-                )}
 
-                <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '6px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>The Close</div>
-
-                <div style={{ marginBottom: '3px' }}>
-                  <div style={{ fontWeight: 'bold' }}>THE BRIDGE</div>
-                  <div>"That was horrible right?"</div>
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ High energy. Big smile. Sarcastic. If you can't deliver it authentically use Option B:</div>
-                  <div>"So — what did that feel like?"</div>
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ Let them answer fully. Do not interrupt.</div>
-                </div>
-
-                <div style={{ marginBottom: '3px' }}>
-                  <div style={{ fontWeight: 'bold' }}>THE IDENTITY QUESTION <span style={{ fontWeight: 'normal', fontSize: '9px' }}>(every close, no exceptions)</span></div>
-                  <div>"Based on everything you just did today — what is your gut telling you?"</div>
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ Stop. Let silence work. Do not fill it.</div>
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ If yes — paperwork immediately. No pause.</div>
-                </div>
-
-                <div style={{ marginBottom: '3px', border: '1.5px solid black', padding: '4px 6px' }}>
-                  <div style={{ fontWeight: 'bold' }}>IF THEY HESITATE — RISK FREE GUARANTEE</div>
-                  <div>"If you come to at least 12 classes within your first 30 days of Premier and don't love it, we'll give you your money back. There's no downside to just trying us out for a month."</div>
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ Return to identity question if needed.</div>
-                </div>
-
-                <div style={{ marginBottom: '2px' }}>
-                  <span style={{ fontWeight: 'bold' }}>IF THEY RAISE PRICE: </span>
-                  "Premier breaks down to about $7 a day. Less than most people spend at Starbucks."
-                </div>
-
-                <div style={{ marginBottom: '3px' }}>
-                  <span style={{ fontWeight: 'bold' }}>IF THEY RAISE SCHEDULE: </span>
-                  "Half our members do mornings, half do evenings. The schedule bends around you."
-                  <div style={{ color: '#555', fontSize: '10px', paddingLeft: '8px' }}>↳ After yes — paperwork immediately. No pause.</div>
-                </div>
-
-                {/* AFTER CLASS — EIRMA */}
-                <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '5px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>After Class — EIRMA</div>
-
-                {eirmaPlaybook ? (
-                  <div style={{ fontSize: '11px' }}>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>E — </span>"{eirmaPlaybook.empathize_line}"</div>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>I — </span>"{eirmaPlaybook.isolate_question}"</div>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{(() => { const meaning = saConvMeaning || emotionalDriver || null; return meaning ? `Here's what I know. You told me that if you got there — ${meaning}. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.` : `Here's what I know. You told me that if you got there — [what it would mean to them]. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.`; })()}"</div>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>M — </span>"{eirmaPlaybook.suggestion_framework}"</div>
-                    <div><span style={{ fontWeight: 'bold' }}>A — </span>"{eirmaPlaybook.ask_line}"</div>
+                  <div style={{ marginBottom: '3px' }}>
+                    <div style={{ fontWeight: 'bold' }}>THE IDENTITY QUESTION <span style={{ fontWeight: 'normal', fontSize: '8px' }}>(every close, no exceptions)</span></div>
+                    <div>"Based on everything you just did today — what is your gut telling you?"</div>
+                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ Stop. Silence works. Do not fill it.</div>
+                    <div style={{ ...fsSmall, color: '#555', paddingLeft: '6px' }}>↳ If yes — paperwork immediately. No pause.</div>
                   </div>
-                ) : (
-                  <div style={{ fontStyle: 'italic', color: '#666' }}>No objection playbook matched.</div>
-                )}
+
+                  <div style={{ marginBottom: '3px' }}>
+                    <span style={{ fontWeight: 'bold' }}>IF THEY HESITATE: </span>
+                    "If you come to 12 classes in your first 30 days of Premier and don't love it, we'll give you your money back."
+                    <span style={{ ...fsSmall, color: '#555' }}> ↳ Return to identity question.</span>
+                  </div>
+
+                  <div style={{ marginBottom: '2px' }}>
+                    <span style={{ fontWeight: 'bold' }}>IF PRICE: </span>
+                    "Premier is about $7 a day. Less than most people spend at Starbucks."
+                  </div>
+
+                  <div style={{ marginBottom: '3px' }}>
+                    <span style={{ fontWeight: 'bold' }}>IF SCHEDULE: </span>
+                    "Half our members do mornings, half do evenings. Schedule bends around you."
+                    <span style={{ ...fsSmall, color: '#555' }}> ↳ After yes — paperwork immediately.</span>
+                  </div>
+
+                  {/* AFTER CLASS — EIRMA */}
+                  <div style={{ fontWeight: 'bold', fontSize: '9.5px', marginTop: '4px', marginBottom: '2px', textTransform: 'uppercase', borderTop: '1px solid #ccc', paddingTop: '3px' }}>After Class — EIRMA</div>
+
+                  {eirmaPlaybook ? (
+                    <div style={fsSmall}>
+                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>E — </span>"{eirmaPlaybook.empathize_line}"</div>
+                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>I — </span>"{eirmaPlaybook.isolate_question}"</div>
+                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{(() => {
+                        const redirectBase = eirmaPlaybook.redirect_framework || '';
+                        if (meaningValue) {
+                          return redirectBase.replace(/\[their goal\]/gi, meaningValue) || `Here's what I know. You told me that if you got there — ${meaningValue}. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.`;
+                        }
+                        return redirectBase || 'Here\'s what I know. You told me that if you got there — [what it would mean to them]. That\'s exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.';
+                      })()}"</div>
+                      <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>M — </span>"{eirmaPlaybook.suggestion_framework}"</div>
+                      <div><span style={{ fontWeight: 'bold' }}>A — </span>"{eirmaPlaybook.ask_line}"</div>
+                    </div>
+                  ) : (
+                    <div style={{ fontStyle: 'italic', color: '#666', ...fsSmall }}>No objection playbook matched.</div>
+                  )}
+                </div>
               </div>
             </div>
           );
