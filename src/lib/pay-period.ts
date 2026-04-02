@@ -1,4 +1,5 @@
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, differenceInDays, addDays, subDays, subMonths, subWeeks, subYears, format } from 'date-fns';
+import { getNowCentral } from '@/lib/dateUtils';
 
 // Pay periods are biweekly, anchored to January 26, 2026
 const PAY_PERIOD_ANCHOR = new Date(2026, 0, 26); // January 26, 2026
@@ -77,7 +78,7 @@ export function getLastPayPeriod(): DateRange {
  * Get date range for a preset
  */
 export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRange): DateRange | null {
-  const today = new Date();
+  const today = getNowCentral();
   
   switch (preset) {
     case 'all_time':

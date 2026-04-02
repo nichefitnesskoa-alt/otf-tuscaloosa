@@ -1499,6 +1499,30 @@ export type Database = {
           },
         ]
       }
+      monthly_lead_totals: {
+        Row: {
+          id: string
+          last_updated_by: string
+          lead_total: number
+          month_year: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          last_updated_by: string
+          lead_total?: number
+          month_year: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          last_updated_by?: string
+          lead_total?: number
+          month_year?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string

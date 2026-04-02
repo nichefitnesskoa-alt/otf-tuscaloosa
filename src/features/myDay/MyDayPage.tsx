@@ -15,7 +15,7 @@ import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { getTodayStartISO } from '@/lib/dateUtils';
+import { getTodayStartISO, getTodayYMD } from '@/lib/dateUtils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { ShiftChecklist } from './ShiftChecklist';
@@ -109,7 +109,7 @@ export default function MyDayPage() {
   
 
   // Today's stats
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getTodayYMD();
   const todayBookingsCount = useMemo(() =>
     introsBooked.filter(b => b.class_date === todayStr && !b.deleted_at).length,
     [introsBooked, todayStr],
@@ -177,14 +177,14 @@ export default function MyDayPage() {
         .then(({ data }) => { setIsAdmin(!!data); });
     }
     // Check intelligence dismissal for today
-    const todayKey = `si-dismissed-${format(new Date(), 'yyyy-MM-dd')}`;
+    const todayKey = `si-dismissed-${getTodayYMD()}`;
     setIntelligenceDismissed(localStorage.getItem(todayKey) === 'true');
   }, [user?.name, user?.id]);
 
   const fetchMetrics = async () => {
     if (!user?.name) return;
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = getTodayYMD();
       const todayStart = getTodayStartISO();
 
       const { data: actionsData } = await supabase

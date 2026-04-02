@@ -89,15 +89,20 @@ export function parseLocalDate(dateStr: string): Date {
 }
 
 /**
- * Get current local date as YYYY-MM-DD string (avoids UTC conversion issues).
- * Use this instead of new Date().toISOString().split('T')[0] which can shift
- * the date forward when the local time is behind UTC (e.g., Central Time after 6 PM).
+ * Get current date in Central Time (America/Chicago) as YYYY-MM-DD string.
+ * This avoids UTC conversion issues where late-night Central Time
+ * (e.g., 11 PM CDT = 4 AM UTC next day) shifts the date forward.
  */
 export function getLocalDateString(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
 /**

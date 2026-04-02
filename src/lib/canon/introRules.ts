@@ -3,6 +3,7 @@
  * Single source of truth for VIP detection, day bucketing, and outcome resolution.
  */
 import { format, addDays, endOfWeek } from 'date-fns';
+import { getNowCentral } from '@/lib/dateUtils';
 
 /**
  * Returns true if the booking is a VIP event booking (not a normal intro).
@@ -20,7 +21,7 @@ export function isVipBooking(booking: any): boolean {
 }
 
 function getLocalTodayYMD(): string {
-  return format(new Date(), 'yyyy-MM-dd');
+  return format(getNowCentral(), 'yyyy-MM-dd');
 }
 
 /**
