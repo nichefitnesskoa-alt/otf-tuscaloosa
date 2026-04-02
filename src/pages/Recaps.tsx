@@ -267,6 +267,8 @@ export default function Recaps() {
               </p>
             </CardContent>
           </Card>
+
+          <MilestonesDeploySection />
         </TabsContent>
       </Tabs>
     </div>
