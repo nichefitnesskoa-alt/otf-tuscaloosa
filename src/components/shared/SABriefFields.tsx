@@ -1,9 +1,8 @@
 /**
  * SABriefFields — editable Brief fields for SA intro card Zone 3.
- * Saves to intros_booked: sa_buying_criteria, sa_objection,
- * coach_brief_five_vision, coach_brief_human_detail, shoutout_consent.
+ * Auto-fetches current values from intros_booked on mount.
  */
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -13,11 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 interface Props {
   bookingId: string;
   editedBy: string;
-  initialLookingFor: string;
-  initialObjection: string;
-  initialFiveVision: string;
-  initialHumanDetail: string;
-  initialShoutoutConsent: boolean | null;
   onSaved?: () => void;
 }
 
@@ -26,18 +20,34 @@ function SavedIndicator({ show }: { show: boolean }) {
   return <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>;
 }
 
-export function SABriefFields({
-  bookingId, editedBy,
-  initialLookingFor, initialObjection, initialFiveVision, initialHumanDetail,
-  initialShoutoutConsent, onSaved,
-}: Props) {
-  const [lookingFor, setLookingFor] = useState(initialLookingFor);
-  const [objection, setObjection] = useState(initialObjection);
-  const [fiveVision, setFiveVision] = useState(initialFiveVision);
-  const [humanDetail, setHumanDetail] = useState(initialHumanDetail);
-  const [consent, setConsent] = useState(initialShoutoutConsent ?? false);
+export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
+  const [lookingFor, setLookingFor] = useState('');
+  const [objection, setObjection] = useState('');
+  const [fiveVision, setFiveVision] = useState('');
+  const [humanDetail, setHumanDetail] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [savedField, setSavedField] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('sa_buying_criteria, sa_objection, coach_brief_five_vision, coach_brief_human_detail, shoutout_consent')
+        .eq('id', bookingId)
+        .single();
+      if (data) {
+        const d = data as any;
+        setLookingFor(d.sa_buying_criteria || '');
+        setObjection(d.sa_objection || '');
+        setFiveVision(d.coach_brief_five_vision || '');
+        setHumanDetail(d.coach_brief_human_detail || '');
+        setConsent(d.shoutout_consent ?? false);
+      }
+      setLoaded(true);
+    })();
+  }, [bookingId]);
 
   const flashSaved = (f: string) => {
     setSavedField(f);
@@ -58,6 +68,8 @@ export function SABriefFields({
     if (timers.current[key]) clearTimeout(timers.current[key]);
     timers.current[key] = setTimeout(fn, 800);
   };
+
+  if (!loaded) return null;
 
   return (
     <div className="space-y-2.5">

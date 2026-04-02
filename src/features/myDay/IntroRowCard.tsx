@@ -14,6 +14,7 @@ import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
 import { TheirStory } from '@/components/shared/TheirStory';
+import { SABriefFields } from '@/components/shared/SABriefFields';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import {
