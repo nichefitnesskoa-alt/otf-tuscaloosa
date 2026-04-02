@@ -494,6 +494,22 @@ export default function Admin() {
     return getDateRangeForPreset(datePreset, customRange);
   }, [datePreset, customRange]);
   
+  const adminSections = useMemo(() => [
+    { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    { value: 'intelligence', label: 'Intelligence', icon: <Brain className="w-4 h-4" /> },
+    { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
+    { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { value: 'coaching', label: 'Coaching', icon: <BarChart3 className="w-4 h-4" /> },
+    { value: 'campaigns', label: 'Campaigns', icon: <Megaphone className="w-4 h-4" /> },
+    { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
+    { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
+    { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
+    { value: 'bookings', label: 'Bookings', icon: <CalendarDays className="w-4 h-4" /> },
+    { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
+    { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
+    { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
+    { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
+  ], []);
 
   useEffect(() => {
     const fetchData = async () => {
