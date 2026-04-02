@@ -234,6 +234,7 @@ export function TheirStory({
         className="w-full flex items-center justify-center px-3 py-2 rounded-md cursor-pointer select-none"
         style={{ backgroundColor: consentBg, minHeight: '36px' }}
         onClick={toggleConsent}
+        onMouseDown={e => e.stopPropagation()}
       >
         <span className="text-white text-sm font-bold tracking-wide">
           {consentLabel}
