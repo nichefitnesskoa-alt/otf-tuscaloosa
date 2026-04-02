@@ -295,14 +295,22 @@ export default function Wig() {
       });
 
       // Aggregate coaches
-      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number }>();
+      // Build pairing plan set (first intros with coach_member_pair_plan set)
+      const pairPlanBookingIds = new Set(
+        ((pairPlanRes.data || []) as any[])
+          .filter(b => !b.originating_booking_id)
+          .map(b => b.id)
+      );
+
+      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; paired: number }>();
       weekRuns.forEach(r => {
         const name = r.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         ex.coached++;
         if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
         if (r.goal_why_captured === 'yes') ex.whyUsed++;
         if (r.made_a_friend) ex.friends++;
+        if (r.linked_intro_booked_id && pairPlanBookingIds.has(r.linked_intro_booked_id)) ex.paired++;
         coachMap.set(name, ex);
       });
 
