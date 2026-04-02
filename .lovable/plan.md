@@ -1,49 +1,49 @@
 
 
-# Shoutout Bar Interactivity + Label Rename
+# Fix: Text Fields Losing Focus Across the App
 
-## Summary
-Two changes: (1) Make the shoutout consent bar visually interactive with state-specific colors, action text, and a chevron icon. Dim post-class shoutout toggles when consent is No. (2) Rename "Referral Asks" to "POS Referral Ask" in the WIG SA Lead Measures table.
+## Root Cause
 
-## File Changes
+The `MessageGenerator` component has a `useEffect` (line 88-95) that resets the `editedMessage` state whenever `open`, `templateBody`, or `fullContext` changes:
 
-### 1. `src/components/shared/TheirStory.tsx`
+```typescript
+useEffect(() => {
+  if (open) {
+    const applied = applyMergeFields(templateBody, fullContext, {});
+    setEditedMessage(applied);
+    setManualFields({});
+    setCopied(false);
+  }
+}, [open, templateBody, fullContext]);
+```
 
-**Shoutout bar overhaul (lines 224-243):**
-- Change `consentLabel` and `consentBg` logic:
-  - `null` → amber `#F59E0B`, text: "Shoutout — tap to set"
-  - `false` → orange `#E8540A`, text: "Shoutout: NO — tap to change"
-  - `true` → green (Tailwind `#22c55e`), text: "Shoutout: YES — tap to change"
-- Add `ChevronRight` icon (white, 16px) on the right side of the bar
-- Keep `cursor-pointer` and existing `stopPropagation` + `toggleConsent` logic
-- Change "Saved" flash duration from 2s to 1s
-- Import `ChevronRight` from lucide-react
+The `fullContext` is a `useMemo` that depends on `mergeContext` — but `mergeContext` is passed as an inline object literal from multiple parent components (ScriptPickerSheet line 406, MyDayNewLeadsTab line 541, etc.). Every parent re-render creates a new object reference, causing `fullContext` to change, which triggers the effect and **resets the textarea mid-typing**.
 
-**Export consent state:** Add a callback prop `onConsentChange?: (val: boolean | null) => void` that fires after consent is saved, so CoachIntroCard can track consent for dimming post-class toggles.
+The parent re-renders are triggered by the **realtime subscription** in `useRealtimeMyDay` — it listens to `script_actions`, `intros_booked`, and other tables. Any DB write (even the user's own copy action inserting into `script_actions`) fires the realtime listener, which calls `fetchMetrics()`, re-rendering the parent, re-creating `mergeContext`, and resetting the textarea.
 
-### 2. `src/components/coach/CoachIntroCard.tsx`
+This same pattern affects the `TemplateEditor` to a lesser degree — its `useEffect` depends on `[template, open]` and `template` is an object from the parent's filtered list that gets a new reference on re-render from query invalidation.
 
-**Dim shoutout toggles when consent is No:**
-- Add state `consentValue` tracking shoutout_consent from the booking prop
-- Pass `onConsentChange` to TheirStory to update `consentValue` on toggle
-- On the two shoutout start/end ToggleFields (lines 218-219), apply `opacity-50` class when `consentValue === false`
-- Toggles remain functional (not disabled), just visually dimmed as a reminder
+## Fix — 2 Files
 
-### 3. `src/pages/Wig.tsx`
+### 1. `src/components/scripts/MessageGenerator.tsx`
 
-**Label rename (line 540):**
-- Change `"Referral Asks"` → `"POS Referral Ask"`
+Change the reset `useEffect` to only fire when `open` transitions from `false` to `true`, not on every context change:
 
-### 4. Cognitive load audit — no additional changes needed
-- Toggle switches already have Yes/No labels flanking them
-- Card headers already have chevron icons via `CollapsibleSection`
-- Zone 2 fields already have visible borders (Textarea component)
-- Shift selector buttons already have border and hover states
-- The shoutout bar fix in this prompt is the main offender — fixed above
+- Add a `useRef` to track the previous `open` state
+- Only run the reset logic when `open` is `true` AND was previously `false` (i.e., the dialog just opened)
+- Remove `templateBody` and `fullContext` from the dependency array
 
-## Technical Details
-- Consent cycling stays: `null → true → false → true → false...`
-- The `flashSaved` timeout changes from 2000ms to 1000ms for the shoutout field only
-- No database changes needed
-- No changes to any other page or component
+This ensures typing in the textarea is never interrupted by parent re-renders.
+
+### 2. `src/components/scripts/TemplateEditor.tsx`
+
+Same fix: change the reset `useEffect` to only fire when `open` transitions to `true`, using a ref to track the previous value. Remove `template` from the dependency array so query invalidation (which creates new object references) does not reset the form mid-edit.
+
+### What this does NOT change
+
+- No visual changes anywhere
+- No changes to realtime subscriptions
+- No changes to any other page, component, or data fetching
+- The reset still fires correctly when the dialog first opens — fields populate as expected
+- Closing and reopening still resets fields
 
