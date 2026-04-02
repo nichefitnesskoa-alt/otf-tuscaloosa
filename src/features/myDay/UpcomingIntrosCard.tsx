@@ -1,9 +1,8 @@
 /**
  * Upcoming Intros Card: calm, positive daily workflow.
- * Two tabs: Today / Rest of week.
- * No at-risk banners, no scary styling.
- * Cards show Prep | Script | Coach buttons.
- * Today view: completed intros collapsed at bottom.
+ * Collapsible cards — only one expanded at a time.
+ * Auto-expands the next upcoming intro on load.
+ * Summary line at top: Today: X intros · Y Q complete · Z shown · W closed
  */
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { differenceInMinutes } from 'date-fns';
@@ -23,10 +22,12 @@ import IntroDayGroup from './IntroDayGroup';
 import { confirmIntro } from './myDayActions';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSlug } from '@/lib/utils';
+import { useData } from '@/context/DataContext';
+import { getTodayYMD } from '@/lib/dateUtils';
+import { isMembershipSale } from '@/lib/sales-detection';
 
 interface UpcomingIntrosCardProps {
   userName: string;
-  /** If provided, locks the component to this range (no tab selector shown) */
   fixedTimeRange?: TimeRange;
 }
 
@@ -38,7 +39,27 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     timeRange,
   });
 
-  // Fetch confirmation reflection results for Unconfirmed badge
+  // Shoutout consent map — fetch from intros_booked
+  const [shoutoutMap, setShoutoutMap] = useState<Record<string, boolean | null>>({});
+  useEffect(() => {
+    if (items.length === 0) return;
+    const ids = items.map(i => i.bookingId);
+    (async () => {
+      const batches: string[][] = [];
+      for (let i = 0; i < ids.length; i += 500) batches.push(ids.slice(i, i + 500));
+      const map: Record<string, boolean | null> = {};
+      for (const batch of batches) {
+        const { data } = await supabase
+          .from('intros_booked')
+          .select('id, shoutout_consent')
+          .in('id', batch);
+        (data || []).forEach((r: any) => { map[r.id] = r.shoutout_consent; });
+      }
+      setShoutoutMap(map);
+    })();
+  }, [items]);
+
+  // Fetch confirmation reflection results
   useEffect(() => {
     (async () => {
       const { data } = await supabase
@@ -77,8 +98,74 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const completedDayGroups = useMemo(() => groupByDay(completedItems), [completedItems]);
   const [completedOpen, setCompletedOpen] = useState(false);
 
+  // ══ ACCORDION STATE — only one card expanded at a time ══
+  const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
+
+  // Auto-expand logic: find next upcoming intro
+  const todayStr = getTodayYMD();
+  useEffect(() => {
+    if (items.length === 0) return;
+    const now = new Date();
+    
+    // Find today's active intros (no outcome yet)
+    const todayActive = items.filter(i => 
+      i.classDate === todayStr && 
+      !i.latestRunResult
+    );
+
+    if (todayActive.length === 0) {
+      // All done — expand most recent
+      const todayAll = items.filter(i => i.classDate === todayStr);
+      if (todayAll.length > 0) {
+        const sorted = [...todayAll].sort((a, b) => {
+          const ta = a.introTime || '00:00';
+          const tb = b.introTime || '00:00';
+          return tb.localeCompare(ta);
+        });
+        setExpandedBookingId(sorted[0].bookingId);
+      }
+      return;
+    }
+
+    // Find closest upcoming class time not yet passed
+    let bestId: string | null = null;
+    let bestDiff = Infinity;
+    for (const item of todayActive) {
+      if (!item.introTime) continue;
+      try {
+        const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+        const diff = classStart.getTime() - now.getTime();
+        if (diff > 0 && diff < bestDiff) {
+          bestDiff = diff;
+          bestId = item.bookingId;
+        }
+      } catch {}
+    }
+
+    // If all have passed, use the most recent past one
+    if (!bestId) {
+      let latestDiff = -Infinity;
+      for (const item of todayActive) {
+        if (!item.introTime) continue;
+        try {
+          const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+          const diff = classStart.getTime() - now.getTime();
+          if (diff > latestDiff) {
+            latestDiff = diff;
+            bestId = item.bookingId;
+          }
+        } catch {}
+      }
+    }
+
+    if (bestId) setExpandedBookingId(bestId);
+  }, [items, todayStr]);
+
+  const handleExpandCard = useCallback((bookingId: string) => {
+    setExpandedBookingId(prev => prev === bookingId ? null : bookingId);
+  }, []);
+
   // Compute focused booking: nearest today's intro within 2 hours
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [focusedBookingId, setFocusedBookingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,7 +195,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const isWeekView = fixedTimeRange === 'restOfWeek';
   const [selectedWeekDay, setSelectedWeekDay] = useState<string | null>(null);
 
-  // Reset selected day when day groups change
   useEffect(() => {
     if (isWeekView && dayGroups.length > 0) {
       setSelectedWeekDay(prev => {
@@ -129,13 +215,25 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     return Math.round((done / items.length) * 100);
   }, [items]);
 
+  // ══ SUMMARY COUNTS ══
+  const { introsRun } = useData();
+  const summaryLine = useMemo(() => {
+    const todayItems = items.filter(i => i.classDate === todayStr);
+    const totalIntros = todayItems.length;
+    const qComplete = todayItems.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
+    // Shown and closed from intros_run for today (matching Studio tab logic)
+    const todayRuns = introsRun.filter(r => r.run_date === todayStr);
+    const shown = todayRuns.filter(r => r.result !== 'No-show' && r.result_canon !== 'NO_SHOW').length;
+    const closed = todayRuns.filter(r => isMembershipSale(r.result || '')).length;
+    return { totalIntros, qComplete, shown, closed };
+  }, [items, introsRun, todayStr]);
+
   const handleSendQ = useCallback(async (bookingId: string) => {
     if (!isOnline) { toast.error('Offline'); return; }
     const item = items.find(i => i.bookingId === bookingId);
     if (!item) return;
     const PUBLISHED_URL = 'https://otf-tuscaloosa.lovable.app';
     try {
-      // Ensure questionnaire exists for this booking
       const { data: existing } = await supabase
         .from('intro_questionnaires')
         .select('id, slug')
@@ -147,13 +245,11 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
       if (existing) {
         qId = existing.id;
-        // If existing slug already has the new name-date format, use it; else regenerate
         const existingSlug = (existing as any).slug;
         const hasNewFormat = existingSlug && /[a-z]{3}\d{1,2}(-\d+)?$/.test(existingSlug);
         if (hasNewFormat) {
           slug = existingSlug;
         } else {
-          // Backfill slug to new name-date format
           const nameParts = item.memberName.trim().split(/\s+/);
           const firstName = nameParts[0] || item.memberName;
           const lastName = nameParts.slice(1).join(' ') || '';
@@ -161,14 +257,12 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           await supabase.from('intro_questionnaires').update({ slug: newSlug } as any).eq('id', qId);
           slug = newSlug;
         }
-        // Mark as sent if not already sent/completed
         await supabase
           .from('intro_questionnaires')
           .update({ status: 'sent' })
           .eq('id', qId)
           .not('status', 'in', '("completed","submitted","sent")');
       } else {
-        // Create new questionnaire record
         const nameParts = item.memberName.trim().split(/\s+/);
         const firstName = nameParts[0] || item.memberName;
         const lastName = nameParts.slice(1).join(' ') || '';
@@ -241,7 +335,21 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Summary strip */}
+        {/* Summary line — Today counts matching Studio tab */}
+        {isTodayView && items.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2">
+            <span className="font-semibold">Today:</span>
+            <span>{summaryLine.totalIntros} intros</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-success">{summaryLine.qComplete} Q complete</span>
+            <span className="text-muted-foreground">·</span>
+            <span>{summaryLine.shown} shown</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-success font-medium">{summaryLine.closed} closed</span>
+          </div>
+        )}
+
+        {/* Quick win strip */}
         <div className="flex items-center gap-3 flex-wrap text-xs">
           <span className="font-medium">
             {timeRange === 'today' ? "Today" : timeRange === 'restOfWeek' ? 'Rest of week' : 'Needs outcome'}: <strong>{items.length}</strong>
@@ -274,7 +382,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           </div>
         )}
 
-        {/* Tabs: Today / Rest of week / Needs Outcome — hidden when range is fixed */}
+        {/* Tabs */}
         {!fixedTimeRange && (
           <UpcomingIntrosFilters
             timeRange={timeRange}
@@ -290,7 +398,8 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
               const dayLabel = format(d, 'EEE');
               const dateLabel = format(d, 'M/d');
               const isActive = selectedWeekDay === g.date;
-              const isToday = g.date === format(new Date(), 'yyyy-MM-dd');
+              const todayDate = format(new Date(), 'yyyy-MM-dd');
+              const isDayToday = g.date === todayDate;
               return (
                 <button
                   key={g.date}
@@ -298,12 +407,12 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                   className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     isActive
                       ? 'bg-primary text-primary-foreground border-primary'
-                      : isToday
+                      : isDayToday
                         ? 'bg-card text-card-foreground border-primary/50 ring-1 ring-primary/30'
                         : 'bg-card text-card-foreground border-border hover:bg-muted'
                   }`}
                 >
-                  <span>{dayLabel}{isToday && !isActive ? ' •' : ''}</span>
+                  <span>{dayLabel}{isDayToday && !isActive ? ' •' : ''}</span>
                   <span className="text-[10px]">{dateLabel}</span>
                   <Badge variant={isActive ? 'secondary' : 'outline'} className="h-3.5 px-1 text-[9px] mt-0.5">
                     {g.items.length}
@@ -325,7 +434,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           </p>
         ) : (
           <div className="space-y-4">
-            {/* Active intros (or all intros if not today view) */}
             {(isTodayView ? activeDayGroups : filteredDayGroups).map(group => (
               <IntroDayGroup
                 key={group.date}
@@ -338,6 +446,9 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 needsOutcome={timeRange === 'needsOutcome'}
                 confirmResults={confirmResults}
                 focusedBookingId={focusedBookingId}
+                expandedBookingId={expandedBookingId}
+                onExpandCard={handleExpandCard}
+                shoutoutMap={shoutoutMap}
               />
             ))}
 
@@ -363,6 +474,9 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                       needsOutcome={false}
                       confirmResults={confirmResults}
                       focusedBookingId={null}
+                      expandedBookingId={expandedBookingId}
+                      onExpandCard={handleExpandCard}
+                      shoutoutMap={shoutoutMap}
                     />
                   ))}
                 </CollapsibleContent>
