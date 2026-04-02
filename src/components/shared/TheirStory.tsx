@@ -191,8 +191,9 @@ export function TheirStory({
     if (field === 'sa_conversation_meaning') setSavedMeaning(value || null);
     if (field === 'sa_conversation_obstacle') setSavedObstacle(value || null);
     flashSaved(field);
-    onFieldSaved?.();
-  }, [bookingId, onFieldSaved]);
+    // Do NOT call onFieldSaved here — prevents parent refresh from
+    // unmounting the card and losing focus / collapsing the section.
+  }, [bookingId]);
 
   const saveConsent = useCallback(async (value: boolean) => {
     setConsent(value);
