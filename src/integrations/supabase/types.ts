@@ -856,6 +856,10 @@ export type Database = {
           coach_brief_why_moment: string | null
           coach_name: string
           coach_notes: string | null
+          coach_referral_asked: boolean | null
+          coach_referral_names: string | null
+          coach_shoutout_end: boolean | null
+          coach_shoutout_start: boolean | null
           converted_to_booking_id: string | null
           created_at: string
           delete_reason: string | null
@@ -918,6 +922,10 @@ export type Database = {
           coach_brief_why_moment?: string | null
           coach_name: string
           coach_notes?: string | null
+          coach_referral_asked?: boolean | null
+          coach_referral_names?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -980,6 +988,10 @@ export type Database = {
           coach_brief_why_moment?: string | null
           coach_name?: string
           coach_notes?: string | null
+          coach_referral_asked?: boolean | null
+          coach_referral_names?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
