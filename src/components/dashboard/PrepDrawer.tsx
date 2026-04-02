@@ -927,18 +927,24 @@ export function PrepDrawer({
               <div style={{ fontSize: '12px' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Their Story</div>
 
-                <div style={{ marginBottom: '5px' }}>
+              <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What a 5/5 looks like for them:</div>
+                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {goal}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div>{saConv5of5 || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What it would mean to them:</div>
+                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {emotionalDriver}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '5px' }}>
                   <div style={{ fontSize: '11px', color: '#444' }}>What's been holding them back:</div>
+                  {obstacle && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '11px' }}>They wrote: {obstacle}</div>}
+                  <div style={{ fontSize: '11px', color: '#888' }}>They said:</div>
                   <div>{saConvObstacle || blankLine}</div>
                 </div>
 
@@ -971,15 +977,15 @@ export function PrepDrawer({
               <div style={{ fontSize: '11.5px' }}>
                 <div style={{ marginBottom: '4px' }}>
                   <div style={{ fontSize: '10px', color: '#444' }}>What a 5/5 looks like:</div>
+                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {goal}</div>}
                   <div>{saConv5of5 || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '4px' }}>
                   <div style={{ fontSize: '10px', color: '#444' }}>What it would mean:</div>
+                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {emotionalDriver}</div>}
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
-
-                {/* THE CLOSE */}
                 <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '6px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>The Close</div>
 
                 <div style={{ marginBottom: '3px' }}>
@@ -1021,7 +1027,7 @@ export function PrepDrawer({
                   <div style={{ fontSize: '11px' }}>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>E — </span>"{eirmaPlaybook.empathize_line}"</div>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>I — </span>"{eirmaPlaybook.isolate_question}"</div>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{eirmaPlaybook.redirect_framework}"</div>
+                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{(() => { const meaning = saConvMeaning || emotionalDriver || null; return meaning ? `Here's what I know. You told me that if you got there — ${meaning}. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.` : `Here's what I know. You told me that if you got there — [what it would mean to them]. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.`; })()}"</div>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>M — </span>"{eirmaPlaybook.suggestion_framework}"</div>
                     <div><span style={{ fontWeight: 'bold' }}>A — </span>"{eirmaPlaybook.ask_line}"</div>
                   </div>
