@@ -898,6 +898,8 @@ export type Database = {
           referred_by_member_name: string | null
           reschedule_contact_date: string | null
           sa_buying_criteria: string | null
+          sa_conversation_5_of_5: string | null
+          sa_conversation_meaning: string | null
           sa_objection: string | null
           sa_working_shift: string
           sheets_row_number: number | null
@@ -964,6 +966,8 @@ export type Database = {
           referred_by_member_name?: string | null
           reschedule_contact_date?: string | null
           sa_buying_criteria?: string | null
+          sa_conversation_5_of_5?: string | null
+          sa_conversation_meaning?: string | null
           sa_objection?: string | null
           sa_working_shift: string
           sheets_row_number?: number | null
@@ -1030,6 +1034,8 @@ export type Database = {
           referred_by_member_name?: string | null
           reschedule_contact_date?: string | null
           sa_buying_criteria?: string | null
+          sa_conversation_5_of_5?: string | null
+          sa_conversation_meaning?: string | null
           sa_objection?: string | null
           sa_working_shift?: string
           sheets_row_number?: number | null
