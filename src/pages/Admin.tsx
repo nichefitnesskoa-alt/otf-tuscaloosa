@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -33,12 +33,19 @@ import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
+import StaffManagement from '@/components/admin/StaffManagement';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
 import { format, addDays } from 'date-fns';
 
-const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
+// Staff names now loaded from database via useActiveStaff hook where needed
 
 function PhoneBackfillCard() {
   const [running, setRunning] = useState(false);
@@ -487,6 +494,22 @@ export default function Admin() {
     return getDateRangeForPreset(datePreset, customRange);
   }, [datePreset, customRange]);
   
+  const adminSections = useMemo(() => [
+    { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
+    { value: 'intelligence', label: 'Intelligence', icon: <Brain className="w-4 h-4" /> },
+    { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
+    { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
+    { value: 'coaching', label: 'Coaching', icon: <BarChart3 className="w-4 h-4" /> },
+    { value: 'campaigns', label: 'Campaigns', icon: <Megaphone className="w-4 h-4" /> },
+    { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
+    { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
+    { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
+    { value: 'bookings', label: 'Bookings', icon: <CalendarDays className="w-4 h-4" /> },
+    { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
+    { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
+    { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
+    { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
+  ], []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -527,60 +550,32 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-13">
-          <TabsTrigger value="overview" className="gap-1">
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="intelligence" className="gap-1">
-            <Brain className="w-4 h-4" />
-            <span className="hidden sm:inline">Intelligence</span>
-          </TabsTrigger>
-          <TabsTrigger value="objections" className="gap-1">
-            <AlertTriangle className="w-4 h-4" />
-            <span className="hidden sm:inline">Objections</span>
-          </TabsTrigger>
-          <TabsTrigger value="data" className="gap-1">
-            <Database className="w-4 h-4" />
-            <span className="hidden sm:inline">Data</span>
-          </TabsTrigger>
-          <TabsTrigger value="coaching" className="gap-1">
-            <BarChart3 className="w-4 h-4" />
-            <span className="hidden sm:inline">Coaching</span>
-          </TabsTrigger>
-          <TabsTrigger value="campaigns" className="gap-1">
-            <Megaphone className="w-4 h-4" />
-            <span className="hidden sm:inline">Campaigns</span>
-          </TabsTrigger>
-          <TabsTrigger value="referrals" className="gap-1">
-            <Users className="w-4 h-4" />
-            <span className="hidden sm:inline">Referrals</span>
-          </TabsTrigger>
-          <TabsTrigger value="stories" className="gap-1">
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Stories</span>
-          </TabsTrigger>
-          <TabsTrigger value="scripts" className="gap-1">
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Scripts</span>
-          </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-1">
-            <CalendarDays className="w-4 h-4" />
-            <span className="hidden sm:inline">Bookings</span>
-          </TabsTrigger>
-          <TabsTrigger value="hiring" className="gap-1">
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">Hiring</span>
-          </TabsTrigger>
-          <TabsTrigger value="shifts" className="gap-1">
-            <ListChecks className="w-4 h-4" />
-            <span className="hidden sm:inline">Shifts</span>
-          </TabsTrigger>
-          <TabsTrigger value="10x" className="gap-1">
-            <Zap className="w-4 h-4" />
-            <span className="hidden sm:inline">10x</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Dropdown navigation replaces overflowing tabs grid */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full justify-between mb-4">
+              <span className="flex items-center gap-2">
+                {adminSections.find(s => s.value === activeTab)?.icon}
+                {adminSections.find(s => s.value === activeTab)?.label || 'Overview'}
+              </span>
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+            {adminSections.map(section => (
+              <DropdownMenuItem
+                key={section.value}
+                onClick={() => setActiveTab(section.value)}
+                className={activeTab === section.value ? 'bg-accent font-semibold' : ''}
+              >
+                <span className="flex items-center gap-2">
+                  {section.icon}
+                  {section.label}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Intelligence Tab */}
         <TabsContent value="intelligence" className="space-y-4">
@@ -671,6 +666,11 @@ export default function Admin() {
         {/* Hiring Tab */}
         <TabsContent value="hiring" className="space-y-4">
           <HiringPipeline />
+        </TabsContent>
+
+        {/* Staff Management Tab */}
+        <TabsContent value="staff" className="space-y-4">
+          <StaffManagement />
         </TabsContent>
 
         {/* Shifts Tab */}
