@@ -1,16 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Flame } from 'lucide-react';
-import { ALL_STAFF } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Login() {
   const [selectedName, setSelectedName] = useState('');
+  const [staffNames, setStaffNames] = useState<string[]>([]);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('name')
+        .eq('is_active', true)
+        .order('name');
+      setStaffNames((data || []).map((s: any) => s.name));
+    };
+    fetchStaff();
+  }, []);
 
   const handleLogin = () => {
     if (!selectedName) return;
@@ -42,7 +55,7 @@ export default function Login() {
               <SelectValue placeholder="Select your name..." />
             </SelectTrigger>
             <SelectContent>
-              {[...ALL_STAFF].sort((a, b) => a.localeCompare(b)).map(name => (
+              {staffNames.map(name => (
                 <SelectItem key={name} value={name}>{name}</SelectItem>
               ))}
             </SelectContent>

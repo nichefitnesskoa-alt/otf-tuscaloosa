@@ -668,6 +668,11 @@ export default function Admin() {
           <HiringPipeline />
         </TabsContent>
 
+        {/* Staff Management Tab */}
+        <TabsContent value="staff" className="space-y-4">
+          <StaffManagement />
+        </TabsContent>
+
         {/* Shifts Tab */}
         <TabsContent value="shifts" className="space-y-4">
           <ShiftTasksAdmin />
