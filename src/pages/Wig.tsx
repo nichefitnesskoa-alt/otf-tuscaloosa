@@ -325,7 +325,7 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0 };
+        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
         return {
           name,
@@ -333,6 +333,7 @@ export default function Wig() {
           shoutoutRate: wk.coached > 0 ? (wk.shoutouts / wk.coached) * 100 : 0,
           whyUsedRate: wk.coached > 0 ? (wk.whyUsed / wk.coached) * 100 : 0,
           friendRate: wk.coached > 0 ? (wk.friends / wk.coached) * 100 : 0,
+          pairingRate: wk.coached > 0 ? (wk.paired / wk.coached) * 100 : 0,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
         };
