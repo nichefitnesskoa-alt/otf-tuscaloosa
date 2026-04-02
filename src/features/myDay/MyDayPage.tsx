@@ -184,7 +184,7 @@ export default function MyDayPage() {
   const fetchMetrics = async () => {
     if (!user?.name) return;
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = getTodayYMD();
       const todayStart = getTodayStartISO();
 
       const { data: actionsData } = await supabase
