@@ -243,7 +243,7 @@ export function TheirStory({
               <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
                 What would a 5/5 look like for you?
               </Label>
-              <SavedIndicator show={savedField === 'q1_fitness_goal'} />
+              <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
             </div>
             {!readOnly ? (
               <>
@@ -252,12 +252,13 @@ export function TheirStory({
                   value={goalText}
                   onChange={e => setGoalText(e.target.value)}
                   onBlur={handleGoalBlur}
+                  placeholder="They said they want to [goal] — ask: 'Paint me a picture. What does your life actually look like when you get there?'"
                   className="min-h-[80px] text-sm"
                 />
               </>
             ) : (
               <p className="text-sm">
-                {fitnessGoal || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
+                {savedGoal || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
               </p>
             )}
           </div>
@@ -268,7 +269,7 @@ export function TheirStory({
               <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>
                 What would it mean to you if you got there?
               </Label>
-              <SavedIndicator show={savedField === 'q5_emotional_driver'} />
+              <SavedIndicator show={savedField === 'sa_conversation_meaning'} />
             </div>
             {!readOnly ? (
               <>
@@ -277,19 +278,20 @@ export function TheirStory({
                   value={driverText}
                   onChange={e => setDriverText(e.target.value)}
                   onBlur={handleDriverBlur}
+                  placeholder="Now go deeper. Ask: 'What would that mean to you? Like really mean to you?' Then stop talking. Let them sit in it."
                   className="min-h-[80px] text-sm"
                 />
               </>
             ) : (
               <p className="text-sm">
-                {emotionalDriver || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
+                {savedMeaning || <span className="text-muted-foreground italic">SA will capture during intro.</span>}
               </p>
             )}
 
-            {/* Orange highlight line — show saved value (from DB, not from local input) */}
-            {(readOnly ? emotionalDriver : driverText.trim()) && (
+            {/* Orange highlight line — from intros_booked.sa_conversation_meaning */}
+            {(readOnly ? savedMeaning : savedMeaning) && (
               <p className="text-sm font-semibold mt-1.5" style={{ color: '#E8540A' }}>
-                ↑ {readOnly ? emotionalDriver : driverText.trim()}
+                ↑ {savedMeaning}
               </p>
             )}
           </div>
