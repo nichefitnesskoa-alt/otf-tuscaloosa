@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PerSATable } from '@/components/dashboard/PerSATable';
+import { PerCoachTable } from '@/components/dashboard/PerCoachTable';
 import { BookerStatsTable } from '@/components/dashboard/BookerStatsTable';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
