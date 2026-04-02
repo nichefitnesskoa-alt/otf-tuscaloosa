@@ -977,15 +977,15 @@ export function PrepDrawer({
               <div style={{ fontSize: '11.5px' }}>
                 <div style={{ marginBottom: '4px' }}>
                   <div style={{ fontSize: '10px', color: '#444' }}>What a 5/5 looks like:</div>
+                  {goal && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {goal}</div>}
                   <div>{saConv5of5 || blankLine}</div>
                 </div>
 
                 <div style={{ marginBottom: '4px' }}>
                   <div style={{ fontSize: '10px', color: '#444' }}>What it would mean:</div>
+                  {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {emotionalDriver}</div>}
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
-
-                {/* THE CLOSE */}
                 <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '6px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>The Close</div>
 
                 <div style={{ marginBottom: '3px' }}>
