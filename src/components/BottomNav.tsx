@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings, Eye } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
