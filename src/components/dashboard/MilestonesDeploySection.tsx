@@ -1,19 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, Plus, PartyPopper, Rocket, AlertTriangle } from 'lucide-react';
+import { Check, Plus, PartyPopper, Rocket, AlertTriangle, Pencil, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface MilestoneRow {
   id: string;
@@ -28,6 +28,8 @@ interface MilestoneRow {
   deploy_converted: boolean;
   created_by: string;
   created_at: string;
+  last_edited_by?: string | null;
+  last_edited_at?: string | null;
 }
 
 interface WeekSummary {
@@ -35,26 +37,23 @@ interface WeekSummary {
   packs: number;
   friends: number;
   deployed: number;
+  converted: number;
 }
 
 function isEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-function isPhone(s: string) {
-  const digits = s.replace(/\D/g, '');
-  return digits.length >= 7 && digits.length <= 11;
-}
-
 export function MilestonesDeploySection() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, packs: 0, friends: 0, deployed: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
   const [loading, setLoading] = useState(true);
 
-  // Celebration form
+  // Create form state
   const [celOpen, setCelOpen] = useState(false);
   const [celName, setCelName] = useState('');
   const [celType, setCelType] = useState('');
@@ -63,6 +62,17 @@ export function MilestonesDeploySection() {
   const [celFriendContact, setCelFriendContact] = useState('');
   const [celSaving, setCelSaving] = useState(false);
   const [celPipelineMsg, setCelPipelineMsg] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+
+  // Edit form state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState<MilestoneRow | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('');
+  const [editPack, setEditPack] = useState(false);
+  const [editFriendName, setEditFriendName] = useState('');
+  const [editFriendContact, setEditFriendContact] = useState('');
+  const [editDepItem, setEditDepItem] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   // Deploy form
   const [depOpen, setDepOpen] = useState(false);
@@ -101,6 +111,7 @@ export function MilestonesDeploySection() {
       packs: mils.filter(m => m.five_class_pack_gifted).length,
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
+      converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
     });
     setLoading(false);
   }, [weekStart, weekEnd]);
@@ -111,7 +122,6 @@ export function MilestonesDeploySection() {
     const contact = friendContact.trim().toLowerCase();
     if (!contact) return;
 
-    // Check leads, intros_booked, ig_leads
     const isEmailContact = isEmail(contact);
     const phoneDigits = contact.replace(/\D/g, '');
 
@@ -137,7 +147,6 @@ export function MilestonesDeploySection() {
       return;
     }
 
-    // Create lead
     const nameParts = friendName.trim().split(/\s+/);
     const firstName = nameParts[0] || friendName;
     const lastName = nameParts.slice(1).join(' ') || '';
@@ -151,6 +160,7 @@ export function MilestonesDeploySection() {
         email: isEmailContact ? friendContact.trim() : null,
         source: 'Milestone Referral',
         stage: 'new',
+        duplicate_notes: `Referred via milestone pack — ${editItem?.member_name || ''} celebrated on ${format(new Date(), 'MMM d, yyyy')}`,
       } as any)
       .select('id')
       .single();
@@ -195,13 +205,9 @@ export function MilestonesDeploySection() {
 
     toast.success('Celebration saved!');
     setCelSaving(false);
-    setCelName('');
-    setCelType('');
-    setCelPack(false);
-    setCelFriendName('');
-    setCelFriendContact('');
-    setCelOpen(false);
-    setCelPipelineMsg(null);
+    setCelName(''); setCelType(''); setCelPack(false);
+    setCelFriendName(''); setCelFriendContact('');
+    setCelOpen(false); setCelPipelineMsg(null);
     loadData();
   };
 
@@ -226,9 +232,55 @@ export function MilestonesDeploySection() {
 
     toast.success('Deploy saved!');
     setDepSaving(false);
-    setDepName('');
-    setDepItem('');
-    setDepOpen(false);
+    setDepName(''); setDepItem(''); setDepOpen(false);
+    loadData();
+  };
+
+  const openEdit = (item: MilestoneRow) => {
+    setEditItem(item);
+    setEditName(item.member_name);
+    setEditType(item.milestone_type || '');
+    setEditPack(item.five_class_pack_gifted);
+    setEditFriendName(item.friend_name || '');
+    setEditFriendContact(item.friend_contact || '');
+    setEditDepItem(item.deploy_item_given || '');
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editItem || !user?.name) return;
+    setEditSaving(true);
+
+    const updates: Record<string, any> = {
+      member_name: editName.trim(),
+      last_edited_by: user.name,
+      last_edited_at: new Date().toISOString(),
+    };
+
+    if (editItem.entry_type === 'milestone') {
+      updates.milestone_type = editType.trim();
+      updates.five_class_pack_gifted = editPack;
+      updates.friend_name = editFriendName.trim() || null;
+      updates.friend_contact = editFriendContact.trim() || null;
+    } else {
+      updates.deploy_item_given = editDepItem;
+    }
+
+    const { error } = await supabase
+      .from('milestones')
+      .update(updates as any)
+      .eq('id', editItem.id);
+
+    if (error) {
+      toast.error('Failed to update');
+      setEditSaving(false);
+      return;
+    }
+
+    toast.success('Updated');
+    setEditSaving(false);
+    setEditOpen(false);
+    setEditItem(null);
     loadData();
   };
 
@@ -236,6 +288,11 @@ export function MilestonesDeploySection() {
     const newVal = !current;
     setDeploys(prev => prev.map(d => d.id === id ? { ...d, deploy_converted: newVal } : d));
     await supabase.from('milestones').update({ deploy_converted: newVal } as any).eq('id', id);
+    loadData();
+  };
+
+  const navigateToLead = (leadId: string) => {
+    navigate('/pipeline?leadId=' + leadId);
   };
 
   const summaryCards = [
@@ -243,6 +300,7 @@ export function MilestonesDeploySection() {
     { label: 'Packs gifted', value: summary.packs },
     { label: 'Friends in pipeline', value: summary.friends },
     { label: 'Members deployed', value: summary.deployed },
+    { label: 'Converted', value: summary.converted },
   ];
 
   return (
@@ -250,7 +308,7 @@ export function MilestonesDeploySection() {
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones & Deploy</p>
 
       {/* Weekly summary */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardContent className="p-3 text-center">
@@ -336,15 +394,36 @@ export function MilestonesDeploySection() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium">{m.member_name}</span>
                       <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/20 text-[9px] h-4">{m.milestone_type}</Badge>
-                      {m.five_class_pack_gifted && <Check className="w-3.5 h-3.5 text-green-500" />}
-                      {m.converted_to_lead_id && (
-                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 text-[9px] h-4">In pipeline</Badge>
+                      {/* Pack status pill */}
+                      {m.five_class_pack_gifted && (
+                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
                       )}
+                      {/* Pipeline status pill */}
+                      {m.converted_to_lead_id ? (
+                        <Badge
+                          className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30 text-[9px] h-4 cursor-pointer gap-1"
+                          onClick={(e) => { e.stopPropagation(); navigateToLead(m.converted_to_lead_id!); }}
+                        >
+                          In pipeline <ExternalLink className="w-2.5 h-2.5" />
+                        </Badge>
+                      ) : m.friend_name ? (
+                        <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
+                      ) : null}
                     </div>
+                    {/* Show friend name if exists but not in pipeline */}
+                    {m.friend_name && !m.converted_to_lead_id && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">Friend: {m.friend_name}</p>
+                    )}
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {m.created_by} · {format(new Date(m.created_at), 'EEE h:mm a')}
+                      {m.last_edited_by && (
+                        <span className="ml-1">· edited by {m.last_edited_by}</span>
+                      )}
                     </p>
                   </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(m)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               ))}
             </Card>
@@ -400,29 +479,99 @@ export function MilestonesDeploySection() {
                       <span className="text-sm font-medium">{d.member_name}</span>
                       <Badge variant="outline" className="text-[9px] h-4">{d.deploy_item_given}</Badge>
                       {d.deploy_converted && (
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/20 text-[9px] h-4">Converted</Badge>
+                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted</Badge>
                       )}
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {d.created_by} · {format(new Date(d.created_at), 'EEE h:mm a')}
+                      {d.last_edited_by && (
+                        <span className="ml-1">· edited by {d.last_edited_by}</span>
+                      )}
                     </p>
                   </div>
-                  {!d.deploy_converted && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] px-2 text-muted-foreground"
-                      onClick={() => toggleDeployConverted(d.id, d.deploy_converted)}
-                    >
-                      Mark converted
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!d.deploy_converted && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[10px] px-2 text-muted-foreground"
+                        onClick={() => toggleDeployConverted(d.id, d.deploy_converted)}
+                      >
+                        Mark converted
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}>
+                      <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                  )}
+                  </div>
                 </div>
               ))}
             </Card>
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) setEditItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {editItem?.entry_type === 'milestone' ? 'Celebration' : 'Deploy'}</DialogTitle>
+          </DialogHeader>
+          {editItem && (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">Member name *</Label>
+                <Input value={editName} onChange={e => setEditName(e.target.value)} />
+              </div>
+              {editItem.entry_type === 'milestone' ? (
+                <>
+                  <div>
+                    <Label className="text-xs">Milestone type *</Label>
+                    <Input value={editType} onChange={e => setEditType(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={editPack} onCheckedChange={setEditPack} />
+                    <Label className="text-xs">5-class pack gifted?</Label>
+                  </div>
+                  {editPack && (
+                    <>
+                      <div>
+                        <Label className="text-xs">Friend name</Label>
+                        <Input value={editFriendName} onChange={e => setEditFriendName(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Friend contact</Label>
+                        <Input value={editFriendContact} onChange={e => setEditFriendContact(e.target.value)} />
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <Label className="text-xs">What did you give them? *</Label>
+                  <Select value={editDepItem} onValueChange={setEditDepItem}>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Marketing Materials">Marketing Materials</SelectItem>
+                      <SelectItem value="VIP Event Contact">VIP Event Contact</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Created by {editItem.created_by} · {format(new Date(editItem.created_at), 'MMM d, h:mm a')}
+              </p>
+              <Button
+                onClick={handleEditSave}
+                disabled={editSaving || !editName.trim() || (editItem.entry_type === 'milestone' && !editType.trim()) || (editItem.entry_type === 'deploy' && !editDepItem)}
+                className="w-full"
+              >
+                {editSaving ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
