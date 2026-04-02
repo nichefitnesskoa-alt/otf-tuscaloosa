@@ -45,7 +45,7 @@ import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
 import { format, addDays } from 'date-fns';
 
-const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
+// Staff names now loaded from database via useActiveStaff hook where needed
 
 function PhoneBackfillCard() {
   const [running, setRunning] = useState(false);
