@@ -217,7 +217,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
   return (
     <>
-      <div>
+      <div
+        onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
+        onFocus={e => e.stopPropagation()}
+      >
         <div className="p-4 space-y-3" style={{ fontSize: '15px' }}>
 
           {/* THEIR STORY — 3-zone layout, Zone 2 always editable */}
