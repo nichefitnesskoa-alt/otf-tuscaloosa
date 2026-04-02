@@ -478,7 +478,15 @@ export default function IntroRowCard({
           !isFocused && anyFocused && 'opacity-80',
         )}
         style={isInFocusWindow ? { animationDuration: '3s' } : undefined}
-      />
+      >
+        {/* THEIR STORY — always visible, no click required */}
+        <TheirStory
+          bookingId={item.bookingId}
+          memberName={item.memberName}
+          classDate={item.classDate}
+          onFieldSaved={onRefresh}
+        />
+      </IntroCard>
 
 
       {/* Outcome drawer – expands below the card */}
