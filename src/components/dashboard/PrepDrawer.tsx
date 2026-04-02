@@ -1027,7 +1027,7 @@ export function PrepDrawer({
                   <div style={{ fontSize: '11px' }}>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>E — </span>"{eirmaPlaybook.empathize_line}"</div>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>I — </span>"{eirmaPlaybook.isolate_question}"</div>
-                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{eirmaPlaybook.redirect_framework}"</div>
+                    <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>R — </span>"{(() => { const meaning = saConvMeaning || emotionalDriver || null; return meaning ? `Here's what I know. You told me that if you got there — ${meaning}. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.` : `Here's what I know. You told me that if you got there — [what it would mean to them]. That's exactly what this does. Classes are 60 minutes. If you block it like a meeting, it happens.`; })()}"</div>
                     <div style={{ marginBottom: '1px' }}><span style={{ fontWeight: 'bold' }}>M — </span>"{eirmaPlaybook.suggestion_framework}"</div>
                     <div><span style={{ fontWeight: 'bold' }}>A — </span>"{eirmaPlaybook.ask_line}"</div>
                   </div>
