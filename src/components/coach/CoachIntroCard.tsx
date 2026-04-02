@@ -242,19 +242,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                     <Input value={pairPlan} onChange={e => handlePairPlanChange(e.target.value)} placeholder="Member name" className="h-8 text-sm" />
                   </div>
 
-                  {/* Referral ask */}
-                  <div className="space-y-1.5">
-                    <ToggleField label="Did you ask for referral names?" checked={referralAsked} onChange={handleReferralAsked} savedKey="coach_referral_asked" />
-                    {referralAsked && (
-                      <div className="pl-4">
-                        <div className="flex items-center">
-                          <Label className="text-xs text-muted-foreground">Names given (optional)</Label>
-                          <SavedIndicator show={savedField === 'coach_referral_names'} />
-                        </div>
-                        <Input value={referralNames} onChange={e => handleReferralNamesChange(e.target.value)} placeholder="Comma-separated names" className="h-8 text-sm mt-1" />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </>
