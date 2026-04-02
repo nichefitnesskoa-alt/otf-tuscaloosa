@@ -395,6 +395,17 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, skipped: true, message: 'Manual recap already sent' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      // Gate: check if ANY SA logged shift tasks today
+      const { count: anyTaskActivity } = await supabaseAdmin
+        .from('shift_task_completions')
+        .select('id', { count: 'exact', head: true })
+        .eq('shift_date', centralDateStr)
+        .or('completed.eq.true,count_logged.gt.0');
+      if (!anyTaskActivity || anyTaskActivity === 0) {
+        console.log(`Auto recap suppressed: no shift tasks completed for ${centralDateStr}`);
+        return new Response(JSON.stringify({ success: true, skipped: true, message: 'No shift tasks completed' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       // Build studio-wide message (no staffName filter)
       const { text: msgText, hasActivity } = await buildRecapMessage(supabaseAdmin, centralDateStr, shift);
 
