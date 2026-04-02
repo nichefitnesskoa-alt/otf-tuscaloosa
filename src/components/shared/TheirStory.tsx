@@ -65,9 +65,10 @@ export function TheirStory({
   const [qData, setQData] = useState<QData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Zone 2 fields — always start BLANK for SA, show value read-only for coach
+  // Zone 2 fields — persist after save, never clear
   const [goalText, setGoalText] = useState('');
   const [driverText, setDriverText] = useState('');
+  const [initialized, setInitialized] = useState(false);
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -98,6 +99,12 @@ export function TheirStory({
           q6_weekly_commitment: d.q6_weekly_commitment,
           q6b_available_days: d.q6b_available_days,
         });
+        // Initialize Zone 2 fields from DB so text persists across re-mounts
+        if (!initialized && !readOnly) {
+          if (d.q1_fitness_goal) setGoalText(d.q1_fitness_goal);
+          if (d.q5_emotional_driver) setDriverText(d.q5_emotional_driver);
+          setInitialized(true);
+        }
       }
       setLoading(false);
     })();
