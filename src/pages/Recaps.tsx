@@ -27,6 +27,7 @@ import { isWithinInterval } from 'date-fns';
 import { isMembershipSale } from '@/lib/sales-detection';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
+import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 
 export default function Recaps() {
   const { user } = useAuth();
@@ -266,6 +267,8 @@ export default function Recaps() {
               </p>
             </CardContent>
           </Card>
+
+          <MilestonesDeploySection />
         </TabsContent>
       </Tabs>
     </div>
