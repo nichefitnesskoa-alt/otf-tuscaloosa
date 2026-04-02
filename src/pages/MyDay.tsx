@@ -1,5 +1,5 @@
-import { MyDayPage } from '@/features/myDay';
+import { ShiftViewPage } from '@/features/shiftView';
 
 export default function MyDay() {
-  return <MyDayPage />;
+  return <ShiftViewPage />;
 }

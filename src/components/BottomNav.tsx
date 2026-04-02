@@ -31,7 +31,7 @@ export function BottomNav() {
   }
 
   const visibleItems = [
-    { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/my-day', label: 'Shift View', icon: Home },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     // Admin + Coach View tabs only visible to users with Admin role

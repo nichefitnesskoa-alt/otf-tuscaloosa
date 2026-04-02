@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +32,7 @@ import TenXExercise from '@/components/admin/TenXExercise';
 import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
+import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
 import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
@@ -526,7 +527,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-12">
+        <TabsList className="grid w-full grid-cols-13">
           <TabsTrigger value="overview" className="gap-1">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -570,6 +571,10 @@ export default function Admin() {
           <TabsTrigger value="hiring" className="gap-1">
             <UserPlus className="w-4 h-4" />
             <span className="hidden sm:inline">Hiring</span>
+          </TabsTrigger>
+          <TabsTrigger value="shifts" className="gap-1">
+            <ListChecks className="w-4 h-4" />
+            <span className="hidden sm:inline">Shifts</span>
           </TabsTrigger>
           <TabsTrigger value="10x" className="gap-1">
             <Zap className="w-4 h-4" />
@@ -666,6 +671,11 @@ export default function Admin() {
         {/* Hiring Tab */}
         <TabsContent value="hiring" className="space-y-4">
           <HiringPipeline />
+        </TabsContent>
+
+        {/* Shifts Tab */}
+        <TabsContent value="shifts" className="space-y-4">
+          <ShiftTasksAdmin />
         </TabsContent>
 
         {/* 10x Exercise Tab */}
