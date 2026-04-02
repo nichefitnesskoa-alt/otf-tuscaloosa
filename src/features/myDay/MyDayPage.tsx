@@ -109,7 +109,7 @@ export default function MyDayPage() {
   
 
   // Today's stats
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getTodayYMD();
   const todayBookingsCount = useMemo(() =>
     introsBooked.filter(b => b.class_date === todayStr && !b.deleted_at).length,
     [introsBooked, todayStr],
