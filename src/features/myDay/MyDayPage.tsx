@@ -15,7 +15,7 @@ import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { getTodayStartISO } from '@/lib/dateUtils';
+import { getTodayStartISO, getTodayYMD } from '@/lib/dateUtils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { ShiftChecklist } from './ShiftChecklist';
