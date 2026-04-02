@@ -73,7 +73,7 @@ export default function CoachView() {
 
     let query = supabase
       .from('intros_booked')
-      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon, coach_brief_five_vision' as any)
+      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon, coach_brief_five_vision, coach_shoutout_start, coach_shoutout_end, coach_referral_asked, coach_referral_names' as any)
       .gte('class_date', dateStart)
       .lte('class_date', dateEnd)
       .is('deleted_at', null)
