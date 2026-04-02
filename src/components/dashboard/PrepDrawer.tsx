@@ -988,6 +988,14 @@ export function PrepDrawer({
                   {emotionalDriver && <div style={{ fontStyle: 'italic', color: '#666', fontSize: '10px' }}>They wrote: {emotionalDriver}</div>}
                   <div style={{ fontWeight: 'bold' }}>{saConvMeaning || blankLine}</div>
                 </div>
+
+                {coachMemberPairPlan && (
+                  <div style={{ marginBottom: '4px' }}>
+                    <div style={{ fontSize: '10px', color: '#444' }}>Planned member pair:</div>
+                    <div>{coachMemberPairPlan}</div>
+                  </div>
+                )}
+
                 <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '6px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>The Close</div>
 
                 <div style={{ marginBottom: '3px' }}>
