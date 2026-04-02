@@ -89,6 +89,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
       if (data) setRunData(data as any);
     })();
   }, [booking.id, isSecondIntro]);
+
+  const firstName = booking.member_name.split(' ')[0];
   const saName = booking.intro_owner || 'SA';
 
   const q = questionnaire;
