@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ChevronRight } from 'lucide-react';
 
 interface TheirStoryProps {
   bookingId: string;
