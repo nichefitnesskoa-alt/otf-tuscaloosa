@@ -522,7 +522,10 @@ export default function IntroRowCard({
   );
 
   return (
-    <>
+    <div className={cn("rounded-lg border bg-card overflow-hidden", isInFocusWindow && 'ring-2 ring-orange-500')}>
+      {/* Collapsible header — always visible at top of expanded card */}
+      {summaryHeaderBar}
+
       <IntroCard
         id={`intro-card-${item.bookingId}`}
         memberName={item.memberName}
