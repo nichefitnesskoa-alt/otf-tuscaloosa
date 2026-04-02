@@ -63,6 +63,45 @@ const CueLine = ({ children }: { children: React.ReactNode }) => (
   <p className="text-sm italic text-muted-foreground">↳ {children}</p>
 );
 
+/* ── Inline coach WHY plan (sits below Field 3 in THEIR STORY) ── */
+function CoachWhyPlan({ bookingId, initialValue, userName, onSaved }: {
+  bookingId: string; initialValue: string; userName: string; onSaved: () => void;
+}) {
+  const [val, setVal] = useState(initialValue);
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+
+  const save = useCallback(async (v: string) => {
+    await supabase.from('intros_booked').update({
+      coach_brief_why_moment: v || null,
+    } as any).eq('id', bookingId);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    onSaved();
+  }, [bookingId, onSaved]);
+
+  const handleChange = (v: string) => {
+    setVal(v);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => save(v), 800);
+  };
+
+  return (
+    <div className="space-y-0.5 mt-2">
+      <div className="flex items-center">
+        <Label className="text-xs font-medium" style={{ color: '#E8540A' }}>How you'll use it today:</Label>
+        {saved && <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>}
+      </div>
+      <Textarea
+        value={val}
+        onChange={e => handleChange(e.target.value)}
+        placeholder="Write one sentence you'll say to this person specifically."
+        className="min-h-[48px] text-sm border-[#E8540A]/30"
+      />
+    </div>
+  );
+}
+
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const [editBriefOpen, setEditBriefOpen] = useState(false);
   const [addNoteOpen, setAddNoteOpen] = useState(false);
