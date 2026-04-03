@@ -2220,6 +2220,7 @@ export type Database = {
       shift_task_templates: {
         Row: {
           count_label: string | null
+          count_target: number | null
           created_at: string | null
           has_count: boolean
           id: string
@@ -2230,6 +2231,7 @@ export type Database = {
         }
         Insert: {
           count_label?: string | null
+          count_target?: number | null
           created_at?: string | null
           has_count?: boolean
           id?: string
@@ -2240,6 +2242,7 @@ export type Database = {
         }
         Update: {
           count_label?: string | null
+          count_target?: number | null
           created_at?: string | null
           has_count?: boolean
           id?: string

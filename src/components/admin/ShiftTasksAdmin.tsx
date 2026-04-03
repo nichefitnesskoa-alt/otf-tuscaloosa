@@ -21,6 +21,7 @@ interface TaskTemplate {
   task_name: string;
   has_count: boolean;
   count_label: string | null;
+  count_target: number | null;
   is_active: boolean;
 }
 
@@ -42,11 +43,13 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
   const [editName, setEditName] = useState('');
   const [editHasCount, setEditHasCount] = useState(false);
   const [editCountLabel, setEditCountLabel] = useState('');
+  const [editCountTarget, setEditCountTarget] = useState('');
 
   // New task form
   const [newName, setNewName] = useState('');
   const [newHasCount, setNewHasCount] = useState(false);
   const [newCountLabel, setNewCountLabel] = useState('');
+  const [newCountTarget, setNewCountTarget] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,14 +86,17 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
     setEditName(task.task_name);
     setEditHasCount(task.has_count);
     setEditCountLabel(task.count_label || '');
+    setEditCountTarget(task.count_target != null ? String(task.count_target) : '');
   };
 
   const handleSaveEdit = async () => {
     if (!editId || !editName.trim()) return;
+    const target = editCountTarget.trim() ? parseInt(editCountTarget) : null;
     await supabase.from('shift_task_templates').update({
       task_name: editName.trim(),
       has_count: editHasCount,
       count_label: editHasCount ? editCountLabel.trim() || null : null,
+      count_target: editHasCount ? (isNaN(target as any) ? null : target) : null,
     } as any).eq('id', editId);
     setEditId(null);
     load();
@@ -107,16 +113,19 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
   const handleAdd = async () => {
     if (!newName.trim()) return;
     const maxOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.task_order)) : 0;
+    const target = newCountTarget.trim() ? parseInt(newCountTarget) : null;
     await supabase.from('shift_task_templates').insert({
       shift_type: shiftType,
       task_order: maxOrder + 1,
       task_name: newName.trim(),
       has_count: newHasCount,
       count_label: newHasCount ? newCountLabel.trim() || null : null,
+      count_target: newHasCount ? (isNaN(target as any) ? null : target) : null,
     } as any);
     setNewName('');
     setNewHasCount(false);
     setNewCountLabel('');
+    setNewCountTarget('');
     load();
     toast.success('Task added');
   };
@@ -145,7 +154,10 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
                   <Switch checked={editHasCount} onCheckedChange={setEditHasCount} />
                 </div>
                 {editHasCount && (
-                  <Input value={editCountLabel} onChange={e => setEditCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs" />
+                  <div className="flex gap-2">
+                    <Input value={editCountLabel} onChange={e => setEditCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs" />
+                    <Input value={editCountTarget} onChange={e => setEditCountTarget(e.target.value)} placeholder="Target" type="number" className="h-7 text-xs w-20" />
+                  </div>
                 )}
                 <div className="flex gap-1">
                   <Button size="sm" className="h-6 text-xs" onClick={handleSaveEdit}>Save</Button>
@@ -156,7 +168,9 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
               <div>
                 <span className={`text-sm ${!task.is_active ? 'line-through text-muted-foreground' : ''}`}>{task.task_name}</span>
                 {task.has_count && (
-                  <span className="text-[10px] text-muted-foreground ml-2">({task.count_label})</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">
+                    ({task.count_label}{task.count_target != null ? ` · target: ${task.count_target}` : ''})
+                  </span>
                 )}
               </div>
             )}
@@ -182,7 +196,10 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
               <Switch checked={newHasCount} onCheckedChange={setNewHasCount} />
             </div>
             {newHasCount && (
-              <Input value={newCountLabel} onChange={e => setNewCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs w-32" />
+              <div className="flex gap-2">
+                <Input value={newCountLabel} onChange={e => setNewCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs w-32" />
+                <Input value={newCountTarget} onChange={e => setNewCountTarget(e.target.value)} placeholder="Target" type="number" className="h-7 text-xs w-20" />
+              </div>
             )}
             <Button size="sm" className="h-7 ml-auto" onClick={handleAdd} disabled={!newName.trim()}>
               <Plus className="w-3 h-3 mr-1" /> Add

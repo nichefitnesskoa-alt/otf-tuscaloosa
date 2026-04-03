@@ -2,13 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, Sun, Clock, Sunset, Calendar } from 'lucide-react';
+import { Check, Sun, Clock, Sunset, Calendar, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 
 type ShiftType = 'morning' | 'mid' | 'last' | 'weekend';
 
@@ -24,12 +22,14 @@ interface TaskRow {
   name: string;
   hasCount: boolean;
   countLabel: string | null;
+  countTarget: number | null;
   templateId: string | null;
   overrideId: string | null;
   isOverride: boolean;
   completed: boolean;
   countLogged: number | null;
   completionId: string | null;
+  isFollowUpTask: boolean;
 }
 
 export function ShiftChecklist() {
@@ -37,7 +37,29 @@ export function ShiftChecklist() {
   const [selectedShift, setSelectedShift] = useState<ShiftType | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [todayFollowUpCount, setTodayFollowUpCount] = useState(0);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Fetch today's follow-up touches count
+  const fetchFollowUpCount = useCallback(async () => {
+    if (!user?.name) return;
+    const todayStart = `${todayStr}T00:00:00`;
+    const { count } = await supabase
+      .from('followup_touches')
+      .select('id', { count: 'exact', head: true })
+      .eq('created_by', user.name)
+      .gte('created_at', todayStart);
+    setTodayFollowUpCount(count || 0);
+  }, [user?.name, todayStr]);
+
+  useEffect(() => { fetchFollowUpCount(); }, [fetchFollowUpCount]);
+
+  // Listen for follow-up touch events to auto-update count
+  useEffect(() => {
+    const handler = () => fetchFollowUpCount();
+    window.addEventListener('followup:touch-logged', handler);
+    return () => window.removeEventListener('followup:touch-logged', handler);
+  }, [fetchFollowUpCount]);
 
   const loadTasks = useCallback(async (shift: ShiftType) => {
     if (!user?.name) return;
@@ -46,7 +68,7 @@ export function ShiftChecklist() {
     const [templatesRes, overridesRes, completionsRes] = await Promise.all([
       supabase
         .from('shift_task_templates')
-        .select('id, task_name, has_count, count_label, task_order')
+        .select('id, task_name, has_count, count_label, count_target, task_order')
         .eq('shift_type', shift)
         .eq('is_active', true)
         .order('task_order'),
@@ -79,19 +101,23 @@ export function ShiftChecklist() {
       const comp = completionMap.get(`override-${o.id}`);
       rows.push({
         key: `override-${o.id}`, name: o.task_name, hasCount: o.has_count,
-        countLabel: o.count_label, templateId: null, overrideId: o.id,
+        countLabel: o.count_label, countTarget: null, templateId: null, overrideId: o.id,
         isOverride: true, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
+        isFollowUpTask: false,
       });
     });
 
     templates.forEach((t: any) => {
       const comp = completionMap.get(`template-${t.id}`);
+      const isFollowUp = (t.count_label || '').toLowerCase().trim() === 'follow-ups done';
       rows.push({
         key: `template-${t.id}`, name: t.task_name, hasCount: t.has_count,
-        countLabel: t.count_label, templateId: t.id, overrideId: null,
+        countLabel: t.count_label, countTarget: t.count_target ?? null,
+        templateId: t.id, overrideId: null,
         isOverride: false, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
+        isFollowUpTask: isFollowUp,
       });
     });
 
@@ -112,10 +138,6 @@ export function ShiftChecklist() {
     window.addEventListener('shift:reset', handleReset);
     return () => window.removeEventListener('shift:reset', handleReset);
   }, []);
-
-  const handleSelectShift = (shift: ShiftType) => {
-    setSelectedShift(shift);
-  };
 
   const toggleTask = async (task: TaskRow) => {
     if (!user?.name || !selectedShift) return;
@@ -197,8 +219,12 @@ export function ShiftChecklist() {
       }
     }
 
-    // Sync DMs/Texts to daily_outreach_log
     syncOutreachCounter(task.countLabel, value);
+  };
+
+  const navigateToFollowUp = () => {
+    // Dispatch event to switch to follow-up tab
+    window.dispatchEvent(new CustomEvent('myday:switch-tab', { detail: { tab: 'followups' } }));
   };
 
   const completedCount = tasks.filter(t => t.completed).length;
@@ -217,7 +243,7 @@ export function ShiftChecklist() {
                 key={s.type}
                 variant="outline"
                 className="flex flex-col items-center gap-1 h-auto py-3 text-xs bg-card border-white/20 hover:bg-card/80 hover:border-white/40"
-                onClick={() => handleSelectShift(s.type)}
+                onClick={() => setSelectedShift(s.type)}
               >
                 <span className="text-primary">{s.icon}</span>
                 <span className="font-semibold">{s.label}</span>
@@ -261,44 +287,90 @@ export function ShiftChecklist() {
               <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
             ) : (
               <div className="divide-y divide-border">
-                {tasks.map(task => (
-                  <div key={task.key} className="flex items-start gap-3 py-2.5">
-                    <button
-                      onClick={() => toggleTask(task)}
+                {tasks.map(task => {
+                  const displayCount = task.isFollowUpTask ? todayFollowUpCount : task.countLogged;
+                  const targetHit = task.countTarget != null && displayCount != null && displayCount >= task.countTarget;
+
+                  return (
+                    <div
+                      key={task.key}
                       className={cn(
-                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors',
-                        task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
+                        'flex items-start gap-3 py-2.5',
+                        targetHit && 'border-l-2 border-l-green-500 pl-2'
                       )}
                     >
-                      {task.completed && <Check className="w-3 h-3 text-primary-foreground" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>
-                          {task.name}
-                        </span>
-                        {task.isOverride && (
-                          <Badge className="text-[9px] h-4 bg-warning/20 text-warning border-warning/30 hover:bg-warning/20">Today only</Badge>
+                      <button
+                        onClick={() => toggleTask(task)}
+                        className={cn(
+                          'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer',
+                          task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
+                        )}
+                      >
+                        {task.completed && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>
+                            {task.name}
+                          </span>
+                          {task.isOverride && (
+                            <Badge className="text-[9px] h-4 bg-warning/20 text-warning border-warning/30 hover:bg-warning/20">Today only</Badge>
+                          )}
+                        </div>
+                        {task.hasCount && (
+                          <div className="flex items-center gap-2 mt-1">
+                            {task.isFollowUpTask ? (
+                              /* Follow-up task: auto-counted + deep link */
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  'text-sm font-medium',
+                                  targetHit ? 'text-green-500' : 'text-foreground'
+                                )}>
+                                  {todayFollowUpCount}
+                                  {task.countTarget != null && (
+                                    <span className="text-muted-foreground font-normal"> / {task.countTarget}</span>
+                                  )}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-[11px] px-2 ml-1 cursor-pointer"
+                                  onClick={navigateToFollowUp}
+                                >
+                                  Open Follow-Up Queue <ArrowRight className="w-3 h-3 ml-1" />
+                                </Button>
+                              </div>
+                            ) : (
+                              /* Regular count task */
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={task.countLogged ?? ''}
+                                  onChange={e => {
+                                    const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                                    if (!isNaN(val)) updateCount(task, val);
+                                  }}
+                                  className="h-6 w-16 text-xs px-2"
+                                />
+                                {task.countTarget != null && (
+                                  <span className={cn(
+                                    'text-[10px] font-medium',
+                                    targetHit ? 'text-green-500' : 'text-muted-foreground'
+                                  )}>
+                                    / {task.countTarget}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      {task.hasCount && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground">{task.countLabel || 'Count'}:</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={task.countLogged ?? ''}
-                            onChange={e => {
-                              const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                              if (!isNaN(val)) updateCount(task, val);
-                            }}
-                            className="h-6 w-16 text-xs px-2"
-                          />
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {tasks.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-3">No tasks for this shift.</p>
                 )}

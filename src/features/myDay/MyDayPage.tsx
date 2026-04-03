@@ -172,6 +172,16 @@ export default function MyDayPage() {
     };
   }, []);
 
+  // Listen for tab switch events from ShiftChecklist follow-up deep link
+  useEffect(() => {
+    const onSwitchTab = (e: Event) => {
+      const tab = (e as CustomEvent).detail?.tab;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('myday:switch-tab', onSwitchTab);
+    return () => window.removeEventListener('myday:switch-tab', onSwitchTab);
+  }, []);
+
   useEffect(() => {
     fetchMetrics();
     // Check admin role
