@@ -237,6 +237,16 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
           referredBy: (b as any).referred_by_member_name || null,
+          // Pre-fetched Q data
+          qFitnessGoal: qFullMap.get(b.id)?.q1_fitness_goal ?? null,
+          qFitnessLevel: qFullMap.get(b.id)?.q2_fitness_level ?? null,
+          qObstacle: qFullMap.get(b.id)?.q3_obstacle ?? null,
+          qEmotionalDriver: qFullMap.get(b.id)?.q5_emotional_driver ?? null,
+          // Pre-fetched conversation fields
+          saConversation5of5: (b as any).sa_conversation_5_of_5 ?? null,
+          saConversationMeaning: (b as any).sa_conversation_meaning ?? null,
+          saConversationObstacle: (b as any).sa_conversation_obstacle ?? null,
+          shoutoutConsent: (b as any).shoutout_consent ?? null,
           timeStartISO,
           riskFlags: { noQ: false, qIncomplete: false, unconfirmed: false, coachTbd: false, missingOwner: false },
           riskScore: 0,
