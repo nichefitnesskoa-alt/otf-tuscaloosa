@@ -382,7 +382,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
     } finally {
       setIsLoading(false);
     }
-  }, [options.timeRange]);
+  }, [options.timeRange, options.dateOverrides?.start, options.dateOverrides?.end]);
 
   useEffect(() => {
     fetchData();
