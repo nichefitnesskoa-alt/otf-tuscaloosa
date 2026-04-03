@@ -249,6 +249,7 @@ export function useFollowUpData() {
           contactNextDate: null,
           badgeType: undefined,
           followUpType: 'noshow' as FollowUpType, // will be reassigned below
+          transferredFromCoach: transferredMap.get(bookingId) || null,
         };
 
         // No-Show tab
