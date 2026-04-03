@@ -86,18 +86,44 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
 
-  // Split completed vs active intros for Today view
+  // Split completed vs active intros for Today/weekFull view
+  const isWeekFullView = fixedTimeRange === 'weekFull' || timeRange === 'weekFull';
   const isTodayView = fixedTimeRange === 'today' || timeRange === 'today';
+  const isSplitView = isTodayView || isWeekFullView;
   const { activeItems, completedItems } = useMemo(() => {
-    if (!isTodayView) return { activeItems: items, completedItems: [] };
+    if (!isSplitView) return { activeItems: items, completedItems: [] };
+    const todayDate = getTodayYMD();
     return {
-      activeItems: items.filter(i => !i.latestRunResult),
-      completedItems: items.filter(i => !!i.latestRunResult),
+      activeItems: items.filter(i => !(i.classDate === todayDate && i.latestRunResult)),
+      completedItems: items.filter(i => i.classDate === todayDate && !!i.latestRunResult),
     };
-  }, [items, isTodayView]);
+  }, [items, isSplitView]);
   const activeDayGroups = useMemo(() => groupByDay(activeItems), [activeItems]);
   const completedDayGroups = useMemo(() => groupByDay(completedItems), [completedItems]);
   const [completedOpen, setCompletedOpen] = useState(false);
+
+  // Q status summary for weekFull view
+  const qSummary = useMemo(() => {
+    if (!isWeekFullView) return null;
+    const todayDate = getTodayYMD();
+    const todayItems = items.filter(i => i.classDate === todayDate);
+    const total = todayItems.length;
+    const qSent = todayItems.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
+    const stillNeeded = todayItems.filter(i => i.questionnaireStatus !== 'Q_COMPLETED').length;
+    return { total, qSent, stillNeeded };
+  }, [items, isWeekFullView]);
+
+  // Ref for scrolling to first No Q item
+  const firstNoQRef = useRef<HTMLDivElement>(null);
+  // Ref for scrolling to today's section
+  const todaySectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to today on mount for weekFull
+  useEffect(() => {
+    if (isWeekFullView && todaySectionRef.current && !isLoading) {
+      setTimeout(() => todaySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    }
+  }, [isWeekFullView, isLoading]);
 
   // ══ ACCORDION STATE — only one card expanded at a time ══
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
