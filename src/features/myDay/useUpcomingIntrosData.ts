@@ -75,9 +75,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const isNeedsOutcome = options.timeRange === 'needsOutcome';
 
+      const isWeekFullNav = !!options.dateOverrides;
       const statusExclusion = isNeedsOutcome
         ? '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")'
-        : '("CANCELLED","PLANNING_RESCHEDULE")';
+        : isWeekFullNav
+          ? '("DELETED_SOFT")'
+          : '("CANCELLED","PLANNING_RESCHEDULE")';
 
       let query = supabase
         .from('intros_booked')
