@@ -560,24 +560,28 @@ export default function IntroRowCard({
       </IntroCard>
 
 
-      {/* Outcome drawer – expands below the card */}
+      {/* Outcome drawer – appears ABOVE the card as fixed overlay */}
       {outcomeOpen && (
-        <OutcomeDrawer
-          bookingId={item.bookingId}
-          memberName={item.memberName}
-          classDate={item.classDate}
-          introTime={item.introTime}
-          leadSource={item.leadSource || ''}
-          existingRunId={item.latestRunId}
-          currentResult={item.latestRunResult}
-          editedBy={userName}
-          initialPrepped={prepped}
-          initialCoach={item.latestRunCoach || item.coachName || ''}
-          initialObjection={item.latestRunObjection || ''}
-          initialNotes={item.latestRunNotes || ''}
-          onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
-          onCancel={() => setOutcomeOpen(false)}
-        />
+        <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t shadow-lg max-h-[70vh] overflow-y-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          <OutcomeDrawer
+            bookingId={item.bookingId}
+            memberName={item.memberName}
+            classDate={item.classDate}
+            introTime={item.introTime}
+            leadSource={item.leadSource || ''}
+            existingRunId={item.latestRunId}
+            currentResult={item.latestRunResult}
+            editedBy={userName}
+            initialPrepped={prepped}
+            initialCoach={item.latestRunCoach || item.coachName || ''}
+            initialObjection={item.latestRunObjection || ''}
+            initialNotes={item.latestRunNotes || ''}
+            onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
+            onCancel={() => setOutcomeOpen(false)}
+          />
+        </div>
       )}
 
       {/* Clear outcome confirmation */}
