@@ -613,7 +613,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
     try {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
-      const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || creatingBookingRunData.lead_source || 'Source Not Found');
+      const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || creatingBookingRunData.lead_source || 'Instagram DMs');
       const introOwner = creatingBookingRunData.intro_owner || creatingBookingRunData.ran_by || null;
       
       const { data: insertedBooking, error } = await supabase

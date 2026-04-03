@@ -696,7 +696,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (!newBooking.member_name) { toast.error('Name required'); return; }
               if (!isSelfBooked && !newBooking.sa_working_shift) { toast.error('Booked By required'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
-              const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Source Not Found');
+              const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
               const introOwner = fromRun?.intro_owner || fromRun?.ran_by || null;
               const { data: inserted, error } = await supabase.from('intros_booked').insert({
                 booking_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -861,7 +861,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   class_time: newRun.class_time,
                   ran_by: newRun.ran_by,
                   intro_owner: newRun.ran_by,
-                  lead_source: newRun.lead_source || 'Source Not Found',
+                  lead_source: newRun.lead_source || 'Instagram DMs',
                   result: newRun.result,
                   result_canon: normalizeIntroResultStrict(newRun.result, 'PipelineDialogs:Log2ndIntroRun'),
                   notes: newRun.notes || null,
@@ -951,7 +951,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 class_time: newRun.class_time,
                 ran_by: newRun.ran_by,
                 intro_owner: newRun.ran_by,
-                lead_source: newRun.lead_source || 'Source Not Found',
+                lead_source: newRun.lead_source || 'Instagram DMs',
                 result: newRun.result,
                 result_canon: normalizeIntroResultStrict(newRun.result, 'PipelineDialogs:CreateRun'),
                 notes: newRun.notes || null,

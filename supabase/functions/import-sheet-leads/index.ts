@@ -485,7 +485,7 @@ Deno.serve(async (req) => {
             email: email,
             phone: phone || rawPhone || '',
             stage: autoStage,
-            source: 'OTF Lead Intake Sheet',
+            source: 'Instagram DMs',
             duplicate_confidence: dupConfidence,
             duplicate_match_type: dupMatchType,
             duplicate_notes: dupNotes,
