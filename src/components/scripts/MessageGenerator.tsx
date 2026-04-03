@@ -158,44 +158,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
     onLogged?.();
   };
 
-  const handleLog = async () => {
-    try {
-      await logSent.mutateAsync({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: user?.name || 'Unknown',
-        message_body_sent: editedMessage,
-        sequence_step_number: template.sequence_order || null,
-      });
-
-      // Auto-mark questionnaires as "sent" if IDs are provided
-      if (questionnaireId) {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', questionnaireId)
-          .eq('status', 'not_sent');
-        onQuestionnaireSent?.();
-      }
-      if (friendQuestionnaireId) {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', friendQuestionnaireId)
-          .eq('status', 'not_sent');
-        onFriendQuestionnaireSent?.();
-      }
-
-      toast({ title: 'Logged as sent' });
-      onLogged?.();
-      // Dispatch refresh so follow-up tabs update immediately
-      window.dispatchEvent(new CustomEvent('myday:refresh'));
-      onOpenChange(false);
-    } catch (e: any) {
-      toast({ title: 'Error logging', description: e.message, variant: 'destructive' });
-    }
-  };
+  // handleLog removed — auto-log on copy replaces it
 
   // Render body with orange highlights for unfilled fields
   const renderHighlightedPreview = () => {
