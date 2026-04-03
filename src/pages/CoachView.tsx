@@ -108,7 +108,7 @@ export default function CoachView() {
     initialLoadDone.current = true;
   };
 
-  useEffect(() => { fetchBookings(); }, [tab, coachName, isAdmin]);
+  useEffect(() => { fetchBookings(); }, [coachName, isAdmin]);
 
   useEffect(() => {
     const channel = supabase
@@ -116,7 +116,7 @@ export default function CoachView() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tab, coachName, isAdmin]);
+  }, [coachName, isAdmin]);
 
   const filteredBookings = useMemo(() => {
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
