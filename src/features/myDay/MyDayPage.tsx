@@ -426,10 +426,6 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-      {/* ═══ WIN THE DAY CHECKLIST (bottom, collapsible) ═══ */}
-      <div className="px-4 pb-24">
-        <WinTheDay onSwitchTab={setActiveTab} defaultCollapsed />
-      </div>
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}
       <div className="fixed bottom-[4.5rem] left-0 right-0 z-30 px-4 py-2 bg-background/95 backdrop-blur border-t border-primary/30 shadow-lg">
