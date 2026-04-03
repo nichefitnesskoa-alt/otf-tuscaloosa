@@ -268,7 +268,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">Who referred them?</Label>
-              <Input id="book-referred-by" value={referredBy} onChange={e => setReferredBy(autoCapitalizeName(e.target.value))} placeholder="Referring member's name" />
+              <NameAutocomplete id="book-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
             </div>
           )}
 
