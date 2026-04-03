@@ -167,7 +167,7 @@ export function CloseOutShift({
 
       setSummary({
         booked: allBookedIds.size,
-        ran: (ran || []).length,
+        ran: (ran || []).filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show').length,
         sold: sameDaySales.length,
         soldNames,
         noShow: noShowCnt,
