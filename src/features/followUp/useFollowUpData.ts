@@ -223,6 +223,7 @@ export function useFollowUpData() {
         if (r.result_canon === 'NO_SHOW' && !hasFutureUnrun) {
           processed.add(key);
           item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'noshow');
+          item.followUpType = 'noshow';
           noShowItems.push(item);
           continue;
         }
