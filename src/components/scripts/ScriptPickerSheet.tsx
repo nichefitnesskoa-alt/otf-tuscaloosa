@@ -355,44 +355,63 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
               )}
             </div>
 
-            {/* Copy Phone / Copy Q link */}
-            <div className="pt-2 border-t border-dashed flex justify-center gap-4">
-              {memberCtx?.phone && (
-                <button
-                  className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(memberCtx.phone!);
-                      setPhoneCopied(true);
-                      setTimeout(() => setPhoneCopied(false), 2000);
-                      toast.success('Phone copied');
-                    } catch {
-                      toast.error('Failed to copy');
-                    }
-                  }}
+            {/* Phone + Q Link + Print Card */}
+            <div className="pt-2 border-t border-dashed space-y-2">
+              {/* Phone number — tappable to call */}
+              {memberCtx?.phone ? (
+                <a
+                  href={`tel:${memberCtx.phone.replace(/\D/g, '')}`}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/60 border text-sm hover:bg-muted transition-colors cursor-pointer min-h-[44px]"
                 >
-                  {phoneCopied ? <Check className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
-                  {phoneCopied ? 'Copied!' : `Copy phone`}
-                </button>
+                  <Phone className="w-4 h-4 text-primary shrink-0" />
+                  <span className="font-medium">{memberCtx.phone}</span>
+                  <span className="text-xs text-muted-foreground">— tap to call</span>
+                </a>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 text-sm text-muted-foreground min-h-[44px]">
+                  <Phone className="w-4 h-4 shrink-0" />
+                  <span>No phone on file</span>
+                </div>
               )}
-              {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
-                <button
-                  className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(resolvedQuestionnaireUrl);
-                      setLinkCopied(true);
-                      setTimeout(() => setLinkCopied(false), 2000);
-                      toast.success('Link copied');
-                    } catch {
-                      toast.error('Failed to copy');
-                    }
-                  }}
-                >
-                  {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
-                  {linkCopied ? 'Copied!' : 'Copy Q link'}
-                </button>
-              )}
+
+              <div className="flex justify-center gap-4">
+                {memberCtx?.phone && (
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1 min-h-[44px]"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(memberCtx.phone!);
+                        setPhoneCopied(true);
+                        setTimeout(() => setPhoneCopied(false), 2000);
+                        toast.success('Phone copied');
+                      } catch {
+                        toast.error('Failed to copy');
+                      }
+                    }}
+                  >
+                    {phoneCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {phoneCopied ? 'Copied!' : `Copy phone`}
+                  </button>
+                )}
+                {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1 min-h-[44px]"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(resolvedQuestionnaireUrl);
+                        setLinkCopied(true);
+                        setTimeout(() => setLinkCopied(false), 2000);
+                        toast.success('Link copied');
+                      } catch {
+                        toast.error('Failed to copy');
+                      }
+                    }}
+                  >
+                    {linkCopied ? <Check className="w-3 h-3" /> : <Link2 className="w-3 h-3" />}
+                    {linkCopied ? 'Copied!' : 'Copy Q link'}
+                  </button>
+                )}
+              </div>
             </div>
           </ScrollArea>
         </DrawerContent>
