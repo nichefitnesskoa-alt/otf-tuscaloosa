@@ -663,17 +663,27 @@ export function PrepDrawer({
                     </p>
                   </div>
 
-                  {/* THE BRIEF (read-only view for coach) */}
+                  {/* THE CONVERSATION (read-only view for coach) */}
                   <div className="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50/50 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE BRIEF</p>
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in after dig deeper — handed to coach on print card during intro</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in during dig deeper</p>
                     </div>
-                    <div className="p-3 space-y-1.5 text-xs">
-                      <div><span className="font-bold text-blue-800 dark:text-blue-300">What they're looking for:</span> <span>{buyingCriteria || '—'}</span></div>
-                      <div><span className="font-bold text-blue-800 dark:text-blue-300">Potential Objection:</span> <span>{saObjection || '—'}</span></div>
-                      <p className="text-[10px] text-muted-foreground italic mt-1">Use their exact words. Not paraphrases. These two lines build your mirror drop and your performance summary.</p>
+                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">5/5 Vision:</span>
+                        <p>{saConv5of5 || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">What would change:</span>
+                        <p>{saConvMeaning || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">Holding them back:</span>
+                        <p>{saConvObstacle || '—'}</p>
+                      </div>
                     </div>
+                  </div>
                   </div>
 
                   {/* WHAT THEY TOLD US — Coach view (read-only) */}
