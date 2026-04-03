@@ -43,11 +43,13 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
   const [editName, setEditName] = useState('');
   const [editHasCount, setEditHasCount] = useState(false);
   const [editCountLabel, setEditCountLabel] = useState('');
+  const [editCountTarget, setEditCountTarget] = useState('');
 
   // New task form
   const [newName, setNewName] = useState('');
   const [newHasCount, setNewHasCount] = useState(false);
   const [newCountLabel, setNewCountLabel] = useState('');
+  const [newCountTarget, setNewCountTarget] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
