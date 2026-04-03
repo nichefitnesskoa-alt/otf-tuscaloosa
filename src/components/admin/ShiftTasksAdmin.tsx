@@ -113,16 +113,19 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
   const handleAdd = async () => {
     if (!newName.trim()) return;
     const maxOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.task_order)) : 0;
+    const target = newCountTarget.trim() ? parseInt(newCountTarget) : null;
     await supabase.from('shift_task_templates').insert({
       shift_type: shiftType,
       task_order: maxOrder + 1,
       task_name: newName.trim(),
       has_count: newHasCount,
       count_label: newHasCount ? newCountLabel.trim() || null : null,
+      count_target: newHasCount ? (isNaN(target as any) ? null : target) : null,
     } as any);
     setNewName('');
     setNewHasCount(false);
     setNewCountLabel('');
+    setNewCountTarget('');
     load();
     toast.success('Task added');
   };
