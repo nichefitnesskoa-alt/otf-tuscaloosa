@@ -46,6 +46,18 @@ export interface UpcomingIntroItem {
   preppedAt: string | null;
   preppedBy: string | null;
 
+  // Pre-fetched questionnaire data for instant card expansion
+  qFitnessGoal: string | null;
+  qFitnessLevel: number | null;
+  qObstacle: string | null;
+  qEmotionalDriver: string | null;
+
+  // Pre-fetched conversation fields from intros_booked
+  saConversation5of5: string | null;
+  saConversationMeaning: string | null;
+  saConversationObstacle: string | null;
+  shoutoutConsent: boolean | null;
+
   // Computed (set by selectors)
   timeStartISO: string;
   riskFlags: RiskFlags;
