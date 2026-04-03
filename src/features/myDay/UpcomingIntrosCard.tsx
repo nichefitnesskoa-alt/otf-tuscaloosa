@@ -364,8 +364,26 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Summary line — Today counts matching Studio tab */}
-        {isTodayView && items.length > 0 && (
+        {/* Q status summary for weekFull view */}
+        {isWeekFullView && qSummary && qSummary.total > 0 && (
+          <button
+            type="button"
+            onClick={() => firstNoQRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            className="w-full flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 cursor-pointer hover:bg-muted/60 transition-colors"
+          >
+            <span className="font-semibold">Today:</span>
+            <span>{qSummary.total} intros</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-success">{qSummary.qSent} questionnaires sent</span>
+            <span className="text-muted-foreground">·</span>
+            <span className={qSummary.stillNeeded > 0 ? 'text-destructive font-medium' : 'text-success font-medium'}>
+              {qSummary.stillNeeded} still needed
+            </span>
+          </button>
+        )}
+
+        {/* Summary line — Today counts matching Studio tab (for non-weekFull) */}
+        {isTodayView && !isWeekFullView && items.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2">
             <span className="font-semibold">Today:</span>
             <span>{summaryLine.totalIntros} intros</span>
@@ -377,31 +395,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             <span className="text-success font-medium">{summaryLine.closed} closed</span>
           </div>
         )}
-
-        {/* Quick win strip */}
-        <div className="flex items-center gap-3 flex-wrap text-xs">
-          <span className="font-medium">
-            {timeRange === 'today' ? "Today" : timeRange === 'restOfWeek' ? 'Rest of week' : 'Needs outcome'}: <strong>{items.length}</strong>
-          </span>
-          {timeRange !== 'needsOutcome' && (
-            <span className="text-muted-foreground">
-              On track: <strong>{qCompletionPct}%</strong>
-            </span>
-          )}
-          {timeRange !== 'needsOutcome' && suggestedFocus !== 'All prepped! 🎉' && (
-            <span className="text-muted-foreground">
-              Quick win: <strong>{suggestedFocus}</strong>
-            </span>
-          )}
-          {timeRange !== 'needsOutcome' && suggestedFocus === 'All prepped! 🎉' && (
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-              {suggestedFocus}
-            </span>
-          )}
-          {timeRange === 'needsOutcome' && items.length > 0 && (
-            <span className="text-muted-foreground">Log outcomes to keep your pipeline accurate.</span>
-          )}
-        </div>
 
         {/* Capped warning */}
         {isCapped && (
