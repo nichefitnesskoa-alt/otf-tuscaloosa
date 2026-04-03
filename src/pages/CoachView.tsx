@@ -329,84 +329,19 @@ export default function CoachView() {
     </div>
   );
 
-// ── DateGroupView with name dropdown per class time ──
-function DateGroupView({
-  groupedByDate, questionnaires, formatTime, isClassTimeNow, isClassTimePast, isAdmin, onUpdateBooking, userName, defaultExpanded,
-}: {
-  groupedByDate: Map<string, Map<string, CoachBooking[]>>;
-  questionnaires: QuestionnaireMap;
-  formatTime: (t: string) => string;
-  isClassTimeNow: (date: string, time: string | null) => boolean;
-  isClassTimePast: (date: string, time: string | null) => boolean;
-  isAdmin: boolean;
-  onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
-  userName: string;
-  defaultExpanded: boolean;
-}) {
-  const today = format(new Date(), 'yyyy-MM-dd');
-
-  return (
-    <div className="space-y-6">
-      {Array.from(groupedByDate.entries()).map(([date, timeMap]) => {
-        const dateLabel = isToday(parseISO(date))
-          ? 'Today'
-          : format(parseISO(date), 'EEEE, MMM d');
-        const isDateToday = date === today;
-
-        return (
-          <div key={date} className="space-y-3">
-            {!defaultExpanded && (
-              <h2 className="text-lg font-bold text-foreground border-b border-border pb-1">{dateLabel}</h2>
-            )}
-            {Array.from(timeMap.entries()).map(([time, intros]) => {
-              const isCurrent = isClassTimeNow(date, time === 'TBD' ? null : time);
-              const isPast = isClassTimePast(date, time === 'TBD' ? null : time);
-              const shouldDefaultOpen = defaultExpanded || isDateToday ? !isPast : false;
-              const coachNames = [...new Set(intros.map(i => i.coach_name))].join(', ');
-
-              return (
-                <Collapsible key={`${date}-${time}`} defaultOpen={shouldDefaultOpen}>
-                  <CollapsibleTrigger className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left font-semibold transition-colors",
-                    isCurrent
-                      ? "bg-primary/20 border-2 border-primary text-foreground"
-                      : "bg-muted/50 border border-border text-foreground hover:bg-muted"
-                  )}>
-                    <span className="text-base">
-                      {formatTime(time)} — {intros.length} intro{intros.length !== 1 ? 's' : ''}
-                      <span className="text-muted-foreground font-normal"> — Coach: {coachNames}</span>
-                    </span>
-                    <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-3">
-                    <ClassTimeIntroSelector
-                      intros={intros}
-                      questionnaires={questionnaires}
-                      onUpdateBooking={onUpdateBooking}
-                      userName={userName}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
-  intros, questionnaires, onUpdateBooking, userName,
+  intros, questionnaires, onUpdateBooking, userName, autoExpand = true,
 }: {
   intros: CoachBooking[];
   questionnaires: QuestionnaireMap;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
+  autoExpand?: boolean;
 }) {
-  // Auto-expand: find next upcoming intro
+  // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
+    if (!autoExpand) return intros.length > 0 ? intros[0].id : null;
     const now = new Date();
     const today = format(now, 'yyyy-MM-dd');
     const todayActive = intros.filter(i => i.class_date === today && i.booking_status_canon === 'ACTIVE');
