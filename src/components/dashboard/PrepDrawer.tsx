@@ -684,7 +684,6 @@ export function PrepDrawer({
                       </div>
                     </div>
                   </div>
-                  </div>
 
                   {/* WHAT THEY TOLD US — Coach view (read-only) */}
                   <div className="rounded-lg border overflow-hidden">
