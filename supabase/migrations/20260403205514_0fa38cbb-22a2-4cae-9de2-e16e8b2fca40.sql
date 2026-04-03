@@ -1,0 +1,1 @@
+ALTER TABLE public.shift_task_templates ADD COLUMN IF NOT EXISTS count_target integer;
