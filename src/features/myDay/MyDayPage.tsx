@@ -62,6 +62,8 @@ export default function MyDayPage() {
   const { introsBooked, introsRun, sales, refreshData } = useData();
   const { isDark, toggle: toggleDark } = useDarkMode();
 
+  const isUserAdmin = user?.role === 'Admin';
+
   const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
   const [todayScriptsSent, setTodayScriptsSent] = useState(0);
   const [todayFollowUpsSent, setTodayFollowUpsSent] = useState(0);
