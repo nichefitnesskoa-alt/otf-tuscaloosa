@@ -10,7 +10,7 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
+
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
