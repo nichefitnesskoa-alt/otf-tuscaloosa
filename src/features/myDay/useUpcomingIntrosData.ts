@@ -107,7 +107,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const bookingIds = bookings.map(b => b.id);
 
-      const [qRes, runRes, confirmRes] = await Promise.all([
+      const [qRes, runRes, confirmRes, qFullRes] = await Promise.all([
         supabase
           .from('intro_questionnaires')
           .select('booking_id, status, submitted_at, created_at')
@@ -122,6 +122,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           .select('booking_id, completed_at')
           .in('booking_id', bookingIds)
           .eq('action_type', 'confirmation_sent'),
+        supabase
+          .from('intro_questionnaires')
+          .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days')
+          .in('booking_id', bookingIds),
       ]);
 
       const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string }>();
