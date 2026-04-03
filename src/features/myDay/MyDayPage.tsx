@@ -49,7 +49,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
-import { WinTheDay } from './WinTheDay';
+
 import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
