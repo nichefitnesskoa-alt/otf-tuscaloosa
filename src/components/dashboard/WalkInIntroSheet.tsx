@@ -269,7 +269,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           {leadSource === 'Member Referral' && (
             <div className="space-y-1.5">
               <Label htmlFor="walk-in-referred-by">Who referred them?</Label>
-              <Input id="walk-in-referred-by" value={referredBy} onChange={e => setReferredBy(autoCapitalizeName(e.target.value))} placeholder="Referring member's name" />
+              <NameAutocomplete id="walk-in-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
             </div>
           )}
 
