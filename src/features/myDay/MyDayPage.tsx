@@ -303,51 +303,74 @@ export default function MyDayPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
-          <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
-            <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>Today</span>
-              {todayBookingsCount > 0 && (
-                <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>Week</span>
-            </TabsTrigger>
-            <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <Clock className="w-3.5 h-3.5" />
-              <span>F/U</span>
-              {followUpsDueCount > 0 && (
-                <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="leads" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Leads</span>
-              {newLeadsCount > 0 && (
-                <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="igdm" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <Instagram className="w-3.5 h-3.5" />
-              <span>IG DMs</span>
-              {igDmCount > 0 && (
-                <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{igDmCount}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <ClipboardList className="w-3.5 h-3.5" />
-              <span>Q Hub</span>
-            </TabsTrigger>
-            <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-              <Users className="w-3.5 h-3.5" />
-              <span>Outcomes</span>
-              {needsOutcomeCount > 0 && (
-                <Badge variant="outline" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center border-warning text-warning">{needsOutcomeCount}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          {isUserAdmin ? (
+            <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+              <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Today</span>
+                {todayBookingsCount > 0 && (
+                  <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Week</span>
+              </TabsTrigger>
+              <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Follow-Up</span>
+                {followUpsDueCount > 0 && (
+                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Leads</span>
+                {newLeadsCount > 0 && (
+                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="igdm" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <Instagram className="w-3.5 h-3.5" />
+                <span>IG DMs</span>
+                {igDmCount > 0 && (
+                  <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{igDmCount}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>Q Hub</span>
+              </TabsTrigger>
+              <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <Users className="w-3.5 h-3.5" />
+                <span>Outcomes</span>
+                {needsOutcomeCount > 0 && (
+                  <Badge variant="outline" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center border-warning text-warning">{needsOutcomeCount}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          ) : (
+            <TabsList className="w-full grid grid-cols-3 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+              <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Today</span>
+                {todayBookingsCount > 0 && (
+                  <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>Week</span>
+              </TabsTrigger>
+              <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Follow-Up</span>
+                {followUpsDueCount > 0 && (
+                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          )}
           {/* Separator line between tabs and content */}
           <div className="h-[2px] bg-primary/40 mt-2" />
         </div>
@@ -355,6 +378,7 @@ export default function MyDayPage() {
         {/* Tab content */}
         <div className="px-4 pb-24 pt-3 space-y-3">
           <TabsContent value="today" className="mt-0 space-y-3">
+            <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
           </TabsContent>
@@ -367,33 +391,37 @@ export default function MyDayPage() {
             <FollowUpTabs onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
-          <TabsContent value="leads" className="mt-0 space-y-3">
-            <div className="mb-1">
-              <h2 className="text-sm font-semibold">New Leads</h2>
-              <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
-            </div>
-            <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
-          </TabsContent>
+          {isUserAdmin && (
+            <>
+              <TabsContent value="leads" className="mt-0 space-y-3">
+                <div className="mb-1">
+                  <h2 className="text-sm font-semibold">New Leads</h2>
+                  <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
+                </div>
+                <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
+              </TabsContent>
 
-          <TabsContent value="igdm" className="mt-0 space-y-3">
-            <div className="mb-1">
-              <h2 className="text-sm font-semibold">IG DM Tracker</h2>
-              <p className="text-xs text-muted-foreground">Track Instagram outreach — DMs, interest, bookings</p>
-            </div>
-            <MyDayIgDmTab onCountChange={setIgDmCount} />
-          </TabsContent>
+              <TabsContent value="igdm" className="mt-0 space-y-3">
+                <div className="mb-1">
+                  <h2 className="text-sm font-semibold">IG DM Tracker</h2>
+                  <p className="text-xs text-muted-foreground">Track Instagram outreach — DMs, interest, bookings</p>
+                </div>
+                <MyDayIgDmTab onCountChange={setIgDmCount} />
+              </TabsContent>
 
-          <TabsContent value="qhub" className="mt-0 space-y-3">
-            <QuestionnaireHub />
-          </TabsContent>
+              <TabsContent value="qhub" className="mt-0 space-y-3">
+                <QuestionnaireHub />
+              </TabsContent>
 
-          <TabsContent value="outcome" className="mt-0 space-y-3">
-            <div className="mb-1">
-              <h2 className="text-sm font-semibold">Needs Outcome</h2>
-              <p className="text-xs text-muted-foreground">Past intros from the last 45 days with no result logged</p>
-            </div>
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="needsOutcome" />
-          </TabsContent>
+              <TabsContent value="outcome" className="mt-0 space-y-3">
+                <div className="mb-1">
+                  <h2 className="text-sm font-semibold">Needs Outcome</h2>
+                  <p className="text-xs text-muted-foreground">Past intros from the last 45 days with no result logged</p>
+                </div>
+                <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="needsOutcome" />
+              </TabsContent>
+            </>
+          )}
         </div>
       </Tabs>
 
