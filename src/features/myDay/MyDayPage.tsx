@@ -55,7 +55,6 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -263,9 +262,9 @@ export default function MyDayPage() {
           <div>
             <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
               Good {greeting}, {user?.name}! 👋
-              <SectionTooltip text="Your shift home. Tasks, intros, and new leads — everything you need for this shift." />
             </h1>
             <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Your shift home. Tasks, intros, and new leads — everything for this shift.</p>
           </div>
           <Button
             variant="ghost"
@@ -384,10 +383,12 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="week" className="mt-0 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">Upcoming intros this week. Send confirmation texts from here.</p>
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">People who didn't buy yet. One touch per person, every day.</p>
             <FollowUpTabs onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 

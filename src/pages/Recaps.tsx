@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Trophy, RefreshCw } from 'lucide-react';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PerSATable } from '@/components/dashboard/PerSATable';
 import { PerCoachTable } from '@/components/dashboard/PerCoachTable';
@@ -179,8 +179,8 @@ export default function Recaps() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
             Studio
-            <SectionTooltip text="Analytics and performance data for the studio." />
           </h1>
+          <p className="text-xs text-muted-foreground">Analytics and performance data for the studio.</p>
           <Button
             variant="ghost"
             size="sm"

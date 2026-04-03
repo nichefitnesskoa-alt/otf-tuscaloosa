@@ -10,7 +10,7 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
+
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
@@ -386,8 +386,8 @@ export default function Wig() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Trophy className="w-5 h-5" />
             WIG
-            <SectionTooltip text="Your lead measures and the studio's quarterly targets. This is the scoreboard." />
           </h1>
+          <p className="text-xs text-muted-foreground">The scoreboard. Your lead measures and the studio's quarterly targets.</p>
           <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-8 px-2">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>

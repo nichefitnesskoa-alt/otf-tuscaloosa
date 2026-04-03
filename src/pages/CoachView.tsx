@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon } from 'lucide-react';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
+
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -187,9 +187,9 @@ export default function CoachView() {
             <div>
               <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
                 Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋
-                <SectionTooltip text="Your intro cards for today's classes. Prep before class, debrief after." />
               </h1>
               <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+              <p className="text-xs text-muted-foreground">Your intro cards. Prep before class. Debrief after.</p>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5">
