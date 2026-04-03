@@ -117,16 +117,22 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
     { key: 'reschedule', label: 'Reschedule' },
   ];
 
+  const focusCount = Math.min(focusTotal, 20);
+  const isCaughtUp = focusCount === 0;
+
   return (
     <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-bold">
-            Your focus today: {Math.min(focusTotal, 20)} {focusTotal === 1 ? 'person' : 'people'}
-          </h2>
+      {/* Header — large focal number */}
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className={`text-5xl font-medium ${isCaughtUp ? 'text-success' : 'text-[#E8540A]'}`}>
+            {focusCount}
+          </div>
+          <p className="text-lg font-bold text-foreground">
+            {isCaughtUp ? "You're caught up today" : 'people to reach today'}
+          </p>
           <p className="text-xs text-muted-foreground">{counts.total} total in queue</p>
-          <p className="text-xs text-muted-foreground mt-0.5">People who didn't buy yet. One touch per person, every day.</p>
+          <p className="text-xs text-muted-foreground">People who didn't buy yet. One touch per person, every day.</p>
         </div>
         <Button
           variant="ghost"
