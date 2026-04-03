@@ -355,7 +355,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             onClick={handleDismiss}
             className="text-destructive-foreground font-medium text-sm min-h-[44px] px-4 cursor-pointer"
           >
-            Dismiss
+            Not Interested
           </button>
         </div>
       )}
