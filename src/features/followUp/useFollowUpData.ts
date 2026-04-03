@@ -237,6 +237,7 @@ export function useFollowUpData() {
             processed.add(key);
             item.followUpState = 'A';
             item.badgeType = 'follow_up_needed';
+            item.followUpType = 'missed';
             item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'missed');
             missedGuestItems.push(item);
           }
