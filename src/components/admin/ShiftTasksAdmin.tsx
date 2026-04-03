@@ -196,7 +196,10 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
               <Switch checked={newHasCount} onCheckedChange={setNewHasCount} />
             </div>
             {newHasCount && (
-              <Input value={newCountLabel} onChange={e => setNewCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs w-32" />
+              <div className="flex gap-2">
+                <Input value={newCountLabel} onChange={e => setNewCountLabel(e.target.value)} placeholder="Count label" className="h-7 text-xs w-32" />
+                <Input value={newCountTarget} onChange={e => setNewCountTarget(e.target.value)} placeholder="Target" type="number" className="h-7 text-xs w-20" />
+              </div>
             )}
             <Button size="sm" className="h-7 ml-auto" onClick={handleAdd} disabled={!newName.trim()}>
               <Plus className="w-3 h-3 mr-1" /> Add
