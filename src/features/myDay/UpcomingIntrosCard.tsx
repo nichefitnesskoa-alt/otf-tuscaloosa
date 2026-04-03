@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, RefreshCw, AlertCircle, ChevronDown } from 'lucide-react';
+import { SectionTooltip } from '@/components/shared/SectionTooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -309,6 +310,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="w-4 h-4 text-primary" />
               Upcoming Intros
+              <SectionTooltip text="First-timers coming in today. Prep them before class." />
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
               Make these feel welcomed and ready.

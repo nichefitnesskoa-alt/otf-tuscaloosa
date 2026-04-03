@@ -7,7 +7,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, ClipboardList, Send, CheckCircle, Phone, X, ChevronRight } from 'lucide-react';
+import { Eye, ClipboardList, Send, CheckCircle, Phone, X, ChevronRight, Pencil } from 'lucide-react';
+import { EditBookingDialog } from '@/components/myday/EditBookingDialog';
 import { toast } from 'sonner';
 import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -108,6 +109,7 @@ export default function IntroRowCard({
   const [localQStatus, setLocalQStatus] = useState(item.questionnaireStatus);
   const [clearOutcomeOpen, setClearOutcomeOpen] = useState(false);
   const [clearingOutcome, setClearingOutcome] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const qBar = getQBar(localQStatus);
   const hasActiveField = useRef(false);
 
@@ -470,6 +472,15 @@ export default function IntroRowCard({
         <ClipboardList className="w-3.5 h-3.5" />
         Outcome
       </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-9 text-xs gap-1"
+        onClick={() => setEditOpen(true)}
+      >
+        <Pencil className="w-3.5 h-3.5" />
+        Edit
+      </Button>
     </>
   );
 
@@ -604,6 +615,20 @@ export default function IntroRowCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Inline edit dialog */}
+      <EditBookingDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        bookingId={item.bookingId}
+        coachName={item.coachName || ''}
+        introTime={item.introTime}
+        leadSource={item.leadSource || ''}
+        introOwner={(item as any).introOwner || null}
+        bookedBy={(item as any).bookedBy || null}
+        editedBy={userName}
+        onSaved={onRefresh}
+      />
     </div>
   );
 }
