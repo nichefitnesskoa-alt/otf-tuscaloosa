@@ -117,6 +117,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
     { key: 'missed', label: 'Missed' },
     { key: 'secondintro', label: '2nd Intro' },
     { key: 'reschedule', label: 'Reschedule' },
+    { key: 'transferred', label: 'Transferred' },
   ];
 
   const focusCount = Math.min(focusTotal, 20);
