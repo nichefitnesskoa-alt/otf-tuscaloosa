@@ -232,52 +232,24 @@ export default function CoachView() {
         </Select>
       )}
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="week">Week</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="today" className="mt-4">
-          {loading ? (
-            <p className="text-muted-foreground text-center py-8">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No intros assigned today</p>
-          ) : (
-            <DateGroupView
-              groupedByDate={groupedByDate}
-              questionnaires={questionnaires}
-              formatTime={formatTime}
-              isClassTimeNow={isClassTimeNow}
-              isClassTimePast={isClassTimePast}
-              isAdmin={isAdmin}
-              onUpdateBooking={handleUpdateBooking}
-              userName={user?.name || ''}
-              defaultExpanded
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="week" className="mt-4">
-          {loading ? (
-            <p className="text-muted-foreground text-center py-8">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No intros this week</p>
-          ) : (
-            <DateGroupView
-              groupedByDate={groupedByDate}
-              questionnaires={questionnaires}
-              formatTime={formatTime}
-              isClassTimeNow={isClassTimeNow}
-              isClassTimePast={isClassTimePast}
-              isAdmin={isAdmin}
-              onUpdateBooking={handleUpdateBooking}
-              userName={user?.name || ''}
-              defaultExpanded={false}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Single chronological view — today through end of week */}
+      {loading ? (
+        <p className="text-muted-foreground text-center py-8">Loading...</p>
+      ) : filteredBookings.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No intros this week</p>
+      ) : (
+        <DateGroupView
+          groupedByDate={groupedByDate}
+          questionnaires={questionnaires}
+          formatTime={formatTime}
+          isClassTimeNow={isClassTimeNow}
+          isClassTimePast={isClassTimePast}
+          isAdmin={isAdmin}
+          onUpdateBooking={handleUpdateBooking}
+          userName={user?.name || ''}
+          defaultExpanded={false}
+        />
+      )}
     </div>
   );
 }
