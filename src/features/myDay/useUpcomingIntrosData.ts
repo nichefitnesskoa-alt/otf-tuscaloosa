@@ -71,7 +71,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { start, end } = getDateRange(options);
+      const { start, end } = options.dateOverrides || getDateRange(options);
 
       const isNeedsOutcome = options.timeRange === 'needsOutcome';
 
