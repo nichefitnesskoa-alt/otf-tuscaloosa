@@ -66,6 +66,8 @@ export default function CoachView() {
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [loading, setLoading] = useState(true);
   const [coachFilter, setCoachFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState('intros');
+  const [coachFollowUpCount, setCoachFollowUpCount] = useState(0);
 
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const weekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
