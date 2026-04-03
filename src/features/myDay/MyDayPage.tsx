@@ -262,9 +262,9 @@ export default function MyDayPage() {
           <div>
             <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
               Good {greeting}, {user?.name}! 👋
-              <SectionTooltip text="Your shift home. Tasks, intros, and new leads — everything you need for this shift." />
             </h1>
             <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Your shift home. Tasks, intros, and new leads — everything for this shift.</p>
           </div>
           <Button
             variant="ghost"
