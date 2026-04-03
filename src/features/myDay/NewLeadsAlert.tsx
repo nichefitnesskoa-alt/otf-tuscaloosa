@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Send } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { AlertTriangle, Send, Inbox } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface NewLead {
@@ -24,7 +25,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
 
   useEffect(() => {
     const fetchNewLeads = async () => {
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
       const { data: newLeads } = await supabase
         .from('leads')
@@ -39,7 +40,6 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
         return;
       }
 
-      // Check which have activities
       const ids = newLeads.map(l => l.id);
       const { data: activities } = await supabase
         .from('lead_activities')
@@ -58,7 +58,37 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || leads.length === 0) return null;
+  // Always render — show empty state if no leads
+  if (loading) {
+    return (
+      <Card className="border border-border bg-muted/10">
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Inbox className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-sm font-bold">New Leads</p>
+          </div>
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (leads.length === 0) {
+    return (
+      <Card className="border border-border bg-muted/10">
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Inbox className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-sm font-bold">New Leads</p>
+              <p className="text-xs text-muted-foreground">No new leads right now. When one comes in, it appears here first.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-2 border-amber-500/40 bg-amber-500/5">
@@ -67,7 +97,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           <div>
             <p className="text-sm font-bold">New Leads — Respond Now</p>
-            <p className="text-xs text-muted-foreground">{leads.length} new lead{leads.length !== 1 ? 's' : ''} need a first touch</p>
+            <p className="text-xs text-muted-foreground">{leads.length} new lead{leads.length !== 1 ? 's' : ''} waiting for a first touch</p>
           </div>
         </div>
 

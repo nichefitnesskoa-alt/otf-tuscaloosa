@@ -310,10 +310,9 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="w-4 h-4 text-primary" />
               Upcoming Intros
-              <SectionTooltip text="First-timers coming in today. Prep them before class." />
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Make these feel welcomed and ready.
+              First-timers today. Prep them before class. Book in Mindbody AND here.
             </p>
           </div>
           <div className="flex items-center gap-2">

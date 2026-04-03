@@ -383,10 +383,12 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="week" className="mt-0 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">Upcoming intros this week. Send confirmation texts from here.</p>
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
+            <p className="text-xs text-muted-foreground mb-2">People who didn't buy yet. One touch per person, every day.</p>
             <FollowUpTabs onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
