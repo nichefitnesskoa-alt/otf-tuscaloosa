@@ -18,7 +18,7 @@ interface FollowUpListProps {
   onRefresh?: () => void;
 }
 
-type FilterType = 'all' | FollowUpType;
+type FilterType = 'all' | FollowUpType | 'transferred';
 
 const TYPE_LABELS: Record<FollowUpType, string> = {
   noshow: 'No-Show',
