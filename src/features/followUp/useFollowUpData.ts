@@ -85,6 +85,33 @@ export function useFollowUpData() {
       const today = format(new Date(), 'yyyy-MM-dd');
       const cutoff = format(subDays(new Date(), 90), 'yyyy-MM-dd');
 
+      // Get coach-owned booking IDs to exclude from SA view
+      const { data: coachOwned } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id, coach_owner, transferred_to_sa_at') as any)
+        .eq('owner_role', 'Coach')
+        .is('not_interested_at', null)
+        .is('transferred_to_sa_at', null);
+      const coachOwnedBookingIds = new Set((coachOwned || []).filter((c: any) => c.booking_id).map((c: any) => c.booking_id));
+
+      // Get transferred records to mark with badge
+      const { data: transferred } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id, coach_owner, transferred_to_sa_at') as any)
+        .eq('owner_role', 'SA')
+        .not('transferred_to_sa_at', 'is', null);
+      const transferredMap = new Map<string, string>();
+      for (const t of transferred || []) {
+        if (t.booking_id && t.coach_owner) transferredMap.set(t.booking_id, t.coach_owner);
+      }
+
+      // Get not-interested booking IDs to exclude
+      const { data: notInterested } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id') as any)
+        .not('not_interested_at', 'is', null);
+      const notInterestedIds = new Set((notInterested || []).filter((n: any) => n.booking_id).map((n: any) => n.booking_id));
+
       const { data: runs } = await supabase
         .from('intros_run')
         .select('id, member_name, result, result_canon, linked_intro_booked_id, coach_name, run_date, class_time, lead_source, primary_objection, notes, is_vip')
