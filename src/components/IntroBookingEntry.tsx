@@ -406,9 +406,9 @@ export default function IntroBookingEntry({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Friend's First Name *</Label>
-                    <Input
+                    <NameAutocomplete
                       value={booking.friendFirstName}
-                      onChange={(e) => onUpdate(index, { friendFirstName: e.target.value })}
+                      onChange={(v) => onUpdate(index, { friendFirstName: v })}
                       placeholder="First name"
                       className="mt-1"
                     />

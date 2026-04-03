@@ -295,7 +295,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Friend's First Name <span className="text-destructive">*</span></Label>
-                      <Input value={friendFirstName} onChange={e => setFriendFirstName(autoCapitalizeName(e.target.value))} placeholder="First" className="h-8 text-sm" />
+                      <NameAutocomplete value={friendFirstName} onChange={v => setFriendFirstName(autoCapitalizeName(v))} placeholder="First" className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Last Name</Label>
