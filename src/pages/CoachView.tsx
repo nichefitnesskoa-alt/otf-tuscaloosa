@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon } from 'lucide-react';
+import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon, Clock, Eye } from 'lucide-react';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ import { TheSystemSection } from '@/components/coach/TheSystemSection';
 import { CoachingScripts } from '@/components/coach/CoachingScripts';
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import CoachFollowUpList from '@/features/followUp/CoachFollowUpList';
 
 interface CoachBooking {
   id: string;
