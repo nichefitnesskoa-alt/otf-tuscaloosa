@@ -1,80 +1,74 @@
 
 
-# Fix Tooltips → Subtitles, Permanent Leads Section, Win the Day Grouping
+# Remove Win the Day, Merge Today+Week into Intros Tab, Tappable No Q Badge
 
 ## Summary
-Three fixes: (1) Replace all `SectionTooltip` hover popovers with always-visible subtitle text lines. (2) Make the New Leads section permanently visible with an empty state. (3) Group Win the Day items into three collapsible sub-groups.
+Four changes: (1) Remove Win the Day section entirely, (2) Make "No Q" badges tappable to copy Q link, (3) Replace Today+Week tabs with single "Intros" tab showing today through end of week, (4) Add Q status summary line. Apply same treatment to Coach View.
 
-## FIX 1 — Replace Tooltips with Subtitles
+## CHANGE 1 — Remove Win the Day
 
-**Delete** `src/components/shared/SectionTooltip.tsx`
+### `src/features/myDay/MyDayPage.tsx`
+- Remove import of `WinTheDay` (line 52)
+- Remove the Win the Day section (lines 429-432): the `<div className="px-4 pb-24">` wrapping `<WinTheDay>`
+- Files `WinTheDay.tsx` and `useWinTheDayItems.ts` remain in codebase but are no longer rendered
 
-**Remove** all `<SectionTooltip>` usage and replace with a `<p>` subtitle line below each header. Files affected:
+## CHANGE 2 — Tappable "No Q" Badge
 
-| File | Current SectionTooltip | Replacement subtitle text |
-|---|---|---|
-| `MyDayPage.tsx` (line 266) | Remove from h1, add `<p>` below the date line | "Your shift home. Tasks, intros, and new leads — everything for this shift." |
-| `ShiftChecklist.tsx` (line 213) | Add subtitle below the SELECT label | "Your responsibilities for this shift. Complete these in order." |
-| `UpcomingIntrosCard.tsx` (line 313) | Remove from CardTitle, add `<p>` below | "First-timers today. Prep them before class. Book in Mindbody AND here." |
-| `Wig.tsx` (line 389) | Remove from h1, add `<p>` below | "The scoreboard. Your lead measures and the studio's quarterly targets." |
-| `CoachView.tsx` (line 190) | Remove from h1, add `<p>` below | "Your intro cards. Prep before class. Debrief after." |
-| `Recaps.tsx` (line 182) | Remove from h1, add `<p>` below | "Analytics and performance data for the studio." |
-| `PipelinePage.tsx` (line 95) | Remove from h1, add `<p>` below | "Full lead history and booking edits. For fixes and research — not daily workflow." |
+### `src/features/myDay/IntroRowCard.tsx`
+- Modify `getQBadge()` function (lines 41-51): for `NO_Q` case, return a `<button>` styled as the existing red badge instead of a static `<Badge>`
+- Add new prop `onCopyQLink` to `IntroRowCard` — or handle internally using existing `handleSendQ` / `onSendQ` prop
+- On tap: call `onSendQ(bookingId)` which already copies the Q link to clipboard. Show inline "Link copied!" text on the badge for 2s, then revert to "No Questionnaire"
+- The badge in the collapsed header row (line ~232) also needs to be tappable — replace the static `getQBadge()` call with the interactive version, adding `e.stopPropagation()` so it doesn't toggle the card
+- `Q_COMPLETED` and `Q_SENT` badges remain static — no tap action
+- Update badge labels per UI standards: "No Questionnaire" (red), "Questionnaire Sent" (amber), "Questionnaire Complete" (green)
 
-All subtitles: `text-xs text-muted-foreground` — always visible, plain text, no interaction.
+## CHANGE 3 — Single "Intros" Tab Replacing Today + Week
 
-Also add subtitles for the Follow-Up and Week tabs inside `MyDayPage.tsx` tab content areas:
-- Follow-Up tab content: "People who didn't buy yet. One touch per person, every day."
-- Week tab content: "Upcoming intros this week. Send confirmation texts from here."
+### `src/features/myDay/myDayTypes.ts`
+- Add new TimeRange value: `'weekFull'` — fetches today through end of week (Sunday)
 
-## FIX 2 — Permanent New Leads Section
+### `src/features/myDay/useUpcomingIntrosData.ts`
+- Add `weekFull` case to `getDateRange()`: `start = today`, `end = sunday`
 
-**Modify** `src/features/myDay/NewLeadsAlert.tsx`:
+### `src/features/myDay/MyDayPage.tsx`
+- Change default `activeTab` from `'today'` to `'intros'`
+- Replace the two tab triggers (Today, Week) with one: `"Intros"` — for both admin and SA views
+- SA tabs become: `Intros | Follow-Up` (2 tabs, `grid-cols-2`)
+- Admin tabs: `Intros | Follow-Up | Leads | IG DMs | Q Hub | Outcomes` (6 tabs, `grid-cols-6`)
+- Replace both `TabsContent value="today"` and `TabsContent value="week"` with single `TabsContent value="intros"`:
+  - Render `<NewLeadsAlert />` at top
+  - Render `<UpcomingIntrosCard userName={...} fixedTimeRange="weekFull" />`
 
-- Change cutoff from 24 hours to 48 hours
-- Remove the early return `if (loading || leads.length === 0) return null` — always render
-- When loading: show section header with skeleton
-- When no leads: show gray neutral card with header "New Leads" and subtitle "No new leads right now. When one comes in, it appears here first." — `border-muted bg-muted/10` styling
-- When leads exist: keep current amber styling with "New Leads — Respond Now" header
-- Section renders immediately with header before data loads
+### `src/features/myDay/UpcomingIntrosCard.tsx`
+- Handle `weekFull` time range: show today's intros with orange left accent, future days with date headers
+- Split items into: completed today (collapsed group at top), today active, future day groups
+- Today group header: `"Today — April 3"` with `border-l-4 border-[#E8540A]`
+- Future day headers: `"Tomorrow — April 4"`, `"Saturday — April 5"`, etc.
+- Auto-scroll: use a ref on today's section and `scrollIntoView` on mount
+- Auto-expand logic unchanged — next upcoming intro auto-expands
+- For future day intros: show "Send Confirmation" button on collapsed row (reuse existing `onConfirm` handler)
 
-## FIX 3 — Win the Day Grouping
+## CHANGE 4 — Q Status Summary Line
 
-**Modify** `src/features/myDay/WinTheDay.tsx`:
+### `src/features/myDay/UpcomingIntrosCard.tsx`
+- When `fixedTimeRange === 'weekFull'`, show a tappable summary line above today's intros:
+  `"Today: [X] intros · [Y] questionnaires sent · [Z] still needed"`
+- `Z` = count of today's intros where `questionnaireStatus !== 'Q_COMPLETED'`
+- On tap: scroll to first today's intro with `NO_Q` status
 
-Group items into three sub-groups based on `item.type`:
+## CHANGE 5 — Coach View Single Tab
 
-| Group | Label | Types included | Collapse rule |
-|---|---|---|---|
-| Send Questionnaires | "Send Questionnaires — X remaining" | `q_send`, `q_resend` | Collapsed if >3 incomplete items |
-| Prep & Role Play | "Prep & Role Play — X remaining" | `prep_roleplay`, `log_outcome` | Collapsed if >3 incomplete items |
-| Confirmations & Follow-Up | "Confirmations & Follow-Up — X remaining" | `confirm_tomorrow`, `followups_due`, `leads_overdue`, `log_ig`, `cold_texts`, `cold_dms` | Always expanded |
-
-Each group header shows mini progress: "2 of 6 complete"
-
-Implementation:
-- After fetching items, partition into three arrays by type
-- Render each group as a `Collapsible` with its own header showing group name, remaining count, and mini progress
-- Top-level progress bar and incomplete count badge unchanged
-- `ChecklistRow` rendering unchanged — just wrapped in groups
-- Completed items within each group shown at bottom of that group (not in a separate "Completed" dropdown)
-
-## Files Modified
-1. `src/components/shared/SectionTooltip.tsx` — delete
-2. `src/features/myDay/MyDayPage.tsx` — remove SectionTooltip import/usage, add subtitle lines
-3. `src/features/myDay/ShiftChecklist.tsx` — add subtitle
-4. `src/features/myDay/UpcomingIntrosCard.tsx` — remove SectionTooltip, add subtitle
-5. `src/pages/Wig.tsx` — remove SectionTooltip, add subtitle
-6. `src/pages/CoachView.tsx` — remove SectionTooltip, add subtitle
-7. `src/pages/Recaps.tsx` — remove SectionTooltip, add subtitle
-8. `src/features/pipeline/PipelinePage.tsx` — remove SectionTooltip, add subtitle
-9. `src/features/myDay/NewLeadsAlert.tsx` — always-visible section with empty state
-10. `src/features/myDay/WinTheDay.tsx` — grouped sub-sections
+### `src/pages/CoachView.tsx`
+- Remove Today/Week tab split (lines 237-282)
+- Replace with single view fetching `weekStart` through `weekEnd` always (remove `tab` state dependency from fetch)
+- Render `DateGroupView` with all bookings grouped chronologically, today's date highlighted
+- Remove `tab` state and `TabsList`
 
 ## Subsequent Changes
-1. Removing `SectionTooltip.tsx` is safe — no other components use it beyond the 7 listed files
-2. New Leads 48-hour cutoff means leads stay visible longer — same query, just extended window
-3. Win the Day grouping is display-only — same items, same completion logic, same reflections
-4. "Send Script" in New Leads still logs to `lead_activities` via the existing script send flow
-5. No database changes needed
+1. Win the Day UI removed — `WinTheDay.tsx` and `useWinTheDayItems.ts` files preserved but not imported
+2. The "No Q" tappable badge uses the same `onSendQ` flow already wired — copies questionnaire link to clipboard, creates/updates questionnaire record
+3. Single Intros tab query uses existing `useUpcomingIntrosData` with new `weekFull` range — same data source, combined view
+4. Confirmation send on future intros uses existing `onConfirm` handler — no new system
+5. Coach View fetch changes from tab-dependent to always full week — same query, just no tab switching
+6. No database changes needed
 
