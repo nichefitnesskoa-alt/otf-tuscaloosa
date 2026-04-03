@@ -178,6 +178,7 @@ export default function Recaps() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
             Studio
+            <SectionTooltip text="Analytics and performance data for the studio." />
           </h1>
           <Button
             variant="ghost"
