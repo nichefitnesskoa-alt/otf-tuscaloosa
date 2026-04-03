@@ -4,6 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
