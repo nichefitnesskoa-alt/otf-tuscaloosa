@@ -84,7 +84,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       let query = supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by, referred_by_member_name')
+        .select('id, member_name, class_date, intro_time, coach_name, intro_owner, intro_owner_locked, phone, email, lead_source, is_vip, vip_class_name, originating_booking_id, booking_status_canon, booking_type_canon, questionnaire_status_canon, questionnaire_sent_at, questionnaire_completed_at, phone_e164, class_start_at, prepped, prepped_at, prepped_by, referred_by_member_name, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, shoutout_consent, coach_brief_five_vision, coach_brief_human_detail, coach_brief_why_moment, sa_buying_criteria, sa_objection, coach_notes')
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .gte('class_date', start)
