@@ -91,6 +91,7 @@ export default function PipelinePage() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <GitBranch className="w-5 h-5" />
             Client Pipeline
+            <SectionTooltip text="Full lead history and booking edits. For fixes and research — not daily workflow." />
           </h1>
           <p className="text-sm text-muted-foreground">
             Track clients from booking through purchase
