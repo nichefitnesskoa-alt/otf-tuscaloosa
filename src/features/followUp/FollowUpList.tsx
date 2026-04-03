@@ -84,7 +84,9 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const filtered = useMemo(() => {
+    // SA only sees SA-owned items (transferred items have owner_role=SA after transfer)
     if (filter === 'all') return allItems;
+    if (filter === 'transferred') return allItems.filter(i => !!(i as any).transferredFromCoach);
     return allItems.filter(i => i.followUpType === filter);
   }, [allItems, filter]);
 
