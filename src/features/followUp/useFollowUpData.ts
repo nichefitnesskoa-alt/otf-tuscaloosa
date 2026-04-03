@@ -216,6 +216,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: null,
           badgeType: undefined,
+          followUpType: 'noshow' as FollowUpType, // will be reassigned below
         };
 
         // No-Show tab
