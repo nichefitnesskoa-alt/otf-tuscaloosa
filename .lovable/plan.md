@@ -1,48 +1,43 @@
 
 
-# Fix Collapsible Intro Cards — Toggle & Labels
+# Name Field Autocomplete — Search Pipeline & Members
 
 ## Summary
-Two fixes across My Day and Coach View: (1) SA cards can't re-collapse because the expanded state renders IntroCard without a clickable header — add a collapsible header bar above the expanded card. (2) Update collapsed row badges to use full readable labels with shoutout text.
+Create a reusable `NameAutocomplete` component that searches across `intros_booked` (members), `leads`, and `ig_leads` tables, returning name suggestions as the user types. Apply it to all name-input fields where you're referencing a person — referral fields, coach pairing field, and friend name fields. Users can still type a new name if no match is found.
 
-## Root Cause — FIX 1
-In `IntroRowCard.tsx`, when `isExpanded` is true (line 341), the component skips the `collapsedRow` button entirely and renders `IntroCard` directly. `IntroCard`'s header div has no `onClick` handler — there's no way to collapse back. The Coach View (`CoachView.tsx` line 396) already works correctly because it always renders the header button above the expanded content.
+## New Component
 
-## File Changes
+### `src/components/shared/NameAutocomplete.tsx`
+A lightweight autocomplete input that:
+- Debounces input (300ms), searches when 2+ characters typed
+- Queries `intros_booked.member_name`, `leads.name`, and `ig_leads.full_name` with case-insensitive partial matching (`.ilike('%term%')`)
+- Deduplicates results by normalized name
+- Shows a dropdown with matching names, each with a small context badge (e.g., "Member", "Lead", "IG Lead")
+- Selecting a name fills the input — no other side effects
+- If no match, the user keeps typing freely — no blocking
+- Props: `value`, `onChange`, `placeholder`, `className`, `disabled`, `id`, `autoFocus`
+- Uses Popover + Command pattern (same as `ClientNameAutocomplete` but simpler — returns a string, not a full client object)
 
-### 1. `src/features/myDay/IntroRowCard.tsx`
+## Files to Update
 
-**FIX 1 — Add collapsible header to expanded state:**
-- When `isExpanded` is true, render a wrapper that includes the same summary header bar at the top (name, badges, time, coach, chevron) as a clickable button that calls `onExpand?.()` to toggle closed
-- The chevron rotates: `ChevronRight` when collapsed, rotated down (via CSS `rotate-90`) when expanded
-- Wrap the expanded IntroCard + header in a container div
-- Add `e.stopPropagation()` on all child interactive elements inside the header (badges) so they don't interfere
+### 1. `src/components/dashboard/BookIntroSheet.tsx`
+- Replace the "Who referred them?" `<Input>` (line 271) with `<NameAutocomplete>`
+- Replace inline friend first name `<Input>` (line 297) with `<NameAutocomplete>` (searches for existing people who might be coming in)
 
-**FIX 2 — Update collapsed row labels:**
-- Change `1st`/`2nd` badge text to `1st Intro` / `2nd Intro`
-- Change `Q✓`/`Q?`/`Q!` badge text to `Q Complete` / `Q Sent` / `No Q`
-- Replace `ShoutoutDot` with dot + text label:
-  - `consent === true`: green dot + "Shoutout ✓"
-  - `consent === false`: red dot + "Shoutout ✗"
-  - `consent === null`: gray dot + "Shoutout?"
-- Keep time and coach on the right side
+### 2. `src/components/dashboard/WalkInIntroSheet.tsx`
+- Replace "Who referred them?" `<Input>` (line 272) with `<NameAutocomplete>`
+- Replace friend first name `<Input>` (line 298) with `<NameAutocomplete>`
 
-**Auto-expand respect:** The auto-expand `useEffect` in `UpcomingIntrosCard.tsx` already only runs on initial load (items change). The toggle in `handleExpandCard` (line 164) already supports `null` (collapsed). No change needed — manual collapse is already respected since `setExpandedBookingId(null)` persists until the next items array change. Add a ref guard so auto-expand only fires once on mount, not on every items update.
+### 3. `src/components/IntroBookingEntry.tsx`
+- Replace "Who referred them?" `<Input>` (line 382) with `<NameAutocomplete>`
+- Replace friend first name `<Input>` (line 410) with `<NameAutocomplete>`
 
-### 2. `src/features/myDay/UpcomingIntrosCard.tsx`
-
-- Add `autoExpandDone` ref, set to `true` after the first auto-expand runs
-- Skip auto-expand effect if `autoExpandDone.current` is already true — this prevents re-expanding after manual collapse when realtime updates cause items to refresh
-
-### 3. `src/pages/CoachView.tsx`
-
-**FIX 2 — Update Coach View collapsed row labels to match:**
-- Change badge text from abbreviated to full: `1st Intro`/`2nd Intro`, `Q Complete`/`No Q`
-- Add shoutout text labels next to dots (same as SA view)
-- Coach View already has working toggle (line 381-383) — no FIX 1 needed here
+### 4. `src/components/coach/CoachIntroCard.tsx`
+- Replace "Who are you planning to pair them with today?" `<Input>` (line 248) with `<NameAutocomplete>`
 
 ## Technical Details
-- The SA card's expanded state will render: `[clickable header bar] + [IntroCard with all content]` — the header bar is the same summary row used in collapsed state, just with the chevron pointing down
-- `stopPropagation` on badge/dot children inside the header prevents accidental double-triggers
-- The `autoExpandDone` ref ensures that realtime-triggered `items` changes (from `useRealtimeMyDay`) don't re-expand a manually collapsed card
+- The component is a controlled input — parent state management unchanged, just swap `<Input>` for `<NameAutocomplete>`
+- Search queries are limited to 20 results per table to keep responses fast
+- The `autoCapitalizeName` wrapper stays on the `onChange` handler in each parent — `NameAutocomplete` passes raw input through `onChange`
+- No database changes needed — reads only
 
