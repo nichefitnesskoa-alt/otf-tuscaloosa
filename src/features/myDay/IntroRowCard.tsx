@@ -507,53 +507,8 @@ export default function IntroRowCard({
     </>
   );
 
-  // ROW 2 — Secondary actions
-  const secondaryActions = (
-    <>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => handleTogglePrepped(!prepped)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTogglePrepped(!prepped); } }}
-        aria-disabled={preppedSaving}
-        className={cn(
-          'flex-1 flex items-center justify-center gap-1 h-9 text-[10px] border-r border-border/30 transition-colors cursor-pointer select-none',
-          prepped
-            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-            : 'bg-muted/20 text-muted-foreground hover:bg-muted/40',
-          preppedSaving && 'opacity-50 pointer-events-none',
-        )}
-      >
-        <Checkbox
-          checked={prepped}
-          onCheckedChange={(val) => handleTogglePrepped(!!val)}
-          disabled={preppedSaving}
-          className="h-3 w-3 pointer-events-none"
-        />
-        <span className="leading-none">{prepped ? 'Prepped ✓' : 'Prep & RP'}</span>
-      </div>
-
-      <button
-        type="button"
-        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 border-r border-border/30 rounded transition-colors"
-        onClick={item.isSecondIntro ? handleLogScriptSent : handleLogAsSent}
-        disabled={logSentLoading}
-      >
-        <CheckCircle className="w-3 h-3" />
-        <span>{logSentLoading ? '…' : 'Log Sent'}</span>
-      </button>
-
-      <button
-        type="button"
-        className="flex-1 flex items-center justify-center gap-1 h-9 text-[10px] text-muted-foreground hover:bg-muted/40 transition-colors"
-        onClick={handleCopyPhone}
-        disabled={!item.phone}
-      >
-        <Phone className="w-3 h-3" />
-        <span>Phone</span>
-      </button>
-    </>
-  );
+  // Secondary actions row removed — Prep & RP, Log Sent, Phone all removed per spec
+  const secondaryActions = null;
 
   return (
     <div className={cn("rounded-lg border bg-card overflow-hidden", isInFocusWindow && 'ring-2 ring-orange-500')}>
