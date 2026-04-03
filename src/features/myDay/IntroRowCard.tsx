@@ -539,19 +539,12 @@ export default function IntroRowCard({
           !isFocused && anyFocused && 'opacity-80',
         )}
       >
-        {/* THEIR STORY — 3-zone layout */}
+        {/* THEIR STORY — Zone 3 (briefSlot) removed per spec */}
         <TheirStory
           bookingId={item.bookingId}
           memberName={item.memberName}
           classDate={item.classDate}
           onFieldSaved={onRefresh}
-          briefSlot={
-            <SABriefFields
-              bookingId={item.bookingId}
-              editedBy={userName}
-              onSaved={onRefresh}
-            />
-          }
         />
       </IntroCard>
 
