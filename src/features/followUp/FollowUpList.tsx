@@ -328,10 +328,16 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   };
 
   const handleDismiss = async () => {
+    // For SA: "Not Interested" close
+    await supabase.from('follow_up_queue').update({
+      not_interested_at: new Date().toISOString(),
+      not_interested_by: userName,
+      closed_reason: 'not_interested',
+    } as any).eq('booking_id', item.bookingId);
     await supabase.from('intros_booked').update({
       followup_dismissed_at: new Date().toISOString(),
     } as any).eq('id', item.bookingId);
-    toast.success('Dismissed');
+    toast.success('Marked as not interested');
     setSwiped(false);
     onRefresh();
   };
