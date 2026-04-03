@@ -21,6 +21,7 @@ interface TaskTemplate {
   task_name: string;
   has_count: boolean;
   count_label: string | null;
+  count_target: number | null;
   is_active: boolean;
 }
 
