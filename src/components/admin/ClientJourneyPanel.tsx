@@ -1200,7 +1200,7 @@ export default function ClientJourneyPanel() {
     try {
       const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
-      const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Source Not Found');
+      const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
       
       // Determine intro_owner from the linked run if creating from run
       const introOwner = creatingBookingFromRun?.intro_owner || creatingBookingFromRun?.ran_by || null;
@@ -1314,7 +1314,7 @@ export default function ClientJourneyPanel() {
           class_time: newRun.class_time,
           ran_by: newRun.ran_by,
           intro_owner: newRun.ran_by, // Set intro_owner to ran_by
-          lead_source: newRun.lead_source || 'Source Not Found',
+          lead_source: newRun.lead_source || 'Instagram DMs',
           result: newRun.result,
           notes: newRun.notes || null,
           linked_intro_booked_id: newRun.linked_intro_booked_id && newRun.linked_intro_booked_id !== '__NONE__' ? newRun.linked_intro_booked_id : null,
@@ -2135,7 +2135,7 @@ export default function ClientJourneyPanel() {
                                                     coach_name: 'TBD',
                                                     sa_working_shift: r.ran_by || 'Unknown',
                                                     booked_by: r.ran_by || 'Unknown',
-                                                    lead_source: r.lead_source || 'Source Not Found',
+                                                    lead_source: r.lead_source || 'Instagram DMs',
                                                     booking_status: 'Not interested',
                                                     intro_owner: r.intro_owner || r.ran_by,
                                                     closed_at: new Date().toISOString(),

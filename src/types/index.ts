@@ -27,7 +27,7 @@ export const LEAD_SOURCES = [
   'Member Referral',
   'My Personal Friend I Invited',
   'Online Intro Offer (self-booked)',
-  'Source Not Found',
+  'Instagram DMs',
   'VIP Class',
 ] as const;
 
@@ -113,7 +113,7 @@ export const BOOKING_SOURCES = [
   '2nd Class Intro (staff booked)',
   'Comp Session (staff booked)',
   'Online Intro Offer (self-booked)',
-  'Source Not Found',
+  'Instagram DMs',
 ] as const;
 
 export type BookingSource = typeof BOOKING_SOURCES[number];
