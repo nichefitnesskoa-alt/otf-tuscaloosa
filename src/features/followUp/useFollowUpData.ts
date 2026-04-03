@@ -388,6 +388,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: contactDate,
           badgeType: undefined,
+          followUpType: 'reschedule' as FollowUpType,
         });
       }
 
