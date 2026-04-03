@@ -1,74 +1,79 @@
 
 
-# Remove Win the Day, Merge Today+Week into Intros Tab, Tappable No Q Badge
+# Complete Follow-Up Tab Rebuild — Priority-Sorted Single List
 
 ## Summary
-Four changes: (1) Remove Win the Day section entirely, (2) Make "No Q" badges tappable to copy Q link, (3) Replace Today+Week tabs with single "Intros" tab showing today through end of week, (4) Add Q status summary line. Apply same treatment to Coach View.
+Replace the four-tab follow-up system with a single priority-sorted list, daily focus count, two collapsible sections (Focus Today / Coming Up), redesigned compact cards, and a type filter bar.
 
-## CHANGE 1 — Remove Win the Day
+## Changes
 
-### `src/features/myDay/MyDayPage.tsx`
-- Remove import of `WinTheDay` (line 52)
-- Remove the Win the Day section (lines 429-432): the `<div className="px-4 pb-24">` wrapping `<WinTheDay>`
-- Files `WinTheDay.tsx` and `useWinTheDayItems.ts` remain in codebase but are no longer rendered
+### 1. New component: `src/features/followUp/FollowUpList.tsx`
+Replaces `FollowUpTabs.tsx` as the main follow-up UI. Contains:
 
-## CHANGE 2 — Tappable "No Q" Badge
+**Header area:**
+- "Your focus today: [X] people" (bold, large) where X = items with `contactNextDate <= today`, capped at 20
+- "[Total] total in queue" in muted text below
+- Refresh button (same as current)
 
-### `src/features/myDay/IntroRowCard.tsx`
-- Modify `getQBadge()` function (lines 41-51): for `NO_Q` case, return a `<button>` styled as the existing red badge instead of a static `<Badge>`
-- Add new prop `onCopyQLink` to `IntroRowCard` — or handle internally using existing `handleSendQ` / `onSendQ` prop
-- On tap: call `onSendQ(bookingId)` which already copies the Q link to clipboard. Show inline "Link copied!" text on the badge for 2s, then revert to "No Questionnaire"
-- The badge in the collapsed header row (line ~232) also needs to be tappable — replace the static `getQBadge()` call with the interactive version, adding `e.stopPropagation()` so it doesn't toggle the card
-- `Q_COMPLETED` and `Q_SENT` badges remain static — no tap action
-- Update badge labels per UI standards: "No Questionnaire" (red), "Questionnaire Sent" (amber), "Questionnaire Complete" (green)
+**Filter bar:** Five pills below header: `All | No-Show | Missed | 2nd Intro | Reschedule`. Orange fill when selected, muted outline when not. "All" default. Filters the visible list by `badgeType`/`resultCanon`.
 
-## CHANGE 3 — Single "Intros" Tab Replacing Today + Week
+**Section 1 — "Focus Today"** (expanded by default):
+- All items where `contactNextDate <= today`, sorted by priority score then oldest intro first
+- Capped at 20 visible. If more: "Showing 20 of [X] — complete some to see more"
+- Collapsible with chevron
 
-### `src/features/myDay/myDayTypes.ts`
-- Add new TimeRange value: `'weekFull'` — fetches today through end of week (Sunday)
+**Section 2 — "Coming Up"** (collapsed by default):
+- All items where `contactNextDate > today`
+- Header: "Coming Up — [X]" with chevron
+- Same card design, same sort
 
-### `src/features/myDay/useUpcomingIntrosData.ts`
-- Add `weekFull` case to `getDateRange()`: `start = today`, `end = sunday`
+### 2. Priority scoring (computed in the component from existing `FollowUpItem` data)
+```
+Priority 1: contactNextDate < today → "Overdue" (red pill)
+Priority 2: contactNextDate === today → "Due today" (orange pill)
+Priority 3: lastContactAt === null → "First touch" (amber pill)
+Priority 4: lastContactAt > 7 days ago → "Follow up" (muted pill)
+Priority 5: contactNextDate within this week → "Follow up" (muted pill)
+Priority 6: everything else → "Follow up" (muted pill)
+```
+Within each level: sort by `classDate` ascending (oldest first).
 
-### `src/features/myDay/MyDayPage.tsx`
-- Change default `activeTab` from `'today'` to `'intros'`
-- Replace the two tab triggers (Today, Week) with one: `"Intros"` — for both admin and SA views
-- SA tabs become: `Intros | Follow-Up` (2 tabs, `grid-cols-2`)
-- Admin tabs: `Intros | Follow-Up | Leads | IG DMs | Q Hub | Outcomes` (6 tabs, `grid-cols-6`)
-- Replace both `TabsContent value="today"` and `TabsContent value="week"` with single `TabsContent value="intros"`:
-  - Render `<NewLeadsAlert />` at top
-  - Render `<UpcomingIntrosCard userName={...} fixedTimeRange="weekFull" />`
+### 3. Card redesign (inline in FollowUpList or a small `FollowUpCard` sub-component)
+Each card is a compact bordered row:
+- **Line 1:** Member name (bold) · Priority pill · Type pill (No-Show / Missed / 2nd Intro / Reschedule)
+- **Line 2:** Intro date · Coach: name · Phone number
+- **Line 3:** "Never contacted" or "Last contact X days ago via channel"
+- **Line 4:** Contact next date with inline edit pencil (reuse `ContactNextEditor`)
+- **Actions row:** Three buttons:
+  - **"Send Text"** (orange filled, 44px) — dispatches `myday:open-script` with category based on type: no-show→`no_show`, missed→`follow_up`, 2nd→`feedback`, reschedule→`reschedule`
+  - **Button 2** — context-dependent:
+    - No-Show/Missed: "Book 2nd Intro" (outlined) — dispatches `followup:book-second-intro`
+    - 2nd Intro: "Mark Sold" (outlined) — opens outcome drawer
+    - Reschedule: "Book Now" (outlined) — dispatches `followup:book-second-intro`
+  - **"Log as Done"** (muted text button) — logs `script_sent` to `script_actions`, advances contact_next date based on touch count (2→3→5→7 days), refreshes list
 
-### `src/features/myDay/UpcomingIntrosCard.tsx`
-- Handle `weekFull` time range: show today's intros with orange left accent, future days with date headers
-- Split items into: completed today (collapsed group at top), today active, future day groups
-- Today group header: `"Today — April 3"` with `border-l-4 border-[#E8540A]`
-- Future day headers: `"Tomorrow — April 4"`, `"Saturday — April 5"`, etc.
-- Auto-scroll: use a ref on today's section and `scrollIntoView` on mount
-- Auto-expand logic unchanged — next upcoming intro auto-expands
-- For future day intros: show "Send Confirmation" button on collapsed row (reuse existing `onConfirm` handler)
+No "Dismiss" button visible — swipe-left reveal for dismiss (CSS `overflow-hidden` with a translateX gesture using touch events, revealing a red "Dismiss" panel).
 
-## CHANGE 4 — Q Status Summary Line
+### 4. Modify `useFollowUpData.ts`
+- Return a single flat `allItems` array combining noShow + missedGuests + secondIntro + plansToReschedule (plus cooling items)
+- Add a `followUpType` field to `FollowUpItem`: `'noshow' | 'missed' | 'secondintro' | 'reschedule'` — set during the existing categorization logic
+- Keep `counts.total` for the badge
+- Keep `refresh` function
 
-### `src/features/myDay/UpcomingIntrosCard.tsx`
-- When `fixedTimeRange === 'weekFull'`, show a tappable summary line above today's intros:
-  `"Today: [X] intros · [Y] questionnaires sent · [Z] still needed"`
-- `Z` = count of today's intros where `questionnaireStatus !== 'Q_COMPLETED'`
-- On tap: scroll to first today's intro with `NO_Q` status
+### 5. Update `MyDayPage.tsx`
+- Replace `<FollowUpTabs>` import with `<FollowUpList>`
+- Pass same props (`onCountChange`, `onRefresh`)
 
-## CHANGE 5 — Coach View Single Tab
-
-### `src/pages/CoachView.tsx`
-- Remove Today/Week tab split (lines 237-282)
-- Replace with single view fetching `weekStart` through `weekEnd` always (remove `tab` state dependency from fetch)
-- Render `DateGroupView` with all bookings grouped chronologically, today's date highlighted
-- Remove `tab` state and `TabsList`
+## Files Modified
+1. `src/features/followUp/useFollowUpData.ts` — add `followUpType` to items, expose flat `allItems` array
+2. `src/features/followUp/FollowUpList.tsx` — new component (replaces FollowUpTabs)
+3. `src/features/myDay/MyDayPage.tsx` — swap FollowUpTabs → FollowUpList
+4. Old tab files (`NoShowTab.tsx`, `FollowUpNeededTab.tsx`, `SecondIntroTab.tsx`, `PlansToRescheduleTab.tsx`) — no longer imported but preserved
 
 ## Subsequent Changes
-1. Win the Day UI removed — `WinTheDay.tsx` and `useWinTheDayItems.ts` files preserved but not imported
-2. The "No Q" tappable badge uses the same `onSendQ` flow already wired — copies questionnaire link to clipboard, creates/updates questionnaire record
-3. Single Intros tab query uses existing `useUpcomingIntrosData` with new `weekFull` range — same data source, combined view
-4. Confirmation send on future intros uses existing `onConfirm` handler — no new system
-5. Coach View fetch changes from tab-dependent to always full week — same query, just no tab switching
-6. No database changes needed
+1. The `useFollowUpData` hook still runs the same queries — no database changes needed
+2. "Log as Done" writes to `script_actions` table (same as existing "Log as Sent") and updates `intros_booked.reschedule_contact_date` for the next contact date
+3. The total count badge in MyDayPage still reads from `counts.total` — same data source
+4. Swipe-to-dismiss writes `followup_dismissed_at` to `intros_booked` — same as existing Dismiss flow
+5. No changes to any other page, component, or data flow outside the Follow-Up tab
 
