@@ -31,13 +31,15 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
     case 'today':
       return { start: today, end: today };
     case 'restOfWeek': {
-      // Full week: Monday through Sunday
       const monday = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
       return { start: monday, end: sunday };
     }
+    case 'weekFull': {
+      const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      return { start: today, end: sunday };
+    }
     case 'needsOutcome': {
-      // Past 45 days, excluding today
       const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
       const fortyFiveDaysAgo = format(subDays(new Date(), 45), 'yyyy-MM-dd');
       return { start: fortyFiveDaysAgo, end: yesterday };

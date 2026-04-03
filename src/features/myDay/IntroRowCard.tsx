@@ -38,16 +38,39 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   }
 }
 
-function getQBadge(status: UpcomingIntroItem['questionnaireStatus']) {
+function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q Complete</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Questionnaire Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Q Sent</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Questionnaire Sent</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Questionnaire</Badge>;
   }
+}
+
+function TappableQBadge({ status, onTap }: { status: UpcomingIntroItem['questionnaireStatus']; onTap: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  if (status !== 'NO_Q') return getQBadgeStatic(status);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTap();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-[#dc2626] text-white border-transparent cursor-pointer hover:bg-[#b91c1c] transition-colors min-h-[28px]"
+    >
+      {copied ? 'Link copied!' : 'No Questionnaire'}
+    </button>
+  );
 }
 
 function ShoutoutLabel({ consent }: { consent: boolean | null | undefined }) {
