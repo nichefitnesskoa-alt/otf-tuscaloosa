@@ -1,108 +1,80 @@
 
 
-# Simplify SA Experience + New Leads Alert + Tooltips + Inline Edit
+# Fix Tooltips → Subtitles, Permanent Leads Section, Win the Day Grouping
 
 ## Summary
-Seven changes: login message, My Day top message, SA nav reduction to 2 tabs, inner tabs reduction to 3, new leads alert on Today view, hover tooltips on all sections, and inline edit modal on intro cards.
+Three fixes: (1) Replace all `SectionTooltip` hover popovers with always-visible subtitle text lines. (2) Make the New Leads section permanently visible with an empty state. (3) Group Win the Day items into three collapsible sub-groups.
 
-## Changes
+## FIX 1 — Replace Tooltips with Subtitles
 
-### 1. Login Screen Message — `src/pages/Login.tsx`
-Add bold white text block above the name selector inside the Card:
-- Bold: "This app tracks your commission, proves your value to leadership, and makes sure you never lose credit for an intro you worked. The OTF system books classes. This system makes sure you get paid for them."
-- Below in muted smaller text: "Remember: book every intro in both Mindbody AND here."
+**Delete** `src/components/shared/SectionTooltip.tsx`
 
-### 2. My Day Top Message — `src/features/myDay/MyDayPage.tsx`
-Below the greeting/date row (after line 262), add a persistent amber-left-border banner:
-```
-"Book in Mindbody AND here. This is how you get credit and commission."
-```
-Styled: `border-l-4 border-[#E8540A] bg-muted/50 px-3 py-2 text-xs font-medium`
+**Remove** all `<SectionTooltip>` usage and replace with a `<p>` subtitle line below each header. Files affected:
 
-### 3. SA Bottom Nav — `src/components/BottomNav.tsx`
-Change `visibleItems` for non-admin users from 4 items to 2:
-```typescript
-const visibleItems = isAdmin ? [
-  { path: '/my-day', label: 'My Day', icon: Home },
-  { path: '/recaps', label: 'Studio', icon: TrendingUp },
-  { path: '/wig', label: 'WIG', icon: Trophy },
-  { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
-  { path: '/coach-view', label: 'Coach View', icon: Eye },
-  { path: '/admin', label: 'Admin', icon: Settings },
-] : [
-  { path: '/my-day', label: 'My Day', icon: Home },
-  { path: '/wig', label: 'WIG', icon: Trophy },
-];
-```
-Studio, Pipeline, Coach View removed from SA nav. Routes still work if navigated directly.
+| File | Current SectionTooltip | Replacement subtitle text |
+|---|---|---|
+| `MyDayPage.tsx` (line 266) | Remove from h1, add `<p>` below the date line | "Your shift home. Tasks, intros, and new leads — everything for this shift." |
+| `ShiftChecklist.tsx` (line 213) | Add subtitle below the SELECT label | "Your responsibilities for this shift. Complete these in order." |
+| `UpcomingIntrosCard.tsx` (line 313) | Remove from CardTitle, add `<p>` below | "First-timers today. Prep them before class. Book in Mindbody AND here." |
+| `Wig.tsx` (line 389) | Remove from h1, add `<p>` below | "The scoreboard. Your lead measures and the studio's quarterly targets." |
+| `CoachView.tsx` (line 190) | Remove from h1, add `<p>` below | "Your intro cards. Prep before class. Debrief after." |
+| `Recaps.tsx` (line 182) | Remove from h1, add `<p>` below | "Analytics and performance data for the studio." |
+| `PipelinePage.tsx` (line 95) | Remove from h1, add `<p>` below | "Full lead history and booking edits. For fixes and research — not daily workflow." |
 
-### 4. My Day Inner Tabs — `src/features/myDay/MyDayPage.tsx`
-Reduce tab bar from 7 tabs to 3 for SA role. Check `user?.role` — if not Admin, show only: Today, Week, Follow-Up. Admin sees all 7 tabs. Change `grid-cols-7` to `grid-cols-3` for SA. Remove IG DMs, Q Hub, Outcomes, Leads tab triggers and content for SA view (wrap in `isAdmin` conditional). The Leads tab data moves to the new alert in Change 5.
+All subtitles: `text-xs text-muted-foreground` — always visible, plain text, no interaction.
 
-### 5. New Leads Alert on Today Tab — `src/features/myDay/MyDayPage.tsx`
-Create a `NewLeadsAlert` component (inline or separate file) that:
-- Queries `leads` table for `stage = 'new'` created in last 24 hours
-- Cross-checks `lead_activities` — only shows leads with zero activities
-- Renders an amber card between ShiftChecklist and UpcomingIntrosCard in the Today tab content
-- Shows: "New Leads — Respond Now" header, "[X] new leads need a first touch" subtext
-- Each lead row: name, source, time since arrival, "Send Script" button that dispatches `myday:open-script` or opens ScriptPickerSheet
-- Hidden entirely when no qualifying leads exist
+Also add subtitles for the Follow-Up and Week tabs inside `MyDayPage.tsx` tab content areas:
+- Follow-Up tab content: "People who didn't buy yet. One touch per person, every day."
+- Week tab content: "Upcoming intros this week. Send confirmation texts from here."
 
-Data source: reuse logic from `MyDayNewLeadsTab` but simplified — only the "new" sub-tab with zero activities filter.
+## FIX 2 — Permanent New Leads Section
 
-### 6. Tooltips — New `src/components/shared/SectionTooltip.tsx`
-Create a reusable tooltip wrapper using existing `TooltipProvider/Tooltip/TooltipTrigger/TooltipContent` from radix. Wraps a `HelpCircle` icon (or info icon with text label per standards). Apply to:
+**Modify** `src/features/myDay/NewLeadsAlert.tsx`:
 
-| Location | Tooltip text |
-|---|---|
-| My Day header | "Your shift home. Tasks, intros, and new leads — everything you need for this shift." |
-| Shift Duties section | "Your responsibilities for this shift. Complete these in order." |
-| Upcoming Intros section | "First-timers coming in today. Prep them before class." |
-| Follow-Up tab | "People who didn't buy. Your job is to get them back. One touch per person per day." |
-| Week tab | "Upcoming intros for the rest of the week. Send confirmation texts from here." |
-| WIG tab (`src/pages/Wig.tsx`) | "Your lead measures and the studio's quarterly targets. This is the scoreboard." |
-| Milestones & Deploy (`src/pages/Wig.tsx`) | "Celebrate members and put their friends in the pipeline." |
-| Coach View header | "Your intro cards for today's classes. Prep before class, debrief after." |
-| Post-Class debrief | "Five questions. Fills the scoreboard. Takes 60 seconds." |
-| Pipeline (Koa) | "Full lead history and booking edits. For fixes and research — not daily workflow." |
-| Studio (Koa) | "Analytics and performance data for the studio." |
-| Admin (Koa) | "Settings, staff management, and system controls." |
+- Change cutoff from 24 hours to 48 hours
+- Remove the early return `if (loading || leads.length === 0) return null` — always render
+- When loading: show section header with skeleton
+- When no leads: show gray neutral card with header "New Leads" and subtitle "No new leads right now. When one comes in, it appears here first." — `border-muted bg-muted/10` styling
+- When leads exist: keep current amber styling with "New Leads — Respond Now" header
+- Section renders immediately with header before data loads
 
-Style: dark bg, white text, 12px, max-w-[220px], rounded-md. On mobile use Popover instead of Tooltip for long-press.
+## FIX 3 — Win the Day Grouping
 
-### 7. Inline Edit Modal on Intro Cards — `src/features/myDay/IntroRowCard.tsx`
-Add an "Edit" button (pencil icon + "Edit" text label) to the expanded card's action bar. Clicking opens a Dialog/Sheet with four fields:
-- Coach name (NameAutocomplete or text input)
-- Class time (time input)
-- Lead source (select from existing sources)
-- Booking attribution: `intro_owner` and `booked_by` (text inputs)
+**Modify** `src/features/myDay/WinTheDay.tsx`:
 
-Save writes directly to `intros_booked` via `supabase.from('intros_booked').update(...)`. Shows inline "Saved" confirmation for 2s. Cancel button outlined, Save button orange. All inputs 44px min height.
+Group items into three sub-groups based on `item.type`:
 
-New component: `src/components/myday/EditBookingDialog.tsx`
+| Group | Label | Types included | Collapse rule |
+|---|---|---|---|
+| Send Questionnaires | "Send Questionnaires — X remaining" | `q_send`, `q_resend` | Collapsed if >3 incomplete items |
+| Prep & Role Play | "Prep & Role Play — X remaining" | `prep_roleplay`, `log_outcome` | Collapsed if >3 incomplete items |
+| Confirmations & Follow-Up | "Confirmations & Follow-Up — X remaining" | `confirm_tomorrow`, `followups_due`, `leads_overdue`, `log_ig`, `cold_texts`, `cold_dms` | Always expanded |
+
+Each group header shows mini progress: "2 of 6 complete"
+
+Implementation:
+- After fetching items, partition into three arrays by type
+- Render each group as a `Collapsible` with its own header showing group name, remaining count, and mini progress
+- Top-level progress bar and incomplete count badge unchanged
+- `ChecklistRow` rendering unchanged — just wrapped in groups
+- Completed items within each group shown at bottom of that group (not in a separate "Completed" dropdown)
 
 ## Files Modified
-1. `src/pages/Login.tsx` — add message text
-2. `src/features/myDay/MyDayPage.tsx` — top message, tab reduction, new leads alert
-3. `src/components/BottomNav.tsx` — SA nav to 2 tabs
-4. `src/components/shared/SectionTooltip.tsx` — new reusable tooltip
-5. `src/features/myDay/ShiftChecklist.tsx` — add tooltip to shift duties header
-6. `src/features/myDay/UpcomingIntrosCard.tsx` — add tooltip to intros header
-7. `src/features/myDay/IntroRowCard.tsx` — add Edit button
-8. `src/components/myday/EditBookingDialog.tsx` — new inline edit dialog
-9. `src/pages/Wig.tsx` — add tooltips to WIG and Milestones headers
-10. `src/pages/CoachView.tsx` — add tooltip to Coach View header
-11. `src/pages/Recaps.tsx` — add tooltip (Koa only)
-12. `src/pages/Pipeline.tsx` — add tooltip (Koa only)
-13. `src/pages/Admin.tsx` — add tooltip (Koa only)
-14. `src/features/myDay/NewLeadsAlert.tsx` — new component for Today tab alert
+1. `src/components/shared/SectionTooltip.tsx` — delete
+2. `src/features/myDay/MyDayPage.tsx` — remove SectionTooltip import/usage, add subtitle lines
+3. `src/features/myDay/ShiftChecklist.tsx` — add subtitle
+4. `src/features/myDay/UpcomingIntrosCard.tsx` — remove SectionTooltip, add subtitle
+5. `src/pages/Wig.tsx` — remove SectionTooltip, add subtitle
+6. `src/pages/CoachView.tsx` — remove SectionTooltip, add subtitle
+7. `src/pages/Recaps.tsx` — remove SectionTooltip, add subtitle
+8. `src/features/pipeline/PipelinePage.tsx` — remove SectionTooltip, add subtitle
+9. `src/features/myDay/NewLeadsAlert.tsx` — always-visible section with empty state
+10. `src/features/myDay/WinTheDay.tsx` — grouped sub-sections
 
 ## Subsequent Changes
-1. Pipeline, Studio, Coach View routes remain functional — only nav visibility changes for SA role
-2. IG DM scripts remain accessible from intro card script drawers — only the dedicated tab is hidden from SA
-3. New Leads alert reads from existing `leads` + `lead_activities` tables — no new tables
-4. Tooltips are display-only — no data or logic changes
-5. Inline edit writes to `intros_booked` same as Pipeline — same table, same columns
-6. The Leads tab content (`MyDayNewLeadsTab`) is still rendered for Admin — only hidden from SA tabs
-7. Q Hub and Outcomes tabs still rendered for Admin — only hidden from SA
+1. Removing `SectionTooltip.tsx` is safe — no other components use it beyond the 7 listed files
+2. New Leads 48-hour cutoff means leads stay visible longer — same query, just extended window
+3. Win the Day grouping is display-only — same items, same completion logic, same reflections
+4. "Send Script" in New Leads still logs to `lead_activities` via the existing script send flow
+5. No database changes needed
 
