@@ -378,9 +378,9 @@ export default function IntroBookingEntry({
         {booking.leadSource === 'Member Referral' && (
           <div>
             <Label className="text-xs">Referred By (Member Name)</Label>
-            <Input
+            <NameAutocomplete
               value={booking.referredByMemberName || ''}
-              onChange={(e) => onUpdate(index, { referredByMemberName: e.target.value })}
+              onChange={(v) => onUpdate(index, { referredByMemberName: v })}
               placeholder="Who referred them?"
               className="mt-1"
             />
