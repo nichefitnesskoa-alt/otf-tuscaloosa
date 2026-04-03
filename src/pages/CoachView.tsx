@@ -185,8 +185,9 @@ export default function CoachView() {
         <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 shadow-sm -mx-4 -mt-4 mb-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-base font-bold leading-tight">
+              <h1 className="text-base font-bold leading-tight flex items-center gap-1.5">
                 Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.name}! 👋
+                <SectionTooltip text="Your intro cards for today's classes. Prep before class, debrief after." />
               </h1>
               <p className="text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
             </div>
