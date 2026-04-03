@@ -398,6 +398,8 @@ export function useFollowUpData() {
         const key = `plan-${b.id}`;
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         let contactDate = (b as any).reschedule_contact_date;
@@ -428,6 +430,7 @@ export function useFollowUpData() {
           contactNextDate: contactDate,
           badgeType: undefined,
           followUpType: 'reschedule' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
