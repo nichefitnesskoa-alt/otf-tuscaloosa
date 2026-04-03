@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Copy, ClipboardCheck, Send } from 'lucide-react';
+import { Copy, ClipboardCheck, Printer } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useLogScriptSent } from '@/hooks/useScriptSendLog';
@@ -105,12 +105,26 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(editedMessage);
     setCopied(true);
-    toast({ title: 'Copied!', description: 'Message copied to clipboard' });
+    toast({ title: 'Copied + Logged', description: 'Message copied and logged automatically' });
     setTimeout(() => setCopied(false), 2000);
     // Dispatch refresh so follow-up tabs update immediately
     window.dispatchEvent(new CustomEvent('myday:refresh'));
 
-    // Part 5: Log script_actions for completion tracking
+    // Auto-log script_send_log on copy (replaces manual "Log as Sent")
+    try {
+      await logSent.mutateAsync({
+        template_id: template.id,
+        lead_id: leadId || null,
+        booking_id: bookingId || null,
+        sent_by: user?.name || 'Unknown',
+        message_body_sent: editedMessage,
+        sequence_step_number: template.sequence_order || null,
+      });
+    } catch (e) {
+      console.error('Failed to auto-log script send:', e);
+    }
+
+    // Also log script_actions for completion tracking
     try {
       await supabase.from('script_actions').insert({
         booking_id: bookingId || null,
@@ -123,47 +137,28 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
       console.error('Failed to log script action:', e);
     }
 
-    // Questionnaire status is NOT updated on copy — user must explicitly hit "Log as Sent"
-  };
-
-  const handleLog = async () => {
-    try {
-      await logSent.mutateAsync({
-        template_id: template.id,
-        lead_id: leadId || null,
-        booking_id: bookingId || null,
-        sent_by: user?.name || 'Unknown',
-        message_body_sent: editedMessage,
-        sequence_step_number: template.sequence_order || null,
-      });
-
-      // Auto-mark questionnaires as "sent" if IDs are provided
-      if (questionnaireId) {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', questionnaireId)
-          .eq('status', 'not_sent');
-        onQuestionnaireSent?.();
-      }
-      if (friendQuestionnaireId) {
-        await supabase
-          .from('intro_questionnaires')
-          .update({ status: 'sent' })
-          .eq('id', friendQuestionnaireId)
-          .eq('status', 'not_sent');
-        onFriendQuestionnaireSent?.();
-      }
-
-      toast({ title: 'Logged as sent' });
-      onLogged?.();
-      // Dispatch refresh so follow-up tabs update immediately
-      window.dispatchEvent(new CustomEvent('myday:refresh'));
-      onOpenChange(false);
-    } catch (e: any) {
-      toast({ title: 'Error logging', description: e.message, variant: 'destructive' });
+    // Auto-mark questionnaires as "sent" if IDs are provided
+    if (questionnaireId) {
+      await supabase
+        .from('intro_questionnaires')
+        .update({ status: 'sent' })
+        .eq('id', questionnaireId)
+        .eq('status', 'not_sent');
+      onQuestionnaireSent?.();
     }
+    if (friendQuestionnaireId) {
+      await supabase
+        .from('intro_questionnaires')
+        .update({ status: 'sent' })
+        .eq('id', friendQuestionnaireId)
+        .eq('status', 'not_sent');
+      onFriendQuestionnaireSent?.();
+    }
+
+    onLogged?.();
   };
+
+  // handleLog removed — auto-log on copy replaces it
 
   // Render body with orange highlights for unfilled fields
   const renderHighlightedPreview = () => {
@@ -235,13 +230,21 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
 
           {/* Action buttons */}
           <div className="flex gap-2">
-            <Button onClick={handleCopy} className="flex-1">
+            <Button onClick={handleCopy} className="flex-1 min-h-[44px]">
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
+              {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
-            <Button variant="outline" onClick={handleLog} disabled={logSent.isPending}>
-              <Send className="w-4 h-4 mr-1" /> Log as Sent
-            </Button>
+            {bookingId && (
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId, printMode: true } }));
+                }}
+              >
+                <Printer className="w-4 h-4 mr-1" /> Print Card
+              </Button>
+            )}
           </div>
 
           {/* Change Script link */}

@@ -57,6 +57,20 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null }
   );
 }
 
+function TruncatedField({ label, value }: { label: string; value: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = value && value.length > 60;
+  const display = !value ? <span className="text-muted-foreground italic">Not answered</span>
+    : isLong && !expanded ? <>{value.slice(0, 60)}… <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(true); }} className="text-primary text-[10px] hover:underline cursor-pointer">more</button></>
+    : value;
+  return (
+    <p className="text-sm">
+      <span className="text-muted-foreground text-xs">{label}: </span>
+      {display}
+    </p>
+  );
+}
+
 export function TheirStory({
   bookingId,
   memberName,
@@ -258,28 +272,21 @@ export function TheirStory({
       {/* Zone 1 + Zone 2: side-by-side on desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* ── ZONE 1: Before the Conversation (read-only) ── */}
-        <div className="space-y-2">
+        {/* ── ZONE 1: Before the Conversation (compact) ── */}
+        <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             What they shared before arriving
           </p>
-          <div className="space-y-2 pl-0.5">
-            <ReadOnlyField
-              label="Fitness level"
-              value={fitnessLevel != null ? `${fitnessLevel}/5` : null}
-            />
-            <ReadOnlyField
-              label="Looking for"
-              value={fitnessGoal}
-            />
-            <ReadOnlyField
-              label="Their why"
-              value={emotionalDriver}
-            />
-            <ReadOnlyField
-              label="Commitment"
-              value={commitmentDisplay}
-            />
+          <div className="space-y-1 pl-0.5 text-sm">
+            <p>
+              <span className="text-muted-foreground text-xs">Fitness </span>
+              <span className="font-medium">{fitnessLevel != null ? `${fitnessLevel}/5` : '—'}</span>
+              <span className="text-muted-foreground mx-1">·</span>
+              <span className="font-medium">{commitmentDisplay || '—'}</span>
+              <span className="text-muted-foreground text-xs"> days/week</span>
+            </p>
+            <TruncatedField label="Looking for" value={fitnessGoal} />
+            <TruncatedField label="Why" value={emotionalDriver} />
           </div>
           <p className="text-[10px] text-muted-foreground italic mt-1">
             This is what they typed. The real answer comes from the conversation.
@@ -300,6 +307,9 @@ export function TheirStory({
               </Label>
               <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
             </div>
+            {fitnessLevel != null && (
+              <p className="text-[10px] text-muted-foreground italic">They rated their fitness {fitnessLevel}/5</p>
+            )}
             <p className="text-[10px] text-muted-foreground">Ask this. Write their exact words.</p>
             <Textarea
               value={goalText}
