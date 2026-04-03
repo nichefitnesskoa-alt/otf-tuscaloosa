@@ -11,6 +11,8 @@ import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
+export type FollowUpType = 'noshow' | 'missed' | 'secondintro' | 'reschedule';
+
 export interface FollowUpItem {
   bookingId: string;
   runId: string | null;
@@ -35,6 +37,8 @@ export interface FollowUpItem {
   contactNextDate: string | null;
   /** Badge type for merged tab */
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
+  /** Follow-up category type */
+  followUpType: FollowUpType;
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
