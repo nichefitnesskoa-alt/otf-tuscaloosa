@@ -364,7 +364,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           else if (diff < -30) setSwiped(false);
         }}
       >
-        {/* Line 1: Name + Priority + Type */}
+        {/* Line 1: Name + Priority + Type + Transferred badge */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold">{item.memberName}</span>
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${priority.color}`}>
@@ -373,6 +373,11 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[item.followUpType]}`}>
             {TYPE_LABELS[item.followUpType]}
           </span>
+          {(item as any).transferredFromCoach && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
+              Transferred from Coach
+            </span>
+          )}
         </div>
 
         {/* Line 2: Date · Coach · Phone */}
