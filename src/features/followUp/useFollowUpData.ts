@@ -445,6 +445,13 @@ export function useFollowUpData() {
     total: noShow.length + missedGuests.length + secondIntro.length + plansToReschedule.length,
   }), [noShow, missedGuests, secondIntro, plansToReschedule]);
 
+  const allItems = useMemo(() => [
+    ...noShow, ...noShowCooling,
+    ...missedGuests, ...missedGuestsCooling,
+    ...secondIntro, ...secondIntroCooling,
+    ...plansToReschedule, ...plansToRescheduleCooling,
+  ], [noShow, noShowCooling, missedGuests, missedGuestsCooling, secondIntro, secondIntroCooling, plansToReschedule, plansToRescheduleCooling]);
+
   return {
     noShow,
     noShowCooling,
@@ -454,6 +461,7 @@ export function useFollowUpData() {
     secondIntroCooling,
     plansToReschedule,
     plansToRescheduleCooling,
+    allItems,
     counts,
     coolingCounts,
     isLoading,
