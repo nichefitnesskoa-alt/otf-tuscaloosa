@@ -71,7 +71,7 @@ export default function MyDayPage() {
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [igDmCount, setIgDmCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('intros');
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 

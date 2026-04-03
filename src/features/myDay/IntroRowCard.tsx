@@ -370,8 +370,8 @@ export default function IntroRowCard({
             {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
           </Badge>
         </span>
-        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
-          {getQBadge(localQStatus)}
+        <span onClick={(e) => e.stopPropagation()}>
+          <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} />
         </span>
         <ShoutoutLabel consent={shoutoutConsent} />
         <span className="text-xs text-muted-foreground truncate">
