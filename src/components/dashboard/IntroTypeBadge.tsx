@@ -26,7 +26,7 @@ const SHORT_SOURCE: Record<string, string> = {
   'My Personal Friend I Invited': 'Personal',
   'Business Partnership Referral': 'Biz Partner',
   'Event': 'Event',
-  'Source Not Found': 'Unknown',
+  
 };
 
 interface IntroTypeBadgeProps {
