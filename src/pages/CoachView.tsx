@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon } from 'lucide-react';
-import { SectionTooltip } from '@/components/shared/SectionTooltip';
+
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
