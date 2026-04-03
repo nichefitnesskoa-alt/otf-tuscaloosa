@@ -234,17 +234,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
               {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
-            {bookingId && (
-              <Button
-                variant="outline"
-                className="min-h-[44px]"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId, printMode: true } }));
-                }}
-              >
-                <Printer className="w-4 h-4 mr-1" /> Print Card
-              </Button>
-            )}
+            <CopyPhoneButton bookingId={bookingId} />
           </div>
 
           {/* Change Script link */}
