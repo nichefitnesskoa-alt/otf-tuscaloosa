@@ -168,7 +168,9 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
               <div>
                 <span className={`text-sm ${!task.is_active ? 'line-through text-muted-foreground' : ''}`}>{task.task_name}</span>
                 {task.has_count && (
-                  <span className="text-[10px] text-muted-foreground ml-2">({task.count_label})</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">
+                    ({task.count_label}{task.count_target != null ? ` · target: ${task.count_target}` : ''})
+                  </span>
                 )}
               </div>
             )}
