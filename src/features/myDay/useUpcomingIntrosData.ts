@@ -128,6 +128,18 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           .in('booking_id', bookingIds),
       ]);
 
+      // Build questionnaire full data map for pre-fetching
+      const qFullMap = new Map<string, { q1_fitness_goal: string | null; q2_fitness_level: number | null; q3_obstacle: string | null; q5_emotional_driver: string | null }>();
+      for (const q of (qFullRes.data || [])) {
+        if (!(q as any).booking_id) continue;
+        qFullMap.set((q as any).booking_id, {
+          q1_fitness_goal: (q as any).q1_fitness_goal,
+          q2_fitness_level: (q as any).q2_fitness_level,
+          q3_obstacle: (q as any).q3_obstacle,
+          q5_emotional_driver: (q as any).q5_emotional_driver,
+        });
+      }
+
       const qMap = new Map<string, { status: string; submitted_at: string | null; created_at: string }>();
       for (const q of (qRes.data || [])) {
         if (!q.booking_id) continue;
