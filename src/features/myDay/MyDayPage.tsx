@@ -33,7 +33,7 @@ import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
-import FollowUpTabs from '@/features/followUp/FollowUpTabs';
+import FollowUpList from '@/features/followUp/FollowUpList';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 
@@ -375,8 +375,7 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
-            <p className="text-xs text-muted-foreground mb-2">People who didn't buy yet. One touch per person, every day.</p>
-            <FollowUpTabs onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
+            <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
           {isUserAdmin && (

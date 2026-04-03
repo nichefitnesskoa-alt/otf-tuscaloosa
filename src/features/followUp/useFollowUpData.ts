@@ -11,6 +11,8 @@ import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
+export type FollowUpType = 'noshow' | 'missed' | 'secondintro' | 'reschedule';
+
 export interface FollowUpItem {
   bookingId: string;
   runId: string | null;
@@ -35,6 +37,8 @@ export interface FollowUpItem {
   contactNextDate: string | null;
   /** Badge type for merged tab */
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
+  /** Follow-up category type */
+  followUpType: FollowUpType;
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
@@ -212,12 +216,14 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: null,
           badgeType: undefined,
+          followUpType: 'noshow' as FollowUpType, // will be reassigned below
         };
 
         // No-Show tab
         if (r.result_canon === 'NO_SHOW' && !hasFutureUnrun) {
           processed.add(key);
           item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'noshow');
+          item.followUpType = 'noshow';
           noShowItems.push(item);
           continue;
         }
@@ -231,6 +237,7 @@ export function useFollowUpData() {
             processed.add(key);
             item.followUpState = 'A';
             item.badgeType = 'follow_up_needed';
+            item.followUpType = 'missed';
             item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'missed');
             missedGuestItems.push(item);
           }
@@ -244,6 +251,7 @@ export function useFollowUpData() {
             item.followUpState = 'B';
             item.isSecondIntro = true;
             item.badgeType = 'state_b';
+            item.followUpType = 'missed';
             item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'secondintro');
             missedGuestItems.push(item);
           }
@@ -259,6 +267,7 @@ export function useFollowUpData() {
               item.rescheduleContactDate = computeContactNext(item.classDate, 'reschedule');
             }
             item.contactNextDate = item.rescheduleContactDate;
+            item.followUpType = 'reschedule';
             plansItems.push(item);
           }
           continue;
@@ -300,6 +309,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: computeContactNext(b.class_date, 'missed'),
           badgeType: 'no_outcome',
+          followUpType: 'missed' as FollowUpType,
         });
       }
 
@@ -334,6 +344,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
           badgeType: undefined,
+          followUpType: 'secondintro' as FollowUpType,
         });
       }
 
@@ -377,6 +388,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: contactDate,
           badgeType: undefined,
+          followUpType: 'reschedule' as FollowUpType,
         });
       }
 
@@ -441,6 +453,13 @@ export function useFollowUpData() {
     total: noShow.length + missedGuests.length + secondIntro.length + plansToReschedule.length,
   }), [noShow, missedGuests, secondIntro, plansToReschedule]);
 
+  const allItems = useMemo(() => [
+    ...noShow, ...noShowCooling,
+    ...missedGuests, ...missedGuestsCooling,
+    ...secondIntro, ...secondIntroCooling,
+    ...plansToReschedule, ...plansToRescheduleCooling,
+  ], [noShow, noShowCooling, missedGuests, missedGuestsCooling, secondIntro, secondIntroCooling, plansToReschedule, plansToRescheduleCooling]);
+
   return {
     noShow,
     noShowCooling,
@@ -450,6 +469,7 @@ export function useFollowUpData() {
     secondIntroCooling,
     plansToReschedule,
     plansToRescheduleCooling,
+    allItems,
     counts,
     coolingCounts,
     isLoading,
