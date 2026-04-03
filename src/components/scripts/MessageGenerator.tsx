@@ -6,11 +6,53 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Copy, ClipboardCheck, Printer } from 'lucide-react';
+import { Copy, ClipboardCheck, Phone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useLogScriptSent } from '@/hooks/useScriptSendLog';
 import { useAuth } from '@/context/AuthContext';
+
+/** Copy Phone button for Script tab — pulls phone from booking */
+function CopyPhoneButton({ bookingId }: { bookingId?: string }) {
+  const [phone, setPhone] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!bookingId) { setLoaded(true); return; }
+    supabase.from('intros_booked')
+      .select('phone, phone_e164')
+      .eq('id', bookingId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const p = (data as any)?.phone_e164 || (data as any)?.phone || null;
+        setPhone(p);
+        setLoaded(true);
+      });
+  }, [bookingId]);
+
+  if (!loaded || !bookingId) return null;
+
+  const handleCopy = async () => {
+    if (!phone) return;
+    const clean = phone.replace(/\D/g, '').replace(/^1(\d{10})$/, '$1');
+    await navigator.clipboard.writeText(clean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Button
+      variant="outline"
+      className="min-h-[44px]"
+      onClick={handleCopy}
+      disabled={!phone}
+    >
+      <Phone className="w-4 h-4 mr-1" />
+      {copied ? 'Copied!' : phone ? 'Copy Phone' : 'No Phone'}
+    </Button>
+  );
+}
 
 interface MergeContext {
   'first-name'?: string;
@@ -234,17 +276,7 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
               {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
-            {bookingId && (
-              <Button
-                variant="outline"
-                className="min-h-[44px]"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('myday:open-prep', { detail: { bookingId, printMode: true } }));
-                }}
-              >
-                <Printer className="w-4 h-4 mr-1" /> Print Card
-              </Button>
-            )}
+            <CopyPhoneButton bookingId={bookingId} />
           </div>
 
           {/* Change Script link */}

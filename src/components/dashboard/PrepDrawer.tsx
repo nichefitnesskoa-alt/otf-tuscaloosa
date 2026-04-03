@@ -279,7 +279,7 @@ export function PrepDrawer({
     toast.success(val ? 'Shoutout consent saved ✓' : 'Low-key preference saved ✓');
   }, [bookingId]);
 
-  const handleSaveBrief = useCallback(async (field: 'sa_buying_criteria' | 'sa_objection', value: string) => {
+  const handleSaveBrief = useCallback(async (field: string, value: string) => {
     setSavingBrief(true);
     await supabase.from('intros_booked').update({ [field]: value } as any).eq('id', bookingId);
     setSavingBrief(false);
@@ -448,31 +448,50 @@ export function PrepDrawer({
                     </div>
                   </div>
 
-                  {/* THE BRIEF — SA fills in after dig deeper */}
+                  {/* THE BRIEF — 3-column conversation fields (matches intro card) */}
                   <div className="rounded-lg border-2 border-blue-300 dark:border-blue-700 overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE BRIEF</p>
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Fill in after dig deeper — handed to coach on print card</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Fill in during dig deeper — these are the SA conversation fields</p>
                     </div>
-                    <div className="p-3 space-y-3">
+                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs font-semibold">What they're looking for</Label>
+                        <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would a 5/5 look like for you?</Label>
+                        {fitnessLevel != null && (
+                          <p className="text-[10px] text-muted-foreground italic">They rated their current fitness {fitnessLevel}/5</p>
+                        )}
                         <Textarea
-                          value={buyingCriteria}
-                          onChange={e => setBuyingCriteria(e.target.value)}
-                          onBlur={() => handleSaveBrief('sa_buying_criteria', buyingCriteria)}
-                          placeholder="Use their exact words…"
-                          className="min-h-[48px] text-xs resize-none"
+                          value={saConv5of5 || ''}
+                          onChange={e => setSaConv5of5(e.target.value)}
+                          onBlur={() => handleSaveBrief('sa_conversation_5_of_5', saConv5of5 || '')}
+                          placeholder="Paint me a picture. What does your life actually look like when you get there?"
+                          className="min-h-[80px] text-xs resize-none border border-input"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs font-semibold">Potential Objection</Label>
+                        <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What would change for you if you got there?</Label>
+                        {emotionalDriver && (
+                          <p className="text-[10px] text-muted-foreground italic">They mentioned: {emotionalDriver.length > 50 ? emotionalDriver.slice(0, 50) + '…' : emotionalDriver}</p>
+                        )}
                         <Textarea
-                          value={saObjection}
-                          onChange={e => setSaObjection(e.target.value)}
-                          onBlur={() => handleSaveBrief('sa_objection', saObjection)}
-                          placeholder="Use their exact words…"
-                          className="min-h-[48px] text-xs resize-none"
+                          value={saConvMeaning || ''}
+                          onChange={e => setSaConvMeaning(e.target.value)}
+                          onBlur={() => handleSaveBrief('sa_conversation_meaning', saConvMeaning || '')}
+                          placeholder="What would actually be different? Like in their day to day?"
+                          className="min-h-[80px] text-xs resize-none border border-input"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold" style={{ color: '#E8540A' }}>What's been holding you back?</Label>
+                        {obstacle && (
+                          <p className="text-[10px] text-muted-foreground italic">They mentioned: {obstacle.length > 50 ? obstacle.slice(0, 50) + '…' : obstacle}</p>
+                        )}
+                        <Textarea
+                          value={saConvObstacle || ''}
+                          onChange={e => setSaConvObstacle(e.target.value)}
+                          onBlur={() => handleSaveBrief('sa_conversation_obstacle', saConvObstacle || '')}
+                          placeholder="Don't fix it. Just listen. Their answer is your close."
+                          className="min-h-[80px] text-xs resize-none border border-input"
                         />
                       </div>
                     </div>
@@ -644,16 +663,25 @@ export function PrepDrawer({
                     </p>
                   </div>
 
-                  {/* THE BRIEF (read-only view for coach) */}
+                  {/* THE CONVERSATION (read-only view for coach) */}
                   <div className="rounded-lg border border-blue-200 dark:border-blue-800 overflow-hidden">
                     <div className="px-3 py-2 bg-blue-50/50 dark:bg-blue-950/30">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE BRIEF</p>
-                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in after dig deeper — handed to coach on print card during intro</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300">THE CONVERSATION</p>
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400">SA fills this in during dig deeper</p>
                     </div>
-                    <div className="p-3 space-y-1.5 text-xs">
-                      <div><span className="font-bold text-blue-800 dark:text-blue-300">What they're looking for:</span> <span>{buyingCriteria || '—'}</span></div>
-                      <div><span className="font-bold text-blue-800 dark:text-blue-300">Potential Objection:</span> <span>{saObjection || '—'}</span></div>
-                      <p className="text-[10px] text-muted-foreground italic mt-1">Use their exact words. Not paraphrases. These two lines build your mirror drop and your performance summary.</p>
+                    <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">5/5 Vision:</span>
+                        <p>{saConv5of5 || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">What would change:</span>
+                        <p>{saConvMeaning || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-blue-800 dark:text-blue-300">Holding them back:</span>
+                        <p>{saConvObstacle || '—'}</p>
+                      </div>
                     </div>
                   </div>
 
