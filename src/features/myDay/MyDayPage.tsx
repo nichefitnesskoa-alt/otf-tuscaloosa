@@ -278,6 +278,11 @@ export default function MyDayPage() {
 
       </div>
 
+      {/* ═══ PERSISTENT REMINDER BANNER ═══ */}
+      <div className="mx-4 mt-2 border-l-4 border-[#E8540A] bg-muted/50 px-3 py-2 rounded-r-md">
+        <p className="text-xs font-medium">Book in Mindbody AND here. This is how you get credit and commission.</p>
+      </div>
+
       <OfflineBanner />
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
