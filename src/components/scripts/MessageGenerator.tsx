@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Copy, ClipboardCheck, Send } from 'lucide-react';
+import { Copy, ClipboardCheck, Printer } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useLogScriptSent } from '@/hooks/useScriptSendLog';
