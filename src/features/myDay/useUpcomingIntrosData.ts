@@ -14,6 +14,7 @@ import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
+  dateOverrides?: { start: string; end: string };
 }
 
 interface UseUpcomingIntrosReturn {
