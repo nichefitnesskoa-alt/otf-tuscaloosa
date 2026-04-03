@@ -24,11 +24,11 @@ export function FollowUpOwnershipPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const { count: saCount } = await supabase
+        const { count: saCount } = await (supabase
           .from('follow_up_queue')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_role' as any, 'SA')
-          .is('not_interested_at' as any, null);
+          .select('id', { count: 'exact', head: true }) as any)
+          .eq('owner_role', 'SA')
+          .is('not_interested_at', null);
 
         const { count: coachCount } = await supabase
           .from('follow_up_queue')
