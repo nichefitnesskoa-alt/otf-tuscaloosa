@@ -57,6 +57,20 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null }
   );
 }
 
+function TruncatedField({ label, value }: { label: string; value: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = value && value.length > 60;
+  const display = !value ? <span className="text-muted-foreground italic">Not answered</span>
+    : isLong && !expanded ? <>{value.slice(0, 60)}… <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded(true); }} className="text-primary text-[10px] hover:underline cursor-pointer">more</button></>
+    : value;
+  return (
+    <p className="text-sm">
+      <span className="text-muted-foreground text-xs">{label}: </span>
+      {display}
+    </p>
+  );
+}
+
 export function TheirStory({
   bookingId,
   memberName,

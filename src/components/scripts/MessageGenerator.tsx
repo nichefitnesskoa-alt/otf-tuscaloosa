@@ -267,12 +267,9 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
 
           {/* Action buttons */}
           <div className="flex gap-2">
-            <Button onClick={handleCopy} className="flex-1">
+            <Button onClick={handleCopy} className="flex-1 min-h-[44px]">
               {copied ? <ClipboardCheck className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
-            </Button>
-            <Button variant="outline" onClick={handleLog} disabled={logSent.isPending}>
-              <Send className="w-4 h-4 mr-1" /> Log as Sent
+              {copied ? 'Copied + Logged' : 'Copy to Clipboard'}
             </Button>
           </div>
 
