@@ -9,7 +9,7 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { format, startOfWeek, endOfWeek, isToday, isBefore, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addWeeks, isToday, isBefore, parseISO } from 'date-fns';
 import { CoachIntroCard } from '@/components/coach/CoachIntroCard';
 import { TheSystemSection } from '@/components/coach/TheSystemSection';
 import { CoachingScripts } from '@/components/coach/CoachingScripts';
@@ -17,6 +17,8 @@ import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import CoachFollowUpList from '@/features/followUp/CoachFollowUpList';
+import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
+import { getTodayYMD } from '@/lib/dateUtils';
 
 interface CoachBooking {
   id: string;
@@ -69,26 +71,28 @@ export default function CoachView() {
   const [activeTab, setActiveTab] = useState('intros');
   const [coachFollowUpCount, setCoachFollowUpCount] = useState(0);
 
-  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
-  const weekStart = useMemo(() => format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
-  const weekEnd = useMemo(() => format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'), []);
+  // Week navigation
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(() => getDefaultSelectedDate(0));
+  const weekData = useWeekDays(weekOffset);
+  const todayStr = getTodayYMD();
+
+  useEffect(() => {
+    setSelectedDate(getDefaultSelectedDate(weekOffset));
+  }, [weekOffset]);
 
   const initialLoadDone = useRef(false);
 
   const fetchBookings = async (isRefetch = false) => {
     if (!isRefetch) setLoading(true);
-    const dateStart = today;
-    const dateEnd = weekEnd;
 
     let query = supabase
       .from('intros_booked')
       .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon, coach_brief_five_vision, coach_shoutout_start, coach_shoutout_end, coach_referral_asked, coach_referral_names' as any)
-      .gte('class_date', dateStart)
-      .lte('class_date', dateEnd)
+      .gte('class_date', weekData.weekStart)
+      .lte('class_date', weekData.weekEnd)
       .is('deleted_at', null)
       .neq('booking_status_canon', 'DELETED_SOFT');
-
-    // All coaches see all intros — no coach_name filter
 
     const { data } = await query.order('class_date').order('intro_time');
     const rows = (data || []) as unknown as CoachBooking[];
@@ -111,7 +115,7 @@ export default function CoachView() {
     initialLoadDone.current = true;
   };
 
-  useEffect(() => { fetchBookings(); }, [coachName, isAdmin]);
+  useEffect(() => { fetchBookings(); }, [coachName, isAdmin, weekData.weekStart, weekData.weekEnd]);
 
   useEffect(() => {
     const channel = supabase
@@ -119,7 +123,7 @@ export default function CoachView() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [coachName, isAdmin]);
+  }, [coachName, isAdmin, weekData.weekStart, weekData.weekEnd]);
 
   const filteredBookings = useMemo(() => {
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
@@ -129,25 +133,36 @@ export default function CoachView() {
     return result;
   }, [bookings, coachFilter]);
 
+  // Day counts for tab badges
+  const dayCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const b of filteredBookings) {
+      counts[b.class_date] = (counts[b.class_date] || 0) + 1;
+    }
+    return counts;
+  }, [filteredBookings]);
+
+  // Bookings for selected day only
+  const selectedDayBookings = useMemo(() => {
+    return filteredBookings.filter(b => b.class_date === selectedDate);
+  }, [filteredBookings, selectedDate]);
+
   // All unique coach names for filter
   const allCoachNames = useMemo(() => {
     const names = new Set(bookings.filter(b => !b.is_vip && !b.deleted_at && b.coach_name).map(b => b.coach_name));
     return Array.from(names).filter(n => n.length > 0).sort();
   }, [bookings]);
 
-  // Group by date → time
-  const groupedByDate = useMemo(() => {
-    const map = new Map<string, Map<string, CoachBooking[]>>();
-    filteredBookings.forEach(b => {
-      const date = b.class_date;
+  // Group selected day by time
+  const groupedByTime = useMemo(() => {
+    const map = new Map<string, CoachBooking[]>();
+    selectedDayBookings.forEach(b => {
       const time = b.intro_time || 'TBD';
-      if (!map.has(date)) map.set(date, new Map());
-      const timeMap = map.get(date)!;
-      if (!timeMap.has(time)) timeMap.set(time, []);
-      timeMap.get(time)!.push(b);
+      if (!map.has(time)) map.set(time, []);
+      map.get(time)!.push(b);
     });
     return map;
-  }, [filteredBookings]);
+  }, [selectedDayBookings]);
 
   const formatTime = (t: string) => {
     if (t === 'TBD') return 'TBD';
@@ -166,7 +181,7 @@ export default function CoachView() {
 
   const isClassTimePast = (classDate: string, classTime: string | null) => {
     const dateObj = parseISO(classDate);
-    if (isBefore(dateObj, parseISO(today)) && !isToday(dateObj)) return true;
+    if (isBefore(dateObj, parseISO(todayStr)) && !isToday(dateObj)) return true;
     if (!isToday(dateObj)) return false;
     if (!classTime) return false;
     const now = new Date();
@@ -178,6 +193,9 @@ export default function CoachView() {
   const handleUpdateBooking = (bookingId: string, updates: Partial<CoachBooking>) => {
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, ...updates } : b));
   };
+
+  const selectedIsToday = selectedDate === todayStr;
+  const selectedDayLabel = selectedIsToday ? 'Today' : format(new Date(selectedDate + 'T12:00:00'), 'EEEE');
 
   return (
     <div className="p-4 space-y-4" style={{ fontSize: '16px' }}>
@@ -237,6 +255,15 @@ export default function CoachView() {
         </TabsList>
 
         <TabsContent value="intros" className="mt-3 space-y-3">
+          {/* Week day tabs */}
+          <WeekDayTabs
+            weekOffset={weekOffset}
+            onWeekOffsetChange={setWeekOffset}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            dayCounts={dayCounts}
+          />
+
           {/* Coach filter */}
           {allCoachNames.length > 0 && (
             <Select value={coachFilter} onValueChange={setCoachFilter}>
@@ -252,23 +279,46 @@ export default function CoachView() {
             </Select>
           )}
 
-          {/* Single chronological view — today through end of week */}
+          {/* Selected day content */}
           {loading ? (
             <p className="text-muted-foreground text-center py-8">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No intros this week</p>
+          ) : selectedDayBookings.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8 italic">No intros scheduled for {selectedDayLabel}.</p>
           ) : (
-            <DateGroupView
-              groupedByDate={groupedByDate}
-              questionnaires={questionnaires}
-              formatTime={formatTime}
-              isClassTimeNow={isClassTimeNow}
-              isClassTimePast={isClassTimePast}
-              isAdmin={isAdmin}
-              onUpdateBooking={handleUpdateBooking}
-              userName={user?.name || ''}
-              defaultExpanded={false}
-            />
+            <div className="space-y-3">
+              {Array.from(groupedByTime.entries()).map(([time, intros]) => {
+                const isCurrent = isClassTimeNow(selectedDate, time === 'TBD' ? null : time);
+                const isPast = isClassTimePast(selectedDate, time === 'TBD' ? null : time);
+                const shouldDefaultOpen = selectedIsToday ? !isPast : true;
+                const coachNames = [...new Set(intros.map(i => i.coach_name))].join(', ');
+
+                return (
+                  <Collapsible key={`${selectedDate}-${time}`} defaultOpen={shouldDefaultOpen}>
+                    <CollapsibleTrigger className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left font-semibold transition-colors",
+                      isCurrent
+                        ? "bg-primary/20 border-2 border-primary text-foreground"
+                        : "bg-muted/50 border border-border text-foreground hover:bg-muted"
+                    )}>
+                      <span className="text-base">
+                        {formatTime(time)} — {intros.length} intro{intros.length !== 1 ? 's' : ''}
+                        <span className="text-muted-foreground font-normal"> — Coach: {coachNames}</span>
+                      </span>
+                      <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3">
+                      <ClassTimeIntroSelector
+                        intros={intros}
+                        questionnaires={questionnaires}
+                        onUpdateBooking={handleUpdateBooking}
+                        userName={user?.name || ''}
+                        autoExpand={selectedIsToday}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
+            </div>
           )}
         </TabsContent>
 
@@ -280,84 +330,19 @@ export default function CoachView() {
   );
 }
 
-// ── DateGroupView with name dropdown per class time ──
-function DateGroupView({
-  groupedByDate, questionnaires, formatTime, isClassTimeNow, isClassTimePast, isAdmin, onUpdateBooking, userName, defaultExpanded,
-}: {
-  groupedByDate: Map<string, Map<string, CoachBooking[]>>;
-  questionnaires: QuestionnaireMap;
-  formatTime: (t: string) => string;
-  isClassTimeNow: (date: string, time: string | null) => boolean;
-  isClassTimePast: (date: string, time: string | null) => boolean;
-  isAdmin: boolean;
-  onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
-  userName: string;
-  defaultExpanded: boolean;
-}) {
-  const today = format(new Date(), 'yyyy-MM-dd');
-
-  return (
-    <div className="space-y-6">
-      {Array.from(groupedByDate.entries()).map(([date, timeMap]) => {
-        const dateLabel = isToday(parseISO(date))
-          ? 'Today'
-          : format(parseISO(date), 'EEEE, MMM d');
-        const isDateToday = date === today;
-
-        return (
-          <div key={date} className="space-y-3">
-            {!defaultExpanded && (
-              <h2 className="text-lg font-bold text-foreground border-b border-border pb-1">{dateLabel}</h2>
-            )}
-            {Array.from(timeMap.entries()).map(([time, intros]) => {
-              const isCurrent = isClassTimeNow(date, time === 'TBD' ? null : time);
-              const isPast = isClassTimePast(date, time === 'TBD' ? null : time);
-              const shouldDefaultOpen = defaultExpanded || isDateToday ? !isPast : false;
-              const coachNames = [...new Set(intros.map(i => i.coach_name))].join(', ');
-
-              return (
-                <Collapsible key={`${date}-${time}`} defaultOpen={shouldDefaultOpen}>
-                  <CollapsibleTrigger className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left font-semibold transition-colors",
-                    isCurrent
-                      ? "bg-primary/20 border-2 border-primary text-foreground"
-                      : "bg-muted/50 border border-border text-foreground hover:bg-muted"
-                  )}>
-                    <span className="text-base">
-                      {formatTime(time)} — {intros.length} intro{intros.length !== 1 ? 's' : ''}
-                      <span className="text-muted-foreground font-normal"> — Coach: {coachNames}</span>
-                    </span>
-                    <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-3">
-                    <ClassTimeIntroSelector
-                      intros={intros}
-                      questionnaires={questionnaires}
-                      onUpdateBooking={onUpdateBooking}
-                      userName={userName}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
-  intros, questionnaires, onUpdateBooking, userName,
+  intros, questionnaires, onUpdateBooking, userName, autoExpand = true,
 }: {
   intros: CoachBooking[];
   questionnaires: QuestionnaireMap;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
+  autoExpand?: boolean;
 }) {
-  // Auto-expand: find next upcoming intro
+  // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
+    if (!autoExpand) return intros.length > 0 ? intros[0].id : null;
     const now = new Date();
     const today = format(now, 'yyyy-MM-dd');
     const todayActive = intros.filter(i => i.class_date === today && i.booking_status_canon === 'ACTIVE');
