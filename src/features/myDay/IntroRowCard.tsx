@@ -109,6 +109,7 @@ export default function IntroRowCard({
   const [localQStatus, setLocalQStatus] = useState(item.questionnaireStatus);
   const [clearOutcomeOpen, setClearOutcomeOpen] = useState(false);
   const [clearingOutcome, setClearingOutcome] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const qBar = getQBar(localQStatus);
   const hasActiveField = useRef(false);
 
