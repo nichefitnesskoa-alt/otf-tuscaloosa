@@ -14,6 +14,7 @@ import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
+  dateOverrides?: { start: string; end: string };
 }
 
 interface UseUpcomingIntrosReturn {
@@ -70,13 +71,16 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { start, end } = getDateRange(options);
+      const { start, end } = options.dateOverrides || getDateRange(options);
 
       const isNeedsOutcome = options.timeRange === 'needsOutcome';
 
+      const isWeekFullNav = !!options.dateOverrides;
       const statusExclusion = isNeedsOutcome
         ? '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")'
-        : '("CANCELLED","PLANNING_RESCHEDULE")';
+        : isWeekFullNav
+          ? '("DELETED_SOFT")'
+          : '("CANCELLED","PLANNING_RESCHEDULE")';
 
       let query = supabase
         .from('intros_booked')
@@ -381,7 +385,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
     } finally {
       setIsLoading(false);
     }
-  }, [options.timeRange]);
+  }, [options.timeRange, options.dateOverrides?.start, options.dateOverrides?.end]);
 
   useEffect(() => {
     fetchData();
