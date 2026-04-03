@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -269,7 +270,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
           {leadSource === 'Member Referral' && (
             <div className="space-y-1.5">
               <Label htmlFor="walk-in-referred-by">Who referred them?</Label>
-              <Input id="walk-in-referred-by" value={referredBy} onChange={e => setReferredBy(autoCapitalizeName(e.target.value))} placeholder="Referring member's name" />
+              <NameAutocomplete id="walk-in-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
             </div>
           )}
 
@@ -295,7 +296,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">Friend's First Name <span className="text-destructive">*</span></Label>
-                      <Input value={friendFirstName} onChange={e => setFriendFirstName(autoCapitalizeName(e.target.value))} placeholder="First" className="h-8 text-sm" />
+                      <NameAutocomplete value={friendFirstName} onChange={v => setFriendFirstName(autoCapitalizeName(v))} placeholder="First" className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Last Name</Label>

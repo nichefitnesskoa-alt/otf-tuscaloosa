@@ -4,6 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
@@ -245,7 +246,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                       <Label className="text-sm">Who are you planning to pair them with today?</Label>
                       <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
                     </div>
-                    <Input value={pairPlan} onChange={e => handlePairPlanChange(e.target.value)} placeholder="Member name" className="h-8 text-sm" />
+                    <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-8 text-sm" />
                   </div>
 
                 </div>

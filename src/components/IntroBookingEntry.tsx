@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -378,9 +379,9 @@ export default function IntroBookingEntry({
         {booking.leadSource === 'Member Referral' && (
           <div>
             <Label className="text-xs">Referred By (Member Name)</Label>
-            <Input
+            <NameAutocomplete
               value={booking.referredByMemberName || ''}
-              onChange={(e) => onUpdate(index, { referredByMemberName: e.target.value })}
+              onChange={(v) => onUpdate(index, { referredByMemberName: v })}
               placeholder="Who referred them?"
               className="mt-1"
             />
@@ -406,9 +407,9 @@ export default function IntroBookingEntry({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Friend's First Name *</Label>
-                    <Input
+                    <NameAutocomplete
                       value={booking.friendFirstName}
-                      onChange={(e) => onUpdate(index, { friendFirstName: e.target.value })}
+                      onChange={(v) => onUpdate(index, { friendFirstName: v })}
                       placeholder="First name"
                       className="mt-1"
                     />
