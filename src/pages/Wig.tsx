@@ -385,6 +385,8 @@ export default function Wig() {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Trophy className="w-5 h-5" />
             WIG
+            <SectionTooltip text="Your lead measures and the studio's quarterly targets. This is the scoreboard." />
+          </h1>
           </h1>
           <Button variant="ghost" size="sm" onClick={handleManualRefresh} disabled={isRefreshing} className="h-8 px-2">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
