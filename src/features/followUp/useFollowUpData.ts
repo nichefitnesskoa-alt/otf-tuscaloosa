@@ -357,6 +357,8 @@ export function useFollowUpData() {
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `2nd-${b.id}`;
         if (processed.has(key)) continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
@@ -381,6 +383,7 @@ export function useFollowUpData() {
           contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
           badgeType: undefined,
           followUpType: 'secondintro' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
