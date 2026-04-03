@@ -309,6 +309,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: computeContactNext(b.class_date, 'missed'),
           badgeType: 'no_outcome',
+          followUpType: 'missed' as FollowUpType,
         });
       }
 
