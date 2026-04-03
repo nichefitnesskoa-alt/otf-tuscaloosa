@@ -251,6 +251,7 @@ export function useFollowUpData() {
             item.followUpState = 'B';
             item.isSecondIntro = true;
             item.badgeType = 'state_b';
+            item.followUpType = 'missed';
             item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'secondintro');
             missedGuestItems.push(item);
           }
