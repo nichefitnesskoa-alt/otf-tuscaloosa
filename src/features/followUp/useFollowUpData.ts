@@ -344,6 +344,7 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
           badgeType: undefined,
+          followUpType: 'secondintro' as FollowUpType,
         });
       }
 
