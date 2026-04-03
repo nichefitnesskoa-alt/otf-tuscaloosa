@@ -293,6 +293,9 @@ export function TheirStory({
               </Label>
               <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
             </div>
+            {fitnessLevel != null && (
+              <p className="text-[10px] text-muted-foreground italic">They rated their fitness {fitnessLevel}/5</p>
+            )}
             <p className="text-[10px] text-muted-foreground">Ask this. Write their exact words.</p>
             <Textarea
               value={goalText}
