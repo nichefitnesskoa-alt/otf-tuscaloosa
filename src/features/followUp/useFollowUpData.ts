@@ -39,6 +39,8 @@ export interface FollowUpItem {
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
   /** Follow-up category type */
   followUpType: FollowUpType;
+  /** Transferred from coach (coach name) */
+  transferredFromCoach?: string | null;
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];

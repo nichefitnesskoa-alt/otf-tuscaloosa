@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.post-groupme]
 verify_jwt = false
+
+[functions.followup-auto-transfer]
+verify_jwt = false
