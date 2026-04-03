@@ -328,6 +328,7 @@ export default function CoachView() {
       </Tabs>
     </div>
   );
+}
 
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
