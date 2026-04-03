@@ -631,6 +631,7 @@ export default function Admin() {
 
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
+          <FollowUpOwnershipPanel />
 
         </TabsContent>
 
