@@ -1,43 +1,31 @@
 
 
-# Name Field Autocomplete — Search Pipeline & Members
+# Fix: Shift Recap Dialog "Ran" Count Excludes No-Shows
 
 ## Summary
-Create a reusable `NameAutocomplete` component that searches across `intros_booked` (members), `leads`, and `ig_leads` tables, returning name suggestions as the user types. Apply it to all name-input fields where you're referencing a person — referral fields, coach pairing field, and friend name fields. Users can still type a new name if no match is found.
+The "Confirm Shift Recap" dialog in `CloseOutShift.tsx` shows "Ran: 1" when it should show "Ran: 0" because it counts no-shows in the ran total. The GroupMe edge function already handles this correctly — the fix is only in the client-side recap dialog.
 
-## New Component
+## File Change
 
-### `src/components/shared/NameAutocomplete.tsx`
-A lightweight autocomplete input that:
-- Debounces input (300ms), searches when 2+ characters typed
-- Queries `intros_booked.member_name`, `leads.name`, and `ig_leads.full_name` with case-insensitive partial matching (`.ilike('%term%')`)
-- Deduplicates results by normalized name
-- Shows a dropdown with matching names, each with a small context badge (e.g., "Member", "Lead", "IG Lead")
-- Selecting a name fills the input — no other side effects
-- If no match, the user keeps typing freely — no blocking
-- Props: `value`, `onChange`, `placeholder`, `className`, `disabled`, `id`, `autoFocus`
-- Uses Popover + Command pattern (same as `ClientNameAutocomplete` but simpler — returns a string, not a full client object)
+### `src/components/dashboard/CloseOutShift.tsx`
 
-## Files to Update
+**Line 170** — Change `ran` calculation to exclude no-shows:
 
-### 1. `src/components/dashboard/BookIntroSheet.tsx`
-- Replace the "Who referred them?" `<Input>` (line 271) with `<NameAutocomplete>`
-- Replace inline friend first name `<Input>` (line 297) with `<NameAutocomplete>` (searches for existing people who might be coming in)
+Current:
+```typescript
+ran: (ran || []).length,
+```
 
-### 2. `src/components/dashboard/WalkInIntroSheet.tsx`
-- Replace "Who referred them?" `<Input>` (line 272) with `<NameAutocomplete>`
-- Replace friend first name `<Input>` (line 298) with `<NameAutocomplete>`
+Change to:
+```typescript
+ran: (ran || []).filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show').length,
+```
 
-### 3. `src/components/IntroBookingEntry.tsx`
-- Replace "Who referred them?" `<Input>` (line 382) with `<NameAutocomplete>`
-- Replace friend first name `<Input>` (line 410) with `<NameAutocomplete>`
+This matches the exact same filter logic used in the edge function (line 115) and ensures the recap preview shows the same numbers that will be posted to GroupMe.
 
-### 4. `src/components/coach/CoachIntroCard.tsx`
-- Replace "Who are you planning to pair them with today?" `<Input>` (line 248) with `<NameAutocomplete>`
-
-## Technical Details
-- The component is a controlled input — parent state management unchanged, just swap `<Input>` for `<NameAutocomplete>`
-- Search queries are limited to 20 results per table to keep responses fast
-- The `autoCapitalizeName` wrapper stays on the `onChange` handler in each parent — `NameAutocomplete` passes raw input through `onChange`
-- No database changes needed — reads only
+## What this does NOT change
+- The GroupMe edge function — already correct
+- No-show count — already correct (line 123)
+- Sold, Follow-Up Needed, or any other metric
+- No visual or layout changes
 
