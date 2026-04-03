@@ -86,6 +86,7 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
     setEditName(task.task_name);
     setEditHasCount(task.has_count);
     setEditCountLabel(task.count_label || '');
+    setEditCountTarget(task.count_target != null ? String(task.count_target) : '');
   };
 
   const handleSaveEdit = async () => {
