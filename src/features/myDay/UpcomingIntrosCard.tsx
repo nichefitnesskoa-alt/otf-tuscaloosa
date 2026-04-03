@@ -1,14 +1,12 @@
 /**
- * Upcoming Intros Card: full week view with navigation.
- * Shows Mon-Sun with day headers even for empty days.
+ * Upcoming Intros Card: day-tab based navigation.
+ * Shows Mon-Sun day pills; tapping a day shows only that day's intros.
  * Week navigation: Previous / Current range / Next.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { differenceInMinutes, startOfWeek, endOfWeek, addWeeks, eachDayOfInterval, isBefore, isToday as isDateToday } from 'date-fns';
+import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, RefreshCw, AlertCircle, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -16,7 +14,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { TimeRange } from './myDayTypes';
 import { useUpcomingIntrosData } from './useUpcomingIntrosData';
-import { groupByDay, getSuggestedFocus } from './myDaySelectors';
+import { groupByDay } from './myDaySelectors';
 import UpcomingIntrosFilters from './UpcomingIntrosFilters';
 import IntroDayGroup from './IntroDayGroup';
 import { confirmIntro } from './myDayActions';
@@ -25,6 +23,7 @@ import { generateSlug } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { getTodayYMD } from '@/lib/dateUtils';
 import { isMembershipSale } from '@/lib/sales-detection';
+import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 
 interface UpcomingIntrosCardProps {
   userName: string;
@@ -39,25 +38,19 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const [weekOffset, setWeekOffset] = useState(0);
   const isWeekFullView = fixedTimeRange === 'weekFull' || timeRange === 'weekFull';
 
-  const weekDates = useMemo(() => {
-    const base = addWeeks(new Date(), weekOffset);
-    const monday = startOfWeek(base, { weekStartsOn: 1 });
-    const sunday = endOfWeek(base, { weekStartsOn: 1 });
-    return {
-      start: format(monday, 'yyyy-MM-dd'),
-      end: format(sunday, 'yyyy-MM-dd'),
-      monday,
-      sunday,
-      days: eachDayOfInterval({ start: monday, end: sunday }),
-    };
-  }, [weekOffset]);
+  // Day tab selection
+  const [selectedDate, setSelectedDate] = useState(() => getDefaultSelectedDate(0));
+  const weekData = useWeekDays(weekOffset);
 
-  const isCurrentWeek = weekOffset === 0;
+  // When week changes, reset selected date
+  useEffect(() => {
+    setSelectedDate(getDefaultSelectedDate(weekOffset));
+  }, [weekOffset]);
 
   const dateOverrides = useMemo(() => {
     if (!isWeekFullView) return undefined;
-    return { start: weekDates.start, end: weekDates.end };
-  }, [isWeekFullView, weekDates.start, weekDates.end]);
+    return { start: weekData.weekStart, end: weekData.weekEnd };
+  }, [isWeekFullView, weekData.weekStart, weekData.weekEnd]);
 
   const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
     timeRange,
@@ -110,62 +103,71 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const dayGroups = useMemo(() => groupByDay(items), [items]);
 
   const todayStr = getTodayYMD();
+  const isCurrentWeek = weekOffset === 0;
+  const selectedIsToday = selectedDate === todayStr;
 
-  // Split completed vs active for current week view
-  const isTodayView = fixedTimeRange === 'today' || timeRange === 'today';
-  const isSplitView = isTodayView || isWeekFullView;
-  const { activeItems, completedItems } = useMemo(() => {
-    if (!isSplitView) return { activeItems: items, completedItems: [] };
-    return {
-      activeItems: items.filter(i => !(i.classDate === todayStr && i.latestRunResult)),
-      completedItems: items.filter(i => i.classDate === todayStr && !!i.latestRunResult),
-    };
-  }, [items, isSplitView, todayStr]);
-  const activeDayGroups = useMemo(() => groupByDay(activeItems), [activeItems]);
-  const completedDayGroups = useMemo(() => groupByDay(completedItems), [completedItems]);
-  const [completedOpen, setCompletedOpen] = useState(false);
-
-  // Q status summary — only on current week
-  const qSummary = useMemo(() => {
-    if (!isWeekFullView || !isCurrentWeek) return null;
-    const todayItems = items.filter(i => i.classDate === todayStr);
-    const total = todayItems.length;
-    const qSent = todayItems.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
-    const stillNeeded = todayItems.filter(i => i.questionnaireStatus !== 'Q_COMPLETED').length;
-    return { total, qSent, stillNeeded };
-  }, [items, isWeekFullView, isCurrentWeek, todayStr]);
-
-  const firstNoQRef = useRef<HTMLDivElement>(null);
-  const todaySectionRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to today on mount
-  useEffect(() => {
-    if (isWeekFullView && isCurrentWeek && todaySectionRef.current && !isLoading) {
-      setTimeout(() => todaySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+  // Day counts for badge display on tabs
+  const dayCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      counts[item.classDate] = (counts[item.classDate] || 0) + 1;
     }
-  }, [isWeekFullView, isCurrentWeek, isLoading]);
+    return counts;
+  }, [items]);
+
+  // Items for selected day only
+  const selectedDayItems = useMemo(() => {
+    return items.filter(i => i.classDate === selectedDate);
+  }, [items, selectedDate]);
+
+  const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
+
+  // Q summary for selected day
+  const qSummary = useMemo(() => {
+    if (!isWeekFullView) return null;
+    const dayItems = selectedDayItems;
+    const total = dayItems.length;
+    if (total === 0) return null;
+    const firstIntros = dayItems.filter(i => !i.isSecondIntro);
+    const qSent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
+    const stillNeeded = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
+    return { total, qSent, stillNeeded };
+  }, [selectedDayItems, isWeekFullView]);
+
+  // Day label for summary line
+  const selectedDayLabel = useMemo(() => {
+    if (selectedIsToday) return 'Today';
+    const d = new Date(selectedDate + 'T12:00:00');
+    return format(d, 'EEEE');
+  }, [selectedDate, selectedIsToday]);
 
   // ══ ACCORDION STATE ══
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
 
-  // Auto-expand: only on current week
+  // Auto-expand: only when selected day is today on current week
   const autoExpandDone = useRef(false);
   useEffect(() => {
-    if (items.length === 0 || autoExpandDone.current || !isCurrentWeek) return;
+    // Reset auto-expand when date or week changes
+    autoExpandDone.current = false;
+    setExpandedBookingId(null);
+  }, [selectedDate, weekOffset]);
+
+  useEffect(() => {
+    if (selectedDayItems.length === 0 || autoExpandDone.current) return;
+    if (!selectedIsToday || !isCurrentWeek) return;
     autoExpandDone.current = true;
     const now = new Date();
-    const todayActive = items.filter(i => i.classDate === todayStr && !i.latestRunResult);
-    if (todayActive.length === 0) {
-      const todayAll = items.filter(i => i.classDate === todayStr);
-      if (todayAll.length > 0) {
-        const sorted = [...todayAll].sort((a, b) => (b.introTime || '00:00').localeCompare(a.introTime || '00:00'));
+    const active = selectedDayItems.filter(i => !i.latestRunResult);
+    if (active.length === 0) {
+      if (selectedDayItems.length > 0) {
+        const sorted = [...selectedDayItems].sort((a, b) => (b.introTime || '00:00').localeCompare(a.introTime || '00:00'));
         setExpandedBookingId(sorted[0].bookingId);
       }
       return;
     }
     let bestId: string | null = null;
     let bestDiff = Infinity;
-    for (const item of todayActive) {
+    for (const item of active) {
       if (!item.introTime) continue;
       try {
         const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
@@ -175,7 +177,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     }
     if (!bestId) {
       let latestDiff = -Infinity;
-      for (const item of todayActive) {
+      for (const item of active) {
         if (!item.introTime) continue;
         try {
           const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
@@ -185,27 +187,21 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       }
     }
     if (bestId) setExpandedBookingId(bestId);
-  }, [items, todayStr, isCurrentWeek]);
-
-  // Reset auto-expand when navigating weeks
-  useEffect(() => {
-    autoExpandDone.current = false;
-    setExpandedBookingId(null);
-  }, [weekOffset]);
+  }, [selectedDayItems, selectedIsToday, isCurrentWeek]);
 
   const handleExpandCard = useCallback((bookingId: string) => {
     setExpandedBookingId(prev => prev === bookingId ? null : bookingId);
   }, []);
 
-  // Focused booking: nearest today's intro within 2 hours
+  // Focused booking: nearest today's intro within 2 hours (only when viewing today)
   const [focusedBookingId, setFocusedBookingId] = useState<string | null>(null);
   useEffect(() => {
     const compute = () => {
-      if (!isCurrentWeek) { setFocusedBookingId(null); return; }
+      if (!selectedIsToday || !isCurrentWeek) { setFocusedBookingId(null); return; }
       const now = new Date();
       let nearest: { id: string; mins: number } | null = null;
-      for (const item of items) {
-        if (item.classDate !== todayStr || !item.introTime) continue;
+      for (const item of selectedDayItems) {
+        if (!item.introTime) continue;
         try {
           const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
           const mins = differenceInMinutes(classStart, now);
@@ -219,26 +215,9 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     compute();
     const interval = setInterval(compute, 60000);
     return () => clearInterval(interval);
-  }, [items, todayStr, isCurrentWeek]);
+  }, [selectedDayItems, selectedIsToday, isCurrentWeek]);
 
-  // Week tab day pills (for restOfWeek mode)
-  const isWeekView = fixedTimeRange === 'restOfWeek';
-  const [selectedWeekDay, setSelectedWeekDay] = useState<string | null>(null);
-  useEffect(() => {
-    if (isWeekView && dayGroups.length > 0) {
-      setSelectedWeekDay(prev => {
-        if (prev && dayGroups.some(g => g.date === prev)) return prev;
-        return dayGroups[0].date;
-      });
-    }
-  }, [isWeekView, dayGroups]);
-
-  const filteredDayGroups = useMemo(() => {
-    if (!isWeekView || !selectedWeekDay) return dayGroups;
-    return dayGroups.filter(g => g.date === selectedWeekDay);
-  }, [isWeekView, selectedWeekDay, dayGroups]);
-
-  // Summary counts
+  // Summary counts (for non-weekFull today view)
   const { introsRun } = useData();
   const summaryLine = useMemo(() => {
     const todayItems = items.filter(i => i.classDate === todayStr);
@@ -321,23 +300,8 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     } catch { toast.error('Failed to confirm'); }
   }, [userName, isOnline, refreshAll]);
 
-  // Build all 7 day groups for weekFull view (including empty days)
-  const allWeekDayGroups = useMemo(() => {
-    if (!isWeekFullView) return null;
-    const activeDayMap = new Map(activeDayGroups.map(g => [g.date, g]));
-    return weekDates.days.map(day => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      const existing = activeDayMap.get(dateStr);
-      if (existing) return { ...existing, dayDate: day };
-      return {
-        date: dateStr,
-        label: format(day, 'EEEE'),
-        items: [],
-        qSentRatio: 0,
-        dayDate: day,
-      };
-    });
-  }, [isWeekFullView, activeDayGroups, weekDates.days]);
+  // For non-weekFull views
+  const isTodayView = fixedTimeRange === 'today' || timeRange === 'today';
 
   return (
     <Card id="upcoming-intros">
@@ -375,57 +339,29 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Week Navigation — only for weekFull view */}
+        {/* Week Day Tabs — weekFull view */}
         {isWeekFullView && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="min-h-[44px] flex-1 cursor-pointer text-sm font-medium"
-              onClick={() => setWeekOffset(o => o - 1)}
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous Week
-            </Button>
-            <div className="flex-1 text-center">
-              <p className="text-sm font-semibold">
-                {format(weekDates.monday, 'MMM d')} – {format(weekDates.sunday, 'MMM d')}
-              </p>
-              {!isCurrentWeek && (
-                <button
-                  onClick={() => setWeekOffset(0)}
-                  className="text-xs text-primary underline cursor-pointer mt-0.5"
-                >
-                  Back to this week
-                </button>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              className="min-h-[44px] flex-1 cursor-pointer text-sm font-medium"
-              onClick={() => setWeekOffset(o => o + 1)}
-            >
-              Next Week
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
+          <WeekDayTabs
+            weekOffset={weekOffset}
+            onWeekOffsetChange={setWeekOffset}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            dayCounts={dayCounts}
+          />
         )}
 
-        {/* Q status summary — current week only */}
-        {isWeekFullView && isCurrentWeek && qSummary && qSummary.total > 0 && (
-          <button
-            type="button"
-            onClick={() => firstNoQRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-            className="w-full flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 cursor-pointer hover:bg-muted/60 transition-colors min-h-[44px]"
-          >
-            <span className="font-semibold">Today:</span>
-            <span>{qSummary.total} intros</span>
+        {/* Q status summary for selected day */}
+        {isWeekFullView && qSummary && qSummary.total > 0 && (
+          <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 min-h-[44px]">
+            <span className="font-semibold">{selectedDayLabel}:</span>
+            <span>{qSummary.total} intro{qSummary.total !== 1 ? 's' : ''}</span>
             <span className="text-muted-foreground">·</span>
             <span className="text-success">{qSummary.qSent} questionnaires sent</span>
             <span className="text-muted-foreground">·</span>
             <span className={qSummary.stillNeeded > 0 ? 'text-destructive font-medium' : 'text-success font-medium'}>
               {qSummary.stillNeeded} still needed
             </span>
-          </button>
+          </div>
         )}
 
         {/* Summary line — Today counts (non-weekFull) */}
@@ -455,124 +391,36 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           <UpcomingIntrosFilters timeRange={timeRange} onTimeRangeChange={setTimeRange} />
         )}
 
-        {/* Week day pills for restOfWeek mode */}
-        {isWeekView && dayGroups.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {dayGroups.map(g => {
-              const d = new Date(g.date + 'T12:00:00');
-              const dayLabel = format(d, 'EEE');
-              const dateLabel = format(d, 'M/d');
-              const isActive = selectedWeekDay === g.date;
-              const isDayToday = g.date === todayStr;
-              return (
-                <button
-                  key={g.date}
-                  onClick={() => setSelectedWeekDay(g.date)}
-                  className={`flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border min-h-[44px] cursor-pointer ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : isDayToday
-                        ? 'bg-card text-card-foreground border-primary/50 ring-1 ring-primary/30'
-                        : 'bg-card text-card-foreground border-border hover:bg-muted'
-                  }`}
-                >
-                  <span>{dayLabel}{isDayToday && !isActive ? ' •' : ''}</span>
-                  <span className="text-[10px]">{dateLabel}</span>
-                  <Badge variant={isActive ? 'secondary' : 'outline'} className="h-3.5 px-1 text-[9px] mt-0.5">
-                    {g.items.length}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Day groups */}
+        {/* Day content */}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : isWeekFullView && allWeekDayGroups ? (
-          /* ═══ FULL WEEK VIEW — all 7 days ═══ */
-          <div className="space-y-4">
-            {/* Completed today — collapsed at top */}
-            {isCurrentWeek && completedItems.length > 0 && (
-              <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium min-h-[44px] cursor-pointer">
-                    <span>Completed Today ({completedItems.length})</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 space-y-4">
-                  {completedDayGroups.map(group => (
-                    <IntroDayGroup
-                      key={group.date}
-                      group={group}
-                      isOnline={isOnline}
-                      userName={userName}
-                      onSendQ={handleSendQ}
-                      onConfirm={handleConfirm}
-                      onRefresh={refreshAll}
-                      needsOutcome={false}
-                      confirmResults={confirmResults}
-                      focusedBookingId={null}
-                      expandedBookingId={expandedBookingId}
-                      onExpandCard={handleExpandCard}
-                      shoutoutMap={shoutoutMap}
-                    />
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
-            {/* All 7 days */}
-            {allWeekDayGroups.map(group => {
-              const isGroupToday = group.date === todayStr;
-              const d = group.dayDate;
-              const isPast = isBefore(d, new Date()) && !isDateToday(d);
-              const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
-              const isGroupTomorrow = group.date === tomorrow;
-              const dateLabel = isGroupToday
-                ? `Today — ${format(d, 'MMMM d')}`
-                : isGroupTomorrow
-                  ? `Tomorrow — ${format(d, 'MMMM d')}`
-                  : `${format(d, 'EEEE')} — ${format(d, 'MMMM d')}`;
-
-              const introCount = group.items.length;
-
-              return (
-                <div
+        ) : isWeekFullView ? (
+          /* ═══ DAY TAB VIEW — only selected day ═══ */
+          selectedDayItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic text-center py-6">
+              No intros scheduled for {selectedDayLabel}.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {selectedDayGroups.map(group => (
+                <IntroDayGroup
                   key={group.date}
-                  ref={isGroupToday ? todaySectionRef : undefined}
-                  className={`${isGroupToday ? 'border-l-4 border-[#E8540A] pl-2' : ''} ${isPast ? 'opacity-60' : ''}`}
-                >
-                  <h3 className={`text-sm mb-2 ${isGroupToday ? 'font-bold text-foreground' : 'font-semibold text-foreground'}`}>
-                    {dateLabel}
-                    <span className="text-muted-foreground font-normal ml-2">
-                      {introCount === 0 ? '' : `· ${introCount} intro${introCount !== 1 ? 's' : ''}`}
-                    </span>
-                  </h3>
-                  {introCount === 0 ? (
-                    <p className="text-xs text-muted-foreground italic py-2 pl-1">No intros scheduled</p>
-                  ) : (
-                    <IntroDayGroup
-                      group={group}
-                      isOnline={isOnline}
-                      userName={userName}
-                      onSendQ={handleSendQ}
-                      onConfirm={handleConfirm}
-                      onRefresh={refreshAll}
-                      needsOutcome={false}
-                      confirmResults={confirmResults}
-                      focusedBookingId={isCurrentWeek ? focusedBookingId : null}
-                      expandedBookingId={expandedBookingId}
-                      onExpandCard={handleExpandCard}
-                      shoutoutMap={shoutoutMap}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  group={group}
+                  isOnline={isOnline}
+                  userName={userName}
+                  onSendQ={handleSendQ}
+                  onConfirm={handleConfirm}
+                  onRefresh={refreshAll}
+                  needsOutcome={false}
+                  confirmResults={confirmResults}
+                  focusedBookingId={selectedIsToday ? focusedBookingId : null}
+                  expandedBookingId={expandedBookingId}
+                  onExpandCard={handleExpandCard}
+                  shoutoutMap={shoutoutMap}
+                />
+              ))}
+            </div>
+          )
         ) : dayGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {timeRange === 'today' ? 'No intros scheduled'
@@ -582,39 +430,24 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
         ) : (
           /* ═══ NON-WEEKFULL VIEWS ═══ */
           <div className="space-y-4">
-            {(isSplitView ? activeDayGroups : filteredDayGroups).map((group) => {
-              const isGroupToday = group.date === todayStr;
-              const d = new Date(group.date + 'T12:00:00');
-              const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
-              const isGroupTomorrow = group.date === tomorrow;
-              const dateLabel = isGroupToday
-                ? `Today — ${format(d, 'MMMM d')}`
-                : isGroupTomorrow
-                  ? `Tomorrow — ${format(d, 'MMMM d')}`
-                  : `${format(d, 'EEEE')} — ${format(d, 'MMMM d')}`;
-
-              return (
-                <div
-                  key={group.date}
-                  ref={isGroupToday ? todaySectionRef : undefined}
-                >
-                  <IntroDayGroup
-                    group={group}
-                    isOnline={isOnline}
-                    userName={userName}
-                    onSendQ={handleSendQ}
-                    onConfirm={handleConfirm}
-                    onRefresh={refreshAll}
-                    needsOutcome={timeRange === 'needsOutcome'}
-                    confirmResults={confirmResults}
-                    focusedBookingId={focusedBookingId}
-                    expandedBookingId={expandedBookingId}
-                    onExpandCard={handleExpandCard}
-                    shoutoutMap={shoutoutMap}
-                  />
-                </div>
-              );
-            })}
+            {dayGroups.map((group) => (
+              <div key={group.date}>
+                <IntroDayGroup
+                  group={group}
+                  isOnline={isOnline}
+                  userName={userName}
+                  onSendQ={handleSendQ}
+                  onConfirm={handleConfirm}
+                  onRefresh={refreshAll}
+                  needsOutcome={timeRange === 'needsOutcome'}
+                  confirmResults={confirmResults}
+                  focusedBookingId={focusedBookingId}
+                  expandedBookingId={expandedBookingId}
+                  onExpandCard={handleExpandCard}
+                  shoutoutMap={shoutoutMap}
+                />
+              </div>
+            ))}
           </div>
         )}
       </CardContent>
