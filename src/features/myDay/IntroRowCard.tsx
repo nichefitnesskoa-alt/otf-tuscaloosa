@@ -472,6 +472,15 @@ export default function IntroRowCard({
         <ClipboardList className="w-3.5 h-3.5" />
         Outcome
       </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-9 text-xs gap-1"
+        onClick={() => setEditOpen(true)}
+      >
+        <Pencil className="w-3.5 h-3.5" />
+        Edit
+      </Button>
     </>
   );
 
