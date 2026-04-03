@@ -73,10 +73,9 @@ export default function CoachView() {
   const initialLoadDone = useRef(false);
 
   const fetchBookings = async (isRefetch = false) => {
-    // Only show loading spinner on initial load — not on realtime refetches
     if (!isRefetch) setLoading(true);
-    const dateStart = tab === 'today' ? today : weekStart;
-    const dateEnd = tab === 'today' ? today : weekEnd;
+    const dateStart = today;
+    const dateEnd = weekEnd;
 
     let query = supabase
       .from('intros_booked')
