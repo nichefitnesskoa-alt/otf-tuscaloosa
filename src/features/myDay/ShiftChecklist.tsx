@@ -209,41 +209,42 @@ export function ShiftChecklist() {
     <div className="space-y-3">
       {/* Shift selector */}
       {!selectedShift ? (
-        <Card>
-          <CardContent className="p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Select your shift</p>
-            <div className="grid grid-cols-4 gap-2">
-              {SHIFTS.map(s => (
-                <Button
-                  key={s.type}
-                  variant="outline"
-                  className="flex flex-col items-center gap-1 h-auto py-3 text-xs"
-                  onClick={() => handleSelectShift(s.type)}
-                >
-                  <span className="text-primary">{s.icon}</span>
-                  <span className="font-semibold">{s.label}</span>
-                  <span className="text-[9px] text-muted-foreground">{s.time}</span>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-[#E8540A] rounded-xl p-4">
+          <p className="text-[13px] font-bold text-white uppercase tracking-wider mb-3">SELECT YOUR SHIFT — LOADS YOUR RESPONSIBILITIES</p>
+          <div className="grid grid-cols-4 gap-2">
+            {SHIFTS.map(s => (
+              <Button
+                key={s.type}
+                variant="outline"
+                className="flex flex-col items-center gap-1 h-auto py-3 text-xs bg-card border-white/20 hover:bg-card/80 hover:border-white/40"
+                onClick={() => handleSelectShift(s.type)}
+              >
+                <span className="text-primary">{s.icon}</span>
+                <span className="font-semibold">{s.label}</span>
+                <span className="text-[9px] text-muted-foreground">{s.time}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
       ) : (
-        <Card>
-          <CardContent className="p-3 space-y-3">
-            {/* Shift header */}
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Shift duties</p>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-primary text-primary-foreground hover:bg-primary text-[10px] px-2 py-0.5">
-                  {SHIFTS.find(s => s.type === selectedShift)?.label}
-                </Badge>
-                <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => setSelectedShift(null)}>
-                  Change
-                </Button>
-              </div>
-            </div>
+        <div className="bg-[#E8540A] rounded-xl p-4 space-y-3">
+          {/* Shift header on orange */}
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-bold text-white uppercase tracking-wider">
+              {SHIFTS.find(s => s.type === selectedShift)?.label} Shift — Your responsibilities are loaded
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-[11px] px-3 border-white text-white bg-transparent hover:bg-white/10"
+              onClick={() => setSelectedShift(null)}
+            >
+              Change
+            </Button>
+          </div>
 
+          {/* Inner dark card for tasks */}
+          <div className="bg-card rounded-lg p-3 space-y-3">
             {/* Progress bar */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[10px]">
@@ -303,8 +304,8 @@ export function ShiftChecklist() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
