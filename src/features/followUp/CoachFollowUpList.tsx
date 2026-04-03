@@ -51,13 +51,13 @@ export default function CoachFollowUpList({ onCountChange }: CoachFollowUpListPr
     if (!coachName) return;
     setLoading(true);
     try {
-      const { data: queueItems } = await supabase
+      const { data: queueItems } = await (supabase
         .from('follow_up_queue')
-        .select('*')
-        .eq('owner_role' as any, 'Coach')
-        .eq('coach_owner' as any, coachName)
-        .is('not_interested_at' as any, null)
-        .is('transferred_to_sa_at' as any, null)
+        .select('*') as any)
+        .eq('owner_role', 'Coach')
+        .eq('coach_owner', coachName)
+        .is('not_interested_at', null)
+        .is('transferred_to_sa_at', null)
         .order('scheduled_date', { ascending: true });
 
       if (!queueItems) { setItems([]); setLoading(false); return; }
