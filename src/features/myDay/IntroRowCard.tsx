@@ -615,6 +615,20 @@ export default function IntroRowCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Inline edit dialog */}
+      <EditBookingDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        bookingId={item.bookingId}
+        coachName={item.coachName || ''}
+        introTime={item.introTime}
+        leadSource={item.leadSource || ''}
+        introOwner={(item as any).introOwner || null}
+        bookedBy={(item as any).bookedBy || null}
+        editedBy={userName}
+        onSaved={onRefresh}
+      />
     </div>
   );
 }
