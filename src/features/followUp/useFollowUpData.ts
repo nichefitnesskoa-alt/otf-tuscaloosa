@@ -216,6 +216,9 @@ export function useFollowUpData() {
 
         // Skip terminal outcomes
         if (terminalMembers.has(memberNameLower)) continue;
+        // Skip coach-owned and not-interested bookings
+        if (coachOwnedBookingIds.has(bookingId)) continue;
+        if (notInterestedIds.has(bookingId)) continue;
 
         const booking = bookings.find(b => b.id === bookingId);
         const hasFutureUnrun = futureUnrunByName.has(memberNameLower);
