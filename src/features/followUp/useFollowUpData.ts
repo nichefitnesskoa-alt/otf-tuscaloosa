@@ -319,6 +319,8 @@ export function useFollowUpData() {
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
         if (b.booking_status_canon === 'CANCELLED') continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
@@ -343,6 +345,7 @@ export function useFollowUpData() {
           contactNextDate: computeContactNext(b.class_date, 'missed'),
           badgeType: 'no_outcome',
           followUpType: 'missed' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
