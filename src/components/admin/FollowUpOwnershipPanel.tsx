@@ -30,24 +30,24 @@ export function FollowUpOwnershipPanel() {
           .eq('owner_role', 'SA')
           .is('not_interested_at', null);
 
-        const { count: coachCount } = await supabase
+        const { count: coachCount } = await (supabase
           .from('follow_up_queue')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_role' as any, 'Coach')
-          .is('not_interested_at' as any, null)
-          .is('transferred_to_sa_at' as any, null);
+          .select('id', { count: 'exact', head: true }) as any)
+          .eq('owner_role', 'Coach')
+          .is('not_interested_at', null)
+          .is('transferred_to_sa_at', null);
 
         const weekAgo = format(subDays(new Date(), 7), 'yyyy-MM-dd');
-        const { count: transferredCount } = await supabase
+        const { count: transferredCount } = await (supabase
           .from('follow_up_queue')
-          .select('id', { count: 'exact', head: true })
-          .not('transferred_to_sa_at' as any, 'is', null)
-          .gte('transferred_to_sa_at' as any, weekAgo);
+          .select('id', { count: 'exact', head: true }) as any)
+          .not('transferred_to_sa_at', 'is', null)
+          .gte('transferred_to_sa_at', weekAgo);
 
-        const { count: notInterestedCount } = await supabase
+        const { count: notInterestedCount } = await (supabase
           .from('follow_up_queue')
-          .select('id', { count: 'exact', head: true })
-          .not('not_interested_at' as any, 'is', null);
+          .select('id', { count: 'exact', head: true }) as any)
+          .not('not_interested_at', 'is', null);
 
         setStats({
           saQueue: saCount || 0,
