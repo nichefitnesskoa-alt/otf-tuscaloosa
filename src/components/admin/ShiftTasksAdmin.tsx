@@ -91,10 +91,12 @@ function TaskTemplateManager({ shiftType }: { shiftType: ShiftType }) {
 
   const handleSaveEdit = async () => {
     if (!editId || !editName.trim()) return;
+    const target = editCountTarget.trim() ? parseInt(editCountTarget) : null;
     await supabase.from('shift_task_templates').update({
       task_name: editName.trim(),
       has_count: editHasCount,
       count_label: editHasCount ? editCountLabel.trim() || null : null,
+      count_target: editHasCount ? (isNaN(target as any) ? null : target) : null,
     } as any).eq('id', editId);
     setEditId(null);
     load();
