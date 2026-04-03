@@ -35,6 +35,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GitBranch, RefreshCw, Loader2, Wand2, Plus, WifiOff, Clock } from 'lucide-react';
+import { SectionTooltip } from '@/components/shared/SectionTooltip';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
