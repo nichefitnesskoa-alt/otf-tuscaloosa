@@ -54,6 +54,8 @@ import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
 import { useDarkMode } from '@/hooks/useDarkMode';
+import { NewLeadsAlert } from './NewLeadsAlert';
+import { SectionTooltip } from '@/components/shared/SectionTooltip';
 
 export default function MyDayPage() {
   const { user } = useAuth();
