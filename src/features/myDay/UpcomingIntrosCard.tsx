@@ -86,18 +86,44 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const dayGroups = useMemo(() => groupByDay(items), [items]);
   const suggestedFocus = useMemo(() => getSuggestedFocus(items), [items]);
 
-  // Split completed vs active intros for Today view
+  // Split completed vs active intros for Today/weekFull view
+  const isWeekFullView = fixedTimeRange === 'weekFull' || timeRange === 'weekFull';
   const isTodayView = fixedTimeRange === 'today' || timeRange === 'today';
+  const isSplitView = isTodayView || isWeekFullView;
   const { activeItems, completedItems } = useMemo(() => {
-    if (!isTodayView) return { activeItems: items, completedItems: [] };
+    if (!isSplitView) return { activeItems: items, completedItems: [] };
+    const todayDate = getTodayYMD();
     return {
-      activeItems: items.filter(i => !i.latestRunResult),
-      completedItems: items.filter(i => !!i.latestRunResult),
+      activeItems: items.filter(i => !(i.classDate === todayDate && i.latestRunResult)),
+      completedItems: items.filter(i => i.classDate === todayDate && !!i.latestRunResult),
     };
-  }, [items, isTodayView]);
+  }, [items, isSplitView]);
   const activeDayGroups = useMemo(() => groupByDay(activeItems), [activeItems]);
   const completedDayGroups = useMemo(() => groupByDay(completedItems), [completedItems]);
   const [completedOpen, setCompletedOpen] = useState(false);
+
+  // Q status summary for weekFull view
+  const qSummary = useMemo(() => {
+    if (!isWeekFullView) return null;
+    const todayDate = getTodayYMD();
+    const todayItems = items.filter(i => i.classDate === todayDate);
+    const total = todayItems.length;
+    const qSent = todayItems.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
+    const stillNeeded = todayItems.filter(i => i.questionnaireStatus !== 'Q_COMPLETED').length;
+    return { total, qSent, stillNeeded };
+  }, [items, isWeekFullView]);
+
+  // Ref for scrolling to first No Q item
+  const firstNoQRef = useRef<HTMLDivElement>(null);
+  // Ref for scrolling to today's section
+  const todaySectionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to today on mount for weekFull
+  useEffect(() => {
+    if (isWeekFullView && todaySectionRef.current && !isLoading) {
+      setTimeout(() => todaySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    }
+  }, [isWeekFullView, isLoading]);
 
   // ══ ACCORDION STATE — only one card expanded at a time ══
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null);
@@ -338,8 +364,26 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {/* Summary line — Today counts matching Studio tab */}
-        {isTodayView && items.length > 0 && (
+        {/* Q status summary for weekFull view */}
+        {isWeekFullView && qSummary && qSummary.total > 0 && (
+          <button
+            type="button"
+            onClick={() => firstNoQRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+            className="w-full flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 cursor-pointer hover:bg-muted/60 transition-colors"
+          >
+            <span className="font-semibold">Today:</span>
+            <span>{qSummary.total} intros</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-success">{qSummary.qSent} questionnaires sent</span>
+            <span className="text-muted-foreground">·</span>
+            <span className={qSummary.stillNeeded > 0 ? 'text-destructive font-medium' : 'text-success font-medium'}>
+              {qSummary.stillNeeded} still needed
+            </span>
+          </button>
+        )}
+
+        {/* Summary line — Today counts matching Studio tab (for non-weekFull) */}
+        {isTodayView && !isWeekFullView && items.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2">
             <span className="font-semibold">Today:</span>
             <span>{summaryLine.totalIntros} intros</span>
@@ -351,31 +395,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             <span className="text-success font-medium">{summaryLine.closed} closed</span>
           </div>
         )}
-
-        {/* Quick win strip */}
-        <div className="flex items-center gap-3 flex-wrap text-xs">
-          <span className="font-medium">
-            {timeRange === 'today' ? "Today" : timeRange === 'restOfWeek' ? 'Rest of week' : 'Needs outcome'}: <strong>{items.length}</strong>
-          </span>
-          {timeRange !== 'needsOutcome' && (
-            <span className="text-muted-foreground">
-              On track: <strong>{qCompletionPct}%</strong>
-            </span>
-          )}
-          {timeRange !== 'needsOutcome' && suggestedFocus !== 'All prepped! 🎉' && (
-            <span className="text-muted-foreground">
-              Quick win: <strong>{suggestedFocus}</strong>
-            </span>
-          )}
-          {timeRange !== 'needsOutcome' && suggestedFocus === 'All prepped! 🎉' && (
-            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-              {suggestedFocus}
-            </span>
-          )}
-          {timeRange === 'needsOutcome' && items.length > 0 && (
-            <span className="text-muted-foreground">Log outcomes to keep your pipeline accurate.</span>
-          )}
-        </div>
 
         {/* Capped warning */}
         {isCapped && (
@@ -431,36 +450,18 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : dayGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            {timeRange === 'today' ? 'No intros scheduled for today' 
+            {timeRange === 'today' || timeRange === 'weekFull' ? 'No intros scheduled' 
               : timeRange === 'restOfWeek' ? 'No intros this week'
               : 'No past intros need an outcome — you\'re all caught up!'}
           </p>
         ) : (
           <div className="space-y-4">
-            {(isTodayView ? activeDayGroups : filteredDayGroups).map(group => (
-              <IntroDayGroup
-                key={group.date}
-                group={group}
-                isOnline={isOnline}
-                userName={userName}
-                onSendQ={handleSendQ}
-                onConfirm={handleConfirm}
-                onRefresh={refreshAll}
-                needsOutcome={timeRange === 'needsOutcome'}
-                confirmResults={confirmResults}
-                focusedBookingId={focusedBookingId}
-                expandedBookingId={expandedBookingId}
-                onExpandCard={handleExpandCard}
-                shoutoutMap={shoutoutMap}
-              />
-            ))}
-
-            {/* Completed intros collapsed at bottom (Today view only) */}
-            {isTodayView && completedItems.length > 0 && (
+            {/* Completed today — collapsed at top */}
+            {isSplitView && completedItems.length > 0 && (
               <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
                 <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium">
-                    <span>Completed Intros ({completedItems.length})</span>
+                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium min-h-[44px]">
+                    <span>Completed Today ({completedItems.length})</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-180' : ''}`} />
                   </button>
                 </CollapsibleTrigger>
@@ -485,6 +486,48 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 </CollapsibleContent>
               </Collapsible>
             )}
+
+            {/* Active intros grouped by day */}
+            {(isSplitView ? activeDayGroups : filteredDayGroups).map((group, idx) => {
+              const isGroupToday = group.date === todayStr;
+              const d = new Date(group.date + 'T12:00:00');
+              const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+              const isGroupTomorrow = group.date === tomorrow;
+              const dateLabel = isGroupToday
+                ? `Today — ${format(d, 'MMMM d')}`
+                : isGroupTomorrow
+                  ? `Tomorrow — ${format(d, 'MMMM d')}`
+                  : `${format(d, 'EEEE')} — ${format(d, 'MMMM d')}`;
+
+              // Track first No Q item for scroll target
+              let firstNoQInGroup = false;
+
+              return (
+                <div
+                  key={group.date}
+                  ref={isGroupToday ? todaySectionRef : undefined}
+                  className={isWeekFullView && isGroupToday ? 'border-l-4 border-[#E8540A] pl-2' : ''}
+                >
+                  {isWeekFullView && (
+                    <h3 className="text-sm font-semibold mb-2 text-foreground">{dateLabel}</h3>
+                  )}
+                  <IntroDayGroup
+                    group={group}
+                    isOnline={isOnline}
+                    userName={userName}
+                    onSendQ={handleSendQ}
+                    onConfirm={handleConfirm}
+                    onRefresh={refreshAll}
+                    needsOutcome={timeRange === 'needsOutcome'}
+                    confirmResults={confirmResults}
+                    focusedBookingId={focusedBookingId}
+                    expandedBookingId={expandedBookingId}
+                    onExpandCard={handleExpandCard}
+                    shoutoutMap={shoutoutMap}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>

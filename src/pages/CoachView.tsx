@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, CheckCircle, AlertTriangle, LogOut, User, Sun, Moon } from 'lucide-react';
@@ -61,7 +60,6 @@ export default function CoachView() {
   const isAdmin = user?.role === 'Admin';
   const coachName = user?.name || '';
 
-  const [tab, setTab] = useState('today');
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [loading, setLoading] = useState(true);
@@ -74,10 +72,9 @@ export default function CoachView() {
   const initialLoadDone = useRef(false);
 
   const fetchBookings = async (isRefetch = false) => {
-    // Only show loading spinner on initial load — not on realtime refetches
     if (!isRefetch) setLoading(true);
-    const dateStart = tab === 'today' ? today : weekStart;
-    const dateEnd = tab === 'today' ? today : weekEnd;
+    const dateStart = today;
+    const dateEnd = weekEnd;
 
     let query = supabase
       .from('intros_booked')
@@ -110,7 +107,7 @@ export default function CoachView() {
     initialLoadDone.current = true;
   };
 
-  useEffect(() => { fetchBookings(); }, [tab, coachName, isAdmin]);
+  useEffect(() => { fetchBookings(); }, [coachName, isAdmin]);
 
   useEffect(() => {
     const channel = supabase
@@ -118,7 +115,7 @@ export default function CoachView() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => fetchBookings(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [tab, coachName, isAdmin]);
+  }, [coachName, isAdmin]);
 
   const filteredBookings = useMemo(() => {
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
@@ -234,52 +231,24 @@ export default function CoachView() {
         </Select>
       )}
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="today">Today</TabsTrigger>
-          <TabsTrigger value="week">Week</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="today" className="mt-4">
-          {loading ? (
-            <p className="text-muted-foreground text-center py-8">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No intros assigned today</p>
-          ) : (
-            <DateGroupView
-              groupedByDate={groupedByDate}
-              questionnaires={questionnaires}
-              formatTime={formatTime}
-              isClassTimeNow={isClassTimeNow}
-              isClassTimePast={isClassTimePast}
-              isAdmin={isAdmin}
-              onUpdateBooking={handleUpdateBooking}
-              userName={user?.name || ''}
-              defaultExpanded
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="week" className="mt-4">
-          {loading ? (
-            <p className="text-muted-foreground text-center py-8">Loading...</p>
-          ) : filteredBookings.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No intros this week</p>
-          ) : (
-            <DateGroupView
-              groupedByDate={groupedByDate}
-              questionnaires={questionnaires}
-              formatTime={formatTime}
-              isClassTimeNow={isClassTimeNow}
-              isClassTimePast={isClassTimePast}
-              isAdmin={isAdmin}
-              onUpdateBooking={handleUpdateBooking}
-              userName={user?.name || ''}
-              defaultExpanded={false}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Single chronological view — today through end of week */}
+      {loading ? (
+        <p className="text-muted-foreground text-center py-8">Loading...</p>
+      ) : filteredBookings.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No intros this week</p>
+      ) : (
+        <DateGroupView
+          groupedByDate={groupedByDate}
+          questionnaires={questionnaires}
+          formatTime={formatTime}
+          isClassTimeNow={isClassTimeNow}
+          isClassTimePast={isClassTimePast}
+          isAdmin={isAdmin}
+          onUpdateBooking={handleUpdateBooking}
+          userName={user?.name || ''}
+          defaultExpanded={false}
+        />
+      )}
     </div>
   );
 }

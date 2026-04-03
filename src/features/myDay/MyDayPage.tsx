@@ -49,7 +49,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
 import { MyDayIgDmTab } from './MyDayIgDmTab';
-import { WinTheDay } from './WinTheDay';
+
 import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 
@@ -71,7 +71,7 @@ export default function MyDayPage() {
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [igDmCount, setIgDmCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('intros');
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
 
@@ -303,17 +303,13 @@ export default function MyDayPage() {
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
           {isUserAdmin ? (
-            <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
-              <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <TabsList className="w-full grid grid-cols-6 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+              <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
-                <span>Today</span>
+                <span>Intros</span>
                 {todayBookingsCount > 0 && (
                   <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>Week</span>
               </TabsTrigger>
               <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Clock className="w-3.5 h-3.5" />
@@ -349,17 +345,13 @@ export default function MyDayPage() {
               </TabsTrigger>
             </TabsList>
           ) : (
-            <TabsList className="w-full grid grid-cols-3 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
-              <TabsTrigger value="today" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <TabsList className="w-full grid grid-cols-2 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+              <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
-                <span>Today</span>
+                <span>Intros</span>
                 {todayBookingsCount > 0 && (
                   <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger value="week" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <CalendarDays className="w-3.5 h-3.5" />
-                <span>Week</span>
               </TabsTrigger>
               <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Clock className="w-3.5 h-3.5" />
@@ -376,15 +368,10 @@ export default function MyDayPage() {
 
         {/* Tab content */}
         <div className="px-4 pb-24 pt-3 space-y-3">
-          <TabsContent value="today" className="mt-0 space-y-3">
+          <TabsContent value="intros" className="mt-0 space-y-3">
             <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
-          </TabsContent>
-
-          <TabsContent value="week" className="mt-0 space-y-3">
-            <p className="text-xs text-muted-foreground mb-2">Upcoming intros this week. Send confirmation texts from here.</p>
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
@@ -426,10 +413,6 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-      {/* ═══ WIN THE DAY CHECKLIST (bottom, collapsible) ═══ */}
-      <div className="px-4 pb-24">
-        <WinTheDay onSwitchTab={setActiveTab} defaultCollapsed />
-      </div>
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}
       <div className="fixed bottom-[4.5rem] left-0 right-0 z-30 px-4 py-2 bg-background/95 backdrop-blur border-t border-primary/30 shadow-lg">
