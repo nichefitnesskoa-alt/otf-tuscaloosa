@@ -61,7 +61,6 @@ export default function CoachView() {
   const isAdmin = user?.role === 'Admin';
   const coachName = user?.name || '';
 
-  const [tab, setTab] = useState('today');
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [loading, setLoading] = useState(true);

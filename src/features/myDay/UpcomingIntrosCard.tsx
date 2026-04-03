@@ -450,36 +450,18 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : dayGroups.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            {timeRange === 'today' ? 'No intros scheduled for today' 
+            {timeRange === 'today' || timeRange === 'weekFull' ? 'No intros scheduled' 
               : timeRange === 'restOfWeek' ? 'No intros this week'
               : 'No past intros need an outcome — you\'re all caught up!'}
           </p>
         ) : (
           <div className="space-y-4">
-            {(isTodayView ? activeDayGroups : filteredDayGroups).map(group => (
-              <IntroDayGroup
-                key={group.date}
-                group={group}
-                isOnline={isOnline}
-                userName={userName}
-                onSendQ={handleSendQ}
-                onConfirm={handleConfirm}
-                onRefresh={refreshAll}
-                needsOutcome={timeRange === 'needsOutcome'}
-                confirmResults={confirmResults}
-                focusedBookingId={focusedBookingId}
-                expandedBookingId={expandedBookingId}
-                onExpandCard={handleExpandCard}
-                shoutoutMap={shoutoutMap}
-              />
-            ))}
-
-            {/* Completed intros collapsed at bottom (Today view only) */}
-            {isTodayView && completedItems.length > 0 && (
+            {/* Completed today — collapsed at top */}
+            {isSplitView && completedItems.length > 0 && (
               <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
                 <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium">
-                    <span>Completed Intros ({completedItems.length})</span>
+                  <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-medium min-h-[44px]">
+                    <span>Completed Today ({completedItems.length})</span>
                     <ChevronDown className={`w-4 h-4 transition-transform ${completedOpen ? 'rotate-180' : ''}`} />
                   </button>
                 </CollapsibleTrigger>
@@ -504,6 +486,48 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 </CollapsibleContent>
               </Collapsible>
             )}
+
+            {/* Active intros grouped by day */}
+            {(isSplitView ? activeDayGroups : filteredDayGroups).map((group, idx) => {
+              const isGroupToday = group.date === todayStr;
+              const d = new Date(group.date + 'T12:00:00');
+              const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+              const isGroupTomorrow = group.date === tomorrow;
+              const dateLabel = isGroupToday
+                ? `Today — ${format(d, 'MMMM d')}`
+                : isGroupTomorrow
+                  ? `Tomorrow — ${format(d, 'MMMM d')}`
+                  : `${format(d, 'EEEE')} — ${format(d, 'MMMM d')}`;
+
+              // Track first No Q item for scroll target
+              let firstNoQInGroup = false;
+
+              return (
+                <div
+                  key={group.date}
+                  ref={isGroupToday ? todaySectionRef : undefined}
+                  className={isWeekFullView && isGroupToday ? 'border-l-4 border-[#E8540A] pl-2' : ''}
+                >
+                  {isWeekFullView && (
+                    <h3 className="text-sm font-semibold mb-2 text-foreground">{dateLabel}</h3>
+                  )}
+                  <IntroDayGroup
+                    group={group}
+                    isOnline={isOnline}
+                    userName={userName}
+                    onSendQ={handleSendQ}
+                    onConfirm={handleConfirm}
+                    onRefresh={refreshAll}
+                    needsOutcome={timeRange === 'needsOutcome'}
+                    confirmResults={confirmResults}
+                    focusedBookingId={focusedBookingId}
+                    expandedBookingId={expandedBookingId}
+                    onExpandCard={handleExpandCard}
+                    shoutoutMap={shoutoutMap}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
