@@ -267,6 +267,7 @@ export function useFollowUpData() {
               item.rescheduleContactDate = computeContactNext(item.classDate, 'reschedule');
             }
             item.contactNextDate = item.rescheduleContactDate;
+            item.followUpType = 'reschedule';
             plansItems.push(item);
           }
           continue;
