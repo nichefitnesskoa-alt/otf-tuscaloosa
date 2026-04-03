@@ -50,6 +50,15 @@ export default function Login() {
           <CardDescription>Select your name to continue</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-bold text-foreground leading-snug">
+              This app tracks your commission, proves your value to leadership, and makes sure you never lose credit for an intro you worked. The OTF system books classes. This system makes sure you get paid for them.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Remember: book every intro in both Mindbody AND here.
+            </p>
+          </div>
+
           <Select value={selectedName} onValueChange={setSelectedName}>
             <SelectTrigger className="h-12">
               <SelectValue placeholder="Select your name..." />

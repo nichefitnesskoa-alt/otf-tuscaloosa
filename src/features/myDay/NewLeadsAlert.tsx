@@ -1,0 +1,101 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, Send } from 'lucide-react';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+
+interface NewLead {
+  id: string;
+  first_name: string;
+  last_name: string;
+  source: string;
+  created_at: string;
+}
+
+interface NewLeadsAlertProps {
+  onOpenScript?: (leadName: string) => void;
+}
+
+export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
+  const [leads, setLeads] = useState<NewLead[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNewLeads = async () => {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: newLeads } = await supabase
+        .from('leads')
+        .select('id, first_name, last_name, source, created_at')
+        .eq('stage', 'new')
+        .gte('created_at', cutoff)
+        .order('created_at', { ascending: false });
+
+      if (!newLeads || newLeads.length === 0) {
+        setLeads([]);
+        setLoading(false);
+        return;
+      }
+
+      // Check which have activities
+      const ids = newLeads.map(l => l.id);
+      const { data: activities } = await supabase
+        .from('lead_activities')
+        .select('lead_id')
+        .in('lead_id', ids);
+
+      const touchedIds = new Set((activities || []).map(a => a.lead_id));
+      const untouched = newLeads.filter(l => !touchedIds.has(l.id));
+
+      setLeads(untouched);
+      setLoading(false);
+    };
+
+    fetchNewLeads();
+    const interval = setInterval(fetchNewLeads, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading || leads.length === 0) return null;
+
+  return (
+    <Card className="border-2 border-amber-500/40 bg-amber-500/5">
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-bold">New Leads — Respond Now</p>
+            <p className="text-xs text-muted-foreground">{leads.length} new lead{leads.length !== 1 ? 's' : ''} need a first touch</p>
+          </div>
+        </div>
+
+        <div className="divide-y divide-border">
+          {leads.map(lead => (
+            <div key={lead.id} className="flex items-center justify-between py-2 gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{lead.first_name} {lead.last_name}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{lead.source}</Badge>
+                  <span className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 text-xs gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 min-h-[44px]"
+                onClick={() => onOpenScript?.(`${lead.first_name} ${lead.last_name}`)}
+              >
+                <Send className="w-3.5 h-3.5" />
+                Send Script
+              </Button>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

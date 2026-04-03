@@ -30,16 +30,16 @@ export function BottomNav() {
     );
   }
 
-  const visibleItems = [
+  const visibleItems = isAdmin ? [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: TrendingUp },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
-    // Admin + Coach View tabs only visible to users with Admin role
-    ...(isAdmin ? [
-      { path: '/coach-view', label: 'Coach View', icon: Eye },
-      { path: '/admin', label: 'Admin', icon: Settings },
-    ] : []),
+    { path: '/coach-view', label: 'Coach View', icon: Eye },
+    { path: '/admin', label: 'Admin', icon: Settings },
+  ] : [
+    { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/wig', label: 'WIG', icon: Trophy },
   ];
 
   return (
