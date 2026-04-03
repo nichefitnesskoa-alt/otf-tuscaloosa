@@ -541,12 +541,17 @@ export type Database = {
       follow_up_queue: {
         Row: {
           booking_id: string | null
+          closed_reason: string | null
+          coach_owner: string | null
           created_at: string
           fitness_goal: string | null
           id: string
           is_legacy: boolean
           is_vip: boolean
           lead_id: string | null
+          not_interested_at: string | null
+          not_interested_by: string | null
+          owner_role: string
           person_name: string
           person_type: string
           primary_objection: string | null
@@ -558,16 +563,22 @@ export type Database = {
           snoozed_until: string | null
           status: string
           touch_number: number
+          transferred_to_sa_at: string | null
           trigger_date: string
         }
         Insert: {
           booking_id?: string | null
+          closed_reason?: string | null
+          coach_owner?: string | null
           created_at?: string
           fitness_goal?: string | null
           id?: string
           is_legacy?: boolean
           is_vip?: boolean
           lead_id?: string | null
+          not_interested_at?: string | null
+          not_interested_by?: string | null
+          owner_role?: string
           person_name: string
           person_type: string
           primary_objection?: string | null
@@ -579,16 +590,22 @@ export type Database = {
           snoozed_until?: string | null
           status?: string
           touch_number?: number
+          transferred_to_sa_at?: string | null
           trigger_date: string
         }
         Update: {
           booking_id?: string | null
+          closed_reason?: string | null
+          coach_owner?: string | null
           created_at?: string
           fitness_goal?: string | null
           id?: string
           is_legacy?: boolean
           is_vip?: boolean
           lead_id?: string | null
+          not_interested_at?: string | null
+          not_interested_by?: string | null
+          owner_role?: string
           person_name?: string
           person_type?: string
           primary_objection?: string | null
@@ -600,6 +617,7 @@ export type Database = {
           snoozed_until?: string | null
           status?: string
           touch_number?: number
+          transferred_to_sa_at?: string | null
           trigger_date?: string
         }
         Relationships: [
