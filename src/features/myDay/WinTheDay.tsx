@@ -592,6 +592,50 @@ export function WinTheDay({ onSwitchTab, defaultCollapsed }: WinTheDayProps) {
   );
 }
 
+function ChecklistGroup({ label, items, defaultOpen, onAction, onCircleTap }: {
+  label: string;
+  items: ChecklistItem[];
+  defaultOpen: boolean;
+  onAction: (item: ChecklistItem) => void;
+  onCircleTap: (item: ChecklistItem) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (items.length === 0) return null;
+
+  const incomplete = items.filter(i => !i.completed);
+  const completed = items.filter(i => i.completed);
+  const remaining = incomplete.length;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">{label}</span>
+            <span className="text-[10px] text-muted-foreground">
+              {remaining > 0 ? `${remaining} remaining` : '✓ Done'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground">{completed.length} of {items.length} complete</span>
+            {open ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+          </div>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="space-y-1 mt-1">
+          {incomplete.map(item => (
+            <ChecklistRow key={item.id} item={item} onAction={onAction} onCircleTap={onCircleTap} />
+          ))}
+          {completed.map(item => (
+            <ChecklistRow key={item.id} item={item} onAction={onAction} onCircleTap={onCircleTap} />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function ChecklistRow({ item, onAction, onCircleTap }: { item: ChecklistItem; onAction: (item: ChecklistItem) => void; onCircleTap: (item: ChecklistItem) => void }) {
   const isOutcomeUrgent = item.type === 'log_outcome' && !item.completed;
   const urgencyBorder = item.urgency === 'red'
