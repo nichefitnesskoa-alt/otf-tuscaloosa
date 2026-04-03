@@ -74,7 +74,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
 
       const statusExclusion = isNeedsOutcome
         ? '("PURCHASED","CLOSED_PURCHASED","NOT_INTERESTED","SECOND_INTRO_SCHEDULED","CANCELLED","PLANNING_RESCHEDULE")'
-        : '("CANCELLED")'; // today/restOfWeek: keep PLANNING_RESCHEDULE visible so SAs can manage them
+        : '("CANCELLED","PLANNING_RESCHEDULE")';
 
       let query = supabase
         .from('intros_booked')
