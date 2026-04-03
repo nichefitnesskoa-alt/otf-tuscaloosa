@@ -362,26 +362,16 @@ export default function MyDayPage() {
               </TabsTrigger>
             </TabsList>
           )}
-                  <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{followUpsDueCount}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          )}
           {/* Separator line between tabs and content */}
           <div className="h-[2px] bg-primary/40 mt-2" />
         </div>
 
         {/* Tab content */}
         <div className="px-4 pb-24 pt-3 space-y-3">
-          <TabsContent value="today" className="mt-0 space-y-3">
+          <TabsContent value="intros" className="mt-0 space-y-3">
             <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="today" />
-          </TabsContent>
-
-          <TabsContent value="week" className="mt-0 space-y-3">
-            <p className="text-xs text-muted-foreground mb-2">Upcoming intros this week. Send confirmation texts from here.</p>
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="restOfWeek" />
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
