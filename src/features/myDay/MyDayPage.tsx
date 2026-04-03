@@ -33,7 +33,7 @@ import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
-import FollowUpTabs from '@/features/followUp/FollowUpTabs';
+import FollowUpList from '@/features/followUp/FollowUpList';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { MyDayShiftSummary } from './MyDayShiftSummary';
 
