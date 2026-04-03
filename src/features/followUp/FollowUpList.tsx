@@ -18,7 +18,7 @@ interface FollowUpListProps {
   onRefresh?: () => void;
 }
 
-type FilterType = 'all' | FollowUpType;
+type FilterType = 'all' | FollowUpType | 'transferred';
 
 const TYPE_LABELS: Record<FollowUpType, string> = {
   noshow: 'No-Show',
@@ -84,7 +84,9 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const filtered = useMemo(() => {
+    // SA only sees SA-owned items (transferred items have owner_role=SA after transfer)
     if (filter === 'all') return allItems;
+    if (filter === 'transferred') return allItems.filter(i => !!(i as any).transferredFromCoach);
     return allItems.filter(i => i.followUpType === filter);
   }, [allItems, filter]);
 
@@ -115,6 +117,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
     { key: 'missed', label: 'Missed' },
     { key: 'secondintro', label: '2nd Intro' },
     { key: 'reschedule', label: 'Reschedule' },
+    { key: 'transferred', label: 'Transferred' },
   ];
 
   const focusCount = Math.min(focusTotal, 20);
@@ -325,10 +328,16 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   };
 
   const handleDismiss = async () => {
+    // For SA: "Not Interested" close
+    await supabase.from('follow_up_queue').update({
+      not_interested_at: new Date().toISOString(),
+      not_interested_by: userName,
+      closed_reason: 'not_interested',
+    } as any).eq('booking_id', item.bookingId);
     await supabase.from('intros_booked').update({
       followup_dismissed_at: new Date().toISOString(),
     } as any).eq('id', item.bookingId);
-    toast.success('Dismissed');
+    toast.success('Marked as not interested');
     setSwiped(false);
     onRefresh();
   };
@@ -346,7 +355,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             onClick={handleDismiss}
             className="text-destructive-foreground font-medium text-sm min-h-[44px] px-4 cursor-pointer"
           >
-            Dismiss
+            Not Interested
           </button>
         </div>
       )}
@@ -361,7 +370,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           else if (diff < -30) setSwiped(false);
         }}
       >
-        {/* Line 1: Name + Priority + Type */}
+        {/* Line 1: Name + Priority + Type + Transferred badge */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold">{item.memberName}</span>
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${priority.color}`}>
@@ -370,6 +379,11 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[item.followUpType]}`}>
             {TYPE_LABELS[item.followUpType]}
           </span>
+          {(item as any).transferredFromCoach && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
+              Transferred from Coach
+            </span>
+          )}
         </div>
 
         {/* Line 2: Date · Coach · Phone */}

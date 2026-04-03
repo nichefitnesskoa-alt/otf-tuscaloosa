@@ -21,6 +21,7 @@ import CoachingView from '@/components/admin/CoachingView';
 import CampaignsPanel from '@/components/admin/CampaignsPanel';
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
+import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
@@ -630,6 +631,7 @@ export default function Admin() {
 
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
+          <FollowUpOwnershipPanel />
 
         </TabsContent>
 

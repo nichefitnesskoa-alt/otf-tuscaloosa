@@ -39,6 +39,8 @@ export interface FollowUpItem {
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
   /** Follow-up category type */
   followUpType: FollowUpType;
+  /** Transferred from coach (coach name) */
+  transferredFromCoach?: string | null;
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
@@ -82,6 +84,33 @@ export function useFollowUpData() {
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const cutoff = format(subDays(new Date(), 90), 'yyyy-MM-dd');
+
+      // Get coach-owned booking IDs to exclude from SA view
+      const { data: coachOwned } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id, coach_owner, transferred_to_sa_at') as any)
+        .eq('owner_role', 'Coach')
+        .is('not_interested_at', null)
+        .is('transferred_to_sa_at', null);
+      const coachOwnedBookingIds = new Set((coachOwned || []).filter((c: any) => c.booking_id).map((c: any) => c.booking_id));
+
+      // Get transferred records to mark with badge
+      const { data: transferred } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id, coach_owner, transferred_to_sa_at') as any)
+        .eq('owner_role', 'SA')
+        .not('transferred_to_sa_at', 'is', null);
+      const transferredMap = new Map<string, string>();
+      for (const t of transferred || []) {
+        if (t.booking_id && t.coach_owner) transferredMap.set(t.booking_id, t.coach_owner);
+      }
+
+      // Get not-interested booking IDs to exclude
+      const { data: notInterested } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id') as any)
+        .not('not_interested_at', 'is', null);
+      const notInterestedIds = new Set((notInterested || []).filter((n: any) => n.booking_id).map((n: any) => n.booking_id));
 
       const { data: runs } = await supabase
         .from('intros_run')
@@ -187,6 +216,9 @@ export function useFollowUpData() {
 
         // Skip terminal outcomes
         if (terminalMembers.has(memberNameLower)) continue;
+        // Skip coach-owned and not-interested bookings
+        if (coachOwnedBookingIds.has(bookingId)) continue;
+        if (notInterestedIds.has(bookingId)) continue;
 
         const booking = bookings.find(b => b.id === bookingId);
         const hasFutureUnrun = futureUnrunByName.has(memberNameLower);
@@ -217,6 +249,7 @@ export function useFollowUpData() {
           contactNextDate: null,
           badgeType: undefined,
           followUpType: 'noshow' as FollowUpType, // will be reassigned below
+          transferredFromCoach: transferredMap.get(bookingId) || null,
         };
 
         // No-Show tab
@@ -286,6 +319,8 @@ export function useFollowUpData() {
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
         if (b.booking_status_canon === 'CANCELLED') continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
@@ -310,6 +345,7 @@ export function useFollowUpData() {
           contactNextDate: computeContactNext(b.class_date, 'missed'),
           badgeType: 'no_outcome',
           followUpType: 'missed' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
@@ -321,6 +357,8 @@ export function useFollowUpData() {
         if (terminalMembers.has(memberNameLower)) continue;
         const key = `2nd-${b.id}`;
         if (processed.has(key)) continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
@@ -345,6 +383,7 @@ export function useFollowUpData() {
           contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
           badgeType: undefined,
           followUpType: 'secondintro' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
@@ -359,6 +398,8 @@ export function useFollowUpData() {
         const key = `plan-${b.id}`;
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
+        if (coachOwnedBookingIds.has(b.id)) continue;
+        if (notInterestedIds.has(b.id)) continue;
 
         const touch = touchByBooking.get(b.id);
         let contactDate = (b as any).reschedule_contact_date;
@@ -389,6 +430,7 @@ export function useFollowUpData() {
           contactNextDate: contactDate,
           badgeType: undefined,
           followUpType: 'reschedule' as FollowUpType,
+          transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 

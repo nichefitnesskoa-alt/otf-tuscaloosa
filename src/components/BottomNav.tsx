@@ -1,8 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export function BottomNav() {
   const location = useLocation();
@@ -11,17 +13,43 @@ export function BottomNav() {
   const isAdmin = user?.role === 'Admin';
   const isCoach = user?.role === 'Coach';
   const { failCount } = useDataAudit(isAdmin);
+  const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
 
-  // Coach sees only Coach View
+  // Coach badge count
+  useEffect(() => {
+    if (!isCoach || !user?.name) return;
+    (async () => {
+      const { count } = await (supabase
+        .from('follow_up_queue')
+        .select('id', { count: 'exact', head: true }) as any)
+        .eq('owner_role', 'Coach')
+        .eq('coach_owner', user.name)
+        .is('not_interested_at', null)
+        .is('transferred_to_sa_at', null);
+      setCoachFollowUpBadge(count || 0);
+    })();
+  }, [isCoach, user?.name]);
+
+  // Coach sees Coach View (single nav)
   if (isCoach) {
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
         <div className="flex items-center justify-around h-16">
           <button
             onClick={() => navigate('/coach-view')}
-            className="flex flex-col items-center justify-center flex-1 h-full px-1 text-primary"
+            className={cn(
+              'flex flex-col items-center justify-center flex-1 h-full px-1 relative min-w-[44px]',
+              location.pathname === '/coach-view' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            )}
           >
-            <Eye className="w-5 h-5 mb-0.5 stroke-[2.5px]" />
+            <div className="relative">
+              <Eye className="w-5 h-5 mb-0.5 stroke-[2.5px]" />
+              {coachFollowUpBadge > 0 && (
+                <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                  {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
+                </span>
+              )}
+            </div>
             <span className="text-[11px] font-semibold">Coach View</span>
             <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />
           </button>
