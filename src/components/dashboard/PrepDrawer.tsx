@@ -279,7 +279,7 @@ export function PrepDrawer({
     toast.success(val ? 'Shoutout consent saved ✓' : 'Low-key preference saved ✓');
   }, [bookingId]);
 
-  const handleSaveBrief = useCallback(async (field: 'sa_buying_criteria' | 'sa_objection', value: string) => {
+  const handleSaveBrief = useCallback(async (field: string, value: string) => {
     setSavingBrief(true);
     await supabase.from('intros_booked').update({ [field]: value } as any).eq('id', bookingId);
     setSavingBrief(false);
