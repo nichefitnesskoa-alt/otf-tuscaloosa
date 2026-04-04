@@ -506,12 +506,15 @@ export default function IntroRowCard({
       </Button>
       <Button
         size="sm"
-        variant={outcomeOpen ? 'default' : 'outline'}
-        className="h-9 flex-1 text-xs gap-1"
+        variant={outcomeOpen ? 'default' : outcomeLabel ? 'default' : 'outline'}
+        className={cn(
+          "h-9 flex-1 text-xs gap-1",
+          outcomeLabel && !outcomeOpen && "bg-primary text-primary-foreground hover:bg-primary/90"
+        )}
         onClick={() => setOutcomeOpen(v => !v)}
       >
         <ClipboardList className="w-3.5 h-3.5" />
-        Outcome
+        {outcomeLabel ? outcomeLabel : 'Outcome'}
       </Button>
       <Button
         size="sm"
