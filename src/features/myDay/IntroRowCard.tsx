@@ -351,6 +351,19 @@ export default function IntroRowCard({
     }
   };
 
+  // ── Outcome display helpers ──
+  const outcomeLabel = item.latestRunResult ? (() => {
+    const r = item.latestRunResult!;
+    if (r.includes('Premier') || r.includes('Elite') || r.includes('Basic')) return 'Sale';
+    if (r === 'No-show') return 'No-Show';
+    if (r === 'Booked 2nd intro') return '2nd Intro Planned';
+    if (r === 'Planning to Book 2nd Intro') return '2nd Intro Planned';
+    if (r === 'Follow-up needed') return 'Follow-Up';
+    if (r === 'Not interested') return 'Not Interested';
+    if (r === 'Planning to Reschedule') return 'Reschedule';
+    return r;
+  })() : null;
+
   // ══ SUMMARY HEADER BAR (used in both collapsed and expanded states) ══
   const summaryHeaderBar = (
     <button
@@ -374,6 +387,11 @@ export default function IntroRowCard({
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} />
         </span>
         <ShoutoutLabel consent={shoutoutConsent} />
+        {outcomeLabel && (
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-primary text-primary-foreground border-transparent">
+            {outcomeLabel}
+          </Badge>
+        )}
         <span className="text-xs text-muted-foreground truncate">
           {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'} · {item.coachName || 'TBD'}
         </span>
