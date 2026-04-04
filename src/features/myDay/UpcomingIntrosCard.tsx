@@ -4,9 +4,10 @@
  * Week navigation: Previous / Current range / Next.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, RefreshCw, AlertCircle } from 'lucide-react';
+import { Calendar, RefreshCw, AlertCircle, ChevronDown, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -119,6 +120,19 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const selectedDayItems = useMemo(() => {
     return items.filter(i => i.classDate === selectedDate);
   }, [items, selectedDate]);
+
+  // Split selected day items into completed and active
+  const isItemCompleted = useCallback((item: typeof items[0]) => {
+    if (!item) return false;
+    // Has a linked run with a real result = completed
+    if (item.latestRunResult && item.latestRunResult !== 'UNRESOLVED') return true;
+    return false;
+  }, []);
+
+  const completedDayItems = useMemo(() => selectedDayItems.filter(isItemCompleted), [selectedDayItems, isItemCompleted]);
+  const activeDayItems = useMemo(() => selectedDayItems.filter(i => !isItemCompleted(i)), [selectedDayItems, isItemCompleted]);
+  const activeDayGroups = useMemo(() => groupByDay(activeDayItems), [activeDayItems]);
+  const completedDayGroups = useMemo(() => groupByDay(completedDayItems), [completedDayItems]);
 
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
@@ -402,23 +416,64 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             </p>
           ) : (
             <div className="space-y-4">
-              {selectedDayGroups.map(group => (
-                <IntroDayGroup
-                  key={group.date}
-                  group={group}
-                  isOnline={isOnline}
-                  userName={userName}
-                  onSendQ={handleSendQ}
-                  onConfirm={handleConfirm}
-                  onRefresh={refreshAll}
-                  needsOutcome={false}
-                  confirmResults={confirmResults}
-                  focusedBookingId={selectedIsToday ? focusedBookingId : null}
-                  expandedBookingId={expandedBookingId}
-                  onExpandCard={handleExpandCard}
-                  shoutoutMap={shoutoutMap}
-                />
-              ))}
+              {/* Completed Today section */}
+              {completedDayItems.length > 0 && (
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-success/10 border border-success/30 text-success hover:bg-success/20 transition-colors min-h-[44px]">
+                    <span className="text-sm font-semibold flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Completed Today ({completedDayItems.length})
+                    </span>
+                    <ChevronDown className="w-4 h-4 transition-transform [[data-state=open]_&]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="space-y-4">
+                      {completedDayGroups.map(group => (
+                        <IntroDayGroup
+                          key={`completed-${group.date}`}
+                          group={group}
+                          isOnline={isOnline}
+                          userName={userName}
+                          onSendQ={handleSendQ}
+                          onConfirm={handleConfirm}
+                          onRefresh={refreshAll}
+                          needsOutcome={false}
+                          confirmResults={confirmResults}
+                          focusedBookingId={null}
+                          expandedBookingId={expandedBookingId}
+                          onExpandCard={handleExpandCard}
+                          shoutoutMap={shoutoutMap}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Active intros */}
+              {activeDayItems.length > 0 ? (
+                activeDayGroups.map(group => (
+                  <IntroDayGroup
+                    key={group.date}
+                    group={group}
+                    isOnline={isOnline}
+                    userName={userName}
+                    onSendQ={handleSendQ}
+                    onConfirm={handleConfirm}
+                    onRefresh={refreshAll}
+                    needsOutcome={false}
+                    confirmResults={confirmResults}
+                    focusedBookingId={selectedIsToday ? focusedBookingId : null}
+                    expandedBookingId={expandedBookingId}
+                    onExpandCard={handleExpandCard}
+                    shoutoutMap={shoutoutMap}
+                  />
+                ))
+              ) : completedDayItems.length > 0 ? (
+                <p className="text-sm text-muted-foreground italic text-center py-4">
+                  All intros completed for {selectedDayLabel}! 🎉
+                </p>
+              ) : null}
             </div>
           )
         ) : dayGroups.length === 0 ? (

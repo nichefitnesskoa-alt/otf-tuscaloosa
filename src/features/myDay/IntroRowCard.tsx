@@ -351,6 +351,19 @@ export default function IntroRowCard({
     }
   };
 
+  // ── Outcome display helpers ──
+  const outcomeLabel = item.latestRunResult ? (() => {
+    const r = item.latestRunResult!;
+    if (r.includes('Premier') || r.includes('Elite') || r.includes('Basic')) return 'Sale';
+    if (r === 'No-show') return 'No-Show';
+    if (r === 'Booked 2nd intro') return '2nd Intro Planned';
+    if (r === 'Planning to Book 2nd Intro') return '2nd Intro Planned';
+    if (r === 'Follow-up needed') return 'Follow-Up';
+    if (r === 'Not interested') return 'Not Interested';
+    if (r === 'Planning to Reschedule') return 'Reschedule';
+    return r;
+  })() : null;
+
   // ══ SUMMARY HEADER BAR (used in both collapsed and expanded states) ══
   const summaryHeaderBar = (
     <button
@@ -374,6 +387,11 @@ export default function IntroRowCard({
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} />
         </span>
         <ShoutoutLabel consent={shoutoutConsent} />
+        {outcomeLabel && (
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-primary text-primary-foreground border-transparent">
+            {outcomeLabel}
+          </Badge>
+        )}
         <span className="text-xs text-muted-foreground truncate">
           {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'} · {item.coachName || 'TBD'}
         </span>
@@ -488,12 +506,15 @@ export default function IntroRowCard({
       </Button>
       <Button
         size="sm"
-        variant={outcomeOpen ? 'default' : 'outline'}
-        className="h-9 flex-1 text-xs gap-1"
+        variant={outcomeOpen ? 'default' : outcomeLabel ? 'default' : 'outline'}
+        className={cn(
+          "h-9 flex-1 text-xs gap-1",
+          outcomeLabel && !outcomeOpen && "bg-primary text-primary-foreground hover:bg-primary/90"
+        )}
         onClick={() => setOutcomeOpen(v => !v)}
       >
         <ClipboardList className="w-3.5 h-3.5" />
-        Outcome
+        {outcomeLabel ? outcomeLabel : 'Outcome'}
       </Button>
       <Button
         size="sm"
@@ -560,28 +581,24 @@ export default function IntroRowCard({
       </IntroCard>
 
 
-      {/* Outcome drawer – appears ABOVE the card as fixed overlay */}
+      {/* Outcome drawer – inline inside the card like Prep/Script */}
       {outcomeOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-50 bg-background border-t shadow-lg max-h-[70vh] overflow-y-auto"
-          onClick={e => e.stopPropagation()}
-        >
-          <OutcomeDrawer
-            bookingId={item.bookingId}
-            memberName={item.memberName}
-            classDate={item.classDate}
-            introTime={item.introTime}
-            leadSource={item.leadSource || ''}
-            existingRunId={item.latestRunId}
-            currentResult={item.latestRunResult}
-            editedBy={userName}
-            initialPrepped={prepped}
-            initialCoach={item.latestRunCoach || item.coachName || ''}
-            initialObjection={item.latestRunObjection || ''}
-            initialNotes={item.latestRunNotes || ''}
-            onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
-            onCancel={() => setOutcomeOpen(false)}
-          />
-        </div>
+        <OutcomeDrawer
+          bookingId={item.bookingId}
+          memberName={item.memberName}
+          classDate={item.classDate}
+          introTime={item.introTime}
+          leadSource={item.leadSource || ''}
+          existingRunId={item.latestRunId}
+          currentResult={item.latestRunResult}
+          editedBy={userName}
+          initialPrepped={prepped}
+          initialCoach={item.latestRunCoach || item.coachName || ''}
+          initialObjection={item.latestRunObjection || ''}
+          initialNotes={item.latestRunNotes || ''}
+          onSaved={() => { onRefresh(); }}
+          onCancel={() => setOutcomeOpen(false)}
+        />
       )}
 
       {/* Clear outcome confirmation */}
