@@ -121,6 +121,20 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     return items.filter(i => i.classDate === selectedDate);
   }, [items, selectedDate]);
 
+  // Split selected day items into completed and active
+  const isItemCompleted = useCallback((item: typeof items[0]) => {
+    if (!item) return false;
+    const status = (item as any).bookingStatusCanon || '';
+    if (status === 'SHOWED' || status === 'NO_SHOW') return true;
+    if (item.latestRunResult && item.latestRunResult !== 'UNRESOLVED') return true;
+    return false;
+  }, []);
+
+  const completedDayItems = useMemo(() => selectedDayItems.filter(isItemCompleted), [selectedDayItems, isItemCompleted]);
+  const activeDayItems = useMemo(() => selectedDayItems.filter(i => !isItemCompleted(i)), [selectedDayItems, isItemCompleted]);
+  const activeDayGroups = useMemo(() => groupByDay(activeDayItems), [activeDayItems]);
+  const completedDayGroups = useMemo(() => groupByDay(completedDayItems), [completedDayItems]);
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
   // Q summary for selected day
