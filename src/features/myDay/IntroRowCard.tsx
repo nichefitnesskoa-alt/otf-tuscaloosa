@@ -376,9 +376,9 @@ export default function IntroRowCard({
         item.latestRunResult && !isExpanded && 'opacity-70',
       )}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
-        <span className="font-semibold text-sm truncate pointer-events-none">{item.memberName}</span>
-        <span onClick={(e) => e.stopPropagation()} className="pointer-events-none">
+      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+        <span className="font-semibold text-sm truncate">{item.memberName}</span>
+        <span className="pointer-events-none">
           <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
             {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
           </Badge>
