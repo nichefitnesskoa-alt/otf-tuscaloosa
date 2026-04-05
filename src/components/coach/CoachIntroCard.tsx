@@ -637,12 +637,3 @@ function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inl
     </div>
   );
 }
-      <div className="flex items-center gap-2">
-        <span className={cn("text-xs", !checked && "font-semibold")}>No</span>
-        <Switch checked={checked} onCheckedChange={onChange} />
-        <span className={cn("text-xs", checked && "font-semibold")}>Yes</span>
-      </div>
-      <SavedIndicator show={savedField === savedKey} />
-    </div>
-  );
-}
