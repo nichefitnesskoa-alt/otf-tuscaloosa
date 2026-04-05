@@ -425,21 +425,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
         </div>
       </div>
 
-      {/* Add Note Sheet */}
-      <Sheet open={addNoteOpen} onOpenChange={setAddNoteOpen}>
-        <SheetContent side="bottom" className="rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>Add Note — {booking.member_name}</SheetTitle>
-            <SheetDescription>Post-class note for this intro</SheetDescription>
-          </SheetHeader>
-          <div className="p-4 space-y-4">
-            <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="What happened during class? Any observations?" className="min-h-[100px] text-sm border border-input" />
-            <Button onClick={handleSaveNote} disabled={saving} className="w-full" style={{ minHeight: '44px' }}>
-              {saving ? 'Saving...' : 'Save Note'}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </>
   );
 }
