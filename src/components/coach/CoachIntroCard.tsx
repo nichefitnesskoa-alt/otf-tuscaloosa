@@ -86,8 +86,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [usedWhy, setUsedWhy] = useState(false);
   const [introducedMember, setIntroducedMember] = useState(false);
   const [memberName, setMemberName] = useState('');
-  const [pairPlan, setPairPlan] = useState('');
-  const [whyPlan, setWhyPlan] = useState(booking.coach_brief_why_moment || '');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
