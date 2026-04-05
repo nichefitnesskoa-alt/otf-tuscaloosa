@@ -483,65 +483,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </>
           )}
 
-          {/* ══════ SECTION 3 — THEIR FOLLOW-UP QUEUE ══════ */}
-          <Separator />
-          <Collapsible open={followUpsOpen} onOpenChange={setFollowUpsOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between py-2 cursor-pointer" style={{ minHeight: '44px' }}>
-              <div>
-                <h4 className="font-bold text-sm tracking-wide">
-                  Your Follow-Up Queue{followUps.length > 0 ? ` (${followUps.length} due)` : ''}
-                </h4>
-                <p className="text-[10px] text-muted-foreground">People from your classes who need a touch from you.</p>
-              </div>
-              <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform", followUpsOpen && "rotate-180")} />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              {followUps.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic py-2">No follow-ups due. You're caught up.</p>
-              ) : (
-                <div className="space-y-1 mt-1">
-                  {followUps.map(fu => {
-                    const daysSince = differenceInDays(new Date(), new Date(fu.created_at));
-                    const scheduledDate = new Date(fu.scheduled_date + 'T12:00:00');
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const isOverdue = scheduledDate < today;
-                    const isDueToday = scheduledDate.toDateString() === today.toDateString();
-                    const priorityLabel = isOverdue ? 'Overdue' : isDueToday ? 'Due today' : 'This week';
-                    const priorityColor = isOverdue ? 'text-destructive' : isDueToday ? 'text-[hsl(20,90%,47%)]' : 'text-muted-foreground';
-
-                    return (
-                      <div key={fu.id} className="flex items-center justify-between px-2 py-2 rounded-md border bg-card hover:bg-muted/40 transition-colors" style={{ minHeight: '44px' }}>
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-sm font-medium truncate">{fu.person_name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">· {daysSince}d ago</span>
-                          <span className={cn("text-xs font-semibold shrink-0", priorityColor)}>{priorityLabel}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs gap-1 border border-input"
-                            onClick={() => toast.info('Script selector coming soon')}
-                          >
-                            <Send className="w-3 h-3" />
-                            Send Text
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleNotInterested(fu.id)}
-                          >
-                            Not Interested
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
 
           <Separator />
 
