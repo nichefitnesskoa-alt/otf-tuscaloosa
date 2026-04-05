@@ -197,14 +197,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     setMemberName(val);
     debounceSave('memberName', () => saveRunField({ relationship_experience: val || null }));
   };
-  const handlePairPlanChange = (val: string) => {
-    setPairPlan(val);
-    debounceSave('pairPlan', () => saveBookingField('coach_member_pair_plan', val || null));
-  };
-  const handleWhyPlanChange = (val: string) => {
-    setWhyPlan(val);
-    debounceSave('whyPlan', () => saveBookingField('coach_brief_why_moment', val || null));
-  };
 
   const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
     e?.stopPropagation();
