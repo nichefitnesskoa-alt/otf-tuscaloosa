@@ -410,51 +410,69 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* ══════ SECTION 2 — POST-CLASS DEBRIEF ══════ */}
+          {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
           {!isSecondIntro && (
             <>
               <Separator />
-              <h4 className="font-bold text-sm tracking-wide">POST-CLASS</h4>
+              <div>
+                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — DID YOU HIT YOUR LEAD MEASURES?</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class. This builds your scoreboard.</p>
+              </div>
 
-              {/* Row 1 — Three toggles horizontal */}
+              {/* Row 1 — Three toggles: shoutout permission, start, end */}
               <div className="grid grid-cols-3 gap-3">
-                <ToggleColumn
-                  label="Did you shout them out — start?"
-                  checked={shoutoutStart}
-                  onChange={handleShoutoutStart}
+                <YesNoToggle
+                  label="Did you ask for shoutout permission?"
+                  value={consent}
+                  onChange={(val) => { setConsent(val); saveBookingField('shoutout_consent', val); }}
+                  savedKey="shoutout_consent"
+                  savedField={savedField}
+                />
+                <YesNoToggle
+                  label="Did you shout them out at the start of class?"
+                  value={shoutoutStart ? true : shoutoutStart === false ? false : null}
+                  onChange={(val) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); }}
                   savedKey="coach_shoutout_start"
                   savedField={savedField}
                   dimmed={consent === false}
                 />
-                <ToggleColumn
-                  label="Did you shout them out — end?"
-                  checked={shoutoutEnd}
-                  onChange={handleShoutoutEnd}
+                <YesNoToggle
+                  label="Did you shout them out at the end of class?"
+                  value={shoutoutEnd ? true : shoutoutEnd === false ? false : null}
+                  onChange={(val) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); }}
                   savedKey="coach_shoutout_end"
                   savedField={savedField}
                   dimmed={consent === false}
                 />
-                <ToggleColumn
-                  label="Did you ask follow-up questions about their goal?"
-                  checked={usedWhy}
-                  onChange={handleUsedWhy}
-                  savedKey="goal_why_captured"
-                  savedField={savedField}
-                />
               </div>
 
-              {/* Row 2 — Two fields horizontal */}
+              {/* Row 2 — Two questions: curiosity + member intro */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
+                  <Label className="text-xs leading-tight block">Did you get curious — ask 1 or 2 follow-up questions about their goal and give personalized advice?</Label>
+                  <YesNoToggle
+                    label=""
+                    value={usedWhy ? true : usedWhy === false && runData ? false : null}
+                    onChange={(val) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); }}
+                    savedKey="goal_why_captured"
+                    savedField={savedField}
+                    inline
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1">
-                    <Label className="text-sm">Did you introduce them to a current member?</Label>
+                    <Label className="text-xs leading-tight block">Did you introduce them to a current member?</Label>
                     <SavedIndicator show={savedField === 'made_a_friend'} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-xs", !introducedMember && "font-semibold")}>No</span>
-                    <Switch checked={introducedMember} onCheckedChange={handleIntroducedMember} />
-                    <span className={cn("text-xs", introducedMember && "font-semibold")}>Yes</span>
-                  </div>
+                  <YesNoToggle
+                    label=""
+                    value={introducedMember ? true : introducedMember === false && runData ? false : null}
+                    onChange={handleIntroducedMember}
+                    savedKey="made_a_friend"
+                    savedField={savedField}
+                    inline
+                  />
                   {introducedMember && (
                     <div>
                       <div className="flex items-center">
@@ -465,14 +483,15 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Label className="text-sm">Who are you planning to pair them with today?</Label>
-                    <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
-                  </div>
-                  <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
+              {/* Pairing plan */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Label className="text-sm">Who are you planning to pair them with today?</Label>
+                  <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
                 </div>
+                <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
               </div>
             </>
           )}
