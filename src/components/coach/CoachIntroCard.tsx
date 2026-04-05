@@ -637,12 +637,6 @@ function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inl
     </div>
   );
 }
-  savedField: string | null;
-  dimmed?: boolean;
-}) {
-  return (
-    <div className={cn("space-y-1.5", dimmed && "opacity-50")}>
-      <Label className="text-xs leading-tight block">{label}</Label>
       <div className="flex items-center gap-2">
         <span className={cn("text-xs", !checked && "font-semibold")}>No</span>
         <Switch checked={checked} onCheckedChange={onChange} />
