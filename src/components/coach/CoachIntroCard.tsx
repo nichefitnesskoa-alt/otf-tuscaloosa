@@ -66,14 +66,6 @@ function SavedIndicator({ show }: { show: boolean }) {
   return <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>;
 }
 
-// ── Follow-Up Queue Item ──
-interface FollowUpItem {
-  id: string;
-  person_name: string;
-  scheduled_date: string;
-  created_at: string;
-  booking_id: string | null;
-}
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const { user } = useAuth();
