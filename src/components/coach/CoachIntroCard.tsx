@@ -210,14 +210,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     flashSaved('shoutout_consent');
   }, [booking.id, consent, userName]);
 
-  const handleNotInterested = async (fuId: string) => {
-    await supabase.from('follow_up_queue').update({
-      not_interested_at: new Date().toISOString(),
-      not_interested_by: userName,
-    }).eq('id', fuId);
-    setFollowUps(prev => prev.filter(f => f.id !== fuId));
-    toast.success('Marked as not interested');
-  };
 
   const truncate = (s: string | null, max: number) => {
     if (!s) return null;
