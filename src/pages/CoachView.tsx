@@ -380,6 +380,7 @@ function ClassTimeIntroSelector({
               type="button"
               onClick={() => toggle(intro.id)}
               className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2"
+              style={{ minHeight: '44px' }}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -388,32 +389,27 @@ function ClassTimeIntroSelector({
                     {isSecondIntro ? '2nd Intro' : '1st Intro'}
                   </Badge>
                   {isQComplete ? (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Q Complete</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>
                   ) : (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Q</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive text-white border-transparent">No Questionnaire</Badge>
                   )}
-                  {/* Shoutout label */}
                   {intro.shoutout_consent === true && (
-                    <span className="inline-flex items-center gap-1 text-[9px] text-success font-medium shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shrink-0" />
-                      Shoutout ✓
-                    </span>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success/20 text-success border-transparent">Shoutout ✓</Badge>
                   )}
                   {intro.shoutout_consent === false && (
-                    <span className="inline-flex items-center gap-1 text-[9px] text-destructive font-medium shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block shrink-0" />
-                      Shoutout ✗
-                    </span>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive/20 text-destructive border-transparent">Shoutout ✗</Badge>
                   )}
                   {intro.shoutout_consent == null && (
-                    <span className="inline-flex items-center gap-1 text-[9px] text-muted-foreground font-medium shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 inline-block shrink-0" />
-                      Shoutout?
-                    </span>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">Shoutout?</Badge>
                   )}
                 </div>
+                <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                  <span>{intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'}</span>
+                  <span>·</span>
+                  <span>Coach: {intro.coach_name}</span>
+                </div>
               </div>
-              <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+              <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
             </button>
 
             {/* Expanded detail */}
