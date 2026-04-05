@@ -117,8 +117,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
         setConvMeaning(d.sa_conversation_meaning || '');
         setConvObstacle(d.sa_conversation_obstacle || '');
         setConsent(d.shoutout_consent ?? null);
-        setPairPlan(d.coach_member_pair_plan || '');
-        setWhyPlan(d.coach_brief_why_moment || '');
       }
 
       if (runRes.data) {
