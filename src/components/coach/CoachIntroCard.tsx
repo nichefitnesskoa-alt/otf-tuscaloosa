@@ -129,23 +129,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     })();
   }, [booking.id, isSecondIntro]);
 
-  // Fetch coach follow-ups
-  useEffect(() => {
-    if (!coachName) return;
-    (async () => {
-      const { data } = await supabase
-        .from('follow_up_queue')
-        .select('id, person_name, scheduled_date, created_at, booking_id')
-        .eq('owner_role', 'Coach')
-        .eq('coach_owner', coachName)
-        .is('not_interested_at', null)
-        .is('transferred_to_sa_at', null)
-        .eq('status', 'pending')
-        .order('scheduled_date', { ascending: true })
-        .limit(20);
-      setFollowUps((data || []) as FollowUpItem[]);
-    })();
-  }, [coachName]);
 
   // Realtime for conversation updates from SA
   useEffect(() => {
