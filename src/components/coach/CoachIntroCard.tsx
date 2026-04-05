@@ -388,19 +388,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* Pre-class intention field */}
-          <div className="space-y-1">
-            <div className="flex items-center">
-              <Label className="text-sm font-medium">How you'll use this today</Label>
-              <SavedIndicator show={savedField === 'coach_brief_why_moment'} />
-            </div>
-            <Textarea
-              value={whyPlan}
-              onChange={e => handleWhyPlanChange(e.target.value)}
-              placeholder="One sentence. Say it before you start coaching them."
-              className="min-h-[60px] text-sm border border-input"
-            />
-          </div>
 
           {/* Coach Notes (if saved) */}
           {booking.coach_notes && (
