@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Plus, Send, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -326,37 +326,58 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           </div>
           <p className="text-[10px] text-muted-foreground text-center">From their questionnaire</p>
 
-          {/* ── CONVERSATION ANSWERS ROW — 3 columns (read-only) ── */}
+          {/* ── CONVERSATION ANSWERS ROW — 3 columns (editable) ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                What a 5/5 looks like
-              </Label>
-              {convGoal ? (
-                <p className="text-sm">{convGoal}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">SA will capture during intro</p>
-              )}
+              <div className="flex items-center gap-1">
+                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                  What a 5/5 looks like
+                </Label>
+                <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
+              </div>
+              <Textarea
+                value={convGoal}
+                onChange={e => { setConvGoal(e.target.value); debounceSave('convGoal', () => saveBookingField('sa_conversation_5_of_5', e.target.value || null)); }}
+                placeholder="Paint me a picture..."
+                className="min-h-[60px] text-sm border border-input"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {convGoal && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
+              </p>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                What would change
-              </Label>
-              {convMeaning ? (
-                <p className="text-sm font-medium" style={{ color: 'hsl(20, 90%, 47%)' }}>{convMeaning}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">SA will capture during intro</p>
-              )}
+              <div className="flex items-center gap-1">
+                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                  What would change
+                </Label>
+                <SavedIndicator show={savedField === 'sa_conversation_meaning'} />
+              </div>
+              <Textarea
+                value={convMeaning}
+                onChange={e => { setConvMeaning(e.target.value); debounceSave('convMeaning', () => saveBookingField('sa_conversation_meaning', e.target.value || null)); }}
+                placeholder="What would actually be different?..."
+                className="min-h-[60px] text-sm border border-input"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {convMeaning && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
+              </p>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                What's holding them back
-              </Label>
-              {convObstacle ? (
-                <p className="text-sm">{convObstacle}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">SA will capture during intro</p>
-              )}
+              <div className="flex items-center gap-1">
+                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                  What's holding them back
+                </Label>
+                <SavedIndicator show={savedField === 'sa_conversation_obstacle'} />
+              </div>
+              <Textarea
+                value={convObstacle}
+                onChange={e => { setConvObstacle(e.target.value); debounceSave('convObstacle', () => saveBookingField('sa_conversation_obstacle', e.target.value || null)); }}
+                placeholder="Don't fix it. Just listen..."
+                className="min-h-[60px] text-sm border border-input"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {convObstacle && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
+              </p>
             </div>
           </div>
 
@@ -389,51 +410,69 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* ══════ SECTION 2 — POST-CLASS DEBRIEF ══════ */}
+          {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
           {!isSecondIntro && (
             <>
               <Separator />
-              <h4 className="font-bold text-sm tracking-wide">POST-CLASS</h4>
+              <div>
+                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — DID YOU HIT YOUR LEAD MEASURES?</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class. This builds your scoreboard.</p>
+              </div>
 
-              {/* Row 1 — Three toggles horizontal */}
+              {/* Row 1 — Three toggles: shoutout permission, start, end */}
               <div className="grid grid-cols-3 gap-3">
-                <ToggleColumn
-                  label="Did you shout them out — start?"
-                  checked={shoutoutStart}
-                  onChange={handleShoutoutStart}
+                <YesNoToggle
+                  label="Did you ask for shoutout permission?"
+                  value={consent}
+                  onChange={(val) => { setConsent(val); saveBookingField('shoutout_consent', val); }}
+                  savedKey="shoutout_consent"
+                  savedField={savedField}
+                />
+                <YesNoToggle
+                  label="Did you shout them out at the start of class?"
+                  value={shoutoutStart ? true : shoutoutStart === false ? false : null}
+                  onChange={(val) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); }}
                   savedKey="coach_shoutout_start"
                   savedField={savedField}
                   dimmed={consent === false}
                 />
-                <ToggleColumn
-                  label="Did you shout them out — end?"
-                  checked={shoutoutEnd}
-                  onChange={handleShoutoutEnd}
+                <YesNoToggle
+                  label="Did you shout them out at the end of class?"
+                  value={shoutoutEnd ? true : shoutoutEnd === false ? false : null}
+                  onChange={(val) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); }}
                   savedKey="coach_shoutout_end"
                   savedField={savedField}
                   dimmed={consent === false}
                 />
-                <ToggleColumn
-                  label="Did you ask follow-up questions about their goal?"
-                  checked={usedWhy}
-                  onChange={handleUsedWhy}
-                  savedKey="goal_why_captured"
-                  savedField={savedField}
-                />
               </div>
 
-              {/* Row 2 — Two fields horizontal */}
+              {/* Row 2 — Two questions: curiosity + member intro */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
+                  <Label className="text-xs leading-tight block">Did you get curious — ask 1 or 2 follow-up questions about their goal and give personalized advice?</Label>
+                  <YesNoToggle
+                    label=""
+                    value={usedWhy ? true : usedWhy === false && runData ? false : null}
+                    onChange={(val) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); }}
+                    savedKey="goal_why_captured"
+                    savedField={savedField}
+                    inline
+                  />
+                </div>
+
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1">
-                    <Label className="text-sm">Did you introduce them to a current member?</Label>
+                    <Label className="text-xs leading-tight block">Did you introduce them to a current member?</Label>
                     <SavedIndicator show={savedField === 'made_a_friend'} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={cn("text-xs", !introducedMember && "font-semibold")}>No</span>
-                    <Switch checked={introducedMember} onCheckedChange={handleIntroducedMember} />
-                    <span className={cn("text-xs", introducedMember && "font-semibold")}>Yes</span>
-                  </div>
+                  <YesNoToggle
+                    label=""
+                    value={introducedMember ? true : introducedMember === false && runData ? false : null}
+                    onChange={handleIntroducedMember}
+                    savedKey="made_a_friend"
+                    savedField={savedField}
+                    inline
+                  />
                   {introducedMember && (
                     <div>
                       <div className="flex items-center">
@@ -444,14 +483,15 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                     </div>
                   )}
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-1">
-                    <Label className="text-sm">Who are you planning to pair them with today?</Label>
-                    <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
-                  </div>
-                  <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
+              {/* Pairing plan */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Label className="text-sm">Who are you planning to pair them with today?</Label>
+                  <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
                 </div>
+                <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
               </div>
             </>
           )}
@@ -552,24 +592,48 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   );
 }
 
-// ── Horizontal Toggle Column ──
-function ToggleColumn({ label, checked, onChange, savedKey, savedField, dimmed }: {
+// ── Yes/No Toggle Button Pair ──
+function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inline }: {
   label: string;
-  checked: boolean;
+  value: boolean | null;
   onChange: (v: boolean) => void;
   savedKey: string;
   savedField: string | null;
   dimmed?: boolean;
+  inline?: boolean;
 }) {
   return (
-    <div className={cn("space-y-1.5", dimmed && "opacity-50")}>
-      <Label className="text-xs leading-tight block">{label}</Label>
-      <div className="flex items-center gap-2">
-        <span className={cn("text-xs", !checked && "font-semibold")}>No</span>
-        <Switch checked={checked} onCheckedChange={onChange} />
-        <span className={cn("text-xs", checked && "font-semibold")}>Yes</span>
+    <div className={cn(dimmed && "opacity-50", !inline && "space-y-1.5")}>
+      {label && <Label className="text-xs leading-tight block">{label}</Label>}
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={cn(
+            "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
+            value === true
+              ? "bg-success text-white border-success"
+              : "bg-background text-muted-foreground border-input hover:bg-muted"
+          )}
+          style={{ minHeight: '36px' }}
+        >
+          Yes
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={cn(
+            "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
+            value === false
+              ? "bg-destructive text-white border-destructive"
+              : "bg-background text-muted-foreground border-input hover:bg-muted"
+          )}
+          style={{ minHeight: '36px' }}
+        >
+          No
+        </button>
+        <SavedIndicator show={savedField === savedKey} />
       </div>
-      <SavedIndicator show={savedField === savedKey} />
     </div>
   );
 }

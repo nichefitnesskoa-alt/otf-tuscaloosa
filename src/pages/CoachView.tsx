@@ -229,16 +229,19 @@ export default function CoachView() {
         </div>
       )}
 
-      <TheSystemSection />
-
-      <CollapsibleSection
-        id="coaching-scripts"
-        title="Coaching Scripts"
-        icon={<span>📋</span>}
-        defaultOpen={false}
-      >
-        <CoachingScripts />
-      </CollapsibleSection>
+      {isAdmin && (
+        <>
+          <TheSystemSection />
+          <CollapsibleSection
+            id="coaching-scripts"
+            title="Coaching Scripts"
+            icon={<span>📋</span>}
+            defaultOpen={false}
+          >
+            <CoachingScripts />
+          </CollapsibleSection>
+        </>
+      )}
 
       {/* Tabs: Intros | Follow-Up */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
