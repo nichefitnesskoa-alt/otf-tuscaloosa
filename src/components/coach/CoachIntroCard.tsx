@@ -161,18 +161,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     debounceTimers.current[key] = setTimeout(fn, delay);
   }, []);
 
-  const handleSaveNote = useCallback(async () => {
-    setSaving(true);
-    await supabase.from('intros_booked').update({
-      coach_notes: noteText,
-      last_edited_by: userName,
-      last_edited_at: new Date().toISOString(),
-    } as any).eq('id', booking.id);
-    onUpdateBooking(booking.id, { coach_notes: noteText });
-    setSaving(false);
-    setAddNoteOpen(false);
-    toast.success('Note saved ✓');
-  }, [booking.id, noteText, userName, onUpdateBooking]);
 
   // Post-class handlers
   const handleShoutoutStart = (val: boolean) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); };
