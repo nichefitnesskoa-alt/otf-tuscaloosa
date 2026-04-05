@@ -390,10 +390,13 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                   {introducedMember && (
                     <div>
                       <div className="flex items-center">
-                        <Label className="text-xs text-muted-foreground">Which member?</Label>
+                        <Label className="text-xs text-muted-foreground">Which member did you introduce them to?</Label>
                         <SavedIndicator show={savedField === 'relationship_experience'} />
                       </div>
-                      <Input value={memberName} onChange={e => handleMemberNameChange(e.target.value)} placeholder="Member name" className="h-9 text-sm mt-1 border border-input" />
+                      <Input value={memberName} onChange={e => handleMemberNameChange(e.target.value)} placeholder="Member's full name" className="h-9 text-sm mt-1 border border-input" />
+                      <p className="text-xs mt-1.5" style={{ color: 'hsl(40, 91%, 49%)' }}>
+                        If this member refers someone who joins, they may qualify for the referral discount. Note their name so they get credit.
+                      </p>
                     </div>
                   )}
                 </div>
