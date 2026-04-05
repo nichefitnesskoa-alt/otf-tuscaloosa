@@ -1,13 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronRight, Plus } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
@@ -64,9 +61,6 @@ function SavedIndicator({ show }: { show: boolean }) {
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const { user } = useAuth();
-  const [addNoteOpen, setAddNoteOpen] = useState(false);
-  const [noteText, setNoteText] = useState(booking.coach_notes || '');
-  const [saving, setSaving] = useState(false);
   const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
 
   // Conversation fields (read-only for coach)
@@ -166,18 +160,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     debounceTimers.current[key] = setTimeout(fn, delay);
   }, []);
 
-  const handleSaveNote = useCallback(async () => {
-    setSaving(true);
-    await supabase.from('intros_booked').update({
-      coach_notes: noteText,
-      last_edited_by: userName,
-      last_edited_at: new Date().toISOString(),
-    } as any).eq('id', booking.id);
-    onUpdateBooking(booking.id, { coach_notes: noteText });
-    setSaving(false);
-    setAddNoteOpen(false);
-    toast.success('Note saved ✓');
-  }, [booking.id, noteText, userName, onUpdateBooking]);
 
   // Post-class handlers
   const handleShoutoutStart = (val: boolean) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); };
@@ -345,8 +327,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           )}
 
           {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
-          {!isSecondIntro && (
-            <>
               <Separator />
               <div>
                 <h4 className="font-bold text-sm tracking-wide">POST-CLASS — LEAD MEASURES</h4>
@@ -419,19 +399,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 </div>
               </div>
 
-            </>
-          )}
-
-
-          <Separator />
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setAddNoteOpen(true); setNoteText(booking.coach_notes || ''); }} className="flex-1 gap-1 border border-input" style={{ minHeight: '44px' }}>
-              <Plus className="w-4 h-4" /> Add Note
-            </Button>
-          </div>
-
           {booking.last_edited_by && booking.last_edited_at && (
             <p className="text-[10px] text-muted-foreground text-right">
               Last edited by {booking.last_edited_by} · {new Date(booking.last_edited_at).toLocaleString()}
@@ -440,21 +407,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
         </div>
       </div>
 
-      {/* Add Note Sheet */}
-      <Sheet open={addNoteOpen} onOpenChange={setAddNoteOpen}>
-        <SheetContent side="bottom" className="rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>Add Note — {booking.member_name}</SheetTitle>
-            <SheetDescription>Post-class note for this intro</SheetDescription>
-          </SheetHeader>
-          <div className="p-4 space-y-4">
-            <Textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="What happened during class? Any observations?" className="min-h-[100px] text-sm border border-input" />
-            <Button onClick={handleSaveNote} disabled={saving} className="w-full" style={{ minHeight: '44px' }}>
-              {saving ? 'Saving...' : 'Save Note'}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </>
   );
 }
