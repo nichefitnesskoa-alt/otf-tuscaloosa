@@ -345,8 +345,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           )}
 
           {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
-          {!isSecondIntro && (
-            <>
               <Separator />
               <div>
                 <h4 className="font-bold text-sm tracking-wide">POST-CLASS — LEAD MEASURES</h4>
