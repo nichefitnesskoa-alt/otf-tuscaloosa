@@ -417,19 +417,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 </div>
               </div>
 
-            </>
-          )}
-
-
-          <Separator />
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setAddNoteOpen(true); setNoteText(booking.coach_notes || ''); }} className="flex-1 gap-1 border border-input" style={{ minHeight: '44px' }}>
-              <Plus className="w-4 h-4" /> Add Note
-            </Button>
-          </div>
-
           {booking.last_edited_by && booking.last_edited_at && (
             <p className="text-[10px] text-muted-foreground text-right">
               Last edited by {booking.last_edited_by} · {new Date(booking.last_edited_at).toLocaleString()}
