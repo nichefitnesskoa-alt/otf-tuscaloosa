@@ -424,14 +424,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 </div>
               </div>
 
-              {/* Pairing plan */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1">
-                  <Label className="text-sm">Who are you planning to pair them with today?</Label>
-                  <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
-                </div>
-                <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
-              </div>
             </>
           )}
 
