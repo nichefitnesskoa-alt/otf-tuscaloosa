@@ -62,9 +62,6 @@ function SavedIndicator({ show }: { show: boolean }) {
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const { user } = useAuth();
-  const [addNoteOpen, setAddNoteOpen] = useState(false);
-  const [noteText, setNoteText] = useState(booking.coach_notes || '');
-  const [saving, setSaving] = useState(false);
   const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
 
   // Conversation fields (read-only for coach)
