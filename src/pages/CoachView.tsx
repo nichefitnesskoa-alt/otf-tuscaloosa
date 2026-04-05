@@ -164,11 +164,7 @@ export default function CoachView() {
     return map;
   }, [selectedDayBookings]);
 
-  const formatTimeFn = (t: string) => {
-    if (t === 'TBD') return 'TBD';
-    const key = t.substring(0, 5);
-    return CLASS_TIME_LABELS[key] || key;
-  };
+  // formatTime moved to module scope
 
   const isClassTimeNow = (classDate: string, classTime: string | null) => {
     if (!classTime || !isToday(parseISO(classDate))) return false;
