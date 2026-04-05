@@ -592,12 +592,51 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   );
 }
 
-// ── Horizontal Toggle Column ──
-function ToggleColumn({ label, checked, onChange, savedKey, savedField, dimmed }: {
+// ── Yes/No Toggle Button Pair ──
+function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inline }: {
   label: string;
-  checked: boolean;
+  value: boolean | null;
   onChange: (v: boolean) => void;
   savedKey: string;
+  savedField: string | null;
+  dimmed?: boolean;
+  inline?: boolean;
+}) {
+  return (
+    <div className={cn(dimmed && "opacity-50", !inline && "space-y-1.5")}>
+      {label && <Label className="text-xs leading-tight block">{label}</Label>}
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={cn(
+            "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
+            value === true
+              ? "bg-success text-white border-success"
+              : "bg-background text-muted-foreground border-input hover:bg-muted"
+          )}
+          style={{ minHeight: '36px' }}
+        >
+          Yes
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={cn(
+            "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
+            value === false
+              ? "bg-destructive text-white border-destructive"
+              : "bg-background text-muted-foreground border-input hover:bg-muted"
+          )}
+          style={{ minHeight: '36px' }}
+        >
+          No
+        </button>
+        <SavedIndicator show={savedField === savedKey} />
+      </div>
+    </div>
+  );
+}
   savedField: string | null;
   dimmed?: boolean;
 }) {
