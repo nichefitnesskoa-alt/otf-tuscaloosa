@@ -20,6 +20,12 @@ import CoachFollowUpList from '@/features/followUp/CoachFollowUpList';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
 
+function formatTime(t: string) {
+  if (t === 'TBD') return 'TBD';
+  const key = t.substring(0, 5);
+  return CLASS_TIME_LABELS[key] || key;
+}
+
 interface CoachBooking {
   id: string;
   member_name: string;
