@@ -89,9 +89,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Follow-up queue
-  const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
-  const [followUpsOpen, setFollowUpsOpen] = useState(true);
 
   const isSecondIntro = !!booking.originating_booking_id;
   const coachName = booking.coach_name;
