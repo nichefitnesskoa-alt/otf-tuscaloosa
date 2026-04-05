@@ -402,8 +402,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <>
               <Separator />
               <div>
-                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — DID YOU HIT YOUR LEAD MEASURES?</h4>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class. This builds your scoreboard.</p>
+                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — LEAD MEASURES</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class.</p>
               </div>
 
               {/* Row 1 — Three toggles: shoutout permission, start, end */}
