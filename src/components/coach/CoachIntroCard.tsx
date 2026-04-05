@@ -1,20 +1,15 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
-
-import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Plus, Send, ChevronDown } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
-import { differenceInDays, format } from 'date-fns';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface CoachBooking {
   id: string;
@@ -66,14 +61,6 @@ function SavedIndicator({ show }: { show: boolean }) {
   return <span className="text-[10px] text-primary font-medium ml-2 animate-in fade-in">Saved</span>;
 }
 
-// ── Follow-Up Queue Item ──
-interface FollowUpItem {
-  id: string;
-  person_name: string;
-  scheduled_date: string;
-  created_at: string;
-  booking_id: string | null;
-}
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
   const { user } = useAuth();
@@ -94,14 +81,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [usedWhy, setUsedWhy] = useState(false);
   const [introducedMember, setIntroducedMember] = useState(false);
   const [memberName, setMemberName] = useState('');
-  const [pairPlan, setPairPlan] = useState('');
-  const [whyPlan, setWhyPlan] = useState(booking.coach_brief_why_moment || '');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Follow-up queue
-  const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
-  const [followUpsOpen, setFollowUpsOpen] = useState(true);
 
   const isSecondIntro = !!booking.originating_booking_id;
   const coachName = booking.coach_name;
@@ -130,8 +112,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
         setConvMeaning(d.sa_conversation_meaning || '');
         setConvObstacle(d.sa_conversation_obstacle || '');
         setConsent(d.shoutout_consent ?? null);
-        setPairPlan(d.coach_member_pair_plan || '');
-        setWhyPlan(d.coach_brief_why_moment || '');
       }
 
       if (runRes.data) {
@@ -144,23 +124,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     })();
   }, [booking.id, isSecondIntro]);
 
-  // Fetch coach follow-ups
-  useEffect(() => {
-    if (!coachName) return;
-    (async () => {
-      const { data } = await supabase
-        .from('follow_up_queue')
-        .select('id, person_name, scheduled_date, created_at, booking_id')
-        .eq('owner_role', 'Coach')
-        .eq('coach_owner', coachName)
-        .is('not_interested_at', null)
-        .is('transferred_to_sa_at', null)
-        .eq('status', 'pending')
-        .order('scheduled_date', { ascending: true })
-        .limit(20);
-      setFollowUps((data || []) as FollowUpItem[]);
-    })();
-  }, [coachName]);
 
   // Realtime for conversation updates from SA
   useEffect(() => {
@@ -229,14 +192,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     setMemberName(val);
     debounceSave('memberName', () => saveRunField({ relationship_experience: val || null }));
   };
-  const handlePairPlanChange = (val: string) => {
-    setPairPlan(val);
-    debounceSave('pairPlan', () => saveBookingField('coach_member_pair_plan', val || null));
-  };
-  const handleWhyPlanChange = (val: string) => {
-    setWhyPlan(val);
-    debounceSave('whyPlan', () => saveBookingField('coach_brief_why_moment', val || null));
-  };
 
   const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -250,14 +205,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     flashSaved('shoutout_consent');
   }, [booking.id, consent, userName]);
 
-  const handleNotInterested = async (fuId: string) => {
-    await supabase.from('follow_up_queue').update({
-      not_interested_at: new Date().toISOString(),
-      not_interested_by: userName,
-    }).eq('id', fuId);
-    setFollowUps(prev => prev.filter(f => f.id !== fuId));
-    toast.success('Marked as not interested');
-  };
 
   const truncate = (s: string | null, max: number) => {
     if (!s) return null;
@@ -388,19 +335,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* Pre-class intention field */}
-          <div className="space-y-1">
-            <div className="flex items-center">
-              <Label className="text-sm font-medium">How you'll use this today</Label>
-              <SavedIndicator show={savedField === 'coach_brief_why_moment'} />
-            </div>
-            <Textarea
-              value={whyPlan}
-              onChange={e => handleWhyPlanChange(e.target.value)}
-              placeholder="One sentence. Say it before you start coaching them."
-              className="min-h-[60px] text-sm border border-input"
-            />
-          </div>
 
           {/* Coach Notes (if saved) */}
           {booking.coach_notes && (
@@ -415,8 +349,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             <>
               <Separator />
               <div>
-                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — DID YOU HIT YOUR LEAD MEASURES?</h4>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class. This builds your scoreboard.</p>
+                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — LEAD MEASURES</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class.</p>
               </div>
 
               {/* Row 1 — Three toggles: shoutout permission, start, end */}
@@ -485,76 +419,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 </div>
               </div>
 
-              {/* Pairing plan */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1">
-                  <Label className="text-sm">Who are you planning to pair them with today?</Label>
-                  <SavedIndicator show={savedField === 'coach_member_pair_plan'} />
-                </div>
-                <NameAutocomplete value={pairPlan} onChange={handlePairPlanChange} placeholder="Member name" className="h-9 text-sm" />
-              </div>
             </>
           )}
 
-          {/* ══════ SECTION 3 — THEIR FOLLOW-UP QUEUE ══════ */}
-          <Separator />
-          <Collapsible open={followUpsOpen} onOpenChange={setFollowUpsOpen}>
-            <CollapsibleTrigger className="w-full flex items-center justify-between py-2 cursor-pointer" style={{ minHeight: '44px' }}>
-              <div>
-                <h4 className="font-bold text-sm tracking-wide">
-                  Your Follow-Up Queue{followUps.length > 0 ? ` (${followUps.length} due)` : ''}
-                </h4>
-                <p className="text-[10px] text-muted-foreground">People from your classes who need a touch from you.</p>
-              </div>
-              <ChevronDown className={cn("w-5 h-5 text-muted-foreground transition-transform", followUpsOpen && "rotate-180")} />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              {followUps.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic py-2">No follow-ups due. You're caught up.</p>
-              ) : (
-                <div className="space-y-1 mt-1">
-                  {followUps.map(fu => {
-                    const daysSince = differenceInDays(new Date(), new Date(fu.created_at));
-                    const scheduledDate = new Date(fu.scheduled_date + 'T12:00:00');
-                    const today = new Date(); today.setHours(0,0,0,0);
-                    const isOverdue = scheduledDate < today;
-                    const isDueToday = scheduledDate.toDateString() === today.toDateString();
-                    const priorityLabel = isOverdue ? 'Overdue' : isDueToday ? 'Due today' : 'This week';
-                    const priorityColor = isOverdue ? 'text-destructive' : isDueToday ? 'text-[hsl(20,90%,47%)]' : 'text-muted-foreground';
-
-                    return (
-                      <div key={fu.id} className="flex items-center justify-between px-2 py-2 rounded-md border bg-card hover:bg-muted/40 transition-colors" style={{ minHeight: '44px' }}>
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-sm font-medium truncate">{fu.person_name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">· {daysSince}d ago</span>
-                          <span className={cn("text-xs font-semibold shrink-0", priorityColor)}>{priorityLabel}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs gap-1 border border-input"
-                            onClick={() => toast.info('Script selector coming soon')}
-                          >
-                            <Send className="w-3 h-3" />
-                            Send Text
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleNotInterested(fu.id)}
-                          >
-                            Not Interested
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
 
           <Separator />
 
