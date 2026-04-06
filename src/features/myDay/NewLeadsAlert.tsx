@@ -167,7 +167,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
         leadId={selectedLead?.id}
         leadName={selectedLead ? `${selectedLead.first_name} ${selectedLead.last_name}` : null}
         leadPhone={selectedLead?.phone || null}
-        categoryFilter={['web_lead', 'cold_lead']}
+        categoryFilter="web_lead"
         saName={user?.name || 'Unknown'}
       />
     </>
