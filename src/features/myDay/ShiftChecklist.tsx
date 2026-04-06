@@ -235,8 +235,12 @@ export function ShiftChecklist() {
   };
 
   const navigateToFollowUp = () => {
-    // Dispatch event to switch to follow-up tab
     window.dispatchEvent(new CustomEvent('myday:switch-tab', { detail: { tab: 'followups' } }));
+  };
+
+  const openScriptDrawer = (categories: string[]) => {
+    setScriptDrawerCategories(categories);
+    setScriptDrawerOpen(true);
   };
 
   const completedCount = tasks.filter(t => t.completed).length;
