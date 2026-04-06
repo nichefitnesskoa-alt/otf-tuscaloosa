@@ -208,8 +208,8 @@ export default function Wig() {
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
     try {
-      const rangeStart = dateRange?.start ? format(dateRange.start, 'yyyy-MM-dd') : weekStartYMD;
-      const rangeEnd = dateRange?.end ? format(dateRange.end, 'yyyy-MM-dd') : weekEndYMD;
+      const rangeStart = rangeStartYMD;
+      const rangeEnd = rangeEndYMD;
 
       const [refRes, deployRes, milestoneRes] = await Promise.all([
         supabase
