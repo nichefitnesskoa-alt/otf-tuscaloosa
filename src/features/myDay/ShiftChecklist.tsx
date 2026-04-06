@@ -5,8 +5,18 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, Sun, Clock, Sunset, Calendar, ArrowRight } from 'lucide-react';
+import { Check, Sun, Clock, Sunset, Calendar, ArrowRight, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+
+/** Map task names to script category slugs for the Send Script button */
+function getScriptCategoryForTask(taskName: string): string[] | null {
+  const lower = taskName.toLowerCase();
+  if (lower.includes('send ig dm') || lower.includes('send dms')) return ['ig_dm'];
+  if (lower.includes('text newest lead') || lower.includes('text leads')) return ['web_lead', 'cold_lead'];
+  if (lower.includes('cold lead text') || lower.includes('send cold lead')) return ['cold_lead'];
+  return null;
+}
 
 type ShiftType = 'morning' | 'mid' | 'last' | 'weekend';
 
