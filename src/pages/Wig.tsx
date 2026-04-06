@@ -293,12 +293,13 @@ export default function Wig() {
         return !originatingMap.get(r.linked_intro_booked_id);
       });
 
-      // Filter by date range for weekly metrics
-      const weekRuns = firstIntroRuns.filter(r => {
+      // Filter by date range
+      const periodRuns = firstIntroRuns.filter(r => {
         const rd = r.run_date || (r.created_at || '').split('T')[0];
         if (!rd) return false;
+        if (!dateRange) return true;
         try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange?.start || weekStart, end: dateRange?.end || weekEnd });
+          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
         } catch { return false; }
       });
 
