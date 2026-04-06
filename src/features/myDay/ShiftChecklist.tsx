@@ -5,8 +5,18 @@ import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, Sun, Clock, Sunset, Calendar, ArrowRight } from 'lucide-react';
+import { Check, Sun, Clock, Sunset, Calendar, ArrowRight, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+
+/** Map task names to script category slugs for the Send Script button */
+function getScriptCategoryForTask(taskName: string): string[] | null {
+  const lower = taskName.toLowerCase();
+  if (lower.includes('send ig dm') || lower.includes('send dms')) return ['ig_dm'];
+  if (lower.includes('text newest lead') || lower.includes('text leads')) return ['web_lead', 'cold_lead'];
+  if (lower.includes('cold lead text') || lower.includes('send cold lead')) return ['cold_lead'];
+  return null;
+}
 
 type ShiftType = 'morning' | 'mid' | 'last' | 'weekend';
 
@@ -38,6 +48,8 @@ export function ShiftChecklist() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [todayFollowUpCount, setTodayFollowUpCount] = useState(0);
+  const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
+  const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // Fetch today's follow-up touches count
@@ -223,8 +235,12 @@ export function ShiftChecklist() {
   };
 
   const navigateToFollowUp = () => {
-    // Dispatch event to switch to follow-up tab
     window.dispatchEvent(new CustomEvent('myday:switch-tab', { detail: { tab: 'followups' } }));
+  };
+
+  const openScriptDrawer = (categories: string[]) => {
+    setScriptDrawerCategories(categories);
+    setScriptDrawerOpen(true);
   };
 
   const completedCount = tasks.filter(t => t.completed).length;
@@ -368,6 +384,22 @@ export function ShiftChecklist() {
                           </div>
                         )}
                       </div>
+                      {/* Send Script button for outreach tasks */}
+                      {(() => {
+                        const cats = getScriptCategoryForTask(task.name);
+                        if (!cats) return null;
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-[11px] px-2 shrink-0 mt-0.5 cursor-pointer gap-1 min-h-[44px]"
+                            onClick={() => openScriptDrawer(cats)}
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Send Script
+                          </Button>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -379,6 +411,14 @@ export function ShiftChecklist() {
           </div>
         </div>
       )}
+
+      {/* Script Send Drawer for shift tasks */}
+      <ScriptSendDrawer
+        open={scriptDrawerOpen}
+        onOpenChange={setScriptDrawerOpen}
+        categoryFilter={scriptDrawerCategories}
+        saName={user?.name || 'Unknown'}
+      />
     </div>
   );
 }

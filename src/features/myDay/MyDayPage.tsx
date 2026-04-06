@@ -22,7 +22,7 @@ import { ShiftChecklist } from './ShiftChecklist';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram, FileText } from 'lucide-react';
 import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
@@ -55,6 +55,7 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
+import { MyDayScriptsTab } from './MyDayScriptsTab';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -313,13 +314,17 @@ export default function MyDayPage() {
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
           {isUserAdmin ? (
-            <TabsList className="w-full grid grid-cols-6 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+            <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
               <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
                 <span>Intros</span>
                 {todayBookingsCount > 0 && (
                   <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="scripts" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Scripts</span>
               </TabsTrigger>
               <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Clock className="w-3.5 h-3.5" />
@@ -355,13 +360,17 @@ export default function MyDayPage() {
               </TabsTrigger>
             </TabsList>
           ) : (
-            <TabsList className="w-full grid grid-cols-2 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+            <TabsList className="w-full grid grid-cols-3 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
               <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
                 <span>Intros</span>
                 {todayBookingsCount > 0 && (
                   <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="scripts" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Scripts</span>
               </TabsTrigger>
               <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Clock className="w-3.5 h-3.5" />
@@ -382,6 +391,10 @@ export default function MyDayPage() {
             <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+          </TabsContent>
+
+          <TabsContent value="scripts" className="mt-0 space-y-3">
+            <MyDayScriptsTab />
           </TabsContent>
 
           <TabsContent value="followups" className="mt-0 space-y-3">
