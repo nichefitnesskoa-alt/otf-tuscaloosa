@@ -356,13 +356,17 @@ export default function MyDayPage() {
               </TabsTrigger>
             </TabsList>
           ) : (
-            <TabsList className="w-full grid grid-cols-2 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+            <TabsList className="w-full grid grid-cols-3 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
               <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
                 <span>Intros</span>
                 {todayBookingsCount > 0 && (
                   <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{todayBookingsCount}</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="scripts" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Scripts</span>
               </TabsTrigger>
               <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <Clock className="w-3.5 h-3.5" />
