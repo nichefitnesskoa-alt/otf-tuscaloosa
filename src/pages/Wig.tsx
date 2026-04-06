@@ -196,12 +196,9 @@ export default function Wig() {
     return 'bg-destructive';
   };
 
-  // Week boundaries for lead measures (Central Time)
-  const centralNow = useMemo(() => getNowCentral(), []);
-  const weekStart = useMemo(() => startOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
-  const weekEnd = useMemo(() => endOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
-  const weekStartYMD = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
-  const weekEndYMD = useMemo(() => format(weekEnd, 'yyyy-MM-dd'), [weekEnd]);
+  // Date range boundaries for lead measures
+  const rangeStartYMD = useMemo(() => dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-01'), [dateRange]);
+  const rangeEndYMD = useMemo(() => dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-dd'), [dateRange]);
 
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
