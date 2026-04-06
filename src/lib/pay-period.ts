@@ -191,6 +191,10 @@ export function getPresetLabel(preset: DatePreset, dateRange?: DateRange | null)
       return 'This Month';
     case 'last_month':
       return 'Last Month';
+    case 'this_quarter':
+      return 'This Quarter';
+    case 'last_quarter':
+      return 'Last Quarter';
     case 'pay_period':
       return 'Pay Period';
     case 'last_pay_period':
