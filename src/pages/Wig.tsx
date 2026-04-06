@@ -23,10 +23,30 @@ export default function Wig() {
   const { introsBooked, introsRun, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Date filter — default this_month
-  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
-  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  // Date filter — default this_month, persist in sessionStorage
+  const [datePreset, setDatePreset] = useState<DatePreset>(() => {
+    const saved = sessionStorage.getItem('wig_date_preset');
+    return (saved as DatePreset) || 'this_month';
+  });
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(() => {
+    const saved = sessionStorage.getItem('wig_custom_range');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { start: new Date(parsed.start), end: new Date(parsed.end) };
+      } catch { return undefined; }
+    }
+    return undefined;
+  });
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
+
+  // Persist date selection to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('wig_date_preset', datePreset);
+    if (customRange) {
+      sessionStorage.setItem('wig_custom_range', JSON.stringify({ start: customRange.start.toISOString(), end: customRange.end.toISOString() }));
+    }
+  }, [datePreset, customRange]);
 
   // Monthly lead input
   const [leadCount, setLeadCount] = useState<string>('');
