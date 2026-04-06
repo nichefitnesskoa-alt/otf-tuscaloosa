@@ -654,7 +654,7 @@ export default function Wig() {
       </div>
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
-      <MilestonesDeploySection />
+      <MilestonesDeploySection dateRange={dateRange} />
     </div>
   );
 }
