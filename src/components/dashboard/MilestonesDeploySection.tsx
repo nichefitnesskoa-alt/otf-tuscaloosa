@@ -118,7 +118,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
     });
     setLoading(false);
-  }, [weekStart, weekEnd]);
+  }, [rangeStartYMD, rangeEndYMD]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
