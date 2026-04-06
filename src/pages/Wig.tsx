@@ -322,7 +322,7 @@ export default function Wig() {
       );
 
       const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; paired: number }>();
-      weekRuns.forEach(r => {
+      periodRuns.forEach(r => {
         const name = r.coach_name;
         const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         ex.coached++;
