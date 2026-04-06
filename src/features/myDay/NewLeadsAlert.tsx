@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, Send, Inbox } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import { getNowCentral } from '@/lib/dateUtils';
 
 interface NewLead {
   id: string;
@@ -26,46 +27,78 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
   const { user } = useAuth();
   const [leads, setLeads] = useState<NewLead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [touchedLeadIds, setTouchedLeadIds] = useState<Set<string>>(new Set());
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<NewLead | null>(null);
 
-  useEffect(() => {
-    const fetchNewLeads = async () => {
-      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const fetchNewLeads = useCallback(async () => {
+    // 48-hour cutoff in Central Time
+    const now = getNowCentral();
+    const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
 
-      const { data: newLeads } = await supabase
-        .from('leads')
-        .select('id, first_name, last_name, phone, source, created_at')
-        .eq('stage', 'new')
-        .gte('created_at', cutoff)
-        .order('created_at', { ascending: false });
+    const { data: newLeads } = await supabase
+      .from('leads')
+      .select('id, first_name, last_name, phone, source, created_at')
+      .eq('stage', 'new')
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false });
 
-      if (!newLeads || newLeads.length === 0) {
-        setLeads([]);
-        setLoading(false);
-        return;
-      }
+    if (!newLeads || newLeads.length === 0) {
+      setLeads([]);
+      setLoading(false);
+      return;
+    }
 
-      const ids = newLeads.map(l => l.id);
-      const { data: activities } = await supabase
+    const ids = newLeads.map(l => l.id);
+
+    // Check both script_send_log and lead_activities for any contact
+    const [sendLogRes, activitiesRes] = await Promise.all([
+      supabase
+        .from('script_send_log')
+        .select('lead_id')
+        .in('lead_id', ids),
+      supabase
         .from('lead_activities')
         .select('lead_id')
-        .in('lead_id', ids);
+        .in('lead_id', ids),
+    ]);
 
-      const touchedIds = new Set((activities || []).map(a => a.lead_id));
-      const untouched = newLeads.filter(l => !touchedIds.has(l.id));
+    const contactedIds = new Set<string>();
+    (sendLogRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
+    (activitiesRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
 
-      setLeads(untouched);
-      setLoading(false);
-    };
-
-    fetchNewLeads();
-    const interval = setInterval(fetchNewLeads, 60000);
-    return () => clearInterval(interval);
+    const untouched = newLeads.filter(l => !contactedIds.has(l.id));
+    setLeads(untouched);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchNewLeads();
+
+    // Realtime: remove lead when script_send_log or lead_activities gets a new record
+    const channel = supabase
+      .channel('new-leads-contact-watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'script_send_log' }, (payload) => {
+        const leadId = (payload.new as any)?.lead_id;
+        if (leadId) {
+          setLeads(prev => prev.filter(l => l.id !== leadId));
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lead_activities' }, (payload) => {
+        const leadId = (payload.new as any)?.lead_id;
+        if (leadId) {
+          setLeads(prev => prev.filter(l => l.id !== leadId));
+        }
+      })
+      .subscribe();
+
+    const interval = setInterval(fetchNewLeads, 60000);
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchNewLeads]);
 
   const handleOpenScript = (lead: NewLead) => {
     setSelectedLead(lead);
@@ -73,15 +106,12 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
   };
 
   const handleDrawerClose = (open: boolean) => {
-    if (!open && selectedLead) {
-      // Mark as touched visually
-      setTouchedLeadIds(prev => new Set(prev).add(selectedLead.id));
+    if (!open) {
       setSelectedLead(null);
     }
     setDrawerOpen(open);
   };
 
-  // Always render — show empty state if no leads
   if (loading) {
     return (
       <Card className="border border-border bg-muted/10">
@@ -126,41 +156,32 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
           </div>
 
           <div className="divide-y divide-border">
-            {leads.map(lead => {
-              const isTouched = touchedLeadIds.has(lead.id);
-              return (
-                <div key={lead.id} className="flex items-center justify-between py-2 gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">{lead.first_name} {lead.last_name}</p>
-                      {isTouched && (
-                        <Badge className="text-[10px] h-4 bg-green-600/20 text-green-500 border-green-500/30 hover:bg-green-600/20">Touched</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{lead.source}</Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
-                      </span>
-                    </div>
+            {leads.map(lead => (
+              <div key={lead.id} className="flex items-center justify-between py-2 gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{lead.first_name} {lead.last_name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{lead.source}</Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDistanceToNow(parseISO(lead.created_at), { addSuffix: true })}
+                    </span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-9 text-xs gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 min-h-[44px] cursor-pointer"
-                    onClick={() => handleOpenScript(lead)}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Send Script
-                  </Button>
                 </div>
-              );
-            })}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-xs gap-1 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 min-h-[44px] cursor-pointer"
+                  onClick={() => handleOpenScript(lead)}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Send Script
+                </Button>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Script Send Drawer */}
       <ScriptSendDrawer
         open={drawerOpen}
         onOpenChange={handleDrawerClose}
