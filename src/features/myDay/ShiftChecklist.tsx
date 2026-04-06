@@ -48,6 +48,8 @@ export function ShiftChecklist() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [todayFollowUpCount, setTodayFollowUpCount] = useState(0);
+  const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
+  const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // Fetch today's follow-up touches count
