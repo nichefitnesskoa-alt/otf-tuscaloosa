@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Check, Plus, PartyPopper, Rocket, AlertTriangle, Pencil, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 interface MilestoneRow {
@@ -44,7 +44,11 @@ function isEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-export function MilestonesDeploySection() {
+interface MilestonesDeploySectionProps {
+  dateRange?: { start: Date; end: Date } | null;
+}
+
+export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionProps = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('celebrations');
@@ -80,8 +84,8 @@ export function MilestonesDeploySection() {
   const [depItem, setDepItem] = useState('');
   const [depSaving, setDepSaving] = useState(false);
 
-  const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const rangeStartYMD = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-01');
+  const rangeEndYMD = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -90,15 +94,15 @@ export function MilestonesDeploySection() {
         .from('milestones')
         .select('*')
         .eq('entry_type', 'milestone')
-        .gte('created_at', weekStart)
-        .lte('created_at', weekEnd + 'T23:59:59')
+        .gte('created_at', rangeStartYMD)
+        .lte('created_at', rangeEndYMD + 'T23:59:59')
         .order('created_at', { ascending: false }),
       supabase
         .from('milestones')
         .select('*')
         .eq('entry_type', 'deploy')
-        .gte('created_at', weekStart)
-        .lte('created_at', weekEnd + 'T23:59:59')
+        .gte('created_at', rangeStartYMD)
+        .lte('created_at', rangeEndYMD + 'T23:59:59')
         .order('created_at', { ascending: false }),
     ]);
 
@@ -114,7 +118,7 @@ export function MilestonesDeploySection() {
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
     });
     setLoading(false);
-  }, [weekStart, weekEnd]);
+  }, [rangeStartYMD, rangeEndYMD]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

@@ -74,6 +74,8 @@ export function DateRangeFilter({
     { preset: 'last_week', group: 'quick' },
     { preset: 'this_month', group: 'period' },
     { preset: 'last_month', group: 'period' },
+    { preset: 'this_quarter', group: 'period' },
+    { preset: 'last_quarter', group: 'period' },
     { preset: 'pay_period', group: 'period' },
     { preset: 'last_pay_period', group: 'period' },
     { preset: 'this_year', group: 'year' },

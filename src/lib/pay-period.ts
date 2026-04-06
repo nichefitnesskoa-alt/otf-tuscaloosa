@@ -1,4 +1,4 @@
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, differenceInDays, addDays, subDays, subMonths, subWeeks, subYears, format } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addDays, subDays, subMonths, subWeeks, subYears, format } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
 
 // Pay periods are biweekly, anchored to January 26, 2026
@@ -17,6 +17,8 @@ export type DatePreset =
   | 'last_week'
   | 'this_month'
   | 'last_month'
+  | 'this_quarter'
+  | 'last_quarter'
   | 'pay_period' 
   | 'last_pay_period'
   | 'this_year'
@@ -116,6 +118,20 @@ export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRang
         start: startOfMonth(lastMonth),
         end: endOfMonth(lastMonth),
       };
+
+    case 'this_quarter':
+      return {
+        start: startOfQuarter(today),
+        end: endOfQuarter(today),
+      };
+
+    case 'last_quarter':
+      // Go back 3 months to land in the previous quarter
+      const lastQ = subMonths(today, 3);
+      return {
+        start: startOfQuarter(lastQ),
+        end: endOfQuarter(lastQ),
+      };
     
     case 'pay_period':
       return getPayPeriodForDate(today);
@@ -175,6 +191,10 @@ export function getPresetLabel(preset: DatePreset, dateRange?: DateRange | null)
       return 'This Month';
     case 'last_month':
       return 'Last Month';
+    case 'this_quarter':
+      return 'This Quarter';
+    case 'last_quarter':
+      return 'Last Quarter';
     case 'pay_period':
       return 'Pay Period';
     case 'last_pay_period':

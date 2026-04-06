@@ -13,7 +13,7 @@ import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw 
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { format, isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
@@ -23,10 +23,30 @@ export default function Wig() {
   const { introsBooked, introsRun, isLoading, lastUpdated, refreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Date filter — default this_month
-  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
-  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  // Date filter — default this_month, persist in sessionStorage
+  const [datePreset, setDatePreset] = useState<DatePreset>(() => {
+    const saved = sessionStorage.getItem('wig_date_preset');
+    return (saved as DatePreset) || 'this_month';
+  });
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(() => {
+    const saved = sessionStorage.getItem('wig_custom_range');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { start: new Date(parsed.start), end: new Date(parsed.end) };
+      } catch { return undefined; }
+    }
+    return undefined;
+  });
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
+
+  // Persist date selection to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('wig_date_preset', datePreset);
+    if (customRange) {
+      sessionStorage.setItem('wig_custom_range', JSON.stringify({ start: customRange.start.toISOString(), end: customRange.end.toISOString() }));
+    }
+  }, [datePreset, customRange]);
 
   // Monthly lead input
   const [leadCount, setLeadCount] = useState<string>('');
@@ -176,12 +196,9 @@ export default function Wig() {
     return 'bg-destructive';
   };
 
-  // Week boundaries for lead measures (Central Time)
-  const centralNow = useMemo(() => getNowCentral(), []);
-  const weekStart = useMemo(() => startOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
-  const weekEnd = useMemo(() => endOfWeek(centralNow, { weekStartsOn: 1 }), [centralNow]);
-  const weekStartYMD = useMemo(() => format(weekStart, 'yyyy-MM-dd'), [weekStart]);
-  const weekEndYMD = useMemo(() => format(weekEnd, 'yyyy-MM-dd'), [weekEnd]);
+  // Date range boundaries for lead measures
+  const rangeStartYMD = useMemo(() => dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-01'), [dateRange]);
+  const rangeEndYMD = useMemo(() => dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-dd'), [dateRange]);
 
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
@@ -191,8 +208,8 @@ export default function Wig() {
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
     try {
-      const rangeStart = dateRange?.start ? format(dateRange.start, 'yyyy-MM-dd') : weekStartYMD;
-      const rangeEnd = dateRange?.end ? format(dateRange.end, 'yyyy-MM-dd') : weekEndYMD;
+      const rangeStart = rangeStartYMD;
+      const rangeEnd = rangeEndYMD;
 
       const [refRes, deployRes, milestoneRes] = await Promise.all([
         supabase
@@ -276,12 +293,13 @@ export default function Wig() {
         return !originatingMap.get(r.linked_intro_booked_id);
       });
 
-      // Filter by date range for weekly metrics
-      const weekRuns = firstIntroRuns.filter(r => {
+      // Filter by date range
+      const periodRuns = firstIntroRuns.filter(r => {
         const rd = r.run_date || (r.created_at || '').split('T')[0];
         if (!rd) return false;
+        if (!dateRange) return true;
         try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange?.start || weekStart, end: dateRange?.end || weekEnd });
+          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
         } catch { return false; }
       });
 
@@ -304,7 +322,7 @@ export default function Wig() {
       );
 
       const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; paired: number }>();
-      weekRuns.forEach(r => {
+      periodRuns.forEach(r => {
         const name = r.coach_name;
         const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
         ex.coached++;
@@ -352,7 +370,7 @@ export default function Wig() {
     } finally {
       setMeasuresLoading(false);
     }
-  }, [dateRange, weekStart, weekEnd, weekStartYMD, weekEndYMD, user?.role, user?.name]);
+  }, [dateRange, rangeStartYMD, rangeEndYMD, user?.role, user?.name]);
 
   useEffect(() => { loadLeadMeasures(); }, [loadLeadMeasures]);
 
@@ -634,7 +652,7 @@ export default function Wig() {
       </div>
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
-      <MilestonesDeploySection />
+      <MilestonesDeploySection dateRange={dateRange} />
     </div>
   );
 }
