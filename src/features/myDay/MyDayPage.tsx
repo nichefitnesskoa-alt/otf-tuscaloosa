@@ -393,6 +393,10 @@ export default function MyDayPage() {
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
           </TabsContent>
 
+          <TabsContent value="scripts" className="mt-0 space-y-3">
+            <MyDayScriptsTab />
+          </TabsContent>
+
           <TabsContent value="followups" className="mt-0 space-y-3">
             <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
