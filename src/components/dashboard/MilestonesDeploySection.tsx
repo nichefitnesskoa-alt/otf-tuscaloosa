@@ -44,7 +44,11 @@ function isEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-export function MilestonesDeploySection() {
+interface MilestonesDeploySectionProps {
+  dateRange?: { start: Date; end: Date } | null;
+}
+
+export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionProps = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('celebrations');
