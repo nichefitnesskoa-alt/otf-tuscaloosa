@@ -1,4 +1,4 @@
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, differenceInDays, addDays, subDays, subMonths, subWeeks, subYears, format } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addDays, subDays, subMonths, subWeeks, subYears, format } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
 
 // Pay periods are biweekly, anchored to January 26, 2026
@@ -17,6 +17,8 @@ export type DatePreset =
   | 'last_week'
   | 'this_month'
   | 'last_month'
+  | 'this_quarter'
+  | 'last_quarter'
   | 'pay_period' 
   | 'last_pay_period'
   | 'this_year'
