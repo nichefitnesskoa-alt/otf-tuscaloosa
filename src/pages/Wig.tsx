@@ -13,7 +13,7 @@ import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw 
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { format, isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
