@@ -118,6 +118,20 @@ export function getDateRangeForPreset(preset: DatePreset, customRange?: DateRang
         start: startOfMonth(lastMonth),
         end: endOfMonth(lastMonth),
       };
+
+    case 'this_quarter':
+      return {
+        start: startOfQuarter(today),
+        end: endOfQuarter(today),
+      };
+
+    case 'last_quarter':
+      // Go back 3 months to land in the previous quarter
+      const lastQ = subMonths(today, 3);
+      return {
+        start: startOfQuarter(lastQ),
+        end: endOfQuarter(lastQ),
+      };
     
     case 'pay_period':
       return getPayPeriodForDate(today);
