@@ -84,8 +84,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [depItem, setDepItem] = useState('');
   const [depSaving, setDepSaving] = useState(false);
 
-  const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const rangeStartYMD = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-01');
+  const rangeEndYMD = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
   const loadData = useCallback(async () => {
     setLoading(true);
