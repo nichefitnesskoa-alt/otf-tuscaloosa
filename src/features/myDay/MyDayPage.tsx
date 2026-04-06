@@ -22,7 +22,7 @@ import { ShiftChecklist } from './ShiftChecklist';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram } from 'lucide-react';
+import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram, FileText } from 'lucide-react';
 import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
