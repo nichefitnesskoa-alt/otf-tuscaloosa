@@ -94,15 +94,15 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         .from('milestones')
         .select('*')
         .eq('entry_type', 'milestone')
-        .gte('created_at', weekStart)
-        .lte('created_at', weekEnd + 'T23:59:59')
+        .gte('created_at', rangeStartYMD)
+        .lte('created_at', rangeEndYMD + 'T23:59:59')
         .order('created_at', { ascending: false }),
       supabase
         .from('milestones')
         .select('*')
         .eq('entry_type', 'deploy')
-        .gte('created_at', weekStart)
-        .lte('created_at', weekEnd + 'T23:59:59')
+        .gte('created_at', rangeStartYMD)
+        .lte('created_at', rangeEndYMD + 'T23:59:59')
         .order('created_at', { ascending: false }),
     ]);
 
