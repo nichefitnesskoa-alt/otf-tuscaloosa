@@ -55,6 +55,7 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
+import { MyDayScriptsTab } from './MyDayScriptsTab';
 
 export default function MyDayPage() {
   const { user } = useAuth();
