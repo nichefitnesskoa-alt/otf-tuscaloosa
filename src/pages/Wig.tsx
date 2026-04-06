@@ -370,7 +370,7 @@ export default function Wig() {
     } finally {
       setMeasuresLoading(false);
     }
-  }, [dateRange, weekStart, weekEnd, weekStartYMD, weekEndYMD, user?.role, user?.name]);
+  }, [dateRange, rangeStartYMD, rangeEndYMD, user?.role, user?.name]);
 
   useEffect(() => { loadLeadMeasures(); }, [loadLeadMeasures]);
 
