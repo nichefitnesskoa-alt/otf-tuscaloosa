@@ -384,6 +384,22 @@ export function ShiftChecklist() {
                           </div>
                         )}
                       </div>
+                      {/* Send Script button for outreach tasks */}
+                      {(() => {
+                        const cats = getScriptCategoryForTask(task.name);
+                        if (!cats) return null;
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-[11px] px-2 shrink-0 mt-0.5 cursor-pointer gap-1 min-h-[44px]"
+                            onClick={() => openScriptDrawer(cats)}
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Send Script
+                          </Button>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -395,6 +411,14 @@ export function ShiftChecklist() {
           </div>
         </div>
       )}
+
+      {/* Script Send Drawer for shift tasks */}
+      <ScriptSendDrawer
+        open={scriptDrawerOpen}
+        onOpenChange={setScriptDrawerOpen}
+        categoryFilter={scriptDrawerCategories}
+        saName={user?.name || 'Unknown'}
+      />
     </div>
   );
 }
