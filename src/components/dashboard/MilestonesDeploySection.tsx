@@ -412,6 +412,12 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                       {m.five_class_pack_gifted && (
                         <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
                       )}
+                      {/* Celebrated status badge */}
+                      {m.actually_celebrated ? (
+                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Celebrated</Badge>
+                      ) : (
+                        <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not yet celebrated</Badge>
+                      )}
                       {/* Pipeline status pill */}
                       {m.converted_to_lead_id ? (
                         <Badge
@@ -542,6 +548,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                   <div>
                     <Label className="text-xs">Milestone type *</Label>
                     <Input value={editType} onChange={e => setEditType(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
+                    <Label className="text-xs">Actually celebrated in studio?</Label>
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={editPack} onCheckedChange={setEditPack} />
