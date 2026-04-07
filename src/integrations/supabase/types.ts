@@ -1469,6 +1469,7 @@ export type Database = {
       }
       milestones: {
         Row: {
+          actually_celebrated: boolean
           converted_to_lead_id: string | null
           created_at: string
           created_by: string
@@ -1485,6 +1486,7 @@ export type Database = {
           milestone_type: string | null
         }
         Insert: {
+          actually_celebrated?: boolean
           converted_to_lead_id?: string | null
           created_at?: string
           created_by: string
@@ -1501,6 +1503,7 @@ export type Database = {
           milestone_type?: string | null
         }
         Update: {
+          actually_celebrated?: boolean
           converted_to_lead_id?: string | null
           created_at?: string
           created_by?: string
