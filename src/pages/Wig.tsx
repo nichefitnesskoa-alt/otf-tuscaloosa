@@ -497,13 +497,39 @@ export default function Wig() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {scoreCards.map(card => {
             const progressValue = Math.min((card.current / card.target) * 100, 100);
+            const isLeadCard = card.label === 'Leads this period';
             return (
               <Card key={card.label}>
                 <CardContent className="p-3 text-center space-y-1">
                   <p className={cn('text-2xl font-bold', getStatusColor(card.current, card.target))}>
                     {card.isPercent ? `${card.current.toFixed(0)}%` : card.current}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">Target: {card.isPercent ? `${card.target}%` : card.target}</p>
+                  {isLeadCard && editingTarget ? (
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-[10px] text-muted-foreground">Target:</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={targetInput}
+                        onChange={e => setTargetInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveTarget(); if (e.key === 'Escape') { setEditingTarget(false); setTargetInput(String(leadTarget)); } }}
+                        className="w-16 h-5 text-[10px] px-1 text-center"
+                        autoFocus
+                      />
+                      <Button size="sm" variant="ghost" className="h-5 px-1" onClick={handleSaveTarget}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <p
+                      className={cn('text-[10px] text-muted-foreground', isLeadCard && 'cursor-pointer hover:text-foreground hover:underline')}
+                      onClick={isLeadCard ? () => { setTargetInput(String(leadTarget)); setEditingTarget(true); } : undefined}
+                      title={isLeadCard ? 'Tap to edit target' : undefined}
+                    >
+                      Target: {card.isPercent ? `${card.target}%` : card.target}
+                      {isLeadCard && targetSaved && <span className="ml-1 text-success">Saved</span>}
+                    </p>
+                  )}
                   <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
                     <div
                       className={cn('h-full rounded-full transition-all', getBarColor(card.current, card.target))}
