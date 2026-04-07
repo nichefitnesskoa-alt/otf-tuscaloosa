@@ -238,6 +238,37 @@ export default function Wig() {
     return 'bg-destructive';
   };
 
+  // Pacing indicator for leads card
+  const pacingInfo = useMemo(() => {
+    if (!datePreset || !['this_month', 'this_quarter'].includes(datePreset)) return null;
+    if (totalLeads === 0 || leadTarget === 0) return null;
+
+    const today = getNowCentral();
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    if (datePreset === 'this_month') {
+      periodStart = startOfMonth(today);
+      periodEnd = endOfMonth(today);
+    } else {
+      periodStart = startOfQuarter(today);
+      periodEnd = endOfQuarter(today);
+    }
+
+    const daysElapsed = differenceInDays(today, periodStart) + 1;
+    const totalDays = differenceInDays(periodEnd, periodStart) + 1;
+    if (daysElapsed <= 0) return null;
+
+    const projected = Math.round((totalLeads / daysElapsed) * totalDays);
+    const color = projected >= leadTarget
+      ? 'text-success'
+      : projected >= leadTarget * 0.8
+        ? 'text-warning'
+        : 'text-destructive';
+
+    return { projected, color };
+  }, [datePreset, totalLeads, leadTarget]);
+
   // Date range boundaries for lead measures
   const rangeStartYMD = useMemo(() => dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-01'), [dateRange]);
   const rangeEndYMD = useMemo(() => dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(getNowCentral(), 'yyyy-MM-dd'), [dateRange]);

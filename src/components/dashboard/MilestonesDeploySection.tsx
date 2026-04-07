@@ -21,6 +21,7 @@ interface MilestoneRow {
   member_name: string;
   milestone_type: string | null;
   five_class_pack_gifted: boolean;
+  actually_celebrated: boolean;
   friend_name: string | null;
   friend_contact: string | null;
   converted_to_lead_id: string | null;
