@@ -67,6 +67,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [celFriendContact, setCelFriendContact] = useState('');
   const [celSaving, setCelSaving] = useState(false);
   const [celPipelineMsg, setCelPipelineMsg] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+  const [celCelebrated, setCelCelebrated] = useState(false);
 
   // Edit form state
   const [editOpen, setEditOpen] = useState(false);
@@ -78,6 +79,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [editFriendContact, setEditFriendContact] = useState('');
   const [editDepItem, setEditDepItem] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const [editCelebrated, setEditCelebrated] = useState(false);
 
   // Deploy form
   const [depOpen, setDepOpen] = useState(false);
