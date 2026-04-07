@@ -433,7 +433,7 @@ export default function Wig() {
   }
 
   const scoreCards = [
-    { label: 'Leads this period', current: totalLeads, target: 650, isPercent: false },
+    { label: 'Leads this period', current: totalLeads, target: leadTarget, isPercent: false },
     { label: 'Lead to booked', current: leadToBookedRate, target: 70, isPercent: true },
     { label: 'Booked to shown', current: bookedToShownRate, target: 70, isPercent: true },
     { label: 'Close rate', current: closeRate, target: 40, isPercent: true },
