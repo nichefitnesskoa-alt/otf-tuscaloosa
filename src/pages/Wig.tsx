@@ -136,6 +136,8 @@ export default function Wig() {
 
   // === FUNNEL DATA - matching Studio ConversionFunnel logic exactly ===
   const filteredBookings = useMemo(() => {
+    const todayCentral = getNowCentral();
+    const effectiveEnd = dateRange ? (dateRange.end < todayCentral ? dateRange.end : todayCentral) : todayCentral;
     return introsBooked.filter(b => {
       if ((b as any).is_vip) return false;
       if ((b as any).ignore_from_metrics) return false;
@@ -143,7 +145,7 @@ export default function Wig() {
       if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
       if (!dateRange) return true;
       try {
-        return isWithinInterval(parseLocalDate(b.class_date), { start: dateRange.start, end: dateRange.end });
+        return isWithinInterval(parseLocalDate(b.class_date), { start: dateRange.start, end: effectiveEnd });
       } catch { return false; }
     });
   }, [introsBooked, dateRange]);

@@ -150,10 +150,29 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   }, [booking.id]);
 
   const saveRunField = useCallback(async (fields: Record<string, any>) => {
-    if (!runData?.id) return;
-    await supabase.from('intros_run').update(fields as any).eq('id', runData.id);
-    flashSaved(Object.keys(fields)[0]);
-  }, [runData?.id]);
+    if (runData?.id) {
+      await supabase.from('intros_run').update(fields as any).eq('id', runData.id);
+      flashSaved(Object.keys(fields)[0]);
+      return;
+    }
+    // Auto-create intros_run record if none exists
+    const newRow = {
+      linked_intro_booked_id: booking.id,
+      member_name: booking.member_name,
+      class_time: booking.intro_time || '00:00',
+      run_date: booking.class_date,
+      coach_name: booking.coach_name,
+      result: 'Pending',
+      result_canon: 'UNRESOLVED',
+      is_vip: booking.is_vip,
+      ...fields,
+    };
+    const { data, error } = await supabase.from('intros_run').insert(newRow as any).select('id, goal_why_captured, made_a_friend, relationship_experience').single();
+    if (!error && data) {
+      setRunData(data as any);
+      flashSaved(Object.keys(fields)[0]);
+    }
+  }, [runData?.id, booking.id, booking.member_name, booking.intro_time, booking.class_date, booking.coach_name, booking.is_vip]);
 
   const debounceSave = useCallback((key: string, fn: () => void, delay = 800) => {
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
