@@ -21,6 +21,7 @@ interface MilestoneRow {
   member_name: string;
   milestone_type: string | null;
   five_class_pack_gifted: boolean;
+  actually_celebrated: boolean;
   friend_name: string | null;
   friend_contact: string | null;
   converted_to_lead_id: string | null;
@@ -66,6 +67,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [celFriendContact, setCelFriendContact] = useState('');
   const [celSaving, setCelSaving] = useState(false);
   const [celPipelineMsg, setCelPipelineMsg] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
+  const [celCelebrated, setCelCelebrated] = useState(false);
 
   // Edit form state
   const [editOpen, setEditOpen] = useState(false);
@@ -77,6 +79,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [editFriendContact, setEditFriendContact] = useState('');
   const [editDepItem, setEditDepItem] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+  const [editCelebrated, setEditCelebrated] = useState(false);
 
   // Deploy form
   const [depOpen, setDepOpen] = useState(false);
@@ -190,6 +193,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         member_name: celName.trim(),
         milestone_type: celType.trim(),
         five_class_pack_gifted: celPack,
+        actually_celebrated: celCelebrated,
         friend_name: celFriendName.trim() || null,
         friend_contact: celFriendContact.trim() || null,
         created_by: user.name,
@@ -209,7 +213,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
     toast.success('Celebration saved!');
     setCelSaving(false);
-    setCelName(''); setCelType(''); setCelPack(false);
+    setCelName(''); setCelType(''); setCelPack(false); setCelCelebrated(false);
     setCelFriendName(''); setCelFriendContact('');
     setCelOpen(false); setCelPipelineMsg(null);
     loadData();
@@ -245,6 +249,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditName(item.member_name);
     setEditType(item.milestone_type || '');
     setEditPack(item.five_class_pack_gifted);
+    setEditCelebrated(item.actually_celebrated ?? false);
     setEditFriendName(item.friend_name || '');
     setEditFriendContact(item.friend_contact || '');
     setEditDepItem(item.deploy_item_given || '');
@@ -264,6 +269,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     if (editItem.entry_type === 'milestone') {
       updates.milestone_type = editType.trim();
       updates.five_class_pack_gifted = editPack;
+      updates.actually_celebrated = editCelebrated;
       updates.friend_name = editFriendName.trim() || null;
       updates.friend_contact = editFriendContact.trim() || null;
     } else {
@@ -357,6 +363,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                     <Input value={celType} onChange={e => setCelType(e.target.value)} placeholder="e.g. 100, 500, Birthday" />
                   </div>
                   <div className="flex items-center gap-3">
+                    <Switch checked={celCelebrated} onCheckedChange={setCelCelebrated} />
+                    <Label className="text-xs">Actually celebrated in studio?</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <Switch checked={celPack} onCheckedChange={setCelPack} />
                     <Label className="text-xs">5-class pack gifted?</Label>
                   </div>
@@ -401,6 +411,12 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                       {/* Pack status pill */}
                       {m.five_class_pack_gifted && (
                         <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
+                      )}
+                      {/* Celebrated status badge */}
+                      {m.actually_celebrated ? (
+                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Celebrated</Badge>
+                      ) : (
+                        <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not yet celebrated</Badge>
                       )}
                       {/* Pipeline status pill */}
                       {m.converted_to_lead_id ? (
@@ -532,6 +548,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                   <div>
                     <Label className="text-xs">Milestone type *</Label>
                     <Input value={editType} onChange={e => setEditType(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
+                    <Label className="text-xs">Actually celebrated in studio?</Label>
                   </div>
                   <div className="flex items-center gap-3">
                     <Switch checked={editPack} onCheckedChange={setEditPack} />

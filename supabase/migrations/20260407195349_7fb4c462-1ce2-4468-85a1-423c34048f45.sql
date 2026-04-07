@@ -1,0 +1,1 @@
+ALTER TABLE public.milestones ADD COLUMN actually_celebrated boolean NOT NULL DEFAULT false;
