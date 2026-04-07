@@ -193,6 +193,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         member_name: celName.trim(),
         milestone_type: celType.trim(),
         five_class_pack_gifted: celPack,
+        actually_celebrated: celCelebrated,
         friend_name: celFriendName.trim() || null,
         friend_contact: celFriendContact.trim() || null,
         created_by: user.name,
@@ -212,7 +213,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
     toast.success('Celebration saved!');
     setCelSaving(false);
-    setCelName(''); setCelType(''); setCelPack(false);
+    setCelName(''); setCelType(''); setCelPack(false); setCelCelebrated(false);
     setCelFriendName(''); setCelFriendContact('');
     setCelOpen(false); setCelPipelineMsg(null);
     loadData();
@@ -248,6 +249,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditName(item.member_name);
     setEditType(item.milestone_type || '');
     setEditPack(item.five_class_pack_gifted);
+    setEditCelebrated(item.actually_celebrated ?? false);
     setEditFriendName(item.friend_name || '');
     setEditFriendContact(item.friend_contact || '');
     setEditDepItem(item.deploy_item_given || '');
@@ -267,6 +269,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     if (editItem.entry_type === 'milestone') {
       updates.milestone_type = editType.trim();
       updates.five_class_pack_gifted = editPack;
+      updates.actually_celebrated = editCelebrated;
       updates.friend_name = editFriendName.trim() || null;
       updates.friend_contact = editFriendContact.trim() || null;
     } else {
