@@ -363,6 +363,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                     <Input value={celType} onChange={e => setCelType(e.target.value)} placeholder="e.g. 100, 500, Birthday" />
                   </div>
                   <div className="flex items-center gap-3">
+                    <Switch checked={celCelebrated} onCheckedChange={setCelCelebrated} />
+                    <Label className="text-xs">Actually celebrated in studio?</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
                     <Switch checked={celPack} onCheckedChange={setCelPack} />
                     <Label className="text-xs">5-class pack gifted?</Label>
                   </div>
