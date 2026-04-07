@@ -13,7 +13,7 @@ import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw 
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, isWithinInterval } from 'date-fns';
+import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, startOfQuarter, endOfQuarter } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
@@ -537,6 +537,11 @@ export default function Wig() {
                     />
                   </div>
                   <p className="text-[10px] text-muted-foreground">{card.label}</p>
+                  {isLeadCard && pacingInfo && (
+                    <p className={cn('text-[10px] font-medium', pacingInfo.color)}>
+                      On pace for ~{pacingInfo.projected} {pacingInfo.projected >= leadTarget ? '✓' : ''}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             );
