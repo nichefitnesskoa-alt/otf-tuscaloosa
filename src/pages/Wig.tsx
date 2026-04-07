@@ -53,6 +53,46 @@ export default function Wig() {
   const [leadSaving, setLeadSaving] = useState(false);
   const [leadSaved, setLeadSaved] = useState(false);
 
+  // Editable lead target
+  const [leadTarget, setLeadTarget] = useState<number>(650);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState<string>('650');
+  const [targetSaved, setTargetSaved] = useState(false);
+
+  const loadLeadTarget = useCallback(async () => {
+    const { data } = await supabase
+      .from('studio_settings')
+      .select('setting_value')
+      .eq('setting_key', 'wig_lead_target')
+      .maybeSingle();
+    if (data) {
+      const val = parseInt((data as any).setting_value, 10);
+      if (!isNaN(val)) {
+        setLeadTarget(val);
+        setTargetInput(String(val));
+      }
+    }
+  }, []);
+
+  useEffect(() => { loadLeadTarget(); }, [loadLeadTarget]);
+
+  const handleSaveTarget = async () => {
+    const val = parseInt(targetInput, 10);
+    if (isNaN(val) || val < 0) return;
+    const { error } = await supabase
+      .from('studio_settings')
+      .update({ setting_value: String(val), updated_by: user?.name || 'unknown', updated_at: new Date().toISOString() } as any)
+      .eq('setting_key', 'wig_lead_target');
+    if (!error) {
+      setLeadTarget(val);
+      setEditingTarget(false);
+      setTargetSaved(true);
+      setTimeout(() => setTargetSaved(false), 2000);
+    } else {
+      toast.error('Failed to save target');
+    }
+  };
+
   // Monthly lead totals data
   const [monthlyLeadData, setMonthlyLeadData] = useState<{ month_year: string; lead_total: number }[]>([]);
 
