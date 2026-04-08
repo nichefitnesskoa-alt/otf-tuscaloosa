@@ -336,8 +336,6 @@ export default function Wig() {
         if (b.ignore_from_metrics) return false;
         const status = (b.booking_status_canon || '').toUpperCase();
         if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        // showed only
-        if (status !== 'SHOWED') return false;
         return true;
       });
 
@@ -348,6 +346,7 @@ export default function Wig() {
 
       // Fetch linked intros_run rows for run-side fields (goal_why_captured, made_a_friend, result)
       const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
+      const showedBookingIds = new Set<string>();
       const runsByBookingId = new Map<string, any>();
       if (firstIntroBookingIds.length > 0) {
         const runBatches: string[][] = [];
@@ -360,14 +359,17 @@ export default function Wig() {
           (runs || []).forEach((r: any) => {
             // Skip no-shows for run-side data
             if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
+            showedBookingIds.add(r.linked_intro_booked_id);
             runsByBookingId.set(r.linked_intro_booked_id, r);
           });
         }
       }
 
+      const showedFirstIntroBookings = firstIntroBookings.filter(b => showedBookingIds.has(b.id));
+
       // Aggregate coaches from booking data
       const coachMap = new Map<string, { coached: number; shoutouts: number; answeredShoutout: number; whyUsed: number; answeredWhy: number; friends: number; answeredFriend: number; paired: number; debriefed: number }>();
-      firstIntroBookings.forEach(b => {
+      showedFirstIntroBookings.forEach(b => {
         const name = b.coach_name;
         const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
         ex.coached++;
@@ -402,9 +404,10 @@ export default function Wig() {
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
       const coachCloseMap = new Map<string, { total: number; closed: number }>();
-      if (firstIntroBookingIds.length > 0) {
+      const showedFirstIntroBookingIds = showedFirstIntroBookings.map(b => b.id);
+      if (showedFirstIntroBookingIds.length > 0) {
         const closeBatches: string[][] = [];
-        for (let i = 0; i < firstIntroBookingIds.length; i += 500) closeBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (let i = 0; i < showedFirstIntroBookingIds.length; i += 500) closeBatches.push(showedFirstIntroBookingIds.slice(i, i + 500));
         for (const batch of closeBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
