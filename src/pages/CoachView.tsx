@@ -182,7 +182,7 @@ export default function CoachView() {
     return now >= classStart && now <= classEnd;
   };
 
-  const isClassTimePast = (classDate: string, classTime: string | null) => {
+  const isClassTimePastFn = (classDate: string, classTime: string | null) => {
     const dateObj = parseISO(classDate);
     if (isBefore(dateObj, parseISO(todayStr)) && !isToday(dateObj)) return true;
     if (!isToday(dateObj)) return false;
