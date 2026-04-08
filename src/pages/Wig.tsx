@@ -552,7 +552,7 @@ export default function Wig() {
         </Card>
 
         {/* Metric cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {scoreCards.map(card => {
             const progressValue = Math.min((card.current / card.target) * 100, 100);
             const isLeadCard = card.label === 'Leads this period';
@@ -606,49 +606,6 @@ export default function Wig() {
           })}
         </div>
 
-        {/* Funnel */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Live Conversion Funnel
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="flex flex-col items-center gap-1">
-              {[
-                { label: 'Leads', value: totalLeads, color: 'bg-muted text-foreground', width: 100 },
-                { label: 'Booked', value: effectiveBooked, color: 'bg-info/20 text-info border border-info/30', width: 85 },
-                { label: 'Shown', value: effectiveShowed, color: 'bg-warning/20 text-warning border border-warning/30', width: 70 },
-                { label: 'Closed', value: totalClosed, color: 'bg-success/20 text-success border border-success/30', width: 55 },
-              ].map((stage, i, arr) => (
-                <div key={stage.label} className="w-full">
-                  <div
-                    className={cn('flex items-center justify-between p-3 rounded-lg', stage.color)}
-                    style={{ width: `${stage.width}%`, margin: '0 auto' }}
-                  >
-                    <span className="text-sm font-medium">{stage.label}</span>
-                    <span className="text-lg font-bold">{stage.value}</span>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <div className="flex items-center justify-center my-1">
-                      <ArrowDown className="w-4 h-4 text-muted-foreground" />
-                      {arr[i + 1].value > 0 && stage.value > 0 && (
-                        <span className={cn(
-                          'ml-2 text-xs font-medium',
-                          (arr[i + 1].value / stage.value) >= 0.7 ? 'text-success' :
-                          (arr[i + 1].value / stage.value) >= 0.5 ? 'text-warning' : 'text-destructive'
-                        )}>
-                          {((arr[i + 1].value / stage.value) * 100).toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* SECTION 2 — LEAD MEASURES */}
