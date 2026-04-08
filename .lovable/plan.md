@@ -1,91 +1,81 @@
 
-
-# Coach Lead Measures Accuracy + Debrief Submit Flow
-
 ## Summary
-Four changes: (1) Filter coach lead measures to only count showed intros, (2) Remove default toggle states so NULL = unanswered, (3) Add Submit button with validation, (4) Show debrief status badge on collapsed cards. Plus debrief_rate column in WIG table.
+- Remove the top Lead to Booked %, Booked to Shown %, and the entire Live Conversion Funnel.
+- Leave only two top cards: Leads and Close Rate.
+- Fix Coach Lead Measures so coach answers actually populate in WIG again.
 
-## Database Migration
+## Root cause found
+- `src/pages/Wig.tsx` is querying `intros_run` for `coach_shoutout_start` and `coach_shoutout_end`.
+- Those fields live on `intros_booked`, not `intros_run`.
+- That makes the coach-measures load fail or return empty, so the WIG coach table can look blank even when coaches answered the debrief questions.
+- The page is also over-dependent on run rows for coach reporting, which can hide coach-entered answers.
 
-Add three columns to `intros_booked`:
-```sql
-ALTER TABLE public.intros_booked
-  ADD COLUMN coach_debrief_submitted boolean NOT NULL DEFAULT false,
-  ADD COLUMN coach_debrief_submitted_at timestamptz,
-  ADD COLUMN coach_debrief_submitted_by text;
-```
+## Affected file
+- `src/pages/Wig.tsx`
 
-## File Changes
+## Implementation
+1. Simplify the top of WIG
+   - Remove the Lead to Booked card.
+   - Remove the Booked to Shown card.
+   - Remove the Live Conversion Funnel card entirely.
+   - Keep the Leads card and the Close Rate card only.
+   - Keep the current date filter, lead target editing, pacing note, manual refresh, and saved feedback.
 
-### 1. `src/pages/Wig.tsx` — Coach measures filter + Debrief Rate column
+2. Rebuild Coach Lead Measures from the correct sources
+   - Use `intros_booked` as the base dataset for coach measures:
+     - first intros only
+     - non-deleted / non-VIP
+     - selected date range
+     - showed classes only
+   - Read booking-side coach fields from `intros_booked`:
+     - `shoutout_consent`
+     - `coach_shoutout_start`
+     - `coach_shoutout_end`
+     - `coach_debrief_submitted`
+     - `coach_name`
+   - Join linked `intros_run` rows by `linked_intro_booked_id` for run-side coach fields:
+     - `goal_why_captured`
+     - `made_a_friend`
+     - close outcome fields
+   - Keep NULL-aware math:
+     - unanswered values stay out of both numerator and denominator
+     - debrief rate stays based on submitted debriefs
+   - Keep role visibility the same:
+     - coaches see only themselves
+     - Koa/Admin can see all coaches
 
-**Coach measures query filter (lines 364-377):**
-Currently `periodRuns` includes all first-intro runs regardless of outcome. Add filter to exclude no-shows and unresolved:
-```
-periodRuns = firstIntroRuns.filter(r => {
-  // Exclude no-shows and unresolved
-  if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return false;
-  // existing date range filter...
-});
-```
+3. Preserve existing close-rate behavior
+   - Do not rework the studio close-rate logic.
+   - Only remove the unused top conversion metrics and funnel UI.
+   - Keep the top Close Rate card working off the existing WIG close-rate calculation.
 
-**NULL-aware rate calculations (lines 397-407):**
-Currently counts all `periodRuns` in denominator. Change to only count runs where the field is explicitly answered (not NULL):
-- `shoutouts`: count only where `coach_shoutout_start` is not null OR `coach_shoutout_end` is not null
-- `whyUsed`: count only where `goal_why_captured` is not null
-- `friends`: count only where `made_a_friend` is not null
+## Technical details
+- No database migration is needed.
+- No coach card UI change is required for this fix unless QA shows a separate save-path bug.
+- The existing `coach_wig_summary` view is not what this page is using today, so this fix stays in the current WIG page logic instead of changing backend reporting.
 
-Track separate `answered_*` counts for each metric to use as denominators instead of `coached`.
+## Data connections / downstream effects
+- `monthly_lead_totals`: unchanged, still powers the lead total input
+- `studio_settings`: unchanged, still stores the editable lead target
+- `intros_booked`: becomes the source of truth for coach attendance/debrief/shoutout fields
+- `intros_run`: still supplies run-only coach answers and close outcomes
+- SA Lead Measures, Milestones, and the rest of WIG stay unchanged
 
-**Add Debrief Rate column:**
-- Fetch `coach_debrief_submitted` from `intros_booked` for linked bookings
-- Calculate `debrief_rate = (submitted count / showed first intros) * 100`
-- Add column header "Debrief %" to Coach Lead Measures table
-- Color: green ≥ 90%, amber ≥ 70%, red below
+## Validation
+- Confirm the top area now shows only 2 cards.
+- Confirm Koa’s coach answers appear in the WIG Coach Lead Measures table.
+- Confirm Coach role still only sees their own row.
+- Confirm lead target editing and pacing still save and render correctly.
+- Confirm SA Lead Measures still load normally after the WIG refactor.
 
-### 2. `src/components/coach/CoachIntroCard.tsx` — Neutral defaults + Submit button
+## Audit against the 4 standards
+- Simplifies the job: only the 2 numbers you actually care about stay at the top.
+- Surfaces info at the right moment: coach accountability shows in the coach table, not hidden behind a broken query.
+- Ensures data accuracy: coach metrics will read from the tables where those answers are actually saved.
+- Maintains intuitiveness: no extra funnel, no dead percentages, no mismatch between what coaches answer and what WIG shows.
 
-**Remove default states (lines 73-76):**
-```typescript
-// Before:
-const [shoutoutStart, setShoutoutStart] = useState(booking.coach_shoutout_start ?? false);
-// After:
-const [shoutoutStart, setShoutoutStart] = useState<boolean | null>(booking.coach_shoutout_start ?? null);
-```
-Same for `shoutoutEnd`. For `usedWhy` and `introducedMember`, initialize from `runData` in the useEffect (line 114-116) keeping null until loaded.
-
-**Add debrief submitted state:**
-- Fetch `coach_debrief_submitted`, `coach_debrief_submitted_at`, `coach_debrief_submitted_by` from intros_booked on load
-- Add `[debriefSubmitted, setDebriefSubmitted]` state
-
-**Add Submit button after Row 2:**
-- Full-width, orange `#E8540A` background, white bold "Submit Lead Measures", 44px height
-- On tap: validate all 5 toggles are non-null. If any null, highlight with amber border + inline error message
-- If all answered: update `coach_debrief_submitted = true`, `coach_debrief_submitted_at = now()`, `coach_debrief_submitted_by = coachName`
-- After submit: button turns green "Lead Measures Submitted ✓" with subtitle "Submitted by [name] at [time]", disabled
-- Section header updates to "POST-CLASS — LEAD MEASURES ✓"
-
-**YesNoToggle neutral state:**
-Already handles `value === null` correctly — both buttons show gray outlined. No change needed to the component itself, only the initial state values.
-
-### 3. `src/pages/CoachView.tsx` — Debrief badge on collapsed card
-
-**Collapsed card header (around line 370-385 in ClassTimeIntroSelector):**
-- Fetch `coach_debrief_submitted` in the booking select query (line 104)
-- Add to CoachBooking interface
-- In collapsed header, after the questionnaire badge:
-  - If `coach_debrief_submitted === true`: green badge "Debrief ✓"
-  - If `coach_debrief_submitted === false/null` AND class time is past (Central Time): amber badge "Debrief needed"
-  - If class hasn't happened yet: no badge
-
-## What does NOT change
-- SA view, Pipeline, Follow-Up tabs
-- Database views (no coach_wig_summary view exists — calculations are inline in Wig.tsx)
-- Close rate denominator (already excludes no-shows by filtering `result_canon`)
-- Realtime subscriptions
-
-## Downstream effects
-- WIG Coach Lead Measures table will show more accurate rates (only showed intros in denominator)
-- Debrief Rate gives admin visibility into coach compliance
-- NULL toggles mean historical debriefs without explicit answers won't inflate or deflate rates
-
+## What will not change
+- No new tables, no schema changes, no auth changes
+- No Coach View layout changes
+- No SA workflow changes
+- No Milestones / Deploy changes
