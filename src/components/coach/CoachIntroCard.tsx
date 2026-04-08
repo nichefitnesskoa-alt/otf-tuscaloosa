@@ -3,10 +3,12 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
 
 interface CoachBooking {
   id: string;
@@ -69,26 +71,31 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [convObstacle, setConvObstacle] = useState('');
   const [consent, setConsent] = useState<boolean | null>(booking.shoutout_consent ?? null);
 
-  // Post-class debrief state
-  const [shoutoutStart, setShoutoutStart] = useState(booking.coach_shoutout_start ?? false);
-  const [shoutoutEnd, setShoutoutEnd] = useState(booking.coach_shoutout_end ?? false);
-  const [usedWhy, setUsedWhy] = useState(false);
-  const [introducedMember, setIntroducedMember] = useState(false);
+  // Post-class debrief state — NULL = unanswered
+  const [shoutoutStart, setShoutoutStart] = useState<boolean | null>(booking.coach_shoutout_start ?? null);
+  const [shoutoutEnd, setShoutoutEnd] = useState<boolean | null>(booking.coach_shoutout_end ?? null);
+  const [usedWhy, setUsedWhy] = useState<boolean | null>(null);
+  const [introducedMember, setIntroducedMember] = useState<boolean | null>(null);
   const [memberName, setMemberName] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Debrief submission state
+  const [debriefSubmitted, setDebriefSubmitted] = useState(false);
+  const [debriefSubmittedAt, setDebriefSubmittedAt] = useState<string | null>(null);
+  const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
   const isSecondIntro = !!booking.originating_booking_id;
   const coachName = booking.coach_name;
 
-  // Fetch conversation fields + run data + pair plan + follow-ups
+  // Fetch conversation fields + run data + debrief status
   useEffect(() => {
     (async () => {
-      const [convRes, runRes, bookingRes] = await Promise.all([
+      const [convRes, runRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, shoutout_consent, coach_member_pair_plan, coach_brief_why_moment')
+          .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, shoutout_consent, coach_member_pair_plan, coach_brief_why_moment, coach_debrief_submitted, coach_debrief_submitted_at, coach_debrief_submitted_by' as any)
           .eq('id', booking.id)
           .single(),
         !isSecondIntro ? supabase
@@ -97,7 +104,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           .eq('linked_intro_booked_id', booking.id)
           .limit(1)
           .maybeSingle() : Promise.resolve({ data: null }),
-        Promise.resolve(null),
       ]);
 
       if (convRes.data) {
@@ -106,13 +112,16 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
         setConvMeaning(d.sa_conversation_meaning || '');
         setConvObstacle(d.sa_conversation_obstacle || '');
         setConsent(d.shoutout_consent ?? null);
+        setDebriefSubmitted(d.coach_debrief_submitted === true);
+        setDebriefSubmittedAt(d.coach_debrief_submitted_at || null);
+        setDebriefSubmittedBy(d.coach_debrief_submitted_by || null);
       }
 
       if (runRes.data) {
         const rd = runRes.data as any;
         setRunData(rd);
-        setUsedWhy(rd.goal_why_captured === 'yes');
-        setIntroducedMember(rd.made_a_friend ?? false);
+        setUsedWhy(rd.goal_why_captured === 'yes' ? true : rd.goal_why_captured === 'no' ? false : null);
+        setIntroducedMember(rd.made_a_friend === true ? true : rd.made_a_friend === false ? false : null);
         setMemberName(rd.relationship_experience || '');
       }
     })();
@@ -181,11 +190,12 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
 
   // Post-class handlers
-  const handleShoutoutStart = (val: boolean) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); };
-  const handleShoutoutEnd = (val: boolean) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); };
-  const handleUsedWhy = (val: boolean) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); };
+  const handleShoutoutStart = (val: boolean) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); setValidationErrors(prev => { const n = new Set(prev); n.delete('coach_shoutout_start'); return n; }); };
+  const handleShoutoutEnd = (val: boolean) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); setValidationErrors(prev => { const n = new Set(prev); n.delete('coach_shoutout_end'); return n; }); };
+  const handleUsedWhy = (val: boolean) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); setValidationErrors(prev => { const n = new Set(prev); n.delete('goal_why_captured'); return n; }); };
   const handleIntroducedMember = (val: boolean) => {
     setIntroducedMember(val);
+    setValidationErrors(prev => { const n = new Set(prev); n.delete('made_a_friend'); return n; });
     if (!val) { setMemberName(''); saveRunField({ made_a_friend: false, relationship_experience: null }); }
     else { saveRunField({ made_a_friend: true }); }
   };
@@ -194,10 +204,17 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     debounceSave('memberName', () => saveRunField({ relationship_experience: val || null }));
   };
 
+  const handleConsentToggle = (val: boolean) => {
+    setConsent(val);
+    saveBookingField('shoutout_consent', val);
+    setValidationErrors(prev => { const n = new Set(prev); n.delete('shoutout_consent'); return n; });
+  };
+
   const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     const next = consent === true ? false : true;
     setConsent(next);
+    setValidationErrors(prev => { const n = new Set(prev); n.delete('shoutout_consent'); return n; });
     await supabase.from('intros_booked').update({
       shoutout_consent: next,
       last_edited_at: new Date().toISOString(),
@@ -206,6 +223,34 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     flashSaved('shoutout_consent');
   }, [booking.id, consent, userName]);
 
+  // Submit Lead Measures
+  const handleSubmitDebrief = async () => {
+    const errors = new Set<string>();
+    if (consent === null) errors.add('shoutout_consent');
+    if (shoutoutStart === null) errors.add('coach_shoutout_start');
+    if (shoutoutEnd === null) errors.add('coach_shoutout_end');
+    if (usedWhy === null) errors.add('goal_why_captured');
+    if (introducedMember === null) errors.add('made_a_friend');
+
+    if (errors.size > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const submitter = userName || coachName;
+    await supabase.from('intros_booked').update({
+      coach_debrief_submitted: true,
+      coach_debrief_submitted_at: now,
+      coach_debrief_submitted_by: submitter,
+    } as any).eq('id', booking.id);
+
+    setDebriefSubmitted(true);
+    setDebriefSubmittedAt(now);
+    setDebriefSubmittedBy(submitter);
+    setValidationErrors(new Set());
+    onUpdateBooking(booking.id, { coach_debrief_submitted: true } as any);
+  };
 
   const truncate = (s: string | null, max: number) => {
     if (!s) return null;
@@ -348,7 +393,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
               <Separator />
               <div>
-                <h4 className="font-bold text-sm tracking-wide">POST-CLASS — LEAD MEASURES</h4>
+                <h4 className="font-bold text-sm tracking-wide">
+                  {debriefSubmitted ? 'POST-CLASS — LEAD MEASURES ✓' : 'POST-CLASS — LEAD MEASURES'}
+                </h4>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Answer after every first-timer class.</p>
               </div>
 
@@ -357,25 +404,28 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 <YesNoToggle
                   label="Did you ask for shoutout permission?"
                   value={consent}
-                  onChange={(val) => { setConsent(val); saveBookingField('shoutout_consent', val); }}
+                  onChange={(val) => handleConsentToggle(val)}
                   savedKey="shoutout_consent"
                   savedField={savedField}
+                  hasError={validationErrors.has('shoutout_consent')}
                 />
                 <YesNoToggle
                   label="Did you shout them out at the start of class?"
-                  value={shoutoutStart ? true : shoutoutStart === false ? false : null}
-                  onChange={(val) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); }}
+                  value={shoutoutStart}
+                  onChange={(val) => handleShoutoutStart(val)}
                   savedKey="coach_shoutout_start"
                   savedField={savedField}
                   dimmed={consent === false}
+                  hasError={validationErrors.has('coach_shoutout_start')}
                 />
                 <YesNoToggle
                   label="Did you shout them out at the end of class?"
-                  value={shoutoutEnd ? true : shoutoutEnd === false ? false : null}
-                  onChange={(val) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); }}
+                  value={shoutoutEnd}
+                  onChange={(val) => handleShoutoutEnd(val)}
                   savedKey="coach_shoutout_end"
                   savedField={savedField}
                   dimmed={consent === false}
+                  hasError={validationErrors.has('coach_shoutout_end')}
                 />
               </div>
 
@@ -385,11 +435,12 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                   <Label className="text-xs leading-tight block">Did you get curious — ask 1 or 2 follow-up questions about their goal and give personalized advice?</Label>
                   <YesNoToggle
                     label=""
-                    value={usedWhy ? true : usedWhy === false && runData ? false : null}
-                    onChange={(val) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); }}
+                    value={usedWhy}
+                    onChange={(val) => handleUsedWhy(val)}
                     savedKey="goal_why_captured"
                     savedField={savedField}
                     inline
+                    hasError={validationErrors.has('goal_why_captured')}
                   />
                 </div>
 
@@ -400,11 +451,12 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                   </div>
                   <YesNoToggle
                     label=""
-                    value={introducedMember ? true : introducedMember === false && runData ? false : null}
+                    value={introducedMember}
                     onChange={handleIntroducedMember}
                     savedKey="made_a_friend"
                     savedField={savedField}
                     inline
+                    hasError={validationErrors.has('made_a_friend')}
                   />
                   {introducedMember && (
                     <div>
@@ -421,6 +473,40 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 </div>
               </div>
 
+              {/* Validation error message */}
+              {validationErrors.size > 0 && (
+                <p className="text-sm font-medium" style={{ color: 'hsl(40, 91%, 49%)' }}>
+                  Please answer all questions before submitting.
+                </p>
+              )}
+
+              {/* Submit / Submitted button */}
+              {debriefSubmitted ? (
+                <div className="space-y-1">
+                  <Button
+                    disabled
+                    className="w-full text-white font-bold bg-success hover:bg-success cursor-default"
+                    style={{ minHeight: '44px' }}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Lead Measures Submitted ✓
+                  </Button>
+                  {debriefSubmittedBy && debriefSubmittedAt && (
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      Submitted by {debriefSubmittedBy} at {format(new Date(debriefSubmittedAt), 'h:mm a')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  onClick={handleSubmitDebrief}
+                  className="w-full text-white font-bold hover:opacity-90"
+                  style={{ minHeight: '44px', backgroundColor: '#E8540A' }}
+                >
+                  Submit Lead Measures
+                </Button>
+              )}
+
           {booking.last_edited_by && booking.last_edited_at && (
             <p className="text-[10px] text-muted-foreground text-right">
               Last edited by {booking.last_edited_by} · {new Date(booking.last_edited_at).toLocaleString()}
@@ -434,7 +520,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 }
 
 // ── Yes/No Toggle Button Pair ──
-function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inline }: {
+function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inline, hasError }: {
   label: string;
   value: boolean | null;
   onChange: (v: boolean) => void;
@@ -442,11 +528,12 @@ function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inl
   savedField: string | null;
   dimmed?: boolean;
   inline?: boolean;
+  hasError?: boolean;
 }) {
   return (
     <div className={cn(dimmed && "opacity-50", !inline && "space-y-1.5")}>
       {label && <Label className="text-xs leading-tight block">{label}</Label>}
-      <div className="flex items-center gap-1.5">
+      <div className={cn("flex items-center gap-1.5 rounded-md p-0.5", hasError && "ring-2 ring-warning")}>
         <button
           type="button"
           onClick={() => onChange(true)}

@@ -899,6 +899,9 @@ export type Database = {
           coach_brief_five_vision: string | null
           coach_brief_human_detail: string | null
           coach_brief_why_moment: string | null
+          coach_debrief_submitted: boolean
+          coach_debrief_submitted_at: string | null
+          coach_debrief_submitted_by: string | null
           coach_member_pair_plan: string | null
           coach_name: string
           coach_notes: string | null
@@ -969,6 +972,9 @@ export type Database = {
           coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
           coach_brief_why_moment?: string | null
+          coach_debrief_submitted?: boolean
+          coach_debrief_submitted_at?: string | null
+          coach_debrief_submitted_by?: string | null
           coach_member_pair_plan?: string | null
           coach_name: string
           coach_notes?: string | null
@@ -1039,6 +1045,9 @@ export type Database = {
           coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
           coach_brief_why_moment?: string | null
+          coach_debrief_submitted?: boolean
+          coach_debrief_submitted_at?: string | null
+          coach_debrief_submitted_by?: string | null
           coach_member_pair_plan?: string | null
           coach_name?: string
           coach_notes?: string | null

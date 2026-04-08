@@ -334,7 +334,9 @@ export default function Wig() {
       const coachRunsRes = await supabase
         .from('intros_run')
         .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
-        .not('coach_name', 'is', null);
+        .not('coach_name', 'is', null)
+        .neq('result_canon', 'NO_SHOW')
+        .neq('result_canon', 'UNRESOLVED');
 
       // Also fetch coach_member_pair_plan from intros_booked for pairing rate
       const pairPlanRes = await supabase
@@ -394,15 +396,41 @@ export default function Wig() {
           .map(b => b.id)
       );
 
-      const coachMap = new Map<string, { coached: number; shoutouts: number; whyUsed: number; friends: number; paired: number }>();
+      // Fetch debrief submission data for debrief rate
+      const debriefBookingIds = periodRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
+      const debriefMap = new Map<string, boolean>();
+      if (debriefBookingIds.length > 0) {
+        const debriefBatches: string[][] = [];
+        for (let i = 0; i < debriefBookingIds.length; i += 500) debriefBatches.push(debriefBookingIds.slice(i, i + 500));
+        for (const batch of debriefBatches) {
+          const { data: dRows } = await supabase
+            .from('intros_booked')
+            .select('id, coach_debrief_submitted' as any)
+            .in('id', batch);
+          (dRows || []).forEach((b: any) => { debriefMap.set(b.id, b.coach_debrief_submitted === true); });
+        }
+      }
+
+      const coachMap = new Map<string, { coached: number; shoutouts: number; answeredShoutout: number; whyUsed: number; answeredWhy: number; friends: number; answeredFriend: number; paired: number; debriefed: number }>();
       periodRuns.forEach(r => {
         const name = r.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
+        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
         ex.coached++;
-        if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
-        if (r.goal_why_captured === 'yes') ex.whyUsed++;
-        if (r.made_a_friend) ex.friends++;
+        // Only count answered (non-null) for rates
+        if (r.coach_shoutout_start != null || r.coach_shoutout_end != null) {
+          ex.answeredShoutout++;
+          if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
+        }
+        if (r.goal_why_captured != null) {
+          ex.answeredWhy++;
+          if (r.goal_why_captured === 'yes') ex.whyUsed++;
+        }
+        if (r.made_a_friend != null) {
+          ex.answeredFriend++;
+          if (r.made_a_friend) ex.friends++;
+        }
         if (r.linked_intro_booked_id && pairPlanBookingIds.has(r.linked_intro_booked_id)) ex.paired++;
+        if (r.linked_intro_booked_id && debriefMap.get(r.linked_intro_booked_id)) ex.debriefed++;
         coachMap.set(name, ex);
       });
 
@@ -417,17 +445,18 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, whyUsed: 0, friends: 0, paired: 0 };
+        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
         return {
           name,
           coached: wk.coached,
-          shoutoutRate: wk.coached > 0 ? (wk.shoutouts / wk.coached) * 100 : 0,
-          whyUsedRate: wk.coached > 0 ? (wk.whyUsed / wk.coached) * 100 : 0,
-          friendRate: wk.coached > 0 ? (wk.friends / wk.coached) * 100 : 0,
+          shoutoutRate: wk.answeredShoutout > 0 ? (wk.shoutouts / wk.answeredShoutout) * 100 : 0,
+          whyUsedRate: wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0,
+          friendRate: wk.answeredFriend > 0 ? (wk.friends / wk.answeredFriend) * 100 : 0,
           pairingRate: wk.coached > 0 ? (wk.paired / wk.coached) * 100 : 0,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
+          debriefRate: wk.coached > 0 ? (wk.debriefed / wk.coached) * 100 : 0,
         };
       }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
 
@@ -705,6 +734,7 @@ export default function Wig() {
                     <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
+                      <TableHead className="text-xs text-center">Debrief %</TableHead>
                       <TableHead className="text-xs text-center">Shoutout %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
                       <TableHead className="text-xs text-center">Intro to Member %</TableHead>
@@ -717,6 +747,11 @@ export default function Wig() {
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
                         <TableCell className="text-sm text-center">{row.coached}</TableCell>
+                        <TableCell className="text-sm text-center">
+                          <span className={row.debriefRate >= 90 ? 'text-success' : row.debriefRate >= 70 ? 'text-warning' : 'text-destructive'}>
+                            {row.debriefRate.toFixed(0)}%
+                          </span>
+                        </TableCell>
                         <TableCell className="text-sm text-center">
                           <span className={row.shoutoutRate >= 100 ? 'text-success' : row.shoutoutRate >= 50 ? 'text-warning' : 'text-destructive'}>
                             {row.shoutoutRate.toFixed(0)}%
