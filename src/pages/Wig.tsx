@@ -330,109 +330,106 @@ export default function Wig() {
       const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
       setSaLeadMeasures(saData);
 
-      // Coach measures
-      const coachRunsRes = await supabase
-        .from('intros_run')
-        .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
-        .not('coach_name', 'is', null)
-        .neq('result_canon', 'NO_SHOW')
-        .neq('result_canon', 'UNRESOLVED');
-
-      // Also fetch coach_member_pair_plan from intros_booked for pairing rate
-      const pairPlanRes = await supabase
+      // Coach measures — use intros_booked as base for shoutout fields
+      // Fetch showed first-intro bookings for the date range
+      const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_member_pair_plan, originating_booking_id')
-        .not('coach_member_pair_plan', 'is', null);
+        .select('id, coach_name, coach_shoutout_start, coach_shoutout_end, shoutout_consent, coach_debrief_submitted, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, coach_member_pair_plan')
+        .gte('class_date', rangeStart)
+        .lte('class_date', rangeEnd)
+        .not('coach_name', 'is', null);
 
-      const allCoachRuns = (coachRunsRes.data || []) as any[];
+      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => {
+        if (b.is_vip) return false;
+        if (b.ignore_from_metrics) return false;
+        const status = (b.booking_status_canon || '').toUpperCase();
+        if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+        // showed only
+        if (status !== 'SHOWED') return false;
+        return true;
+      });
 
-      // Get first intros only (check originating_booking_id)
-      const linkedIds = allCoachRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
-      const originatingMap = new Map<string, boolean>();
-      if (linkedIds.length > 0) {
-        const batches: string[][] = [];
-        for (let i = 0; i < linkedIds.length; i += 500) batches.push(linkedIds.slice(i, i + 500));
-        for (const batch of batches) {
-          const { data: bookings } = await supabase
-            .from('intros_booked')
-            .select('id, originating_booking_id')
-            .in('id', batch);
-          (bookings || []).forEach((b: any) => {
-            originatingMap.set(b.id, !!b.originating_booking_id);
+      // First intros only (no originating_booking_id, unless it's a referral)
+      const firstIntroBookings = allCoachBookings.filter(b =>
+        !b.originating_booking_id || !!b.referred_by_member_name
+      );
+
+      // Fetch linked intros_run rows for run-side fields (goal_why_captured, made_a_friend, result)
+      const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
+      const runsByBookingId = new Map<string, any>();
+      if (firstIntroBookingIds.length > 0) {
+        const runBatches: string[][] = [];
+        for (let i = 0; i < firstIntroBookingIds.length; i += 500) runBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (const batch of runBatches) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, goal_why_captured, made_a_friend, result, result_canon')
+            .in('linked_intro_booked_id', batch);
+          (runs || []).forEach((r: any) => {
+            // Skip no-shows for run-side data
+            if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
+            runsByBookingId.set(r.linked_intro_booked_id, r);
           });
         }
       }
 
-      const firstIntroRuns = allCoachRuns.filter(r => {
-        if (!r.linked_intro_booked_id) return true;
-        return !originatingMap.get(r.linked_intro_booked_id);
-      });
-
-      // Filter by date range
-      const periodRuns = firstIntroRuns.filter(r => {
-        const rd = r.run_date || (r.created_at || '').split('T')[0];
-        if (!rd) return false;
-        if (!dateRange) return true;
-        try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
-        } catch { return false; }
-      });
-
-      // All-time for close rate (or date-range filtered)
-      const closeRateRuns = firstIntroRuns.filter(r => {
-        const rd = r.run_date || (r.created_at || '').split('T')[0];
-        if (!rd) return false;
-        if (!dateRange) return true;
-        try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
-        } catch { return false; }
-      });
-
-      // Aggregate coaches
-      // Build pairing plan set (first intros with coach_member_pair_plan set)
-      const pairPlanBookingIds = new Set(
-        ((pairPlanRes.data || []) as any[])
-          .filter(b => !b.originating_booking_id)
-          .map(b => b.id)
-      );
-
-      // Fetch debrief submission data for debrief rate
-      const debriefBookingIds = periodRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
-      const debriefMap = new Map<string, boolean>();
-      if (debriefBookingIds.length > 0) {
-        const debriefBatches: string[][] = [];
-        for (let i = 0; i < debriefBookingIds.length; i += 500) debriefBatches.push(debriefBookingIds.slice(i, i + 500));
-        for (const batch of debriefBatches) {
-          const { data: dRows } = await supabase
-            .from('intros_booked')
-            .select('id, coach_debrief_submitted' as any)
-            .in('id', batch);
-          (dRows || []).forEach((b: any) => { debriefMap.set(b.id, b.coach_debrief_submitted === true); });
-        }
-      }
-
+      // Aggregate coaches from booking data
       const coachMap = new Map<string, { coached: number; shoutouts: number; answeredShoutout: number; whyUsed: number; answeredWhy: number; friends: number; answeredFriend: number; paired: number; debriefed: number }>();
-      periodRuns.forEach(r => {
-        const name = r.coach_name;
+      firstIntroBookings.forEach(b => {
+        const name = b.coach_name;
         const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
         ex.coached++;
-        // Only count answered (non-null) for rates
-        if (r.coach_shoutout_start != null || r.coach_shoutout_end != null) {
+
+        // Shoutout fields from intros_booked
+        if (b.coach_shoutout_start != null || b.coach_shoutout_end != null) {
           ex.answeredShoutout++;
-          if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
+          if (b.coach_shoutout_start || b.coach_shoutout_end) ex.shoutouts++;
         }
-        if (r.goal_why_captured != null) {
-          ex.answeredWhy++;
-          if (r.goal_why_captured === 'yes') ex.whyUsed++;
+
+        // Run-side fields
+        const run = runsByBookingId.get(b.id);
+        if (run) {
+          if (run.goal_why_captured != null) {
+            ex.answeredWhy++;
+            if (run.goal_why_captured === 'yes') ex.whyUsed++;
+          }
+          if (run.made_a_friend != null) {
+            ex.answeredFriend++;
+            if (run.made_a_friend) ex.friends++;
+          }
         }
-        if (r.made_a_friend != null) {
-          ex.answeredFriend++;
-          if (r.made_a_friend) ex.friends++;
-        }
-        if (r.linked_intro_booked_id && pairPlanBookingIds.has(r.linked_intro_booked_id)) ex.paired++;
-        if (r.linked_intro_booked_id && debriefMap.get(r.linked_intro_booked_id)) ex.debriefed++;
+
+        // Pairing
+        if (b.coach_member_pair_plan) ex.paired++;
+
+        // Debrief submitted
+        if (b.coach_debrief_submitted) ex.debriefed++;
+
         coachMap.set(name, ex);
       });
+
+      // Close rate from intros_run (period runs for first intros, excluding no-shows)
+      const coachCloseMap = new Map<string, { total: number; closed: number }>();
+      if (firstIntroBookingIds.length > 0) {
+        const closeBatches: string[][] = [];
+        for (let i = 0; i < firstIntroBookingIds.length; i += 500) closeBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (const batch of closeBatches) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, coach_name, result, result_canon')
+            .in('linked_intro_booked_id', batch)
+            .neq('result_canon', 'NO_SHOW')
+            .neq('result_canon', 'UNRESOLVED');
+          (runs || []).forEach((r: any) => {
+            const cName = r.coach_name;
+            if (!cName) return;
+            const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
+            ex.total++;
+            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
+            coachCloseMap.set(cName, ex);
+          });
+        }
+      }
 
       const coachCloseMap = new Map<string, { total: number; closed: number }>();
       closeRateRuns.forEach(r => {
