@@ -190,8 +190,6 @@ export default function Wig() {
     });
   }, [introsBooked, dateRange]);
 
-  const totalBooked = filteredBookings.length;
-
   // Showed: match Studio logic - check intros_run linked to bookings, result !== 'No-show'
   const totalShowed = useMemo(() => {
     let count = 0;
@@ -209,19 +207,13 @@ export default function Wig() {
     let count = 0;
     introsRun.forEach(r => {
       if (!isSaleInRange(r, dateRange || null)) return;
-      // If linked to a booking, make sure it's in our active set
       if (r.linked_intro_booked_id && !activeBookingIds.has(r.linked_intro_booked_id)) return;
       count++;
     });
     return count;
   }, [introsRun, dateRange, filteredBookings]);
 
-  // Pull-forward: ensure funnel doesn't show impossible numbers
   const effectiveShowed = Math.max(totalShowed, totalClosed);
-  const effectiveBooked = Math.max(totalBooked, effectiveShowed);
-
-  const leadToBookedRate = totalLeads > 0 ? (effectiveBooked / totalLeads) * 100 : 0;
-  const bookedToShownRate = effectiveBooked > 0 ? (effectiveShowed / effectiveBooked) * 100 : 0;
   const closeRate = effectiveShowed > 0 ? (totalClosed / effectiveShowed) * 100 : 0;
 
   const getStatusColor = (current: number, target: number) => {
