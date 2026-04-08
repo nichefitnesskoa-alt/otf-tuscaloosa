@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
-import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -190,8 +190,6 @@ export default function Wig() {
     });
   }, [introsBooked, dateRange]);
 
-  const totalBooked = filteredBookings.length;
-
   // Showed: match Studio logic - check intros_run linked to bookings, result !== 'No-show'
   const totalShowed = useMemo(() => {
     let count = 0;
@@ -209,19 +207,13 @@ export default function Wig() {
     let count = 0;
     introsRun.forEach(r => {
       if (!isSaleInRange(r, dateRange || null)) return;
-      // If linked to a booking, make sure it's in our active set
       if (r.linked_intro_booked_id && !activeBookingIds.has(r.linked_intro_booked_id)) return;
       count++;
     });
     return count;
   }, [introsRun, dateRange, filteredBookings]);
 
-  // Pull-forward: ensure funnel doesn't show impossible numbers
   const effectiveShowed = Math.max(totalShowed, totalClosed);
-  const effectiveBooked = Math.max(totalBooked, effectiveShowed);
-
-  const leadToBookedRate = totalLeads > 0 ? (effectiveBooked / totalLeads) * 100 : 0;
-  const bookedToShownRate = effectiveBooked > 0 ? (effectiveShowed / effectiveBooked) * 100 : 0;
   const closeRate = effectiveShowed > 0 ? (totalClosed / effectiveShowed) * 100 : 0;
 
   const getStatusColor = (current: number, target: number) => {
@@ -330,118 +322,107 @@ export default function Wig() {
       const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
       setSaLeadMeasures(saData);
 
-      // Coach measures
-      const coachRunsRes = await supabase
-        .from('intros_run')
-        .select('coach_name, coach_shoutout_start, coach_shoutout_end, goal_why_captured, made_a_friend, result, result_canon, linked_intro_booked_id, run_date, created_at')
-        .not('coach_name', 'is', null)
-        .neq('result_canon', 'NO_SHOW')
-        .neq('result_canon', 'UNRESOLVED');
-
-      // Also fetch coach_member_pair_plan from intros_booked for pairing rate
-      const pairPlanRes = await supabase
+      // Coach measures — use intros_booked as base for shoutout fields
+      // Fetch showed first-intro bookings for the date range
+      const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_member_pair_plan, originating_booking_id')
-        .not('coach_member_pair_plan', 'is', null);
+        .select('id, coach_name, coach_shoutout_start, coach_shoutout_end, shoutout_consent, coach_debrief_submitted, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, coach_member_pair_plan')
+        .gte('class_date', rangeStart)
+        .lte('class_date', rangeEnd)
+        .not('coach_name', 'is', null);
 
-      const allCoachRuns = (coachRunsRes.data || []) as any[];
+      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => {
+        if (b.is_vip) return false;
+        if (b.ignore_from_metrics) return false;
+        const status = (b.booking_status_canon || '').toUpperCase();
+        if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+        // showed only
+        if (status !== 'SHOWED') return false;
+        return true;
+      });
 
-      // Get first intros only (check originating_booking_id)
-      const linkedIds = allCoachRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
-      const originatingMap = new Map<string, boolean>();
-      if (linkedIds.length > 0) {
-        const batches: string[][] = [];
-        for (let i = 0; i < linkedIds.length; i += 500) batches.push(linkedIds.slice(i, i + 500));
-        for (const batch of batches) {
-          const { data: bookings } = await supabase
-            .from('intros_booked')
-            .select('id, originating_booking_id')
-            .in('id', batch);
-          (bookings || []).forEach((b: any) => {
-            originatingMap.set(b.id, !!b.originating_booking_id);
+      // First intros only (no originating_booking_id, unless it's a referral)
+      const firstIntroBookings = allCoachBookings.filter(b =>
+        !b.originating_booking_id || !!b.referred_by_member_name
+      );
+
+      // Fetch linked intros_run rows for run-side fields (goal_why_captured, made_a_friend, result)
+      const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
+      const runsByBookingId = new Map<string, any>();
+      if (firstIntroBookingIds.length > 0) {
+        const runBatches: string[][] = [];
+        for (let i = 0; i < firstIntroBookingIds.length; i += 500) runBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (const batch of runBatches) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, goal_why_captured, made_a_friend, result, result_canon')
+            .in('linked_intro_booked_id', batch);
+          (runs || []).forEach((r: any) => {
+            // Skip no-shows for run-side data
+            if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
+            runsByBookingId.set(r.linked_intro_booked_id, r);
           });
         }
       }
 
-      const firstIntroRuns = allCoachRuns.filter(r => {
-        if (!r.linked_intro_booked_id) return true;
-        return !originatingMap.get(r.linked_intro_booked_id);
-      });
-
-      // Filter by date range
-      const periodRuns = firstIntroRuns.filter(r => {
-        const rd = r.run_date || (r.created_at || '').split('T')[0];
-        if (!rd) return false;
-        if (!dateRange) return true;
-        try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
-        } catch { return false; }
-      });
-
-      // All-time for close rate (or date-range filtered)
-      const closeRateRuns = firstIntroRuns.filter(r => {
-        const rd = r.run_date || (r.created_at || '').split('T')[0];
-        if (!rd) return false;
-        if (!dateRange) return true;
-        try {
-          return isWithinInterval(parseLocalDate(rd), { start: dateRange.start, end: dateRange.end });
-        } catch { return false; }
-      });
-
-      // Aggregate coaches
-      // Build pairing plan set (first intros with coach_member_pair_plan set)
-      const pairPlanBookingIds = new Set(
-        ((pairPlanRes.data || []) as any[])
-          .filter(b => !b.originating_booking_id)
-          .map(b => b.id)
-      );
-
-      // Fetch debrief submission data for debrief rate
-      const debriefBookingIds = periodRuns.map(r => r.linked_intro_booked_id).filter(Boolean);
-      const debriefMap = new Map<string, boolean>();
-      if (debriefBookingIds.length > 0) {
-        const debriefBatches: string[][] = [];
-        for (let i = 0; i < debriefBookingIds.length; i += 500) debriefBatches.push(debriefBookingIds.slice(i, i + 500));
-        for (const batch of debriefBatches) {
-          const { data: dRows } = await supabase
-            .from('intros_booked')
-            .select('id, coach_debrief_submitted' as any)
-            .in('id', batch);
-          (dRows || []).forEach((b: any) => { debriefMap.set(b.id, b.coach_debrief_submitted === true); });
-        }
-      }
-
+      // Aggregate coaches from booking data
       const coachMap = new Map<string, { coached: number; shoutouts: number; answeredShoutout: number; whyUsed: number; answeredWhy: number; friends: number; answeredFriend: number; paired: number; debriefed: number }>();
-      periodRuns.forEach(r => {
-        const name = r.coach_name;
+      firstIntroBookings.forEach(b => {
+        const name = b.coach_name;
         const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
         ex.coached++;
-        // Only count answered (non-null) for rates
-        if (r.coach_shoutout_start != null || r.coach_shoutout_end != null) {
+
+        // Shoutout fields from intros_booked
+        if (b.coach_shoutout_start != null || b.coach_shoutout_end != null) {
           ex.answeredShoutout++;
-          if (r.coach_shoutout_start || r.coach_shoutout_end) ex.shoutouts++;
+          if (b.coach_shoutout_start || b.coach_shoutout_end) ex.shoutouts++;
         }
-        if (r.goal_why_captured != null) {
-          ex.answeredWhy++;
-          if (r.goal_why_captured === 'yes') ex.whyUsed++;
+
+        // Run-side fields
+        const run = runsByBookingId.get(b.id);
+        if (run) {
+          if (run.goal_why_captured != null) {
+            ex.answeredWhy++;
+            if (run.goal_why_captured === 'yes') ex.whyUsed++;
+          }
+          if (run.made_a_friend != null) {
+            ex.answeredFriend++;
+            if (run.made_a_friend) ex.friends++;
+          }
         }
-        if (r.made_a_friend != null) {
-          ex.answeredFriend++;
-          if (r.made_a_friend) ex.friends++;
-        }
-        if (r.linked_intro_booked_id && pairPlanBookingIds.has(r.linked_intro_booked_id)) ex.paired++;
-        if (r.linked_intro_booked_id && debriefMap.get(r.linked_intro_booked_id)) ex.debriefed++;
+
+        // Pairing
+        if (b.coach_member_pair_plan) ex.paired++;
+
+        // Debrief submitted
+        if (b.coach_debrief_submitted) ex.debriefed++;
+
         coachMap.set(name, ex);
       });
 
+      // Close rate from intros_run (period runs for first intros, excluding no-shows)
       const coachCloseMap = new Map<string, { total: number; closed: number }>();
-      closeRateRuns.forEach(r => {
-        const name = r.coach_name;
-        const ex = coachCloseMap.get(name) || { total: 0, closed: 0 };
-        ex.total++;
-        if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
-        coachCloseMap.set(name, ex);
-      });
+      if (firstIntroBookingIds.length > 0) {
+        const closeBatches: string[][] = [];
+        for (let i = 0; i < firstIntroBookingIds.length; i += 500) closeBatches.push(firstIntroBookingIds.slice(i, i + 500));
+        for (const batch of closeBatches) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, coach_name, result, result_canon')
+            .in('linked_intro_booked_id', batch)
+            .neq('result_canon', 'NO_SHOW')
+            .neq('result_canon', 'UNRESOLVED');
+          (runs || []).forEach((r: any) => {
+            const cName = r.coach_name;
+            if (!cName) return;
+            const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
+            ex.total++;
+            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
+            coachCloseMap.set(cName, ex);
+          });
+        }
+      }
+
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
@@ -494,8 +475,6 @@ export default function Wig() {
 
   const scoreCards = [
     { label: 'Leads this period', current: totalLeads, target: leadTarget, isPercent: false },
-    { label: 'Lead to booked', current: leadToBookedRate, target: 70, isPercent: true },
-    { label: 'Booked to shown', current: bookedToShownRate, target: 70, isPercent: true },
     { label: 'Close rate', current: closeRate, target: 40, isPercent: true },
   ];
 
@@ -554,7 +533,7 @@ export default function Wig() {
         </Card>
 
         {/* Metric cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {scoreCards.map(card => {
             const progressValue = Math.min((card.current / card.target) * 100, 100);
             const isLeadCard = card.label === 'Leads this period';
@@ -608,49 +587,6 @@ export default function Wig() {
           })}
         </div>
 
-        {/* Funnel */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Live Conversion Funnel
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="flex flex-col items-center gap-1">
-              {[
-                { label: 'Leads', value: totalLeads, color: 'bg-muted text-foreground', width: 100 },
-                { label: 'Booked', value: effectiveBooked, color: 'bg-info/20 text-info border border-info/30', width: 85 },
-                { label: 'Shown', value: effectiveShowed, color: 'bg-warning/20 text-warning border border-warning/30', width: 70 },
-                { label: 'Closed', value: totalClosed, color: 'bg-success/20 text-success border border-success/30', width: 55 },
-              ].map((stage, i, arr) => (
-                <div key={stage.label} className="w-full">
-                  <div
-                    className={cn('flex items-center justify-between p-3 rounded-lg', stage.color)}
-                    style={{ width: `${stage.width}%`, margin: '0 auto' }}
-                  >
-                    <span className="text-sm font-medium">{stage.label}</span>
-                    <span className="text-lg font-bold">{stage.value}</span>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <div className="flex items-center justify-center my-1">
-                      <ArrowDown className="w-4 h-4 text-muted-foreground" />
-                      {arr[i + 1].value > 0 && stage.value > 0 && (
-                        <span className={cn(
-                          'ml-2 text-xs font-medium',
-                          (arr[i + 1].value / stage.value) >= 0.7 ? 'text-success' :
-                          (arr[i + 1].value / stage.value) >= 0.5 ? 'text-warning' : 'text-destructive'
-                        )}>
-                          {((arr[i + 1].value / stage.value) * 100).toFixed(0)}%
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* SECTION 2 — LEAD MEASURES */}
