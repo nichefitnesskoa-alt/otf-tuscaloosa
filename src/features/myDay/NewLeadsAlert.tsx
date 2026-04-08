@@ -52,8 +52,8 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
 
     const ids = newLeads.map(l => l.id);
 
-    // Check both script_send_log and lead_activities for any contact
-    const [sendLogRes, activitiesRes] = await Promise.all([
+    // Check script_send_log, lead_activities, and intros_booked for any contact or booking
+    const [sendLogRes, activitiesRes, bookedByIdRes] = await Promise.all([
       supabase
         .from('script_send_log')
         .select('lead_id')
@@ -62,11 +62,39 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
         .from('lead_activities')
         .select('lead_id')
         .in('lead_id', ids),
+      // Check if any lead has a linked booking via booked_intro_id on the lead record
+      supabase
+        .from('leads')
+        .select('id, booked_intro_id')
+        .in('id', ids)
+        .not('booked_intro_id', 'is', null),
     ]);
 
     const contactedIds = new Set<string>();
     (sendLogRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
     (activitiesRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
+    (bookedByIdRes.data || []).forEach((r: any) => { if (r.id) contactedIds.add(r.id); });
+
+    // Also check by name match against intros_booked
+    const leadNames = newLeads
+      .filter(l => !contactedIds.has(l.id))
+      .map(l => `${l.first_name} ${l.last_name}`.trim().toLowerCase());
+
+    if (leadNames.length > 0) {
+      const { data: bookedNames } = await supabase
+        .from('intros_booked')
+        .select('member_name')
+        .not('booking_status_canon', 'in', '("DELETED_SOFT","DUPLICATE")');
+
+      const bookedNameSet = new Set(
+        (bookedNames || []).map((b: any) => (b.member_name || '').toLowerCase().trim())
+      );
+
+      newLeads.forEach(l => {
+        const fullName = `${l.first_name} ${l.last_name}`.trim().toLowerCase();
+        if (bookedNameSet.has(fullName)) contactedIds.add(l.id);
+      });
+    }
 
     const untouched = newLeads.filter(l => !contactedIds.has(l.id));
     setLeads(untouched);
