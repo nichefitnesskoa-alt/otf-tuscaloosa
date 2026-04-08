@@ -35,6 +35,7 @@ interface MilestoneRow {
 
 interface WeekSummary {
   celebrations: number;
+  actuallyCelebrated: number;
   packs: number;
   friends: number;
   deployed: number;
@@ -55,7 +56,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
   const [loading, setLoading] = useState(true);
 
   // Create form state
@@ -115,6 +116,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setDeploys(deps);
     setSummary({
       celebrations: mils.length,
+      actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
       packs: mils.filter(m => m.five_class_pack_gifted).length,
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
@@ -305,12 +307,20 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     navigate('/pipeline?leadId=' + leadId);
   };
 
+  const celebratedColor = summary.celebrations === 0
+    ? 'text-foreground'
+    : summary.actuallyCelebrated === summary.celebrations
+      ? 'text-success'
+      : summary.actuallyCelebrated > 0
+        ? 'text-amber-500'
+        : 'text-destructive';
+
   const summaryCards = [
-    { label: 'Celebrations', value: summary.celebrations },
-    { label: 'Packs gifted', value: summary.packs },
-    { label: 'Friends in pipeline', value: summary.friends },
-    { label: 'Members deployed', value: summary.deployed },
-    { label: 'Converted', value: summary.converted },
+    { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
+    { label: 'Packs gifted', value: String(summary.packs) },
+    { label: 'Friends in pipeline', value: String(summary.friends) },
+    { label: 'Members deployed', value: String(summary.deployed) },
+    { label: 'Converted', value: String(summary.converted) },
   ];
 
   return (
@@ -322,7 +332,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold">{c.value}</p>
+              <p className={`text-xl font-bold ${'className' in c && c.className ? c.className : ''}`}>{c.value}</p>
               <p className="text-[10px] text-muted-foreground">{c.label}</p>
             </CardContent>
           </Card>
