@@ -35,6 +35,7 @@ interface MilestoneRow {
 
 interface WeekSummary {
   celebrations: number;
+  actuallyCelebrated: number;
   packs: number;
   friends: number;
   deployed: number;
