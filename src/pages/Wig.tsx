@@ -431,14 +431,6 @@ export default function Wig() {
         }
       }
 
-      const coachCloseMap = new Map<string, { total: number; closed: number }>();
-      closeRateRuns.forEach(r => {
-        const name = r.coach_name;
-        const ex = coachCloseMap.get(name) || { total: 0, closed: 0 };
-        ex.total++;
-        if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
-        coachCloseMap.set(name, ex);
-      });
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
