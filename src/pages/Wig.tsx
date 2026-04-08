@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
-import { Target, Trophy, ArrowDown, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
