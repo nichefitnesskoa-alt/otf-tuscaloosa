@@ -307,12 +307,20 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     navigate('/pipeline?leadId=' + leadId);
   };
 
+  const celebratedColor = summary.celebrations === 0
+    ? 'text-foreground'
+    : summary.actuallyCelebrated === summary.celebrations
+      ? 'text-success'
+      : summary.actuallyCelebrated > 0
+        ? 'text-amber-500'
+        : 'text-destructive';
+
   const summaryCards = [
-    { label: 'Celebrations', value: summary.celebrations },
-    { label: 'Packs gifted', value: summary.packs },
-    { label: 'Friends in pipeline', value: summary.friends },
-    { label: 'Members deployed', value: summary.deployed },
-    { label: 'Converted', value: summary.converted },
+    { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
+    { label: 'Packs gifted', value: String(summary.packs) },
+    { label: 'Friends in pipeline', value: String(summary.friends) },
+    { label: 'Members deployed', value: String(summary.deployed) },
+    { label: 'Converted', value: String(summary.converted) },
   ];
 
   return (
@@ -324,7 +332,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardContent className="p-3 text-center">
-              <p className="text-xl font-bold">{c.value}</p>
+              <p className={`text-xl font-bold ${'className' in c && c.className ? c.className : ''}`}>{c.value}</p>
               <p className="text-[10px] text-muted-foreground">{c.label}</p>
             </CardContent>
           </Card>
