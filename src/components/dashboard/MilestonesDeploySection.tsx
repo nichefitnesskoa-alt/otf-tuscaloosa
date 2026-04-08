@@ -56,7 +56,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
   const [loading, setLoading] = useState(true);
 
   // Create form state
@@ -116,6 +116,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setDeploys(deps);
     setSummary({
       celebrations: mils.length,
+      actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
       packs: mils.filter(m => m.five_class_pack_gifted).length,
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
