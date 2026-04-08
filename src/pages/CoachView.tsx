@@ -413,7 +413,7 @@ function ClassTimeIntroSelector({
                   {intro.coach_debrief_submitted === true && (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Debrief ✓</Badge>
                   )}
-                  {intro.coach_debrief_submitted !== true && isClassTimePast(intro.class_date, intro.intro_time) && (
+                  {intro.coach_debrief_submitted !== true && isClassTimePastStatic(intro.class_date, intro.intro_time, getTodayYMD()) && (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Debrief needed</Badge>
                   )}
                   {intro.shoutout_consent === true && (
