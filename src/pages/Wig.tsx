@@ -54,9 +54,9 @@ export default function Wig() {
   const [leadSaved, setLeadSaved] = useState(false);
 
   // Editable lead target
-  const [leadTarget, setLeadTarget] = useState<number>(650);
+  const [leadTarget, setLeadTarget] = useState<number>(240);
   const [editingTarget, setEditingTarget] = useState(false);
-  const [targetInput, setTargetInput] = useState<string>('650');
+  const [targetInput, setTargetInput] = useState<string>('240');
   const [targetSaved, setTargetSaved] = useState(false);
 
   const loadLeadTarget = useCallback(async () => {
