@@ -26,6 +26,17 @@ function formatTime(t: string) {
   return CLASS_TIME_LABELS[key] || key;
 }
 
+function isClassTimePastStatic(classDate: string, classTime: string | null, todayStr: string) {
+  const dateObj = parseISO(classDate);
+  if (isBefore(dateObj, parseISO(todayStr)) && !isToday(dateObj)) return true;
+  if (!isToday(dateObj)) return false;
+  if (!classTime) return false;
+  const now = new Date();
+  const [h, m] = classTime.split(':').map(Number);
+  const classEnd = new Date(); classEnd.setHours(h, m + 60, 0, 0);
+  return now > classEnd;
+}
+
 interface CoachBooking {
   id: string;
   member_name: string;
