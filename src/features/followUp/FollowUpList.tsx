@@ -5,7 +5,8 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, ChevronRight, Phone, Pencil } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList } from 'lucide-react';
+import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { format, differenceInDays, isToday, isBefore, startOfDay, endOfWeek } from 'date-fns';
@@ -271,7 +272,25 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
       reschedule: 'reschedule',
     };
     window.dispatchEvent(new CustomEvent('myday:open-script', {
-      detail: { bookingId: item.bookingId, category: categoryMap[item.followUpType] },
+      detail: { bookingId: item.bookingId, category: categoryMap[item.followUpType], fromFollowUp: true },
+    }));
+  };
+
+  const handleCopyPhone = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const clean = stripCountryCode(item.phone);
+    if (clean) {
+      navigator.clipboard.writeText(clean);
+      toast.success('Phone copied');
+    } else {
+      toast.error('No valid phone on file');
+    }
+  };
+
+  const handleLogOutcome = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('myday:open-outcome', {
+      detail: { bookingId: item.bookingId },
     }));
   };
 
@@ -386,12 +405,29 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           )}
         </div>
 
-        {/* Line 2: Date · Coach · Phone */}
-        <p className="text-xs text-muted-foreground">
-          {introDateFormatted}
-          {item.coachName && ` · Coach: ${item.coachName}`}
-          {item.phone && ` · ${item.phone}`}
-        </p>
+        {/* Line 2: Date · Coach · Phone + Copy */}
+        <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
+          <span>{introDateFormatted}</span>
+          {item.coachName && <><span>·</span><span>Coach: {item.coachName}</span></>}
+          {item.phone && (
+            <>
+              <span>·</span>
+              <a href={`tel:${stripCountryCode(item.phone) || item.phone}`} className="text-primary hover:underline inline-flex items-center gap-0.5">
+                <Phone className="w-3 h-3" />
+                {formatPhoneDisplay(item.phone) || item.phone}
+              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 w-6 p-0 cursor-pointer"
+                title="Copy Phone"
+                onClick={handleCopyPhone}
+              >
+                <Copy className="w-3 h-3" />
+              </Button>
+            </>
+          )}
+        </div>
 
         {/* Line 3: Last contact */}
         <p className="text-xs text-muted-foreground">{lastContactText}</p>
@@ -411,6 +447,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             className="min-h-[44px] bg-[#E8540A] hover:bg-[#D14A09] text-white flex-1 cursor-pointer"
             onClick={handleSendText}
           >
+            <Phone className="w-3.5 h-3.5 mr-1" />
             Send Text
           </Button>
           <Button
@@ -420,6 +457,17 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             onClick={handleSecondaryAction}
           >
             {secondaryLabel}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] flex-1 cursor-pointer"
+            onClick={handleLogOutcome}
+          >
+            <ClipboardList className="w-3.5 h-3.5 mr-1" />
+            Log Outcome
           </Button>
           <Button
             size="sm"
