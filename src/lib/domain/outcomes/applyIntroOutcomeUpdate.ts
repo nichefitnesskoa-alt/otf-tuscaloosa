@@ -42,6 +42,10 @@ export interface OutcomeUpdateParams {
     coach_name: string;
   };
   secondIntroReason?: string;
+  /** Override follow-up category (person_type) instead of auto-detecting */
+  followUpCategory?: string;
+  /** Whether the SA asked the friend referral question on sale */
+  friendReferralAsked?: boolean;
 }
 
 export interface OutcomeUpdateResult {
