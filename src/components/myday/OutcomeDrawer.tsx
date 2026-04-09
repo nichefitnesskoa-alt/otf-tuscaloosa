@@ -417,6 +417,8 @@ export function OutcomeDrawer({
         editReason: notes || undefined,
         runId: existingRunId || undefined,
         secondIntroBookingDraft,
+        followUpCategory: followUpCategory || undefined,
+        friendReferralAsked: false, // Will be updated after friend prompt
       });
 
       if (result.success) {
@@ -427,6 +429,11 @@ export function OutcomeDrawer({
             time: secondIntroTime,
             coach: secondIntroCoach,
           });
+        }
+        // If sale, show friend referral prompt instead of closing immediately
+        if (isSale) {
+          setShowFriendPrompt(true);
+          return; // Don't call onSaved yet
         }
         onSaved();
       } else {
