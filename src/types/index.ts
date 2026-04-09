@@ -27,7 +27,6 @@ export const LEAD_SOURCES = [
   'Member Referral',
   'My Personal Friend I Invited',
   'Online Intro Offer (self-booked)',
-  'Instagram DMs',
   'VIP Class',
 ] as const;
 
