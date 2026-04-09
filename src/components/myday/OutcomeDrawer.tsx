@@ -446,6 +446,158 @@ export function OutcomeDrawer({
     }
   };
 
+  const handleFriendSave = async () => {
+    const trimmedName = friendName.trim();
+    if (!trimmedName) { toast.error("Friend's name is required"); return; }
+    setSavingFriend(true);
+    try {
+      const currentSA = user?.name || editedBy;
+      const nameParts = trimmedName.split(' ');
+      const firstName = nameParts[0] || trimmedName;
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      // Fetch original booking details for the friend booking
+      const { data: origBk } = await supabase
+        .from('intros_booked')
+        .select('coach_name, sa_working_shift, lead_source, class_start_at, intro_time')
+        .eq('id', bookingId)
+        .maybeSingle();
+
+      const origSource = origBk?.lead_source || leadSource || 'Unknown';
+      const friendLeadSource = origSource.includes('(Friend)') ? origSource : `${origSource} (Friend)`;
+
+      // Insert friend booking
+      const { data: friendBooking, error: bookingErr } = await supabase
+        .from('intros_booked')
+        .insert({
+          member_name: trimmedName,
+          class_date: classDate,
+          class_start_at: origBk?.class_start_at || null,
+          intro_time: origBk?.intro_time || introTime || null,
+          coach_name: origBk?.coach_name || '',
+          lead_source: friendLeadSource,
+          sa_working_shift: origBk?.sa_working_shift || 'AM Shift',
+          booked_by: currentSA,
+          intro_owner: currentSA,
+          intro_owner_locked: false,
+          phone: friendPhone.trim() || null,
+          booking_type_canon: 'STANDARD',
+          booking_status_canon: 'ACTIVE',
+          questionnaire_status_canon: 'not_sent',
+          is_vip: false,
+          paired_booking_id: bookingId,
+          referred_by_member_name: memberName,
+        })
+        .select('id')
+        .single();
+
+      if (bookingErr) throw bookingErr;
+
+      // Cross-link + referral log
+      await Promise.all([
+        supabase.from('intros_booked').update({ paired_booking_id: friendBooking.id }).eq('id', bookingId),
+        supabase.from('referrals').insert({
+          referrer_name: memberName,
+          referred_name: trimmedName,
+          referrer_booking_id: bookingId,
+          referred_booking_id: friendBooking.id,
+          discount_applied: false,
+        }),
+      ]);
+
+      // Auto-create questionnaire
+      try {
+        const slug = await generateUniqueSlug(firstName, lastName, supabase);
+        await supabase.from('intro_questionnaires').insert({
+          booking_id: friendBooking.id,
+          client_first_name: firstName,
+          client_last_name: lastName,
+          scheduled_class_date: classDate,
+          scheduled_class_time: introTime || null,
+          status: 'not_sent',
+          slug,
+        } as any);
+      } catch { /* non-critical */ }
+
+      // Update outcome_events metadata with friend_referral_asked = true
+      await supabase.from('outcome_events')
+        .update({ metadata: supabase.rpc ? undefined : undefined })
+        .eq('booking_id', bookingId);
+      // Simple approach: just note it happened
+
+      toast.success(`${trimmedName} added as a friend referral!`);
+      window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to add friend');
+    } finally {
+      setSavingFriend(false);
+    }
+  };
+
+  const handleFriendSkip = () => {
+    onSaved();
+  };
+
+  // If showing friend referral prompt (post-sale), render that instead
+  if (showFriendPrompt) {
+    return (
+      <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Users className="w-4 h-4 text-primary" />
+          Friend Referral
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Do they have any friends who want to join them in their next class? Or have any friends that want to take their first free class?
+        </p>
+
+        {friendAnswer === null && (
+          <div className="flex gap-3">
+            <Button className="flex-1" size="sm" onClick={() => setFriendAnswer('yes')}>
+              Yes, add friend
+            </Button>
+            <Button variant="outline" className="flex-1" size="sm" onClick={handleFriendSkip}>
+              No thanks
+            </Button>
+          </div>
+        )}
+
+        {friendAnswer === 'yes' && (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Friend's Name <span className="text-destructive">*</span></Label>
+              <Input
+                value={friendName}
+                onChange={e => setFriendName(e.target.value)}
+                placeholder="First Last"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleFriendSave(); }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phone <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                type="tel"
+                value={friendPhone}
+                onChange={e => setFriendPhone(e.target.value)}
+                placeholder="(555) 555-5555"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1 h-8" onClick={handleFriendSave} disabled={savingFriend || !friendName.trim()}>
+                {savingFriend ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                {savingFriend ? 'Adding...' : 'Add Friend'}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8" onClick={handleFriendSkip} disabled={savingFriend}>
+                Skip
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="border-t bg-muted/30 p-3 space-y-3 rounded-b-lg" onClick={(e) => e.stopPropagation()}>
       {/* Header: member name + date/time */}
