@@ -1,46 +1,43 @@
+# Fix Follow-Up Outcome Logging + Add Friend Referral on Sale  
+  
+The outcome drawer referral prompt needs to have a space in the WIG tab as a lead measure for SAs. We need to know how many people we've done that with vs total INTRO sales, not outside sales  
 
 
-# Fix NameAutocomplete Input Not Accepting Clicks/Typing
+## Problems Identified
 
-## Problem
-The `Input` is wrapped in `PopoverTrigger asChild`, which makes Radix treat the input as a toggle button. Clicking the input fires the trigger's onClick handler (toggling the popover open/closed) instead of simply focusing the input for typing. Inside a Sheet, this creates a dead input.
+1. **Outcome drawer doesn't open for follow-up cards**: When clicking "Log Outcome" on a follow-up card, the event fires `myday:open-outcome` with a booking ID. But MyDayPage looks up that booking from `introsBooked` (which only has the current week's data). Past bookings from follow-up items aren't in that array, so `outcomeBooking` is `null` and the drawer renders empty.
+2. **Follow-up category not editable**: The follow-up type is auto-determined by the outcome result. The user wants this to be a selectable/fillable field.
+3. **Friend referral question on sale**: When a sale outcome is selected, the drawer should ask "Do they have any friends who want to take their first free class?" before closing.
 
-## Fix
+## Changes
 
-**File: `src/components/shared/NameAutocomplete.tsx`**
+### 1. Fix outcome drawer for follow-up bookings (MyDayPage.tsx)
 
-Stop using `PopoverTrigger asChild` around the `Input`. Instead, wrap both the Input and PopoverContent in a plain `div` and use `PopoverAnchor` (from Radix) to anchor the dropdown to the input without making the input a toggle trigger.
+When `outcomeBookingId` is set but not found in the loaded `introsBooked`, fetch that booking directly from the database. Add a `useEffect` that fetches the booking by ID from `intros_booked` when the local lookup fails, storing it in a separate `fallbackBooking` state. Use `outcomeBooking || fallbackBooking` when rendering the OutcomeDrawer.
 
-The restructured component:
+### 2. Add follow-up category selector to OutcomeDrawer (OutcomeDrawer.tsx)
 
-```tsx
-<Popover open={open} onOpenChange={setOpen} modal={false}>
-  <PopoverAnchor asChild>
-    <Input
-      ref={inputRef}
-      value={value}
-      onChange={e => handleChange(e.target.value)}
-      onFocus={() => { if (suggestions.length > 0) setOpen(true); }}
-      onBlur={() => setTimeout(() => setOpen(false), 200)}
-      placeholder={placeholder}
-      disabled={disabled}
-      autoComplete="off"
-    />
-  </PopoverAnchor>
-  {open && suggestions.length > 0 && (
-    <PopoverContent ...>
-      {/* suggestion list unchanged */}
-    </PopoverContent>
-  )}
-</Popover>
-```
+After the main outcome is selected, if the outcome maps to a follow-up type (Follow-up needed, No-show, Planning to Reschedule, Planning to Book 2nd Intro), show a dropdown to let the user override the follow-up category. Options:
 
-- Import `PopoverAnchor` from `@/components/ui/popover` (re-export from Radix)
-- Add `PopoverAnchor` export in `src/components/ui/popover.tsx`
-- Replace `PopoverTrigger asChild` with `PopoverAnchor asChild` — this tells the popover where to position the dropdown without adding click-to-toggle behavior
-- Input click/focus/typing works normally; popover opens only via the `open` state controlled by `onFocus` and the debounced search
+- No Show (1st Intro)
+- No Show (2nd Intro)
+- Planning to Reschedule
+- Didn't Buy (1st Intro - Try to Reschedule 2nd)
+- Didn't Buy (2nd Intro - Final Reach Out)
+
+This will be passed to `applyIntroOutcomeUpdate` and used when generating follow-up queue entries.
+
+### 3. Add friend referral prompt on sale (OutcomeDrawer.tsx)
+
+When outcome is a sale and save succeeds, instead of immediately calling `onSaved()`, show an inline section asking: "Do they have any friends who want to join them or take their first free class?" with Yes/No buttons. If Yes, show friend name + phone fields, save a referral + booking, then close. If No, close immediately. Reuse existing `FriendReferralDialog` logic for the save.
+
+### 4. Wire follow-up category through the outcome pipeline (applyIntroOutcomeUpdate.ts)
+
+Add optional `followUpCategory` param to `OutcomeUpdateParams`. When generating follow-up queue entries, use this category to set the correct `person_type` value instead of auto-detecting from the result.
 
 ## What does NOT change
-- Search logic, suggestion rendering, selection behavior
-- Any other component or page
 
+- Follow-up data query logic (useFollowUpData)
+- Follow-up card layout
+- Pipeline, WIG, or any other page
+- Database schema (no migrations needed)
