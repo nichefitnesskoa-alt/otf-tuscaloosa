@@ -664,6 +664,23 @@ export function OutcomeDrawer({
         </p>
       )}
 
+      {/* Follow-up category selector — shown for follow-up/no-show outcomes */}
+      {(isFollowUpNeeded || isNoShow) && (
+        <div className="space-y-1">
+          <Label className="text-xs">Follow-Up Category</Label>
+          <Select value={followUpCategory} onValueChange={setFollowUpCategory}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue placeholder="Auto-detect (or override)" />
+            </SelectTrigger>
+            <SelectContent>
+              {FOLLOWUP_CATEGORY_OPTIONS.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Reschedule fields */}
       {/* 2nd Intro Reason + Booking Details */}
       {isBookedSecondIntro && (
