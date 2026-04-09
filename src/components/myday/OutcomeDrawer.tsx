@@ -111,12 +111,20 @@ export function OutcomeDrawer({
   onSaved,
   onCancel,
 }: OutcomeDrawerProps) {
+  const { user } = useAuth();
   const [outcome, setOutcome] = useState(currentResult || '');
   const [objection, setObjection] = useState(initialObjection);
   const [notes, setNotes] = useState(initialNotes);
   const [coachName, setCoachName] = useState(initialCoach);
   const [saving, setSaving] = useState(false);
-  // preppedBeforeClass removed per plan — prop kept for backward compat
+  const [followUpCategory, setFollowUpCategory] = useState('');
+
+  // Friend referral post-sale state
+  const [showFriendPrompt, setShowFriendPrompt] = useState(false);
+  const [friendAnswer, setFriendAnswer] = useState<'yes' | 'no' | null>(null);
+  const [friendName, setFriendName] = useState('');
+  const [friendPhone, setFriendPhone] = useState('');
+  const [savingFriend, setSavingFriend] = useState(false);
 
   // 2nd intro booking state
   const [secondIntroDate, setSecondIntroDate] = useState<Date | undefined>(undefined);
