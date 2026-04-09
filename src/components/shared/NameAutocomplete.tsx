@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -111,7 +111,7 @@ export function NameAutocomplete({
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <PopoverTrigger asChild>
+      <PopoverAnchor asChild>
         <Input
           ref={inputRef}
           id={id}
@@ -125,7 +125,7 @@ export function NameAutocomplete({
           autoFocus={autoFocus}
           autoComplete="off"
         />
-      </PopoverTrigger>
+      </PopoverAnchor>
       {open && suggestions.length > 0 && (
         <PopoverContent
           className="p-1 w-[var(--radix-popover-trigger-width)] max-h-48 overflow-y-auto"
