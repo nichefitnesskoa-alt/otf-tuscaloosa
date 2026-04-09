@@ -110,7 +110,7 @@ export function NameAutocomplete({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Input
           ref={inputRef}
