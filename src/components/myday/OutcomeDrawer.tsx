@@ -69,6 +69,15 @@ const OBJECTION_OPTIONS = [
   'Other',
 ];
 
+// Follow-up category overrides
+const FOLLOWUP_CATEGORY_OPTIONS = [
+  { value: 'noshow_1st', label: 'No Show (1st Intro)' },
+  { value: 'noshow_2nd', label: 'No Show (2nd Intro)' },
+  { value: 'planning_reschedule', label: 'Planning to Reschedule' },
+  { value: 'didnt_buy_1st', label: "Didn't Buy (1st Intro - Try to Reschedule 2nd)" },
+  { value: 'didnt_buy_2nd', label: "Didn't Buy (2nd Intro - Final Reach Out)" },
+];
+
 interface OutcomeDrawerProps {
   bookingId: string;
   memberName: string;
