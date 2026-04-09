@@ -372,6 +372,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         commission: resolvedCommission,
         lead_source: params.leadSource || existingRun?.lead_source || null,
         buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
+        friend_referral_asked: params.friendReferralAsked || false,
       },
     });
 
