@@ -62,7 +62,7 @@ function sortByPriority(items: FollowUpItem[], todayStr: string): FollowUpItem[]
     const pa = getPriority(a, todayStr).score;
     const pb = getPriority(b, todayStr).score;
     if (pa !== pb) return pa - pb;
-    return a.classDate.localeCompare(b.classDate);
+    return b.classDate.localeCompare(a.classDate);
   });
 }
 
