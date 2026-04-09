@@ -42,6 +42,10 @@ export interface OutcomeUpdateParams {
     coach_name: string;
   };
   secondIntroReason?: string;
+  /** Override follow-up category (person_type) instead of auto-detecting */
+  followUpCategory?: string;
+  /** Whether the SA asked the friend referral question on sale */
+  friendReferralAsked?: boolean;
 }
 
 export interface OutcomeUpdateResult {
@@ -275,12 +279,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       // Transition TO didn't-buy or no-show → generate follow-ups
       if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
-        const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const autoPersonType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const personType = params.followUpCategory || autoPersonType;
         const entries = generateFollowUpEntries(
-          params.memberName, personType as 'no_show' | 'didnt_buy',
+          params.memberName, autoPersonType as 'no_show' | 'didnt_buy',
           params.classDate, params.bookingId, null, false,
           isNowDidntBuy ? params.objection || null : null, null,
-        );
+        ).map(e => ({ ...e, person_type: personType }));
         // Use upsert-like behavior: delete existing then insert to respect unique constraint
         await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
         await supabase.from('follow_up_queue').insert(entries);
@@ -290,12 +295,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
       // Switching BETWEEN didn't-buy and no-show
       if ((wasDidntBuy && isNowNoShow) || (wasNoShow && isNowDidntBuy)) {
         await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
-        const personType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const autoPersonType = isNowNoShow ? 'no_show' : 'didnt_buy';
+        const personType = params.followUpCategory || autoPersonType;
         const entries = generateFollowUpEntries(
-          params.memberName, personType as 'no_show' | 'didnt_buy',
+          params.memberName, autoPersonType as 'no_show' | 'didnt_buy',
           params.classDate, params.bookingId, null, false,
           isNowDidntBuy ? params.objection || null : null, null,
-        );
+        ).map(e => ({ ...e, person_type: personType }));
         await supabase.from('follow_up_queue').insert(entries);
         didGenerateFollowups = true;
       }
@@ -366,6 +372,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         commission: resolvedCommission,
         lead_source: params.leadSource || existingRun?.lead_source || null,
         buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
+        friend_referral_asked: params.friendReferralAsked || false,
       },
     });
 

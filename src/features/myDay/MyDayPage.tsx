@@ -110,7 +110,26 @@ export default function MyDayPage() {
 
   const prepBooking = prepBookingId ? getBookingById(prepBookingId) : null;
   const scriptBooking = scriptBookingId ? getBookingById(scriptBookingId) : null;
-  const outcomeBooking = outcomeBookingId ? getBookingById(outcomeBookingId) : null;
+  const localOutcomeBooking = outcomeBookingId ? getBookingById(outcomeBookingId) : null;
+
+  // Fallback: fetch booking from DB when not in current week's introsBooked (e.g. follow-up items)
+  const [fallbackBooking, setFallbackBooking] = useState<any>(null);
+  useEffect(() => {
+    if (!outcomeBookingId || localOutcomeBooking) {
+      setFallbackBooking(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('*')
+        .eq('id', outcomeBookingId)
+        .maybeSingle();
+      setFallbackBooking(data);
+    })();
+  }, [outcomeBookingId, localOutcomeBooking]);
+
+  const outcomeBooking = localOutcomeBooking || fallbackBooking;
   
 
   // Today's stats
