@@ -17,10 +17,12 @@ import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { computeCommission, isSaleOutcome } from '@/lib/outcomes/commissionRules';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
 import { toast } from 'sonner';
-import { Loader2, CalendarIcon, CheckCircle2 } from 'lucide-react';
+import { Loader2, CalendarIcon, CheckCircle2, Users } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { generateUniqueSlug } from '@/lib/utils';
 
 // ── Sale outcomes (Row A) ──
 const SALE_OUTCOMES = [
