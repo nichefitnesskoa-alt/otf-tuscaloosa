@@ -1,6 +1,5 @@
 /**
- * Priority-sorted unified follow-up list replacing the four-tab system.
- * Two sections: "Focus Today" (expanded) and "Coming Up" (collapsed).
+ * Priority-sorted unified follow-up list with 5 explicit category filters.
  */
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +8,7 @@ import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList } from
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
-import { format, differenceInDays, isToday, isBefore, startOfDay, endOfWeek } from 'date-fns';
+import { format, differenceInDays, endOfWeek } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
@@ -22,17 +21,27 @@ interface FollowUpListProps {
 type FilterType = 'all' | FollowUpType | 'transferred';
 
 const TYPE_LABELS: Record<FollowUpType, string> = {
-  noshow: 'No-Show',
-  missed: 'Missed Guest',
-  secondintro: '2nd Intro',
+  noshow_1st: 'No Show (1st Intro)',
+  noshow_2nd: 'No Show (2nd Intro)',
+  reschedule: 'Planning to Reschedule',
+  didnt_buy_1st: "Didn't Buy (1st Intro - Try to Reschedule 2nd)",
+  didnt_buy_2nd: "Didn't Buy (2nd Intro - Final Reach Out)",
+};
+
+const TYPE_SHORT_LABELS: Record<FollowUpType, string> = {
+  noshow_1st: 'NS 1st',
+  noshow_2nd: 'NS 2nd',
   reschedule: 'Reschedule',
+  didnt_buy_1st: "DB 1st",
+  didnt_buy_2nd: "DB 2nd",
 };
 
 const TYPE_COLORS: Record<FollowUpType, string> = {
-  noshow: 'bg-destructive/15 text-destructive',
-  missed: 'bg-orange-500/15 text-orange-600',
-  secondintro: 'bg-blue-500/15 text-blue-600',
+  noshow_1st: 'bg-destructive/15 text-destructive',
+  noshow_2nd: 'bg-red-700/15 text-red-700',
   reschedule: 'bg-purple-500/15 text-purple-600',
+  didnt_buy_1st: 'bg-orange-500/15 text-orange-600',
+  didnt_buy_2nd: 'bg-amber-600/15 text-amber-700',
 };
 
 function getPriority(item: FollowUpItem, todayStr: string): { score: number; label: string; color: string } {
@@ -85,7 +94,6 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const filtered = useMemo(() => {
-    // SA only sees SA-owned items (transferred items have owner_role=SA after transfer)
     if (filter === 'all') return allItems;
     if (filter === 'transferred') return allItems.filter(i => !!(i as any).transferredFromCoach);
     return allItems.filter(i => i.followUpType === filter);
@@ -114,10 +122,11 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
 
   const filters: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'All' },
-    { key: 'noshow', label: 'No-Show' },
-    { key: 'missed', label: 'Missed' },
-    { key: 'secondintro', label: '2nd Intro' },
-    { key: 'reschedule', label: 'Reschedule' },
+    { key: 'noshow_1st', label: 'No Show (1st Intro)' },
+    { key: 'noshow_2nd', label: 'No Show (2nd Intro)' },
+    { key: 'reschedule', label: 'Planning to Reschedule' },
+    { key: 'didnt_buy_1st', label: "Didn't Buy (1st)" },
+    { key: 'didnt_buy_2nd', label: "Didn't Buy (2nd)" },
     { key: 'transferred', label: 'Transferred' },
   ];
 
@@ -126,7 +135,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
 
   return (
     <div className="space-y-3">
-      {/* Header — large focal number */}
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className={`text-5xl font-medium ${isCaughtUp ? 'text-success' : 'text-[#E8540A]'}`}>
@@ -167,7 +176,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
         ))}
       </div>
 
-      {/* Focus Today section */}
+      {/* Focus Today */}
       <CollapsibleSection
         title="Focus Today"
         count={focusTotal}
@@ -190,7 +199,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
         )}
       </CollapsibleSection>
 
-      {/* Coming Up section */}
+      {/* Coming Up */}
       <CollapsibleSection
         title="Coming Up"
         count={comingUpItems.length}
@@ -265,10 +274,11 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   const handleSendText = (e: React.MouseEvent) => {
     e.stopPropagation();
     const categoryMap: Record<FollowUpType, string> = {
-      noshow: 'no_show',
-      missed: 'follow_up',
-      secondintro: 'feedback',
+      noshow_1st: 'no_show',
+      noshow_2nd: 'no_show',
       reschedule: 'reschedule',
+      didnt_buy_1st: 'follow_up',
+      didnt_buy_2nd: 'follow_up',
     };
     window.dispatchEvent(new CustomEvent('myday:open-script', {
       detail: { bookingId: item.bookingId, category: categoryMap[item.followUpType], fromFollowUp: true },
@@ -309,7 +319,6 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card">
-      {/* Dismiss layer behind */}
       {swiped && (
         <div className="absolute inset-0 bg-destructive flex items-center justify-end px-4 z-0">
           <button
@@ -321,7 +330,6 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
         </div>
       )}
 
-      {/* Card content */}
       <div
         className={`relative bg-card p-3 space-y-1.5 transition-transform ${swiped ? '-translate-x-24' : ''}`}
         onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
@@ -331,14 +339,14 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           else if (diff < -30) setSwiped(false);
         }}
       >
-        {/* Line 1: Name + Priority + Type + Transferred badge */}
+        {/* Line 1: Name + Priority + Type */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm font-semibold">{item.memberName}</span>
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${priority.color}`}>
             {priority.label}
           </span>
           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${TYPE_COLORS[item.followUpType]}`}>
-            {TYPE_LABELS[item.followUpType]}
+            {TYPE_SHORT_LABELS[item.followUpType]}
           </span>
           {(item as any).transferredFromCoach && (
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
@@ -347,7 +355,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           )}
         </div>
 
-        {/* Line 2: Date · Coach · Phone + Copy */}
+        {/* Line 2: Date · Coach · Phone */}
         <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground">
           <span>{introDateFormatted}</span>
           {item.coachName && <><span>·</span><span>Coach: {item.coachName}</span></>}
@@ -382,7 +390,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           onSaved={onRefresh}
         />
 
-        {/* Actions — Send Text, Copy Phone, Log Outcome */}
+        {/* Actions */}
         <div className="flex items-center gap-2 pt-1">
           <Button
             size="sm"

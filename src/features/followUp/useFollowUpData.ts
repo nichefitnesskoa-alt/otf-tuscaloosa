@@ -1,17 +1,18 @@
 /**
- * Follow-Up data hook — queries intros_run + intros_booked to build 4 follow-up arrays.
+ * Follow-Up data hook — queries intros_run + intros_booked to build 5 follow-up arrays.
  *
- * Tab 1: No-Show — result_canon = 'NO_SHOW'.
- * Tab 2: Missed Guests — merged missed guest (no outcome, past) + follow-up needed.
- * Tab 3: 2nd Intro — originating_booking_id IS NOT NULL AND no matching run.
- * Tab 4: Plans to Reschedule — booking_status_canon = 'PLANNING_RESCHEDULE' AND no future booking.
+ * 1. No Show (1st Intro) — NO_SHOW + not 2nd intro
+ * 2. No Show (2nd Intro) — NO_SHOW + is 2nd intro
+ * 3. Planning to Reschedule — PLANNING_RESCHEDULE
+ * 4. Didn't Buy (1st Intro) — DIDNT_BUY + not 2nd intro
+ * 5. Didn't Buy (2nd Intro) — DIDNT_BUY + is 2nd intro / State B
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
-export type FollowUpType = 'noshow' | 'missed' | 'secondintro' | 'reschedule';
+export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd';
 
 export interface FollowUpItem {
   bookingId: string;
@@ -28,18 +29,12 @@ export interface FollowUpItem {
   isSecondIntro: boolean;
   originatingBookingId: string | null;
   rescheduleContactDate: string | null;
-  /** For Follow-Up Needed: A = no 2nd booked, B = 2nd ran non-terminal */
   followUpState: 'A' | 'B' | null;
-  /** Last touch info */
   lastContactAt: string | null;
   lastContactSummary: string | null;
-  /** Contact next date */
   contactNextDate: string | null;
-  /** Badge type for merged tab */
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
-  /** Follow-up category type */
   followUpType: FollowUpType;
-  /** Transferred from coach (coach name) */
   transferredFromCoach?: string | null;
 }
 
@@ -52,16 +47,16 @@ function isTerminal(result: string | null): boolean {
   return PURCHASE_RESULTS.some(p => result.includes(p));
 }
 
-function computeContactNext(classDate: string, type: 'noshow' | 'missed' | 'secondintro' | 'reschedule'): string | null {
+function computeContactNext(classDate: string, type: FollowUpType): string | null {
   try {
     const d = new Date(classDate + 'T12:00:00');
     switch (type) {
-      case 'noshow':
+      case 'noshow_1st':
+      case 'noshow_2nd':
         return format(addDays(d, 1), 'yyyy-MM-dd');
-      case 'missed':
+      case 'didnt_buy_1st':
+      case 'didnt_buy_2nd':
         return format(addDays(d, 3), 'yyyy-MM-dd');
-      case 'secondintro':
-        return format(addDays(d, 1), 'yyyy-MM-dd');
       case 'reschedule':
         return format(addDays(d, 2), 'yyyy-MM-dd');
     }
@@ -69,12 +64,14 @@ function computeContactNext(classDate: string, type: 'noshow' | 'missed' | 'seco
 }
 
 export function useFollowUpData() {
-  const [noShow, setNoShow] = useState<FollowUpItem[]>([]);
-  const [noShowCooling, setNoShowCooling] = useState<FollowUpItem[]>([]);
-  const [missedGuests, setMissedGuests] = useState<FollowUpItem[]>([]);
-  const [missedGuestsCooling, setMissedGuestsCooling] = useState<FollowUpItem[]>([]);
-  const [secondIntro, setSecondIntro] = useState<FollowUpItem[]>([]);
-  const [secondIntroCooling, setSecondIntroCooling] = useState<FollowUpItem[]>([]);
+  const [noShow1st, setNoShow1st] = useState<FollowUpItem[]>([]);
+  const [noShow1stCooling, setNoShow1stCooling] = useState<FollowUpItem[]>([]);
+  const [noShow2nd, setNoShow2nd] = useState<FollowUpItem[]>([]);
+  const [noShow2ndCooling, setNoShow2ndCooling] = useState<FollowUpItem[]>([]);
+  const [didntBuy1st, setDidntBuy1st] = useState<FollowUpItem[]>([]);
+  const [didntBuy1stCooling, setDidntBuy1stCooling] = useState<FollowUpItem[]>([]);
+  const [didntBuy2nd, setDidntBuy2nd] = useState<FollowUpItem[]>([]);
+  const [didntBuy2ndCooling, setDidntBuy2ndCooling] = useState<FollowUpItem[]>([]);
   const [plansToReschedule, setPlansToReschedule] = useState<FollowUpItem[]>([]);
   const [plansToRescheduleCooling, setPlansToRescheduleCooling] = useState<FollowUpItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,31 +179,25 @@ export function useFollowUpData() {
         });
       }
 
-      const noShowItems: FollowUpItem[] = [];
-      const missedGuestItems: FollowUpItem[] = [];
-      const secondIntroItems: FollowUpItem[] = [];
+      const noShow1stItems: FollowUpItem[] = [];
+      const noShow2ndItems: FollowUpItem[] = [];
+      const didntBuy1stItems: FollowUpItem[] = [];
+      const didntBuy2ndItems: FollowUpItem[] = [];
       const plansItems: FollowUpItem[] = [];
 
       const processed = new Set<string>();
       const plansBookingIds = new Set<string>();
-      // Track names in 2nd intro tab for priority dedup
-      const inSecondIntroTab = new Set<string>();
 
       // Build a map for quick originating booking name lookup
       const bookingById = new Map(bookings.map(b => [b.id, b]));
 
-      // First pass: collect 2nd intro tab members (only true 2nd intros, not friend bookings)
-      for (const b of bookings) {
-        if (b.originating_booking_id && !runsByBookingId.has(b.id)) {
-          const orig = bookingById.get(b.originating_booking_id);
-          const isSameMember = orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
-          if (isSameMember) {
-            inSecondIntroTab.add(b.member_name.toLowerCase());
-          }
-        }
-      }
+      const checkIsSecondIntro = (booking: typeof bookings[0] | undefined): boolean => {
+        if (!booking?.originating_booking_id) return false;
+        const orig = bookingById.get(booking.originating_booking_id);
+        return !!orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '');
+      };
 
-      // Process runs for No-Show, Missed Guests (follow-up needed), Plans to Reschedule
+      // Process runs for No-Show, Didn't Buy, Plans to Reschedule
       for (const r of runs) {
         const bookingId = r.linked_intro_booked_id;
         if (!bookingId) continue;
@@ -223,6 +214,7 @@ export function useFollowUpData() {
         const booking = bookings.find(b => b.id === bookingId);
         const hasFutureUnrun = futureUnrunByName.has(memberNameLower);
         const touch = touchByBooking.get(bookingId);
+        const is2nd = checkIsSecondIntro(booking);
 
         const item: FollowUpItem = {
           bookingId,
@@ -236,11 +228,7 @@ export function useFollowUpData() {
           email: booking?.email || null,
           result: r.result,
           resultCanon: r.result_canon,
-          isSecondIntro: (() => {
-            if (!booking?.originating_booking_id) return false;
-            const orig = bookingById.get(booking.originating_booking_id);
-            return !!orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '');
-          })(),
+          isSecondIntro: is2nd,
           originatingBookingId: booking?.originating_booking_id || null,
           rescheduleContactDate: (booking as any)?.reschedule_contact_date || null,
           followUpState: null,
@@ -248,46 +236,52 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: null,
           badgeType: undefined,
-          followUpType: 'noshow' as FollowUpType, // will be reassigned below
+          followUpType: 'noshow_1st', // will be reassigned below
           transferredFromCoach: transferredMap.get(bookingId) || null,
         };
 
-        // No-Show tab
+        // No-Show tab — split by 1st/2nd
         if (r.result_canon === 'NO_SHOW' && !hasFutureUnrun) {
           processed.add(key);
-          item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'noshow');
-          item.followUpType = 'noshow';
-          noShowItems.push(item);
+          const fuType: FollowUpType = is2nd ? 'noshow_2nd' : 'noshow_1st';
+          item.followUpType = fuType;
+          item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, fuType);
+          if (is2nd) {
+            noShow2ndItems.push(item);
+          } else {
+            noShow1stItems.push(item);
+          }
           continue;
         }
 
-        // Follow-Up Needed → merged into Missed Guests tab
+        // Didn't Buy / Follow-Up Needed
         const isFUNeeded = r.result === 'Follow-up needed' || r.result_canon === 'DIDNT_BUY';
         if (isFUNeeded) {
-          if (secondIntroByOrigin.has(bookingId)) {
-            // Auto-moves to 2nd Intro tab
-          } else if (!inSecondIntroTab.has(memberNameLower)) {
+          if (!secondIntroByOrigin.has(bookingId)) {
             processed.add(key);
-            item.followUpState = 'A';
-            item.badgeType = 'follow_up_needed';
-            item.followUpType = 'missed';
-            item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'missed');
-            missedGuestItems.push(item);
+            const fuType: FollowUpType = is2nd ? 'didnt_buy_2nd' : 'didnt_buy_1st';
+            item.followUpState = is2nd ? 'B' : 'A';
+            item.badgeType = is2nd ? 'state_b' : 'follow_up_needed';
+            item.followUpType = fuType;
+            item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, fuType);
+            if (is2nd) {
+              didntBuy2ndItems.push(item);
+            } else {
+              didntBuy1stItems.push(item);
+            }
           }
           continue;
         }
 
-        // State B: 2nd intro ran with non-terminal outcome → merged into Missed Guests
+        // State B: 2nd intro ran with non-terminal outcome → Didn't Buy (2nd)
         if (booking?.originating_booking_id && !isTerminal(r.result)) {
-          if (!inSecondIntroTab.has(memberNameLower)) {
-            processed.add(key);
-            item.followUpState = 'B';
-            item.isSecondIntro = true;
-            item.badgeType = 'state_b';
-            item.followUpType = 'missed';
-            item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'secondintro');
-            missedGuestItems.push(item);
-          }
+          processed.add(key);
+          item.followUpState = 'B';
+          item.isSecondIntro = true;
+          item.badgeType = 'state_b';
+          item.followUpType = 'didnt_buy_2nd';
+          item.contactNextDate = item.rescheduleContactDate || computeContactNext(item.classDate, 'didnt_buy_2nd');
+          didntBuy2ndItems.push(item);
           continue;
         }
 
@@ -307,14 +301,13 @@ export function useFollowUpData() {
         }
       }
 
-      // Process bookings for missed guests (past, no run, no outcome)
+      // Process bookings for missed guests (past, no run, no outcome) → Didn't Buy 1st
       for (const b of bookings) {
         if (b.class_date >= today) continue;
         if (runsByBookingId.has(b.id)) continue;
         if (b.originating_booking_id) continue;
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;
-        if (inSecondIntroTab.has(memberNameLower)) continue;
         const key = `${memberNameLower}-${b.id}`;
         if (processed.has(key)) continue;
         if (futureUnrunByName.has(memberNameLower)) continue;
@@ -324,7 +317,7 @@ export function useFollowUpData() {
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
-        missedGuestItems.push({
+        didntBuy1stItems.push({
           bookingId: b.id,
           runId: null,
           memberName: b.member_name,
@@ -342,14 +335,14 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
-          contactNextDate: computeContactNext(b.class_date, 'missed'),
+          contactNextDate: computeContactNext(b.class_date, 'didnt_buy_1st'),
           badgeType: 'no_outcome',
-          followUpType: 'missed' as FollowUpType,
+          followUpType: 'didnt_buy_1st',
           transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
-      // Process bookings for 2nd Intro tab
+      // Unrun 2nd intro bookings → Didn't Buy 1st (they need to show up for their 2nd)
       for (const b of bookings) {
         if (!b.originating_booking_id) continue;
         if (runsByBookingId.has(b.id)) continue;
@@ -362,7 +355,7 @@ export function useFollowUpData() {
 
         const touch = touchByBooking.get(b.id);
         processed.add(key);
-        secondIntroItems.push({
+        didntBuy1stItems.push({
           bookingId: b.id,
           runId: null,
           memberName: b.member_name,
@@ -380,15 +373,14 @@ export function useFollowUpData() {
           followUpState: null,
           lastContactAt: touch?.at || null,
           lastContactSummary: touch?.summary || null,
-          contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'secondintro') : null,
+          contactNextDate: b.class_date < today ? computeContactNext(b.class_date, 'didnt_buy_1st') : null,
           badgeType: undefined,
-          followUpType: 'secondintro' as FollowUpType,
+          followUpType: 'didnt_buy_1st',
           transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
       // Process bookings for Plans to Reschedule (booking-status-based)
-      // Track which booking IDs end up in reschedule tab for dedup
       const inRescheduleTab = new Set<string>(plansBookingIds);
       for (const b of bookings) {
         if (b.booking_status_canon !== 'PLANNING_RESCHEDULE') continue;
@@ -429,18 +421,18 @@ export function useFollowUpData() {
           lastContactSummary: touch?.summary || null,
           contactNextDate: contactDate,
           badgeType: undefined,
-          followUpType: 'reschedule' as FollowUpType,
+          followUpType: 'reschedule',
           transferredFromCoach: transferredMap.get(b.id) || null,
         });
       }
 
-      // Remove any missedGuestItems that are also in the reschedule tab
-      const dedupedMissedGuests = missedGuestItems.filter(item => !inRescheduleTab.has(item.bookingId));
+      // Remove didntBuy1st items that are also in reschedule tab
+      const dedupedDidntBuy1st = didntBuy1stItems.filter(item => !inRescheduleTab.has(item.bookingId));
 
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
 
-      // 7-day cooling filter: hide items contacted within the last 7 days
+      // 7-day cooling filter
       const COOLING_HOURS = 7 * 24;
       const splitCooling = (items: FollowUpItem[]) => {
         const active: FollowUpItem[] = [];
@@ -458,17 +450,20 @@ export function useFollowUpData() {
         return { active: active.sort(sortByDate), cooling: cooling.sort(sortByDate) };
       };
 
-      const noShowSplit = splitCooling(noShowItems);
-      const missedSplit = splitCooling(dedupedMissedGuests);
-      const secondIntroSplit = splitCooling(secondIntroItems);
+      const ns1 = splitCooling(noShow1stItems);
+      const ns2 = splitCooling(noShow2ndItems);
+      const db1 = splitCooling(dedupedDidntBuy1st);
+      const db2 = splitCooling(didntBuy2ndItems);
       const plansSplit = splitCooling(plansItems);
 
-      setNoShow(noShowSplit.active);
-      setNoShowCooling(noShowSplit.cooling);
-      setMissedGuests(missedSplit.active);
-      setMissedGuestsCooling(missedSplit.cooling);
-      setSecondIntro(secondIntroSplit.active);
-      setSecondIntroCooling(secondIntroSplit.cooling);
+      setNoShow1st(ns1.active);
+      setNoShow1stCooling(ns1.cooling);
+      setNoShow2nd(ns2.active);
+      setNoShow2ndCooling(ns2.cooling);
+      setDidntBuy1st(db1.active);
+      setDidntBuy1stCooling(db1.cooling);
+      setDidntBuy2nd(db2.active);
+      setDidntBuy2ndCooling(db2.cooling);
       setPlansToReschedule(plansSplit.active);
       setPlansToRescheduleCooling(plansSplit.cooling);
     } catch (err) {
@@ -480,40 +475,31 @@ export function useFollowUpData() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const coolingCounts = useMemo(() => ({
-    noShow: noShowCooling.length,
-    missedGuests: missedGuestsCooling.length,
-    secondIntro: secondIntroCooling.length,
-    plansToReschedule: plansToRescheduleCooling.length,
-  }), [noShowCooling, missedGuestsCooling, secondIntroCooling, plansToRescheduleCooling]);
-
   const counts = useMemo(() => ({
-    noShow: noShow.length,
-    missedGuests: missedGuests.length,
-    secondIntro: secondIntro.length,
+    noShow1st: noShow1st.length,
+    noShow2nd: noShow2nd.length,
+    didntBuy1st: didntBuy1st.length,
+    didntBuy2nd: didntBuy2nd.length,
     plansToReschedule: plansToReschedule.length,
-    total: noShow.length + missedGuests.length + secondIntro.length + plansToReschedule.length,
-  }), [noShow, missedGuests, secondIntro, plansToReschedule]);
+    total: noShow1st.length + noShow2nd.length + didntBuy1st.length + didntBuy2nd.length + plansToReschedule.length,
+  }), [noShow1st, noShow2nd, didntBuy1st, didntBuy2nd, plansToReschedule]);
 
   const allItems = useMemo(() => [
-    ...noShow, ...noShowCooling,
-    ...missedGuests, ...missedGuestsCooling,
-    ...secondIntro, ...secondIntroCooling,
+    ...noShow1st, ...noShow1stCooling,
+    ...noShow2nd, ...noShow2ndCooling,
+    ...didntBuy1st, ...didntBuy1stCooling,
+    ...didntBuy2nd, ...didntBuy2ndCooling,
     ...plansToReschedule, ...plansToRescheduleCooling,
-  ], [noShow, noShowCooling, missedGuests, missedGuestsCooling, secondIntro, secondIntroCooling, plansToReschedule, plansToRescheduleCooling]);
+  ], [noShow1st, noShow1stCooling, noShow2nd, noShow2ndCooling, didntBuy1st, didntBuy1stCooling, didntBuy2nd, didntBuy2ndCooling, plansToReschedule, plansToRescheduleCooling]);
 
   return {
-    noShow,
-    noShowCooling,
-    missedGuests,
-    missedGuestsCooling,
-    secondIntro,
-    secondIntroCooling,
-    plansToReschedule,
-    plansToRescheduleCooling,
+    noShow1st, noShow1stCooling,
+    noShow2nd, noShow2ndCooling,
+    didntBuy1st, didntBuy1stCooling,
+    didntBuy2nd, didntBuy2ndCooling,
+    plansToReschedule, plansToRescheduleCooling,
     allItems,
     counts,
-    coolingCounts,
     isLoading,
     refresh: fetchData,
   };
