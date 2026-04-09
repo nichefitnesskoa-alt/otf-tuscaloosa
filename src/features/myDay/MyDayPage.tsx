@@ -80,6 +80,7 @@ export default function MyDayPage() {
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
+  const [scriptFromFollowUp, setScriptFromFollowUp] = useState(false);
   const [outcomeBookingId, setOutcomeBookingId] = useState<string | null>(null);
   
   const [scriptQLink, setScriptQLink] = useState<string | undefined>();
@@ -161,6 +162,7 @@ export default function MyDayPage() {
       const detail = (e as CustomEvent).detail;
       setScriptBookingId(detail.bookingId);
       setScriptIsSecondIntro(!!detail.isSecondIntro);
+      setScriptFromFollowUp(!!detail.fromFollowUp);
     };
     const onOutcome = (e: Event) => setOutcomeBookingId((e as CustomEvent).detail.bookingId);
     window.addEventListener('myday:open-prep', onPrep);
@@ -491,7 +493,35 @@ export default function MyDayPage() {
           suggestedCategories={scriptIsSecondIntro ? ['confirmation'] : ['confirmation', 'questionnaire', 'follow_up']}
           mergeContext={scriptMergeContext}
           bookingId={scriptBooking.id}
-          onLogged={() => { setScriptBookingId(null); fetchMetrics(); }}
+          onLogged={async () => {
+            const bId = scriptBookingId;
+            const wasFollowUp = scriptFromFollowUp;
+            setScriptBookingId(null);
+            setScriptFromFollowUp(false);
+            fetchMetrics();
+            // Auto-advance follow-up contact date when script sent from F/U
+            if (wasFollowUp && bId) {
+              try {
+                const { count } = await supabase
+                  .from('script_actions')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('booking_id', bId);
+                const touchCount = count || 0;
+                let daysUntilNext = 2;
+                if (touchCount >= 4) daysUntilNext = 7;
+                else if (touchCount >= 3) daysUntilNext = 5;
+                else if (touchCount >= 2) daysUntilNext = 3;
+                const nextDate = format(new Date(Date.now() + daysUntilNext * 86400000), 'yyyy-MM-dd');
+                await supabase.from('intros_booked').update({
+                  reschedule_contact_date: nextDate,
+                  last_edited_at: new Date().toISOString(),
+                } as any).eq('id', bId);
+                toast.success('Script sent — follow-up contact date advanced');
+              } catch (err) {
+                console.error('Failed to advance contact date:', err);
+              }
+            }
+          }}
         />
       )}
 
