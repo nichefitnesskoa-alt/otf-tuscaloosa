@@ -244,7 +244,6 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   userName: string;
 }) {
   const [swiped, setSwiped] = useState(false);
-  const [loggingDone, setLoggingDone] = useState(false);
   const touchStartX = useRef(0);
   const priority = getPriority(item, todayStr);
 
@@ -294,60 +293,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
     }));
   };
 
-  const handleSecondaryAction = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (item.followUpType === 'secondintro') {
-      window.dispatchEvent(new CustomEvent('myday:open-outcome', {
-        detail: { bookingId: item.bookingId },
-      }));
-    } else {
-      window.dispatchEvent(new CustomEvent('followup:book-second-intro', {
-        detail: { bookingId: item.bookingId, memberName: item.memberName },
-      }));
-    }
-  };
-
-  const handleLogDone = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setLoggingDone(true);
-    try {
-      // Log touch
-      await supabase.from('script_actions').insert({
-        booking_id: item.bookingId,
-        action_type: 'script_sent',
-        completed_by: userName,
-        completed_at: new Date().toISOString(),
-      } as any);
-
-      // Calculate next contact date based on touch count
-      const { count } = await supabase
-        .from('script_actions')
-        .select('id', { count: 'exact', head: true })
-        .eq('booking_id', item.bookingId);
-      
-      const touchCount = (count || 0);
-      let daysUntilNext = 2;
-      if (touchCount >= 4) daysUntilNext = 7;
-      else if (touchCount >= 3) daysUntilNext = 5;
-      else if (touchCount >= 2) daysUntilNext = 3;
-
-      const nextDate = format(new Date(Date.now() + daysUntilNext * 86400000), 'yyyy-MM-dd');
-      await supabase.from('intros_booked').update({
-        reschedule_contact_date: nextDate,
-        last_edited_at: new Date().toISOString(),
-      } as any).eq('id', item.bookingId);
-
-      toast.success('Logged — next contact set');
-      onRefresh();
-    } catch (err) {
-      toast.error('Failed to log');
-    } finally {
-      setLoggingDone(false);
-    }
-  };
-
   const handleDismiss = async () => {
-    // For SA: "Not Interested" close
     await supabase.from('follow_up_queue').update({
       not_interested_at: new Date().toISOString(),
       not_interested_by: userName,
@@ -360,10 +306,6 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
     setSwiped(false);
     onRefresh();
   };
-
-  const secondaryLabel = item.followUpType === 'secondintro' ? 'Mark Sold'
-    : item.followUpType === 'reschedule' ? 'Book Now'
-    : 'Book 2nd Intro';
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card">
@@ -440,7 +382,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           onSaved={onRefresh}
         />
 
-        {/* Actions */}
+        {/* Actions — Send Text, Copy Phone, Log Outcome */}
         <div className="flex items-center gap-2 pt-1">
           <Button
             size="sm"
@@ -453,13 +395,12 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           <Button
             size="sm"
             variant="outline"
-            className="min-h-[44px] flex-1 cursor-pointer"
-            onClick={handleSecondaryAction}
+            className="min-h-[44px] p-0 w-11 cursor-pointer"
+            title="Copy Phone"
+            onClick={handleCopyPhone}
           >
-            {secondaryLabel}
+            <Copy className="w-4 h-4" />
           </Button>
-        </div>
-        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -468,15 +409,6 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           >
             <ClipboardList className="w-3.5 h-3.5 mr-1" />
             Log Outcome
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="min-h-[44px] text-muted-foreground cursor-pointer"
-            onClick={handleLogDone}
-            disabled={loggingDone}
-          >
-            {loggingDone ? 'Logging...' : 'Log as Done'}
           </Button>
         </div>
       </div>

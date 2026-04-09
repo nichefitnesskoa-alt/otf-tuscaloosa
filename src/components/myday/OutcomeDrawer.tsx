@@ -105,7 +105,7 @@ export function OutcomeDrawer({
   const [notes, setNotes] = useState(initialNotes);
   const [coachName, setCoachName] = useState(initialCoach);
   const [saving, setSaving] = useState(false);
-  const [preppedBeforeClass, setPreppedBeforeClass] = useState(initialPrepped);
+  // preppedBeforeClass removed per plan — prop kept for backward compat
 
   // 2nd intro booking state
   const [secondIntroDate, setSecondIntroDate] = useState<Date | undefined>(undefined);
@@ -241,9 +241,9 @@ export function OutcomeDrawer({
         });
         if (!result.success) throw new Error(result.error);
 
-        // 2. Clear existing pending follow-ups for this booking
+        // 2. Delete existing follow-up queue entries for this booking to avoid duplicate constraint
         await supabase.from('follow_up_queue')
-          .update({ status: 'dormant' })
+          .delete()
           .eq('booking_id', bookingId)
           .eq('status', 'pending');
 
@@ -300,11 +300,10 @@ export function OutcomeDrawer({
         }).eq('id', bookingId);
         if (bookingErr) throw bookingErr;
 
-        // 2. Remove any existing pending queue entries for this booking
+        // 2. Delete existing queue entries for this booking to avoid duplicate constraint
         await supabase.from('follow_up_queue')
-          .update({ status: 'dormant' })
-          .eq('booking_id', bookingId)
-          .eq('status', 'pending');
+          .delete()
+          .eq('booking_id', bookingId);
 
         // 3. Insert Touch 1 — next week (7 days out)
         const touch1Date = format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd');
@@ -454,30 +453,7 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* Prepped before class toggle */}
-      <div className={cn(
-        'flex items-center gap-2 px-2 py-2 rounded-md border transition-colors',
-        preppedBeforeClass ? 'bg-success/10 border-success/30' : 'bg-muted/20 border-border'
-      )}>
-        <input
-          type="checkbox"
-          id="prepped-outcome-toggle"
-          checked={preppedBeforeClass}
-          onChange={async (e) => {
-            const val = e.target.checked;
-            setPreppedBeforeClass(val);
-            await supabase.from('intros_booked').update({
-              prepped: val,
-              prepped_at: val ? new Date().toISOString() : null,
-              prepped_by: val ? editedBy : null,
-            }).eq('id', bookingId);
-          }}
-          className="w-4 h-4 accent-green-600"
-        />
-        <label htmlFor="prepped-outcome-toggle" className={cn('text-xs font-medium cursor-pointer', preppedBeforeClass ? 'text-success' : 'text-muted-foreground')}>
-          Prepped before class
-        </label>
-      </div>
+      {/* Prepped before class toggle removed */}
 
       {/* Outcome selector */}
       <div className="space-y-1">

@@ -2,13 +2,14 @@
  * Coach Follow-Up List — shows missed guests owned by the logged-in coach.
  * Records with owner_role='Coach' that haven't been transferred or closed.
  */
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { RefreshCw, Phone, Copy, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format, differenceInDays } from 'date-fns';
+import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { toast } from 'sonner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import {
@@ -161,7 +162,6 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
   userName: string;
 }) {
   const [notInterestedOpen, setNotInterestedOpen] = useState(false);
-  const [loggingDone, setLoggingDone] = useState(false);
 
   const daysSinceIntro = differenceInDays(new Date(), new Date(item.classDate + 'T12:00:00'));
   const daysSinceCreated = differenceInDays(new Date(), new Date(item.createdAt));
@@ -183,10 +183,21 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
     }));
   };
 
-  const handleBook2nd = (e: React.MouseEvent) => {
+  const handleCopyPhone = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.dispatchEvent(new CustomEvent('followup:book-second-intro', {
-      detail: { bookingId: item.bookingId, memberName: item.memberName },
+    const clean = stripCountryCode(item.phone);
+    if (clean) {
+      navigator.clipboard.writeText(clean);
+      toast.success('Phone copied');
+    } else {
+      toast.error('No valid phone on file');
+    }
+  };
+
+  const handleLogOutcome = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('myday:open-outcome', {
+      detail: { bookingId: item.bookingId },
     }));
   };
 
@@ -201,36 +212,6 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
     onRefresh();
   };
 
-  const handleLogDone = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setLoggingDone(true);
-    try {
-      await supabase.from('followup_touches').insert({
-        booking_id: item.bookingId,
-        touch_type: 'follow_up',
-        created_by: userName,
-      });
-
-      let daysUntilNext = 2;
-      const tc = item.touchNumber;
-      if (tc >= 4) daysUntilNext = 7;
-      else if (tc >= 3) daysUntilNext = 5;
-      else if (tc >= 2) daysUntilNext = 3;
-
-      const nextDate = format(new Date(Date.now() + daysUntilNext * 86400000), 'yyyy-MM-dd');
-      await supabase.from('follow_up_queue').update({
-        touch_number: tc + 1,
-        scheduled_date: nextDate,
-      }).eq('id', item.id);
-
-      toast.success('Logged — next contact set');
-      onRefresh();
-    } catch {
-      toast.error('Failed to log');
-    } finally {
-      setLoggingDone(false);
-    }
-  };
 
   return (
     <>
@@ -273,22 +254,33 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
           onSaved={onRefresh}
         />
 
-        {/* Actions */}
+        {/* Actions — Send Text, Copy Phone, Log Outcome, Not Interested */}
         <div className="flex items-center gap-2 pt-1 flex-wrap">
           <Button
             size="sm"
             className="min-h-[44px] bg-[#E8540A] hover:bg-[#D14A09] text-white flex-1 cursor-pointer"
             onClick={handleSendText}
           >
+            <Phone className="w-3.5 h-3.5 mr-1" />
             Send Text
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="min-h-[44px] flex-1 cursor-pointer"
-            onClick={handleBook2nd}
+            className="min-h-[44px] p-0 w-11 cursor-pointer"
+            title="Copy Phone"
+            onClick={handleCopyPhone}
           >
-            Book 2nd Intro
+            <Copy className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] flex-1 cursor-pointer"
+            onClick={handleLogOutcome}
+          >
+            <ClipboardList className="w-3.5 h-3.5 mr-1" />
+            Log Outcome
           </Button>
           <Button
             size="sm"
@@ -297,15 +289,6 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
             onClick={() => setNotInterestedOpen(true)}
           >
             Not Interested
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="min-h-[44px] text-muted-foreground cursor-pointer"
-            onClick={handleLogDone}
-            disabled={loggingDone}
-          >
-            {loggingDone ? 'Logging...' : 'Log as Done'}
           </Button>
         </div>
       </div>
