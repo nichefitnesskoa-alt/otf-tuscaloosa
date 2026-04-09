@@ -359,7 +359,7 @@ function ClassTimeIntroSelector({
 }) {
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
-    if (!autoExpand) return intros.length > 0 ? intros[0].id : null;
+    if (!autoExpand) return null;
     const now = new Date();
     const today = format(now, 'yyyy-MM-dd');
     const todayActive = intros.filter(i => i.class_date === today && i.booking_status_canon === 'ACTIVE');
