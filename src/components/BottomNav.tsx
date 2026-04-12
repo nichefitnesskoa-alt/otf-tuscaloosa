@@ -32,27 +32,38 @@ export function BottomNav() {
 
   // Coach sees Coach View (single nav)
   if (isCoach) {
+    const coachItems = [
+      { path: '/coach-view', label: 'Coach View', icon: Eye },
+      { path: '/wig', label: 'WIG', icon: Trophy },
+    ];
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
         <div className="flex items-center justify-around h-16">
-          <button
-            onClick={() => navigate('/coach-view')}
-            className={cn(
-              'flex flex-col items-center justify-center flex-1 h-full px-1 relative min-w-[44px]',
-              location.pathname === '/coach-view' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <div className="relative">
-              <Eye className="w-5 h-5 mb-0.5 stroke-[2.5px]" />
-              {coachFollowUpBadge > 0 && (
-                <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
-                  {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] font-semibold">Coach View</span>
-            <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />
-          </button>
+          {coachItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={cn(
+                  'flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors relative min-w-[44px]',
+                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <div className="relative">
+                  <Icon className={cn('w-5 h-5 mb-0.5', isActive && 'stroke-[2.5px]')} />
+                  {item.path === '/coach-view' && coachFollowUpBadge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                      {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
+                    </span>
+                  )}
+                </div>
+                <span className={cn('text-[11px] font-medium', isActive && 'font-semibold')}>{item.label}</span>
+                {isActive && <div className="absolute bottom-0 w-10 h-0.5 bg-primary rounded-full" />}
+              </button>
+            );
+          })}
         </div>
       </nav>
     );
