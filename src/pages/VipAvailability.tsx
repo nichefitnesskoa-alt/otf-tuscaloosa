@@ -276,12 +276,12 @@ function ClaimDialog({
                   )}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold text-sm">Private — Staff Only</p>
+                    <p className="font-semibold text-sm">Private — Group Only</p>
                     <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'exclusive' && 'rotate-180')} />
                   </div>
                   {sessionType === 'exclusive' && (
                     <p className="text-xs text-muted-foreground mt-1.5">
-                      Just your group. No outside members. An intimate experience designed entirely for your team.
+                      Just your group. No outside members. An intimate experience designed entirely for your people.
                     </p>
                   )}
                 </button>
@@ -299,7 +299,7 @@ function ClaimDialog({
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold text-sm">Business + Your Customers</p>
+                      <p className="font-semibold text-sm">Business</p>
                       <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'business_customers' && 'rotate-180')} />
                     </div>
                     {sessionType === 'business_customers' && (
@@ -342,28 +342,6 @@ function ClaimDialog({
                     )}
                   </button>
                 </div>
-
-                {/* Option 3 — Community */}
-                <button
-                  type="button"
-                  onClick={() => { setSessionType('open'); setBusinessSubType(''); }}
-                  className={cn(
-                    'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
-                    sessionType === 'open'
-                      ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/20'
-                      : 'border-border hover:border-muted-foreground/30'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-sm">Community — Open to OTF Members</p>
-                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'open' && 'rotate-180')} />
-                  </div>
-                  {sessionType === 'open' && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Your group joins our existing members. Fuller class, bigger energy. Great for sororities, fraternities, and community organizations who want to experience OTF alongside our regulars.
-                    </p>
-                  )}
-                </button>
               </div>
             </div>
 
