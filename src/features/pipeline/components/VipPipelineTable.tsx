@@ -207,9 +207,12 @@ export function VipPipelineTable() {
 
       setRows(builtRows);
 
-      // Merge group names from vip_sessions so newly created (empty) groups appear
-      const sessionGroupNames = (sessions || []).map((s: any) => s.vip_class_name).filter(Boolean);
-      const allGroupNames = new Set([...builtRows.map(r => r.groupName), ...sessionGroupNames]);
+      // Only show groups that have actual registrations (claimed slots)
+      const claimedSessionNames = (sessions || [])
+        .filter((s: any) => s.status === 'reserved' && s.reserved_by_group)
+        .map((s: any) => s.reserved_by_group)
+        .filter(Boolean);
+      const allGroupNames = new Set([...builtRows.map(r => r.groupName), ...claimedSessionNames]);
       const uniqueGroups = Array.from(allGroupNames).sort();
       setGroups(uniqueGroups);
     } catch (err) {
@@ -545,7 +548,7 @@ export function VipPipelineTable() {
           <SelectTrigger className="w-[220px] h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[300px] overflow-y-auto">
             
             {groups.map(g => (
               <SelectItem key={g} value={g}>
