@@ -368,16 +368,22 @@ export default function Wig() {
       const showedFirstIntroBookings = firstIntroBookings.filter(b => showedBookingIds.has(b.id));
 
       // Aggregate coaches from booking data
-      const coachMap = new Map<string, { coached: number; shoutouts: number; answeredShoutout: number; whyUsed: number; answeredWhy: number; friends: number; answeredFriend: number; paired: number; debriefed: number }>();
+      const coachMap = new Map<string, { coached: number; preShoutouts: number; answeredPre: number; postShoutouts: number; answeredPost: number; whyUsed: number; answeredWhy: number; paired: number; debriefed: number }>();
       showedFirstIntroBookings.forEach(b => {
         const name = b.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
+        const ex = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, debriefed: 0 };
         ex.coached++;
 
-        // Shoutout fields from intros_booked
-        if (b.coach_shoutout_start != null || b.coach_shoutout_end != null) {
-          ex.answeredShoutout++;
-          if (b.coach_shoutout_start || b.coach_shoutout_end) ex.shoutouts++;
+        // Pre-class shoutout
+        if (b.coach_shoutout_start != null) {
+          ex.answeredPre++;
+          if (b.coach_shoutout_start) ex.preShoutouts++;
+        }
+
+        // Post-class shoutout
+        if (b.coach_shoutout_end != null) {
+          ex.answeredPost++;
+          if (b.coach_shoutout_end) ex.postShoutouts++;
         }
 
         // Run-side fields
@@ -386,10 +392,6 @@ export default function Wig() {
           if (run.goal_why_captured != null) {
             ex.answeredWhy++;
             if (run.goal_why_captured === 'yes') ex.whyUsed++;
-          }
-          if (run.made_a_friend != null) {
-            ex.answeredFriend++;
-            if (run.made_a_friend) ex.friends++;
           }
         }
 
@@ -429,14 +431,14 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, shoutouts: 0, answeredShoutout: 0, whyUsed: 0, answeredWhy: 0, friends: 0, answeredFriend: 0, paired: 0, debriefed: 0 };
+        const wk = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, debriefed: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
         return {
           name,
           coached: wk.coached,
-          shoutoutRate: wk.answeredShoutout > 0 ? (wk.shoutouts / wk.answeredShoutout) * 100 : 0,
+          preRate: wk.answeredPre > 0 ? (wk.preShoutouts / wk.answeredPre) * 100 : 0,
+          postRate: wk.answeredPost > 0 ? (wk.postShoutouts / wk.answeredPost) * 100 : 0,
           whyUsedRate: wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0,
-          friendRate: wk.answeredFriend > 0 ? (wk.friends / wk.answeredFriend) * 100 : 0,
           pairingRate: wk.coached > 0 ? (wk.paired / wk.coached) * 100 : 0,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
@@ -670,13 +672,13 @@ export default function Wig() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                     <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
                       <TableHead className="text-xs text-center">Debrief %</TableHead>
-                      <TableHead className="text-xs text-center">Shoutout %</TableHead>
+                      <TableHead className="text-xs text-center">Pre %</TableHead>
+                      <TableHead className="text-xs text-center">Post %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
-                      <TableHead className="text-xs text-center">Intro to Member %</TableHead>
                       <TableHead className="text-xs text-center">Pairing %</TableHead>
                       <TableHead className="text-xs text-center">Close %</TableHead>
                     </TableRow>
@@ -692,18 +694,18 @@ export default function Wig() {
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
-                          <span className={row.shoutoutRate >= 100 ? 'text-success' : row.shoutoutRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.shoutoutRate.toFixed(0)}%
+                          <span className={row.preRate >= 100 ? 'text-success' : row.preRate >= 50 ? 'text-warning' : 'text-destructive'}>
+                            {row.preRate.toFixed(0)}%
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-center">
+                          <span className={row.postRate >= 100 ? 'text-success' : row.postRate >= 50 ? 'text-warning' : 'text-destructive'}>
+                            {row.postRate.toFixed(0)}%
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
                           <span className={row.whyUsedRate >= 75 ? 'text-success' : row.whyUsedRate >= 50 ? 'text-warning' : 'text-destructive'}>
                             {row.whyUsedRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.friendRate >= 100 ? 'text-success' : row.friendRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.friendRate.toFixed(0)}%
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
