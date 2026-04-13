@@ -2621,6 +2621,30 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_slot_templates: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          is_active: boolean
+          slot_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_active?: boolean
+          slot_time: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_active?: boolean
+          slot_time?: string
+        }
+        Relationships: []
+      }
       weekly_digests: {
         Row: {
           created_at: string

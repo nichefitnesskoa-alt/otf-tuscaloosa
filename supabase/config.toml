@@ -24,3 +24,6 @@ verify_jwt = false
 
 [functions.followup-auto-transfer]
 verify_jwt = false
+
+[functions.generate-vip-slots]
+verify_jwt = false

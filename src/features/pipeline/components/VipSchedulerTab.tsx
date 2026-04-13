@@ -1,6 +1,7 @@
 /**
  * VIP Scheduler Tab — manage available VIP session slots.
- * Staff can add slots, cancel, reset, copy the public link, and view registrations.
+ * Staff can add slots, cancel, reset, mark reserved, copy the public link, view registrations,
+ * and manage recurring slot templates.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,12 +17,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, ChevronRight,
+  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+
+const sb = supabase as any;
 
 interface VipSession {
   id: string;
@@ -48,6 +51,15 @@ interface VipRegistration {
   phone: string | null;
 }
 
+interface SlotTemplate {
+  id: string;
+  day_of_week: number;
+  slot_time: string;
+  is_active: boolean;
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function generateSlug(date: string, time: string): string {
   const d = new Date(date + 'T00:00:00');
   const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -70,8 +82,6 @@ function StatusBadge({ status, group }: { status: string; group: string | null }
 
 export function VipSchedulerTab() {
   const { user } = useAuth();
-  // Cast to any to avoid TS2589 with deeply nested Supabase types
-  const sb = supabase as any;
   const [sessions, setSessions] = useState<VipSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -87,36 +97,51 @@ export function VipSchedulerTab() {
   const [newPublic, setNewPublic] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Mark Reserved inline form
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markGroupName, setMarkGroupName] = useState('');
+  const [markSaving, setMarkSaving] = useState(false);
+
+  // Templates
+  const [templates, setTemplates] = useState<SlotTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+
   const fetchSessions = useCallback(async () => {
     setLoading(true);
-    const sessQuery: any = sb
+    const { data } = await sb
       .from('vip_sessions')
       .select('*')
       .order('session_date', { ascending: true })
       .order('session_time', { ascending: true });
-    const { data } = await sessQuery;
     setSessions((data as any[]) || []);
 
-    // Fetch registration counts per session
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sb = supabase as any;
       const { data: regs } = await sb
         .from('vip_registrations')
         .select('vip_session_id')
         .in('vip_session_id', ids);
       const counts: Record<string, number> = {};
       for (const r of (regs || [])) {
-        const sid = (r as any).vip_session_id;
-        counts[sid] = (counts[sid] || 0) + 1;
+        counts[(r as any).vip_session_id] = (counts[(r as any).vip_session_id] || 0) + 1;
       }
       setRegCounts(counts);
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  const fetchTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    const { data } = await sb
+      .from('vip_slot_templates')
+      .select('*')
+      .order('day_of_week', { ascending: true })
+      .order('slot_time', { ascending: true });
+    setTemplates((data as any[]) || []);
+    setTemplatesLoading(false);
+  }, []);
+
+  useEffect(() => { fetchSessions(); fetchTemplates(); }, [fetchSessions, fetchTemplates]);
 
   const handleAddSlot = async () => {
     if (!newDate || !newTime) { toast.error('Date and time are required'); return; }
@@ -136,16 +161,11 @@ export function VipSchedulerTab() {
       if (error) throw error;
       toast.success('Slot added');
       setAddOpen(false);
-      setNewDate('');
-      setNewTime('');
-      setNewDesc('');
-      setNewPublic(true);
+      setNewDate(''); setNewTime(''); setNewDesc(''); setNewPublic(true);
       fetchSessions();
     } catch (err: any) {
       toast.error(err.message || 'Failed to add slot');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleCancel = async (id: string) => {
@@ -154,7 +174,7 @@ export function VipSchedulerTab() {
     fetchSessions();
   };
 
-  const handleResetToOpen = async (id: string) => {
+  const handleReopen = async (id: string) => {
     await sb.from('vip_sessions').update({
       status: 'open',
       reserved_by_group: null,
@@ -163,13 +183,29 @@ export function VipSchedulerTab() {
       reserved_contact_phone: null,
       estimated_group_size: null,
     } as any).eq('id', id);
-    toast.success('Slot reset to open');
+    toast.success('Slot reopened');
     fetchSessions();
   };
 
+  const handleMarkReserved = async (id: string) => {
+    if (!markGroupName.trim()) { toast.error('Group name is required'); return; }
+    setMarkSaving(true);
+    try {
+      await sb.from('vip_sessions').update({
+        status: 'reserved',
+        reserved_by_group: markGroupName.trim(),
+      } as any).eq('id', id);
+      toast.success('Slot marked as reserved');
+      setMarkingId(null);
+      setMarkGroupName('');
+      fetchSessions();
+    } catch (err: any) {
+      toast.error('Failed to mark reserved');
+    } finally { setMarkSaving(false); }
+  };
+
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/vip-availability`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(`${window.location.origin}/vip-availability`);
     toast.success('Availability link copied');
   };
 
@@ -184,6 +220,12 @@ export function VipSchedulerTab() {
     setRegLoading(false);
   };
 
+  const handleToggleTemplate = async (id: string, currentActive: boolean) => {
+    await sb.from('vip_slot_templates').update({ is_active: !currentActive } as any).eq('id', id);
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, is_active: !currentActive } : t));
+    toast.success(!currentActive ? 'Template activated' : 'Template paused');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -193,7 +235,7 @@ export function VipSchedulerTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -205,7 +247,7 @@ export function VipSchedulerTab() {
             <Copy className="w-3.5 h-3.5" /> Copy Availability Link
           </Button>
           <Button size="sm" className="h-9 text-xs gap-1 bg-orange-600 hover:bg-orange-700 text-white" onClick={() => setAddOpen(true)}>
-            <CalendarPlus className="w-3.5 h-3.5" /> Add Available Slot
+            <CalendarPlus className="w-3.5 h-3.5" /> Add One-Off Slot
           </Button>
         </div>
       </div>
@@ -221,53 +263,137 @@ export function VipSchedulerTab() {
         <div className="space-y-2">
           {sessions.map(s => (
             <Card key={s.id} className="overflow-hidden">
-              <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="min-w-0">
-                    <div className="font-medium text-sm">
-                      {format(new Date(s.session_date + 'T00:00:00'), 'EEE, MMM d')} · {formatDisplayTime(s.session_time)}
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">
+                        {format(new Date(s.session_date + 'T00:00:00'), 'EEE, MMM d')} · {formatDisplayTime(s.session_time)}
+                      </div>
+                      {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
+                      <span className="text-[10px] text-muted-foreground">
+                        {s.created_by === 'system' ? 'System' : s.created_by}
+                      </span>
                     </div>
-                    {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
+                    <StatusBadge status={s.status} group={s.reserved_by_group} />
+                    {s.status === 'reserved' && regCounts[s.id] !== undefined && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Users className="w-3 h-3" /> {regCounts[s.id]} registered
+                      </span>
+                    )}
                   </div>
-                  <StatusBadge status={s.status} group={s.reserved_by_group} />
-                  {s.status === 'reserved' && regCounts[s.id] !== undefined && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Users className="w-3 h-3" /> {regCounts[s.id]} registered
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
+                      <Copy className="w-3.5 h-3.5" /> Copy Link
+                    </Button>
+                    {s.status === 'open' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 text-xs gap-1"
+                        onClick={() => { setMarkingId(s.id); setMarkGroupName(''); }}
+                      >
+                        <BookmarkCheck className="w-3.5 h-3.5" /> Mark Reserved
+                      </Button>
+                    )}
+                    {s.status === 'reserved' && (
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => handleViewRegistrations(s.id)}>
+                        <Eye className="w-3.5 h-3.5" /> View Registrations
+                      </Button>
+                    )}
+                    {(s.status === 'reserved' || s.status === 'cancelled') && (
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-muted-foreground" onClick={() => handleReopen(s.id)}>
+                        <RotateCcw className="w-3.5 h-3.5" /> Reopen
+                      </Button>
+                    )}
+                    {s.status !== 'cancelled' && (
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => handleCancel(s.id)}>
+                        <XCircle className="w-3.5 h-3.5" /> Cancel
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
-                    <Copy className="w-3.5 h-3.5" /> Copy Link
-                  </Button>
-                  {s.status === 'reserved' && (
-                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => handleViewRegistrations(s.id)}>
-                      <Eye className="w-3.5 h-3.5" /> View Registrations
+
+                {/* Inline Mark Reserved form */}
+                {markingId === s.id && (
+                  <div className="flex items-end gap-2 pt-1 border-t">
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-xs">Group Name</Label>
+                      <Input
+                        value={markGroupName}
+                        onChange={e => setMarkGroupName(e.target.value)}
+                        placeholder="e.g. Alpha Phi Sorority"
+                        className="border h-9 text-sm"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-9 bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                      disabled={markSaving || !markGroupName.trim()}
+                      onClick={() => handleMarkReserved(s.id)}
+                    >
+                      {markSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
                     </Button>
-                  )}
-                  {s.status === 'reserved' && (
-                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-muted-foreground" onClick={() => handleResetToOpen(s.id)}>
-                      <RotateCcw className="w-3.5 h-3.5" /> Reset to Open
+                    <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setMarkingId(null)}>
+                      Cancel
                     </Button>
-                  )}
-                  {s.status !== 'cancelled' && (
-                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => handleCancel(s.id)}>
-                      <XCircle className="w-3.5 h-3.5" /> Cancel
-                    </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
+      {/* Recurring Templates Section */}
+      <Separator />
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">
+            <Clock className="w-4 h-4" /> Recurring Templates
+          </h3>
+          <p className="text-xs text-muted-foreground">Slots auto-generated every Monday for 8 weeks ahead. Toggle to pause or resume.</p>
+        </div>
+        {templatesLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+        ) : templates.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No templates configured.</p>
+        ) : (
+          <div className="grid gap-2">
+            {templates.map(t => (
+              <Card key={t.id} className={!t.is_active ? 'opacity-60' : ''}>
+                <CardContent className="p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${t.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <span className="text-sm font-medium">
+                      {DAY_NAMES[t.day_of_week]} · {formatDisplayTime(t.slot_time)}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {t.is_active ? 'Active' : 'Paused'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">
+                      {t.is_active ? 'Active' : 'Paused'}
+                    </Label>
+                    <Switch
+                      checked={t.is_active}
+                      onCheckedChange={() => handleToggleTemplate(t.id, t.is_active)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Add Slot Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Available Slot</DialogTitle>
-            <DialogDescription>Create a new VIP session time slot</DialogDescription>
+            <DialogTitle>Add One-Off Slot</DialogTitle>
+            <DialogDescription>Create a single VIP session outside the recurring schedule</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -283,7 +409,7 @@ export function VipSchedulerTab() {
               <Textarea
                 value={newDesc}
                 onChange={e => setNewDesc(e.target.value)}
-                placeholder="e.g. Morning exclusive session"
+                placeholder="e.g. Special event session"
                 className="border"
               />
             </div>
