@@ -87,11 +87,11 @@ export function VipSchedulerTab() {
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase
       .from('vip_sessions')
       .select('*')
       .order('session_date', { ascending: true })
-      .order('session_time', { ascending: true });
+      .order('session_time', { ascending: true }) as any);
     setSessions((data as any[]) || []);
 
     // Fetch registration counts per session
