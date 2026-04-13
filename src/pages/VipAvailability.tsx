@@ -23,7 +23,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown, Download } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   format,
   startOfMonth,
@@ -188,23 +189,69 @@ function ClaimDialog({
 
         {confirmed ? (
           (() => {
-            // Get slug for shareable link
-            const shareableLink = `https://otf-tuscaloosa.lovable.app/vip/${(() => {
-              // Build slug from session info
-              const d = new Date(session.session_date + 'T00:00:00');
-              const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-              const month = monthNames[d.getMonth()];
-              const day = d.getDate();
-              const [h, m] = session.session_time.split(':');
-              const hour = parseInt(h);
-              const min = m || '00';
-              const ampm = hour >= 12 ? 'pm' : 'am';
-              const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-              return `vip-${month}${day}-${h12}${min !== '00' ? min : ''}${ampm}`;
-            })()}/register`;
+            const d = new Date(session.session_date + 'T00:00:00');
+            const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+            const month = monthNames[d.getMonth()];
+            const day = d.getDate();
+            const [h, m_] = session.session_time.split(':');
+            const hour = parseInt(h);
+            const min = m_ || '00';
+            const ampm = hour >= 12 ? 'pm' : 'am';
+            const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+            const slug = `vip-${month}${day}-${h12}${min !== '00' ? min : ''}${ampm}`;
+            const shareableLink = `https://otf-tuscaloosa.lovable.app/vip/${slug}/register`;
+            const prettyDate = format(d, 'EEEE, MMMM d, yyyy');
+            const prettyTime = formatDisplayTime(session.session_time);
+            const safeGroupName = groupName.trim().replace(/[^a-zA-Z0-9]/g, '-');
+            const fileName = `OTF-VIP-${safeGroupName}-${format(d, 'yyyy-MM-dd')}.png`;
+
+            const handleDownloadQR = () => {
+              const canvas = document.createElement('canvas');
+              const size = 600;
+              const padding = 60;
+              const textAreaHeight = 120;
+              const totalHeight = size + padding * 2 + textAreaHeight;
+              const totalWidth = size + padding * 2;
+              canvas.width = totalWidth;
+              canvas.height = totalHeight;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return;
+
+              // White background
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, totalWidth, totalHeight);
+
+              // Copy QR from DOM
+              const qrCanvas = document.getElementById('qr-canvas') as HTMLCanvasElement | null;
+              if (qrCanvas) {
+                ctx.drawImage(qrCanvas, padding, padding, size, size);
+              }
+
+              // Orange border around QR
+              ctx.strokeStyle = '#E8540A';
+              ctx.lineWidth = 4;
+              ctx.strokeRect(padding - 6, padding - 6, size + 12, size + 12);
+
+              // Text below QR
+              const textY = padding + size + 30;
+              ctx.fillStyle = '#1a1a1a';
+              ctx.textAlign = 'center';
+              ctx.font = 'bold 22px sans-serif';
+              ctx.fillText('OTF Tuscaloosa — Private Group Class', totalWidth / 2, textY);
+              ctx.font = '18px sans-serif';
+              ctx.fillText(`${prettyDate} at ${prettyTime}`, totalWidth / 2, textY + 32);
+              ctx.font = '16px sans-serif';
+              ctx.fillStyle = '#666666';
+              ctx.fillText('Scan to register before class', totalWidth / 2, textY + 62);
+
+              const link = document.createElement('a');
+              link.download = fileName;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+            };
 
             return (
-              <div className="py-6 text-center space-y-3">
+              <div className="py-4 text-center space-y-4">
                 <CheckCircle className="w-10 h-10 text-green-600 mx-auto" />
                 <p className="font-semibold text-green-700 dark:text-green-400">
                   Your slot is confirmed!
@@ -222,12 +269,49 @@ function ClaimDialog({
                   <Button
                     variant="outline"
                     className="h-10 min-h-[44px] shrink-0 text-xs font-medium"
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareableLink);
-                    }}
+                    onClick={() => navigator.clipboard.writeText(shareableLink)}
                   >
                     Copy
                   </Button>
+                </div>
+
+                {/* QR Code */}
+                <div className="flex flex-col items-center gap-2 pt-2">
+                  <div className="border-4 border-[#E8540A] rounded-lg p-2 bg-white inline-block">
+                    <QRCodeCanvas
+                      id="qr-canvas"
+                      value={shareableLink}
+                      size={180}
+                      bgColor="#FFFFFF"
+                      fgColor="#000000"
+                      level="M"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Scan to fill out your info before class
+                  </p>
+                </div>
+
+                {/* Download QR */}
+                <Button
+                  variant="outline"
+                  className="w-full min-h-[44px] text-sm font-medium gap-2"
+                  onClick={handleDownloadQR}
+                >
+                  <Download className="w-4 h-4" />
+                  Download QR Code
+                </Button>
+
+                {/* Collab Post Tip */}
+                <div className="border-t pt-4 mt-2">
+                  <div className="bg-muted/40 rounded-lg p-4 text-left space-y-2">
+                    <p className="text-sm font-semibold">📲 Maximize your group's experience</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      The best engagement we've seen is sharing this link on a social media post — and we'd love to collaborate.
+                      Tag <span className="font-medium text-foreground">@otftuscaloosa</span> and we'll reshare your post to our audience,
+                      helping you promote your event while we build our community together.
+                    </p>
+                  </div>
                 </div>
               </div>
             );
