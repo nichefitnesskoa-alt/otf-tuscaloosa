@@ -217,7 +217,7 @@ export function VipSchedulerTab() {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/vip-availability`);
+    navigator.clipboard.writeText('https://otf-tuscaloosa.lovable.app/vip-availability');
     toast.success('Availability link copied');
   };
 
