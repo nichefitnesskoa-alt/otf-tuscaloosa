@@ -275,9 +275,9 @@ function ClaimDialog({
   );
 }
 
-/* ── Slot Dot ──────────────────────────────────────── */
+/* ── Desktop Slot Pill ─────────────────────────────── */
 
-function SlotDot({
+function SlotPill({
   session,
   onClaim,
   isConfirmed,
@@ -287,70 +287,59 @@ function SlotDot({
   isConfirmed: boolean;
 }) {
   const isOpen = session.status === 'open';
-  const isReserved = session.status === 'reserved';
   const isOpenType = session.session_type === 'open';
 
   if (isConfirmed) {
     return (
-      <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-300" title="Confirmed!" />
+      <div className="rounded border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30 px-1.5 py-1 text-center">
+        <CheckCircle className="w-3.5 h-3.5 text-green-600 mx-auto" />
+      </div>
     );
   }
 
-  const dotColor = isOpen
-    ? 'bg-green-500'
+  const borderColor = isOpen
+    ? 'border-l-green-500'
     : isOpenType
-      ? 'bg-teal-500'
-      : 'bg-amber-500';
-
-  const popoverContent = isOpen ? (
-    <div className="space-y-2">
-      <p className="font-semibold text-sm">{formatDisplayTime(session.session_time)}</p>
-      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Available</p>
-      <Button
-        className="w-full h-11 bg-[#FF6900] hover:bg-[#e55f00] text-white font-semibold text-sm"
-        onClick={onClaim}
-      >
-        Claim This Slot
-      </Button>
-    </div>
-  ) : (
-    <div className="space-y-1">
-      <p className="font-semibold text-sm">{formatDisplayTime(session.session_time)}</p>
-      {isOpenType ? (
-        <>
-          <p className="text-xs text-teal-600 dark:text-teal-400 font-medium">
-            Reserved — {session.reserved_by_group || 'Group'} + Members Welcome
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-            Reserved — Private Event
-          </p>
-          {session.reserved_by_group && (
-            <p className="text-xs text-muted-foreground italic">{session.reserved_by_group}</p>
-          )}
-        </>
-      )}
-    </div>
-  );
+      ? 'border-l-teal-500'
+      : 'border-l-amber-500';
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            'w-3.5 h-3.5 rounded-full cursor-pointer transition-transform hover:scale-125 min-w-[14px]',
-            dotColor,
-            isOpen && 'ring-2 ring-green-200 dark:ring-green-800'
-          )}
-          title={`${formatDisplayTime(session.session_time)} — ${isOpen ? 'Available' : 'Reserved'}`}
-        />
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-3">
-        {popoverContent}
-      </PopoverContent>
-    </Popover>
+    <div
+      role={isOpen ? 'button' : undefined}
+      tabIndex={isOpen ? 0 : undefined}
+      onClick={(e) => {
+        if (isOpen) {
+          e.stopPropagation();
+          onClaim();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (isOpen && (e.key === 'Enter' || e.key === ' ')) {
+          e.stopPropagation();
+          onClaim();
+        }
+      }}
+      className={cn(
+        'rounded border-l-4 px-1.5 py-1 bg-card',
+        borderColor,
+        isOpen && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors'
+      )}
+    >
+      <p className={cn('text-[11px] font-semibold leading-tight', !isOpen && 'text-muted-foreground')}>
+        {formatDisplayTime(session.session_time)}
+      </p>
+      {isOpen ? (
+        <p className="text-[10px] leading-tight text-green-600 dark:text-green-400 font-medium">Available</p>
+      ) : isOpenType ? (
+        <p className="text-[10px] leading-tight text-teal-600 dark:text-teal-400 truncate">
+          {session.reserved_by_group || 'Group'} · Members Welcome
+        </p>
+      ) : (
+        <p className="text-[10px] leading-tight text-amber-600 dark:text-amber-400 italic truncate">
+          {session.reserved_by_group || 'Reserved'}
+        </p>
+      )}
+    </div>
   );
 }
 
