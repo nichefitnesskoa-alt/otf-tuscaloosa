@@ -608,15 +608,15 @@ export default function VipAvailability() {
                       <button
                         key={day.date}
                         onClick={() => {
-                          if (hasSlots) setSelectedDay(day.date);
+                          if (isMobile && hasSlots) setSelectedDay(day.date);
                         }}
                         className={cn(
-                          'relative border-r last:border-r-0 p-1 transition-colors text-left',
-                          isMobile ? 'min-h-[52px]' : 'min-h-[80px]',
+                          'relative border-r last:border-r-0 p-1 transition-colors text-left align-top',
+                          isMobile ? 'min-h-[52px]' : 'min-h-[80px] min-w-[120px]',
                           !day.isCurrentMonth && 'bg-muted/20',
                           day.isToday && 'bg-orange-50/50 dark:bg-orange-950/10',
-                          hasSlots && 'cursor-pointer hover:bg-muted/40',
-                          !hasSlots && 'cursor-default'
+                          isMobile && hasSlots && 'cursor-pointer hover:bg-muted/40',
+                          (!hasSlots || !isMobile) && 'cursor-default'
                         )}
                       >
                         {/* Date Number */}
@@ -634,10 +634,10 @@ export default function VipAvailability() {
                           {day.dateNum}
                         </span>
 
-                        {/* Slot Dots */}
+                        {/* Slot display */}
                         {hasSlots && (
                           isMobile ? (
-                            /* Mobile: just show colored dots */
+                            /* Mobile: colored dots */
                             <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
                               {daySessions.map((s) => {
                                 const isOpen = s.status === 'open';
@@ -653,16 +653,14 @@ export default function VipAvailability() {
                               })}
                             </div>
                           ) : (
-                            /* Desktop: interactive dots with popovers */
-                            <div className="flex gap-1 mt-1 flex-wrap">
+                            /* Desktop: inline time pills */
+                            <div className="flex flex-col gap-0.5 mt-0.5">
                               {daySessions.map((s) => (
-                                <SlotDot
+                                <SlotPill
                                   key={s.id}
                                   session={s}
                                   isConfirmed={confirmedIds.has(s.id)}
-                                  onClaim={() => {
-                                    setClaimSession(s);
-                                  }}
+                                  onClaim={() => setClaimSession(s)}
                                 />
                               ))}
                             </div>
