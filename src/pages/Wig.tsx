@@ -368,10 +368,10 @@ export default function Wig() {
       const showedFirstIntroBookings = firstIntroBookings.filter(b => showedBookingIds.has(b.id));
 
       // Aggregate coaches from booking data
-      const coachMap = new Map<string, { coached: number; preShoutouts: number; answeredPre: number; postShoutouts: number; answeredPost: number; whyUsed: number; answeredWhy: number; paired: number; debriefed: number }>();
+      const coachMap = new Map<string, { coached: number; preShoutouts: number; answeredPre: number; postShoutouts: number; answeredPost: number; whyUsed: number; answeredWhy: number; paired: number; answeredPaired: number; debriefed: number }>();
       showedFirstIntroBookings.forEach(b => {
         const name = b.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, debriefed: 0 };
+        const ex = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
         ex.coached++;
 
         // Pre-class shoutout
@@ -393,10 +393,11 @@ export default function Wig() {
             ex.answeredWhy++;
             if (run.goal_why_captured === 'yes') ex.whyUsed++;
           }
+          if (run.made_a_friend != null) {
+            ex.answeredPaired++;
+            if (run.made_a_friend) ex.paired++;
+          }
         }
-
-        // Pairing
-        if (b.coach_member_pair_plan) ex.paired++;
 
         // Debrief submitted
         if (b.coach_debrief_submitted) ex.debriefed++;
@@ -431,18 +432,24 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, debriefed: 0 };
+        const wk = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
+        const preRate = wk.answeredPre > 0 ? (wk.preShoutouts / wk.answeredPre) * 100 : 0;
+        const postRate = wk.answeredPost > 0 ? (wk.postShoutouts / wk.answeredPost) * 100 : 0;
+        const whyUsedRate = wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0;
+        const pairingRate = wk.answeredPaired > 0 ? (wk.paired / wk.answeredPaired) * 100 : 0;
+        // Overall % = average of the four lead measure rates
+        const overallPct = (preRate + postRate + whyUsedRate + pairingRate) / 4;
         return {
           name,
           coached: wk.coached,
-          preRate: wk.answeredPre > 0 ? (wk.preShoutouts / wk.answeredPre) * 100 : 0,
-          postRate: wk.answeredPost > 0 ? (wk.postShoutouts / wk.answeredPost) * 100 : 0,
-          whyUsedRate: wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0,
-          pairingRate: wk.coached > 0 ? (wk.paired / wk.coached) * 100 : 0,
+          preRate,
+          postRate,
+          whyUsedRate,
+          pairingRate,
+          overallPct,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
-          debriefRate: wk.coached > 0 ? (wk.debriefed / wk.coached) * 100 : 0,
         };
       }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
 
