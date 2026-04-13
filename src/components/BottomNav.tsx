@@ -79,6 +79,7 @@ export function BottomNav() {
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/wig', label: 'WIG', icon: Trophy },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   ];
 
   return (
