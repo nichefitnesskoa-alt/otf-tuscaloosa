@@ -94,7 +94,8 @@ function ClaimDialog({
   if (!session) return null;
 
   const canSubmit =
-    name.trim() && groupName.trim() && email.trim() && phone.trim() && groupSize.trim() && sessionType;
+    name.trim() && groupName.trim() && email.trim() && phone.trim() && groupSize.trim() && sessionType &&
+    (sessionType !== 'business_customers' || businessSubType);
 
   const handleClaim = async () => {
     if (!canSubmit) return;
