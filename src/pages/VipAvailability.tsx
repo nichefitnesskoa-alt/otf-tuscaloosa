@@ -394,6 +394,7 @@ function SlotPill({
 }) {
   const isOpen = session.status === 'open';
   const isOpenType = session.session_type === 'open';
+  const isBusiness = session.session_type === 'business_customers';
 
   if (isConfirmed) {
     return (
@@ -405,9 +406,11 @@ function SlotPill({
 
   const borderColor = isOpen
     ? 'border-l-green-500'
-    : isOpenType
-      ? 'border-l-teal-500'
-      : 'border-l-amber-500';
+    : isBusiness
+      ? 'border-l-blue-500'
+      : isOpenType
+        ? 'border-l-teal-500'
+        : 'border-l-amber-500';
 
   return (
     <div
@@ -436,6 +439,10 @@ function SlotPill({
       </p>
       {isOpen ? (
         <p className="text-[10px] leading-tight text-green-600 dark:text-green-400 font-medium">Available</p>
+      ) : isBusiness ? (
+        <p className="text-[10px] leading-tight text-blue-600 dark:text-blue-400 truncate">
+          {session.reserved_by_group || 'Group'} · Business Event
+        </p>
       ) : isOpenType ? (
         <p className="text-[10px] leading-tight text-teal-600 dark:text-teal-400 truncate">
           {session.reserved_by_group || 'Group'} · Members Welcome
