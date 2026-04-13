@@ -802,7 +802,7 @@ export default function VipAvailability() {
 
             {/* Legend line */}
             <p className="text-center text-xs text-muted-foreground pt-2">
-              Green = available to claim · Amber = reserved · Tap to book
+              Green = available to claim · Amber = reserved private · Blue = business event · Teal = open to members · Tap to book
             </p>
           </>
         )}
