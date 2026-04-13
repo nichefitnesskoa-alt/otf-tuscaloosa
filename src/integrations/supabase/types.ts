@@ -2575,6 +2575,7 @@ export type Database = {
           session_date: string
           session_label: string | null
           session_time: string
+          session_type: string
           shareable_slug: string | null
           status: string
           vip_class_name: string
@@ -2595,6 +2596,7 @@ export type Database = {
           session_date: string
           session_label?: string | null
           session_time: string
+          session_type?: string
           shareable_slug?: string | null
           status?: string
           vip_class_name: string
@@ -2615,6 +2617,7 @@ export type Database = {
           session_date?: string
           session_label?: string | null
           session_time?: string
+          session_type?: string
           shareable_slug?: string | null
           status?: string
           vip_class_name?: string
