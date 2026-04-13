@@ -58,6 +58,15 @@ export interface UpcomingIntroItem {
   saConversationObstacle: string | null;
   shoutoutConsent: boolean | null;
 
+  // VIP session fields (for reserved group sessions shown in intros tab)
+  isVipSession?: boolean;
+  vipGroupName?: string | null;
+  vipEstimatedSize?: number | null;
+  vipRegisteredCount?: number | null;
+  vipContactName?: string | null;
+  vipContactPhone?: string | null;
+  vipSessionId?: string | null;
+
   // Computed (set by selectors)
   timeStartISO: string;
   riskFlags: RiskFlags;
