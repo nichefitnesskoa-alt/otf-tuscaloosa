@@ -70,6 +70,8 @@ function StatusBadge({ status, group }: { status: string; group: string | null }
 
 export function VipSchedulerTab() {
   const { user } = useAuth();
+  // Cast to any to avoid TS2589 with deeply nested Supabase types
+  const sb = supabase as any;
   const [sessions, setSessions] = useState<VipSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
