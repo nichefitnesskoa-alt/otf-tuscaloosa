@@ -15,11 +15,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   if (isCoach) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 pb-20 overflow-x-hidden overflow-y-auto">
           <ErrorBoundary fallbackTitle="This page encountered an error">
             {children}
           </ErrorBoundary>
         </main>
+        <BottomNav />
       </div>
     );
   }
