@@ -125,67 +125,6 @@ export default function IntroRowCard({
   onExpand,
   shoutoutConsent,
 }: IntroRowCardProps) {
-  // ── VIP Session Card (informational only) ──
-  if (item.isVipSession) {
-    return (
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <button
-          type="button"
-          onClick={() => onExpand?.()}
-          className={cn(
-            "w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 rounded-lg border bg-card transition-colors hover:bg-muted/50",
-            isExpanded && 'rounded-b-none border-b-0',
-          )}
-        >
-          <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-            <span className="font-semibold text-sm truncate">{item.vipGroupName || 'VIP Group'}</span>
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">VIP</Badge>
-            <span className="text-xs text-muted-foreground">
-              {item.vipRegisteredCount || 0} registered · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}
-            </span>
-          </div>
-          <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isExpanded && "rotate-90")} />
-        </button>
-        {isExpanded && (
-          <div className="px-4 py-3 border-t space-y-2">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-xs text-muted-foreground block">Group</span>
-                <span className="font-medium">{item.vipGroupName}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Date & Time</span>
-                <span>{item.classDate} · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Estimated Size</span>
-                <span>{item.vipEstimatedSize || '—'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Registered</span>
-                <span>{item.vipRegisteredCount || 0}</span>
-              </div>
-            </div>
-            {item.vipContactName && (
-              <div className="pt-1 border-t">
-                <span className="text-xs text-muted-foreground block">Group Contact</span>
-                <span className="font-medium text-sm">{item.vipContactName}</span>
-                {item.vipContactPhone && (
-                  <a
-                    href={`tel:${item.vipContactPhone}`}
-                    className="ml-2 text-xs text-primary underline inline-flex items-center gap-1 min-h-[44px]"
-                  >
-                    <Phone className="w-3 h-3" /> {item.vipContactPhone}
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
   const [preppedSaving, setPreppedSaving] = useState(false);
