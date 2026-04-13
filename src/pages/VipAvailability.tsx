@@ -71,7 +71,8 @@ function ClaimDialog({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [groupSize, setGroupSize] = useState('');
-  const [sessionType, setSessionType] = useState<'exclusive' | 'open' | ''>('');
+  const [sessionType, setSessionType] = useState<'exclusive' | 'business_customers' | 'open' | ''>('');
+  const [businessSubType, setBusinessSubType] = useState<'staff_only' | 'staff_customers' | 'staff_members' | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
