@@ -46,9 +46,16 @@ interface VipSession {
 
 interface VipRegistration {
   id: string;
-  full_name: string;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
   phone: string | null;
+  fitness_level: number | null;
+  injuries: string | null;
+  birthday: string | null;
+  weight_lbs: number | null;
+  is_group_contact: boolean;
+  created_at: string;
 }
 
 interface SlotTemplate {
