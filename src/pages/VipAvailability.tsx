@@ -714,7 +714,7 @@ export default function VipAvailability() {
       <div className="bg-[#FF6900] text-white py-8 px-4">
         <div className="max-w-5xl mx-auto text-center">
           <h1 className="text-2xl font-bold">
-            OTF Tuscaloosa — Private Group Classes
+            OTF Tuscaloosa — VIP Group Classes
           </h1>
           <p className="mt-2 text-sm opacity-90">
             We host free private fitness experiences for groups. Pick an
