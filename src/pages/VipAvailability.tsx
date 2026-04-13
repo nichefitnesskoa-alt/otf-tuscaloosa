@@ -261,11 +261,12 @@ function ClaimDialog({
 
             {/* Class Type Selection */}
             <div className="space-y-2">
-              <Label>Would you like to open this class to OTF Tuscaloosa members?</Label>
+              <Label>Who will be joining this class?</Label>
               <div className="grid grid-cols-1 gap-2">
+                {/* Option 1 — Private */}
                 <button
                   type="button"
-                  onClick={() => setSessionType('exclusive')}
+                  onClick={() => { setSessionType('exclusive'); setBusinessSubType(''); }}
                   className={cn(
                     'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
                     sessionType === 'exclusive'
@@ -273,14 +274,78 @@ function ClaimDialog({
                       : 'border-border hover:border-muted-foreground/30'
                   )}
                 >
-                  <p className="font-semibold text-sm">Private — Our group only</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Just your people. More intimate experience.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-sm">Private — Staff Only</p>
+                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'exclusive' && 'rotate-180')} />
+                  </div>
+                  {sessionType === 'exclusive' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Just your group. No outside members. An intimate experience designed entirely for your team.
+                    </p>
+                  )}
                 </button>
+
+                {/* Option 2 — Business Event */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => { setSessionType('business_customers'); }}
+                    className={cn(
+                      'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
+                      sessionType === 'business_customers'
+                        ? 'border-[#FF6900] bg-orange-50 dark:bg-orange-950/20'
+                        : 'border-border hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-sm">Business + Your Customers</p>
+                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'business_customers' && 'rotate-180')} />
+                    </div>
+                    {sessionType === 'business_customers' && (
+                      <div className="mt-1.5 space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Bring your staff AND invite your customers for a community bonding event. We'll give you a QR code to help drive sign-ups and get your customers through the door.
+                        </p>
+                        {/* Sub-options */}
+                        <div className="space-y-1.5 pl-1">
+                          {([
+                            { val: 'staff_only' as const, label: 'Staff only — just your team', sub: 'Keep it internal. A private experience for your staff.' },
+                            { val: 'staff_customers' as const, label: 'Staff + your customers', sub: "Invite your community. We'll provide a QR code for sign-ups so your customers can join the event." },
+                            { val: 'staff_members' as const, label: 'Staff + OTF members', sub: "We'll market with you. Your group joins our members for a collaborative class and we'll do a collab post together on social." },
+                          ]).map((opt) => (
+                            <button
+                              key={opt.val}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setBusinessSubType(opt.val); }}
+                              className={cn(
+                                'w-full text-left rounded-md border p-2.5 cursor-pointer transition-colors min-h-[44px]',
+                                businessSubType === opt.val
+                                  ? 'border-[#FF6900] bg-orange-50/50 dark:bg-orange-950/10'
+                                  : 'border-border hover:border-muted-foreground/30'
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  'w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
+                                  businessSubType === opt.val ? 'border-[#FF6900]' : 'border-muted-foreground/40'
+                                )}>
+                                  {businessSubType === opt.val && <span className="w-1.5 h-1.5 rounded-full bg-[#FF6900]" />}
+                                </span>
+                                <p className="text-xs font-medium">{opt.label}</p>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-1 pl-5.5">{opt.sub}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                </div>
+
+                {/* Option 3 — Community */}
                 <button
                   type="button"
-                  onClick={() => setSessionType('open')}
+                  onClick={() => { setSessionType('open'); setBusinessSubType(''); }}
                   className={cn(
                     'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
                     sessionType === 'open'
@@ -288,10 +353,15 @@ function ClaimDialog({
                       : 'border-border hover:border-muted-foreground/30'
                   )}
                 >
-                  <p className="font-semibold text-sm">Community — Open to OTF members</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Your group joins our members. Fuller class, bigger energy. Great for businesses and community events.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-sm">Community — Open to OTF Members</p>
+                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'open' && 'rotate-180')} />
+                  </div>
+                  {sessionType === 'open' && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Your group joins our existing members. Fuller class, bigger energy. Great for sororities, fraternities, and community organizations who want to experience OTF alongside our regulars.
+                    </p>
+                  )}
                 </button>
               </div>
             </div>
