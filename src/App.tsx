@@ -139,6 +139,7 @@ function AppRoutes() {
       <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/vip-availability" element={<VipAvailability />} />
+      <Route path="/vip/:slug/register" element={<VipMemberRegister />} />
       <Route path="/apply" element={<Apply />} />
       <Route path="/apply/:token" element={<Apply />} />
       <Route path="/join-the-team" element={<Apply />} />
