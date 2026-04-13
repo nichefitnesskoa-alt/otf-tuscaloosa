@@ -176,7 +176,7 @@ export function VipPipelineTable() {
       // Fetch VIP session metas for referring_member_name
       const { data: sessions } = await supabase
         .from('vip_sessions')
-        .select('id, vip_class_name, referring_member_name');
+        .select('id, vip_class_name, referring_member_name, status, reserved_by_group');
 
       setGroupMetas((sessions || []) as VipGroupMeta[]);
 
