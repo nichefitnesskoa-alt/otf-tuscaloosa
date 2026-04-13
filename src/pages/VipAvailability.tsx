@@ -23,11 +23,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Loader2, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   format,
@@ -275,9 +270,9 @@ function ClaimDialog({
   );
 }
 
-/* ── Slot Dot ──────────────────────────────────────── */
+/* ── Desktop Slot Pill ─────────────────────────────── */
 
-function SlotDot({
+function SlotPill({
   session,
   onClaim,
   isConfirmed,
@@ -287,70 +282,59 @@ function SlotDot({
   isConfirmed: boolean;
 }) {
   const isOpen = session.status === 'open';
-  const isReserved = session.status === 'reserved';
   const isOpenType = session.session_type === 'open';
 
   if (isConfirmed) {
     return (
-      <div className="w-3 h-3 rounded-full bg-green-500 ring-2 ring-green-300" title="Confirmed!" />
+      <div className="rounded border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30 px-1.5 py-1 text-center">
+        <CheckCircle className="w-3.5 h-3.5 text-green-600 mx-auto" />
+      </div>
     );
   }
 
-  const dotColor = isOpen
-    ? 'bg-green-500'
+  const borderColor = isOpen
+    ? 'border-l-green-500'
     : isOpenType
-      ? 'bg-teal-500'
-      : 'bg-amber-500';
-
-  const popoverContent = isOpen ? (
-    <div className="space-y-2">
-      <p className="font-semibold text-sm">{formatDisplayTime(session.session_time)}</p>
-      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Available</p>
-      <Button
-        className="w-full h-11 bg-[#FF6900] hover:bg-[#e55f00] text-white font-semibold text-sm"
-        onClick={onClaim}
-      >
-        Claim This Slot
-      </Button>
-    </div>
-  ) : (
-    <div className="space-y-1">
-      <p className="font-semibold text-sm">{formatDisplayTime(session.session_time)}</p>
-      {isOpenType ? (
-        <>
-          <p className="text-xs text-teal-600 dark:text-teal-400 font-medium">
-            Reserved — {session.reserved_by_group || 'Group'} + Members Welcome
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-            Reserved — Private Event
-          </p>
-          {session.reserved_by_group && (
-            <p className="text-xs text-muted-foreground italic">{session.reserved_by_group}</p>
-          )}
-        </>
-      )}
-    </div>
-  );
+      ? 'border-l-teal-500'
+      : 'border-l-amber-500';
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            'w-3.5 h-3.5 rounded-full cursor-pointer transition-transform hover:scale-125 min-w-[14px]',
-            dotColor,
-            isOpen && 'ring-2 ring-green-200 dark:ring-green-800'
-          )}
-          title={`${formatDisplayTime(session.session_time)} — ${isOpen ? 'Available' : 'Reserved'}`}
-        />
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-3">
-        {popoverContent}
-      </PopoverContent>
-    </Popover>
+    <div
+      role={isOpen ? 'button' : undefined}
+      tabIndex={isOpen ? 0 : undefined}
+      onClick={(e) => {
+        if (isOpen) {
+          e.stopPropagation();
+          onClaim();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (isOpen && (e.key === 'Enter' || e.key === ' ')) {
+          e.stopPropagation();
+          onClaim();
+        }
+      }}
+      className={cn(
+        'rounded border-l-4 px-1.5 py-1 bg-card',
+        borderColor,
+        isOpen && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors'
+      )}
+    >
+      <p className={cn('text-[11px] font-semibold leading-tight', !isOpen && 'text-muted-foreground')}>
+        {formatDisplayTime(session.session_time)}
+      </p>
+      {isOpen ? (
+        <p className="text-[10px] leading-tight text-green-600 dark:text-green-400 font-medium">Available</p>
+      ) : isOpenType ? (
+        <p className="text-[10px] leading-tight text-teal-600 dark:text-teal-400 truncate">
+          {session.reserved_by_group || 'Group'} · Members Welcome
+        </p>
+      ) : (
+        <p className="text-[10px] leading-tight text-amber-600 dark:text-amber-400 italic truncate">
+          {session.reserved_by_group || 'Reserved'}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -619,15 +603,15 @@ export default function VipAvailability() {
                       <button
                         key={day.date}
                         onClick={() => {
-                          if (hasSlots) setSelectedDay(day.date);
+                          if (isMobile && hasSlots) setSelectedDay(day.date);
                         }}
                         className={cn(
-                          'relative border-r last:border-r-0 p-1 transition-colors text-left',
-                          isMobile ? 'min-h-[52px]' : 'min-h-[80px]',
+                          'relative border-r last:border-r-0 p-1 transition-colors text-left align-top',
+                          isMobile ? 'min-h-[52px]' : 'min-h-[80px] min-w-[120px]',
                           !day.isCurrentMonth && 'bg-muted/20',
                           day.isToday && 'bg-orange-50/50 dark:bg-orange-950/10',
-                          hasSlots && 'cursor-pointer hover:bg-muted/40',
-                          !hasSlots && 'cursor-default'
+                          isMobile && hasSlots && 'cursor-pointer hover:bg-muted/40',
+                          (!hasSlots || !isMobile) && 'cursor-default'
                         )}
                       >
                         {/* Date Number */}
@@ -645,10 +629,10 @@ export default function VipAvailability() {
                           {day.dateNum}
                         </span>
 
-                        {/* Slot Dots */}
+                        {/* Slot display */}
                         {hasSlots && (
                           isMobile ? (
-                            /* Mobile: just show colored dots */
+                            /* Mobile: colored dots */
                             <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
                               {daySessions.map((s) => {
                                 const isOpen = s.status === 'open';
@@ -664,16 +648,14 @@ export default function VipAvailability() {
                               })}
                             </div>
                           ) : (
-                            /* Desktop: interactive dots with popovers */
-                            <div className="flex gap-1 mt-1 flex-wrap">
+                            /* Desktop: inline time pills */
+                            <div className="flex flex-col gap-0.5 mt-0.5">
                               {daySessions.map((s) => (
-                                <SlotDot
+                                <SlotPill
                                   key={s.id}
                                   session={s}
                                   isConfirmed={confirmedIds.has(s.id)}
-                                  onClaim={() => {
-                                    setClaimSession(s);
-                                  }}
+                                  onClaim={() => setClaimSession(s)}
                                 />
                               ))}
                             </div>
@@ -686,47 +668,14 @@ export default function VipAvailability() {
               ))}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 justify-center text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Available
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Reserved — Private
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-teal-500" /> Reserved — Members Welcome
-              </span>
-            </div>
+
+            {/* Legend line */}
+            <p className="text-center text-xs text-muted-foreground pt-2">
+              Green = available to claim · Amber = reserved · Tap to book
+            </p>
           </>
         )}
       </div>
-
-      {/* Desktop Day Detail Panel */}
-      {!isMobile && selectedDay && (
-        <div className="max-w-5xl mx-auto px-4 pb-8">
-          <div className="bg-card border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-sm">
-                {format(new Date(selectedDay + 'T00:00:00'), 'EEEE, MMMM d')}
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-[44px] text-xs cursor-pointer"
-                onClick={() => setSelectedDay(null)}
-              >
-                Close
-              </Button>
-            </div>
-            <DaySlotList
-              sessions={selectedDaySessions}
-              confirmedIds={confirmedIds}
-              onClaim={(s) => setClaimSession(s)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Mobile Bottom Sheet */}
       {isMobile && (
