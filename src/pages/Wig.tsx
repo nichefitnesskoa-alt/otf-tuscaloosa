@@ -682,7 +682,7 @@ export default function Wig() {
                      <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
-                      <TableHead className="text-xs text-center">Debrief %</TableHead>
+                      <TableHead className="text-xs text-center">Overall %</TableHead>
                       <TableHead className="text-xs text-center">Pre %</TableHead>
                       <TableHead className="text-xs text-center">Post %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
@@ -696,8 +696,8 @@ export default function Wig() {
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
                         <TableCell className="text-sm text-center">{row.coached}</TableCell>
                         <TableCell className="text-sm text-center">
-                          <span className={row.debriefRate >= 90 ? 'text-success' : row.debriefRate >= 70 ? 'text-warning' : 'text-destructive'}>
-                            {row.debriefRate.toFixed(0)}%
+                          <span className={row.overallPct >= 90 ? 'text-success' : row.overallPct >= 70 ? 'text-warning' : 'text-destructive'}>
+                            {row.overallPct.toFixed(0)}%
                           </span>
                         </TableCell>
                         <TableCell className="text-sm text-center">
