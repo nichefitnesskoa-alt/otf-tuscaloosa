@@ -17,7 +17,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock,
+  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock, Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -101,6 +101,11 @@ export function VipSchedulerTab() {
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markGroupName, setMarkGroupName] = useState('');
   const [markSaving, setMarkSaving] = useState(false);
+
+  // Delete confirmation
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Templates
   const [templates, setTemplates] = useState<SlotTemplate[]>([]);
@@ -226,6 +231,36 @@ export function VipSchedulerTab() {
     toast.success(!currentActive ? 'Template activated' : 'Template paused');
   };
 
+  const handleDeleteSession = async () => {
+    if (!deleteSessionId) return;
+    setDeleting(true);
+    try {
+      // Delete any registrations first
+      await sb.from('vip_registrations').delete().eq('vip_session_id', deleteSessionId);
+      const { error } = await sb.from('vip_sessions').delete().eq('id', deleteSessionId);
+      if (error) throw error;
+      toast.success('Session permanently deleted');
+      setDeleteSessionId(null);
+      fetchSessions();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete session');
+    } finally { setDeleting(false); }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!deleteTemplateId) return;
+    setDeleting(true);
+    try {
+      const { error } = await sb.from('vip_slot_templates').delete().eq('id', deleteTemplateId);
+      if (error) throw error;
+      toast.success('Template permanently deleted');
+      setDeleteTemplateId(null);
+      fetchTemplates();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete template');
+    } finally { setDeleting(false); }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -311,6 +346,9 @@ export function VipSchedulerTab() {
                         <XCircle className="w-3.5 h-3.5" /> Cancel
                       </Button>
                     )}
+                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => setDeleteSessionId(s.id)}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
                   </div>
                 </div>
 
@@ -380,6 +418,9 @@ export function VipSchedulerTab() {
                       checked={t.is_active}
                       onCheckedChange={() => handleToggleTemplate(t.id, t.is_active)}
                     />
+                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => setDeleteTemplateId(t.id)}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -477,6 +518,44 @@ export function VipSchedulerTab() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Session Confirmation */}
+      <Dialog open={!!deleteSessionId} onOpenChange={() => setDeleteSessionId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Session</DialogTitle>
+            <DialogDescription>
+              This will permanently delete this VIP session and all its registrations. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteSessionId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteSession} disabled={deleting}>
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Template Confirmation */}
+      <Dialog open={!!deleteTemplateId} onOpenChange={() => setDeleteTemplateId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Template</DialogTitle>
+            <DialogDescription>
+              This will permanently remove this recurring template. Already-generated sessions are not affected — only future auto-generation stops.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTemplateId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteTemplate} disabled={deleting}>
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+              Delete Permanently
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
