@@ -21,6 +21,7 @@ import Scripts from "./pages/Scripts";
 import Questionnaire from "./pages/Questionnaire";
 import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
+import VipAvailability from "./pages/VipAvailability";
 import CoachView from "./pages/CoachView";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
@@ -137,6 +138,7 @@ function AppRoutes() {
       <Route path="/q/:id" element={<Questionnaire />} />
       <Route path="/story/:id" element={<SuccessStory />} />
       <Route path="/vip-register" element={<VipRegister />} />
+      <Route path="/vip-availability" element={<VipAvailability />} />
       <Route path="/apply" element={<Apply />} />
       <Route path="/apply/:token" element={<Apply />} />
       <Route path="/join-the-team" element={<Apply />} />

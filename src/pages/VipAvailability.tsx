@@ -59,13 +59,13 @@ export default function VipAvailability() {
 
   // Realtime subscription
   useEffect(() => {
-    const channel = supabase
+    const channel = sb
       .channel('vip-availability')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_sessions' }, () => {
         fetchSessions();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { sb.removeChannel(channel); };
   }, [fetchSessions]);
 
   const handleClaim = async (sessionId: string) => {
