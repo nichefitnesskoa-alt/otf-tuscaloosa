@@ -673,47 +673,14 @@ export default function VipAvailability() {
               ))}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 justify-center text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Available
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Reserved — Private
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-teal-500" /> Reserved — Members Welcome
-              </span>
-            </div>
+
+            {/* Legend line */}
+            <p className="text-center text-xs text-muted-foreground pt-2">
+              Green = available to claim · Amber = reserved · Tap to book
+            </p>
           </>
         )}
       </div>
-
-      {/* Desktop Day Detail Panel */}
-      {!isMobile && selectedDay && (
-        <div className="max-w-5xl mx-auto px-4 pb-8">
-          <div className="bg-card border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-sm">
-                {format(new Date(selectedDay + 'T00:00:00'), 'EEEE, MMMM d')}
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-[44px] text-xs cursor-pointer"
-                onClick={() => setSelectedDay(null)}
-              >
-                Close
-              </Button>
-            </div>
-            <DaySlotList
-              sessions={selectedDaySessions}
-              confirmedIds={confirmedIds}
-              onClaim={(s) => setClaimSession(s)}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Mobile Bottom Sheet */}
       {isMobile && (
