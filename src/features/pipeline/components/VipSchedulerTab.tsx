@@ -89,7 +89,7 @@ export function VipSchedulerTab() {
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
-    const sessQuery: any = supabase
+    const sessQuery: any = sb
       .from('vip_sessions')
       .select('*')
       .order('session_date', { ascending: true })
@@ -123,7 +123,7 @@ export function VipSchedulerTab() {
     setSaving(true);
     try {
       const slug = generateSlug(newDate, newTime);
-      const { error } = await supabase.from('vip_sessions').insert({
+      const { error } = await sb.from('vip_sessions').insert({
         vip_class_name: `VIP ${format(new Date(newDate + 'T00:00:00'), 'MMM d')}`,
         session_date: newDate,
         session_time: newTime,
@@ -149,13 +149,13 @@ export function VipSchedulerTab() {
   };
 
   const handleCancel = async (id: string) => {
-    await supabase.from('vip_sessions').update({ status: 'cancelled' } as any).eq('id', id);
+    await sb.from('vip_sessions').update({ status: 'cancelled' } as any).eq('id', id);
     toast.success('Slot cancelled');
     fetchSessions();
   };
 
   const handleResetToOpen = async (id: string) => {
-    await supabase.from('vip_sessions').update({
+    await sb.from('vip_sessions').update({
       status: 'open',
       reserved_by_group: null,
       reserved_contact_name: null,
