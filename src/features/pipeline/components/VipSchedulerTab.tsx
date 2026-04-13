@@ -226,8 +226,10 @@ export function VipSchedulerTab() {
     setRegLoading(true);
     const { data } = await sb
       .from('vip_registrations')
-      .select('id, full_name, email, phone')
-      .eq('vip_session_id', sessionId);
+      .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, created_at')
+      .eq('vip_session_id', sessionId)
+      .order('is_group_contact', { ascending: false })
+      .order('created_at', { ascending: true });
     setRegistrations((data as any[]) || []);
     setRegLoading(false);
   };
