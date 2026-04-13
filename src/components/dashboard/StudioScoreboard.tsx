@@ -19,9 +19,6 @@ export function StudioScoreboard({
   introSales,
   closingRate,
 }: StudioScoreboardProps) {
-  const showRate = (introsBooked && introsBooked > 0 && introsShowed !== undefined)
-    ? (introsShowed / introsBooked) * 100
-    : undefined;
 
   return (
     <Card className="bg-foreground text-background">

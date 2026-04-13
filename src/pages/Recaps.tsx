@@ -228,11 +228,6 @@ export default function Recaps() {
             introsRun={scoreboardIntrosRun}
             introSales={scoreboardSales}
             closingRate={scoreboardClosingRate}
-            qCompletionRate={qCompletionRate}
-            prepRate={prepRate}
-            introsBooked={scoreboardBooked}
-            introsShowed={scoreboardShowed}
-            noShows={scoreboardNoShows}
           />
 
           <ConversionFunnel dateRange={dateRange} />
