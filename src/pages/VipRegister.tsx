@@ -51,6 +51,25 @@ export default function VipRegister() {
       const memberName = `${firstName.trim()} ${lastName.trim()}`;
       const today = new Date().toISOString().split('T')[0];
 
+      // Try to find matching reserved session by group name (fuzzy)
+      let matchedSessionId: string | null = null;
+      let resolvedClassName = vipClassName || null;
+      if (vipClassName) {
+        const { data: sessions } = await supabase
+          .from('vip_sessions')
+          .select('id, reserved_by_group, vip_class_name')
+          .eq('status', 'reserved' as any) as any;
+        const match = (sessions || []).find((s: any) =>
+          s.reserved_by_group &&
+          (s.reserved_by_group.toLowerCase().includes(vipClassName.toLowerCase()) ||
+           vipClassName.toLowerCase().includes(s.reserved_by_group.toLowerCase().replace(/\s*(sorority|fraternity|club|group)\s*/gi, '').trim()))
+        );
+        if (match) {
+          matchedSessionId = match.id;
+          resolvedClassName = match.reserved_by_group;
+        }
+      }
+
       // Create booking in intros_booked
       const { data: booking, error: bookingError } = await supabase
         .from('intros_booked')
@@ -64,8 +83,9 @@ export default function VipRegister() {
           booking_status: 'Unscheduled',
           booking_type_canon: 'VIP',
           booking_status_canon: 'ACTIVE',
-          vip_class_name: vipClassName || null,
+          vip_class_name: resolvedClassName,
           is_vip: true,
+          ...(matchedSessionId ? { vip_session_id: matchedSessionId } : {}),
         } as any)
         .select('id')
         .single();
@@ -83,7 +103,8 @@ export default function VipRegister() {
           birthday: birthday || null,
           weight_lbs: weightLbs ? parseInt(weightLbs) : null,
           booking_id: booking.id,
-          vip_class_name: vipClassName || null,
+          vip_class_name: resolvedClassName,
+          ...(matchedSessionId ? { vip_session_id: matchedSessionId } : {}),
         } as any);
 
       if (vipError) throw vipError;
