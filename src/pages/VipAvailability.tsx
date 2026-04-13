@@ -124,6 +124,7 @@ function ClaimDialog({
           reserved_contact_phone: phone.trim(),
           estimated_group_size: parseInt(groupSize),
           session_type: sessionType,
+          business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
         } as any)
         .eq('id', session.id)
         .eq('status', 'open');
