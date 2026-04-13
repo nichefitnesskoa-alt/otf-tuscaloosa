@@ -400,9 +400,86 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       // Client-side guard: exclude any VIP bookings that slipped through the DB filter
       const nonVipItems = activeItems.filter(i => !i.isVip);
 
+      // ── Fetch reserved VIP sessions for this date range ──
+      let vipSessionItems: UpcomingIntroItem[] = [];
+      if (!isNeedsOutcome) {
+        const { start: vipStart, end: vipEnd } = options.dateOverrides || getDateRange(options);
+        const vipSb = supabase as any;
+        const { data: vipSessions } = await vipSb
+          .from('vip_sessions')
+          .select('id, vip_class_name, session_date, session_time, status, reserved_by_group, reserved_contact_name, reserved_contact_phone, estimated_group_size')
+          .eq('status', 'reserved')
+          .gte('session_date', vipStart)
+          .lte('session_date', vipEnd);
+
+        if (vipSessions && vipSessions.length > 0) {
+          // Fetch registration counts
+          const vipIds = vipSessions.map((v: any) => v.id);
+          const { data: vipRegs } = await vipSb
+            .from('vip_registrations')
+            .select('vip_session_id')
+            .in('vip_session_id', vipIds);
+          const vipRegCounts: Record<string, number> = {};
+          for (const r of (vipRegs || [])) {
+            const sid = (r as any).vip_session_id;
+            vipRegCounts[sid] = (vipRegCounts[sid] || 0) + 1;
+          }
+
+          vipSessionItems = (vipSessions as any[]).map((v: any) => ({
+            bookingId: v.id,
+            memberName: v.reserved_by_group || v.vip_class_name || 'VIP Group',
+            classDate: v.session_date,
+            introTime: v.session_time,
+            coachName: null,
+            introOwner: null,
+            introOwnerLocked: false,
+            phone: v.reserved_contact_phone || null,
+            email: null,
+            leadSource: 'VIP Group',
+            isVip: true,
+            vipClassName: v.vip_class_name,
+            questionnaireStatus: 'NO_Q' as const,
+            qSentAt: null,
+            qCompletedAt: null,
+            confirmedAt: null,
+            hasLinkedRun: false,
+            latestRunResult: null,
+            latestRunAt: null,
+            latestRunId: null,
+            latestRunCoach: null,
+            latestRunObjection: null,
+            latestRunNotes: null,
+            originatingBookingId: null,
+            isSecondIntro: false,
+            referredBy: null,
+            prepped: false,
+            preppedAt: null,
+            preppedBy: null,
+            qFitnessGoal: null,
+            qFitnessLevel: null,
+            qObstacle: null,
+            qEmotionalDriver: null,
+            saConversation5of5: null,
+            saConversationMeaning: null,
+            saConversationObstacle: null,
+            shoutoutConsent: null,
+            isVipSession: true,
+            vipGroupName: v.reserved_by_group,
+            vipEstimatedSize: v.estimated_group_size,
+            vipRegisteredCount: vipRegCounts[v.id] || 0,
+            vipContactName: v.reserved_contact_name,
+            vipContactPhone: v.reserved_contact_phone,
+            vipSessionId: v.id,
+            timeStartISO: `${v.session_date}T${v.session_time || '09:00'}:00`,
+            riskFlags: { noQ: false, qIncomplete: false, unconfirmed: false, coachTbd: false, missingOwner: false },
+            riskScore: 0,
+          }));
+        }
+      }
+
       // Enrich with risk (kept internally for "needs attention" logic) and sort by time
       const enriched = enrichWithRisk(nonVipItems, nowISO);
-      const sorted = sortByTime(enriched);
+      const sorted = sortByTime([...enriched, ...vipSessionItems]);
 
       setItems(sorted);
       setLastSyncAt(new Date().toISOString());

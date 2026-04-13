@@ -2562,31 +2562,61 @@ export type Database = {
         Row: {
           capacity: number
           created_at: string
+          created_by: string
+          description: string | null
+          estimated_group_size: number | null
           id: string
+          is_on_availability_page: boolean
           referring_member_name: string | null
-          session_date: string | null
+          reserved_by_group: string | null
+          reserved_contact_email: string | null
+          reserved_contact_name: string | null
+          reserved_contact_phone: string | null
+          session_date: string
           session_label: string | null
-          session_time: string | null
+          session_time: string
+          shareable_slug: string | null
+          status: string
           vip_class_name: string
         }
         Insert: {
           capacity?: number
           created_at?: string
+          created_by?: string
+          description?: string | null
+          estimated_group_size?: number | null
           id?: string
+          is_on_availability_page?: boolean
           referring_member_name?: string | null
-          session_date?: string | null
+          reserved_by_group?: string | null
+          reserved_contact_email?: string | null
+          reserved_contact_name?: string | null
+          reserved_contact_phone?: string | null
+          session_date: string
           session_label?: string | null
-          session_time?: string | null
+          session_time: string
+          shareable_slug?: string | null
+          status?: string
           vip_class_name: string
         }
         Update: {
           capacity?: number
           created_at?: string
+          created_by?: string
+          description?: string | null
+          estimated_group_size?: number | null
           id?: string
+          is_on_availability_page?: boolean
           referring_member_name?: string | null
-          session_date?: string | null
+          reserved_by_group?: string | null
+          reserved_contact_email?: string | null
+          reserved_contact_name?: string | null
+          reserved_contact_phone?: string | null
+          session_date?: string
           session_label?: string | null
-          session_time?: string | null
+          session_time?: string
+          shareable_slug?: string | null
+          status?: string
           vip_class_name?: string
         }
         Relationships: []

@@ -15,6 +15,7 @@ export type JourneyTab =
   | 'not_interested'
   | 'by_lead_source'
   | 'vip_class'
+  | 'vip_scheduler'
   | 'leads';
 
 /** Raw booking from Supabase (subset used by Pipeline) */

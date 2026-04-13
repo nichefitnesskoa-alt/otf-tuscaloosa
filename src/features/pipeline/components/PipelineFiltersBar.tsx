@@ -103,6 +103,9 @@ export function PipelineFiltersBar({
             <Star className="w-3 h-3" /> VIP
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.vip_class}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="vip_scheduler" className="flex-1 min-w-[80px] text-xs gap-1 text-orange-600 data-[state=active]:text-orange-700">
+            <CalendarPlus className="w-3 h-3" /> Scheduler
+          </TabsTrigger>
           <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
             <Filter className="w-3 h-3" /> By Source
           </TabsTrigger>
