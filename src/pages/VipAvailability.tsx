@@ -85,6 +85,7 @@ function ClaimDialog({
       setPhone('');
       setGroupSize('');
       setSessionType('');
+      setBusinessSubType('');
       setError(null);
       setConfirmed(false);
     }
