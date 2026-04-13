@@ -98,11 +98,12 @@ export function VipSchedulerTab() {
     // Fetch registration counts per session
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
-      const regQuery: any = supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { data: regs } = await sb
         .from('vip_registrations')
         .select('vip_session_id')
         .in('vip_session_id', ids);
-      const { data: regs } = await regQuery;
       const counts: Record<string, number> = {};
       for (const r of (regs || [])) {
         const sid = (r as any).vip_session_id;
