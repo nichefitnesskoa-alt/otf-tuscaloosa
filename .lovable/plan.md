@@ -1,131 +1,115 @@
 
 
-# VIP Scheduler System — Full Build Plan
+# VIP Recurring Slot Templates & Auto-Generation
 
 ## Summary
 
-Extend the existing VIP system with a public slot-booking workflow: admins create available time slots, groups claim them via a public URL, and reserved sessions appear in the Intros day view. Four parts: database migration, Pipeline Scheduler tab, public availability page, and Intros tab VIP cards.
+Add recurring VIP slot templates, a scheduled edge function for auto-generation, week-grouped public page, manual slot management enhancements, and a templates management UI in the Pipeline Scheduler tab.
 
 ---
 
 ## Database Migration
 
-Add columns to `vip_sessions` (existing table):
+**1. Create `vip_slot_templates` table:**
 
 ```sql
-ALTER TABLE public.vip_sessions
-  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'open',
-  ADD COLUMN IF NOT EXISTS reserved_by_group text,
-  ADD COLUMN IF NOT EXISTS description text,
-  ADD COLUMN IF NOT EXISTS is_on_availability_page boolean NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS shareable_slug text UNIQUE,
-  ADD COLUMN IF NOT EXISTS created_by text NOT NULL DEFAULT 'system',
-  ADD COLUMN IF NOT EXISTS reserved_contact_name text,
-  ADD COLUMN IF NOT EXISTS reserved_contact_email text,
-  ADD COLUMN IF NOT EXISTS reserved_contact_phone text,
-  ADD COLUMN IF NOT EXISTS estimated_group_size integer;
+CREATE TABLE public.vip_slot_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  day_of_week integer NOT NULL,
+  slot_time time NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.vip_slot_templates ENABLE ROW LEVEL SECURITY;
+-- Public CRUD policies (matches existing vip_sessions pattern)
+CREATE POLICY "Allow all read vip_slot_templates" ON public.vip_slot_templates FOR SELECT USING (true);
+CREATE POLICY "Allow all insert vip_slot_templates" ON public.vip_slot_templates FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow all update vip_slot_templates" ON public.vip_slot_templates FOR UPDATE USING (true);
+CREATE POLICY "Allow all delete vip_slot_templates" ON public.vip_slot_templates FOR DELETE USING (true);
 ```
 
-Make `session_date` and `session_time` NOT NULL (they currently allow nulls — existing rows may need a default):
+**2. Seed template data** (via insert tool, not migration):
 
-```sql
-UPDATE public.vip_sessions SET session_date = CURRENT_DATE WHERE session_date IS NULL;
-UPDATE public.vip_sessions SET session_time = '09:00' WHERE session_time IS NULL;
-ALTER TABLE public.vip_sessions ALTER COLUMN session_date SET NOT NULL;
-ALTER TABLE public.vip_sessions ALTER COLUMN session_time SET NOT NULL;
-```
+9 rows: Mon 19:00, Tue 19:00, Wed 19:00, Thu 19:00, Fri 17:45, Sat 06:45, Sat 12:00, Sun 08:45, Sun 15:30.
 
-Enable Realtime on `vip_sessions`:
+**3. Seed reservation** (via insert tool):
 
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.vip_sessions;
-```
-
-RLS: Table already has public CRUD policies — sufficient for the public availability page.
+Update the Wed Apr 16 19:00 vip_sessions record (after generation) to `status='reserved'`, `reserved_by_group='Kappa Delta Sorority'`.
 
 ---
 
-## Part 1 — VIP Scheduler Tab in Pipeline
+## Edge Function: `generate-vip-slots`
 
-**Files:**
+New edge function at `supabase/functions/generate-vip-slots/index.ts`.
 
-- **New: `src/features/pipeline/components/VipSchedulerTab.tsx`** — Full scheduler component.
-  - Fetches all `vip_sessions` ordered by `session_date, session_time`.
-  - Shows "+ Add Available Slot" button (orange) top-right.
-  - Each row: date, time, status badge (green Open / amber Reserved — [group] / red Cancelled), registration count for reserved slots.
-  - Actions per row: "Copy Availability Link" (copies `/vip-availability`), "View Registrations" (fetches `vip_registrations` for that session), "Cancel" (sets status=cancelled), "Reset to Open" (for reserved slots — clears `reserved_by_group` and sets status=open).
-  - Add Slot modal: Date picker, ClassTimeSelect, Description textarea, "Show on public page" toggle. On save: inserts `vip_sessions` with status=open, auto-generates `shareable_slug` (e.g. `vip-apr19-630am`).
+Logic:
+1. Fetch all `vip_slot_templates` where `is_active = true`.
+2. For each template, compute dates for the next 8 weeks matching `day_of_week`.
+3. For each date+time combo, check if a `vip_sessions` record already exists (any status including cancelled — cancelled slots are NOT regenerated).
+4. If no record exists, insert a new `vip_sessions` with `status='open'`, `is_on_availability_page=true`, `created_by='system'`, auto-generated `shareable_slug` and `vip_class_name`.
 
-- **Modified: `src/features/pipeline/pipelineTypes.ts`** — Add `'vip_scheduler'` to `JourneyTab` union.
+Config in `supabase/config.toml`: `verify_jwt = false`.
 
-- **Modified: `src/features/pipeline/components/PipelineFiltersBar.tsx`** — Add "Scheduler" tab trigger with CalendarPlus icon after the VIP tab.
+**Scheduling:** Use `pg_cron` + `pg_net` to call the function every Monday at 00:00 Central (06:00 UTC). Set up via insert tool (not migration).
 
-- **Modified: `src/features/pipeline/PipelinePage.tsx`** — Import VipSchedulerTab. Render it when `activeTab === 'vip_scheduler'`.
-
-- **Modified: `src/features/pipeline/selectors.ts`** — Add `vip_scheduler: 0` to tab counts default.
+**Initial seed:** Call the function immediately after deploy to populate the first 8 weeks.
 
 ---
 
-## Part 2 — Public Availability Page
+## VipSchedulerTab Enhancements
 
-**Files:**
+**File: `src/features/pipeline/components/VipSchedulerTab.tsx`**
 
-- **New: `src/pages/VipAvailability.tsx`** — Fully public, no auth required.
-  - OTF branded (orange `#FF6900`, logo from `@/assets/otf-logo.jpg`).
-  - Header: "OTF Tuscaloosa — Private Group Classes" with subtitle.
-  - Fetches `vip_sessions` where `is_on_availability_page = true` AND `session_date >= today` AND `status != 'cancelled'`, ordered by date.
-  - Open slots: green "Available" badge + "Claim This Slot" orange button.
-  - Reserved slots: amber "Reserved by [group]" badge, muted background, no action.
-  - Cancelled: hidden.
-  - Realtime subscription on `vip_sessions` — auto-updates when slots change.
-  - Claim form (inline, expands below slot): name, group name, email, phone, estimated group size. All required, validated with zod.
-  - On submit: updates `vip_sessions` (status=reserved, reserved_by_group, contact fields, estimated_group_size). Also inserts `vip_registrations` row. Inserts notification for all staff. Shows confirmation message.
-  - Race condition guard: re-fetch slot status before writing. If already reserved, show "This slot was just claimed. Please choose another."
+Add to existing component:
 
-- **Modified: `src/App.tsx`** — Add public route `<Route path="/vip-availability" element={<VipAvailability />} />`.
+1. **"Mark Reserved" button** on open slots — opens inline form with group name field. On save: sets `status='reserved'`, `reserved_by_group`.
 
----
+2. **"Reopen" button** on reserved AND cancelled slots — sets `status='open'`, clears `reserved_by_group` and contact fields.
 
-## Part 3 — Notification on Claim
+3. **"Templates" section** below the sessions list:
+   - Header: "Recurring Templates" with subtitle "Slots auto-generated every Monday for 8 weeks ahead"
+   - List of all `vip_slot_templates` rows showing day name + time.
+   - Each row has an active/inactive toggle (`Switch`). Toggling updates `is_active`.
+   - Status color: green dot for active, gray for paused.
+   - No add/delete template UI in this build — just toggle active state.
 
-Uses existing `notifications` table. On claim submit, insert:
-
-```ts
-await supabase.from('notifications').insert({
-  notification_type: 'vip_slot_claimed',
-  title: `${groupName} claimed VIP slot`,
-  body: `${groupName} claimed the ${formattedDate} ${formattedTime} VIP slot. ${estimatedSize} estimated attendees. Contact: ${contactName}`,
-  target_user: null, // null = visible to all staff
-  meta: { session_id, group_name, contact_name, contact_email, contact_phone, estimated_size }
-});
-```
+4. **Created-by indicator**: Show "System" or staff name in muted text on each slot row so manual one-offs are distinguishable.
 
 ---
 
-## Part 4 — VIP Sessions in Intros Tab (My Day + Coach View)
+## Public /vip-availability Page Updates
 
-**Modified: `src/features/myDay/useUpcomingIntrosData.ts`**
-- After fetching regular intros, also fetch `vip_sessions` where `status = 'reserved'` and `session_date` falls within the date range.
-- For each reserved session, fetch registration count from `vip_registrations`.
-- Map these to `UpcomingIntroItem` with a special `isVipSession: true` flag and relevant fields.
+**File: `src/pages/VipAvailability.tsx`**
 
-**Modified: `src/features/myDay/myDayTypes.ts`**
-- Add optional VIP session fields to `UpcomingIntroItem`: `isVipSession`, `vipGroupName`, `vipEstimatedSize`, `vipRegisteredCount`, `vipContactName`, `vipContactPhone`, `vipSessionId`.
+1. **Group slots by week**: Add week grouping with headers like "Week of April 14". Use `startOfWeek` from date-fns to bucket sessions.
 
-**Modified: `src/features/myDay/IntroRowCard.tsx`**
-- When `item.isVipSession === true`, render a distinct VIP session card:
-  - Orange "VIP" badge, group name, time, registered count, estimated size.
-  - Expanded view: contact name + tappable phone, link to Pipeline VIP registrations.
-  - No questionnaire fields, no shoutout bar, no debrief.
+2. **Show day name**: Each slot card shows "Wednesday, April 16, 2026" format (already does this).
+
+3. All existing claim logic, race protection, realtime — unchanged.
 
 ---
+
+## Intros Tab VIP Cards
+
+Already implemented in prior build. No changes needed — reserved `vip_sessions` already appear in My Day/Coach View intros tab.
+
+---
+
+## Files Created/Modified
+
+| File | Action |
+|------|--------|
+| `supabase/functions/generate-vip-slots/index.ts` | Create |
+| `supabase/config.toml` | Add function config |
+| `src/features/pipeline/components/VipSchedulerTab.tsx` | Add templates section, mark reserved, reopen |
+| `src/pages/VipAvailability.tsx` | Add week grouping |
+| Database migration | Create `vip_slot_templates` table |
+| Insert tool | Seed templates, set up pg_cron job, seed reservation |
 
 ## What Does NOT Change
 
-- Existing VIP registration page (`/vip-register`)
-- Questionnaire flow
-- Follow-up queue logic
-- Pipeline spreadsheet or other tabs
-- WIG page
-- Any other page or component not listed above
+- VipAvailability claim flow logic
+- IntroRowCard VIP rendering
+- Pipeline tabs/routing
+- Any other page or component
 
