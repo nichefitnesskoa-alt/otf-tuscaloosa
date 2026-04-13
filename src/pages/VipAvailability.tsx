@@ -5,6 +5,8 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+// Cast to avoid TS2589 with deeply nested generated types
+const sb = supabase as any;
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,7 +43,7 @@ export default function VipAvailability() {
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const fetchSessions = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await sb
       .from('vip_sessions')
       .select('id, session_date, session_time, status, reserved_by_group, description')
       .eq('is_on_availability_page', true)
@@ -75,7 +77,7 @@ export default function VipAvailability() {
 
     try {
       // Race condition guard: re-check status before claiming
-      const { data: current } = await supabase
+      const { data: current } = await sb
         .from('vip_sessions')
         .select('status')
         .eq('id', sessionId)
@@ -89,7 +91,7 @@ export default function VipAvailability() {
       }
 
       // 1) Update session
-      const { error: upErr } = await supabase.from('vip_sessions').update({
+      const { error: upErr } = await sb.from('vip_sessions').update({
         status: 'reserved',
         reserved_by_group: groupName.trim(),
         reserved_contact_name: name.trim(),
@@ -101,7 +103,7 @@ export default function VipAvailability() {
       if (upErr) throw upErr;
 
       // 2) Create vip_registration
-      await supabase.from('vip_registrations').insert({
+      await sb.from('vip_registrations').insert({
         vip_session_id: sessionId,
         full_name: name.trim(),
         email: email.trim(),
@@ -113,7 +115,7 @@ export default function VipAvailability() {
       const formattedDate = session ? format(new Date(session.session_date + 'T00:00:00'), 'MMM d') : '';
       const formattedTime = session ? formatDisplayTime(session.session_time) : '';
 
-      await supabase.from('notifications').insert({
+      await sb.from('notifications').insert({
         notification_type: 'vip_slot_claimed',
         title: `${groupName.trim()} claimed VIP slot`,
         body: `${groupName.trim()} claimed the ${formattedDate} ${formattedTime} VIP slot. ${groupSize} estimated attendees. Contact: ${name.trim()}`,
