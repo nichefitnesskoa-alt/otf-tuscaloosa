@@ -23,7 +23,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown, Download } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   format,
   startOfMonth,
