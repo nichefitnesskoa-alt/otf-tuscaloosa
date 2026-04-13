@@ -176,7 +176,7 @@ export function VipSchedulerTab() {
   const handleViewRegistrations = async (sessionId: string) => {
     setRegOpen(sessionId);
     setRegLoading(true);
-    const { data } = await supabase
+    const { data } = await sb
       .from('vip_registrations')
       .select('id, full_name, email, phone')
       .eq('vip_session_id', sessionId);
