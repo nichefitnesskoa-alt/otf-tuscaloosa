@@ -14,10 +14,8 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { EmployeeFilter } from '@/components/dashboard/EmployeeFilter';
 import { LeadSourceChart } from '@/components/dashboard/LeadSourceChart';
 import { ConversionFunnel } from '@/components/dashboard/ConversionFunnel';
-import { ReferralLeaderboard } from '@/components/dashboard/ReferralLeaderboard';
 import { StudioScoreboard } from '@/components/dashboard/StudioScoreboard';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
-import { LeadMeasuresTable } from '@/components/dashboard/LeadMeasuresTable';
 import { OutreachTable } from '@/components/dashboard/OutreachTable';
 import { useLeadMeasures } from '@/hooks/useLeadMeasures';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
@@ -230,17 +228,10 @@ export default function Recaps() {
             introsRun={scoreboardIntrosRun}
             introSales={scoreboardSales}
             closingRate={scoreboardClosingRate}
-            qCompletionRate={qCompletionRate}
-            prepRate={prepRate}
-            introsBooked={scoreboardBooked}
-            introsShowed={scoreboardShowed}
-            noShows={scoreboardNoShows}
           />
 
-          <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
           <ConversionFunnel dateRange={dateRange} />
           <LeadSourceChart data={filteredLeadSource} />
-          <ReferralLeaderboard />
 
           <Tabs defaultValue="runner">
             <TabsList className="grid w-full grid-cols-3">
