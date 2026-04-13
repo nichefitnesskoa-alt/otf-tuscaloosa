@@ -158,6 +158,7 @@ function ClaimDialog({
           contact_phone: phone.trim(),
           estimated_size: parseInt(groupSize),
           session_type: sessionType,
+          business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
         },
       });
 
