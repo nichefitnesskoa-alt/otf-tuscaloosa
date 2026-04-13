@@ -257,7 +257,8 @@ function ClaimDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Estimated Group Size</Label>
-              <Input type="number" min="1" value={groupSize} onChange={(e) => setGroupSize(e.target.value)} placeholder="15" className="border h-11" />
+              <Input type="number" min="1" max="36" value={groupSize} onChange={(e) => setGroupSize(e.target.value)} placeholder="15" className="border h-11" />
+              <p className="text-[11px] text-muted-foreground">Max capacity is 36 people per class.</p>
             </div>
 
             {/* Class Type Selection */}
