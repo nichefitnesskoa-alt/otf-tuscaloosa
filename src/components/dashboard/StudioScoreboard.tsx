@@ -1,36 +1,23 @@
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  TrendingUp, Target, Users, AlertTriangle, Info, CalendarCheck, ClipboardList, Dumbbell,
+  TrendingUp, Target, Users, Info,
 } from 'lucide-react';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  getLeadMeasureColor,
-  Q_COMPLETION_THRESHOLDS, PREP_RATE_THRESHOLDS, CLOSE_RATE_THRESHOLDS,
-} from '@/lib/studio-metrics';
+import { CLOSE_RATE_THRESHOLDS } from '@/lib/studio-metrics';
 import { cn } from '@/lib/utils';
 
 interface StudioScoreboardProps {
   introsRun: number;
   introSales: number;
   closingRate: number;
-  qCompletionRate?: number;
-  prepRate?: number;
-  introsBooked?: number;
-  introsShowed?: number;
-  noShows?: number;
 }
 
 export function StudioScoreboard({
   introsRun,
   introSales,
   closingRate,
-  qCompletionRate,
-  prepRate,
-  introsBooked,
-  introsShowed,
-  noShows,
 }: StudioScoreboardProps) {
   const showRate = (introsBooked && introsBooked > 0 && introsShowed !== undefined)
     ? (introsShowed / introsBooked) * 100
@@ -100,38 +87,3 @@ export function StudioScoreboard({
   );
 }
 
-function LeadMeasureCard({
-  icon, label, value, tooltip, thresholds,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | undefined;
-  tooltip: string;
-  thresholds: { green: number; amber: number };
-}) {
-  const color = value !== undefined ? getLeadMeasureColor(value, thresholds) : undefined;
-  const colorClass = color === 'success' ? 'text-success' : color === 'warning' ? 'text-warning' : color === 'destructive' ? 'text-destructive' : '';
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="text-center p-2 bg-background/10 rounded-lg">
-            <div className="mx-auto mb-1 opacity-70 flex justify-center">{icon}</div>
-            <p className={cn('text-xl font-bold', colorClass)}>
-              {value !== undefined ? `${value.toFixed(0)}%` : '—'}
-            </p>
-            <p className="text-xs opacity-70">{label}</p>
-            {value !== undefined && value < thresholds.amber && (
-              <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                <AlertTriangle className="w-3 h-3 text-destructive" />
-                <span className="text-[10px] text-destructive font-medium">Below {thresholds.amber}%</span>
-              </div>
-            )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-[220px]"><p>{tooltip}</p></TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
