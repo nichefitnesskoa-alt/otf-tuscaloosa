@@ -476,6 +476,7 @@ function DaySlotList({
       {sessions.map((s) => {
         const isOpen = s.status === 'open';
         const isOpenType = s.session_type === 'open';
+        const isBusiness = s.session_type === 'business_customers';
         const confirmed = confirmedIds.has(s.id);
 
         if (confirmed) {
@@ -489,9 +490,11 @@ function DaySlotList({
 
         const borderColor = isOpen
           ? 'border-l-green-500'
-          : isOpenType
-            ? 'border-l-teal-500'
-            : 'border-l-amber-500';
+          : isBusiness
+            ? 'border-l-blue-500'
+            : isOpenType
+              ? 'border-l-teal-500'
+              : 'border-l-amber-500';
 
         return (
           <div key={s.id} className={cn('rounded-lg border-l-4 p-3', borderColor, 'bg-card')}>
@@ -505,6 +508,12 @@ function DaySlotList({
                 >
                   Claim This Slot
                 </Button>
+              </>
+            ) : isBusiness ? (
+              <>
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  Reserved — {s.reserved_by_group || 'Group'} · Business Event
+                </p>
               </>
             ) : isOpenType ? (
               <>
