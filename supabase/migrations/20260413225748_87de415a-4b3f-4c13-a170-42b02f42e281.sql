@@ -1,0 +1,1 @@
+ALTER TABLE public.vip_sessions ADD COLUMN IF NOT EXISTS business_sub_type text;

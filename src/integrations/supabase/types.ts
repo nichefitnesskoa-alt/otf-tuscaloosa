@@ -2580,6 +2580,7 @@ export type Database = {
       }
       vip_sessions: {
         Row: {
+          business_sub_type: string | null
           capacity: number
           created_at: string
           created_by: string
@@ -2601,6 +2602,7 @@ export type Database = {
           vip_class_name: string
         }
         Insert: {
+          business_sub_type?: string | null
           capacity?: number
           created_at?: string
           created_by?: string
@@ -2622,6 +2624,7 @@ export type Database = {
           vip_class_name: string
         }
         Update: {
+          business_sub_type?: string | null
           capacity?: number
           created_at?: string
           created_by?: string
