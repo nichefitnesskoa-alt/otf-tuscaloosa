@@ -327,8 +327,16 @@ export function VipSchedulerTab() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
+                    {s.status === 'reserved' && s.shareable_slug && (
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/vip/${s.shareable_slug}/register`);
+                        toast.success('Member registration link copied');
+                      }}>
+                        <Copy className="w-3.5 h-3.5" /> Copy Member Link
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
-                      <Copy className="w-3.5 h-3.5" /> Copy Link
+                      <Copy className="w-3.5 h-3.5" /> Copy Availability Link
                     </Button>
                     {s.status === 'open' && (
                       <Button
