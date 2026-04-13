@@ -22,6 +22,7 @@ import Questionnaire from "./pages/Questionnaire";
 import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
 import VipAvailability from "./pages/VipAvailability";
+import VipMemberRegister from "./pages/VipMemberRegister";
 import CoachView from "./pages/CoachView";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
