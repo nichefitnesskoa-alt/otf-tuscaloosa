@@ -2525,11 +2525,15 @@ export type Database = {
           booking_id: string | null
           created_at: string
           email: string | null
-          first_name: string
+          first_name: string | null
+          fitness_level: number | null
           id: string
-          last_name: string
-          phone: string
+          injuries: string | null
+          is_group_contact: boolean
+          last_name: string | null
+          phone: string | null
           vip_class_name: string | null
+          vip_session_id: string | null
           weight_lbs: number | null
         }
         Insert: {
@@ -2537,11 +2541,15 @@ export type Database = {
           booking_id?: string | null
           created_at?: string
           email?: string | null
-          first_name: string
+          first_name?: string | null
+          fitness_level?: number | null
           id?: string
-          last_name: string
-          phone: string
+          injuries?: string | null
+          is_group_contact?: boolean
+          last_name?: string | null
+          phone?: string | null
           vip_class_name?: string | null
+          vip_session_id?: string | null
           weight_lbs?: number | null
         }
         Update: {
@@ -2549,14 +2557,26 @@ export type Database = {
           booking_id?: string | null
           created_at?: string
           email?: string | null
-          first_name?: string
+          first_name?: string | null
+          fitness_level?: number | null
           id?: string
-          last_name?: string
-          phone?: string
+          injuries?: string | null
+          is_group_contact?: boolean
+          last_name?: string | null
+          phone?: string | null
           vip_class_name?: string | null
+          vip_session_id?: string | null
           weight_lbs?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vip_registrations_vip_session_id_fkey"
+            columns: ["vip_session_id"]
+            isOneToOne: false
+            referencedRelation: "vip_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vip_sessions: {
         Row: {
