@@ -764,13 +764,16 @@ export default function VipAvailability() {
                               {daySessions.map((s) => {
                                 const isOpen = s.status === 'open';
                                 const isOpenType = s.session_type === 'open';
+                                const isBusiness = s.session_type === 'business_customers';
                                 const dotColor = confirmedIds.has(s.id)
                                   ? 'bg-green-500 ring-1 ring-green-300'
                                   : isOpen
                                     ? 'bg-green-500'
-                                    : isOpenType
-                                      ? 'bg-teal-500'
-                                      : 'bg-amber-500';
+                                    : isBusiness
+                                      ? 'bg-blue-500'
+                                      : isOpenType
+                                        ? 'bg-teal-500'
+                                        : 'bg-amber-500';
                                 return <span key={s.id} className={cn('w-2 h-2 rounded-full', dotColor)} />;
                               })}
                             </div>
