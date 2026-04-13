@@ -128,9 +128,11 @@ function ClaimDialog({
 
       await sb.from('vip_registrations').insert({
         vip_session_id: session.id,
-        full_name: name.trim(),
+        first_name: name.trim().split(' ')[0] || name.trim(),
+        last_name: name.trim().split(' ').slice(1).join(' ') || '',
         email: email.trim(),
         phone: phone.trim(),
+        is_group_contact: true,
       } as any);
 
       const formattedDate = format(
@@ -180,16 +182,51 @@ function ClaimDialog({
         </DialogHeader>
 
         {confirmed ? (
-          <div className="py-6 text-center space-y-2">
-            <CheckCircle className="w-10 h-10 text-green-600 mx-auto" />
-            <p className="font-semibold text-green-700 dark:text-green-400">
-              Your slot is confirmed!
-            </p>
-            <p className="text-sm text-muted-foreground">
-              We'll be in touch with next steps and a link for your group members
-              to fill out before class.
-            </p>
-          </div>
+          (() => {
+            // Get slug for shareable link
+            const shareableLink = `https://otf-tuscaloosa.lovable.app/vip/${(() => {
+              // Build slug from session info
+              const d = new Date(session.session_date + 'T00:00:00');
+              const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+              const month = monthNames[d.getMonth()];
+              const day = d.getDate();
+              const [h, m] = session.session_time.split(':');
+              const hour = parseInt(h);
+              const min = m || '00';
+              const ampm = hour >= 12 ? 'pm' : 'am';
+              const h12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+              return `vip-${month}${day}-${h12}${min !== '00' ? min : ''}${ampm}`;
+            })()}/register`;
+
+            return (
+              <div className="py-6 text-center space-y-3">
+                <CheckCircle className="w-10 h-10 text-green-600 mx-auto" />
+                <p className="font-semibold text-green-700 dark:text-green-400">
+                  Your slot is confirmed!
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Share this link with your group so each member can fill out their info before class.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={shareableLink}
+                    className="text-xs h-10 border bg-muted/30"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button
+                    variant="outline"
+                    className="h-10 min-h-[44px] shrink-0 text-xs font-medium"
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareableLink);
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            );
+          })()
         ) : (
           <div className="space-y-3">
             {error && (
