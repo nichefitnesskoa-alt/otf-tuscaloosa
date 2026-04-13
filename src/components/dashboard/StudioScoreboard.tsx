@@ -93,26 +93,6 @@ export function StudioScoreboard({
 
         
 
-        {/* Lead Measures Row — Q Completion + Prep Rate */}
-        <div className="border-t border-background/20 pt-3">
-          <p className="text-xs opacity-60 mb-2 uppercase tracking-wider">Lead Measures</p>
-          <div className="grid grid-cols-2 gap-3">
-            <LeadMeasureCard
-              icon={<ClipboardList className="w-4 h-4" />}
-              label="Q Completion"
-              value={qCompletionRate}
-              tooltip="% of members who showed with a completed questionnaire. Only counts intros that actually attended. Target: 70%+"
-              thresholds={Q_COMPLETION_THRESHOLDS}
-            />
-            <LeadMeasureCard
-              icon={<Dumbbell className="w-4 h-4" />}
-              label="Prepped & Role Played %"
-              value={prepRate}
-              tooltip="% of intros run where the SA marked 'Prepped & Role Played' — meaning they reviewed the prep card AND role played digging deeper on the member's why and handling their likely objection before they walked in. Target: 70%+"
-              thresholds={PREP_RATE_THRESHOLDS}
-            />
-          </div>
-        </div>
 
         <p className="text-[10px] opacity-40 text-center mt-3">Excludes VIP events</p>
       </CardContent>

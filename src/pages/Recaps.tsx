@@ -237,10 +237,8 @@ export default function Recaps() {
             noShows={scoreboardNoShows}
           />
 
-          <LeadMeasuresTable data={leadMeasures} loading={leadMeasuresLoading} />
           <ConversionFunnel dateRange={dateRange} />
           <LeadSourceChart data={filteredLeadSource} />
-          <ReferralLeaderboard />
 
           <Tabs defaultValue="runner">
             <TabsList className="grid w-full grid-cols-3">
