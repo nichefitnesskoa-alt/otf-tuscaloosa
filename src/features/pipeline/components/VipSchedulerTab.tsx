@@ -484,47 +484,105 @@ export function VipSchedulerTab() {
 
       {/* View Registrations Dialog */}
       <Dialog open={!!regOpen} onOpenChange={() => setRegOpen(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Registrations</DialogTitle>
-            <DialogDescription>People registered for this VIP session</DialogDescription>
-          </DialogHeader>
-          {regLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
-          ) : registrations.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No registrations yet</p>
-          ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <DialogDescription>
               {(() => {
                 const session = sessions.find(s => s.id === regOpen);
-                return session?.reserved_contact_name ? (
-                  <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-                    <CardContent className="p-3 space-y-1">
-                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-400">Group Contact</div>
-                      <div className="text-sm font-medium">{session.reserved_contact_name}</div>
-                      {session.reserved_contact_email && <div className="text-xs text-muted-foreground">{session.reserved_contact_email}</div>}
-                      {session.reserved_contact_phone && (
-                        <a href={`tel:${session.reserved_contact_phone}`} className="text-xs text-primary underline">
-                          {session.reserved_contact_phone}
-                        </a>
-                      )}
-                      {session.estimated_group_size && (
-                        <div className="text-xs text-muted-foreground">Estimated group size: {session.estimated_group_size}</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ) : null;
+                const memberCount = registrations.filter(r => !r.is_group_contact).length;
+                const expected = session?.estimated_group_size || '?';
+                return `${memberCount} members registered out of ${expected} expected`;
               })()}
-              <Separator />
-              {registrations.map(r => (
-                <div key={r.id} className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="font-medium">{r.full_name}</span>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {r.email && <span>{r.email}</span>}
-                    {r.phone && <span>{r.phone}</span>}
-                  </div>
-                </div>
-              ))}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Group Contact card */}
+          {(() => {
+            const session = sessions.find(s => s.id === regOpen);
+            return session?.reserved_contact_name ? (
+              <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+                <CardContent className="p-3 space-y-1">
+                  <div className="text-xs font-semibold text-orange-700 dark:text-orange-400">Group Contact</div>
+                  <div className="text-sm font-medium">{session.reserved_contact_name}</div>
+                  {session.reserved_contact_email && <div className="text-xs text-muted-foreground">{session.reserved_contact_email}</div>}
+                  {session.reserved_contact_phone && (
+                    <a href={`tel:${session.reserved_contact_phone}`} className="text-xs text-primary underline">
+                      {session.reserved_contact_phone}
+                    </a>
+                  )}
+                  {session.estimated_group_size && (
+                    <div className="text-xs text-muted-foreground">Estimated group size: {session.estimated_group_size}</div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null;
+          })()}
+
+          {regLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : registrations.filter(r => !r.is_group_contact).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No individual members registered yet</p>
+          ) : (
+            <div className="space-y-3">
+              {/* Export CSV */}
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 text-xs"
+                  onClick={() => {
+                    const members = registrations.filter(r => !r.is_group_contact);
+                    const headers = ['First Name','Last Name','Email','Phone','Fitness Level','Injuries','Birthday','Weight (lbs)'];
+                    const rows = members.map(r => [
+                      r.first_name || '', r.last_name || '', r.email || '', r.phone || '',
+                      r.fitness_level?.toString() || '', r.injuries || '',
+                      r.birthday || '', r.weight_lbs?.toString() || '',
+                    ]);
+                    const csv = [headers, ...rows].map(row => row.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const session = sessions.find(s => s.id === regOpen);
+                    a.download = `vip-registrations-${session?.session_date || 'export'}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export to CSV
+                </Button>
+              </div>
+
+              {/* Registration table */}
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Name</th>
+                      <th className="text-left p-2 font-medium">Email</th>
+                      <th className="text-left p-2 font-medium">Phone</th>
+                      <th className="text-center p-2 font-medium">Fitness</th>
+                      <th className="text-left p-2 font-medium">Injuries</th>
+                      <th className="text-left p-2 font-medium">Birthday</th>
+                      <th className="text-center p-2 font-medium">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrations.filter(r => !r.is_group_contact).map(r => (
+                      <tr key={r.id} className="border-t">
+                        <td className="p-2 font-medium whitespace-nowrap">{[r.first_name, r.last_name].filter(Boolean).join(' ') || '—'}</td>
+                        <td className="p-2 text-muted-foreground">{r.email || '—'}</td>
+                        <td className="p-2 text-muted-foreground whitespace-nowrap">{r.phone || '—'}</td>
+                        <td className="p-2 text-center">{r.fitness_level || '—'}</td>
+                        <td className="p-2 text-muted-foreground max-w-[120px] truncate">{r.injuries || '—'}</td>
+                        <td className="p-2 text-muted-foreground whitespace-nowrap">{r.birthday || '—'}</td>
+                        <td className="p-2 text-center">{r.weight_lbs ? `${r.weight_lbs} lbs` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </DialogContent>
