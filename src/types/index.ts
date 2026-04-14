@@ -25,6 +25,7 @@ export const LEAD_SOURCES = [
   'Lead Management',
   'Lead Management (Friend)',
   'Member Referral',
+  'Member Referral (5 class pack)',
   'My Personal Friend I Invited',
   'Online Intro Offer (self-booked)',
   'VIP Class',

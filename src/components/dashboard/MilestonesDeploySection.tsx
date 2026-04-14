@@ -40,6 +40,13 @@ interface WeekSummary {
   friends: number;
   deployed: number;
   converted: number;
+  classesRedeemed: number;
+  convertedToMember: number;
+}
+
+interface FriendTrackingInfo {
+  classesRedeemed: number;
+  convertedToMember: boolean;
 }
 
 function isEmail(s: string) {
@@ -56,7 +63,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, classesRedeemed: 0, convertedToMember: 0 });
+  const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
 
   // Create form state
@@ -114,6 +122,44 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     const deps = (depRes.data || []) as unknown as MilestoneRow[];
     setMilestones(mils);
     setDeploys(deps);
+
+    // Track pack friend redemptions
+    const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
+    const trackingMap = new Map<string, FriendTrackingInfo>();
+    let totalRedeemed = 0;
+    let totalConverted = 0;
+
+    if (packFriends.length > 0) {
+      for (const pf of packFriends) {
+        const friendName = (pf.friend_name || '').trim();
+        if (!friendName) continue;
+
+        // Check intros_booked for this friend (case-insensitive)
+        const { data: bookings } = await supabase
+          .from('intros_booked')
+          .select('id, booking_status_canon')
+          .ilike('member_name', friendName);
+
+        const bookedIds = (bookings || []).map((b: any) => b.id);
+        const showedCount = (bookings || []).filter((b: any) => b.booking_status_canon === 'SHOWED').length;
+
+        // Check if any run resulted in SALE
+        let converted = false;
+        if (bookedIds.length > 0) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('result_canon')
+            .in('linked_intro_booked_id', bookedIds);
+          converted = (runs || []).some((r: any) => r.result_canon === 'SALE');
+        }
+
+        trackingMap.set(pf.id, { classesRedeemed: showedCount, convertedToMember: converted });
+        totalRedeemed += showedCount;
+        if (converted) totalConverted++;
+      }
+    }
+
+    setFriendTracking(trackingMap);
     setSummary({
       celebrations: mils.length,
       actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
@@ -121,6 +167,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
+      classesRedeemed: totalRedeemed,
+      convertedToMember: totalConverted,
     });
     setLoading(false);
   }, [rangeStartYMD, rangeEndYMD]);
@@ -167,7 +215,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         last_name: lastName,
         phone: isEmailContact ? '' : friendContact.trim(),
         email: isEmailContact ? friendContact.trim() : null,
-        source: 'Milestone Referral',
+        source: 'Member Referral (5 class pack)',
         stage: 'new',
         duplicate_notes: `Referred via milestone pack — ${editItem?.member_name || ''} celebrated on ${format(new Date(), 'MMM d, yyyy')}`,
       } as any)
@@ -318,6 +366,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const summaryCards = [
     { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
     { label: 'Packs gifted', value: String(summary.packs) },
+    { label: 'Classes redeemed', value: String(summary.classesRedeemed) },
+    { label: 'Converted to member', value: String(summary.convertedToMember) },
     { label: 'Friends in pipeline', value: String(summary.friends) },
     { label: 'Members deployed', value: String(summary.deployed) },
     { label: 'Converted', value: String(summary.converted) },
@@ -328,7 +378,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones & Deploy</p>
 
       {/* Weekly summary */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardContent className="p-3 text-center">
@@ -439,6 +489,22 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                       ) : m.friend_name ? (
                         <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
                       ) : null}
+                      {/* Pack redemption tracking badges */}
+                      {m.five_class_pack_gifted && friendTracking.has(m.id) && (() => {
+                        const info = friendTracking.get(m.id)!;
+                        return (
+                          <>
+                            <Badge className={`text-[9px] h-4 ${info.classesRedeemed > 0 ? 'bg-success/20 text-success border-success/40 hover:bg-success/20' : 'bg-muted text-muted-foreground border-border hover:bg-muted'}`}>
+                              {info.classesRedeemed} class{info.classesRedeemed !== 1 ? 'es' : ''} redeemed
+                            </Badge>
+                            {info.convertedToMember ? (
+                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted</Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     {/* Show friend name if exists but not in pipeline */}
                     {m.friend_name && !m.converted_to_lead_id && (
