@@ -82,10 +82,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
 
   // Create booking state
   const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+  const [newBookingPhone, setNewBookingPhone] = useState('');
   const [newBookingVipSessionId, setNewBookingVipSessionId] = useState('');
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [pickFromPipeline, setPickFromPipeline] = useState(false);
   const [pipelineSearch, setPipelineSearch] = useState('');
+  const [selectedJourney, setSelectedJourney] = useState<ClientJourney | null>(null);
 
   // Create run state
   const [newRun, setNewRun] = useState({ member_name: '', run_date: getLocalDateString(), class_time: '', ran_by: '', lead_source: '', result: '', notes: '', linked_intro_booked_id: '' });
