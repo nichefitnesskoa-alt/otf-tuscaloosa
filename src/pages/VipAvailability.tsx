@@ -69,9 +69,8 @@ function ClaimDialog({
 }) {
   const [name, setName] = useState('');
   const [groupName, setGroupName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [groupSize, setGroupSize] = useState('');
+
   const [sessionType, setSessionType] = useState<'exclusive' | 'business_customers' | ''>('');
   const [businessSubType, setBusinessSubType] = useState<'staff_only' | 'staff_customers' | 'staff_members' | ''>('');
   const [submitting, setSubmitting] = useState(false);
@@ -82,9 +81,7 @@ function ClaimDialog({
     if (open) {
       setName('');
       setGroupName('');
-      setEmail('');
       setPhone('');
-      setGroupSize('');
       setSessionType('');
       setBusinessSubType('');
       setError(null);
@@ -95,7 +92,7 @@ function ClaimDialog({
   if (!session) return null;
 
   const canSubmit =
-    name.trim() && groupName.trim() && email.trim() && phone.trim() && groupSize.trim() && sessionType &&
+    name.trim() && groupName.trim() && phone.trim() && sessionType &&
     (sessionType !== 'business_customers' || businessSubType);
 
   const handleClaim = async () => {
@@ -121,9 +118,7 @@ function ClaimDialog({
           status: 'reserved',
           reserved_by_group: groupName.trim(),
           reserved_contact_name: name.trim(),
-          reserved_contact_email: email.trim(),
           reserved_contact_phone: phone.trim(),
-          estimated_group_size: parseInt(groupSize),
           session_type: sessionType,
           business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
         } as any)
@@ -135,7 +130,6 @@ function ClaimDialog({
         vip_session_id: session.id,
         first_name: name.trim().split(' ')[0] || name.trim(),
         last_name: name.trim().split(' ').slice(1).join(' ') || '',
-        email: email.trim(),
         phone: phone.trim(),
         is_group_contact: true,
       } as any);
@@ -149,15 +143,13 @@ function ClaimDialog({
       await sb.from('notifications').insert({
         notification_type: 'vip_slot_claimed',
         title: `${groupName.trim()} claimed VIP slot`,
-        body: `${groupName.trim()} claimed the ${formattedDate} ${formattedTime} VIP slot (${sessionType}). ${groupSize} estimated attendees. Contact: ${name.trim()}`,
+        body: `${groupName.trim()} claimed the ${formattedDate} ${formattedTime} VIP slot (${sessionType}). Contact: ${name.trim()}`,
         target_user: null,
         meta: {
           session_id: session.id,
           group_name: groupName.trim(),
           contact_name: name.trim(),
-          contact_email: email.trim(),
           contact_phone: phone.trim(),
-          estimated_size: parseInt(groupSize),
           session_type: sessionType,
           business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
         },
@@ -332,17 +324,8 @@ function ClaimDialog({
               <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Alpha Phi Sorority" className="border h-11" />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" className="border h-11" />
-            </div>
-            <div className="space-y-1.5">
               <Label>Phone</Label>
               <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(205) 555-1234" className="border h-11" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Estimated Group Size</Label>
-              <Input type="number" min="1" max="36" value={groupSize} onChange={(e) => setGroupSize(e.target.value)} placeholder="15" className="border h-11" />
-              <p className="text-[11px] text-muted-foreground">Max capacity is 36 people per class.</p>
             </div>
 
             {/* Class Type Selection */}
