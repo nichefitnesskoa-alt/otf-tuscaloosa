@@ -700,6 +700,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <Button disabled={isSaving} onClick={() => withSave(async () => {
               if (!newBooking.member_name) { toast.error('Name required'); return; }
               if (!isSelfBooked && !newBooking.sa_working_shift) { toast.error('Booked By required'); return; }
+              if (newBooking.lead_source === 'VIP Class' && !newBookingVipSessionId) { toast.error('Please select which VIP class'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
               const introOwner = fromRun?.intro_owner || fromRun?.ran_by || null;
@@ -718,6 +719,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner: introOwner,
                 intro_owner_locked: !!introOwner,
                 originating_booking_id: secondIntroOriginatingId || null,
+                vip_session_id: leadSource === 'VIP Class' ? newBookingVipSessionId : null,
               }).select().single();
               if (error) throw error;
               if (fromRun && inserted) {

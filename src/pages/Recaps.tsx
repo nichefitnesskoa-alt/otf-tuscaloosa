@@ -27,6 +27,7 @@ import { isWithinInterval } from 'date-fns';
 import { isMembershipSale } from '@/lib/sales-detection';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
+import { VipClassPerformanceTable } from '@/components/admin/VipClassPerformanceTable';
 
 
 export default function Recaps() {
@@ -263,6 +264,9 @@ export default function Recaps() {
           </Card>
 
           <PerCoachTable dateRange={dateRange} />
+
+          {/* VIP Class Performance */}
+          <VipClassPerformanceTable />
         </TabsContent>
       </Tabs>
     </div>
