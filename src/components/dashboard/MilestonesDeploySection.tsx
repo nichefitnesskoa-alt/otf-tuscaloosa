@@ -489,6 +489,22 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                       ) : m.friend_name ? (
                         <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
                       ) : null}
+                      {/* Pack redemption tracking badges */}
+                      {m.five_class_pack_gifted && friendTracking.has(m.id) && (() => {
+                        const info = friendTracking.get(m.id)!;
+                        return (
+                          <>
+                            <Badge className={`text-[9px] h-4 ${info.classesRedeemed > 0 ? 'bg-success/20 text-success border-success/40 hover:bg-success/20' : 'bg-muted text-muted-foreground border-border hover:bg-muted'}`}>
+                              {info.classesRedeemed} class{info.classesRedeemed !== 1 ? 'es' : ''} redeemed
+                            </Badge>
+                            {info.convertedToMember ? (
+                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted</Badge>
+                            ) : (
+                              <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                     {/* Show friend name if exists but not in pipeline */}
                     {m.friend_name && !m.converted_to_lead_id && (
