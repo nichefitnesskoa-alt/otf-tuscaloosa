@@ -1,60 +1,69 @@
 
 
-## Plan: Add Reschedule to BookIntroSheet + Remove FAB Buttons
+## Plan: VIP Class Enhancements — Archived Sessions, VIP Banner, and "VIP Class (Friend)" Lead Source
 
-Two changes: enhance the My Day "Book Intro" sheet with a "Pick from Pipeline" toggle (same reschedule flow just built in PipelineDialogs), and remove Walk-In Intro + Log Activity from the FAB.
-
----
-
-### Change 1 — Remove Walk-In Intro and Log Activity from FAB
-
-**File: `src/components/dashboard/QuickAddFAB.tsx`**
-- Remove `Walk-In Intro` and `Log Activity` entries from the `actions` array
-- Remove their state variables (`showWalkIn`, `showActivityTracker`) and handlers
-- Remove `WalkInIntroSheet` and `ActivityTrackerSheet` imports and rendered components
-- Keep: End Shift, Book Intro, Walk-In Sale, Upgrade, HRM Add-On, Follow-Up Purchase
+Three changes: make VipSessionPicker include archived sessions and be optional, show VIP class origin on MyDay intro cards, and add a new "VIP Class (Friend)" lead source.
 
 ---
 
-### Change 2 — Add "Pick from Pipeline" to BookIntroSheet
+### Change 1 — VipSessionPicker: Include Archived Sessions, Make Optional
+
+**File: `src/components/shared/VipSessionPicker.tsx`**
+- Remove the `.is('archived_at', null)` filter so archived sessions appear in the dropdown
+- Group sessions visually: active sessions first, then archived (with a label like "Archived" in the option text)
+- Make `required` default to `false` — the picker is shown but not mandatory
+- Add auto-select logic: accept an optional `autoMatchSessionId` prop. When the booking already has a `vip_session_id`, pre-select it even if archived.
+
+### Change 2 — Show VIP Class Name on MyDay Intro Cards
+
+**File: `src/features/myDay/IntroRowCard.tsx`**
+- When `intro.vipClassName` is truthy (or `intro.leadSource` includes "VIP"), show a purple banner/badge below the name row:
+  `"VIP Class: [Group Name]"` — e.g. "VIP Class: Tuscaloosa Fire Dept"
+- This gives the SA immediate context on who this person is and which group they came from
+- The data (`vipClassName`) is already fetched in `useUpcomingIntrosData.ts` and available on `UpcomingIntroItem`
+
+**File: `src/components/myday/MyDayIntroCard.tsx`** (coach view card)
+- Add optional `vipClassName?: string | null` to the `MyDayIntroCardBooking` interface
+- Display the same purple VIP class badge when present
+
+### Change 3 — Add "VIP Class (Friend)" Lead Source
+
+**File: `src/types/index.ts`**
+- Add `'VIP Class (Friend)'` to the `LEAD_SOURCES` array (alphabetically after 'VIP Class')
 
 **File: `src/components/dashboard/BookIntroSheet.tsx`**
+- When `leadSource === 'VIP Class (Friend)'`, also show the VipSessionPicker (same as 'VIP Class') but not required
+- Add 'VIP Class (Friend)' to `REFERRAL_SOURCES` set so the referral name field appears
 
-Add a toggle at the top of the sheet: "Reschedule existing member" (Switch + Label).
+**File: `src/features/pipeline/components/PipelineDialogs.tsx`**
+- Same treatment: show VipSessionPicker for 'VIP Class (Friend)' lead source
 
-When toggled on:
-- Show a search input that queries `intros_booked` for matching names (distinct members)
-- On selection, pre-fill: name (locked), phone, lead source, coach from the most recent booking
-- Show a context chip with the member's last intro date and current status
-- Track the selected booking ID for linking via `rebooked_from_booking_id`
-- On save: set `rebooked_from_booking_id` and `rebook_reason = 'Rescheduled from My Day'`
-- Auto-complete any pending `follow_up_queue` entries for the original booking (mark as rescheduled)
+**File: `src/lib/vip/vipRules.ts`**
+- The existing `b.lead_source.toLowerCase().includes('vip')` check already covers 'VIP Class (Friend)' — no change needed here
 
-When toggled off (default): behaves exactly as today — fresh new booking.
+**File: `src/features/pipeline/selectors.ts`**
+- Same — the `.includes('vip')` check already captures this. Verify no hardcoded `=== 'VIP Class'` filters need updating.
 
-Data source for search: single query to `intros_booked` filtered by name match, ordered by `class_date desc`, limited to 15 results. No need to import the full pipeline journeys system — a lightweight search keeps this sheet fast.
+**File: `src/components/admin/ClientJourneyPanel.tsx`**
+- Lines 621-622 use `=== 'VIP Class'` — update to also match 'VIP Class (Friend)'
 
-Fields pre-filled from existing booking:
-- `member_name` (locked/disabled)
-- `phone`
-- `lead_source`
-- `coach_name`
+### Change 4 — Auto-Pull VIP Session Info
 
-New state variables:
-- `rescheduleMode: boolean`
-- `rescheduleSearch: string`
-- `searchResults: Array<{id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon}>`
-- `selectedBooking: typeof searchResults[0] | null`
-
-Save logic additions (when `selectedBooking` exists):
-- Set `rebooked_from_booking_id = selectedBooking.id`
-- Set `rebook_reason = 'Rescheduled from My Day'`
-- Carry `intro_owner` from the original booking
-- After insert: update `follow_up_queue` where `booking_id = selectedBooking.id` and `status = 'pending'` → set `status = 'completed'`
+**File: `src/components/dashboard/BookIntroSheet.tsx`**
+- When reschedule mode selects a member whose `lead_source` is 'VIP Class' or 'VIP Class (Friend)', auto-populate `vipSessionId` from their existing booking's `vip_session_id`
+- Add `vip_session_id` to the reschedule search query fields
 
 ---
 
 ### Files Changed
-1. `src/components/dashboard/QuickAddFAB.tsx` — remove Walk-In Intro + Log Activity
-2. `src/components/dashboard/BookIntroSheet.tsx` — add reschedule toggle with pipeline search
+1. `src/components/shared/VipSessionPicker.tsx` — include archived sessions, make not required
+2. `src/features/myDay/IntroRowCard.tsx` — show VIP class name banner
+3. `src/components/myday/MyDayIntroCard.tsx` — add vipClassName to interface + display
+4. `src/types/index.ts` — add 'VIP Class (Friend)' lead source
+5. `src/components/dashboard/BookIntroSheet.tsx` — support new lead source + auto-pull VIP session
+6. `src/features/pipeline/components/PipelineDialogs.tsx` — support new lead source in picker
+7. `src/components/admin/ClientJourneyPanel.tsx` — update VIP tab filter
+
+### No Database Migration Needed
+All fields already exist. `vip_class_name` and `vip_session_id` are on `intros_booked`. Lead source is a free-text field.
 
