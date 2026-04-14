@@ -80,6 +80,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowNoShow = params.newResult === 'No-show';
     const isNowNotInterested = params.newResult === 'Not interested';
     const isNowPlanning2nd = params.newResult === 'Planning to Book 2nd Intro';
+    const isNowPlanningToBuy = params.newResult === 'Planning to buy';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
 
     // Compute commission internally — callers no longer pass this
@@ -316,6 +317,14 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       // Planning to Book 2nd Intro → clear existing pending and let OutcomeDrawer handle specific follow-up creation
       if (isNowPlanning2nd) {
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', params.bookingId)
+          .eq('status', 'pending');
+      }
+
+      // Planning to Buy → clear existing pending and let OutcomeDrawer handle deferred follow-up creation
+      if (isNowPlanningToBuy) {
         await supabase.from('follow_up_queue')
           .delete()
           .eq('booking_id', params.bookingId)

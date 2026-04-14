@@ -40,6 +40,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'No-show', label: '👻 No-show' },
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
+  { value: 'Planning to buy', label: '🛒 Planning to buy' },
   { value: 'Not interested', label: '🚫 Not interested' },
 ];
 
