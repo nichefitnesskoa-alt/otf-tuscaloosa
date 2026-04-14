@@ -95,7 +95,7 @@ function ClaimDialog({
   const sessionDate = new Date(session.session_date + 'T00:00:00');
   const now = getNowCentral();
   const diffDays = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const tooSoon = diffDays < 7;
+  const tooSoon = diffDays < 3;
 
   const canSubmit =
     name.trim() && groupName.trim() && phone.trim() && sessionType &&
@@ -330,7 +330,7 @@ function ClaimDialog({
           <div className="space-y-3">
             {tooSoon && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
-                ⚠️ This slot is less than 7 days away and can no longer be claimed online. Please contact us directly if you need to book on short notice.
+                ⚠️ This slot is less than 3 days away and can no longer be claimed online. Please contact us directly if you need to book on short notice.
               </div>
             )}
             {error && (
@@ -470,7 +470,7 @@ function SlotPill({
   const sessionDate = new Date(session.session_date + 'T00:00:00');
   const now = getNowCentral();
   const diffDays = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const tooSoon = isOpen && diffDays < 7;
+  const tooSoon = isOpen && diffDays < 3;
 
   if (isConfirmed) {
     return (
@@ -882,7 +882,7 @@ export default function VipAvailability() {
 
             {/* Legend line */}
             <p className="text-center text-xs text-muted-foreground pt-2">
-              Green = available to claim · Amber = reserved private · Blue = business event · Teal = open to members · Tap to book
+              Green = available to claim · Amber = reserved private · Blue = business event · Teal = open to members · Max capacity: 36 · Tap to book
             </p>
           </>
         )}
