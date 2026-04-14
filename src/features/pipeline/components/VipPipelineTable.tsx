@@ -244,10 +244,11 @@ export function VipPipelineTable() {
 
   // Auto-select first group when groups load or current selection becomes invalid
   useEffect(() => {
-    if (groups.length > 0 && (!selectedGroup || !groups.includes(selectedGroup))) {
-      setSelectedGroup(groups[0]);
+    const visibleGroups = groups.filter(g => !archivedGroups.has(g));
+    if (visibleGroups.length > 0 && (!selectedGroup || !visibleGroups.includes(selectedGroup))) {
+      setSelectedGroup(visibleGroups[0]);
     }
-  }, [groups, selectedGroup]);
+  }, [groups, selectedGroup, archivedGroups]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
