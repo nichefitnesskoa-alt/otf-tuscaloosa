@@ -152,7 +152,8 @@ export default function VipRegister() {
             VIP Class Registration
           </div>
           <h1 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>
-            {vipClassName ? `${vipClassName} VIP Class` : 'Register for VIP Class'}
+            {(resolvedSession?.group || vipClassName) ? `${resolvedSession?.group || vipClassName} VIP Class` : 'Register for VIP Class'}
+          </h1>
           </h1>
           <p className="text-sm" style={{ color: '#555' }}>
             Fill out the form below and we'll get you set up for your VIP experience.
