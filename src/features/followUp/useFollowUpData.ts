@@ -444,6 +444,40 @@ export function useFollowUpData() {
       // Remove didntBuy1st items that are also in reschedule tab
       const dedupedDidntBuy1st = didntBuy1stItems.filter(item => !inRescheduleTab.has(item.bookingId));
 
+      // Build planning_to_buy items from follow_up_queue
+      const planningToBuyItems: FollowUpItem[] = [];
+      for (const ptb of (planningToBuyQueue || [])) {
+        if (!ptb.booking_id) continue;
+        const booking = bookings.find(b => b.id === ptb.booking_id);
+        if (!booking) continue;
+        if (notInterestedIds.has(ptb.booking_id)) continue;
+        const touch = touchByBooking.get(ptb.booking_id);
+        planningToBuyItems.push({
+          bookingId: ptb.booking_id,
+          runId: null,
+          memberName: ptb.person_name || booking.member_name,
+          classDate: booking.class_date,
+          introTime: booking.intro_time || null,
+          coachName: booking.coach_name,
+          leadSource: booking.lead_source,
+          phone: booking.phone,
+          email: booking.email,
+          result: 'Planning to buy',
+          resultCanon: 'PLANNING_TO_BUY',
+          isSecondIntro: false,
+          originatingBookingId: null,
+          rescheduleContactDate: ptb.scheduled_date,
+          followUpState: null,
+          lastContactAt: touch?.at || null,
+          lastContactSummary: touch?.summary || null,
+          contactNextDate: ptb.scheduled_date,
+          badgeType: undefined,
+          followUpType: 'planning_to_buy' as FollowUpType,
+          transferredFromCoach: null,
+          plannedBuyDate: ptb.fitness_goal || null,
+        });
+      }
+
       const sortByDate = (a: FollowUpItem, b: FollowUpItem) =>
         b.classDate.localeCompare(a.classDate);
 
@@ -470,6 +504,7 @@ export function useFollowUpData() {
       const db1 = splitCooling(dedupedDidntBuy1st);
       const db2 = splitCooling(didntBuy2ndItems);
       const plansSplit = splitCooling(plansItems);
+      const ptbSplit = splitCooling(planningToBuyItems);
 
       setNoShow1st(ns1.active);
       setNoShow1stCooling(ns1.cooling);
@@ -481,6 +516,8 @@ export function useFollowUpData() {
       setDidntBuy2ndCooling(db2.cooling);
       setPlansToReschedule(plansSplit.active);
       setPlansToRescheduleCooling(plansSplit.cooling);
+      setPlanningToBuy(ptbSplit.active);
+      setPlanningToBuyCooling(ptbSplit.cooling);
     } catch (err) {
       console.error('Follow-up data fetch error:', err);
     } finally {
@@ -499,8 +536,9 @@ export function useFollowUpData() {
     didntBuy1st: didntBuy1st.length,
     didntBuy2nd: didntBuy2nd.length,
     plansToReschedule: plansToReschedule.length,
-    total: noShow1st.length + noShow2nd.length + didntBuy1st.length + didntBuy2nd.length + plansToReschedule.length,
-  }), [noShow1st, noShow2nd, didntBuy1st, didntBuy2nd, plansToReschedule]);
+    planningToBuy: planningToBuy.length,
+    total: noShow1st.length + noShow2nd.length + didntBuy1st.length + didntBuy2nd.length + plansToReschedule.length + planningToBuy.length,
+  }), [noShow1st, noShow2nd, didntBuy1st, didntBuy2nd, plansToReschedule, planningToBuy]);
 
   const allItems = useMemo(() => [
     ...noShow1st, ...noShow1stCooling,
@@ -508,7 +546,8 @@ export function useFollowUpData() {
     ...didntBuy1st, ...didntBuy1stCooling,
     ...didntBuy2nd, ...didntBuy2ndCooling,
     ...plansToReschedule, ...plansToRescheduleCooling,
-  ], [noShow1st, noShow1stCooling, noShow2nd, noShow2ndCooling, didntBuy1st, didntBuy1stCooling, didntBuy2nd, didntBuy2ndCooling, plansToReschedule, plansToRescheduleCooling]);
+    ...planningToBuy, ...planningToBuyCooling,
+  ], [noShow1st, noShow1stCooling, noShow2nd, noShow2ndCooling, didntBuy1st, didntBuy1stCooling, didntBuy2nd, didntBuy2ndCooling, plansToReschedule, plansToRescheduleCooling, planningToBuy, planningToBuyCooling]);
 
   return {
     noShow1st, noShow1stCooling,
@@ -516,6 +555,7 @@ export function useFollowUpData() {
     didntBuy1st, didntBuy1stCooling,
     didntBuy2nd, didntBuy2ndCooling,
     plansToReschedule, plansToRescheduleCooling,
+    planningToBuy, planningToBuyCooling,
     allItems,
     counts,
     isLoading,
