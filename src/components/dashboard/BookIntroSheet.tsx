@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
@@ -87,6 +88,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
+    if (leadSource === 'VIP Class' && !vipSessionId) { toast.error('Please select which VIP class'); return; }
 
     setSaving(true);
     try {
@@ -114,6 +116,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
+        vip_session_id: leadSource === 'VIP Class' ? vipSessionId : null,
       }).select('id').single();
 
       if (error) throw error;
