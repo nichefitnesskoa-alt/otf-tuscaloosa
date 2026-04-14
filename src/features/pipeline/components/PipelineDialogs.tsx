@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
@@ -79,6 +80,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
 
   // Create booking state
   const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+  const [newBookingVipSessionId, setNewBookingVipSessionId] = useState('');
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [pickFromPipeline, setPickFromPipeline] = useState(false);
   const [pipelineSearch, setPipelineSearch] = useState('');
@@ -681,6 +683,9 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                {newBooking.lead_source === 'VIP Class' && (
+                  <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required showWarning />
+                )}
               </>
             )}
             <div><Label className="text-xs">Coach</Label>
@@ -695,6 +700,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             <Button disabled={isSaving} onClick={() => withSave(async () => {
               if (!newBooking.member_name) { toast.error('Name required'); return; }
               if (!isSelfBooked && !newBooking.sa_working_shift) { toast.error('Booked By required'); return; }
+              if (newBooking.lead_source === 'VIP Class' && !newBookingVipSessionId) { toast.error('Please select which VIP class'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
               const introOwner = fromRun?.intro_owner || fromRun?.ran_by || null;
@@ -713,6 +719,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner: introOwner,
                 intro_owner_locked: !!introOwner,
                 originating_booking_id: secondIntroOriginatingId || null,
+                vip_session_id: leadSource === 'VIP Class' ? newBookingVipSessionId : null,
               }).select().single();
               if (error) throw error;
               if (fromRun && inserted) {

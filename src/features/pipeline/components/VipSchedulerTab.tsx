@@ -1,7 +1,7 @@
 /**
  * VIP Scheduler Tab — manage available VIP session slots.
  * Staff can add slots, cancel, reset, mark reserved, copy the public link, view registrations,
- * and manage recurring slot templates.
+ * log attendance, book intros from VIP sessions, and manage recurring slot templates.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,16 +14,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock, Trash2, Download, QrCode,
+  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock, Trash2, Download, Pencil, Check, CalendarCheck,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/context/AuthContext';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { ALL_STAFF, COACHES, SALES_ASSOCIATES } from '@/types';
+import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
+import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
 const sb = supabase as any;
 
@@ -43,6 +49,9 @@ interface VipSession {
   reserved_contact_phone: string | null;
   estimated_group_size: number | null;
   created_at: string;
+  actual_attendance: number | null;
+  attendance_logged_by: string | null;
+  attendance_logged_at: string | null;
 }
 
 interface VipRegistration {
@@ -118,9 +127,25 @@ export function VipSchedulerTab() {
   // QR download
   const [qrSession, setQrSession] = useState<VipSession | null>(null);
 
+  // Attendance
+  const [attendanceId, setAttendanceId] = useState<string | null>(null);
+  const [attendanceValue, setAttendanceValue] = useState('');
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
+  const [attendanceSaved, setAttendanceSaved] = useState<string | null>(null);
+
+  // Book Intro from VIP
+  const [bookFromVip, setBookFromVip] = useState<VipSession | null>(null);
+  const [bookForm, setBookForm] = useState({ firstName: '', lastName: '', phone: '', classDate: '', classTime: '', coach: '', sa: '' });
+  const [bookSaving, setBookSaving] = useState(false);
+
+  // Performance data for registrations dialog
+  const [perfData, setPerfData] = useState<{ introsBooked: number; introsRan: number; joins: number } | null>(null);
+
   // Templates
   const [templates, setTemplates] = useState<SlotTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
+
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -229,14 +254,55 @@ export function VipSchedulerTab() {
   const handleViewRegistrations = async (sessionId: string) => {
     setRegOpen(sessionId);
     setRegLoading(true);
-    const { data } = await sb
-      .from('vip_registrations')
-      .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, created_at')
-      .eq('vip_session_id', sessionId)
-      .order('is_group_contact', { ascending: false })
-      .order('created_at', { ascending: true });
-    setRegistrations((data as any[]) || []);
+    setPerfData(null);
+    const [{ data: regData }, { data: bookings }] = await Promise.all([
+      sb.from('vip_registrations')
+        .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, created_at')
+        .eq('vip_session_id', sessionId)
+        .order('is_group_contact', { ascending: false })
+        .order('created_at', { ascending: true }),
+      sb.from('intros_booked')
+        .select('id, booking_status_canon')
+        .eq('vip_session_id', sessionId),
+    ]);
+    setRegistrations((regData as any[]) || []);
+
+    // Performance metrics
+    const sessionBookings = (bookings as any[]) || [];
+    const introsBooked = sessionBookings.length;
+    const introsRan = sessionBookings.filter((b: any) => b.booking_status_canon === 'SHOWED').length;
+    let joins = 0;
+    if (sessionBookings.length > 0) {
+      const bIds = sessionBookings.map((b: any) => b.id);
+      const { data: runs } = await sb.from('intros_run').select('linked_intro_booked_id, result_canon').in('linked_intro_booked_id', bIds);
+      const saleBookings = new Set<string>();
+      for (const r of (runs || [])) {
+        if (r.result_canon === 'SALE' && r.linked_intro_booked_id) saleBookings.add(r.linked_intro_booked_id);
+      }
+      joins = saleBookings.size;
+    }
+    setPerfData({ introsBooked, introsRan, joins });
     setRegLoading(false);
+  };
+
+  const handleSaveAttendance = async (sessionId: string) => {
+    const val = parseInt(attendanceValue);
+    if (isNaN(val) || val < 0) { toast.error('Enter a valid number'); return; }
+    setAttendanceSaving(true);
+    try {
+      await sb.from('vip_sessions').update({
+        actual_attendance: val,
+        attendance_logged_by: user?.name || 'Staff',
+        attendance_logged_at: new Date().toISOString(),
+      } as any).eq('id', sessionId);
+      setAttendanceSaved(sessionId);
+      setTimeout(() => setAttendanceSaved(null), 2000);
+      setAttendanceId(null);
+      setAttendanceValue('');
+      fetchSessions();
+    } catch {
+      toast.error('Failed to save attendance');
+    } finally { setAttendanceSaving(false); }
   };
 
   const handleToggleTemplate = async (id: string, currentActive: boolean) => {
@@ -249,7 +315,6 @@ export function VipSchedulerTab() {
     if (!deleteSessionId) return;
     setDeleting(true);
     try {
-      // Delete any registrations first
       await sb.from('vip_registrations').delete().eq('vip_session_id', deleteSessionId);
       const { error } = await sb.from('vip_sessions').delete().eq('id', deleteSessionId);
       if (error) throw error;
@@ -273,6 +338,46 @@ export function VipSchedulerTab() {
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete template');
     } finally { setDeleting(false); }
+  };
+
+  const handleBookFromVip = async () => {
+    if (!bookFromVip) return;
+    if (!bookForm.firstName.trim()) { toast.error('First name is required'); return; }
+    if (!bookForm.lastName.trim()) { toast.error('Last name is required'); return; }
+    if (!bookForm.classDate) { toast.error('Class date is required'); return; }
+    if (!bookForm.coach) { toast.error('Coach is required'); return; }
+    setBookSaving(true);
+    try {
+      const memberName = `${bookForm.firstName.trim()} ${bookForm.lastName.trim()}`;
+      const h = new Date().getHours();
+      const shiftLabel = h < 11 ? 'AM Shift' : h < 16 ? 'Mid Shift' : 'PM Shift';
+      const classStartAt = bookForm.classTime ? `${bookForm.classDate}T${bookForm.classTime}:00` : null;
+
+      const { error } = await supabase.from('intros_booked').insert({
+        member_name: memberName,
+        class_date: bookForm.classDate,
+        intro_time: bookForm.classTime || null,
+        class_start_at: classStartAt,
+        coach_name: bookForm.coach,
+        lead_source: 'VIP Class',
+        sa_working_shift: bookForm.sa || shiftLabel,
+        booked_by: bookForm.sa || user?.name || '',
+        intro_owner: bookForm.sa || user?.name || null,
+        intro_owner_locked: false,
+        phone: bookForm.phone.trim() || null,
+        booking_type_canon: 'STANDARD',
+        booking_status_canon: 'ACTIVE',
+        questionnaire_status_canon: 'not_sent',
+        is_vip: false,
+        vip_session_id: bookFromVip.id,
+      });
+      if (error) throw error;
+      toast.success(`${memberName} booked from VIP class`);
+      setBookFromVip(null);
+      setBookForm({ firstName: '', lastName: '', phone: '', classDate: '', classTime: '', coach: '', sa: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to book intro');
+    } finally { setBookSaving(false); }
   };
 
   if (loading) {
@@ -310,103 +415,156 @@ export function VipSchedulerTab() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {sessions.map(s => (
-            <Card key={s.id} className="overflow-hidden">
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm">
-                        {format(new Date(s.session_date + 'T00:00:00'), 'EEE, MMM d')} · {formatDisplayTime(s.session_time)}
+          {sessions.map(s => {
+            const isPast = s.session_date < today;
+            return (
+              <Card key={s.id} className="overflow-hidden">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm">
+                          {format(new Date(s.session_date + 'T00:00:00'), 'EEE, MMM d')} · {formatDisplayTime(s.session_time)}
+                        </div>
+                        {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
+                        <span className="text-[10px] text-muted-foreground">
+                          {s.created_by === 'system' ? 'System' : s.created_by}
+                        </span>
                       </div>
-                      {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
-                      <span className="text-[10px] text-muted-foreground">
-                        {s.created_by === 'system' ? 'System' : s.created_by}
-                      </span>
+                      <StatusBadge status={s.status} group={s.reserved_by_group} />
+                      {s.status === 'reserved' && regCounts[s.id] !== undefined && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Users className="w-3 h-3" /> {regCounts[s.id]} registered
+                        </span>
+                      )}
                     </div>
-                    <StatusBadge status={s.status} group={s.reserved_by_group} />
-                    {s.status === 'reserved' && regCounts[s.id] !== undefined && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Users className="w-3 h-3" /> {regCounts[s.id]} registered
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {s.status === 'reserved' && s.shareable_slug && (
-                      <>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {s.status === 'reserved' && s.shareable_slug && (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => {
+                            navigator.clipboard.writeText(`https://otf-tuscaloosa.lovable.app/vip/${s.shareable_slug}/register`);
+                            toast.success('Member registration link copied');
+                          }}>
+                            <Copy className="w-3.5 h-3.5" /> Copy Member Link
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => setQrSession(s)}>
+                            <Download className="w-3.5 h-3.5" /> Download QR
+                          </Button>
+                        </>
+                      )}
+                      {s.status === 'reserved' && (
                         <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => {
-                          navigator.clipboard.writeText(`https://otf-tuscaloosa.lovable.app/vip/${s.shareable_slug}/register`);
-                          toast.success('Member registration link copied');
+                          setBookFromVip(s);
+                          setBookForm({ firstName: '', lastName: '', phone: '', classDate: s.session_date, classTime: s.session_time, coach: '', sa: '' });
                         }}>
-                          <Copy className="w-3.5 h-3.5" /> Copy Member Link
+                          <CalendarCheck className="w-3.5 h-3.5" /> Book Intro
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => setQrSession(s)}>
-                          <Download className="w-3.5 h-3.5" /> Download QR
+                      )}
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
+                        <Copy className="w-3.5 h-3.5" /> Copy Availability Link
+                      </Button>
+                      {s.status === 'open' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 text-xs gap-1"
+                          onClick={() => { setMarkingId(s.id); setMarkGroupName(''); }}
+                        >
+                          <BookmarkCheck className="w-3.5 h-3.5" /> Mark Reserved
                         </Button>
-                      </>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
-                      <Copy className="w-3.5 h-3.5" /> Copy Availability Link
-                    </Button>
-                    {s.status === 'open' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 text-xs gap-1"
-                        onClick={() => { setMarkingId(s.id); setMarkGroupName(''); }}
-                      >
-                        <BookmarkCheck className="w-3.5 h-3.5" /> Mark Reserved
+                      )}
+                      {s.status === 'reserved' && (
+                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => handleViewRegistrations(s.id)}>
+                          <Eye className="w-3.5 h-3.5" /> View Registrations
+                        </Button>
+                      )}
+                      {(s.status === 'reserved' || s.status === 'cancelled') && (
+                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-muted-foreground" onClick={() => handleReopen(s.id)}>
+                          <RotateCcw className="w-3.5 h-3.5" /> Reopen
+                        </Button>
+                      )}
+                      {s.status !== 'cancelled' && (
+                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => handleCancel(s.id)}>
+                          <XCircle className="w-3.5 h-3.5" /> Cancel
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => setDeleteSessionId(s.id)}>
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
                       </Button>
-                    )}
-                    {s.status === 'reserved' && (
-                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => handleViewRegistrations(s.id)}>
-                        <Eye className="w-3.5 h-3.5" /> View Registrations
-                      </Button>
-                    )}
-                    {(s.status === 'reserved' || s.status === 'cancelled') && (
-                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-muted-foreground" onClick={() => handleReopen(s.id)}>
-                        <RotateCcw className="w-3.5 h-3.5" /> Reopen
-                      </Button>
-                    )}
-                    {s.status !== 'cancelled' && (
-                      <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => handleCancel(s.id)}>
-                        <XCircle className="w-3.5 h-3.5" /> Cancel
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-9 text-xs gap-1 text-destructive" onClick={() => setDeleteSessionId(s.id)}>
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Inline Mark Reserved form */}
-                {markingId === s.id && (
-                  <div className="flex items-end gap-2 pt-1 border-t">
-                    <div className="flex-1 space-y-1">
-                      <Label className="text-xs">Group Name</Label>
-                      <Input
-                        value={markGroupName}
-                        onChange={e => setMarkGroupName(e.target.value)}
-                        placeholder="e.g. Alpha Phi Sorority"
-                        className="border h-9 text-sm"
-                      />
                     </div>
-                    <Button
-                      size="sm"
-                      className="h-9 bg-orange-600 hover:bg-orange-700 text-white text-xs"
-                      disabled={markSaving || !markGroupName.trim()}
-                      onClick={() => handleMarkReserved(s.id)}
-                    >
-                      {markSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setMarkingId(null)}>
-                      Cancel
-                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Attendance row for past sessions */}
+                  {isPast && s.status === 'reserved' && (
+                    <div className="flex items-center gap-2 pt-1 border-t">
+                      {attendanceSaved === s.id ? (
+                        <span className="text-xs text-green-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>
+                      ) : s.actual_attendance != null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">Attendance: {s.actual_attendance}</span>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setAttendanceId(s.id); setAttendanceValue(String(s.actual_attendance)); }}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1 border-amber-500 text-amber-700"
+                          onClick={() => { setAttendanceId(s.id); setAttendanceValue(''); }}
+                        >
+                          <Users className="w-3 h-3" /> Add Attendance
+                        </Button>
+                      )}
+                      {attendanceId === s.id && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={attendanceValue}
+                            onChange={e => setAttendanceValue(e.target.value)}
+                            placeholder="How many showed up?"
+                            className="h-8 w-40 text-sm"
+                            autoFocus
+                          />
+                          <Button size="sm" className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white" disabled={attendanceSaving} onClick={() => handleSaveAttendance(s.id)}>
+                            {attendanceSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setAttendanceId(null); setAttendanceValue(''); }}>Cancel</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Inline Mark Reserved form */}
+                  {markingId === s.id && (
+                    <div className="flex items-end gap-2 pt-1 border-t">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">Group Name</Label>
+                        <Input
+                          value={markGroupName}
+                          onChange={e => setMarkGroupName(e.target.value)}
+                          placeholder="e.g. Alpha Phi Sorority"
+                          className="border h-9 text-sm"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-9 bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                        disabled={markSaving || !markGroupName.trim()}
+                        onClick={() => handleMarkReserved(s.id)}
+                      >
+                        {markSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setMarkingId(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -509,11 +667,69 @@ export function VipSchedulerTab() {
               {(() => {
                 const session = sessions.find(s => s.id === regOpen);
                 const memberCount = registrations.filter(r => !r.is_group_contact).length;
-                const expected = session?.estimated_group_size || '?';
-                return `${memberCount} members registered out of ${expected} expected`;
+                return session ? `${session.reserved_by_group || 'VIP'} — ${format(new Date(session.session_date + 'T00:00:00'), 'MMM d')}` : `${memberCount} members registered`;
               })()}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Performance Summary */}
+          {perfData && (() => {
+            const session = sessions.find(s => s.id === regOpen);
+            const memberCount = registrations.filter(r => !r.is_group_contact).length;
+            const attended = session?.actual_attendance;
+            const showRate = attended != null && memberCount > 0 ? ((attended / memberCount) * 100).toFixed(0) : null;
+            return (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-3 space-y-3">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Performance Summary</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{memberCount}</div>
+                      <div className="text-[10px] text-muted-foreground">Registered</div>
+                    </div>
+                    <div className="text-center">
+                      {attended != null ? (
+                        <div className="text-xl font-bold">{attended}</div>
+                      ) : (
+                        <Button variant="link" size="sm" className="text-amber-600 text-xs p-0 h-auto" onClick={() => {
+                          if (session) { setAttendanceId(session.id); setAttendanceValue(''); }
+                        }}>Add attendance</Button>
+                      )}
+                      <div className="text-[10px] text-muted-foreground">Attended</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{showRate != null ? `${showRate}%` : '—'}</div>
+                      <div className="text-[10px] text-muted-foreground">Show Rate</div>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{perfData.introsBooked}</div>
+                      <div className="text-[10px] text-muted-foreground">Intros Booked</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{perfData.introsRan}</div>
+                      <div className="text-[10px] text-muted-foreground">Intros Ran</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold">{perfData.joins}</div>
+                      <div className="text-[10px] text-muted-foreground">Joins</div>
+                    </div>
+                  </div>
+                  {perfData.joins > 0 ? (
+                    <p className="text-xs text-green-600 font-medium">{perfData.joins} member{perfData.joins > 1 ? 's' : ''} joined from this class</p>
+                  ) : perfData.introsRan > 0 ? (
+                    <p className="text-xs text-muted-foreground">No joins yet from this class</p>
+                  ) : perfData.introsBooked > 0 ? (
+                    <p className="text-xs text-muted-foreground">Intros booked but not yet ran</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No intros booked from this class yet</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Group Contact card */}
           {(() => {
@@ -523,7 +739,6 @@ export function VipSchedulerTab() {
                 <CardContent className="p-3 space-y-1">
                   <div className="text-xs font-semibold text-orange-700 dark:text-orange-400">Group Contact</div>
                   <div className="text-sm font-medium">{session.reserved_contact_name}</div>
-                  {session.reserved_contact_email && <div className="text-xs text-muted-foreground">{session.reserved_contact_email}</div>}
                   {session.reserved_contact_phone && (
                     <a href={`tel:${session.reserved_contact_phone}`} className="text-xs text-primary underline">
                       {session.reserved_contact_phone}
@@ -603,6 +818,53 @@ export function VipSchedulerTab() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Book Intro from VIP Dialog */}
+      <Dialog open={!!bookFromVip} onOpenChange={() => setBookFromVip(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Book Intro from VIP Class</DialogTitle>
+            <DialogDescription>
+              {bookFromVip && `${bookFromVip.reserved_by_group} — ${format(new Date(bookFromVip.session_date + 'T00:00:00'), 'MMM d')} at ${formatDisplayTime(bookFromVip.session_time)}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {/* Read-only VIP info */}
+            <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-2">
+              <div className="text-xs font-medium text-orange-700">VIP Class: {bookFromVip?.reserved_by_group} — {bookFromVip && format(new Date(bookFromVip.session_date + 'T00:00:00'), 'MMM d')}</div>
+              <div className="text-[10px] text-muted-foreground">Lead Source: VIP Class (auto-set)</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1"><Label className="text-xs">First Name <span className="text-destructive">*</span></Label><Input value={bookForm.firstName} onChange={e => setBookForm({ ...bookForm, firstName: autoCapitalizeName(e.target.value) })} /></div>
+              <div className="space-y-1"><Label className="text-xs">Last Name <span className="text-destructive">*</span></Label><Input value={bookForm.lastName} onChange={e => setBookForm({ ...bookForm, lastName: autoCapitalizeName(e.target.value) })} /></div>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">Phone</Label><Input type="tel" value={bookForm.phone} onChange={e => setBookForm({ ...bookForm, phone: formatPhoneAsYouType(e.target.value) })} placeholder="(555) 555-5555" /></div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1"><Label className="text-xs">Class Date <span className="text-destructive">*</span></Label><DatePickerField value={bookForm.classDate} onChange={v => setBookForm({ ...bookForm, classDate: v })} /></div>
+              <div className="space-y-1"><Label className="text-xs">Class Time</Label><ClassTimeSelect value={bookForm.classTime} onValueChange={v => setBookForm({ ...bookForm, classTime: v })} /></div>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">Coach <span className="text-destructive">*</span></Label>
+              <Select value={bookForm.coach} onValueChange={v => setBookForm({ ...bookForm, coach: v })}>
+                <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
+                <SelectContent>{COACHES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1"><Label className="text-xs">Booked By</Label>
+              <Select value={bookForm.sa} onValueChange={v => setBookForm({ ...bookForm, sa: v })}>
+                <SelectTrigger><SelectValue placeholder="Select SA..." /></SelectTrigger>
+                <SelectContent>{SALES_ASSOCIATES.map(sa => <SelectItem key={sa} value={sa}>{sa}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBookFromVip(null)}>Cancel</Button>
+            <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={bookSaving} onClick={handleBookFromVip}>
+              {bookSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CalendarCheck className="w-4 h-4 mr-1" />}
+              Book Intro
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

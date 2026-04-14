@@ -5,6 +5,7 @@
  */
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
@@ -47,6 +48,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [coach, setCoach] = useState('');
   const [leadSource, setLeadSource] = useState('');
   const [saving, setSaving] = useState(false);
+  const [vipSessionId, setVipSessionId] = useState('');
 
   // Inline friend state
   const [friendAnswer, setFriendAnswer] = useState<'yes' | 'no' | null>(null);
@@ -60,7 +62,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
     setClassDate(format(new Date(), 'yyyy-MM-dd')); setClassTime('');
-    setCoach(''); setLeadSource('');
+    setCoach(''); setLeadSource(''); setVipSessionId('');
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
   };
@@ -72,6 +74,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
+    if (val !== 'VIP Class') setVipSessionId('');
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
@@ -85,6 +88,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     if (!classTime) { toast.error('Class time is required'); return; }
     if (!coach) { toast.error('Coach is required'); return; }
     if (!leadSource) { toast.error('Lead source is required'); return; }
+    if (leadSource === 'VIP Class' && !vipSessionId) { toast.error('Please select which VIP class'); return; }
 
     setSaving(true);
     try {
@@ -112,6 +116,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
+        vip_session_id: leadSource === 'VIP Class' ? vipSessionId : null,
       }).select('id').single();
 
       if (error) throw error;
@@ -265,7 +270,10 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
             </Select>
           </div>
 
-          {/* ── Who Referred Them? (referral sources) ── */}
+          {/* VIP Session picker when VIP Class is selected */}
+          {leadSource === 'VIP Class' && (
+            <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required showWarning />
+          )}
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">Who referred them?</Label>

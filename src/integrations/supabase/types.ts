@@ -2580,6 +2580,9 @@ export type Database = {
       }
       vip_sessions: {
         Row: {
+          actual_attendance: number | null
+          attendance_logged_at: string | null
+          attendance_logged_by: string | null
           business_sub_type: string | null
           capacity: number
           created_at: string
@@ -2602,6 +2605,9 @@ export type Database = {
           vip_class_name: string
         }
         Insert: {
+          actual_attendance?: number | null
+          attendance_logged_at?: string | null
+          attendance_logged_by?: string | null
           business_sub_type?: string | null
           capacity?: number
           created_at?: string
@@ -2624,6 +2630,9 @@ export type Database = {
           vip_class_name: string
         }
         Update: {
+          actual_attendance?: number | null
+          attendance_logged_at?: string | null
+          attendance_logged_by?: string | null
           business_sub_type?: string | null
           capacity?: number
           created_at?: string
