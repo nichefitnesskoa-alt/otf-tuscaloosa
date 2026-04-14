@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy, Clock } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy, Clock, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -35,6 +35,7 @@ export function BottomNav() {
     const coachItems = [
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
+      { path: '/my-intros', label: 'My Intros', icon: UserCheck },
     ];
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
@@ -53,7 +54,7 @@ export function BottomNav() {
               >
                 <div className="relative">
                   <Icon className={cn('w-5 h-5 mb-0.5', isActive && 'stroke-[2.5px]')} />
-                  {item.path === '/coach-view' && coachFollowUpBadge > 0 && (
+                  {item.path === '/my-intros' && coachFollowUpBadge > 0 && (
                     <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
                       {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
                     </span>
@@ -75,6 +76,7 @@ export function BottomNav() {
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
+    { path: '/my-intros', label: 'My Intros', icon: UserCheck },
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },

@@ -24,6 +24,7 @@ import VipRegister from "./pages/VipRegister";
 import VipAvailability from "./pages/VipAvailability";
 import VipMemberRegister from "./pages/VipMemberRegister";
 import CoachView from "./pages/CoachView";
+import CoachMyIntros from "./pages/CoachMyIntros";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -158,6 +159,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CoachView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-intros"
+        element={
+          <ProtectedRoute>
+            <CoachMyIntros />
           </ProtectedRoute>
         }
       />
