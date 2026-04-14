@@ -187,10 +187,13 @@ export function VipPipelineTable() {
 
       setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
 
-      // Track which groups are archived
+      // Track which groups are archived — use reserved_by_group (the user-facing name)
       const archivedSet = new Set<string>();
       (sessions || []).forEach((s: any) => {
-        if (s.archived_at && s.vip_class_name) archivedSet.add(s.vip_class_name);
+        if (s.archived_at) {
+          if (s.reserved_by_group) archivedSet.add(s.reserved_by_group);
+          if (s.vip_class_name) archivedSet.add(s.vip_class_name);
+        }
       });
       setArchivedGroups(archivedSet);
 
