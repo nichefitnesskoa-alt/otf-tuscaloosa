@@ -387,6 +387,11 @@ export default function IntroRowCard({
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} />
         </span>
         <ShoutoutLabel consent={shoutoutConsent} />
+        {item.vipClassName && (
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-600/20 text-purple-400 border-purple-500/30">
+            VIP: {item.vipClassName}
+          </Badge>
+        )}
         {outcomeLabel && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-primary text-primary-foreground border-transparent">
             {outcomeLabel}

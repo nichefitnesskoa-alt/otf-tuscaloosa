@@ -27,6 +27,7 @@ export interface MyDayIntroCardBooking {
   booking_status_canon: string;
   booking_status: string | null;
   originating_booking_id?: string | null;
+  vip_class_name?: string | null;
 }
 
 export interface MyDayIntroCardRun {
@@ -129,6 +130,11 @@ export function MyDayIntroCard({
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
             )}
           </div>
+          {booking.vip_class_name && (
+            <div className="mt-0.5 text-[10px] font-medium text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded w-fit">
+              VIP Class: {booking.vip_class_name}
+            </div>
+          )}
           <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-xs text-muted-foreground">
             <span>{timeDisplay}</span>
             <span>·</span>

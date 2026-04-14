@@ -34,6 +34,7 @@ const REFERRAL_SOURCES = new Set([
   'Lead Management (Friend)',
   'Instagram DMs (Friend)',
   'My Personal Friend I Invited',
+  'VIP Class (Friend)',
 ]);
 
 interface SearchResult {
@@ -46,6 +47,7 @@ interface SearchResult {
   booking_status_canon: string;
   intro_owner: string | null;
   intro_owner_locked: boolean | null;
+  vip_session_id: string | null;
 }
 
 export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
@@ -92,7 +94,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
-    if (val !== 'VIP Class') setVipSessionId('');
+    if (!val.toLowerCase().includes('vip')) setVipSessionId('');
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
@@ -105,7 +107,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     try {
       const { data } = await supabase
         .from('intros_booked')
-        .select('id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon, intro_owner, intro_owner_locked')
+        .select('id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon, intro_owner, intro_owner_locked, vip_session_id')
         .ilike('member_name', `%${query.trim()}%`)
         .is('deleted_at', null)
         .order('class_date', { ascending: false })
@@ -145,6 +147,10 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     setPhone(booking.phone ? formatPhoneAsYouType(booking.phone) : '');
     setLeadSource(booking.lead_source || '');
     setCoach(booking.coach_name || '');
+    // Auto-pull VIP session if the original booking was VIP
+    if (booking.vip_session_id && booking.lead_source?.toLowerCase().includes('vip')) {
+      setVipSessionId(booking.vip_session_id);
+    }
   };
 
   const handleClearSelection = () => {
@@ -212,7 +218,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
-        vip_session_id: leadSource === 'VIP Class' ? vipSessionId : null,
+        vip_session_id: leadSource.toLowerCase().includes('vip') ? (vipSessionId || null) : null,
         rebooked_from_booking_id: rebookedFromId,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
       }).select('id').single();
@@ -458,9 +464,9 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
             </Select>
           </div>
 
-          {/* VIP Session picker when VIP Class is selected */}
-          {leadSource === 'VIP Class' && (
-            <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required showWarning />
+          {/* VIP Session picker when VIP Class or VIP Class (Friend) is selected */}
+          {leadSource.toLowerCase().includes('vip class') && (
+            <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required={leadSource === 'VIP Class'} showWarning={leadSource === 'VIP Class'} />
           )}
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
