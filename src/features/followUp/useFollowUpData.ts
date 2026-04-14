@@ -77,6 +77,8 @@ export function useFollowUpData() {
   const [didntBuy2ndCooling, setDidntBuy2ndCooling] = useState<FollowUpItem[]>([]);
   const [plansToReschedule, setPlansToReschedule] = useState<FollowUpItem[]>([]);
   const [plansToRescheduleCooling, setPlansToRescheduleCooling] = useState<FollowUpItem[]>([]);
+  const [planningToBuy, setPlanningToBuy] = useState<FollowUpItem[]>([]);
+  const [planningToBuyCooling, setPlanningToBuyCooling] = useState<FollowUpItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const isFirstLoad = useRef(true);
