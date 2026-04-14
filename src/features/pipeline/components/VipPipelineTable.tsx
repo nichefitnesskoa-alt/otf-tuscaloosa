@@ -68,6 +68,7 @@ interface VipGroupMeta {
   id: string;
   vip_class_name: string;
   referring_member_name: string | null;
+  archived_at: string | null;
 }
 
 type SortKey = 'memberName' | 'groupName' | 'phone' | 'email' | 'birthday' | 'weight' | 'session' | 'status';
