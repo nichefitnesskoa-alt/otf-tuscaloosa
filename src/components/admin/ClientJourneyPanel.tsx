@@ -618,7 +618,7 @@ export default function ClientJourneyPanel() {
 
     // VIP count - includes ALL journeys (even purchased) with VIP Class lead source
     journeys.forEach(journey => {
-      const isVip = journey.bookings.some(b => b.lead_source === 'VIP Class');
+      const isVip = journey.bookings.some(b => b.lead_source?.toLowerCase().includes('vip class'));
       if (isVip) counts.vip_class++;
     });
 
@@ -629,7 +629,7 @@ export default function ClientJourneyPanel() {
   const filterJourneysByTab = (journeyList: ClientJourney[], tab: JourneyTab): ClientJourney[] => {
     // VIP tab: show ALL VIP Class clients regardless of purchase status
     if (tab === 'vip_class') {
-      return journeyList.filter(j => j.bookings.some(b => b.lead_source === 'VIP Class'));
+      return journeyList.filter(j => j.bookings.some(b => b.lead_source?.toLowerCase().includes('vip class')));
     }
 
     if (tab === 'all') return journeyList;
