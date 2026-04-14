@@ -28,6 +28,7 @@ export const LEAD_SOURCES = [
   'My Personal Friend I Invited',
   'Online Intro Offer (self-booked)',
   'VIP Class',
+  'VIP Class (Friend)',
 ] as const;
 
 export type LeadSource = typeof LEAD_SOURCES[number];
