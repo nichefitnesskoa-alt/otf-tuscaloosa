@@ -31,6 +31,7 @@ interface MilestoneRow {
   created_at: string;
   last_edited_by?: string | null;
   last_edited_at?: string | null;
+  friend_showed_up?: boolean;
 }
 
 interface WeekSummary {
@@ -40,12 +41,12 @@ interface WeekSummary {
   friends: number;
   deployed: number;
   converted: number;
-  classesRedeemed: number;
+  friendsShowedUp: number;
   convertedToMember: number;
 }
 
 interface FriendTrackingInfo {
-  classesRedeemed: number;
+  friendShowedUp: boolean;
   convertedToMember: boolean;
 }
 
@@ -63,7 +64,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, classesRedeemed: 0, convertedToMember: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
   const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
 
@@ -123,10 +124,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setMilestones(mils);
     setDeploys(deps);
 
-    // Track pack friend redemptions
+    // Track pack friend show-ups and conversions
     const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
     const trackingMap = new Map<string, FriendTrackingInfo>();
-    let totalRedeemed = 0;
+    let totalShowedUp = 0;
     let totalConverted = 0;
 
     if (packFriends.length > 0) {
@@ -134,17 +135,51 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         const friendName = (pf.friend_name || '').trim();
         if (!friendName) continue;
 
-        // Check intros_booked for this friend (case-insensitive)
+        let friendShowedUp = !!(pf as any).friend_showed_up;
+        let converted = false;
+
+        // Detection 1: Search intros_booked by name for SHOWED status
         const { data: bookings } = await supabase
           .from('intros_booked')
           .select('id, booking_status_canon')
           .ilike('member_name', friendName);
 
         const bookedIds = (bookings || []).map((b: any) => b.id);
-        const showedCount = (bookings || []).filter((b: any) => b.booking_status_canon === 'SHOWED').length;
+        const hasShowed = (bookings || []).some((b: any) => b.booking_status_canon === 'SHOWED');
+
+        if (hasShowed) {
+          friendShowedUp = true;
+        }
+
+        // Detection 2: Check leads with source 'Member Referral (5 class pack)'
+        if (!friendShowedUp) {
+          const nameParts = friendName.split(/\s+/);
+          const firstName = nameParts[0] || '';
+          if (firstName) {
+            const { data: leads } = await supabase
+              .from('leads')
+              .select('booked_intro_id')
+              .ilike('first_name', firstName)
+              .eq('source', 'Member Referral (5 class pack)')
+              .not('booked_intro_id', 'is', null)
+              .limit(5);
+            if (leads && leads.length > 0) {
+              const leadBookingIds = leads.map((l: any) => l.booked_intro_id).filter(Boolean);
+              if (leadBookingIds.length > 0) {
+                const { data: leadBookings } = await supabase
+                  .from('intros_booked')
+                  .select('id, booking_status_canon')
+                  .in('id', leadBookingIds);
+                if ((leadBookings || []).some((b: any) => b.booking_status_canon === 'SHOWED')) {
+                  friendShowedUp = true;
+                  (leadBookings || []).forEach((b: any) => { if (!bookedIds.includes(b.id)) bookedIds.push(b.id); });
+                }
+              }
+            }
+          }
+        }
 
         // Check if any run resulted in SALE
-        let converted = false;
         if (bookedIds.length > 0) {
           const { data: runs } = await supabase
             .from('intros_run')
@@ -153,8 +188,13 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
           converted = (runs || []).some((r: any) => r.result_canon === 'SALE');
         }
 
-        trackingMap.set(pf.id, { classesRedeemed: showedCount, convertedToMember: converted });
-        totalRedeemed += showedCount;
+        // Auto-update friend_showed_up in DB if detected but not stored
+        if (friendShowedUp && !(pf as any).friend_showed_up) {
+          await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', pf.id);
+        }
+
+        trackingMap.set(pf.id, { friendShowedUp, convertedToMember: converted });
+        if (friendShowedUp) totalShowedUp++;
         if (converted) totalConverted++;
       }
     }
@@ -167,7 +207,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
-      classesRedeemed: totalRedeemed,
+      friendsShowedUp: totalShowedUp,
       convertedToMember: totalConverted,
     });
     setLoading(false);
@@ -366,7 +406,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const summaryCards = [
     { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
     { label: 'Packs gifted', value: String(summary.packs) },
-    { label: 'Classes redeemed', value: String(summary.classesRedeemed) },
+    { label: 'Friends showed up', value: String(summary.friendsShowedUp) },
     { label: 'Converted to member', value: String(summary.convertedToMember) },
     { label: 'Friends in pipeline', value: String(summary.friends) },
     { label: 'Members deployed', value: String(summary.deployed) },
@@ -489,19 +529,35 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                       ) : m.friend_name ? (
                         <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
                       ) : null}
-                      {/* Pack redemption tracking badges */}
-                      {m.five_class_pack_gifted && friendTracking.has(m.id) && (() => {
-                        const info = friendTracking.get(m.id)!;
+                      {/* Friend showed up / conversion badges */}
+                      {m.five_class_pack_gifted && m.friend_name && (() => {
+                        const info = friendTracking.get(m.id);
+                        const showedUp = info?.friendShowedUp || false;
+                        const converted = info?.convertedToMember || false;
                         return (
                           <>
-                            <Badge className={`text-[9px] h-4 ${info.classesRedeemed > 0 ? 'bg-success/20 text-success border-success/40 hover:bg-success/20' : 'bg-muted text-muted-foreground border-border hover:bg-muted'}`}>
-                              {info.classesRedeemed} class{info.classesRedeemed !== 1 ? 'es' : ''} redeemed
-                            </Badge>
-                            {info.convertedToMember ? (
-                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted</Badge>
+                            {showedUp ? (
+                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Friend Showed Up</Badge>
                             ) : (
-                              <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-5 text-[9px] px-2 py-0"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', m.id);
+                                  toast.success('Marked as showed up');
+                                  loadData();
+                                }}
+                              >
+                                They Came In
+                              </Button>
                             )}
+                            {converted ? (
+                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted to Member</Badge>
+                            ) : showedUp ? (
+                              <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
+                            ) : null}
                           </>
                         );
                       })()}
