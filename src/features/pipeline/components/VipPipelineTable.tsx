@@ -183,9 +183,16 @@ export function VipPipelineTable() {
       // Fetch VIP session metas for referring_member_name
       const { data: sessions } = await supabase
         .from('vip_sessions')
-        .select('id, vip_class_name, referring_member_name, status, reserved_by_group');
+        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at');
 
-      setGroupMetas((sessions || []) as VipGroupMeta[]);
+      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
+
+      // Track which groups are archived
+      const archivedSet = new Set<string>();
+      (sessions || []).forEach((s: any) => {
+        if (s.archived_at && s.vip_class_name) archivedSet.add(s.vip_class_name);
+      });
+      setArchivedGroups(archivedSet);
 
       // Build reg map by booking_id
       const regMap = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
