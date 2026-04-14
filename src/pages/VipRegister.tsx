@@ -31,6 +31,26 @@ export default function VipRegister() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [resolvedSession, setResolvedSession] = useState<{ id: string; group: string } | null>(null);
+
+  // Resolve session on mount so header shows the matched group name
+  useEffect(() => {
+    if (!vipClassName) return;
+    (async () => {
+      const { data: sessions } = await (supabase as any)
+        .from('vip_sessions')
+        .select('id, reserved_by_group')
+        .eq('status', 'reserved');
+      const match = (sessions || []).find((s: any) =>
+        s.reserved_by_group &&
+        (s.reserved_by_group.toLowerCase().includes(vipClassName.toLowerCase()) ||
+         vipClassName.toLowerCase().includes(s.reserved_by_group.toLowerCase().replace(/\s*(sorority|fraternity|club|group)\s*/gi, '').trim()))
+      );
+      if (match) {
+        setResolvedSession({ id: match.id, group: match.reserved_by_group });
+      }
+    })();
+  }, [vipClassName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
