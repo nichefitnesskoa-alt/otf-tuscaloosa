@@ -111,6 +111,7 @@ function ClaimDialog({
         .from('vip_sessions')
         .select('status')
         .eq('id', session.id)
+        .is('archived_at', null)
         .single();
       if (!current || (current as any).status !== 'open') {
         setError('This slot was just claimed. Please choose another.');
@@ -129,7 +130,8 @@ function ClaimDialog({
           business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
         } as any)
         .eq('id', session.id)
-        .eq('status', 'open');
+        .eq('status', 'open')
+        .is('archived_at', null);
       if (upErr) throw upErr;
 
       await sb.from('vip_registrations').insert({
@@ -206,6 +208,7 @@ function ClaimDialog({
             const shareableLink = `https://otf-tuscaloosa.lovable.app/vip/${slug}/register`;
             const prettyDate = format(d, 'EEEE, MMMM d, yyyy');
             const prettyTime = formatDisplayTime(session.session_time);
+            const brandedClassTitle = `OTF Tuscaloosa x ${groupName.trim() || 'VIP'} VIP Class`;
             const safeGroupName = groupName.trim().replace(/[^a-zA-Z0-9]/g, '-');
             const fileName = `OTF-VIP-${safeGroupName}-${format(d, 'yyyy-MM-dd')}.png`;
 
@@ -241,7 +244,7 @@ function ClaimDialog({
               ctx.fillStyle = '#1a1a1a';
               ctx.textAlign = 'center';
               ctx.font = 'bold 22px sans-serif';
-              ctx.fillText(`OTF Tuscaloosa x ${groupName.trim() || 'VIP'} VIP Class`, totalWidth / 2, textY);
+              ctx.fillText(brandedClassTitle, totalWidth / 2, textY);
               ctx.font = '18px sans-serif';
               ctx.fillText(`${prettyDate} at ${prettyTime}`, totalWidth / 2, textY + 32);
               ctx.font = '16px sans-serif';
@@ -259,6 +262,9 @@ function ClaimDialog({
                 <CheckCircle className="w-10 h-10 text-green-600 mx-auto" />
                 <p className="font-semibold text-green-700 dark:text-green-400">
                   Your slot is confirmed!
+                </p>
+                <p className="text-sm font-semibold text-foreground">
+                  {brandedClassTitle}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Share this link with your group so each member can fill out their info before class.
@@ -667,6 +673,7 @@ export default function VipAvailability() {
     const { data } = await sb
       .from('vip_sessions')
       .select('id, session_date, session_time, status, reserved_by_group, description, session_type')
+      .is('archived_at', null)
       .eq('is_on_availability_page', true)
       .gte('session_date', queryStart)
       .lte('session_date', queryEnd)

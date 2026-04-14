@@ -40,7 +40,8 @@ export default function VipRegister() {
       const { data: sessions } = await (supabase as any)
         .from('vip_sessions')
         .select('id, reserved_by_group')
-        .eq('status', 'reserved');
+        .eq('status', 'reserved')
+        .is('archived_at', null);
       const match = (sessions || []).find((s: any) =>
         s.reserved_by_group &&
         (s.reserved_by_group.toLowerCase().includes(vipClassName.toLowerCase()) ||

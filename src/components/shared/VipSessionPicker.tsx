@@ -36,6 +36,7 @@ export function VipSessionPicker({ value, onValueChange, required, showWarning }
         .from('vip_sessions')
         .select('id, reserved_by_group, session_date, session_time, status')
         .in('status', ['reserved', 'completed'])
+        .is('archived_at', null)
         .order('session_date', { ascending: false });
       setSessions((data as VipSessionOption[]) || []);
     })();
