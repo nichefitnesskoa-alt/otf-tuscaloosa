@@ -71,8 +71,8 @@ function ClaimDialog({
   const [groupName, setGroupName] = useState('');
   const [phone, setPhone] = useState('');
 
-  const [sessionType, setSessionType] = useState<'exclusive' | 'business_customers' | ''>('');
-  const [businessSubType, setBusinessSubType] = useState<'staff_only' | 'staff_customers' | 'staff_members' | ''>('');
+  const [sessionType, setSessionType] = useState<'exclusive' | 'business_staff' | 'business_customers' | 'open' | ''>('');
+  const [businessSubType, setBusinessSubType] = useState<'staff_only' | 'staff_customers' | 'staff_members' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -83,7 +83,7 @@ function ClaimDialog({
       setGroupName('');
       setPhone('');
       setSessionType('');
-      setBusinessSubType('');
+      setBusinessSubType(null);
       setError(null);
       setConfirmed(false);
     }
@@ -98,8 +98,7 @@ function ClaimDialog({
   const tooSoon = diffDays < 3;
 
   const canSubmit =
-    name.trim() && groupName.trim() && phone.trim() && sessionType &&
-    (sessionType !== 'business_customers' || businessSubType) && !tooSoon;
+    name.trim() && groupName.trim() && phone.trim() && sessionType && !tooSoon;
 
   const handleClaim = async () => {
     if (!canSubmit) return;
@@ -127,7 +126,7 @@ function ClaimDialog({
           reserved_contact_name: name.trim(),
           reserved_contact_phone: phone.trim(),
           session_type: sessionType,
-          business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
+          business_sub_type: businessSubType,
         } as any)
         .eq('id', session.id)
         .eq('status', 'open')
@@ -159,7 +158,7 @@ function ClaimDialog({
           contact_name: name.trim(),
           contact_phone: phone.trim(),
           session_type: sessionType,
-          business_sub_type: sessionType === 'business_customers' ? businessSubType : null,
+          business_sub_type: businessSubType,
         },
       });
 
@@ -351,88 +350,51 @@ function ClaimDialog({
               <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(205) 555-1234" className="border h-11" />
             </div>
 
-            {/* Class Type Selection */}
+            {/* Class Type Selection — 4 flat options */}
             <div className="space-y-2">
               <Label>Who will be joining this class?</Label>
               <div className="grid grid-cols-1 gap-2">
-                {/* Option 1 — Private */}
-                <button
-                  type="button"
-                  onClick={() => { setSessionType('exclusive'); setBusinessSubType(''); }}
-                  className={cn(
-                    'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
-                    sessionType === 'exclusive'
-                      ? 'border-[#FF6900] bg-orange-50 dark:bg-orange-950/20'
-                      : 'border-border hover:border-muted-foreground/30'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-sm">Private — Group Only</p>
-                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'exclusive' && 'rotate-180')} />
-                  </div>
-                  {sessionType === 'exclusive' && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Just your group. No outside members. An intimate experience designed entirely for your people.
-                    </p>
-                  )}
-                </button>
-
-                {/* Option 2 — Business Event */}
-                <div>
+                {([
+                  {
+                    type: 'exclusive' as const,
+                    subType: null,
+                    header: 'Social Group or Organization',
+                    sub: 'Greek life, sports teams, community groups. Private experience — just your people.',
+                  },
+                  {
+                    type: 'business_staff' as const,
+                    subType: 'staff_only' as const,
+                    header: 'Business — Staff Only',
+                    sub: 'A private experience for your team. No outside members.',
+                  },
+                  {
+                    type: 'business_customers' as const,
+                    subType: 'staff_customers' as const,
+                    header: 'Business — Staff + Your Customers',
+                    sub: "Bring your staff and invite your customers for a community bonding event. We'll give you a QR code to help drive sign-ups.",
+                  },
+                  {
+                    type: 'open' as const,
+                    subType: 'staff_members' as const,
+                    header: 'Business — Staff + OTF Members',
+                    sub: "Your group joins our members. We'll market with you and do a collab post together.",
+                  },
+                ]).map((opt) => (
                   <button
+                    key={opt.type}
                     type="button"
-                    onClick={() => { setSessionType('business_customers'); }}
+                    onClick={() => { setSessionType(opt.type); setBusinessSubType(opt.subType); }}
                     className={cn(
                       'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
-                      sessionType === 'business_customers'
-                        ? 'border-[#FF6900] bg-orange-50 dark:bg-orange-950/20'
+                      sessionType === opt.type
+                        ? 'border-[#E8540A] bg-orange-50 dark:bg-orange-950/20'
                         : 'border-border hover:border-muted-foreground/30'
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-sm">Business</p>
-                      <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', sessionType === 'business_customers' && 'rotate-180')} />
-                    </div>
-                    {sessionType === 'business_customers' && (
-                      <div className="mt-1.5 space-y-2">
-                        <p className="text-xs text-muted-foreground">
-                          Bring your staff AND invite your customers for a community bonding event. We'll give you a QR code to help drive sign-ups and get your customers through the door.
-                        </p>
-                        {/* Sub-options */}
-                        <div className="space-y-1.5 pl-1">
-                          {([
-                            { val: 'staff_only' as const, label: 'Staff only — just your team', sub: 'Keep it internal. A private experience for your staff.' },
-                            { val: 'staff_customers' as const, label: 'Staff + your customers', sub: "Invite your community. We'll provide a QR code for sign-ups so your customers can join the event." },
-                            { val: 'staff_members' as const, label: 'Staff + OTF members', sub: "We'll market with you. Your group joins our members for a collaborative class and we'll do a collab post together on social." },
-                          ]).map((opt) => (
-                            <button
-                              key={opt.val}
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setBusinessSubType(opt.val); }}
-                              className={cn(
-                                'w-full text-left rounded-md border p-2.5 cursor-pointer transition-colors min-h-[44px]',
-                                businessSubType === opt.val
-                                  ? 'border-[#FF6900] bg-orange-50/50 dark:bg-orange-950/10'
-                                  : 'border-border hover:border-muted-foreground/30'
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  'w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 flex items-center justify-center',
-                                  businessSubType === opt.val ? 'border-[#FF6900]' : 'border-muted-foreground/40'
-                                )}>
-                                  {businessSubType === opt.val && <span className="w-1.5 h-1.5 rounded-full bg-[#FF6900]" />}
-                                </span>
-                                <p className="text-xs font-medium">{opt.label}</p>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground mt-1 pl-5.5">{opt.sub}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <p className="font-semibold text-sm">{opt.header}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{opt.sub}</p>
                   </button>
-                </div>
+                ))}
               </div>
             </div>
 
