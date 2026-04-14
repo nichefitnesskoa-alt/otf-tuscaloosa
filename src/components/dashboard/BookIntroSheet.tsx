@@ -1,9 +1,9 @@
 /**
  * BookIntroSheet – Schedule an intro for any future (or same-day) date.
- * Distinct from WalkInIntroSheet which is locked to today/right-now.
- * Inline friend prompt appears when a referral-type lead source is selected.
+ * Supports "Reschedule existing member" mode that searches intros_booked,
+ * pre-fills fields, and links the new booking to the original.
  */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { Button } from '@/components/ui/button';
@@ -11,13 +11,15 @@ import { Input } from '@/components/ui/input';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { autoComplete2ndIntroFollowups } from '@/lib/domain/outcomes/autoComplete2ndIntroFollowups';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { COACHES, LEAD_SOURCES } from '@/types';
-import { Users } from 'lucide-react';
+import { Users, Search, X } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 
@@ -34,8 +36,16 @@ const REFERRAL_SOURCES = new Set([
   'My Personal Friend I Invited',
 ]);
 
-function isReferralSource(source: string): boolean {
-  return REFERRAL_SOURCES.has(source);
+interface SearchResult {
+  id: string;
+  member_name: string;
+  phone: string | null;
+  lead_source: string;
+  coach_name: string;
+  class_date: string;
+  booking_status_canon: string;
+  intro_owner: string | null;
+  intro_owner_locked: boolean | null;
 }
 
 export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
@@ -57,7 +67,14 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [friendPhone, setFriendPhone] = useState('');
   const [referredBy, setReferredBy] = useState('');
 
-  const showFriendPrompt = !!leadSource;
+  // Reschedule mode state
+  const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [rescheduleSearch, setRescheduleSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<SearchResult | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const showFriendPrompt = !!leadSource && !rescheduleMode;
 
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
@@ -65,6 +82,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     setCoach(''); setLeadSource(''); setVipSessionId('');
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
+    setRescheduleMode(false); setRescheduleSearch(''); setSearchResults([]); setSelectedBooking(null);
   };
 
   const handleClose = (open: boolean) => {
@@ -78,6 +96,82 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
+  };
+
+  // Search for existing members
+  const doSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon, intro_owner, intro_owner_locked')
+        .ilike('member_name', `%${query.trim()}%`)
+        .is('deleted_at', null)
+        .order('class_date', { ascending: false })
+        .limit(15);
+
+      // Deduplicate by member_name — keep only the most recent booking per person
+      const seen = new Map<string, SearchResult>();
+      for (const row of (data || [])) {
+        const key = row.member_name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.set(key, row as SearchResult);
+        }
+      }
+      setSearchResults(Array.from(seen.values()));
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (!rescheduleMode || selectedBooking) return;
+    const timer = setTimeout(() => doSearch(rescheduleSearch), 300);
+    return () => clearTimeout(timer);
+  }, [rescheduleSearch, rescheduleMode, selectedBooking, doSearch]);
+
+  const handleSelectBooking = (booking: SearchResult) => {
+    setSelectedBooking(booking);
+    setSearchResults([]);
+    setRescheduleSearch('');
+    // Pre-fill fields
+    const nameParts = booking.member_name.split(' ');
+    setFirstName(nameParts[0] || '');
+    setLastName(nameParts.slice(1).join(' ') || '');
+    setPhone(booking.phone ? formatPhoneAsYouType(booking.phone) : '');
+    setLeadSource(booking.lead_source || '');
+    setCoach(booking.coach_name || '');
+  };
+
+  const handleClearSelection = () => {
+    setSelectedBooking(null);
+    setFirstName(''); setLastName(''); setPhone('');
+    setLeadSource(''); setCoach('');
+  };
+
+  const handleToggleReschedule = (checked: boolean) => {
+    setRescheduleMode(checked);
+    if (!checked) {
+      setSelectedBooking(null);
+      setRescheduleSearch('');
+      setSearchResults([]);
+      setFirstName(''); setLastName(''); setPhone('');
+      setLeadSource(''); setCoach('');
+    }
+  };
+
+  const statusLabel = (canon: string) => {
+    switch (canon) {
+      case 'ACTIVE': return 'Active';
+      case 'SHOWED': return 'Showed';
+      case 'NO_SHOW': return 'No-Show';
+      case 'CANCELLED': return 'Cancelled';
+      default: return canon;
+    }
   };
 
   const handleSave = async () => {
@@ -99,6 +193,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
       const h = new Date().getHours();
       const shiftLabel = h < 11 ? 'AM Shift' : h < 16 ? 'Mid Shift' : 'PM Shift';
 
+      const rebookedFromId = selectedBooking?.id || null;
+
       const { data: inserted, error } = await supabase.from('intros_booked').insert({
         member_name: memberName,
         class_date: classDate,
@@ -108,8 +204,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         lead_source: leadSource,
         sa_working_shift: shiftLabel,
         booked_by: saName,
-        intro_owner: saName,
-        intro_owner_locked: false,
+        intro_owner: selectedBooking?.intro_owner || saName,
+        intro_owner_locked: selectedBooking?.intro_owner_locked || false,
         phone: phone.trim() || null,
         booking_type_canon: 'STANDARD',
         booking_status_canon: 'ACTIVE',
@@ -117,17 +213,28 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
         vip_session_id: leadSource === 'VIP Class' ? vipSessionId : null,
+        rebooked_from_booking_id: rebookedFromId,
+        rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
       }).select('id').single();
 
       if (error) throw error;
+
+      // Auto-complete pending follow-ups for the original booking
+      if (rebookedFromId) {
+        await supabase
+          .from('follow_up_queue')
+          .update({ status: 'completed', sent_by: `${saName} (Rescheduled)` })
+          .eq('booking_id', rebookedFromId)
+          .eq('status', 'pending');
+      }
 
       // Auto-complete any "Planning 2nd Intro" follow-ups for this member
       if (inserted?.id) {
         autoComplete2ndIntroFollowups(memberName).catch(() => {});
       }
 
-      // Insert referral record if referred by someone
-      if (inserted?.id && REFERRAL_SOURCES.has(leadSource) && referredBy.trim()) {
+      // Insert referral record if referred by someone (non-reschedule only)
+      if (inserted?.id && !rebookedFromId && REFERRAL_SOURCES.has(leadSource) && referredBy.trim()) {
         await supabase.from('referrals').insert({
           referrer_name: referredBy.trim(),
           referred_name: memberName,
@@ -144,8 +251,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         });
       }
 
-      // Handle inline friend booking
-      if (inserted?.id && friendAnswer === 'yes' && friendFirstName.trim()) {
+      // Handle inline friend booking (only in non-reschedule mode)
+      if (!rebookedFromId && inserted?.id && friendAnswer === 'yes' && friendFirstName.trim()) {
         const friendFullName = `${friendFirstName.trim()} ${friendLastName.trim()}`.trim();
         const friendLeadSource = leadSource.includes('(Friend)') ? leadSource : `${leadSource} (Friend)`;
 
@@ -200,7 +307,8 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           toast.success(`${memberName} booked for ${format(new Date(classDate + 'T12:00:00'), 'MMM d')}.`);
         }
       } else {
-        toast.success(`${memberName} booked for ${format(new Date(classDate + 'T12:00:00'), 'MMM d')}.`);
+        const action = rebookedFromId ? 'rescheduled' : 'booked';
+        toast.success(`${memberName} ${action} for ${format(new Date(classDate + 'T12:00:00'), 'MMM d')}.`);
       }
 
       window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
@@ -218,19 +326,99 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     <Sheet open={open} onOpenChange={handleClose}>
       <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto rounded-t-xl">
         <SheetHeader className="mb-4">
-          <SheetTitle>Book an Intro</SheetTitle>
+          <SheetTitle>{rescheduleMode ? 'Reschedule an Intro' : 'Book an Intro'}</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-4 pb-4">
+          {/* Reschedule toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <Label htmlFor="reschedule-toggle" className="text-sm font-medium cursor-pointer">
+              Reschedule existing member
+            </Label>
+            <Switch
+              id="reschedule-toggle"
+              checked={rescheduleMode}
+              onCheckedChange={handleToggleReschedule}
+            />
+          </div>
+
+          {/* Reschedule search */}
+          {rescheduleMode && !selectedBooking && (
+            <div className="space-y-2">
+              <Label>Search member name</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={rescheduleSearch}
+                  onChange={e => setRescheduleSearch(e.target.value)}
+                  placeholder="Type a name..."
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+              {searching && <p className="text-xs text-muted-foreground">Searching...</p>}
+              {searchResults.length > 0 && (
+                <div className="rounded-md border max-h-48 overflow-y-auto">
+                  {searchResults.map(r => (
+                    <button
+                      key={r.id}
+                      className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex items-center justify-between gap-2 border-b last:border-b-0"
+                      onClick={() => handleSelectBooking(r)}
+                    >
+                      <span className="font-medium">{r.member_name}</span>
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {statusLabel(r.booking_status_canon)}
+                        </Badge>
+                        {format(new Date(r.class_date + 'T12:00:00'), 'MMM d')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Selected member chip */}
+          {rescheduleMode && selectedBooking && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">{selectedBooking.member_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  Last intro: {format(new Date(selectedBooking.class_date + 'T12:00:00'), 'MMM d, yyyy')} · {statusLabel(selectedBooking.booking_status_canon)}
+                  {selectedBooking.intro_owner && ` · Owner: ${selectedBooking.intro_owner}`}
+                </p>
+              </div>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={handleClearSelection}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Name */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="book-first">First Name <span className="text-destructive">*</span></Label>
-              <Input id="book-first" value={firstName} onChange={e => setFirstName(autoCapitalizeName(e.target.value))} placeholder="First" autoFocus />
+              <Input
+                id="book-first"
+                value={firstName}
+                onChange={e => setFirstName(autoCapitalizeName(e.target.value))}
+                placeholder="First"
+                autoFocus={!rescheduleMode}
+                disabled={rescheduleMode && !!selectedBooking}
+                className={rescheduleMode && selectedBooking ? 'bg-muted' : ''}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="book-last">Last Name <span className="text-destructive">*</span></Label>
-              <Input id="book-last" value={lastName} onChange={e => setLastName(autoCapitalizeName(e.target.value))} placeholder="Last" />
+              <Input
+                id="book-last"
+                value={lastName}
+                onChange={e => setLastName(autoCapitalizeName(e.target.value))}
+                placeholder="Last"
+                disabled={rescheduleMode && !!selectedBooking}
+                className={rescheduleMode && selectedBooking ? 'bg-muted' : ''}
+              />
             </div>
           </div>
 
@@ -281,7 +469,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
             </div>
           )}
 
-          {/* ── Inline Friend Prompt (referral sources only) ── */}
+          {/* ── Inline Friend Prompt (non-reschedule mode only) ── */}
           {showFriendPrompt && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -335,7 +523,12 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full" size="lg">
-            {saving ? 'Booking...' : (friendAnswer === 'yes' && friendFirstName.trim() ? 'Book Both Intros' : 'Book Intro')}
+            {saving
+              ? (rescheduleMode ? 'Rescheduling...' : 'Booking...')
+              : rescheduleMode && selectedBooking
+                ? 'Reschedule Intro'
+                : (friendAnswer === 'yes' && friendFirstName.trim() ? 'Book Both Intros' : 'Book Intro')
+            }
           </Button>
         </div>
       </SheetContent>
