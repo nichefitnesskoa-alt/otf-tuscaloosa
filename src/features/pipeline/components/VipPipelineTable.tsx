@@ -139,6 +139,10 @@ export function VipPipelineTable() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Delete group state
+  const [showDeleteGroup, setShowDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
   // Convert to intro state
   const [convertRow, setConvertRow] = useState<VipRow | null>(null);
 
