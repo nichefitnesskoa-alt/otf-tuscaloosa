@@ -91,9 +91,15 @@ function ClaimDialog({
 
   if (!session) return null;
 
+  // Block claims within 7 days — public page cannot override
+  const sessionDate = new Date(session.session_date + 'T00:00:00');
+  const now = getNowCentral();
+  const diffDays = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const tooSoon = diffDays < 7;
+
   const canSubmit =
     name.trim() && groupName.trim() && phone.trim() && sessionType &&
-    (sessionType !== 'business_customers' || businessSubType);
+    (sessionType !== 'business_customers' || businessSubType) && !tooSoon;
 
   const handleClaim = async () => {
     if (!canSubmit) return;
