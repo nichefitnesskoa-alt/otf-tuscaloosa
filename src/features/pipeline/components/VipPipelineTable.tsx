@@ -1182,6 +1182,29 @@ export function VipPipelineTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Group Confirmation */}
+      <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the entire group, all {rows.filter(r => r.groupName === selectedGroup).length} member(s), their registrations, and associated VIP sessions. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingGroup}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingGroup}
+              onClick={handleDeleteGroup}
+            >
+              {deletingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Delete Group
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
