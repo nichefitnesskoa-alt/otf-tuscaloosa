@@ -378,7 +378,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones & Deploy</p>
 
       {/* Weekly summary */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {summaryCards.map(c => (
           <Card key={c.label}>
             <CardContent className="p-3 text-center">
