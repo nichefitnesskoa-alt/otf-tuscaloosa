@@ -47,6 +47,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const [coach, setCoach] = useState('');
   const [leadSource, setLeadSource] = useState('');
   const [saving, setSaving] = useState(false);
+  const [vipSessionId, setVipSessionId] = useState('');
 
   // Inline friend state
   const [friendAnswer, setFriendAnswer] = useState<'yes' | 'no' | null>(null);
@@ -60,7 +61,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
   const reset = () => {
     setFirstName(''); setLastName(''); setPhone('');
     setClassDate(format(new Date(), 'yyyy-MM-dd')); setClassTime('');
-    setCoach(''); setLeadSource('');
+    setCoach(''); setLeadSource(''); setVipSessionId('');
     setFriendAnswer(null); setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
   };
@@ -72,6 +73,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
+    if (val !== 'VIP Class') setVipSessionId('');
     setFriendAnswer(null);
     setFriendFirstName(''); setFriendLastName(''); setFriendPhone('');
     setReferredBy('');
