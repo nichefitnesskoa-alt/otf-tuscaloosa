@@ -1,69 +1,38 @@
 
 
-## Plan: VIP Class Enhancements — Archived Sessions, VIP Banner, and "VIP Class (Friend)" Lead Source
+## Plan: Fix Lead Visibility After Script Send + Sort Newest First + Real-Time Booking Filtering
 
-Three changes: make VipSessionPicker include archived sessions and be optional, show VIP class origin on MyDay intro cards, and add a new "VIP Class (Friend)" lead source.
+Three problems to fix:
 
 ---
 
-### Change 1 — VipSessionPicker: Include Archived Sessions, Make Optional
+### Problem 1 — Script auto-close removes lead before phone can be copied
 
-**File: `src/components/shared/VipSessionPicker.tsx`**
-- Remove the `.is('archived_at', null)` filter so archived sessions appear in the dropdown
-- Group sessions visually: active sessions first, then archived (with a label like "Archived" in the option text)
-- Make `required` default to `false` — the picker is shown but not mandatory
-- Add auto-select logic: accept an optional `autoMatchSessionId` prop. When the booking already has a `vip_session_id`, pre-select it even if archived.
+**Root cause**: `ScriptSendDrawer` auto-closes 2 seconds after copy (lines 132-135). The `script_send_log` insert also triggers realtime listeners in `NewLeadsAlert` that immediately remove the lead from the list (lines 110-119). Result: lead vanishes, SA can't copy the phone number.
 
-### Change 2 — Show VIP Class Name on MyDay Intro Cards
+**Fix in `src/components/scripts/ScriptSendDrawer.tsx`**:
+- Remove the auto-close `setTimeout`. Instead, show a persistent "Copied + Logged" success state on the button but keep the drawer open.
+- Add a visible "Done" button at the top of the drawer after a script is copied, so the SA can close manually after also copying the phone.
 
-**File: `src/features/myDay/IntroRowCard.tsx`**
-- When `intro.vipClassName` is truthy (or `intro.leadSource` includes "VIP"), show a purple banner/badge below the name row:
-  `"VIP Class: [Group Name]"` — e.g. "VIP Class: Tuscaloosa Fire Dept"
-- This gives the SA immediate context on who this person is and which group they came from
-- The data (`vipClassName`) is already fetched in `useUpcomingIntrosData.ts` and available on `UpcomingIntroItem`
+**Fix in `src/features/myDay/NewLeadsAlert.tsx`**:
+- Stop removing leads from the list on `script_send_log` INSERT. The lead was contacted, not booked — it should stay visible until the SA explicitly marks it "Contacted" or it gets booked. Remove the realtime channel listener for `script_send_log` (lines 110-114). Keep the `lead_activities` listener since that represents intentional stage changes.
 
-**File: `src/components/myday/MyDayIntroCard.tsx`** (coach view card)
-- Add optional `vipClassName?: string | null` to the `MyDayIntroCardBooking` interface
-- Display the same purple VIP class badge when present
+### Problem 2 — New leads sorted oldest-first
 
-### Change 3 — Add "VIP Class (Friend)" Lead Source
+**Fix in `src/features/myDay/MyDayNewLeadsTab.tsx`**:
+- Line 595: Change `a.created_at.localeCompare(b.created_at)` to `b.created_at.localeCompare(a.created_at)` so newest leads appear first.
 
-**File: `src/types/index.ts`**
-- Add `'VIP Class (Friend)'` to the `LEAD_SOURCES` array (alphabetically after 'VIP Class')
+### Problem 3 — Leads with booked intros not filtered in real-time
 
-**File: `src/components/dashboard/BookIntroSheet.tsx`**
-- When `leadSource === 'VIP Class (Friend)'`, also show the VipSessionPicker (same as 'VIP Class') but not required
-- Add 'VIP Class (Friend)' to `REFERRAL_SOURCES` set so the referral name field appears
+**Current state**: `MyDayNewLeadsTab` already has a realtime channel on `intros_booked` INSERT that triggers background dedup (lines 469-476). However, `NewLeadsAlert` only does a name-match check on initial fetch, not in real-time.
 
-**File: `src/features/pipeline/components/PipelineDialogs.tsx`**
-- Same treatment: show VipSessionPicker for 'VIP Class (Friend)' lead source
-
-**File: `src/lib/vip/vipRules.ts`**
-- The existing `b.lead_source.toLowerCase().includes('vip')` check already covers 'VIP Class (Friend)' — no change needed here
-
-**File: `src/features/pipeline/selectors.ts`**
-- Same — the `.includes('vip')` check already captures this. Verify no hardcoded `=== 'VIP Class'` filters need updating.
-
-**File: `src/components/admin/ClientJourneyPanel.tsx`**
-- Lines 621-622 use `=== 'VIP Class'` — update to also match 'VIP Class (Friend)'
-
-### Change 4 — Auto-Pull VIP Session Info
-
-**File: `src/components/dashboard/BookIntroSheet.tsx`**
-- When reschedule mode selects a member whose `lead_source` is 'VIP Class' or 'VIP Class (Friend)', auto-populate `vipSessionId` from their existing booking's `vip_session_id`
-- Add `vip_session_id` to the reschedule search query fields
+**Fix in `src/features/myDay/NewLeadsAlert.tsx`**:
+- Add a realtime subscription on `intros_booked` INSERT. When a new booking is created, check if any current lead's name matches `member_name` — if so, remove it from the list immediately.
 
 ---
 
 ### Files Changed
-1. `src/components/shared/VipSessionPicker.tsx` — include archived sessions, make not required
-2. `src/features/myDay/IntroRowCard.tsx` — show VIP class name banner
-3. `src/components/myday/MyDayIntroCard.tsx` — add vipClassName to interface + display
-4. `src/types/index.ts` — add 'VIP Class (Friend)' lead source
-5. `src/components/dashboard/BookIntroSheet.tsx` — support new lead source + auto-pull VIP session
-6. `src/features/pipeline/components/PipelineDialogs.tsx` — support new lead source in picker
-7. `src/components/admin/ClientJourneyPanel.tsx` — update VIP tab filter
-
-### No Database Migration Needed
-All fields already exist. `vip_class_name` and `vip_session_id` are on `intros_booked`. Lead source is a free-text field.
+1. `src/components/scripts/ScriptSendDrawer.tsx` — remove auto-close timer, add manual "Done" button
+2. `src/features/myDay/NewLeadsAlert.tsx` — remove script_send_log realtime removal, add intros_booked realtime filtering
+3. `src/features/myDay/MyDayNewLeadsTab.tsx` — fix sort order to newest-first
 
