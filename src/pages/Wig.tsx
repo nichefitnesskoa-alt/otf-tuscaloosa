@@ -406,11 +406,51 @@ export default function Wig() {
       });
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
+      // Total Journey: also check if a 2nd intro booking resulted in a sale
       const coachCloseMap = new Map<string, { total: number; closed: number }>();
       const showedFirstIntroBookingIds = showedFirstIntroBookings.map(b => b.id);
       if (showedFirstIntroBookingIds.length > 0) {
         const closeBatches: string[][] = [];
         for (let i = 0; i < showedFirstIntroBookingIds.length; i += 500) closeBatches.push(showedFirstIntroBookingIds.slice(i, i + 500));
+        
+        // Also fetch 2nd intro bookings linked to these first intros
+        const secondIntroBookingMap = new Map<string, string[]>(); // firstId -> [secondBookingIds]
+        for (const batch of closeBatches) {
+          const { data: secondBookings } = await supabase
+            .from('intros_booked')
+            .select('id, originating_booking_id')
+            .in('originating_booking_id', batch);
+          (secondBookings || []).forEach((sb: any) => {
+            const existing = secondIntroBookingMap.get(sb.originating_booking_id) || [];
+            existing.push(sb.id);
+            secondIntroBookingMap.set(sb.originating_booking_id, existing);
+          });
+        }
+
+        // Fetch runs for 2nd intro bookings to check for sales
+        const allSecondIds = Array.from(secondIntroBookingMap.values()).flat();
+        const secondRunSaleSet = new Set<string>(); // set of originating_booking_ids that have a 2nd-intro sale
+        if (allSecondIds.length > 0) {
+          for (let i = 0; i < allSecondIds.length; i += 500) {
+            const batch2 = allSecondIds.slice(i, i + 500);
+            const { data: secondRuns } = await supabase
+              .from('intros_run')
+              .select('linked_intro_booked_id, result, result_canon')
+              .in('linked_intro_booked_id', batch2);
+            (secondRuns || []).forEach((r2: any) => {
+              if (r2.result_canon === 'SALE' || isMembershipSale(r2.result)) {
+                // Find which first-intro this belongs to
+                for (const [firstId, secondIds] of secondIntroBookingMap.entries()) {
+                  if (secondIds.includes(r2.linked_intro_booked_id)) {
+                    secondRunSaleSet.add(firstId);
+                    break;
+                  }
+                }
+              }
+            });
+          }
+        }
+
         for (const batch of closeBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
@@ -423,7 +463,12 @@ export default function Wig() {
             if (!cName) return;
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
-            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) ex.closed++;
+            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) {
+              ex.closed++;
+            } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
+              // Total Journey: 2nd intro resulted in sale → credit this coach
+              ex.closed++;
+            }
             coachCloseMap.set(cName, ex);
           });
         }
@@ -438,11 +483,11 @@ export default function Wig() {
         const postRate = wk.answeredPost > 0 ? (wk.postShoutouts / wk.answeredPost) * 100 : 0;
         const whyUsedRate = wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0;
         const pairingRate = wk.answeredPaired > 0 ? (wk.paired / wk.answeredPaired) * 100 : 0;
-        // Overall % = average of the four lead measure rates
         const overallPct = (preRate + postRate + whyUsedRate + pairingRate) / 4;
         return {
           name,
           coached: wk.coached,
+          closes: cl.closed,
           preRate,
           postRate,
           whyUsedRate,
@@ -682,12 +727,13 @@ export default function Wig() {
                      <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
-                      <TableHead className="text-xs text-center">Overall %</TableHead>
+                      <TableHead className="text-xs text-center">Closes</TableHead>
+                      <TableHead className="text-xs text-center">Close %</TableHead>
+                      <TableHead className="text-xs text-center">Overall WIG %</TableHead>
                       <TableHead className="text-xs text-center">Pre %</TableHead>
                       <TableHead className="text-xs text-center">Post %</TableHead>
                       <TableHead className="text-xs text-center">Got Curious %</TableHead>
                       <TableHead className="text-xs text-center">Pairing %</TableHead>
-                      <TableHead className="text-xs text-center">Close %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -695,6 +741,12 @@ export default function Wig() {
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
                         <TableCell className="text-sm text-center">{row.coached}</TableCell>
+                        <TableCell className="text-sm text-center font-medium text-success">{row.closes}</TableCell>
+                        <TableCell className="text-sm text-center">
+                          <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
+                            {row.closeRate.toFixed(0)}%
+                          </span>
+                        </TableCell>
                         <TableCell className="text-sm text-center">
                           <span className={row.overallPct >= 90 ? 'text-success' : row.overallPct >= 70 ? 'text-warning' : 'text-destructive'}>
                             {row.overallPct.toFixed(0)}%
@@ -719,14 +771,6 @@ export default function Wig() {
                           <span className={row.pairingRate >= 100 ? 'text-success' : row.pairingRate >= 50 ? 'text-warning' : 'text-destructive'}>
                             {row.pairingRate.toFixed(0)}%
                           </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <div>
-                            <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
-                              {row.closeRate.toFixed(0)}%
-                            </span>
-                            <p className="text-[9px] text-muted-foreground">Period to date</p>
-                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

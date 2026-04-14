@@ -167,7 +167,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         last_name: lastName,
         phone: isEmailContact ? '' : friendContact.trim(),
         email: isEmailContact ? friendContact.trim() : null,
-        source: 'Milestone Referral',
+        source: 'Member Referral (5 class pack)',
         stage: 'new',
         duplicate_notes: `Referred via milestone pack — ${editItem?.member_name || ''} celebrated on ${format(new Date(), 'MMM d, yyyy')}`,
       } as any)
