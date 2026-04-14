@@ -651,6 +651,16 @@ export function VipPipelineTable() {
         >
           <Plus className="w-3 h-3" /> New Group
         </Button>
+        {archivedGroups.size > 0 && (
+          <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer ml-auto">
+            <Checkbox
+              checked={showArchived}
+              onCheckedChange={(v) => setShowArchived(!!v)}
+              className="h-3.5 w-3.5"
+            />
+            Show archived ({archivedGroups.size})
+          </label>
+        )}
       </div>
 
       {/* Registration Link Banner + Referring Member */}
