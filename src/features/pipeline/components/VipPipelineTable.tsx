@@ -139,6 +139,10 @@ export function VipPipelineTable() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // Delete group state
+  const [showDeleteGroup, setShowDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
   // Convert to intro state
   const [convertRow, setConvertRow] = useState<VipRow | null>(null);
 
@@ -538,6 +542,45 @@ export function VipPipelineTable() {
     );
   }
 
+  const handleDeleteGroup = async () => {
+    if (!selectedGroup) return;
+    setDeletingGroup(true);
+    try {
+      // Get all booking IDs for this group
+      const groupRows = rows.filter(r => r.groupName === selectedGroup);
+      const bookingIds = groupRows.map(r => r.bookingId);
+
+      // Soft-delete all bookings in this group
+      if (bookingIds.length > 0) {
+        await supabase
+          .from('intros_booked')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.name || 'staff' } as any)
+          .in('id', bookingIds);
+        // Delete registrations
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .in('booking_id', bookingIds);
+      }
+
+      // Delete vip_sessions for this group
+      await supabase
+        .from('vip_sessions')
+        .delete()
+        .eq('vip_class_name', selectedGroup);
+
+      toast.success(`Group "${selectedGroup}" and all its members deleted`);
+      setShowDeleteGroup(false);
+      setSelectedGroup('');
+      fetchData();
+    } catch (err) {
+      console.error('Delete group error:', err);
+      toast.error('Failed to delete group');
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
+
   const allSelected = filtered.length > 0 && selectedRows.size === filtered.length;
 
   return (
@@ -567,6 +610,18 @@ export function VipPipelineTable() {
             title={`Copy link for ${selectedGroup}`}
           >
             <Link2 className="w-3 h-3" /> Copy Link
+          </Button>
+        )}
+
+        {selectedGroup && selectedGroup !== 'All' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteGroup(true)}
+            title={`Delete group ${selectedGroup}`}
+          >
+            <Trash2 className="w-3 h-3" /> Delete Group
           </Button>
         )}
 
@@ -1123,6 +1178,29 @@ export function VipPipelineTable() {
             >
               {bulkDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
               Remove All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Group Confirmation */}
+      <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the entire group, all {rows.filter(r => r.groupName === selectedGroup).length} member(s), their registrations, and associated VIP sessions. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingGroup}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingGroup}
+              onClick={handleDeleteGroup}
+            >
+              {deletingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Delete Group
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
