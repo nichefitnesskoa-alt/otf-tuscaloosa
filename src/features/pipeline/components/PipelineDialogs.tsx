@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
@@ -79,6 +80,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
 
   // Create booking state
   const [newBooking, setNewBooking] = useState({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+  const [newBookingVipSessionId, setNewBookingVipSessionId] = useState('');
   const [isSelfBooked, setIsSelfBooked] = useState(false);
   const [pickFromPipeline, setPickFromPipeline] = useState(false);
   const [pipelineSearch, setPipelineSearch] = useState('');
