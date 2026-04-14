@@ -683,9 +683,12 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
+                </div>
                 {newBooking.lead_source === 'VIP Class' && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required showWarning />
                 )}
+              </>
+            )}
             <div><Label className="text-xs">Coach</Label>
               <Select value={newBooking.coach_name} onValueChange={v => setNewBooking({ ...newBooking, coach_name: v })}>
                 <SelectTrigger><SelectValue placeholder="Select coach..." /></SelectTrigger>
