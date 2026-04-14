@@ -105,6 +105,8 @@ export function VipPipelineTable() {
   const [rows, setRows] = useState<VipRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
+  const [archivedGroups, setArchivedGroups] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [groupMetas, setGroupMetas] = useState<VipGroupMeta[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [search, setSearch] = useState('');
