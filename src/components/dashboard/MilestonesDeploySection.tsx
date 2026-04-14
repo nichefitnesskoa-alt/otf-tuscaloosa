@@ -406,7 +406,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const summaryCards = [
     { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
     { label: 'Packs gifted', value: String(summary.packs) },
-    { label: 'Classes redeemed', value: String(summary.classesRedeemed) },
+    { label: 'Friends showed up', value: String(summary.friendsShowedUp) },
     { label: 'Converted to member', value: String(summary.convertedToMember) },
     { label: 'Friends in pipeline', value: String(summary.friends) },
     { label: 'Members deployed', value: String(summary.deployed) },
