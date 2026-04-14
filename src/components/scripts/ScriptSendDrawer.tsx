@@ -129,11 +129,7 @@ export function ScriptSendDrawer({
       });
     } catch {}
 
-    // Close after 2 seconds
-    setTimeout(() => {
-      setCopiedId(null);
-      onOpenChange(false);
-    }, 2000);
+    // Keep drawer open so SA can still copy phone
   };
 
   const handleCopyPhone = async () => {
@@ -148,9 +144,21 @@ export function ScriptSendDrawer({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="pb-2">
-          <DrawerTitle className="text-base">
-            {leadName ? `Send Script — ${leadName}` : 'Send Script'}
-          </DrawerTitle>
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="text-base">
+              {leadName ? `Send Script — ${leadName}` : 'Send Script'}
+            </DrawerTitle>
+            {copiedId && (
+              <Button
+                size="sm"
+                className="h-9 min-h-[44px] text-xs gap-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                onClick={() => { setCopiedId(null); onOpenChange(false); }}
+              >
+                <Check className="w-3.5 h-3.5" />
+                Done
+              </Button>
+            )}
+          </div>
           {leadPhone && (
             <div className="flex items-center gap-2 mt-1">
               <a href={`tel:${leadPhone}`} className="text-sm text-primary underline flex items-center gap-1 cursor-pointer">

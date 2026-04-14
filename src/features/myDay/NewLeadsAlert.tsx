@@ -107,16 +107,19 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
     // Realtime: remove lead when script_send_log or lead_activities gets a new record
     const channel = supabase
       .channel('new-leads-contact-watch')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'script_send_log' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lead_activities' }, (payload) => {
         const leadId = (payload.new as any)?.lead_id;
         if (leadId) {
           setLeads(prev => prev.filter(l => l.id !== leadId));
         }
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lead_activities' }, (payload) => {
-        const leadId = (payload.new as any)?.lead_id;
-        if (leadId) {
-          setLeads(prev => prev.filter(l => l.id !== leadId));
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'intros_booked' }, (payload) => {
+        const bookedName = ((payload.new as any)?.member_name || '').toLowerCase().trim();
+        if (bookedName) {
+          setLeads(prev => prev.filter(l => {
+            const leadName = `${l.first_name} ${l.last_name}`.trim().toLowerCase();
+            return leadName !== bookedName;
+          }));
         }
       })
       .subscribe();
