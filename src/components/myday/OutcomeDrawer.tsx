@@ -844,6 +844,45 @@ export function OutcomeDrawer({
         </div>
       )}
 
+      {/* Planning to Buy — date picker */}
+      {isPlanningToBuy && (
+        <div className="space-y-2 rounded-md p-2 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800">
+          <p className="text-xs text-teal-800 dark:text-teal-200 font-medium">
+            🛒 When do they plan on buying? We'll only follow up 1 day before that date.
+          </p>
+          <div className="space-y-1">
+            <Label className="text-xs text-teal-800 dark:text-teal-200">Planned purchase date <span className="text-destructive">*</span></Label>
+            <Popover open={planningToBuyCalendarOpen} onOpenChange={setPlanningToBuyCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('w-full h-8 text-sm justify-start font-normal', !planningToBuyDate && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                  {planningToBuyDate ? format(planningToBuyDate, 'MMM d, yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={planningToBuyDate}
+                  onSelect={(d) => { setPlanningToBuyDate(d); setPlanningToBuyCalendarOpen(false); }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-teal-800 dark:text-teal-200">Notes <span className="font-normal opacity-70">(optional)</span></Label>
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Waiting for paycheck, starting new job…"
+              className="text-xs h-16 resize-none"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Planning to Reschedule — notes field */}
       {isPlanningToReschedule && (
         <div className="space-y-2 rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
@@ -863,7 +902,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && (
+      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
         <div className="space-y-1">
           <Label className="text-xs">
             Coach who taught the class
