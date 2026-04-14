@@ -613,6 +613,18 @@ export function VipPipelineTable() {
           </Button>
         )}
 
+        {selectedGroup && selectedGroup !== 'All' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteGroup(true)}
+            title={`Delete group ${selectedGroup}`}
+          >
+            <Trash2 className="w-3 h-3" /> Delete Group
+          </Button>
+        )}
+
         <Button
           variant="outline"
           size="sm"
