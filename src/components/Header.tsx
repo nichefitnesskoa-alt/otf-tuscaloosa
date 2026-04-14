@@ -48,7 +48,6 @@ export function Header() {
                 {pendingQueueCount}
               </Badge>
             )}
-            <LeadAlertBell />
             {/* Global Search */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
