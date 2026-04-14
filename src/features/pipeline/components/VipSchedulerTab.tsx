@@ -115,6 +115,9 @@ export function VipSchedulerTab() {
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // QR download
+  const [qrSession, setQrSession] = useState<VipSession | null>(null);
+
   // Templates
   const [templates, setTemplates] = useState<SlotTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
