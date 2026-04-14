@@ -229,7 +229,7 @@ function ClaimDialog({
               ctx.fillStyle = '#1a1a1a';
               ctx.textAlign = 'center';
               ctx.font = 'bold 22px sans-serif';
-              ctx.fillText('OTF Tuscaloosa — Private Group Class', totalWidth / 2, textY);
+              ctx.fillText(`OTF Tuscaloosa x ${groupName.trim() || 'VIP'} VIP Class`, totalWidth / 2, textY);
               ctx.font = '18px sans-serif';
               ctx.fillText(`${prettyDate} at ${prettyTime}`, totalWidth / 2, textY + 32);
               ctx.font = '16px sans-serif';
