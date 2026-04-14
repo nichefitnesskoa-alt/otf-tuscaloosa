@@ -99,7 +99,7 @@ function ClaimDialog({
 
   const canSubmit =
     name.trim() && groupName.trim() && phone.trim() && sessionType &&
-    (sessionType !== 'business_customers' || businessSubType) && !tooSoon && parseInt(maxAttendees) > 0;
+    (sessionType !== 'business_customers' || businessSubType) && !tooSoon;
 
   const handleClaim = async () => {
     if (!canSubmit) return;
