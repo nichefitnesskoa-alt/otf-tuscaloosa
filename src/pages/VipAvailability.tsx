@@ -316,6 +316,11 @@ function ClaimDialog({
           })()
         ) : (
           <div className="space-y-3">
+            {tooSoon && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
+                ⚠️ This slot is less than 7 days away and can no longer be claimed online. Please contact us directly if you need to book on short notice.
+              </div>
+            )}
             {error && (
               <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
                 {error}
