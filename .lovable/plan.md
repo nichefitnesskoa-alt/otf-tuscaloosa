@@ -1,42 +1,34 @@
-&nbsp;
-
-The "They came in" button needs to be bigger or clearer to that that is something that is clickable. Maybe closer to the edit button in the center. Other than that everything is good after makign that change  
-  
-Plan: Real-Time Auto-Detection of Friend Show-Ups  
 
 
-### Problem
+## Plan: Add Raffle Page to Admin Panel
 
-The friend "showed up" detection currently only runs inside `MilestonesDeploySection.loadData()` — meaning it only checks when someone opens the WIG page. If a friend books an intro, shows up, or gets added as a lead, the milestone's `friend_showed_up` stays `false` until someone manually visits WIG.
+### Overview
+Create a standalone Raffle page component and add it as a new tab in the Admin panel dropdown. Admin-only access. Session-only state — no database needed.
 
-### Solution
+### Files Changed
 
-Add a Supabase realtime subscription inside `MilestonesDeploySection` that listens for changes on `intros_booked`, `intros_run`, and `leads`. When any INSERT or UPDATE arrives on those tables, re-run the friend detection logic by calling `loadData()`.
+**1. `src/components/admin/RafflePage.tsx`** (new)
 
-This keeps the detection co-located with the existing logic (no new edge function needed) and ensures the WIG page stays live while open. For cases where nobody has WIG open, the existing `loadData()` auto-detection on mount already catches up — so the DB will be updated the next time anyone views the page.
+Full raffle component with three sections:
+- **Names Input**: textarea (160px height), real-time count of parsed names
+- **Prize Input**: single text input
+- **Spin Area**: drum-style slot machine animation (420×80px, #E8540A border), deceleration easing over 3.5s, 40 items with winner forced last, translateY animation
+- **Winners Log**: draw number, name (bold), prize (muted), newest first, remaining count
 
-### File Changed
+State management:
+- `names` (textarea value), `parsedNames` (full pool), `remaining` (draw pool), `prize`, `winners` array, `spinning` boolean, `currentWinner`
+- Editing textarea resets winners and remaining
+- Winner removed from remaining after each draw
+- "Spin again" resets display back to drum, keeps prize
 
-`**src/components/dashboard/MilestonesDeploySection.tsx**`
+Animation: render 40 random names from remaining in a vertical strip at 80px each, animate translateY to -(39×80)px over 3.5s with cubic-bezier(0.25, 0.1, 0.1, 1). Last item = selected winner.
 
-Add a `useEffect` that creates a Supabase realtime channel subscribing to:
+**2. `src/pages/Admin.tsx`**
 
-- `intros_booked` — INSERT and UPDATE (friend books or shows)
-- `intros_run` — INSERT (friend's intro is run, may be SALE)
-- `leads` — INSERT (friend added as lead with pack source)
+- Import `RafflePage` from `@/components/admin/RafflePage`
+- Add `{ value: 'raffle', label: 'Raffle', icon: <Gift className="w-4 h-4" /> }` to `adminSections` array (import `Gift` from lucide-react)
+- Add `<TabsContent value="raffle"><RafflePage /></TabsContent>` after the 10x tab
 
-On any event, call `loadData()` which already handles the three-way detection and auto-updates `friend_showed_up` in the DB.
+### No downstream effects
+Session-only feature. No database. No other pages affected. Admin role already enforced by the existing route guard + in-page role check.
 
-```typescript
-useEffect(() => {
-  const channel = supabase
-    .channel('friend-showup-detect')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => loadData())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' }, () => loadData())
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => loadData())
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
-}, [loadData]);
-```
-
-This is a single small addition (~10 lines). No other files change.
