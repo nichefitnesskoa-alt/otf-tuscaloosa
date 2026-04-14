@@ -631,16 +631,48 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
       }
     }
 
+    const handleClearSelectedJourney = () => {
+      setSelectedJourney(null);
+      setNewBooking(p => ({ ...p, member_name: '', lead_source: '', coach_name: '', fitness_goal: '' }));
+      setNewBookingPhone('');
+      setPickFromPipeline(true);
+    };
+
+    const handlePickJourney = (j: ClientJourney) => {
+      const latestBooking = j.bookings[0]; // bookings sorted by date desc
+      setSelectedJourney(j);
+      setNewBooking(p => ({
+        ...p,
+        member_name: j.memberName,
+        lead_source: latestBooking?.lead_source || '',
+        coach_name: latestBooking?.coach_name || '',
+        fitness_goal: latestBooking?.fitness_goal || '',
+      }));
+      setNewBookingPhone(latestBooking?.phone || '');
+      setPipelineSearch('');
+      setPickFromPipeline(false);
+    };
+
+    // Get context info for selected journey
+    const selectedLatestBooking = selectedJourney?.bookings[0];
+    const selectedStatusLabel = selectedJourney?.status === 'purchased' ? 'Purchased'
+      : selectedJourney?.status === 'not_interested' ? 'Not Interested'
+      : selectedJourney?.status === 'no_show' ? 'No-show'
+      : selectedJourney?.status === 'active' ? 'Active' : 'Unknown';
+    const selectedLastDate = selectedLatestBooking?.class_date
+      ? format(new Date(selectedLatestBooking.class_date + 'T12:00:00'), 'MMM d')
+      : null;
+
     return (
-      <Dialog open onOpenChange={() => { setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' }); onClose(); }}>
-        <DialogContent className="max-w-md">
+      <Dialog open onOpenChange={() => { setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' }); setNewBookingPhone(''); setSelectedJourney(null); onClose(); }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{secondIntroOriginatingId ? 'Book 2nd Intro' : fromRun ? 'Create Matching Booking' : 'Create New Booking'}</DialogTitle>
+            <DialogTitle>{secondIntroOriginatingId ? 'Book 2nd Intro' : fromRun ? 'Create Matching Booking' : selectedJourney ? 'Reschedule / Rebook' : 'Create New Booking'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {!fromRun && !secondIntroOriginatingId && (
               <div className="flex items-center gap-2 pb-1">
-                <Switch checked={pickFromPipeline} onCheckedChange={v => { setPickFromPipeline(v); setPipelineSearch(''); if (!v) setNewBooking(p => ({ ...p, member_name: '', lead_source: '', coach_name: '', fitness_goal: '' })); }} />
+                <Switch checked={pickFromPipeline} onCheckedChange={v => { setPickFromPipeline(v); setPipelineSearch(''); if (!v) { setSelectedJourney(null); setNewBooking(p => ({ ...p, member_name: '', lead_source: '', coach_name: '', fitness_goal: '' })); setNewBookingPhone(''); } }} />
                 <Label className="text-sm">Pick from existing pipeline</Label>
               </div>
             )}
@@ -649,25 +681,39 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 <Input value={pipelineSearch} onChange={e => setPipelineSearch(e.target.value)} placeholder="Search name..." autoFocus />
                 {pipelineSearch.length >= 2 && (
                   <ScrollArea className="max-h-48 border rounded-md">
-                    {journeys.filter(j => j.memberName.toLowerCase().includes(pipelineSearch.toLowerCase())).slice(0, 15).map(j => (
-                      <button key={j.memberKey} type="button" className="w-full text-left px-3 py-2 hover:bg-muted/80 border-b last:border-b-0"
-                        onClick={() => { setNewBooking(p => ({ ...p, member_name: j.memberName, lead_source: j.bookings[0]?.lead_source || '', coach_name: j.bookings[0]?.coach_name || '', fitness_goal: j.bookings[0]?.fitness_goal || '' })); setPipelineSearch(''); setPickFromPipeline(false); }}>
-                        <span className="font-medium text-sm">{j.memberName}</span>
-                      </button>
-                    ))}
+                    {journeys.filter(j => j.memberName.toLowerCase().includes(pipelineSearch.toLowerCase())).slice(0, 15).map(j => {
+                      const jLatest = j.bookings[0];
+                      const jDate = jLatest?.class_date ? format(new Date(jLatest.class_date + 'T12:00:00'), 'MMM d') : null;
+                      return (
+                        <button key={j.memberKey} type="button" className="w-full text-left px-3 py-2 hover:bg-muted/80 border-b last:border-b-0"
+                          onClick={() => handlePickJourney(j)}>
+                          <span className="font-medium text-sm">{j.memberName}</span>
+                          {jDate && <span className="text-xs text-muted-foreground ml-2">Last: {jDate}</span>}
+                        </button>
+                      );
+                    })}
                   </ScrollArea>
                 )}
-                {newBooking.member_name && (
-                  <div className="p-2 bg-primary/10 rounded-lg text-xs flex items-center gap-2 border border-primary/20">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                    <span className="font-medium">Selected: {newBooking.member_name}</span>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={() => { setNewBooking(p => ({ ...p, member_name: '' })); setPickFromPipeline(true); }}><X className="w-3 h-3" /></Button>
+                {newBooking.member_name && selectedJourney && (
+                  <div className="p-2.5 bg-primary/10 rounded-lg text-xs space-y-1 border border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <span className="font-medium">{newBooking.member_name}</span>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto" onClick={handleClearSelectedJourney}><X className="w-3 h-3" /></Button>
+                    </div>
+                    <div className="flex items-center gap-2 pl-5.5 text-muted-foreground">
+                      {selectedLastDate && <span>Last intro: {selectedLastDate}</span>}
+                      <Badge variant="outline" className="text-[10px] h-4">{selectedStatusLabel}</Badge>
+                      {selectedJourney.latestIntroOwner && <span>Owner: {selectedJourney.latestIntroOwner}</span>}
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               <div><Label className="text-xs">Member Name *</Label><Input value={newBooking.member_name} onChange={e => setNewBooking({ ...newBooking, member_name: e.target.value })} disabled={!!fromRun || !!secondIntroOriginatingId} /></div>
             )}
+            {/* Phone field */}
+            <div><Label className="text-xs">Phone</Label><Input type="tel" value={newBookingPhone} onChange={e => setNewBookingPhone(formatPhoneAsYouType(e.target.value))} placeholder="(555) 555-5555" /></div>
             <div className="flex items-center gap-2"><Switch checked={isSelfBooked} onCheckedChange={setIsSelfBooked} /><Label className="text-sm">Self-booked</Label></div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label className="text-xs">Date *</Label><DatePickerField value={newBooking.class_date} onChange={v => setNewBooking({ ...newBooking, class_date: v })} /></div>
@@ -707,7 +753,13 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
               if (newBooking.lead_source === 'VIP Class' && !newBookingVipSessionId) { toast.error('Please select which VIP class'); return; }
               const bookedBy = isSelfBooked ? 'Self-booked' : newBooking.sa_working_shift;
               const leadSource = isSelfBooked ? 'Online Intro Offer (self-booked)' : (newBooking.lead_source || 'Instagram DMs');
-              const introOwner = fromRun?.intro_owner || fromRun?.ran_by || null;
+
+              // Determine intro_owner: from selected journey or from run context
+              const introOwner = selectedJourney?.latestIntroOwner || fromRun?.intro_owner || fromRun?.ran_by || null;
+
+              // Determine reschedule linking
+              const rebookedFromId = selectedJourney ? selectedLatestBooking?.id || null : null;
+
               const { data: inserted, error } = await supabase.from('intros_booked').insert({
                 booking_id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 member_name: newBooking.member_name,
@@ -724,22 +776,41 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 intro_owner_locked: !!introOwner,
                 originating_booking_id: secondIntroOriginatingId || null,
                 vip_session_id: leadSource === 'VIP Class' ? newBookingVipSessionId : null,
+                phone: newBookingPhone.trim() || null,
+                rebooked_from_booking_id: rebookedFromId,
+                rebook_reason: rebookedFromId ? 'Rescheduled from pipeline' : null,
+                rebooked_at: rebookedFromId ? new Date().toISOString() : null,
               }).select().single();
               if (error) throw error;
+
+              // Link orphaned run if creating matching booking
               if (fromRun && inserted) {
                 await supabase.from('intros_run').update({ linked_intro_booked_id: inserted.id, last_edited_at: new Date().toISOString(), last_edited_by: userName, edit_reason: 'Linked to newly created booking' }).eq('id', fromRun.id);
               }
+
+              // Auto-complete pending follow-ups for the original booking when rescheduling
+              if (rebookedFromId) {
+                await supabase.from('follow_up_queue')
+                  .update({ status: 'completed', sent_at: new Date().toISOString(), sent_by: `${userName} (Rescheduled)` })
+                  .eq('booking_id', rebookedFromId)
+                  .eq('status', 'pending');
+              }
+
               // Auto-create questionnaire record
               if (inserted?.id && !secondIntroOriginatingId) {
                 import('@/lib/introHelpers').then(({ autoCreateQuestionnaire }) => {
                   autoCreateQuestionnaire({ bookingId: inserted.id, memberName: newBooking.member_name, classDate: newBooking.class_date }).catch(() => {});
                 });
               }
-              toast.success(secondIntroOriginatingId ? '2nd intro booked' : 'Booking created');
+
+              const label = rebookedFromId ? `${newBooking.member_name} rescheduled` : secondIntroOriginatingId ? '2nd intro booked' : 'Booking created';
+              toast.success(label);
               setNewBooking({ member_name: '', class_date: getLocalDateString(), intro_time: '', coach_name: '', sa_working_shift: '', lead_source: '', fitness_goal: '' });
+              setNewBookingPhone('');
+              setSelectedJourney(null);
             })}>
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-              {secondIntroOriginatingId ? 'Book 2nd Intro' : fromRun ? 'Create & Link' : 'Create Booking'}
+              {secondIntroOriginatingId ? 'Book 2nd Intro' : selectedJourney ? 'Reschedule & Book' : fromRun ? 'Create & Link' : 'Create Booking'}
             </Button>
           </DialogFooter>
         </DialogContent>
