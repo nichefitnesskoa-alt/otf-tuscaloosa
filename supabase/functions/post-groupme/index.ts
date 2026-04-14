@@ -286,6 +286,17 @@ serve(async (req) => {
     const body = await req.json();
     const { action, text, staffName, date, shiftType, recapId } = body;
 
+    // ── CUSTOM MESSAGE ──
+    if (action === 'custom' && text) {
+      const res = await fetch('https://api.groupme.com/v3/bots/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot_id: GROUPME_BOT_ID, text }),
+      });
+      const ok = res.ok || res.status === 202;
+      return new Response(JSON.stringify({ success: ok }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // ── TEST CONNECTION ──
     if (action === 'test') {
       const testMsg = `✅ GroupMe connected successfully${staffName ? ` (by ${staffName})` : ''}`;
