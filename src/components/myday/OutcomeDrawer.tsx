@@ -950,7 +950,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Notes */}
-      {!isReschedule && !isPlanningToReschedule && (
+      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
         <div className="space-y-1">
           <Label className="text-xs">Notes (optional)</Label>
           <Textarea
@@ -970,7 +970,7 @@ export function OutcomeDrawer({
           disabled={saving || !outcome}
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : 'Save Outcome'}
+          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : 'Save Outcome'}
         </Button>
         <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>
           Cancel
