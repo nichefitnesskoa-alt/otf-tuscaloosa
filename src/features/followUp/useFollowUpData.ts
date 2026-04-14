@@ -116,6 +116,14 @@ export function useFollowUpData() {
         .not('not_interested_at', 'is', null);
       const notInterestedIds = new Set((notInterested || []).filter((n: any) => n.booking_id).map((n: any) => n.booking_id));
 
+      // Get planning_to_buy follow-up queue items
+      const { data: planningToBuyQueue } = await (supabase
+        .from('follow_up_queue')
+        .select('booking_id, person_name, scheduled_date, fitness_goal, touch_number') as any)
+        .eq('person_type', 'planning_to_buy')
+        .eq('status', 'pending')
+        .is('not_interested_at', null);
+
       const { data: runs } = await supabase
         .from('intros_run')
         .select('id, member_name, result, result_canon, linked_intro_booked_id, coach_name, run_date, class_time, lead_source, primary_objection, notes, is_vip')
