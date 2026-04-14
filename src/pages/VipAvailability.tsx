@@ -460,6 +460,12 @@ function SlotPill({
   const isOpenType = session.session_type === 'open';
   const isBusiness = session.session_type === 'business_customers';
 
+  // Check 7-day block
+  const sessionDate = new Date(session.session_date + 'T00:00:00');
+  const now = getNowCentral();
+  const diffDays = Math.ceil((sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const tooSoon = isOpen && diffDays < 7;
+
   if (isConfirmed) {
     return (
       <div className="rounded border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30 px-1.5 py-1 text-center">
@@ -469,25 +475,27 @@ function SlotPill({
   }
 
   const borderColor = isOpen
-    ? 'border-l-green-500'
+    ? tooSoon ? 'border-l-gray-400' : 'border-l-green-500'
     : isBusiness
       ? 'border-l-blue-500'
       : isOpenType
         ? 'border-l-teal-500'
         : 'border-l-amber-500';
 
+  const canClick = isOpen && !tooSoon;
+
   return (
     <div
-      role={isOpen ? 'button' : undefined}
-      tabIndex={isOpen ? 0 : undefined}
+      role={canClick ? 'button' : undefined}
+      tabIndex={canClick ? 0 : undefined}
       onClick={(e) => {
-        if (isOpen) {
+        if (canClick) {
           e.stopPropagation();
           onClaim();
         }
       }}
       onKeyDown={(e) => {
-        if (isOpen && (e.key === 'Enter' || e.key === ' ')) {
+        if (canClick && (e.key === 'Enter' || e.key === ' ')) {
           e.stopPropagation();
           onClaim();
         }
@@ -495,13 +503,15 @@ function SlotPill({
       className={cn(
         'rounded border-l-4 px-1.5 py-1 bg-card',
         borderColor,
-        isOpen && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors'
+        canClick && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors'
       )}
     >
-      <p className={cn('text-[11px] font-semibold leading-tight', !isOpen && 'text-muted-foreground')}>
+      <p className={cn('text-[11px] font-semibold leading-tight', (!isOpen || tooSoon) && 'text-muted-foreground')}>
         {formatDisplayTime(session.session_time)}
       </p>
-      {isOpen ? (
+      {isOpen && tooSoon ? (
+        <p className="text-[10px] leading-tight text-muted-foreground italic">Contact us</p>
+      ) : isOpen ? (
         <p className="text-[10px] leading-tight text-green-600 dark:text-green-400 font-medium">Available</p>
       ) : isBusiness ? (
         <p className="text-[10px] leading-tight text-blue-600 dark:text-blue-400 truncate">
