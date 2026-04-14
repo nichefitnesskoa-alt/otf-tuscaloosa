@@ -546,30 +546,13 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Get all booking IDs for this group
-      const groupRows = rows.filter(r => r.groupName === selectedGroup);
-      const bookingIds = groupRows.map(r => r.bookingId);
-
-      // Soft-delete all bookings in this group
-      if (bookingIds.length > 0) {
-        await supabase
-          .from('intros_booked')
-          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.name || 'staff' } as any)
-          .in('id', bookingIds);
-        // Delete registrations
-        await supabase
-          .from('vip_registrations')
-          .delete()
-          .in('booking_id', bookingIds);
-      }
-
-      // Delete vip_sessions for this group
+      // Only remove VIP sessions/scheduling — client bookings & registrations stay intact
       await supabase
         .from('vip_sessions')
         .delete()
         .eq('vip_class_name', selectedGroup);
 
-      toast.success(`Group "${selectedGroup}" and all its members deleted`);
+      toast.success(`Group "${selectedGroup}" sessions removed. Client data preserved.`);
       setShowDeleteGroup(false);
       setSelectedGroup('');
       fetchData();
@@ -1187,9 +1170,9 @@ export function VipPipelineTable() {
       <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogTitle>Remove group "{selectedGroup}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the entire group, all {rows.filter(r => r.groupName === selectedGroup).length} member(s), their registrations, and associated VIP sessions. This cannot be undone.
+              This will remove the group's scheduled sessions from the VIP calendar and this list. All client bookings and registration data will be preserved in the pipeline under the VIP Class lead source.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
