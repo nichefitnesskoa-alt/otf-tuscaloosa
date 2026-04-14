@@ -40,6 +40,13 @@ interface WeekSummary {
   friends: number;
   deployed: number;
   converted: number;
+  classesRedeemed: number;
+  convertedToMember: number;
+}
+
+interface FriendTrackingInfo {
+  classesRedeemed: number;
+  convertedToMember: boolean;
 }
 
 function isEmail(s: string) {
@@ -56,7 +63,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
-  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0 });
+  const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, classesRedeemed: 0, convertedToMember: 0 });
+  const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
 
   // Create form state
@@ -114,6 +122,44 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     const deps = (depRes.data || []) as unknown as MilestoneRow[];
     setMilestones(mils);
     setDeploys(deps);
+
+    // Track pack friend redemptions
+    const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
+    const trackingMap = new Map<string, FriendTrackingInfo>();
+    let totalRedeemed = 0;
+    let totalConverted = 0;
+
+    if (packFriends.length > 0) {
+      for (const pf of packFriends) {
+        const friendName = (pf.friend_name || '').trim();
+        if (!friendName) continue;
+
+        // Check intros_booked for this friend (case-insensitive)
+        const { data: bookings } = await supabase
+          .from('intros_booked')
+          .select('id, booking_status_canon')
+          .ilike('member_name', friendName);
+
+        const bookedIds = (bookings || []).map((b: any) => b.id);
+        const showedCount = (bookings || []).filter((b: any) => b.booking_status_canon === 'SHOWED').length;
+
+        // Check if any run resulted in SALE
+        let converted = false;
+        if (bookedIds.length > 0) {
+          const { data: runs } = await supabase
+            .from('intros_run')
+            .select('result_canon')
+            .in('linked_intro_booked_id', bookedIds);
+          converted = (runs || []).some((r: any) => r.result_canon === 'SALE');
+        }
+
+        trackingMap.set(pf.id, { classesRedeemed: showedCount, convertedToMember: converted });
+        totalRedeemed += showedCount;
+        if (converted) totalConverted++;
+      }
+    }
+
+    setFriendTracking(trackingMap);
     setSummary({
       celebrations: mils.length,
       actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
@@ -121,6 +167,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
+      classesRedeemed: totalRedeemed,
+      convertedToMember: totalConverted,
     });
     setLoading(false);
   }, [rangeStartYMD, rangeEndYMD]);
