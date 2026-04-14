@@ -77,7 +77,7 @@ function sortByPriority(items: FollowUpItem[], todayStr: string): FollowUpItem[]
 
 export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListProps) {
   const { user } = useAuth();
-  const { allItems, counts, isLoading, refresh } = useFollowUpData();
+  const { allItems, counts, isLoading, refresh, silentRefresh } = useFollowUpData();
   const [filter, setFilter] = useState<FilterType>('all');
   const [focusOpen, setFocusOpen] = useState(true);
   const [comingUpOpen, setComingUpOpen] = useState(false);
@@ -87,7 +87,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
   }, [counts.total, onCountChange]);
 
   const handleRefresh = () => {
-    refresh();
+    silentRefresh();
     onRefresh?.();
   };
 
