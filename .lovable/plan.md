@@ -1,89 +1,69 @@
 
 
-## Plan: My Intros Page for Coaches
+## Plan: Add "Planning to Buy" Outcome with Deferred Follow-Up
 
-This is a large feature with three changes: remove the Follow-Up tab from Coach View, add "My Intros" to bottom nav, and build the full My Intros page.
-
----
-
-### Change 1 — Remove Follow-Up Tab from Coach View
-
-**File: `src/pages/CoachView.tsx`**
-- Remove the `Tabs` wrapper entirely (Intros | Follow-Up tabs)
-- Keep only the Intros content inline (week day tabs, coach filter, class time groups)
-- Remove `CoachFollowUpList` import and `coachFollowUpCount` state
-- The Intros tab content becomes the sole content of Coach View
+### What This Does
+Adds a new "Planning to Buy" outcome option to the outcome drawer. When selected, the SA enters the date the person plans to buy. The follow-up system holds them in a dedicated "Planning to Buy" section and only surfaces them 1 day before their planned purchase date — no premature outreach.
 
 ---
 
-### Change 2 — Add "My Intros" to Bottom Navigation
+### Change 1 — Add "Planning to Buy" to Outcome Drawer
 
-**File: `src/components/BottomNav.tsx`**
-- Coach nav items become: `Coach View` | `WIG` | `My Intros`
-- Admin nav items: add `My Intros` (path `/my-intros`) between Coach View and Admin
-- Use `UserCheck` icon from lucide-react for "My Intros"
-- Move the existing badge count (follow-up count) from Coach View to My Intros tab
-- SA nav remains unchanged: My Day | WIG | Pipeline
+**File: `src/components/myday/OutcomeDrawer.tsx`**
+- Add `{ value: 'Planning to buy', label: '🛒 Planning to buy' }` to `NON_SALE_OUTCOMES`
+- When "Planning to buy" is selected, show a date picker: "When do they plan on buying?"
+- Require date selection before save
+- On save: call `applyIntroOutcomeUpdate` with result "Planning to buy", then insert a single `follow_up_queue` record with `person_type = 'planning_to_buy'`, `scheduled_date` = 1 day before the selected buy date
+- Store the planned buy date in `follow_up_queue.fitness_goal` field (reusing existing nullable text column to avoid a migration — value stored as YYYY-MM-DD string)
+- No objection required, no coach required
 
----
+### Change 2 — Outcome Pipeline Support
 
-### Change 3 — Create My Intros Page
+**File: `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`**
+- Add `isNowPlanningToBuy` detection for "Planning to buy"
+- On this outcome: clear existing pending follow-ups, skip standard follow-up generation (OutcomeDrawer handles the queue insert)
+- Map to `booking_status_canon = 'ACTIVE'` (keeps them in pipeline)
 
-**New file: `src/pages/CoachMyIntros.tsx`**
+**File: `src/lib/domain/outcomes/types.ts`**
+- Add `'PLANNING_TO_BUY'` to `IntroResult` type
+- Add normalizer mapping: `'planning to buy' → 'PLANNING_TO_BUY'`
+- Map `PLANNING_TO_BUY → ACTIVE` in `mapResultToBookingStatus`
+- Add display formatter: `'Planning to buy'`
 
-A full page component with:
+### Change 3 — Follow-Up Data Hook: New Category
 
-**Data fetching:**
-- Primary: `follow_up_queue` where `coach_owner = currentCoach`, `owner_role = 'Coach'`, `not_interested_at IS NULL`, `transferred_to_sa_at IS NULL`
-- Secondary: `intros_booked` where `coach_name = currentCoach` (all intros ever coached, including joined/cancelled)
-- Merge both sources by booking ID; follow_up_queue provides follow-up status, intros_booked provides member context
-- Fetch `intro_questionnaires` for questionnaire answers
-- Fetch `followup_touches` for last contact info
-- Fetch `intros_run` for outcome/result_canon data
+**File: `src/features/followUp/useFollowUpData.ts`**
+- Add `'planning_to_buy'` to `FollowUpType` union
+- Add new array state for planning-to-buy items
+- In the data fetch, query `follow_up_queue` records with `person_type = 'planning_to_buy'` and merge them into the follow-up list
+- **Key logic**: These items only appear in "Focus Today" when `scheduled_date <= today` (i.e., 1 day before their planned buy date). Before that, they sit in "Coming Up" with a label showing the planned date.
 
-**Page structure:**
-1. Header: "My Intros" + subtitle
-2. Priority alert bar (amber) — count of intros within 48 hours of `class_start_at`, scrolls to first on tap
-3. Filter pills: All | Needs Follow-Up | 2nd Intro | Missed Guest | Joined | No-Show
-4. Card list sorted by priority tier then newest class date
-5. "Caught up" green banner when no follow-ups due
+### Change 4 — Follow-Up List UI: New Filter + Section
 
-**Card collapsed state:** Member name, status badge, days since intro, class date, priority label, expand chevron
+**File: `src/features/followUp/FollowUpList.tsx`**
+- Add `planning_to_buy` to `FilterType`, `TYPE_LABELS`, `TYPE_SHORT_LABELS`, `TYPE_COLORS`
+- Label: "Planning to Buy" — color: blue/teal to distinguish
+- Add filter pill: "Planning to Buy"
+- Cards in this category show the planned buy date and a countdown ("Buying in X days")
 
-**Card expanded state:**
-- Section 1: Member context (name, date, time, outcome, phone, questionnaire answers, SA conversation answers, last contact, contact next editor)
-- Section 2: Actions — "Send Text" (opens ScriptSendDrawer), "Book 2nd Intro" (conditional), "Log as Done" (writes followup_touches, advances cadence)
-- Section 3: Collapsible "View Scripts" section
-- Swipe left: "Not Interested" with confirmation dialog
+### Change 5 — Canon Fallback
 
-**"Log as Done" logic:**
-- Writes to `followup_touches` (same as SA system)
-- Advances `reschedule_contact_date` on the follow_up_queue record:
-  - Touch 1 → +2 days
-  - Touch 2 → +3 days
-  - Touch 3 → +5 days
-  - Touch 4+ → +7 days
-- Increments `touch_number`
-
-**48-hour priority:**
-- Uses `class_start_at` from `intros_booked`
-- Central Time calculation
-- Overdue = contact_next date has passed
-
----
-
-### Change 4 — Route Registration
-
-**File: `src/App.tsx`**
-- Import `CoachMyIntros` page
-- Add route `/my-intros` with `ProtectedRoute` (no `blockCoach`)
-- Accessible to Coach and Admin roles
+**File: `src/lib/canon/canonFallback.ts`**
+- Add `'planning to buy': 'PLANNING_TO_BUY'` to `RESULT_CANON_MAP`
+- Add `PLANNING_TO_BUY` to `ResultCanon` type
+- Not terminal (follow-up continues)
 
 ---
 
 ### Files Changed
-1. `src/pages/CoachView.tsx` — remove Follow-Up tab, keep Intros content only
-2. `src/components/BottomNav.tsx` — add My Intros nav item for Coach + Admin
-3. `src/pages/CoachMyIntros.tsx` — new page (full implementation)
-4. `src/App.tsx` — add `/my-intros` route
+1. `src/components/myday/OutcomeDrawer.tsx` — new outcome + date picker UI
+2. `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` — handle new outcome in pipeline
+3. `src/lib/domain/outcomes/types.ts` — add PLANNING_TO_BUY to type system
+4. `src/lib/canon/canonFallback.ts` — add canon mapping
+5. `src/features/followUp/useFollowUpData.ts` — new follow-up category
+6. `src/features/followUp/FollowUpList.tsx` — new filter pill + display
+7. `src/pages/CoachMyIntros.tsx` — recognize new outcome for coach view
+
+### No Database Migration Needed
+Reuses `follow_up_queue.fitness_goal` (text, nullable) to store the planned buy date. No new columns required.
 
