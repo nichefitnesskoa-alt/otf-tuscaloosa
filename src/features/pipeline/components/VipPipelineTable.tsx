@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   Star, Search, Download, Copy, ChevronUp, ChevronDown, Loader2,
   Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2, Trash2,
-  ArrowRight, UserPlus, Edit2, Check, X,
+  ArrowRight, UserPlus, Edit2, Check, X, Archive, RotateCcw,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -68,6 +68,7 @@ interface VipGroupMeta {
   id: string;
   vip_class_name: string;
   referring_member_name: string | null;
+  archived_at: string | null;
 }
 
 type SortKey = 'memberName' | 'groupName' | 'phone' | 'email' | 'birthday' | 'weight' | 'session' | 'status';
@@ -105,6 +106,8 @@ export function VipPipelineTable() {
   const [rows, setRows] = useState<VipRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
+  const [archivedGroups, setArchivedGroups] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [groupMetas, setGroupMetas] = useState<VipGroupMeta[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [search, setSearch] = useState('');
@@ -180,9 +183,16 @@ export function VipPipelineTable() {
       // Fetch VIP session metas for referring_member_name
       const { data: sessions } = await supabase
         .from('vip_sessions')
-        .select('id, vip_class_name, referring_member_name, status, reserved_by_group');
+        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at');
 
-      setGroupMetas((sessions || []) as VipGroupMeta[]);
+      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
+
+      // Track which groups are archived
+      const archivedSet = new Set<string>();
+      (sessions || []).forEach((s: any) => {
+        if (s.archived_at && s.vip_class_name) archivedSet.add(s.vip_class_name);
+      });
+      setArchivedGroups(archivedSet);
 
       // Build reg map by booking_id
       const regMap = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
@@ -546,21 +556,34 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Only remove VIP sessions/scheduling — client bookings & registrations stay intact
-      await supabase
+      // Archive the group's sessions instead of deleting
+      await (supabase as any)
         .from('vip_sessions')
-        .delete()
+        .update({ archived_at: new Date().toISOString() })
         .eq('vip_class_name', selectedGroup);
 
-      toast.success(`Group "${selectedGroup}" sessions removed. Client data preserved.`);
+      toast.success(`"${selectedGroup}" archived. Client data preserved.`);
       setShowDeleteGroup(false);
       setSelectedGroup('');
       fetchData();
     } catch (err) {
-      console.error('Delete group error:', err);
-      toast.error('Failed to delete group');
+      console.error('Archive group error:', err);
+      toast.error('Failed to archive group');
     } finally {
       setDeletingGroup(false);
+    }
+  };
+
+  const handleUnarchiveGroup = async (groupName: string) => {
+    try {
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: null })
+        .eq('vip_class_name', groupName);
+      toast.success(`"${groupName}" restored`);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to restore group');
     }
   };
 
@@ -575,16 +598,17 @@ export function VipPipelineTable() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-[300px] overflow-y-auto">
-            
-            {groups.map(g => (
-              <SelectItem key={g} value={g}>
-                {g} ({groupCounts.get(g) || 0})
-              </SelectItem>
-            ))}
+            {groups
+              .filter(g => showArchived || !archivedGroups.has(g))
+              .map(g => (
+                <SelectItem key={g} value={g}>
+                  {archivedGroups.has(g) ? '📦 ' : ''}{g} ({groupCounts.get(g) || 0})
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
-        {selectedGroup !== 'All' && (
+        {selectedGroup !== 'All' && !archivedGroups.has(selectedGroup) && (
           <Button
             variant="ghost"
             size="sm"
@@ -596,15 +620,26 @@ export function VipPipelineTable() {
           </Button>
         )}
 
-        {selectedGroup && selectedGroup !== 'All' && (
+        {selectedGroup && selectedGroup !== 'All' && !archivedGroups.has(selectedGroup) && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
+            className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
             onClick={() => setShowDeleteGroup(true)}
-            title={`Delete group ${selectedGroup}`}
+            title={`Archive group ${selectedGroup}`}
           >
-            <Trash2 className="w-3 h-3" /> Delete Group
+            <Archive className="w-3 h-3" /> Archive
+          </Button>
+        )}
+
+        {selectedGroup && archivedGroups.has(selectedGroup) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] gap-1 text-primary"
+            onClick={() => handleUnarchiveGroup(selectedGroup)}
+          >
+            <RotateCcw className="w-3 h-3" /> Restore
           </Button>
         )}
 
@@ -616,6 +651,16 @@ export function VipPipelineTable() {
         >
           <Plus className="w-3 h-3" /> New Group
         </Button>
+        {archivedGroups.size > 0 && (
+          <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer ml-auto">
+            <Checkbox
+              checked={showArchived}
+              onCheckedChange={(v) => setShowArchived(!!v)}
+              className="h-3.5 w-3.5"
+            />
+            Show archived ({archivedGroups.size})
+          </label>
+        )}
       </div>
 
       {/* Registration Link Banner + Referring Member */}
@@ -1166,24 +1211,23 @@ export function VipPipelineTable() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Group Confirmation */}
+      {/* Archive Group Confirmation */}
       <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogTitle>Archive "{selectedGroup}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the group's scheduled sessions from the VIP calendar and this list. All client bookings and registration data will be preserved in the pipeline under the VIP Class lead source.
+              This will hide the group from the dropdown. All client bookings and registration data will be preserved. You can restore it anytime using "Show archived".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingGroup}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deletingGroup}
               onClick={handleDeleteGroup}
             >
               {deletingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-              Delete Group
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

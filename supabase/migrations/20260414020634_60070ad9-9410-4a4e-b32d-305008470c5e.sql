@@ -1,0 +1,1 @@
+ALTER TABLE public.vip_sessions ADD COLUMN archived_at timestamptz DEFAULT NULL;
