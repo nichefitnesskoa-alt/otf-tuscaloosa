@@ -215,6 +215,17 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Realtime: re-run friend detection when pipeline/leads/intros change
+  useEffect(() => {
+    const channel = supabase
+      .channel('friend-showup-detect')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_booked' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'intros_run' }, () => loadData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, () => loadData())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loadData]);
+
   const checkPipelineAndCreateLead = async (friendName: string, friendContact: string, milestoneId: string) => {
     const contact = friendContact.trim().toLowerCase();
     if (!contact) return;
@@ -542,7 +553,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-5 text-[9px] px-2 py-0"
+                                className="h-7 text-[10px] px-3 border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', m.id);
@@ -550,7 +561,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                                   loadData();
                                 }}
                               >
-                                They Came In
+                                <Check className="w-3 h-3 mr-1" /> They Came In
                               </Button>
                             )}
                             {converted ? (
