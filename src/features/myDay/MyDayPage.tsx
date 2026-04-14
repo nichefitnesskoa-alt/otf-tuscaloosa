@@ -318,6 +318,7 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+      <VipClaimBanner />
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
       <div className="px-4 pt-3">
