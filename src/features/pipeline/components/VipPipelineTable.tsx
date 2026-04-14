@@ -556,21 +556,34 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Only remove VIP sessions/scheduling — client bookings & registrations stay intact
-      await supabase
+      // Archive the group's sessions instead of deleting
+      await (supabase as any)
         .from('vip_sessions')
-        .delete()
+        .update({ archived_at: new Date().toISOString() })
         .eq('vip_class_name', selectedGroup);
 
-      toast.success(`Group "${selectedGroup}" sessions removed. Client data preserved.`);
+      toast.success(`"${selectedGroup}" archived. Client data preserved.`);
       setShowDeleteGroup(false);
       setSelectedGroup('');
       fetchData();
     } catch (err) {
-      console.error('Delete group error:', err);
-      toast.error('Failed to delete group');
+      console.error('Archive group error:', err);
+      toast.error('Failed to archive group');
     } finally {
       setDeletingGroup(false);
+    }
+  };
+
+  const handleUnarchiveGroup = async (groupName: string) => {
+    try {
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: null })
+        .eq('vip_class_name', groupName);
+      toast.success(`"${groupName}" restored`);
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to restore group');
     }
   };
 
