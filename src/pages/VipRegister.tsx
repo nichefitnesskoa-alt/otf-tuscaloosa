@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,26 @@ export default function VipRegister() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [resolvedSession, setResolvedSession] = useState<{ id: string; group: string } | null>(null);
+
+  // Resolve session on mount so header shows the matched group name
+  useEffect(() => {
+    if (!vipClassName) return;
+    (async () => {
+      const { data: sessions } = await (supabase as any)
+        .from('vip_sessions')
+        .select('id, reserved_by_group')
+        .eq('status', 'reserved');
+      const match = (sessions || []).find((s: any) =>
+        s.reserved_by_group &&
+        (s.reserved_by_group.toLowerCase().includes(vipClassName.toLowerCase()) ||
+         vipClassName.toLowerCase().includes(s.reserved_by_group.toLowerCase().replace(/\s*(sorority|fraternity|club|group)\s*/gi, '').trim()))
+      );
+      if (match) {
+        setResolvedSession({ id: match.id, group: match.reserved_by_group });
+      }
+    })();
+  }, [vipClassName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,24 +71,9 @@ export default function VipRegister() {
       const memberName = `${firstName.trim()} ${lastName.trim()}`;
       const today = new Date().toISOString().split('T')[0];
 
-      // Try to find matching reserved session by group name (fuzzy)
-      let matchedSessionId: string | null = null;
-      let resolvedClassName = vipClassName || null;
-      if (vipClassName) {
-        const { data: sessions } = await supabase
-          .from('vip_sessions')
-          .select('id, reserved_by_group, vip_class_name')
-          .eq('status', 'reserved' as any) as any;
-        const match = (sessions || []).find((s: any) =>
-          s.reserved_by_group &&
-          (s.reserved_by_group.toLowerCase().includes(vipClassName.toLowerCase()) ||
-           vipClassName.toLowerCase().includes(s.reserved_by_group.toLowerCase().replace(/\s*(sorority|fraternity|club|group)\s*/gi, '').trim()))
-        );
-        if (match) {
-          matchedSessionId = match.id;
-          resolvedClassName = match.reserved_by_group;
-        }
-      }
+      // Use pre-resolved session from mount
+      const matchedSessionId = resolvedSession?.id || null;
+      const resolvedClassName = resolvedSession?.group || vipClassName || null;
 
       // Create booking in intros_booked
       const { data: booking, error: bookingError } = await supabase
@@ -147,7 +152,7 @@ export default function VipRegister() {
             VIP Class Registration
           </div>
           <h1 className="text-2xl font-bold" style={{ color: '#1a1a1a' }}>
-            {vipClassName ? `${vipClassName} VIP Class` : 'Register for VIP Class'}
+            {(resolvedSession?.group || vipClassName) ? `${resolvedSession?.group || vipClassName} VIP Class` : 'Register for VIP Class'}
           </h1>
           <p className="text-sm" style={{ color: '#555' }}>
             Fill out the form below and we'll get you set up for your VIP experience.
