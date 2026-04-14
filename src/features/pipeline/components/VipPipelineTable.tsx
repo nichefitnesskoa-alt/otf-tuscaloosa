@@ -1170,9 +1170,9 @@ export function VipPipelineTable() {
       <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogTitle>Remove group "{selectedGroup}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the entire group, all {rows.filter(r => r.groupName === selectedGroup).length} member(s), their registrations, and associated VIP sessions. This cannot be undone.
+              This will remove the group's scheduled sessions from the VIP calendar and this list. All client bookings and registration data will be preserved in the pipeline under the VIP Class lead source.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
