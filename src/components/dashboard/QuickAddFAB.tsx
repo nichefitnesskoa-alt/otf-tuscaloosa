@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X, Users, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw, FileText } from 'lucide-react';
+import { Plus, X, CalendarPlus, LogOut, ShoppingBag, TrendingUp, Watch, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { WalkInIntroSheet } from '@/components/dashboard/WalkInIntroSheet';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { CloseOutShift } from '@/components/dashboard/CloseOutShift';
 import { WalkInSaleSheet, UpgradeSheet, HRMAddOnSheet } from '@/components/dashboard/OutsideSaleSheets';
 import { FABFollowUpPurchaseSheet } from '@/components/dashboard/FABFollowUpPurchaseSheet';
-import { ActivityTrackerSheet } from '@/components/dashboard/ActivityTrackerSheet';
 
 interface QuickAddFABProps {
   onRefresh: () => void;
@@ -35,23 +33,19 @@ export function QuickAddFAB({
   onEndShift,
 }: QuickAddFABProps) {
   const [expanded, setExpanded] = useState(false);
-  const [showWalkIn, setShowWalkIn] = useState(false);
   const [showBookIntro, setShowBookIntro] = useState(false);
   const [showEndShift, setShowEndShift] = useState(false);
   const [showWalkInSale, setShowWalkInSale] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [showHRM, setShowHRM] = useState(false);
   const [showFollowUpPurchase, setShowFollowUpPurchase] = useState(false);
-  const [showActivityTracker, setShowActivityTracker] = useState(false);
 
-  const handleWalkInIntro = () => { setExpanded(false); setShowWalkIn(true); };
   const handleBookIntro = () => { setExpanded(false); setShowBookIntro(true); };
   const handleEndShift = () => { setExpanded(false); onEndShift?.(); setShowEndShift(true); };
   const handleWalkInSale = () => { setExpanded(false); setShowWalkInSale(true); };
   const handleUpgrade = () => { setExpanded(false); setShowUpgrade(true); };
   const handleHRM = () => { setExpanded(false); setShowHRM(true); };
   const handleFollowUpPurchase = () => { setExpanded(false); setShowFollowUpPurchase(true); };
-  const handleLogActivity = () => { setExpanded(false); setShowActivityTracker(true); };
 
   const actions = [
     {
@@ -61,22 +55,10 @@ export function QuickAddFAB({
       color: 'bg-destructive text-destructive-foreground',
     },
     {
-      icon: FileText,
-      label: 'Log Activity',
-      onClick: handleLogActivity,
-      color: 'bg-teal-600 text-white',
-    },
-    {
       icon: CalendarPlus,
       label: 'Book Intro',
       onClick: handleBookIntro,
       color: 'bg-primary text-primary-foreground',
-    },
-    {
-      icon: Users,
-      label: 'Walk-In Intro',
-      onClick: handleWalkInIntro,
-      color: 'bg-orange-500 text-white',
     },
     {
       icon: ShoppingBag,
@@ -139,13 +121,11 @@ export function QuickAddFAB({
         </Button>
       </div>
 
-      <WalkInIntroSheet open={showWalkIn} onOpenChange={setShowWalkIn} onSaved={onRefresh} />
       <BookIntroSheet open={showBookIntro} onOpenChange={setShowBookIntro} onSaved={onRefresh} />
       <WalkInSaleSheet open={showWalkInSale} onOpenChange={setShowWalkInSale} onSaved={onRefresh} />
       <UpgradeSheet open={showUpgrade} onOpenChange={setShowUpgrade} onSaved={onRefresh} />
       <HRMAddOnSheet open={showHRM} onOpenChange={setShowHRM} onSaved={onRefresh} />
       <FABFollowUpPurchaseSheet open={showFollowUpPurchase} onOpenChange={setShowFollowUpPurchase} onSaved={onRefresh} />
-      <ActivityTrackerSheet open={showActivityTracker} onOpenChange={setShowActivityTracker} />
 
       {/* End Shift dialog */}
       <CloseOutShift
