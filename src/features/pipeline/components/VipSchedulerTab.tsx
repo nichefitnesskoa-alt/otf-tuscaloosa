@@ -339,75 +339,7 @@ export function VipSchedulerTab() {
                         }}>
                           <Copy className="w-3.5 h-3.5" /> Copy Member Link
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => {
-                          const regUrl = `https://otf-tuscaloosa.lovable.app/vip/${s.shareable_slug}/register`;
-                          const d = new Date(s.session_date + 'T00:00:00');
-                          const prettyDate = format(d, 'EEEE, MMMM d, yyyy');
-                          const prettyTime = formatDisplayTime(s.session_time);
-                          const safeGroup = (s.reserved_by_group || 'VIP').replace(/[^a-zA-Z0-9]/g, '-');
-                          const fileName = `OTF-VIP-${safeGroup}-${s.session_date}.png`;
-
-                          // Render a temporary QR canvas
-                          const tempDiv = document.createElement('div');
-                          tempDiv.style.position = 'fixed';
-                          tempDiv.style.left = '-9999px';
-                          document.body.appendChild(tempDiv);
-
-                          const tmpCanvas = document.createElement('canvas');
-                          tmpCanvas.id = 'tmp-qr-dl';
-                          tempDiv.appendChild(tmpCanvas);
-
-                          // Use a small delay to let QR render
-                          import('qrcode.react').then(({ QRCodeCanvas: QRC }) => {
-                            const { createRoot } = require('react-dom/client');
-                            const root = createRoot(tempDiv);
-                            const React = require('react');
-                            root.render(React.createElement(QRC, {
-                              id: 'tmp-qr-dl',
-                              value: regUrl,
-                              size: 400,
-                              bgColor: '#FFFFFF',
-                              fgColor: '#000000',
-                              level: 'M',
-                            }));
-                            setTimeout(() => {
-                              const qrCanvas = document.getElementById('tmp-qr-dl') as HTMLCanvasElement | null;
-                              const canvas = document.createElement('canvas');
-                              const size = 600;
-                              const padding = 60;
-                              const textAreaHeight = 120;
-                              const totalHeight = size + padding * 2 + textAreaHeight;
-                              const totalWidth = size + padding * 2;
-                              canvas.width = totalWidth;
-                              canvas.height = totalHeight;
-                              const ctx = canvas.getContext('2d');
-                              if (ctx) {
-                                ctx.fillStyle = '#FFFFFF';
-                                ctx.fillRect(0, 0, totalWidth, totalHeight);
-                                if (qrCanvas) ctx.drawImage(qrCanvas, padding, padding, size, size);
-                                ctx.strokeStyle = '#E8540A';
-                                ctx.lineWidth = 4;
-                                ctx.strokeRect(padding - 6, padding - 6, size + 12, size + 12);
-                                const textY = padding + size + 30;
-                                ctx.fillStyle = '#1a1a1a';
-                                ctx.textAlign = 'center';
-                                ctx.font = 'bold 22px sans-serif';
-                                ctx.fillText('OTF Tuscaloosa — Private Group Class', totalWidth / 2, textY);
-                                ctx.font = '18px sans-serif';
-                                ctx.fillText(`${prettyDate} at ${prettyTime}`, totalWidth / 2, textY + 32);
-                                ctx.font = '16px sans-serif';
-                                ctx.fillStyle = '#666666';
-                                ctx.fillText('Scan to register before class', totalWidth / 2, textY + 62);
-                                const link = document.createElement('a');
-                                link.download = fileName;
-                                link.href = canvas.toDataURL('image/png');
-                                link.click();
-                              }
-                              root.unmount();
-                              document.body.removeChild(tempDiv);
-                            }, 300);
-                          });
-                        }}>
+                        <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => setQrSession(s)}>
                           <Download className="w-3.5 h-3.5" /> Download QR
                         </Button>
                       </>
