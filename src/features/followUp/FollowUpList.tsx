@@ -26,6 +26,7 @@ const TYPE_LABELS: Record<FollowUpType, string> = {
   reschedule: 'Planning to Reschedule',
   didnt_buy_1st: "Didn't Buy (1st Intro - Try to Reschedule 2nd)",
   didnt_buy_2nd: "Didn't Buy (2nd Intro - Final Reach Out)",
+  planning_to_buy: 'Planning to Buy',
 };
 
 const TYPE_SHORT_LABELS: Record<FollowUpType, string> = {
@@ -34,6 +35,7 @@ const TYPE_SHORT_LABELS: Record<FollowUpType, string> = {
   reschedule: 'Reschedule',
   didnt_buy_1st: "DB 1st",
   didnt_buy_2nd: "DB 2nd",
+  planning_to_buy: 'Plan Buy',
 };
 
 const TYPE_COLORS: Record<FollowUpType, string> = {
@@ -42,6 +44,7 @@ const TYPE_COLORS: Record<FollowUpType, string> = {
   reschedule: 'bg-purple-500/15 text-purple-600',
   didnt_buy_1st: 'bg-orange-500/15 text-orange-600',
   didnt_buy_2nd: 'bg-amber-600/15 text-amber-700',
+  planning_to_buy: 'bg-teal-500/15 text-teal-600',
 };
 
 function getPriority(item: FollowUpItem, todayStr: string): { score: number; label: string; color: string } {
@@ -127,6 +130,7 @@ export default function FollowUpList({ onCountChange, onRefresh }: FollowUpListP
     { key: 'reschedule', label: 'Planning to Reschedule' },
     { key: 'didnt_buy_1st', label: "Didn't Buy (1st)" },
     { key: 'didnt_buy_2nd', label: "Didn't Buy (2nd)" },
+    { key: 'planning_to_buy', label: 'Planning to Buy' },
     { key: 'transferred', label: 'Transferred' },
   ];
 
@@ -279,6 +283,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
       reschedule: 'reschedule',
       didnt_buy_1st: 'follow_up',
       didnt_buy_2nd: 'follow_up',
+      planning_to_buy: 'follow_up',
     };
     window.dispatchEvent(new CustomEvent('myday:open-script', {
       detail: { bookingId: item.bookingId, category: categoryMap[item.followUpType], fromFollowUp: true },
@@ -351,6 +356,18 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           {(item as any).transferredFromCoach && (
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
               Transferred from Coach
+            </span>
+          )}
+          {item.plannedBuyDate && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-600">
+              Buying {(() => {
+                try {
+                  const days = differenceInDays(new Date(item.plannedBuyDate + 'T12:00:00'), new Date());
+                  if (days <= 0) return 'today';
+                  if (days === 1) return 'tomorrow';
+                  return `in ${days} days`;
+                } catch { return item.plannedBuyDate; }
+              })()}
             </span>
           )}
         </div>

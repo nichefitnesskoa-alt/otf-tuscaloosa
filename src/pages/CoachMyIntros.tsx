@@ -160,6 +160,7 @@ function getStatusBadge(resultCanon: string, transferred: boolean): { label: str
     case 'NO_SHOW': return { label: 'No-Show', color: 'bg-destructive text-destructive-foreground' };
     case 'MISSED_GUEST': return { label: 'Missed Guest', color: 'bg-amber-500 text-white' };
     case 'SECOND_INTRO': return { label: '2nd Intro Planned', color: 'bg-teal-600 text-white' };
+    case 'PLANNING_TO_BUY': return { label: 'Planning to Buy', color: 'bg-teal-500 text-white' };
     default: return { label: 'Unresolved', color: 'bg-muted text-muted-foreground' };
   }
 }

@@ -10,6 +10,7 @@ export type ResultCanon =
   | 'NOT_INTERESTED'
   | 'FOLLOW_UP_NEEDED'
   | 'SECOND_INTRO_SCHEDULED'
+  | 'PLANNING_TO_BUY'
   | 'UNRESOLVED';
 
 export type BookingTypeCanon = 'STANDARD' | 'VIP' | 'COMP';
@@ -59,6 +60,7 @@ const RESULT_CANON_MAP: Record<string, ResultCanon> = {
   'follow up needed': 'FOLLOW_UP_NEEDED',
   'booked 2nd intro': 'SECOND_INTRO_SCHEDULED',
   'second intro scheduled': 'SECOND_INTRO_SCHEDULED',
+  'planning to buy': 'PLANNING_TO_BUY',
 };
 
 /**

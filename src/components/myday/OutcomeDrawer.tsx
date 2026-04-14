@@ -40,6 +40,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'No-show', label: '👻 No-show' },
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
+  { value: 'Planning to buy', label: '🛒 Planning to buy' },
   { value: 'Not interested', label: '🚫 Not interested' },
 ];
 
@@ -134,6 +135,10 @@ export function OutcomeDrawer({
   const [secondIntroCoach, setSecondIntroCoach] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Planning to buy state
+  const [planningToBuyDate, setPlanningToBuyDate] = useState<Date | undefined>(undefined);
+  const [planningToBuyCalendarOpen, setPlanningToBuyCalendarOpen] = useState(false);
+
   // Load linked 2nd intro booking if outcome was "Booked 2nd intro"
   const [linkedSecondIntro, setLinkedSecondIntro] = useState<{ date: string; time: string; coach: string } | null>(null);
 
@@ -185,11 +190,12 @@ export function OutcomeDrawer({
   const isReschedule = outcome === 'Reschedule';
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
+  const isPlanningToBuy = outcome === 'Planning to buy';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !!outcome;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
@@ -297,6 +303,59 @@ export function OutcomeDrawer({
         });
 
         toast.success(`${memberName} — 2nd Intro follow-ups created (Day 2 & Day 7)`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Planning to Buy: log outcome + create deferred follow-up (1 day before buy date)
+    if (isPlanningToBuy) {
+      if (!planningToBuyDate) { toast.error('Select when they plan on buying'); return; }
+      setSaving(true);
+      try {
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'Planning to buy',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'Planning to buy',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
+
+        // Delete existing follow-up queue entries for this booking
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', bookingId)
+          .eq('status', 'pending');
+
+        // Insert follow-up scheduled 1 day before their planned buy date
+        const buyDateStr = format(planningToBuyDate, 'yyyy-MM-dd');
+        const followUpDate = format(addDays(planningToBuyDate, -1), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'planning_to_buy',
+          trigger_date: classDate,
+          scheduled_date: followUpDate,
+          touch_number: 1,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+          fitness_goal: buyDateStr, // Store planned buy date here
+        });
+
+        toast.success(`${memberName} — follow-up scheduled for ${format(addDays(planningToBuyDate, -1), 'MMM d')} (1 day before planned purchase)`);
         onSaved();
       } catch (err: any) {
         toast.error(err?.message || 'Failed to save');
@@ -785,6 +844,45 @@ export function OutcomeDrawer({
         </div>
       )}
 
+      {/* Planning to Buy — date picker */}
+      {isPlanningToBuy && (
+        <div className="space-y-2 rounded-md p-2 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800">
+          <p className="text-xs text-teal-800 dark:text-teal-200 font-medium">
+            🛒 When do they plan on buying? We'll only follow up 1 day before that date.
+          </p>
+          <div className="space-y-1">
+            <Label className="text-xs text-teal-800 dark:text-teal-200">Planned purchase date <span className="text-destructive">*</span></Label>
+            <Popover open={planningToBuyCalendarOpen} onOpenChange={setPlanningToBuyCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('w-full h-8 text-sm justify-start font-normal', !planningToBuyDate && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                  {planningToBuyDate ? format(planningToBuyDate, 'MMM d, yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={planningToBuyDate}
+                  onSelect={(d) => { setPlanningToBuyDate(d); setPlanningToBuyCalendarOpen(false); }}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-teal-800 dark:text-teal-200">Notes <span className="font-normal opacity-70">(optional)</span></Label>
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Waiting for paycheck, starting new job…"
+              className="text-xs h-16 resize-none"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Planning to Reschedule — notes field */}
       {isPlanningToReschedule && (
         <div className="space-y-2 rounded-md p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
@@ -804,7 +902,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && (
+      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
         <div className="space-y-1">
           <Label className="text-xs">
             Coach who taught the class
@@ -852,7 +950,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Notes */}
-      {!isReschedule && !isPlanningToReschedule && (
+      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
         <div className="space-y-1">
           <Label className="text-xs">Notes (optional)</Label>
           <Textarea
@@ -872,7 +970,7 @@ export function OutcomeDrawer({
           disabled={saving || !outcome}
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : 'Save Outcome'}
+          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : 'Save Outcome'}
         </Button>
         <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>
           Cancel
