@@ -283,6 +283,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
       reschedule: 'reschedule',
       didnt_buy_1st: 'follow_up',
       didnt_buy_2nd: 'follow_up',
+      planning_to_buy: 'follow_up',
     };
     window.dispatchEvent(new CustomEvent('myday:open-script', {
       detail: { bookingId: item.bookingId, category: categoryMap[item.followUpType], fromFollowUp: true },
