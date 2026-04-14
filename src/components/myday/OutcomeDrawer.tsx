@@ -312,6 +312,59 @@ export function OutcomeDrawer({
       return;
     }
 
+    // Planning to Buy: log outcome + create deferred follow-up (1 day before buy date)
+    if (isPlanningToBuy) {
+      if (!planningToBuyDate) { toast.error('Select when they plan on buying'); return; }
+      setSaving(true);
+      try {
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'Planning to buy',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'Planning to buy',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
+
+        // Delete existing follow-up queue entries for this booking
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', bookingId)
+          .eq('status', 'pending');
+
+        // Insert follow-up scheduled 1 day before their planned buy date
+        const buyDateStr = format(planningToBuyDate, 'yyyy-MM-dd');
+        const followUpDate = format(addDays(planningToBuyDate, -1), 'yyyy-MM-dd');
+        await supabase.from('follow_up_queue').insert({
+          booking_id: bookingId,
+          person_name: memberName,
+          person_type: 'planning_to_buy',
+          trigger_date: classDate,
+          scheduled_date: followUpDate,
+          touch_number: 1,
+          status: 'pending',
+          is_vip: false,
+          is_legacy: false,
+          fitness_goal: buyDateStr, // Store planned buy date here
+        });
+
+        toast.success(`${memberName} — follow-up scheduled for ${format(addDays(planningToBuyDate, -1), 'MMM d')} (1 day before planned purchase)`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
   // Planning to Reschedule: mark booking + add to follow-up queue
     if (isPlanningToReschedule) {
       setSaving(true);
