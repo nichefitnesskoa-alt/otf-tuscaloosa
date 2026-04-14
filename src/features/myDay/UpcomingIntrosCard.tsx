@@ -53,7 +53,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     return { start: weekData.weekStart, end: weekData.weekEnd };
   }, [isWeekFullView, weekData.weekStart, weekData.weekEnd]);
 
-  const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll } = useUpcomingIntrosData({
+  const { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll, silentRefresh } = useUpcomingIntrosData({
     timeRange,
     dateOverrides,
   });
@@ -436,7 +436,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                           userName={userName}
                           onSendQ={handleSendQ}
                           onConfirm={handleConfirm}
-                          onRefresh={refreshAll}
+                          onRefresh={silentRefresh}
                           needsOutcome={false}
                           confirmResults={confirmResults}
                           focusedBookingId={null}
@@ -460,7 +460,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                     userName={userName}
                     onSendQ={handleSendQ}
                     onConfirm={handleConfirm}
-                    onRefresh={refreshAll}
+                    onRefresh={silentRefresh}
                     needsOutcome={false}
                     confirmResults={confirmResults}
                     focusedBookingId={selectedIsToday ? focusedBookingId : null}
@@ -493,7 +493,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                   userName={userName}
                   onSendQ={handleSendQ}
                   onConfirm={handleConfirm}
-                  onRefresh={refreshAll}
+                  onRefresh={silentRefresh}
                   needsOutcome={timeRange === 'needsOutcome'}
                   confirmResults={confirmResults}
                   focusedBookingId={focusedBookingId}

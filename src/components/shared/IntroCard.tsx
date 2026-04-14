@@ -64,7 +64,7 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
     const { error } = await supabase.from('intros_booked').update({
       [field]: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) { toast.error('Save failed'); setVal(value); } else { toast.success('Saved'); onSaved(); }
+    if (error) { toast.error('Save failed'); setVal(value); } else { toast.success('Saved'); }
   };
 
   if (!editing) {
@@ -92,7 +92,7 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
     const { error } = await supabase.from('intros_booked').update({
       [field]: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); onSaved(); }
+    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
   };
 
   return (
@@ -122,7 +122,7 @@ function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
     const { error } = await supabase.from('intros_booked').update({
       intro_time: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); onSaved(); }
+    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
   };
 
   const handleSelect = (val: string) => {
@@ -176,7 +176,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
     const { error } = await supabase.from('intros_booked').update({
       class_date: ymd, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); onSaved(); }
+    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
   };
 
   return (

@@ -196,7 +196,7 @@ export default function PipelinePage() {
               activeTab={pipeline.activeTab}
               isOnline={isOnline}
               onOpenDialog={openDialog}
-              onRefresh={pipeline.refreshAll}
+              onRefresh={pipeline.silentRefreshAll}
               onOpenScript={(j) => setScriptJourney(j)}
             />
           )}

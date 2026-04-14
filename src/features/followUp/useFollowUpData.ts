@@ -7,7 +7,7 @@
  * 4. Didn't Buy (1st Intro) — DIDNT_BUY + not 2nd intro
  * 5. Didn't Buy (2nd Intro) — DIDNT_BUY + is 2nd intro / State B
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,8 +76,10 @@ export function useFollowUpData() {
   const [plansToRescheduleCooling, setPlansToRescheduleCooling] = useState<FollowUpItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const isFirstLoad = useRef(true);
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       const cutoff = format(subDays(new Date(), 90), 'yyyy-MM-dd');
@@ -470,8 +472,11 @@ export function useFollowUpData() {
       console.error('Follow-up data fetch error:', err);
     } finally {
       setIsLoading(false);
+      isFirstLoad.current = false;
     }
   }, []);
+
+  const silentRefresh = useCallback(() => fetchData(true), [fetchData]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -502,5 +507,6 @@ export function useFollowUpData() {
     counts,
     isLoading,
     refresh: fetchData,
+    silentRefresh,
   };
 }

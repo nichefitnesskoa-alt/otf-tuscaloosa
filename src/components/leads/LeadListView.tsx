@@ -211,7 +211,6 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                     type="tel"
                     onSave={async (val) => {
                       await supabase.from('leads').update({ phone: val }).eq('id', lead.id);
-                      onRefresh?.();
                     }}
                     muted={!lead.phone}
                   />
@@ -223,7 +222,6 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                     type="email"
                     onSave={async (val) => {
                       await supabase.from('leads').update({ email: val }).eq('id', lead.id);
-                      onRefresh?.();
                     }}
                     muted={!lead.email}
                   />

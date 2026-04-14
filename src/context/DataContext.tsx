@@ -108,6 +108,7 @@ interface DataContextType {
   pendingQueueCount: number;
   usingCachedData: boolean;
   refreshData: () => Promise<void>;
+  silentRefreshData: () => Promise<void>;
   refreshFollowUps: () => Promise<void>;
   refreshTouches: () => Promise<void>;
   runSyncNow: () => Promise<SyncResult>;
@@ -167,8 +168,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const cutoff = getCutoffFilter();
 
@@ -245,6 +246,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await fetchData();
   }, [fetchData]);
 
+  const silentRefreshData = useCallback(async () => {
+    await fetchData(true);
+  }, [fetchData]);
+
   const refreshFollowUps = useCallback(async () => {
     try {
       const cutoff = getCutoffFilter();
@@ -300,6 +305,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       pendingQueueCount,
       usingCachedData,
       refreshData,
+      silentRefreshData,
       refreshFollowUps,
       refreshTouches,
       runSyncNow,

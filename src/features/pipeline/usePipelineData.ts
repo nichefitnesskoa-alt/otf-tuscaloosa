@@ -2,7 +2,7 @@
  * Hook that fetches Pipeline data and returns derived, memoized structures.
  * Uses canon fields first with legacy fallback.
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useData } from '@/context/DataContext';
 import { toast } from 'sonner';
@@ -39,8 +39,10 @@ export function usePipelineData() {
   const [filterInconsistencies, setFilterInconsistencies] = useState(false);
   const [selectedLeadSource, setSelectedLeadSource] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const isFirstLoad = useRef(true);
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [bookingsRes, runsRes, actionsRes] = await Promise.all([
         supabase.from('intros_booked').select(BOOKING_SELECT).is('deleted_at', null).order('created_at', { ascending: false }),
@@ -67,8 +69,11 @@ export function usePipelineData() {
       toast.error('Failed to load pipeline data');
     } finally {
       setIsLoading(false);
+      isFirstLoad.current = false;
     }
   }, []);
+
+  const silentRefresh = useCallback(() => fetchData(true), [fetchData]);
 
   const fetchVipInfo = useCallback(async () => {
     const { data } = await supabase.from('vip_registrations').select('booking_id, birthday, weight_lbs, phone, email');
@@ -115,6 +120,10 @@ export function usePipelineData() {
     await refreshGlobalData();
   }, [fetchData, refreshGlobalData]);
 
+  const silentRefreshAll = useCallback(async () => {
+    await fetchData(true);
+  }, [fetchData]);
+
   return {
     // Data
     bookings,
@@ -140,5 +149,7 @@ export function usePipelineData() {
     // Actions
     fetchData,
     refreshAll,
+    silentRefresh,
+    silentRefreshAll,
   };
 }

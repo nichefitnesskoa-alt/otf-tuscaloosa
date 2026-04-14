@@ -2,7 +2,7 @@
  * Canonical data hook for the My Day upcoming intros queue.
  * Three modes: "today", "restOfWeek" (tomorrow through Sunday), "needsOutcome" (past, unresolved).
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, endOfWeek, startOfWeek, addDays, subDays } from 'date-fns';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -24,6 +24,7 @@ interface UseUpcomingIntrosReturn {
   isOnline: boolean;
   isCapped: boolean;
   refreshAll: () => Promise<void>;
+  silentRefresh: () => Promise<void>;
 }
 
 function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: string } {
@@ -67,9 +68,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [isCapped, setCapped] = useState(false);
   const isOnline = useOnlineStatus();
+  const isFirstLoad = useRef(true);
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const { start, end } = options.dateOverrides || getDateRange(options);
 
@@ -487,12 +489,15 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       console.error('useUpcomingIntrosData fetch error:', err);
     } finally {
       setIsLoading(false);
+      isFirstLoad.current = false;
     }
   }, [options.timeRange, options.dateOverrides?.start, options.dateOverrides?.end]);
+
+  const silentRefresh = useCallback(() => fetchData(true), [fetchData]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  return { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll: fetchData };
+  return { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll: fetchData, silentRefresh };
 }
