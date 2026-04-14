@@ -559,7 +559,12 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Archive the group's sessions instead of deleting
+      // Archive the group's sessions — match by reserved_by_group (user-facing name) OR vip_class_name
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('reserved_by_group', selectedGroup);
+      // Also archive any sessions matched by vip_class_name
       await (supabase as any)
         .from('vip_sessions')
         .update({ archived_at: new Date().toISOString() })
@@ -579,6 +584,10 @@ export function VipPipelineTable() {
 
   const handleUnarchiveGroup = async (groupName: string) => {
     try {
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: null })
+        .eq('reserved_by_group', groupName);
       await (supabase as any)
         .from('vip_sessions')
         .update({ archived_at: null })
