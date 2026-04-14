@@ -1488,6 +1488,7 @@ export type Database = {
           five_class_pack_gifted: boolean
           friend_contact: string | null
           friend_name: string | null
+          friend_showed_up: boolean
           id: string
           last_edited_at: string | null
           last_edited_by: string | null
@@ -1505,6 +1506,7 @@ export type Database = {
           five_class_pack_gifted?: boolean
           friend_contact?: string | null
           friend_name?: string | null
+          friend_showed_up?: boolean
           id?: string
           last_edited_at?: string | null
           last_edited_by?: string | null
@@ -1522,6 +1524,7 @@ export type Database = {
           five_class_pack_gifted?: boolean
           friend_contact?: string | null
           friend_name?: string | null
+          friend_showed_up?: boolean
           id?: string
           last_edited_at?: string | null
           last_edited_by?: string | null

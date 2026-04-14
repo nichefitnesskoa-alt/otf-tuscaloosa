@@ -1,0 +1,1 @@
+ALTER TABLE public.milestones ADD COLUMN friend_showed_up boolean NOT NULL DEFAULT false;
