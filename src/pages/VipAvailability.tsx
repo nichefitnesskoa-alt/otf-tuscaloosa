@@ -161,21 +161,11 @@ function ClaimDialog({
         },
       });
 
-      // Post to GroupMe
-      try {
-        await supabase.functions.invoke('post-groupme', {
-          body: {
-            action: 'test', // reuse test action to post a custom message
-          },
-        });
-        // Actually send a custom message via the bot
-        const gmMsg = `🎉 VIP Class Claimed!\n${groupName.trim()} booked ${formattedDate} at ${formattedTime}\nType: ${sessionType === 'exclusive' ? 'Private — Group Only' : 'Business'}\nContact: ${name.trim()} (${phone.trim()})`;
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/post-groupme`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-          body: JSON.stringify({ action: 'custom', text: gmMsg }),
-        }).catch(() => {}); // non-blocking
-      } catch {}
+      // Post to GroupMe (non-blocking)
+      const gmMsg = `🎉 VIP Class Claimed!\n${groupName.trim()} booked ${formattedDate} at ${formattedTime}\nType: ${sessionType === 'exclusive' ? 'Private — Group Only' : 'Business'}\nContact: ${name.trim()} (${phone.trim()})`;
+      supabase.functions.invoke('post-groupme', {
+        body: { action: 'custom', text: gmMsg },
+      }).catch(() => {});
 
       setConfirmed(true);
       onClaimed(session.id);
