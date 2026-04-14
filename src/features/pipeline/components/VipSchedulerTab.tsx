@@ -136,7 +136,8 @@ export function VipSchedulerTab() {
       const { data: regs } = await sb
         .from('vip_registrations')
         .select('vip_session_id')
-        .in('vip_session_id', ids);
+        .in('vip_session_id', ids)
+        .eq('is_group_contact', false);
       const counts: Record<string, number> = {};
       for (const r of (regs || [])) {
         counts[(r as any).vip_session_id] = (counts[(r as any).vip_session_id] || 0) + 1;
