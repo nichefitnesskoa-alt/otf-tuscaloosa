@@ -1,61 +1,79 @@
 
 
-## Plan: Coach Close Counts, Pack Redemption Tracking, New Lead Source
+## Plan: Replace "Classes Redeemed" with "Friend Showed Up" Tracking (3 Detection Methods)
 
-Four changes to the WIG page and lead sources.
+The current system tracks `classesRedeemed` count which is misleading. Replace with a simple boolean: did the friend take their first class or not? Three ways to determine this.
 
 ---
 
-### Change 1 — Coach Lead Measures: Add Closes Column + Rename Overall
+### Database Change
 
-**File: `src/pages/Wig.tsx`**
+**Migration: Add `friend_showed_up` column to `milestones`**
+```sql
+ALTER TABLE public.milestones 
+  ADD COLUMN friend_showed_up boolean NOT NULL DEFAULT false;
+```
 
-- In the coach data computation (~line 443), add `closes: cl.closed` to the returned object (it already has `closeRate` and `closeTotal`).
-- Reorder table columns to: Coach | Coached | Closes | Close % | Overall WIG % | Pre % | Post % | Got Curious % | Pairing %
-- Rename "Overall %" header to "Overall WIG %"
-- Add a new `<TableCell>` for Closes showing `row.closes` (the `cl.closed` count — already computed but not exposed)
-- The data already filters to first intros only and uses Total Journey logic. Verify `closeTotal` is used as the denominator (it is — line 451). No logic changes needed.
+This stores the definitive answer regardless of which detection method triggered it.
 
-### Change 2 — Celebrations: Track Pack Redemption & Conversion
+---
+
+### Change 1 — Auto-Detection on Load
+
+**File: `src/components/dashboard/MilestonesDeploySection.tsx`**
+
+In `loadData()`, replace the current per-friend query loop (lines 132-160) with simpler logic:
+
+For each milestone with `five_class_pack_gifted = true` AND `friend_name` set:
+1. **Pipeline check**: Search `intros_booked` by name (case-insensitive) for any booking with `booking_status_canon = 'SHOWED'`
+2. **Lead source check**: Search `leads` by name where `source = 'Member Referral (5 class pack)'`, then check if that lead's `booked_intro_id` links to a SHOWED booking
+3. **Sale check**: If any linked run has `result_canon = 'SALE'`, mark `convertedToMember = true`
+
+If any check finds a SHOWED booking AND `friend_showed_up` is currently `false` on the milestone, auto-update it to `true` in the database silently.
+
+Replace `FriendTrackingInfo` interface:
+```typescript
+interface FriendTrackingInfo {
+  friendShowedUp: boolean;
+  convertedToMember: boolean;
+}
+```
+
+Replace summary fields: remove `classesRedeemed`, add `friendsShowedUp` count.
+
+---
+
+### Change 2 — Manual "They Came In" Button on Each Card
 
 **File: `src/components/dashboard/MilestonesDeploySection.tsx`**
 
-The friend from a pack is already added to the `leads` table with `converted_to_lead_id` linking back. To check if they showed up and converted:
+On each celebration row where `five_class_pack_gifted = true` AND `friend_name` exists:
+- If `friend_showed_up = false` (and auto-detect didn't find them): show a button **"They Came In"** that sets `friend_showed_up = true` on the milestone record
+- If `friend_showed_up = true`: show a green badge **"Friend Showed Up"**
+- If `convertedToMember = true`: show green badge **"Converted to Member"** (replaces "Converted")
 
-- In `loadData()`, after fetching milestones, for each milestone with `five_class_pack_gifted = true` AND `friend_name` set:
-  - Query `intros_booked` for `member_name` matching `friend_name` (case-insensitive) to check if they have bookings
-  - Query `intros_run` for any linked runs with `result_canon = 'SALE'` to check conversion
-  - Also check if lead_source matches "Member Referral (5 class pack)" on their bookings
-- Store results in a map: `friendId → { classesRedeemed: number, convertedToMember: boolean }`
-- Add two new summary cards: "Classes Redeemed" (total bookings by pack friends that showed) and "Converted to Member" (count of pack friends with a sale)
-- On each celebration row where `five_class_pack_gifted = true`, show badges:
-  - "X classes redeemed" (green if > 0, muted if 0)
-  - "Converted" (green) or "Not yet converted" (muted)
+Remove the old "X classes redeemed" badge entirely.
 
-### Change 3 — New Lead Source: "Member Referral (5 class pack)"
+---
 
-**File: `src/types/index.ts`**
-- Add `'Member Referral (5 class pack)'` to `LEAD_SOURCES` array (alphabetically after 'Member Referral')
+### Change 3 — Lead Source as Detection Path
 
-**File: `src/components/dashboard/MilestonesDeploySection.tsx`**
-- When creating a lead from a celebration friend (`checkPipelineAndCreateLead`), change the source from `'Milestone Referral'` to `'Member Referral (5 class pack)'`
+Already handled in Change 1's logic. When a lead exists with source `'Member Referral (5 class pack)'` and their name matches the friend, the system checks their booking status. This is a third detection vector alongside direct name search in `intros_booked`.
 
-**File: `src/components/dashboard/BookIntroSheet.tsx`**
-- No special picker needed for this source — it's a standard booking
+---
 
-### Change 4 — Ensure Total Journey on Coach Close Data
+### Summary Card Updates
 
-Already confirmed: the coach close rate computation (lines 408-430) only looks at `showedFirstIntroBookings` which filters `!b.originating_booking_id || !!b.referred_by_member_name`. However, Total Journey means if a 2nd intro results in a sale, the coach of the 1st intro gets credit. Current logic only checks runs linked to first-intro bookings — it misses sales on 2nd intros.
-
-**Fix in `src/pages/Wig.tsx`** (~line 408-430):
-- After getting runs for first-intro bookings, also check if there's a 2nd-intro booking (via `originating_booking_id`) that has a SALE result
-- For each first-intro booking ID, query if any booking in `intros_booked` has `originating_booking_id = firstIntroId` and its linked run has `result_canon = 'SALE'`
-- This mirrors the PerCoachTable logic already in the codebase
+Replace:
+- "Classes redeemed" → **"Friends Showed Up"** (count of milestones where `friend_showed_up = true`)
+- Keep "Converted to member" as-is
 
 ---
 
 ### Files Changed
-1. `src/pages/Wig.tsx` — add Closes column, rename Overall WIG %, fix Total Journey
-2. `src/components/dashboard/MilestonesDeploySection.tsx` — pack redemption tracking, update lead source
-3. `src/types/index.ts` — add "Member Referral (5 class pack)"
+1. **Database migration** — add `friend_showed_up` boolean to `milestones`
+2. `src/components/dashboard/MilestonesDeploySection.tsx` — replace tracking logic, add manual button, update summary cards and badges
+
+### No Other Downstream Effects
+The `friend_showed_up` column is only read/written in this component. The `FriendTrackingInfo` interface is local. No other pages reference `classesRedeemed`.
 
