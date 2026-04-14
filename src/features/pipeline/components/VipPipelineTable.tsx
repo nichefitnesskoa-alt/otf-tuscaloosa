@@ -546,30 +546,13 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Get all booking IDs for this group
-      const groupRows = rows.filter(r => r.groupName === selectedGroup);
-      const bookingIds = groupRows.map(r => r.bookingId);
-
-      // Soft-delete all bookings in this group
-      if (bookingIds.length > 0) {
-        await supabase
-          .from('intros_booked')
-          .update({ deleted_at: new Date().toISOString(), deleted_by: user?.name || 'staff' } as any)
-          .in('id', bookingIds);
-        // Delete registrations
-        await supabase
-          .from('vip_registrations')
-          .delete()
-          .in('booking_id', bookingIds);
-      }
-
-      // Delete vip_sessions for this group
+      // Only remove VIP sessions/scheduling — client bookings & registrations stay intact
       await supabase
         .from('vip_sessions')
         .delete()
         .eq('vip_class_name', selectedGroup);
 
-      toast.success(`Group "${selectedGroup}" and all its members deleted`);
+      toast.success(`Group "${selectedGroup}" sessions removed. Client data preserved.`);
       setShowDeleteGroup(false);
       setSelectedGroup('');
       fetchData();
