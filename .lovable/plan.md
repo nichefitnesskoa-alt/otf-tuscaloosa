@@ -1,128 +1,109 @@
 
 
-# App-Wide Card Stability Fix
+# VIP Class Performance Tracking & Booking Integration
 
-## Problem
+## Database Changes
 
-When you edit a coach (or any inline field) on an intro card, the entire card list re-fetches from the database, flashes "Loading...", and re-renders — collapsing the card you were working in. This happens because every inline save triggers a full `refreshAll()` / `refreshData()` call that sets `isLoading = true`, unmounts the card tree, and rebuilds it from scratch.
+**Migration 1 — Add attendance columns to `vip_sessions`:**
+- `actual_attendance` (integer, nullable)
+- `attendance_logged_by` (text, nullable)
+- `attendance_logged_at` (timestamptz, nullable)
 
-This affects:
-- **MyDay Intros tab** — editing coach, time, source, or any field via IntroCard header or EditBookingDialog
-- **Follow-Up tabs** — editing fields on IntroCard in NoShow, DidntBuy, SecondIntro, PlansToReschedule tabs
-- **Pipeline Spreadsheet** — inline edits on phone, email, owner, lead source
-- **Leads list** — inline phone/email edits
-- **TheirStory / SABriefFields** — conversation field saves
+No new columns needed on `intros_booked` — `vip_session_id` already exists.
 
-## Root Cause Chain
+## Part 1 — Post-Class Attendance Input
 
-1. Inline edit saves to Supabase
-2. Calls `onFieldSaved()` / `onSaved()` / `onRefresh()`
-3. Which calls `refreshAll()` → `useUpcomingIntrosData.fetchData()`
-4. `fetchData()` sets `isLoading = true` at the top
-5. UpcomingIntrosCard renders "Loading..." instead of cards
-6. React unmounts all IntroRowCard components → expanded state lost
-7. When data returns, cards re-mount collapsed
+**File: `src/features/pipeline/components/VipSchedulerTab.tsx`**
 
-## Fix Strategy
+For past sessions (`session_date < today`):
+- If `actual_attendance` is null: show amber "Add Attendance" button
+- If already logged: show "Attendance: X" with a pencil icon to edit
+- Tapping opens inline number input + Save button
+- On save: updates `actual_attendance`, `attendance_logged_by` (current user), `attendance_logged_at` (now)
+- Shows inline "Saved" confirmation for 2 seconds
 
-**Principle: Background refresh, never flash loading, preserve UI state.**
+Add `actual_attendance`, `attendance_logged_by`, `attendance_logged_at` to the `VipSession` interface.
 
-### Change 1 — useUpcomingIntrosData: Silent refresh mode
+## Part 2 — Booking from a VIP Class
 
-Add a `silentRefresh` function that fetches data without setting `isLoading = true`. The existing `fetchData` keeps `isLoading` for initial load only. All subsequent refreshes triggered by inline edits use silent mode.
+### Way 1 — Book Directly from VIP Session
 
-- File: `src/features/myDay/useUpcomingIntrosData.ts`
-- Add `isInitialLoad` ref, only set `isLoading(true)` on first fetch
-- Export both `refreshAll` (initial) and `silentRefresh` (background)
+**File: `src/features/pipeline/components/VipSchedulerTab.tsx`**
 
-### Change 2 — UpcomingIntrosCard: Preserve expanded state across refreshes
+On reserved session rows, add a "Book Intro" button next to "View Registrations". Tapping opens a new dialog that wraps the existing booking form pattern (reuses same field structure as PipelineDialogs' CreateNewBooking) with:
+- `lead_source` pre-filled as "VIP Class" (read-only)
+- `vip_session_id` pre-filled (hidden field)
+- Read-only display: "VIP Class: [group] — [date]"
+- All other fields (name, date, time, coach, SA) blank and editable as normal
+- On save: inserts into `intros_booked` with `vip_session_id` set
 
-- File: `src/features/myDay/UpcomingIntrosCard.tsx`
-- Pass `silentRefresh` as `onRefresh` to all IntroDayGroup/IntroRowCard children instead of `refreshAll`
-- The `expandedBookingId` state already lives here — it won't reset since the component itself doesn't unmount
+### Way 2 — Tag Existing Intro
 
-### Change 3 — IntroCard inline editors: Stop bubbling refresh
+**File: `src/components/myday/EditBookingDialog.tsx`**
 
-- File: `src/components/shared/IntroCard.tsx`
-- InlineSelect, InlineText, InlineTimePicker, InlineDatePicker: after saving, do NOT call `onSaved()` (which triggers full refresh). Instead, show the "Saved" checkmark and let the parent decide whether to do a silent background refresh or nothing.
-- Add a `silentRefresh` mode where the save just updates local display and optionally triggers a non-loading refetch.
+Add a "Link to VIP Class" button below existing fields. Tapping opens a searchable dropdown of all `vip_sessions` (ordered by `session_date` desc), showing "[Group name] — [date] at [time]". Selecting sets `vip_session_id` and `lead_source = 'VIP Class'` on the booking. Shows confirmation inline.
 
-### Change 4 — EditBookingDialog: Don't close card on save
+### Way 3 — Lead Source Dropdown Update
 
-- File: `src/components/myday/EditBookingDialog.tsx`
-- `onSaved` callback currently triggers `refreshAll`. Change IntroRowCard to pass `silentRefresh` instead of `onRefresh` to EditBookingDialog.
+**Files: `src/components/dashboard/BookIntroSheet.tsx`, `src/features/pipeline/components/PipelineDialogs.tsx`**
 
-### Change 5 — useFollowUpData: Silent refresh
+"VIP Class" is already in the `LEAD_SOURCES` constant. When "VIP Class" is selected as lead source:
+- Show a second dropdown: "Which VIP class?"
+- Populated from `vip_sessions` where status = 'reserved' or 'completed', ordered by `session_date` desc
+- Shows "[Group name] — [date]"
+- If not selected, show amber warning "Please select which VIP class" — required validation
+- On save: set `vip_session_id` on the `intros_booked` record
 
-- File: `src/features/followUp/useFollowUpData.ts`
-- Same pattern: add `silentRefresh` that skips `setIsLoading(true)` on subsequent calls
-- Used by FollowUpNeededTab, NoShowTab, SecondIntroTab, PlansToRescheduleTab
+**File: `src/components/myday/EditBookingDialog.tsx`** — Same conditional VIP class picker when lead source is "VIP Class".
 
-### Change 6 — FollowUpList: Background refresh
+## Part 3 — VIP Class Performance Summary
 
-- File: `src/features/followUp/FollowUpList.tsx`
-- Use silent refresh for inline edits (ContactNextEditor, Log as Sent, Dismiss)
+**File: `src/features/pipeline/components/VipSchedulerTab.tsx`**
 
-### Change 7 — Pipeline: Background refresh for inline edits
+In the View Registrations dialog, add a performance summary card at the top (before group contact card):
 
-- File: `src/features/pipeline/usePipelineData.ts`
-- Add silent refresh mode
-- File: `src/features/pipeline/components/PipelineSpreadsheet.tsx`
-- Inline edits use silent refresh
+**Row 1** (three metrics):
+- Registered: count of `vip_registrations` (non-group-contact)
+- Attended: `actual_attendance` value (or "—" with amber "Add attendance" link)
+- Show rate: attended/registered % (or "—")
 
-### Change 8 — Leads list: Background refresh
+**Row 2** (three metrics):
+- Intros booked: count of `intros_booked` where `vip_session_id` = session
+- Intros ran: count of `intros_booked` where `vip_session_id` = session AND `booking_status_canon` = 'SHOWED'
+- Joins: count of `intros_run` where linked booking's `vip_session_id` = session AND `result_canon` = 'SALE'
 
-- File: `src/components/leads/LeadListView.tsx`
-- InlineEditField onSave callbacks that call `onRefresh?.()` — ensure the parent refresh doesn't flash loading
+Conversion note below metrics with green/muted text based on joins count.
 
-### Change 9 — Realtime handler: Silent refresh
+Data fetched when dialog opens alongside registrations. Uses same silent-refresh patterns.
 
-- File: `src/features/myDay/MyDayPage.tsx`
-- The `useRealtimeMyDay` handler already has a 1500ms debounce but still calls `fetchMetrics()` — ensure it uses silent refresh for the intros data too
+## Part 4 — VIP Performance in Studio Tab
 
-### Change 10 — DataContext: Silent refresh option
+**File: `src/pages/Recaps.tsx`**
 
-- File: `src/context/DataContext.tsx`
-- Add a `silentRefreshData` that calls `fetchData` without `setIsLoading(true)` — used by components that need fresh global data without UI disruption
+Add a new collapsible "VIP Class Performance" section after the existing Studio sub-tabs. Contains:
 
-## Technical Detail
+**Summary row**: "All time: X VIP classes · X total attended · X joins · X% avg join rate"
 
-The key pattern applied everywhere:
+**Table** of past `vip_sessions` with columns: Date, Group, Registered, Attended, Intros Booked, Intros Ran, Joins, Join Rate. Join rate denominator indicator: "based on attended" or "based on registered (attendance not logged)".
 
-```typescript
-// Before (causes flash)
-const fetchData = useCallback(async () => {
-  setIsLoading(true);  // ← This kills the UI
-  // ... fetch ...
-  setIsLoading(false);
-}, []);
+Tapping a row opens the View Registrations panel for that session (reuses same dialog component extracted from VipSchedulerTab).
 
-// After (preserves UI)
-const isFirstLoad = useRef(true);
-const fetchData = useCallback(async (silent = false) => {
-  if (!silent) setIsLoading(true);
-  // ... fetch ...
-  setIsLoading(false);
-  isFirstLoad.current = false;
-}, []);
+New component: `src/components/admin/VipClassPerformanceTable.tsx` — fetches past sessions with aggregated metrics via joins to `vip_registrations`, `intros_booked`, and `intros_run`.
 
-// Expose both
-return { 
-  refreshAll: fetchData,           // initial load
-  silentRefresh: () => fetchData(true),  // inline edits
-};
-```
+## Files Modified/Created
 
-## Files Modified (10 files)
+1. **Migration** — add 3 columns to `vip_sessions`
+2. `src/features/pipeline/components/VipSchedulerTab.tsx` — attendance input, Book Intro button, performance summary in registrations dialog
+3. `src/components/myday/EditBookingDialog.tsx` — "Link to VIP Class" button + picker
+4. `src/components/dashboard/BookIntroSheet.tsx` — conditional VIP class picker when "VIP Class" selected
+5. `src/features/pipeline/components/PipelineDialogs.tsx` — conditional VIP class picker in booking form
+6. `src/components/admin/VipClassPerformanceTable.tsx` — **new** — Studio tab VIP performance table
+7. `src/pages/Recaps.tsx` — add VIP Class Performance collapsible section in Studio tab
 
-1. `src/features/myDay/useUpcomingIntrosData.ts` — silent refresh
-2. `src/features/myDay/UpcomingIntrosCard.tsx` — pass silentRefresh to children
-3. `src/features/myDay/IntroRowCard.tsx` — use silentRefresh for edit callbacks
-4. `src/features/myDay/MyDayPage.tsx` — realtime uses silent refresh
-5. `src/components/shared/IntroCard.tsx` — inline editors don't force full refresh
-6. `src/components/myday/EditBookingDialog.tsx` — no behavioral change needed, parent passes silent
-7. `src/features/followUp/useFollowUpData.ts` — silent refresh
-8. `src/features/followUp/FollowUpList.tsx` — use silent refresh for inline actions
-9. `src/features/pipeline/usePipelineData.ts` — silent refresh
-10. `src/context/DataContext.tsx` — silentRefreshData export
+## Consistency Guarantees
+
+- All VIP-tagged intros use `lead_source = 'VIP Class'` consistently for attribution
+- Existing lead source analytics will correctly pick up VIP Class as a source (already in `LEAD_SOURCES`)
+- `vip_session_id` foreign key enables precise per-class tracking
+- Attendance available to all staff roles
 
