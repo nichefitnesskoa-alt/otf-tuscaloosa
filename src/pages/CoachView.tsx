@@ -15,8 +15,6 @@ import { TheSystemSection } from '@/components/coach/TheSystemSection';
 import { CoachingScripts } from '@/components/coach/CoachingScripts';
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import CoachFollowUpList from '@/features/followUp/CoachFollowUpList';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
 
@@ -86,8 +84,6 @@ export default function CoachView() {
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [loading, setLoading] = useState(true);
   const [coachFilter, setCoachFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState('intros');
-  const [coachFollowUpCount, setCoachFollowUpCount] = useState(0);
 
   // Week navigation
   const [weekOffset, setWeekOffset] = useState(0);
@@ -255,23 +251,8 @@ export default function CoachView() {
         </>
       )}
 
-      {/* Tabs: Intros | Follow-Up */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full grid grid-cols-2 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
-          <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            <Eye className="w-3.5 h-3.5" />
-            <span>Intros</span>
-          </TabsTrigger>
-          <TabsTrigger value="followups" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Follow-Up</span>
-            {coachFollowUpCount > 0 && (
-              <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{coachFollowUpCount}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="intros" className="mt-3 space-y-3">
+      {/* Intros content */}
+      <div className="space-y-3">
           {/* Week day tabs */}
           <WeekDayTabs
             weekOffset={weekOffset}
@@ -337,12 +318,7 @@ export default function CoachView() {
               })}
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="followups" className="mt-3">
-          <CoachFollowUpList onCountChange={setCoachFollowUpCount} />
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }
