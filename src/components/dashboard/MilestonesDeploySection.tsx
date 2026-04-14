@@ -124,10 +124,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setMilestones(mils);
     setDeploys(deps);
 
-    // Track pack friend redemptions
+    // Track pack friend show-ups and conversions
     const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
     const trackingMap = new Map<string, FriendTrackingInfo>();
-    let totalRedeemed = 0;
+    let totalShowedUp = 0;
     let totalConverted = 0;
 
     if (packFriends.length > 0) {
@@ -135,17 +135,51 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         const friendName = (pf.friend_name || '').trim();
         if (!friendName) continue;
 
-        // Check intros_booked for this friend (case-insensitive)
+        let friendShowedUp = !!(pf as any).friend_showed_up;
+        let converted = false;
+
+        // Detection 1: Search intros_booked by name for SHOWED status
         const { data: bookings } = await supabase
           .from('intros_booked')
           .select('id, booking_status_canon')
           .ilike('member_name', friendName);
 
         const bookedIds = (bookings || []).map((b: any) => b.id);
-        const showedCount = (bookings || []).filter((b: any) => b.booking_status_canon === 'SHOWED').length;
+        const hasShowed = (bookings || []).some((b: any) => b.booking_status_canon === 'SHOWED');
+
+        if (hasShowed) {
+          friendShowedUp = true;
+        }
+
+        // Detection 2: Check leads with source 'Member Referral (5 class pack)'
+        if (!friendShowedUp) {
+          const nameParts = friendName.split(/\s+/);
+          const firstName = nameParts[0] || '';
+          if (firstName) {
+            const { data: leads } = await supabase
+              .from('leads')
+              .select('booked_intro_id')
+              .ilike('first_name', firstName)
+              .eq('source', 'Member Referral (5 class pack)')
+              .not('booked_intro_id', 'is', null)
+              .limit(5);
+            if (leads && leads.length > 0) {
+              const leadBookingIds = leads.map((l: any) => l.booked_intro_id).filter(Boolean);
+              if (leadBookingIds.length > 0) {
+                const { data: leadBookings } = await supabase
+                  .from('intros_booked')
+                  .select('id, booking_status_canon')
+                  .in('id', leadBookingIds);
+                if ((leadBookings || []).some((b: any) => b.booking_status_canon === 'SHOWED')) {
+                  friendShowedUp = true;
+                  (leadBookings || []).forEach((b: any) => { if (!bookedIds.includes(b.id)) bookedIds.push(b.id); });
+                }
+              }
+            }
+          }
+        }
 
         // Check if any run resulted in SALE
-        let converted = false;
         if (bookedIds.length > 0) {
           const { data: runs } = await supabase
             .from('intros_run')
@@ -154,8 +188,13 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
           converted = (runs || []).some((r: any) => r.result_canon === 'SALE');
         }
 
-        trackingMap.set(pf.id, { classesRedeemed: showedCount, convertedToMember: converted });
-        totalRedeemed += showedCount;
+        // Auto-update friend_showed_up in DB if detected but not stored
+        if (friendShowedUp && !(pf as any).friend_showed_up) {
+          await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', pf.id);
+        }
+
+        trackingMap.set(pf.id, { friendShowedUp, convertedToMember: converted });
+        if (friendShowedUp) totalShowedUp++;
         if (converted) totalConverted++;
       }
     }
@@ -168,7 +207,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       friends: mils.filter(m => m.converted_to_lead_id).length,
       deployed: deps.length,
       converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
-      classesRedeemed: totalRedeemed,
+      friendsShowedUp: totalShowedUp,
       convertedToMember: totalConverted,
     });
     setLoading(false);
