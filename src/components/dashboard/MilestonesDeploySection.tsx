@@ -31,6 +31,7 @@ interface MilestoneRow {
   created_at: string;
   last_edited_by?: string | null;
   last_edited_at?: string | null;
+  friend_showed_up?: boolean;
 }
 
 interface WeekSummary {
@@ -40,12 +41,12 @@ interface WeekSummary {
   friends: number;
   deployed: number;
   converted: number;
-  classesRedeemed: number;
+  friendsShowedUp: number;
   convertedToMember: number;
 }
 
 interface FriendTrackingInfo {
-  classesRedeemed: number;
+  friendShowedUp: boolean;
   convertedToMember: boolean;
 }
 
