@@ -152,10 +152,12 @@ export function VipSchedulerTab() {
     const { data } = await sb
       .from('vip_sessions')
       .select('*')
+      .is('archived_at', null)
       .order('session_date', { ascending: true })
       .order('session_time', { ascending: true });
     setSessions((data as any[]) || []);
 
+    const counts: Record<string, number> = {};
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
@@ -163,12 +165,11 @@ export function VipSchedulerTab() {
         .select('vip_session_id')
         .in('vip_session_id', ids)
         .eq('is_group_contact', false);
-      const counts: Record<string, number> = {};
       for (const r of (regs || [])) {
         counts[(r as any).vip_session_id] = (counts[(r as any).vip_session_id] || 0) + 1;
       }
-      setRegCounts(counts);
     }
+    setRegCounts(counts);
     setLoading(false);
   }, []);
 
@@ -912,7 +913,7 @@ export function VipSchedulerTab() {
           <DialogHeader>
             <DialogTitle>Download QR Code</DialogTitle>
             <DialogDescription>
-              {qrSession && `${qrSession.reserved_by_group} — ${format(new Date(qrSession.session_date + 'T00:00:00'), 'MMM d')} at ${formatDisplayTime(qrSession.session_time)}`}
+              {qrSession && `OTF Tuscaloosa x ${qrSession.reserved_by_group || 'VIP'} VIP Class — ${format(new Date(qrSession.session_date + 'T00:00:00'), 'MMM d')} at ${formatDisplayTime(qrSession.session_time)}`}
             </DialogDescription>
           </DialogHeader>
           {qrSession?.shareable_slug && (

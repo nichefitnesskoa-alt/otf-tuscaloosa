@@ -72,6 +72,7 @@ export default function VipMemberRegister() {
         .from('vip_sessions')
         .select('id, session_date, session_time, status, reserved_by_group')
         .eq('shareable_slug', slug)
+        .is('archived_at', null)
         .single();
       if (!data || (data as any).status !== 'reserved') {
         setNotFound(true);
