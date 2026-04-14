@@ -4,7 +4,6 @@ import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, CloudOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { LeadAlertBell } from '@/components/LeadAlertBell';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
 
@@ -49,7 +48,6 @@ export function Header() {
                 {pendingQueueCount}
               </Badge>
             )}
-            <LeadAlertBell />
             {/* Global Search */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
