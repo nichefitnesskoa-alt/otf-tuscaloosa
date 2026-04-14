@@ -12,7 +12,7 @@ import { format, subDays, addDays, differenceInHours } from 'date-fns';
 import { localDateToStartISO } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 
-export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd';
+export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd' | 'planning_to_buy';
 
 export interface FollowUpItem {
   bookingId: string;
@@ -36,6 +36,7 @@ export interface FollowUpItem {
   badgeType?: 'no_outcome' | 'follow_up_needed' | 'state_b';
   followUpType: FollowUpType;
   transferredFromCoach?: string | null;
+  plannedBuyDate?: string | null;
 }
 
 const TERMINAL_OUTCOMES = ['Purchased', 'Not Interested'];
@@ -59,6 +60,8 @@ function computeContactNext(classDate: string, type: FollowUpType): string | nul
         return format(addDays(d, 3), 'yyyy-MM-dd');
       case 'reschedule':
         return format(addDays(d, 2), 'yyyy-MM-dd');
+      case 'planning_to_buy':
+        return null; // Handled by scheduled_date from follow_up_queue
     }
   } catch { return null; }
 }
