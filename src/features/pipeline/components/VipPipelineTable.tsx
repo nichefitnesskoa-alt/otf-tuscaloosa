@@ -598,16 +598,17 @@ export function VipPipelineTable() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-[300px] overflow-y-auto">
-            
-            {groups.map(g => (
-              <SelectItem key={g} value={g}>
-                {g} ({groupCounts.get(g) || 0})
-              </SelectItem>
-            ))}
+            {groups
+              .filter(g => showArchived || !archivedGroups.has(g))
+              .map(g => (
+                <SelectItem key={g} value={g}>
+                  {archivedGroups.has(g) ? '📦 ' : ''}{g} ({groupCounts.get(g) || 0})
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
-        {selectedGroup !== 'All' && (
+        {selectedGroup !== 'All' && !archivedGroups.has(selectedGroup) && (
           <Button
             variant="ghost"
             size="sm"
@@ -619,15 +620,26 @@ export function VipPipelineTable() {
           </Button>
         )}
 
-        {selectedGroup && selectedGroup !== 'All' && (
+        {selectedGroup && selectedGroup !== 'All' && !archivedGroups.has(selectedGroup) && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[10px] gap-1 text-destructive hover:text-destructive"
+            className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
             onClick={() => setShowDeleteGroup(true)}
-            title={`Delete group ${selectedGroup}`}
+            title={`Archive group ${selectedGroup}`}
           >
-            <Trash2 className="w-3 h-3" /> Delete Group
+            <Archive className="w-3 h-3" /> Archive
+          </Button>
+        )}
+
+        {selectedGroup && archivedGroups.has(selectedGroup) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[10px] gap-1 text-primary"
+            onClick={() => handleUnarchiveGroup(selectedGroup)}
+          >
+            <RotateCcw className="w-3 h-3" /> Restore
           </Button>
         )}
 
