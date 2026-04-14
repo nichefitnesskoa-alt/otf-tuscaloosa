@@ -4,7 +4,6 @@ import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, CloudOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { LeadAlertBell } from '@/components/LeadAlertBell';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
 
