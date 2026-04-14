@@ -592,7 +592,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
         </TabsList>
 
         <TabsContent value="new" className="mt-2">
-          {renderList([...newLeads].sort((a, b) => a.created_at.localeCompare(b.created_at)), 'new')}
+          {renderList([...newLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'new')}
         </TabsContent>
         <TabsContent value="flagged" className="mt-2">{renderList(flaggedLeads, 'flagged')}</TabsContent>
         <TabsContent value="contacted" className="mt-2">
