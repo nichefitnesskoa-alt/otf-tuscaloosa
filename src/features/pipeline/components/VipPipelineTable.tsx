@@ -187,10 +187,13 @@ export function VipPipelineTable() {
 
       setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
 
-      // Track which groups are archived
+      // Track which groups are archived — use reserved_by_group (the user-facing name)
       const archivedSet = new Set<string>();
       (sessions || []).forEach((s: any) => {
-        if (s.archived_at && s.vip_class_name) archivedSet.add(s.vip_class_name);
+        if (s.archived_at) {
+          if (s.reserved_by_group) archivedSet.add(s.reserved_by_group);
+          if (s.vip_class_name) archivedSet.add(s.vip_class_name);
+        }
       });
       setArchivedGroups(archivedSet);
 
@@ -241,10 +244,11 @@ export function VipPipelineTable() {
 
   // Auto-select first group when groups load or current selection becomes invalid
   useEffect(() => {
-    if (groups.length > 0 && (!selectedGroup || !groups.includes(selectedGroup))) {
-      setSelectedGroup(groups[0]);
+    const visibleGroups = groups.filter(g => !archivedGroups.has(g));
+    if (visibleGroups.length > 0 && (!selectedGroup || !visibleGroups.includes(selectedGroup))) {
+      setSelectedGroup(visibleGroups[0]);
     }
-  }, [groups, selectedGroup]);
+  }, [groups, selectedGroup, archivedGroups]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -556,7 +560,12 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
-      // Archive the group's sessions instead of deleting
+      // Archive the group's sessions — match by reserved_by_group (user-facing name) OR vip_class_name
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('reserved_by_group', selectedGroup);
+      // Also archive any sessions matched by vip_class_name
       await (supabase as any)
         .from('vip_sessions')
         .update({ archived_at: new Date().toISOString() })
@@ -576,6 +585,10 @@ export function VipPipelineTable() {
 
   const handleUnarchiveGroup = async (groupName: string) => {
     try {
+      await (supabase as any)
+        .from('vip_sessions')
+        .update({ archived_at: null })
+        .eq('reserved_by_group', groupName);
       await (supabase as any)
         .from('vip_sessions')
         .update({ archived_at: null })
