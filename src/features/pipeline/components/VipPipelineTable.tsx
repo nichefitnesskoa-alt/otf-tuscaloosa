@@ -1211,24 +1211,23 @@ export function VipPipelineTable() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Group Confirmation */}
+      {/* Archive Group Confirmation */}
       <AlertDialog open={showDeleteGroup} onOpenChange={setShowDeleteGroup}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove group "{selectedGroup}"?</AlertDialogTitle>
+            <AlertDialogTitle>Archive "{selectedGroup}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the group's scheduled sessions from the VIP calendar and this list. All client bookings and registration data will be preserved in the pipeline under the VIP Class lead source.
+              This will hide the group from the dropdown. All client bookings and registration data will be preserved. You can restore it anytime using "Show archived".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletingGroup}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deletingGroup}
               onClick={handleDeleteGroup}
             >
               {deletingGroup ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-              Delete Group
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
