@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   Star, Search, Download, Copy, ChevronUp, ChevronDown, Loader2,
   Phone, Mail, CalendarPlus, Share2, MessageSquare, Plus, Link2, Trash2,
-  ArrowRight, UserPlus, Edit2, Check, X,
+  ArrowRight, UserPlus, Edit2, Check, X, Archive, RotateCcw,
 } from 'lucide-react';
 import {
   AlertDialog,
