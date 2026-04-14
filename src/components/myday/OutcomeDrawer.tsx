@@ -135,6 +135,10 @@ export function OutcomeDrawer({
   const [secondIntroCoach, setSecondIntroCoach] = useState('');
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Planning to buy state
+  const [planningToBuyDate, setPlanningToBuyDate] = useState<Date | undefined>(undefined);
+  const [planningToBuyCalendarOpen, setPlanningToBuyCalendarOpen] = useState(false);
+
   // Load linked 2nd intro booking if outcome was "Booked 2nd intro"
   const [linkedSecondIntro, setLinkedSecondIntro] = useState<{ date: string; time: string; coach: string } | null>(null);
 
@@ -186,11 +190,12 @@ export function OutcomeDrawer({
   const isReschedule = outcome === 'Reschedule';
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
+  const isPlanningToBuy = outcome === 'Planning to buy';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !!outcome;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
