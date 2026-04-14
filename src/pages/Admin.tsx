@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
+import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -35,6 +35,7 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
+import RafflePage from '@/components/admin/RafflePage';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -510,6 +511,7 @@ export default function Admin() {
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
+    { value: 'raffle', label: 'Raffle', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -683,6 +685,11 @@ export default function Admin() {
         {/* 10x Exercise Tab */}
         <TabsContent value="10x" className="space-y-4">
           <TenXExercise />
+        </TabsContent>
+
+        {/* Raffle Tab */}
+        <TabsContent value="raffle" className="space-y-4">
+          <RafflePage />
         </TabsContent>
       </Tabs>
     </div>
