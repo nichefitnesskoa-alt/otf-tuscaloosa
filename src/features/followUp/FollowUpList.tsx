@@ -358,6 +358,18 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
               Transferred from Coach
             </span>
           )}
+          {item.plannedBuyDate && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-600">
+              Buying {(() => {
+                try {
+                  const days = differenceInDays(new Date(item.plannedBuyDate + 'T12:00:00'), new Date());
+                  if (days <= 0) return 'today';
+                  if (days === 1) return 'tomorrow';
+                  return `in ${days} days`;
+                } catch { return item.plannedBuyDate; }
+              })()}
+            </span>
+          )}
         </div>
 
         {/* Line 2: Date · Coach · Phone */}
