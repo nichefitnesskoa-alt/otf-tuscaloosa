@@ -560,16 +560,34 @@ export function VipPipelineTable() {
     if (!selectedGroup) return;
     setDeletingGroup(true);
     try {
+      const now = new Date().toISOString();
       // Archive the group's sessions — match by reserved_by_group (user-facing name) OR vip_class_name
-      await (supabase as any)
+      const r1 = await (supabase as any)
         .from('vip_sessions')
-        .update({ archived_at: new Date().toISOString() })
-        .eq('reserved_by_group', selectedGroup);
-      // Also archive any sessions matched by vip_class_name
-      await (supabase as any)
+        .update({ archived_at: now })
+        .eq('reserved_by_group', selectedGroup)
+        .select('id');
+      const r2 = await (supabase as any)
         .from('vip_sessions')
-        .update({ archived_at: new Date().toISOString() })
-        .eq('vip_class_name', selectedGroup);
+        .update({ archived_at: now })
+        .eq('vip_class_name', selectedGroup)
+        .select('id');
+
+      const updatedCount = (r1.data?.length || 0) + (r2.data?.length || 0);
+
+      // If no vip_sessions row existed for this group, insert a placeholder so it stays archived
+      if (updatedCount === 0) {
+        await (supabase as any)
+          .from('vip_sessions')
+          .insert({
+            vip_class_name: selectedGroup,
+            reserved_by_group: selectedGroup,
+            session_date: new Date().toISOString().split('T')[0],
+            session_time: '09:00',
+            status: 'completed',
+            archived_at: now,
+          });
+      }
 
       toast.success(`"${selectedGroup}" archived. Client data preserved.`);
       setShowDeleteGroup(false);
