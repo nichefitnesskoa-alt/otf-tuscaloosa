@@ -270,7 +270,10 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
             </Select>
           </div>
 
-          {/* ── Who Referred Them? (referral sources) ── */}
+          {/* VIP Session picker when VIP Class is selected */}
+          {leadSource === 'VIP Class' && (
+            <VipSessionPicker value={vipSessionId} onValueChange={setVipSessionId} required showWarning />
+          )}
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
               <Label htmlFor="book-referred-by">Who referred them?</Label>
