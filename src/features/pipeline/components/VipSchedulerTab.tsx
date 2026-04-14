@@ -642,6 +642,80 @@ export function VipSchedulerTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* QR Download Dialog */}
+      <Dialog open={!!qrSession} onOpenChange={() => setQrSession(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Download QR Code</DialogTitle>
+            <DialogDescription>
+              {qrSession && `${qrSession.reserved_by_group} — ${format(new Date(qrSession.session_date + 'T00:00:00'), 'MMM d')} at ${formatDisplayTime(qrSession.session_time)}`}
+            </DialogDescription>
+          </DialogHeader>
+          {qrSession?.shareable_slug && (
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div className="border-4 border-[#E8540A] rounded-lg p-2 bg-white inline-block">
+                <QRCodeCanvas
+                  id="scheduler-qr-canvas"
+                  value={`https://otf-tuscaloosa.lovable.app/vip/${qrSession.shareable_slug}/register`}
+                  size={200}
+                  bgColor="#FFFFFF"
+                  fgColor="#000000"
+                  level="M"
+                />
+              </div>
+              <Button
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2"
+                onClick={() => {
+                  if (!qrSession) return;
+                  const d = new Date(qrSession.session_date + 'T00:00:00');
+                  const prettyDate = format(d, 'EEEE, MMMM d, yyyy');
+                  const prettyTime = formatDisplayTime(qrSession.session_time);
+                  const safeGroup = (qrSession.reserved_by_group || 'VIP').replace(/[^a-zA-Z0-9]/g, '-');
+                  const fileName = `OTF-VIP-${safeGroup}-${qrSession.session_date}.png`;
+
+                  const qrCanvas = document.getElementById('scheduler-qr-canvas') as HTMLCanvasElement | null;
+                  const canvas = document.createElement('canvas');
+                  const size = 600;
+                  const padding = 60;
+                  const textAreaHeight = 120;
+                  const totalHeight = size + padding * 2 + textAreaHeight;
+                  const totalWidth = size + padding * 2;
+                  canvas.width = totalWidth;
+                  canvas.height = totalHeight;
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, totalWidth, totalHeight);
+                    if (qrCanvas) ctx.drawImage(qrCanvas, padding, padding, size, size);
+                    ctx.strokeStyle = '#E8540A';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(padding - 6, padding - 6, size + 12, size + 12);
+                    const textY = padding + size + 30;
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.textAlign = 'center';
+                    ctx.font = 'bold 22px sans-serif';
+                    ctx.fillText('OTF Tuscaloosa — Private Group Class', totalWidth / 2, textY);
+                    ctx.font = '18px sans-serif';
+                    ctx.fillText(`${prettyDate} at ${prettyTime}`, totalWidth / 2, textY + 32);
+                    ctx.font = '16px sans-serif';
+                    ctx.fillStyle = '#666666';
+                    ctx.fillText('Scan to register before class', totalWidth / 2, textY + 62);
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                  }
+                  toast.success('QR code downloaded');
+                }}
+              >
+                <Download className="w-4 h-4" />
+                Download QR Code
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
