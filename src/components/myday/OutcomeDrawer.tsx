@@ -41,6 +41,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
   { value: 'Planning to buy', label: '🛒 Planning to buy' },
+  { value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' },
   { value: 'Not interested', label: '🚫 Not interested' },
 ];
 
@@ -191,11 +192,12 @@ export function OutcomeDrawer({
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
   const isPlanningToBuy = outcome === 'Planning to buy';
+  const isOn5ClassPack = outcome === 'On 5 Class Pack';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !!outcome;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
