@@ -57,7 +57,9 @@ export function ShiftIntroCards() {
                   ) : (
                     <Badge variant="outline" className="text-[9px]">1st Intro</Badge>
                   )}
-                  {qStatus === 'completed' ? (
+                  {isSecond ? (
+                    <Badge className="text-[9px] bg-muted text-muted-foreground border-transparent hover:bg-muted">No Q Needed</Badge>
+                  ) : qStatus === 'completed' ? (
                     <Badge className="text-[9px] bg-success/20 text-success border-success/30 hover:bg-success/20">Q ✓</Badge>
                   ) : (
                     <Badge variant="outline" className="text-[9px] text-muted-foreground">No Q</Badge>
