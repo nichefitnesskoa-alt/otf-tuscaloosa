@@ -1,51 +1,30 @@
 
 
-## Plan: Fix Duplicate Persistence + Add Delete Option to Intro Cards
+## Plan: Align Coach View Filtering with My Day
 
 ### Root Cause
 
-Two issues found:
+The Coach View query (`src/pages/CoachView.tsx` lines 103-109) fetches bookings with only two exclusions:
+- `deleted_at IS NULL`
+- `booking_status_canon != 'DELETED_SOFT'`
 
-1. **Sofia Degl'Innocenti appears twice** because there are two separate `intros_booked` rows — one from "System (Auto-Import)" with a real apostrophe (`'`), and one from "System (Sheet Import)" with an HTML-encoded apostrophe (`&#x27;`). Both have `deleted_at = null` and `booking_status_canon = ACTIVE`. There is no delete function available, so the user had no way to remove either.
+My Day (`useUpcomingIntrosData.ts`) excludes `CANCELLED`, `PLANNING_RESCHEDULE`, `DELETED_SOFT`, and `VIP`/`COMP` booking types.
 
-2. **No delete option exists** on any My Day card. The Edit dialog only allows changing coach, time, source, owner, and booker. There is no soft-delete action anywhere in the IntroRowCard or EditBookingDialog.
+The Coach View's client-side filter (line 143) only removes `is_vip` and `deleted_at`. It does **not** exclude `CANCELLED`, `PLANNING_RESCHEDULE`, `NOT_INTERESTED`, or `CLOSED_PURCHASED` statuses. This means resolved/cancelled/rescheduled members still appear on the Coach side but not on My Day.
 
-### Changes
+### Fix
 
-**1. Data repair — soft-delete the duplicate row**
+**File: `src/pages/CoachView.tsx`**
 
-Run a migration to soft-delete the HTML-encoded duplicate (`id = 1b0312a6-bb7b-4734-9886-9d7f7d6d67f8`, the Sheet Import copy):
+1. Update the Supabase query (line 103-109) to exclude the same statuses My Day excludes:
+   - Add `.not('booking_status_canon', 'in', '("CANCELLED","PLANNING_RESCHEDULE","DELETED_SOFT")')` 
+   - Add `.not('booking_type_canon', 'in', '("VIP","COMP")')` to move VIP exclusion to the query level
 
-```sql
-UPDATE intros_booked
-SET deleted_at = now(),
-    booking_status_canon = 'DELETED_SOFT',
-    booking_status = 'Deleted (soft)',
-    last_edited_by = 'System (data repair)',
-    last_edited_at = now(),
-    edit_reason = 'Duplicate: HTML-encoded apostrophe variant of same booking'
-WHERE id = '1b0312a6-bb7b-4734-9886-9d7f7d6d67f8';
-```
+2. Update the client-side `filteredBookings` filter (line 143) to also exclude these statuses as a safety net, replacing the simple `!b.is_vip` check with a proper status exclusion list matching My Day's logic.
 
-**2. Add "Delete Booking" button to EditBookingDialog**
+### Result
+Coach View will show exactly the same set of intros as My Day for the same date range. Resolved, cancelled, and rescheduled bookings will no longer appear on the Coach side.
 
-File: `src/components/myday/EditBookingDialog.tsx`
-
-- Add a red "Delete Booking" button at the bottom of the dialog (below Save, visually separated)
-- On click, show a confirmation AlertDialog: "Delete {memberName}? This will remove the booking from all views. This cannot be undone."
-- On confirm: soft-delete the booking (`deleted_at = now()`, `booking_status_canon = 'DELETED_SOFT'`, `booking_status = 'Deleted (soft)'`)
-- Also delete any linked `follow_up_queue` rows for that booking
-- Call `onSaved()` to refresh the list
-- Requires adding `memberName` prop to EditBookingDialog
-
-**3. Pass `memberName` through to EditBookingDialog**
-
-File: `src/features/myDay/IntroRowCard.tsx`
-
-- Add `memberName={item.memberName}` prop to the existing `<EditBookingDialog>` usage (line ~689)
-
-### Files changed
-1. Database migration — soft-delete duplicate row
-2. `src/components/myday/EditBookingDialog.tsx` — add delete button + confirmation
-3. `src/features/myDay/IntroRowCard.tsx` — pass memberName prop
+### One file changed
+- `src/pages/CoachView.tsx`
 
