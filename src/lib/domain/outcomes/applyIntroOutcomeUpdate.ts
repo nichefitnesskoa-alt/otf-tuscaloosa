@@ -82,6 +82,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const isNowPlanning2nd = params.newResult === 'Planning to Book 2nd Intro';
     const isNowPlanningToBuy = params.newResult === 'Planning to buy';
     const isNowOn5ClassPack = params.newResult === 'On 5 Class Pack';
+    const isNowPlanningReschedule = params.newResult === 'Planning to Reschedule';
     const isNowUnresolved = params.newResult === 'Unresolved' || params.newResult === '';
 
     // Compute commission internally — callers no longer pass this
@@ -334,6 +335,14 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
 
       // On 5 Class Pack → clear existing pending (same as Planning to Buy)
       if (isNowOn5ClassPack) {
+        await supabase.from('follow_up_queue')
+          .delete()
+          .eq('booking_id', params.bookingId)
+          .eq('status', 'pending');
+      }
+
+      // Planning to Reschedule → clear existing pending (OutcomeDrawer creates reschedule follow-ups)
+      if (isNowPlanningReschedule) {
         await supabase.from('follow_up_queue')
           .delete()
           .eq('booking_id', params.bookingId)

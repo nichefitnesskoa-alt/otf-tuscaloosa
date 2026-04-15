@@ -136,7 +136,7 @@ export default function MyDayPage() {
   // Today's stats
   const todayStr = getTodayYMD();
   const todayBookingsCount = useMemo(() =>
-    introsBooked.filter(b => b.class_date === todayStr && !b.deleted_at).length,
+    introsBooked.filter(b => b.class_date === todayStr && !b.deleted_at && b.booking_status_canon !== 'PLANNING_RESCHEDULE' && b.booking_status_canon !== 'CANCELLED').length,
     [introsBooked, todayStr],
   );
   const todayRuns = useMemo(() =>
@@ -244,7 +244,7 @@ export default function MyDayPage() {
         .gte('class_date', cutoff)
         .lt('class_date', today)
         .is('deleted_at', null)
-        .neq('booking_status_canon', 'CANCELLED');
+        .not('booking_status_canon', 'in', '("CANCELLED","PLANNING_RESCHEDULE")');
       setNeedsOutcomeCount(unresolved || 0);
     } catch (err) {
       console.error('MyDay metrics fetch error:', err);

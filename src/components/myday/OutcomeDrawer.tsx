@@ -396,25 +396,28 @@ export function OutcomeDrawer({
       return;
     }
 
-  // Planning to Reschedule: mark booking + add to follow-up queue
+  // Planning to Reschedule: route through canonical pipeline + add follow-up entries
     if (isPlanningToReschedule) {
       setSaving(true);
       try {
-        // 1. Mark the booking
-        const { error: bookingErr } = await supabase.from('intros_booked').update({
-          booking_status_canon: 'PLANNING_RESCHEDULE',
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: editedBy,
-          edit_reason: 'Planning to reschedule via MyDay outcome drawer',
-        }).eq('id', bookingId);
-        if (bookingErr) throw bookingErr;
+        // 1. Log the outcome via canonical path — this sets booking_status_canon = PLANNING_RESCHEDULE
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'Planning to Reschedule',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'Planning to reschedule',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
 
-        // 2. Delete existing queue entries for this booking to avoid duplicate constraint
-        await supabase.from('follow_up_queue')
-          .delete()
-          .eq('booking_id', bookingId);
-
-        // 3. Insert Touch 1 — next week (7 days out)
+        // 2. Insert reschedule follow-up touches (day 7, 14, 21)
         const touch1Date = format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd');
         const { error: qErr } = await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
@@ -430,7 +433,6 @@ export function OutcomeDrawer({
         });
         if (qErr) throw qErr;
 
-        // 4. Touch 2 — 14 days out
         const touch2Date = format(new Date(Date.now() + 14 * 86400000), 'yyyy-MM-dd');
         await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,
@@ -444,7 +446,6 @@ export function OutcomeDrawer({
           is_legacy: false,
         });
 
-        // 5. Touch 3 — 21 days out
         const touch3Date = format(new Date(Date.now() + 21 * 86400000), 'yyyy-MM-dd');
         await supabase.from('follow_up_queue').insert({
           booking_id: bookingId,

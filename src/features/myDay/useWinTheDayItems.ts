@@ -76,13 +76,14 @@ export function useWinTheDayItems() {
       const todayStart = getTodayStartISO();
       const newItems: ChecklistItem[] = [];
 
-      // ── 1. Fetch today's intros (non-VIP, non-deleted) ──
+      // ── 1. Fetch today's intros (non-VIP, non-deleted, exclude PLANNING_RESCHEDULE/CANCELLED) ──
       const { data: todayIntros } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time, questionnaire_status_canon, questionnaire_link, prepped, originating_booking_id, class_start_at, booking_type_canon')
+        .select('id, member_name, class_date, intro_time, questionnaire_status_canon, questionnaire_link, prepped, originating_booking_id, class_start_at, booking_type_canon, booking_status_canon')
         .eq('class_date', todayStr)
         .is('deleted_at', null)
-        .not('booking_type_canon', 'in', '("VIP","COMP")');
+        .not('booking_type_canon', 'in', '("VIP","COMP")')
+        .not('booking_status_canon', 'in', '("PLANNING_RESCHEDULE","CANCELLED")');
 
       // Fetch questionnaire slugs for today's bookings to build real links
       const todayBookingIds = (todayIntros || []).map(i => i.id);
@@ -97,13 +98,14 @@ export function useWinTheDayItems() {
         if (q.slug && q.booking_id) qSlugByBooking.set(q.booking_id, q.slug);
       }
 
-      // ── 2. Fetch tomorrow's intros for confirmations ──
+      // ── 2. Fetch tomorrow's intros for confirmations (exclude reschedule/cancelled) ──
       const { data: tomorrowIntros } = await supabase
         .from('intros_booked')
         .select('id, member_name, intro_time, class_start_at')
         .eq('class_date', tomorrowStr)
         .is('deleted_at', null)
-        .not('booking_type_canon', 'in', '("VIP","COMP")');
+        .not('booking_type_canon', 'in', '("VIP","COMP")')
+        .not('booking_status_canon', 'in', '("PLANNING_RESCHEDULE","CANCELLED")');
 
       // ── 3. Fetch today's confirmation script_actions ──
       const { data: todayConfirmations } = await supabase
