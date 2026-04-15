@@ -383,7 +383,9 @@ function ClassTimeIntroSelector({
                   <Badge variant={isSecondIntro ? 'secondary' : 'default'} className="text-[10px] px-1.5 py-0 h-4">
                     {isSecondIntro ? '2nd Intro' : '1st Intro'}
                   </Badge>
-                  {isQComplete ? (
+                  {isSecondIntro ? (
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">No Q Needed</Badge>
+                  ) : isQComplete ? (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>
                   ) : (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive text-white border-transparent">No Questionnaire</Badge>
