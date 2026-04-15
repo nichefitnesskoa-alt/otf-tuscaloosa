@@ -41,6 +41,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Booked 2nd intro', label: '🔄 Booked 2nd intro' },
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
   { value: 'Planning to buy', label: '🛒 Planning to buy' },
+  { value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' },
   { value: 'Not interested', label: '🚫 Not interested' },
 ];
 
@@ -191,11 +192,12 @@ export function OutcomeDrawer({
   const isPlanningToReschedule = outcome === 'Planning to Reschedule';
   const isPlanningToBook2ndIntro = outcome === 'Planning to Book 2nd Intro';
   const isPlanningToBuy = outcome === 'Planning to buy';
+  const isOn5ClassPack = outcome === 'On 5 Class Pack';
   const isFollowUpNeeded = outcome === 'Follow-up needed';
   const isBookedSecondIntroNeedsReason = outcome === 'Booked 2nd intro';
   const isNoShow = outcome === 'No-show';
-  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy;
+  const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !!outcome;
+  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack;
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
@@ -356,6 +358,35 @@ export function OutcomeDrawer({
         });
 
         toast.success(`${memberName} — follow-up scheduled for ${format(addDays(planningToBuyDate, -1), 'MMM d')} (1 day before planned purchase)`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    // On 5 Class Pack: log outcome, clear pending follow-ups, done
+    if (isOn5ClassPack) {
+      setSaving(true);
+      try {
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'On 5 Class Pack',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'On 5 Class Pack',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
+
+        toast.success(`${memberName} — On 5 Class Pack`);
         onSaved();
       } catch (err: any) {
         toast.error(err?.message || 'Failed to save');
@@ -902,7 +933,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
+      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
         <div className="space-y-1">
           <Label className="text-xs">
             Coach who taught the class
@@ -950,7 +981,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Notes */}
-      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
+      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
         <div className="space-y-1">
           <Label className="text-xs">Notes (optional)</Label>
           <Textarea
@@ -970,7 +1001,7 @@ export function OutcomeDrawer({
           disabled={saving || !outcome}
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : 'Save Outcome'}
+          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : isOn5ClassPack ? 'Save Outcome' : 'Save Outcome'}
         </Button>
         <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>
           Cancel
