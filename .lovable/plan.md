@@ -1,34 +1,60 @@
 
 
-## Plan: Add Raffle Page to Admin Panel
+## Plan: Search Bar for Celebrations + "On 5 Class Pack" Outcome
 
-### Overview
-Create a standalone Raffle page component and add it as a new tab in the Admin panel dropdown. Admin-only access. Session-only state — no database needed.
+Two changes: a search filter on the celebrations list, and a new outcome option treated like "Planning to buy."
+
+---
+
+### Change 1 — Search Bar on Celebrations Tab
+
+**File: `src/components/dashboard/MilestonesDeploySection.tsx`**
+
+Add a search input above the celebrations list (between the "Add Celebration" button and the card list). Search filters `milestones` by both `member_name` and `friend_name` (case-insensitive). Real-time filtering — no debounce needed since it's local state.
+
+- New state: `celSearch` string
+- Filter: `milestones.filter(m => m.member_name.toLowerCase().includes(term) || (m.friend_name || '').toLowerCase().includes(term))`
+- Input placeholder: "Search member or friend name…"
+- Place the search input and "Add Celebration" button in a flex row (search left, button right)
+- 44px height, standard input styling
+
+---
+
+### Change 2 — New "On 5 Class Pack" Outcome
+
+Treat identically to "Planning to buy" — no coach required, no objection required, clears pending follow-ups, creates a deferred follow-up entry. The result string stored in DB: `"On 5 Class Pack"`.
+
+**Files changed:**
+
+1. **`src/lib/domain/outcomes/types.ts`**
+   - Add `'ON_5_CLASS_PACK'` to `IntroResult` type
+   - Add `'on 5 class pack': 'ON_5_CLASS_PACK'` to `RESULT_MAP`
+   - Add `ON_5_CLASS_PACK` case to `mapResultToBookingStatus` → returns `'ACTIVE'` (same as Planning to Buy)
+   - Add `ON_5_CLASS_PACK` case to `formatIntroResultForDb` → returns `'On 5 Class Pack'`
+
+2. **`src/components/myday/OutcomeDrawer.tsx`**
+   - Add `{ value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' }` to `NON_SALE_OUTCOMES`
+   - Add `isOn5ClassPack` boolean (same pattern as `isPlanningToBuy`)
+   - Skip objection requirement for this outcome (add to `needsObjection` exclusion)
+   - Skip coach requirement (add to `coachRequired` exclusion)
+   - In save handler: follow the same flow as "Planning to buy" — clear pending follow-ups, no deferred date needed (just log the outcome)
+   - Skip notes/coach sections for this outcome (same as Planning to buy)
+   - Button label: "Save Outcome"
+
+3. **`src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`**
+   - Add `isNowOn5ClassPack` check: `params.newResult === 'On 5 Class Pack'`
+   - Add follow-up queue clear block (same as Planning to Buy pattern at line 327-332)
+
+4. **`src/components/dashboard/OutcomeEditor.tsx`**
+   - Add "5 Class Pack" button to the 2×2 grid (expand to 3×2 or 2×3)
+   - When selected, saves result `'On 5 Class Pack'`, no objection required, no commission
+
+---
 
 ### Files Changed
-
-**1. `src/components/admin/RafflePage.tsx`** (new)
-
-Full raffle component with three sections:
-- **Names Input**: textarea (160px height), real-time count of parsed names
-- **Prize Input**: single text input
-- **Spin Area**: drum-style slot machine animation (420×80px, #E8540A border), deceleration easing over 3.5s, 40 items with winner forced last, translateY animation
-- **Winners Log**: draw number, name (bold), prize (muted), newest first, remaining count
-
-State management:
-- `names` (textarea value), `parsedNames` (full pool), `remaining` (draw pool), `prize`, `winners` array, `spinning` boolean, `currentWinner`
-- Editing textarea resets winners and remaining
-- Winner removed from remaining after each draw
-- "Spin again" resets display back to drum, keeps prize
-
-Animation: render 40 random names from remaining in a vertical strip at 80px each, animate translateY to -(39×80)px over 3.5s with cubic-bezier(0.25, 0.1, 0.1, 1). Last item = selected winner.
-
-**2. `src/pages/Admin.tsx`**
-
-- Import `RafflePage` from `@/components/admin/RafflePage`
-- Add `{ value: 'raffle', label: 'Raffle', icon: <Gift className="w-4 h-4" /> }` to `adminSections` array (import `Gift` from lucide-react)
-- Add `<TabsContent value="raffle"><RafflePage /></TabsContent>` after the 10x tab
-
-### No downstream effects
-Session-only feature. No database. No other pages affected. Admin role already enforced by the existing route guard + in-page role check.
+1. `src/components/dashboard/MilestonesDeploySection.tsx` — add search bar
+2. `src/lib/domain/outcomes/types.ts` — add ON_5_CLASS_PACK to IntroResult
+3. `src/components/myday/OutcomeDrawer.tsx` — add outcome option
+4. `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` — add follow-up clearing
+5. `src/components/dashboard/OutcomeEditor.tsx` — add button
 
