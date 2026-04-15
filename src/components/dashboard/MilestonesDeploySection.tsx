@@ -526,90 +526,86 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                 )
               : milestones;
 
-          {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
-          ) : milestones.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No celebrations this week.</p>
-          ) : (
-            <Card className="divide-y divide-border">
-              {milestones.map(m => (
-                <div key={m.id} className="p-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{m.member_name}</span>
-                      <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/20 text-[9px] h-4">{m.milestone_type}</Badge>
-                      {/* Pack status pill */}
-                      {m.five_class_pack_gifted && (
-                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
+            return loading ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">{searchTerm ? 'No matches found.' : 'No celebrations this week.'}</p>
+            ) : (
+              <Card className="divide-y divide-border">
+                {filtered.map(m => (
+                  <div key={m.id} className="p-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{m.member_name}</span>
+                        <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/20 text-[9px] h-4">{m.milestone_type}</Badge>
+                        {m.five_class_pack_gifted && (
+                          <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
+                        )}
+                        {m.actually_celebrated ? (
+                          <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Celebrated</Badge>
+                        ) : (
+                          <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not yet celebrated</Badge>
+                        )}
+                        {m.converted_to_lead_id ? (
+                          <Badge
+                            className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30 text-[9px] h-4 cursor-pointer gap-1"
+                            onClick={(e) => { e.stopPropagation(); navigateToLead(m.converted_to_lead_id!); }}
+                          >
+                            In pipeline <ExternalLink className="w-2.5 h-2.5" />
+                          </Badge>
+                        ) : m.friend_name ? (
+                          <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
+                        ) : null}
+                        {m.five_class_pack_gifted && m.friend_name && (() => {
+                          const info = friendTracking.get(m.id);
+                          const showedUp = info?.friendShowedUp || false;
+                          const converted = info?.convertedToMember || false;
+                          return (
+                            <>
+                              {showedUp ? (
+                                <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Friend Showed Up</Badge>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-[10px] px-3 border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', m.id);
+                                    toast.success('Marked as showed up');
+                                    loadData();
+                                  }}
+                                >
+                                  <Check className="w-3 h-3 mr-1" /> They Came In
+                                </Button>
+                              )}
+                              {converted ? (
+                                <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted to Member</Badge>
+                              ) : showedUp ? (
+                                <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
+                              ) : null}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      {m.friend_name && !m.converted_to_lead_id && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 italic">Friend: {m.friend_name}</p>
                       )}
-                      {/* Celebrated status badge */}
-                      {m.actually_celebrated ? (
-                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Celebrated</Badge>
-                      ) : (
-                        <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not yet celebrated</Badge>
-                      )}
-                      {/* Pipeline status pill */}
-                      {m.converted_to_lead_id ? (
-                        <Badge
-                          className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30 text-[9px] h-4 cursor-pointer gap-1"
-                          onClick={(e) => { e.stopPropagation(); navigateToLead(m.converted_to_lead_id!); }}
-                        >
-                          In pipeline <ExternalLink className="w-2.5 h-2.5" />
-                        </Badge>
-                      ) : m.friend_name ? (
-                        <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
-                      ) : null}
-                      {/* Friend showed up / conversion badges */}
-                      {m.five_class_pack_gifted && m.friend_name && (() => {
-                        const info = friendTracking.get(m.id);
-                        const showedUp = info?.friendShowedUp || false;
-                        const converted = info?.convertedToMember || false;
-                        return (
-                          <>
-                            {showedUp ? (
-                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Friend Showed Up</Badge>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-[10px] px-3 border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', m.id);
-                                  toast.success('Marked as showed up');
-                                  loadData();
-                                }}
-                              >
-                                <Check className="w-3 h-3 mr-1" /> They Came In
-                              </Button>
-                            )}
-                            {converted ? (
-                              <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted to Member</Badge>
-                            ) : showedUp ? (
-                              <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
-                            ) : null}
-                          </>
-                        );
-                      })()}
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {m.created_by} · {format(new Date(m.created_at), 'EEE h:mm a')}
+                        {m.last_edited_by && (
+                          <span className="ml-1">· edited by {m.last_edited_by}</span>
+                        )}
+                      </p>
                     </div>
-                    {/* Show friend name if exists but not in pipeline */}
-                    {m.friend_name && !m.converted_to_lead_id && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">Friend: {m.friend_name}</p>
-                    )}
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {m.created_by} · {format(new Date(m.created_at), 'EEE h:mm a')}
-                      {m.last_edited_by && (
-                        <span className="ml-1">· edited by {m.last_edited_by}</span>
-                      )}
-                    </p>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(m)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(m)}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </Card>
-          )}
+                ))}
+              </Card>
+            );
+          })()}
         </TabsContent>
 
         {/* DEPLOY TAB */}
