@@ -1,40 +1,62 @@
+<final-text>Root cause from the code audit:
 
+1. "Planning to Reschedule" is not part of the canonical outcome/status model.
+   - `src/lib/domain/outcomes/types.ts` has no `PLANNING_RESCHEDULE` result/status mapping.
+   - `src/components/myday/OutcomeDrawer.tsx` special-cases it outside `applyIntroOutcomeUpdate`.
+   - That means reschedule writes and My Day readers are not using one shared source of truth.
 
-## Plan: Public VIP Registration Roster Page + Link in QR Dialog
+2. My Day filtering is inconsistent.
+   - `src/features/myDay/useUpcomingIntrosData.ts` correctly hides `PLANNING_RESCHEDULE`.
+   - But `src/features/myDay/useWinTheDayItems.ts` still pulls raw `intros_booked` rows for today/tomorrow without excluding reschedule status.
+   - `src/features/myDay/MyDayPage.tsx` counts/metrics also still count raw bookings without excluding `PLANNING_RESCHEDULE`.
+   - So someone can disappear from the Intros list but still show elsewhere in My Day.
 
-### Overview
-Create a new public page at `/vip/:slug/roster` that shows the group organizer a live list of who has registered for their session. Add a "Copy Roster Link" button alongside the existing QR code and registration link in the VIP Scheduler.
+3. There is likely bad live data on Ryann Bulger specifically.
+   - Since you said this happened multiple times, I need to inspect her bookings/runs/follow-up rows and correct any stale ACTIVE booking(s) that should be `PLANNING_RESCHEDULE` or otherwise closed out.
 
-### Changes
+Plan to fix it:
 
-**1. New page: `src/pages/VipRoster.tsx`**
+1. Inspect Ryann Bulger’s live records first
+   - Check all `intros_booked`, `intros_run`, and `follow_up_queue` rows for her.
+   - Identify whether the issue is:
+     - a stale ACTIVE booking,
+     - multiple duplicate bookings,
+     - or a row marked `PLANNING_RESCHEDULE` that is still leaking into My Day through the wrong reader.
 
-Public page (no auth). Resolves the session via `shareable_slug` from `vip_sessions`, then queries `vip_registrations` where `vip_session_id` matches.
+2. Canonicalize the reschedule outcome path
+   - Update `src/lib/domain/outcomes/types.ts` so `Planning to Reschedule` is recognized canonically.
+   - Refactor `src/components/myday/OutcomeDrawer.tsx` so reschedule uses the shared outcome/status pipeline instead of a one-off write path.
+   - Ensure repeated reschedule logging is idempotent and always leaves booking status in a consistent state.
 
-Display:
-- OTF logo header, group name, session date/time
-- Registration count ("12 registered so far")
-- List of registrants showing: first name, last name initial (privacy — e.g. "Sarah M."), and registration timestamp
-- No email, phone, birthday, or weight shown (privacy)
-- Auto-refreshes every 30 seconds via polling (simple, no auth needed for realtime)
-- Empty state: "No registrations yet. Share the registration link to get started!"
-- OTF Orange accent, white background (public page styling matching VipMemberRegister)
+3. Fix every My Day reader that shares the root cause
+   - `src/features/myDay/useWinTheDayItems.ts`
+     - exclude `PLANNING_RESCHEDULE` from questionnaire, prep, confirmation, and outcome tasks.
+   - `src/features/myDay/MyDayPage.tsx`
+     - exclude `PLANNING_RESCHEDULE` from counts and unresolved metrics.
+   - `src/features/myDay/useUpcomingIntrosData.ts`
+     - keep the exclusion, but align it to the same shared status logic and Central Time helpers.
 
-**2. Route: `src/App.tsx`**
+4. Repair the bad data
+   - Correct Ryann Bulger’s affected booking row(s).
+   - If I find the same corruption pattern on other rows created by this same bug, I will fix those too in the same pass.
 
-Add `<Route path="/vip/:slug/roster" element={<VipRoster />} />` next to the existing `/vip/:slug/register` route.
+5. Verify intended behavior
+   - `Planning to Reschedule` should disappear from all My Day active surfaces and only live in Follow-Up.
+   - A true rebooked ACTIVE intro should still appear on its new scheduled date.
+   - Follow-Up reschedule tab must still show the person correctly.
+   - My Day counts and checklist items must match the corrected status.
 
-**3. VIP Scheduler links: `src/features/pipeline/components/VipSchedulerTab.tsx`**
+Affected files:
+- `src/lib/domain/outcomes/types.ts`
+- `src/components/myday/OutcomeDrawer.tsx`
+- `src/features/myDay/useWinTheDayItems.ts`
+- `src/features/myDay/MyDayPage.tsx`
+- `src/features/myDay/useUpcomingIntrosData.ts`
 
-Two additions:
-- On reserved session cards: add a "Copy Roster Link" button (same row as "Copy Member Link" and "Download QR") that copies `https://otf-tuscaloosa.lovable.app/vip/{slug}/roster`
-- In the QR download dialog: add the roster link below the QR code as a second copyable link with label "Roster link (share with organizer)"
-
-### No database changes
-The roster page reads from existing `vip_sessions` and `vip_registrations` tables using the existing public RLS policies.
-
-### Files changed
-1. `src/pages/VipRoster.tsx` — new public roster page
-2. `src/App.tsx` — add route
-3. `src/features/pipeline/components/VipSchedulerTab.tsx` — add copy/share buttons
-
+Downstream effects I will cover in the same build:
+- Intros tab visibility
+- Win the Day checklist visibility
+- My Day summary/counts
+- Follow-Up reschedule visibility
+- Ryann Bulger live data correction
+- Shared canonical reschedule handling so this does not recur</final-text>
