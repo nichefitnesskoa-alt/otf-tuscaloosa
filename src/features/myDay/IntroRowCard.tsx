@@ -690,6 +690,7 @@ export default function IntroRowCard({
         open={editOpen}
         onOpenChange={setEditOpen}
         bookingId={item.bookingId}
+        memberName={item.memberName}
         coachName={item.coachName || ''}
         introTime={item.introTime}
         leadSource={item.leadSource || ''}
