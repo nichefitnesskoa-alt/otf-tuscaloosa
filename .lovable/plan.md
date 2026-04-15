@@ -1,30 +1,46 @@
 
 
-## Plan: Align Coach View Filtering with My Day
+## Plan: Fix VIP Roster Count Mismatch
 
 ### Root Cause
 
-The Coach View query (`src/pages/CoachView.tsx` lines 103-109) fetches bookings with only two exclusions:
-- `deleted_at IS NULL`
-- `booking_status_canon != 'DELETED_SOFT'`
+Two bugs cause the roster to show 7 while the admin shows 11:
 
-My Day (`useUpcomingIntrosData.ts`) excludes `CANCELLED`, `PLANNING_RESCHEDULE`, `DELETED_SOFT`, and `VIP`/`COMP` booking types.
+1. **Missing `vip_session_id` on bulk import**: `VipBulkImport.tsx` (line 165-176) creates `vip_registrations` with `vip_class_name` but never sets `vip_session_id`. The public roster page (`VipRoster.tsx`) queries by `vip_session_id`, so these 4 members are invisible.
 
-The Coach View's client-side filter (line 143) only removes `is_vip` and `deleted_at`. It does **not** exclude `CANCELLED`, `PLANNING_RESCHEDULE`, `NOT_INTERESTED`, or `CLOSED_PURCHASED` statuses. This means resolved/cancelled/rescheduled members still appear on the Coach side but not on My Day.
+2. **Case mismatch**: The 4 missing registrations have `vip_class_name = 'Pjs Coffee'` (lowercase 's') instead of `'PJs Coffee'`. This is a secondary data consistency issue.
 
 ### Fix
 
-**File: `src/pages/CoachView.tsx`**
+**1. Data repair — link the 4 orphaned registrations to the correct session**
 
-1. Update the Supabase query (line 103-109) to exclude the same statuses My Day excludes:
-   - Add `.not('booking_status_canon', 'in', '("CANCELLED","PLANNING_RESCHEDULE","DELETED_SOFT")')` 
-   - Add `.not('booking_type_canon', 'in', '("VIP","COMP")')` to move VIP exclusion to the query level
+```sql
+UPDATE vip_registrations
+SET vip_session_id = 'e5947bbb-abe0-47ef-82de-c2ccc6f6323d',
+    vip_class_name = 'PJs Coffee'
+WHERE id IN (
+  'b9c83e6c-482b-4127-9d4c-894cec2325d9',
+  '5a0f3504-7332-42c3-9501-5325edbfea6b',
+  '3e5d8384-79b9-42c2-a5fb-dfadfbba060c',
+  '1dd6cb0d-6ffe-48ca-b8d0-4c889e2844d0'
+);
+```
 
-2. Update the client-side `filteredBookings` filter (line 143) to also exclude these statuses as a safety net, replacing the simple `!b.is_vip` check with a proper status exclusion list matching My Day's logic.
+**2. Fix `VipBulkImport.tsx` — set `vip_session_id` on insert**
+
+The bulk import already receives the session context. Add `vip_session_id` to the registration insert so future imports are properly linked and visible on the roster.
+
+**3. Fix `VipGroupDetail.tsx` "Add Member" flow** (if it also creates registrations without `vip_session_id`)
+
+Audit the manual add-member path in VipGroupDetail to ensure it also sets `vip_session_id`.
 
 ### Result
-Coach View will show exactly the same set of intros as My Day for the same date range. Resolved, cancelled, and rescheduled bookings will no longer appear on the Coach side.
+- Roster page and admin VIP tab will show the same count
+- Future bulk imports will correctly link registrations to sessions
+- No other files change
 
-### One file changed
-- `src/pages/CoachView.tsx`
+### Files changed
+1. Database migration — repair 4 orphaned registrations
+2. `src/components/admin/VipBulkImport.tsx` — add `vip_session_id` to registration insert
+3. `src/components/admin/VipGroupDetail.tsx` — audit and fix add-member flow if needed
 
