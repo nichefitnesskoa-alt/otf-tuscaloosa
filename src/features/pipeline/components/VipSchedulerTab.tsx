@@ -472,6 +472,12 @@ export function VipSchedulerTab() {
                           <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => setQrSession(s)}>
                             <Download className="w-3.5 h-3.5" /> Download QR
                           </Button>
+                          <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => {
+                            navigator.clipboard.writeText(`https://otf-tuscaloosa.lovable.app/vip/${s.shareable_slug}/roster`);
+                            toast.success('Roster link copied');
+                          }}>
+                            <Copy className="w-3.5 h-3.5" /> Copy Roster Link
+                          </Button>
                         </>
                       )}
                       {s.status === 'reserved' && (
@@ -948,6 +954,21 @@ export function VipSchedulerTab() {
                   fgColor="#000000"
                   level="M"
                 />
+              </div>
+              {/* Roster link for organizer */}
+              <div className="w-full rounded-lg border p-3 space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Roster link (share with organizer)</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded truncate">
+                    https://otf-tuscaloosa.lovable.app/vip/{qrSession.shareable_slug}/roster
+                  </code>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => {
+                    navigator.clipboard.writeText(`https://otf-tuscaloosa.lovable.app/vip/${qrSession!.shareable_slug}/roster`);
+                    toast.success('Roster link copied');
+                  }}>
+                    <Copy className="w-3 h-3" /> Copy
+                  </Button>
+                </div>
               </div>
               <Button
                 className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2"
