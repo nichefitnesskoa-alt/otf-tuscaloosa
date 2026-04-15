@@ -52,6 +52,22 @@ interface VipSession {
   actual_attendance: number | null;
   attendance_logged_by: string | null;
   attendance_logged_at: string | null;
+  session_type: string | null;
+  business_sub_type: string | null;
+}
+
+function getSessionTypeLabel(s: VipSession): string | null {
+  if (!s.session_type) return null;
+  if (s.session_type === 'exclusive') return 'Social Group / Organization';
+  if (s.session_type === 'business_staff') {
+    if (s.business_sub_type === 'staff_only') return 'Business — Staff Only';
+    if (s.business_sub_type === 'staff_customers') return 'Business — Staff + Customers';
+    if (s.business_sub_type === 'staff_members') return 'Business — Staff + OTF Members';
+    return 'Business';
+  }
+  if (s.session_type === 'business_customers') return 'Business — Staff + Customers';
+  if (s.session_type === 'open') return 'Business — Staff + OTF Members';
+  return s.session_type;
 }
 
 interface VipRegistration {
