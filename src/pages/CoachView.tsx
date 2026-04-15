@@ -106,7 +106,8 @@ export default function CoachView() {
       .gte('class_date', weekData.weekStart)
       .lte('class_date', weekData.weekEnd)
       .is('deleted_at', null)
-      .neq('booking_status_canon', 'DELETED_SOFT');
+      .not('booking_status_canon', 'in', '("DELETED_SOFT","CANCELLED","PLANNING_RESCHEDULE")')
+      .not('booking_type_canon', 'in', '("VIP","COMP")');
 
     const { data } = await query.order('class_date').order('intro_time');
     const rows = (data || []) as unknown as CoachBooking[];
@@ -140,7 +141,8 @@ export default function CoachView() {
   }, [coachName, isAdmin, weekData.weekStart, weekData.weekEnd]);
 
   const filteredBookings = useMemo(() => {
-    let result = bookings.filter(b => !b.is_vip && !b.deleted_at);
+    const EXCLUDED_STATUSES = ['DELETED_SOFT', 'CANCELLED', 'PLANNING_RESCHEDULE'];
+    let result = bookings.filter(b => !b.is_vip && !b.deleted_at && !EXCLUDED_STATUSES.includes(b.booking_status_canon));
     if (coachFilter !== 'all') {
       result = result.filter(b => b.coach_name === coachFilter);
     }
