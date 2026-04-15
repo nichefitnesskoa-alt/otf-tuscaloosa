@@ -366,6 +366,35 @@ export function OutcomeDrawer({
       }
       return;
     }
+    // On 5 Class Pack: log outcome, clear pending follow-ups, done
+    if (isOn5ClassPack) {
+      setSaving(true);
+      try {
+        const result = await applyIntroOutcomeUpdate({
+          bookingId,
+          memberName,
+          classDate,
+          newResult: 'On 5 Class Pack',
+          previousResult: currentResult || null,
+          leadSource: leadSource || '',
+          objection: null,
+          coachName: coachName || undefined,
+          editedBy,
+          sourceComponent: 'MyDay-OutcomeDrawer',
+          editReason: notes || 'On 5 Class Pack',
+          runId: existingRunId || undefined,
+        });
+        if (!result.success) throw new Error(result.error);
+
+        toast.success(`${memberName} — On 5 Class Pack`);
+        onSaved();
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
   // Planning to Reschedule: mark booking + add to follow-up queue
     if (isPlanningToReschedule) {
@@ -904,7 +933,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
+      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
         <div className="space-y-1">
           <Label className="text-xs">
             Coach who taught the class
@@ -952,7 +981,7 @@ export function OutcomeDrawer({
       )}
 
       {/* Notes */}
-      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && (
+      {!isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
         <div className="space-y-1">
           <Label className="text-xs">Notes (optional)</Label>
           <Textarea
@@ -972,7 +1001,7 @@ export function OutcomeDrawer({
           disabled={saving || !outcome}
         >
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : 'Save Outcome'}
+          {isReschedule ? 'Reschedule' : isPlanningToReschedule ? 'Move to Follow-Up' : isPlanningToBuy ? 'Save — Follow Up Before Buy Date' : isOn5ClassPack ? 'Save Outcome' : 'Save Outcome'}
         </Button>
         <Button size="sm" variant="ghost" className="h-8" onClick={onCancel}>
           Cancel
