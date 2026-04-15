@@ -123,10 +123,22 @@ export default function VipBulkImport() {
     let skipped = 0;
     let errors = 0;
 
+    // Look up the vip_session_id for this class name so registrations are linked
+    let sessionId: string | null = null;
+    if (vipClassName) {
+      const { data: sessionData } = await supabase
+        .from('vip_sessions')
+        .select('id')
+        .eq('vip_class_name', vipClassName)
+        .limit(1);
+      if (sessionData && sessionData.length > 0) {
+        sessionId = (sessionData[0] as any).id;
+      }
+    }
+
     for (const row of validRows) {
       try {
         const memberName = `${row.firstName} ${row.lastName}`;
-        const memberKey = memberName.toLowerCase().replace(/\s+/g, '');
 
         // Check for existing booking with same name + VIP Class
         const { data: existing } = await supabase
@@ -155,6 +167,7 @@ export default function VipBulkImport() {
             booked_by: 'Bulk Import',
             booking_status: 'Unscheduled',
             vip_class_name: vipClassName || null,
+            vip_session_id: sessionId,
           } as any)
           .select('id')
           .single();
@@ -173,6 +186,7 @@ export default function VipBulkImport() {
             weight_lbs: row.weightLbs || null,
             booking_id: booking.id,
             vip_class_name: vipClassName || null,
+            vip_session_id: sessionId,
           } as any);
 
         success++;
