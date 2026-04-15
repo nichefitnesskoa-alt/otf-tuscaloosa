@@ -13,7 +13,8 @@ export type BookingStatus =
   | 'CLOSED_PURCHASED'
   | 'CLOSED_DIDNT_BUY'
   | 'CANCELLED'
-  | 'DELETED_SOFT';
+  | 'DELETED_SOFT'
+  | 'PLANNING_RESCHEDULE';
 
 export type IntroResult =
   | 'PREMIER'
@@ -27,6 +28,7 @@ export type IntroResult =
   | 'PLANNING_2ND_INTRO'
   | 'PLANNING_TO_BUY'
   | 'ON_5_CLASS_PACK'
+  | 'PLANNING_RESCHEDULE'
   | 'UNRESOLVED';
 
 // ── Normalizers ──
@@ -51,6 +53,8 @@ const STATUS_MAP: Record<string, BookingStatus> = {
   'closed – didnt buy': 'CLOSED_DIDNT_BUY',
   'closed_didnt_buy': 'CLOSED_DIDNT_BUY',
   'unscheduled': 'ACTIVE',
+  'planning to reschedule': 'PLANNING_RESCHEDULE',
+  'planning_reschedule': 'PLANNING_RESCHEDULE',
 };
 
 export function normalizeBookingStatus(input: string | null | undefined): BookingStatus {
@@ -78,6 +82,8 @@ const RESULT_MAP: Record<string, IntroResult> = {
   'planning_to_buy': 'PLANNING_TO_BUY',
   'on 5 class pack': 'ON_5_CLASS_PACK',
   'on_5_class_pack': 'ON_5_CLASS_PACK',
+  'planning to reschedule': 'PLANNING_RESCHEDULE',
+  'planning_reschedule': 'PLANNING_RESCHEDULE',
   'unresolved': 'UNRESOLVED',
 };
 
@@ -140,6 +146,8 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
       return 'ACTIVE';
     case 'ON_5_CLASS_PACK':
       return 'ACTIVE';
+    case 'PLANNING_RESCHEDULE':
+      return 'PLANNING_RESCHEDULE';
     case 'UNRESOLVED':
     default:
       return 'ACTIVE';
@@ -158,6 +166,7 @@ const BOOKING_STATUS_DISPLAY: Record<BookingStatus, string> = {
   CLOSED_DIDNT_BUY: 'Active',
   CANCELLED: 'Cancelled',
   DELETED_SOFT: 'Deleted (soft)',
+  PLANNING_RESCHEDULE: 'Planning to Reschedule',
 };
 
 export function formatBookingStatusForDb(status: BookingStatus): string {
@@ -186,6 +195,8 @@ export function formatIntroResultForDb(result: IntroResult, membershipType?: str
       return 'Planning to buy';
     case 'ON_5_CLASS_PACK':
       return 'On 5 Class Pack';
+    case 'PLANNING_RESCHEDULE':
+      return 'Planning to Reschedule';
     case 'UNRESOLVED':
     default:
       return 'Unresolved';
