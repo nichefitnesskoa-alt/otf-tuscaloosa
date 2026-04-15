@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, Plus, PartyPopper, Rocket, AlertTriangle, Pencil, ExternalLink } from 'lucide-react';
+import { Check, Plus, PartyPopper, Rocket, AlertTriangle, Pencil, ExternalLink, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -62,6 +62,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('celebrations');
+  const [celSearch, setCelSearch] = useState('');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
   const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
@@ -453,10 +454,19 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
         {/* CELEBRATIONS TAB */}
         <TabsContent value="celebrations" className="space-y-3 mt-3">
-          <div className="flex justify-end">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={celSearch}
+                onChange={e => setCelSearch(e.target.value)}
+                placeholder="Search member or friend name…"
+                className="h-[44px] pl-9 text-sm"
+              />
+            </div>
             <Dialog open={celOpen} onOpenChange={(o) => { setCelOpen(o); if (!o) setCelPipelineMsg(null); }}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 h-8 text-xs">
+                <Button size="sm" className="gap-1 h-[44px] text-xs px-3">
                   <Plus className="w-3.5 h-3.5" /> Add Celebration
                 </Button>
               </DialogTrigger>
@@ -506,6 +516,15 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
               </DialogContent>
             </Dialog>
           </div>
+
+          {(() => {
+            const searchTerm = celSearch.toLowerCase().trim();
+            const filtered = searchTerm
+              ? milestones.filter(m =>
+                  m.member_name.toLowerCase().includes(searchTerm) ||
+                  (m.friend_name || '').toLowerCase().includes(searchTerm)
+                )
+              : milestones;
 
           {loading ? (
             <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
