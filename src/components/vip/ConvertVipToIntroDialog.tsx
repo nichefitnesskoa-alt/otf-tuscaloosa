@@ -20,19 +20,22 @@ interface ConvertVipToIntroDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   vipBooking: {
-    id: string;
+    /** Existing intros_booked.id, or null for "no booking yet" registration rows */
+    id: string | null;
     member_name: string;
     phone?: string | null;
     email?: string | null;
     coach_name?: string | null;
     fitness_goal?: string | null;
   };
+  /** Optional vip_registrations.id — when provided, the new booking is linked back via booking_id */
+  registrationId?: string | null;
   referredByMember?: string | null;
   onConverted: () => void;
 }
 
 export function ConvertVipToIntroDialog({
-  open, onOpenChange, vipBooking, referredByMember, onConverted,
+  open, onOpenChange, vipBooking, registrationId, referredByMember, onConverted,
 }: ConvertVipToIntroDialogProps) {
   const { user } = useAuth();
   const [classDate, setClassDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -74,17 +77,27 @@ export function ConvertVipToIntroDialog({
 
       if (insertErr) throw insertErr;
 
-      // Update original VIP booking
-      await supabase
-        .from('intros_booked')
-        .update({
-          vip_status: 'CONVERTED',
-          converted_to_booking_id: newBooking.id,
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: `${saName} (VIP Convert)`,
-          edit_reason: 'Converted VIP to real intro booking',
-        })
-        .eq('id', vipBooking.id);
+      // Update original VIP booking (only when one exists)
+      if (vipBooking.id) {
+        await supabase
+          .from('intros_booked')
+          .update({
+            vip_status: 'CONVERTED',
+            converted_to_booking_id: newBooking.id,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: `${saName} (VIP Convert)`,
+            edit_reason: 'Converted VIP to real intro booking',
+          })
+          .eq('id', vipBooking.id);
+      }
+
+      // Link the registration to the newly-created booking so the row joins correctly
+      if (registrationId) {
+        await supabase
+          .from('vip_registrations')
+          .update({ booking_id: newBooking.id } as any)
+          .eq('id', registrationId);
+      }
 
       toast.success(`${vipBooking.member_name} converted to real intro!`);
       onConverted();
