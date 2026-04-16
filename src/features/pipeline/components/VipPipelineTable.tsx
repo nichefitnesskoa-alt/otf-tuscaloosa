@@ -392,7 +392,7 @@ export function VipPipelineTable() {
     if (selectedRows.size === filtered.length) {
       setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(filtered.map(r => r.bookingId)));
+      setSelectedRows(new Set(filtered.map(r => r.rowId)));
     }
   };
 
@@ -408,6 +408,10 @@ export function VipPipelineTable() {
 
   const handleAssignSingle = async () => {
     if (!assignRow || !assignDate) return;
+    if (!assignRow.bookingId) {
+      toast.error('Create a booking first before assigning a session');
+      return;
+    }
     setAssigning(true);
     try {
       await supabase
@@ -431,12 +435,23 @@ export function VipPipelineTable() {
     }
     setBulkAssigning(true);
     try {
-      const ids = Array.from(selectedRows);
+      // Map selected rowIds → bookingIds (skip rows without bookings)
+      const selectedRowSet = selectedRows;
+      const ids = filtered
+        .filter(r => selectedRowSet.has(r.rowId) && r.bookingId)
+        .map(r => r.bookingId!) as string[];
+      const skipped = selectedRows.size - ids.length;
+      if (ids.length === 0) {
+        toast.error('Selected members have no bookings yet — create bookings first');
+        return;
+      }
       await supabase
         .from('intros_booked')
         .update({ class_date: bulkDate, intro_time: bulkTime || null, booking_status: 'Active' } as any)
         .in('id', ids);
-      toast.success(`Assigned ${ids.length} member(s) to ${fmtDate(bulkDate)}`);
+      toast.success(
+        `Assigned ${ids.length} member(s) to ${fmtDate(bulkDate)}${skipped > 0 ? ` (${skipped} skipped — no booking)` : ''}`
+      );
       setSelectedRows(new Set());
       setShowBulkDialog(false);
       setBulkDate('');
@@ -506,14 +521,22 @@ export function VipPipelineTable() {
   const handleDeleteSingle = async (row: VipRow) => {
     setDeleting(true);
     try {
-      await supabase
-        .from('intros_booked')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
-        .eq('id', row.bookingId);
-      await supabase
-        .from('vip_registrations')
-        .delete()
-        .eq('booking_id', row.bookingId);
+      if (row.bookingId) {
+        await supabase
+          .from('intros_booked')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+          .eq('id', row.bookingId);
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .eq('booking_id', row.bookingId);
+      }
+      if (row.registrationId) {
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .eq('id', row.registrationId);
+      }
       toast.success(`${row.memberName} removed from VIP list`);
       setDeleteTarget(null);
       fetchData();
@@ -527,17 +550,27 @@ export function VipPipelineTable() {
   const handleBulkDelete = async () => {
     setBulkDeleting(true);
     try {
-      const ids = Array.from(selectedRows);
-      await supabase
-        .from('intros_booked')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
-        .in('id', ids);
-      await supabase
-        .from('vip_registrations')
-        .delete()
-        .in('booking_id', ids);
-      const count = ids.length;
-      toast.success(`${count} member(s) removed from VIP list`);
+      const selectedRowSet = selectedRows;
+      const targetRows = filtered.filter(r => selectedRowSet.has(r.rowId));
+      const bookingIds = targetRows.map(r => r.bookingId).filter(Boolean) as string[];
+      const regIds = targetRows.map(r => r.registrationId).filter(Boolean) as string[];
+      if (bookingIds.length > 0) {
+        await supabase
+          .from('intros_booked')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+          .in('id', bookingIds);
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .in('booking_id', bookingIds);
+      }
+      if (regIds.length > 0) {
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .in('id', regIds);
+      }
+      toast.success(`${targetRows.length} member(s) removed from VIP list`);
       setSelectedRows(new Set());
       setShowBulkDelete(false);
       fetchData();
