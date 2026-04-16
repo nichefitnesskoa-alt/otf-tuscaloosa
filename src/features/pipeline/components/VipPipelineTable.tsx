@@ -1248,7 +1248,7 @@ export function VipPipelineTable() {
             'first-name': scriptRow.memberName.split(' ')[0],
             'last-name': scriptRow.memberName.split(' ').slice(1).join(' '),
           }}
-          bookingId={scriptRow.bookingId}
+          bookingId={scriptRow.bookingId || undefined}
         />
       )}
 
