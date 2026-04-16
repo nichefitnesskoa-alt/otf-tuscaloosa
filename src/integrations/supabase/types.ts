@@ -2534,6 +2534,10 @@ export type Database = {
           injuries: string | null
           is_group_contact: boolean
           last_name: string | null
+          outcome: string | null
+          outcome_logged_at: string | null
+          outcome_logged_by: string | null
+          outcome_notes: string | null
           phone: string | null
           vip_class_name: string | null
           vip_session_id: string | null
@@ -2550,6 +2554,10 @@ export type Database = {
           injuries?: string | null
           is_group_contact?: boolean
           last_name?: string | null
+          outcome?: string | null
+          outcome_logged_at?: string | null
+          outcome_logged_by?: string | null
+          outcome_notes?: string | null
           phone?: string | null
           vip_class_name?: string | null
           vip_session_id?: string | null
@@ -2566,6 +2574,10 @@ export type Database = {
           injuries?: string | null
           is_group_contact?: boolean
           last_name?: string | null
+          outcome?: string | null
+          outcome_logged_at?: string | null
+          outcome_logged_by?: string | null
+          outcome_notes?: string | null
           phone?: string | null
           vip_class_name?: string | null
           vip_session_id?: string | null
