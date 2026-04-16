@@ -57,8 +57,11 @@ export function useIntroTypeDetection(
       if (b.originating_booking_id) {
         const orig = allBookings.find(o => o.id === b.originating_booking_id);
         if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-          map.set(b.id, true);
-          return;
+          // Only count as 2nd intro if the originating booking wasn't a no-show
+          if (orig.booking_status_canon !== 'NO_SHOW') {
+            map.set(b.id, true);
+            return;
+          }
         }
         // Different member → friend booking, fall through to name/phone grouping
       }

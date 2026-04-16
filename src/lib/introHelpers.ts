@@ -48,7 +48,10 @@ export function isSecondIntroFromList(
   if (booking.originating_booking_id) {
     const orig = allBookings.find(b => b.id === booking.originating_booking_id);
     if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '')) {
-      return true;
+      // Only count as 2nd intro if the originating booking wasn't a no-show
+      if ((orig as any).booking_status_canon !== 'NO_SHOW') {
+        return true;
+      }
     }
     // Different member = friend booking, not a 2nd intro — fall through
   }
