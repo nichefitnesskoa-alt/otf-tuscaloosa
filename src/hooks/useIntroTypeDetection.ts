@@ -15,14 +15,16 @@ export function useIntroTypeDetection(
     created_at?: string;
     is_vip?: boolean | null;
     booking_status?: string | null;
+    booking_status_canon?: string | null;
     phone?: string | null;
   }>
 ) {
   const introTypeMap = useMemo(() => {
     const map = new Map<string, boolean>();
     
-    // Group bookings by member_key, excluding VIP bookings from intro type logic
-    const nonVipBookings = allBookings.filter(b => !b.is_vip);
+    // Group bookings by member_key, excluding VIP and NO_SHOW bookings from intro type logic
+    // NO_SHOW bookings should not count as prior visits — the person never had their intro
+    const nonVipBookings = allBookings.filter(b => !b.is_vip && b.booking_status_canon !== 'NO_SHOW');
     
     // Group by name key
     const memberGroups = new Map<string, typeof nonVipBookings>();

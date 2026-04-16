@@ -282,8 +282,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           const batchExtended = [...new Set([...batch, ...batch.map(n => n.toLowerCase())])];
           const { data: priorRuns } = await supabase
             .from('intros_run')
-            .select('member_name, linked_intro_booked_id')
-            .in('member_name', batchExtended);
+            .select('member_name, linked_intro_booked_id, result_canon')
+            .in('member_name', batchExtended)
+            .neq('result_canon', 'NO_SHOW');
           if (priorRuns) {
             for (const pr of priorRuns) {
               priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
@@ -322,8 +323,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             // Query with both original and lowercased name to handle case mismatches
             const { data: externalRuns } = await supabase
               .from('intros_run')
-              .select('id, linked_intro_booked_id')
+              .select('id, linked_intro_booked_id, result_canon')
               .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
+              .neq('result_canon', 'NO_SHOW')
               .limit(5);
             const hasExternalRun = (externalRuns || []).some(r => 
               r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
