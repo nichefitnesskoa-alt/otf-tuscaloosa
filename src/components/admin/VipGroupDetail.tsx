@@ -100,13 +100,14 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
       const sessionIds = sessionList.map(s => s.id).filter(Boolean);
 
       // Members: bookings either match by vip_class_name OR by vip_session_id in this group's sessions
-      const memberQueries: Promise<any>[] = [];
+      const memberQueries: any[] = [];
       memberQueries.push(
         supabase
           .from('intros_booked')
           .select('id, member_name, class_date, intro_time, coach_name, booking_status, vip_session_id, phone, email, lead_source')
           .eq('vip_class_name', groupName)
           .is('deleted_at', null)
+          .then((r: any) => r)
       );
       if (sessionIds.length > 0) {
         memberQueries.push(
@@ -115,16 +116,18 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
             .select('id, member_name, class_date, intro_time, coach_name, booking_status, vip_session_id, phone, email, lead_source')
             .in('vip_session_id', sessionIds)
             .is('deleted_at', null)
+            .then((r: any) => r)
         );
       }
 
       // Registrations: same dual-match strategy
-      const regQueries: Promise<any>[] = [];
+      const regQueries: any[] = [];
       regQueries.push(
         supabase
           .from('vip_registrations')
           .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name')
           .eq('vip_class_name', groupName)
+          .then((r: any) => r)
       );
       if (sessionIds.length > 0) {
         regQueries.push(
@@ -132,6 +135,7 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
             .from('vip_registrations')
             .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name')
             .in('vip_session_id', sessionIds)
+            .then((r: any) => r)
         );
       }
 
