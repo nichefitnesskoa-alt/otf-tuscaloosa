@@ -77,6 +77,11 @@ export default function IntroDayGroup({
       <div className="space-y-2">
         {timeGroups.map(([time, items]) => {
           const timeLabel = time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time);
+          const trueIntrosInBlock = items.filter(i => !i.isVipSession);
+          const vipInBlock = items.length - trueIntrosInBlock.length;
+          const blockLabel = trueIntrosInBlock.length > 0
+            ? `${trueIntrosInBlock.length} intro${trueIntrosInBlock.length !== 1 ? 's' : ''}${vipInBlock > 0 ? ` + ${vipInBlock} VIP` : ''}`
+            : `${vipInBlock} VIP group${vipInBlock !== 1 ? 's' : ''}`;
 
           return (
             <Collapsible key={time} defaultOpen={false}>
@@ -85,9 +90,9 @@ export default function IntroDayGroup({
                 "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
               )}>
                 <span className="text-sm flex items-center gap-1 flex-wrap min-w-0">
-                  <span className="shrink-0">{timeLabel} — {items.length} intro{items.length !== 1 ? 's' : ''}</span>
+                  <span className="shrink-0">{timeLabel} — {blockLabel}</span>
                   {(() => {
-                    const firstIntros = items.filter(i => !i.isSecondIntro);
+                    const firstIntros = trueIntrosInBlock.filter(i => !i.isSecondIntro);
                     if (firstIntros.length === 0) return null;
                     const notSent = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
                     const sent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT').length;
