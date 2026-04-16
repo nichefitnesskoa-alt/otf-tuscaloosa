@@ -49,7 +49,10 @@ import { useAuth } from '@/context/AuthContext';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface VipRow {
-  bookingId: string;
+  // rowId is registration id when no booking yet, else booking id (kept stable per row)
+  rowId: string;
+  registrationId: string | null;
+  bookingId: string | null;
   memberName: string;
   groupName: string;
   regPhone: string | null;
@@ -163,31 +166,51 @@ export function VipPipelineTable() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch all VIP bookings
-      const { data: bookings, error: bErr } = await supabase
+      // Anchor on vip_sessions (groups) — match Scheduler exactly
+      const sb = supabase as any;
+      const { data: sessions, error: sErr } = await sb
+        .from('vip_sessions')
+        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at, session_date, session_time');
+      if (sErr) throw sErr;
+
+      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
+
+      // Build session metadata lookup
+      const sessionById = new Map<string, any>();
+      (sessions || []).forEach((s: any) => sessionById.set(s.id, s));
+
+      // Fetch ALL registrations (excluding the group contact rows)
+      const { data: regs, error: rErr } = await sb
+        .from('vip_registrations')
+        .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name, vip_session_id, is_group_contact')
+        .eq('is_group_contact', false);
+      if (rErr) throw rErr;
+
+      // Fetch any bookings referenced by these registrations (for booking-side fields)
+      const bookingIds = (regs || []).map((r: any) => r.booking_id).filter(Boolean);
+      let bookingMap = new Map<string, any>();
+      if (bookingIds.length > 0) {
+        const { data: bookings } = await sb
+          .from('intros_booked')
+          .select('id, member_name, vip_class_name, class_date, intro_time, booking_status, vip_session_id, phone, email, deleted_at')
+          .in('id', bookingIds);
+        (bookings || []).forEach((b: any) => {
+          if (!b.deleted_at) bookingMap.set(b.id, b);
+        });
+      }
+
+      // Also pull bookings created via "Add Member" that have no registration row yet
+      // (lead_source = 'VIP Class', has vip_class_name, not deleted, no matching registration.booking_id)
+      const { data: extraBookings } = await sb
         .from('intros_booked')
         .select('id, member_name, vip_class_name, class_date, intro_time, booking_status, vip_session_id, phone, email')
         .eq('lead_source', 'VIP Class')
         .is('deleted_at', null)
         .not('vip_class_name', 'is', null);
+      const regBookingIds = new Set(bookingIds);
+      const orphanBookings = (extraBookings || []).filter((b: any) => !regBookingIds.has(b.id));
 
-      if (bErr) throw bErr;
-
-      // Fetch all VIP registrations
-      const { data: regs, error: rErr } = await supabase
-        .from('vip_registrations')
-        .select('booking_id, phone, email, birthday, weight_lbs, vip_class_name');
-
-      if (rErr) throw rErr;
-
-      // Fetch VIP session metas for referring_member_name
-      const { data: sessions } = await supabase
-        .from('vip_sessions')
-        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at');
-
-      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
-
-      // Track which groups are archived — use reserved_by_group (the user-facing name)
+      // Build rows: one per registration (booking optional), plus orphan bookings
       const archivedSet = new Set<string>();
       (sessions || []).forEach((s: any) => {
         if (s.archived_at) {
@@ -197,41 +220,73 @@ export function VipPipelineTable() {
       });
       setArchivedGroups(archivedSet);
 
-      // Build reg map by booking_id
-      const regMap = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
-      (regs || []).forEach((r: any) => {
-        if (r.booking_id) regMap.set(r.booking_id, r);
-      });
+      const builtRows: VipRow[] = [];
 
-      const builtRows: VipRow[] = (bookings || []).map((b: any) => {
-        const reg = regMap.get(b.id);
-        return {
+      for (const r of (regs || [])) {
+        const session = r.vip_session_id ? sessionById.get(r.vip_session_id) : null;
+        // Group label resolution: reserved_by_group → registration.vip_class_name → session.vip_class_name
+        const groupName =
+          session?.reserved_by_group ||
+          r.vip_class_name ||
+          session?.vip_class_name ||
+          'Unknown';
+
+        const booking = r.booking_id ? bookingMap.get(r.booking_id) : null;
+        const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown';
+
+        builtRows.push({
+          rowId: booking?.id || r.id,
+          registrationId: r.id,
+          bookingId: booking?.id || null,
+          memberName: booking?.member_name || fullName,
+          groupName,
+          regPhone: r.phone || null,
+          regEmail: r.email || null,
+          birthday: r.birthday || null,
+          weightLbs: r.weight_lbs || null,
+          bookingPhone: booking?.phone || null,
+          bookingEmail: booking?.email || null,
+          sessionDate: booking?.class_date || session?.session_date || null,
+          sessionTime: booking?.intro_time || session?.session_time || null,
+          bookingStatus: booking ? booking.booking_status : 'Registered – No booking',
+          vipSessionId: booking?.vip_session_id || r.vip_session_id || null,
+        });
+      }
+
+      // Add orphan bookings (manual adds without registrations)
+      for (const b of orphanBookings) {
+        builtRows.push({
+          rowId: b.id,
+          registrationId: null,
           bookingId: b.id,
           memberName: b.member_name,
           groupName: b.vip_class_name || 'Unknown',
-          regPhone: reg?.phone || null,
-          regEmail: reg?.email || null,
-          birthday: reg?.birthday || null,
-          weightLbs: reg?.weight_lbs || null,
+          regPhone: null,
+          regEmail: null,
+          birthday: null,
+          weightLbs: null,
           bookingPhone: b.phone,
           bookingEmail: b.email,
           sessionDate: b.class_date,
           sessionTime: b.intro_time,
           bookingStatus: b.booking_status,
           vipSessionId: b.vip_session_id,
-        } as VipRow;
-      });
+        });
+      }
 
       setRows(builtRows);
 
-      // Only show groups that have actual registrations (claimed slots)
-      const claimedSessionNames = (sessions || [])
-        .filter((s: any) => s.status === 'reserved' && s.reserved_by_group)
-        .map((s: any) => s.reserved_by_group)
-        .filter(Boolean);
-      const allGroupNames = new Set([...builtRows.map(r => r.groupName), ...claimedSessionNames]);
-      const uniqueGroups = Array.from(allGroupNames).sort();
-      setGroups(uniqueGroups);
+      // Group list: every reserved/claimed session group + every orphan booking group
+      const groupNamesSet = new Set<string>();
+      (sessions || []).forEach((s: any) => {
+        if (s.status === 'reserved' && s.reserved_by_group) groupNamesSet.add(s.reserved_by_group);
+        // Also include sessions that have a vip_class_name as a placeholder group (manual created)
+        if (s.vip_class_name && !s.reserved_by_group && s.archived_at === null) groupNamesSet.add(s.vip_class_name);
+      });
+      builtRows.forEach(r => groupNamesSet.add(r.groupName));
+      // Always include archived so the dropdown can show them when toggled
+      archivedSet.forEach(g => groupNamesSet.add(g));
+      setGroups(Array.from(groupNamesSet).sort());
     } catch (err) {
       console.error('VIP fetch error:', err);
       toast.error('Failed to load VIP data');
@@ -337,7 +392,7 @@ export function VipPipelineTable() {
     if (selectedRows.size === filtered.length) {
       setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(filtered.map(r => r.bookingId)));
+      setSelectedRows(new Set(filtered.map(r => r.rowId)));
     }
   };
 
@@ -353,6 +408,10 @@ export function VipPipelineTable() {
 
   const handleAssignSingle = async () => {
     if (!assignRow || !assignDate) return;
+    if (!assignRow.bookingId) {
+      toast.error('Create a booking first before assigning a session');
+      return;
+    }
     setAssigning(true);
     try {
       await supabase
@@ -376,12 +435,23 @@ export function VipPipelineTable() {
     }
     setBulkAssigning(true);
     try {
-      const ids = Array.from(selectedRows);
+      // Map selected rowIds → bookingIds (skip rows without bookings)
+      const selectedRowSet = selectedRows;
+      const ids = filtered
+        .filter(r => selectedRowSet.has(r.rowId) && r.bookingId)
+        .map(r => r.bookingId!) as string[];
+      const skipped = selectedRows.size - ids.length;
+      if (ids.length === 0) {
+        toast.error('Selected members have no bookings yet — create bookings first');
+        return;
+      }
       await supabase
         .from('intros_booked')
         .update({ class_date: bulkDate, intro_time: bulkTime || null, booking_status: 'Active' } as any)
         .in('id', ids);
-      toast.success(`Assigned ${ids.length} member(s) to ${fmtDate(bulkDate)}`);
+      toast.success(
+        `Assigned ${ids.length} member(s) to ${fmtDate(bulkDate)}${skipped > 0 ? ` (${skipped} skipped — no booking)` : ''}`
+      );
       setSelectedRows(new Set());
       setShowBulkDialog(false);
       setBulkDate('');
@@ -451,14 +521,22 @@ export function VipPipelineTable() {
   const handleDeleteSingle = async (row: VipRow) => {
     setDeleting(true);
     try {
-      await supabase
-        .from('intros_booked')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
-        .eq('id', row.bookingId);
-      await supabase
-        .from('vip_registrations')
-        .delete()
-        .eq('booking_id', row.bookingId);
+      if (row.bookingId) {
+        await supabase
+          .from('intros_booked')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+          .eq('id', row.bookingId);
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .eq('booking_id', row.bookingId);
+      }
+      if (row.registrationId) {
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .eq('id', row.registrationId);
+      }
       toast.success(`${row.memberName} removed from VIP list`);
       setDeleteTarget(null);
       fetchData();
@@ -472,17 +550,27 @@ export function VipPipelineTable() {
   const handleBulkDelete = async () => {
     setBulkDeleting(true);
     try {
-      const ids = Array.from(selectedRows);
-      await supabase
-        .from('intros_booked')
-        .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
-        .in('id', ids);
-      await supabase
-        .from('vip_registrations')
-        .delete()
-        .in('booking_id', ids);
-      const count = ids.length;
-      toast.success(`${count} member(s) removed from VIP list`);
+      const selectedRowSet = selectedRows;
+      const targetRows = filtered.filter(r => selectedRowSet.has(r.rowId));
+      const bookingIds = targetRows.map(r => r.bookingId).filter(Boolean) as string[];
+      const regIds = targetRows.map(r => r.registrationId).filter(Boolean) as string[];
+      if (bookingIds.length > 0) {
+        await supabase
+          .from('intros_booked')
+          .update({ deleted_at: new Date().toISOString(), deleted_by: 'staff' } as any)
+          .in('id', bookingIds);
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .in('booking_id', bookingIds);
+      }
+      if (regIds.length > 0) {
+        await supabase
+          .from('vip_registrations')
+          .delete()
+          .in('id', regIds);
+      }
+      toast.success(`${targetRows.length} member(s) removed from VIP list`);
       setSelectedRows(new Set());
       setShowBulkDelete(false);
       fetchData();
@@ -857,21 +945,22 @@ export function VipPipelineTable() {
             {filtered.map((row, idx) => {
               const phone = displayPhone(row);
               const email = displayEmail(row);
-              const isExpanded = expandedRows.has(row.bookingId);
-              const isSelected = selectedRows.has(row.bookingId);
+              const isExpanded = expandedRows.has(row.rowId);
+              const isSelected = selectedRows.has(row.rowId);
+              const hasBooking = !!row.bookingId;
               return (
                 <>
                   <tr
-                    key={row.bookingId}
+                    key={row.rowId}
                     className={`border-t transition-colors cursor-pointer ${
                       isSelected ? 'bg-primary/5' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                     } hover:bg-muted/40`}
-                    onClick={() => toggleRow(row.bookingId)}
+                    onClick={() => toggleRow(row.rowId)}
                   >
                     <td className="p-2" onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => toggleSelect(row.bookingId)}
+                        onCheckedChange={() => toggleSelect(row.rowId)}
                         className="h-3.5 w-3.5"
                       />
                     </td>
@@ -904,33 +993,45 @@ export function VipPipelineTable() {
                       {row.weightLbs ? `${row.weightLbs} lbs` : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="p-2">
-                      {row.sessionDate && row.sessionDate !== new Date().toISOString().split('T')[0] || row.vipSessionId ? (
+                      {(row.sessionDate && row.sessionDate !== new Date().toISOString().split('T')[0]) || row.vipSessionId ? (
                         <span className="text-foreground">{sessionLabel(row)}</span>
                       ) : (
                         <span className="text-warning font-medium">Unscheduled</span>
                       )}
                     </td>
                     <td className="p-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 h-4 ${
-                          row.bookingStatus === 'Active' ? 'bg-success/20 text-success' :
-                          row.bookingStatus === 'Unscheduled' ? 'bg-warning/20 text-warning' :
-                          'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {row.bookingStatus || 'Unscheduled'}
-                      </Badge>
+                      {!hasBooking ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 h-4 bg-warning/20 text-warning"
+                          title="Registered via VIP form. No intro booking has been created yet."
+                        >
+                          Registered – No booking
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] px-1.5 h-4 ${
+                            row.bookingStatus === 'Active' ? 'bg-success/20 text-success' :
+                            row.bookingStatus === 'Unscheduled' ? 'bg-warning/20 text-warning' :
+                            'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {row.bookingStatus || 'Unscheduled'}
+                        </Badge>
+                      )}
                     </td>
                     <td className="p-2" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
                         <Button
-                          variant="ghost" size="sm"
-                          className="h-6 px-1.5 text-[10px] gap-0.5 text-primary"
-                          title="Book Intro"
+                          variant={hasBooking ? 'ghost' : 'default'}
+                          size="sm"
+                          className={`h-6 px-1.5 text-[10px] gap-0.5 ${hasBooking ? 'text-primary' : ''}`}
+                          title={hasBooking ? 'Book Intro (convert)' : 'Create booking from this registration'}
                           onClick={() => setConvertRow(row)}
                         >
                           <ArrowRight className="w-3 h-3" />
+                          {!hasBooking && <span>Create</span>}
                         </Button>
                         <Button
                           variant="ghost" size="sm"
@@ -952,8 +1053,9 @@ export function VipPipelineTable() {
                         <Button
                           variant="ghost" size="sm"
                           className="h-6 px-1.5 text-[10px] gap-0.5"
-                          title="Assign session"
+                          title={hasBooking ? 'Assign session' : 'Create booking first to assign a session'}
                           onClick={() => { setAssignRow(row); setAssignDate(''); setAssignTime(''); }}
+                          disabled={!hasBooking}
                         >
                           <CalendarPlus className="w-3 h-3" />
                         </Button>
@@ -970,7 +1072,7 @@ export function VipPipelineTable() {
                   </tr>
                   {/* Expanded row */}
                   {isExpanded && (
-                    <tr key={`${row.bookingId}-expanded`} className="border-t bg-muted/30">
+                    <tr key={`${row.rowId}-expanded`} className="border-t bg-muted/30">
                       <td colSpan={selectedGroup === 'All' ? 10 : 9} className="px-4 py-3">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                           <div>
@@ -1041,6 +1143,7 @@ export function VipPipelineTable() {
             phone: displayPhone(convertRow),
             email: displayEmail(convertRow),
           }}
+          registrationId={convertRow.registrationId}
           referredByMember={
             groupMetas.find(g => g.vip_class_name === convertRow.groupName)?.referring_member_name || null
           }
@@ -1145,7 +1248,7 @@ export function VipPipelineTable() {
             'first-name': scriptRow.memberName.split(' ')[0],
             'last-name': scriptRow.memberName.split(' ').slice(1).join(' '),
           }}
-          bookingId={scriptRow.bookingId}
+          bookingId={scriptRow.bookingId || undefined}
         />
       )}
 
