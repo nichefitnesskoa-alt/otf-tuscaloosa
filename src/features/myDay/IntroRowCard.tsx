@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, ClipboardList, Send, CheckCircle, Phone, X, ChevronRight, Pencil } from 'lucide-react';
 import { EditBookingDialog } from '@/components/myday/EditBookingDialog';
+import VipRegistrationsSheet from '@/features/myDay/VipRegistrationsSheet';
 import { toast } from 'sonner';
 import { cn, generateSlug } from '@/lib/utils';
 import type { UpcomingIntroItem } from './myDayTypes';
@@ -137,6 +138,7 @@ export default function IntroRowCard({
   const [clearOutcomeOpen, setClearOutcomeOpen] = useState(false);
   const [clearingOutcome, setClearingOutcome] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [vipRegOpen, setVipRegOpen] = useState(false);
   const qBar = getQBar(localQStatus);
   const hasActiveField = useRef(false);
 
@@ -409,7 +411,7 @@ export default function IntroRowCard({
     </button>
   );
 
-  // ── VIP Session Card (informational only) ──
+  // ── VIP Session Card (informational only — not counted as an intro) ──
   if (item.isVipSession) {
     return (
       <div className="rounded-lg border bg-card overflow-hidden">
@@ -423,7 +425,7 @@ export default function IntroRowCard({
         >
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
             <span className="font-semibold text-sm truncate">{item.vipGroupName || 'VIP Group'}</span>
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">VIP</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">VIP Group</Badge>
             <span className="text-xs text-muted-foreground">
               {item.vipRegisteredCount || 0} registered · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}
             </span>
@@ -431,7 +433,7 @@ export default function IntroRowCard({
           <ChevronRight className={cn("w-4 h-4 text-muted-foreground shrink-0 transition-transform", isExpanded && "rotate-90")} />
         </button>
         {isExpanded && (
-          <div className="px-4 py-3 border-t space-y-2">
+          <div className="px-4 py-3 border-t space-y-3">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <span className="text-xs text-muted-foreground block">Group</span>
@@ -441,15 +443,20 @@ export default function IntroRowCard({
                 <span className="text-xs text-muted-foreground block">Date & Time</span>
                 <span>{item.classDate} · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}</span>
               </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Estimated Size</span>
-                <span>{item.vipEstimatedSize || '—'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground block">Registered</span>
-                <span>{item.vipRegisteredCount || 0}</span>
-              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setVipRegOpen(true)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-primary/40 bg-primary/10 hover:bg-primary/20 transition-colors text-left min-h-[44px]"
+            >
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Registered</span>
+                <span className="font-semibold text-primary">
+                  View {item.vipRegisteredCount || 0} {(item.vipRegisteredCount || 0) === 1 ? 'registrant' : 'registrants'} & log outcomes
+                </span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-primary shrink-0" />
+            </button>
             {item.vipContactName && (
               <div className="pt-1 border-t">
                 <span className="text-xs text-muted-foreground block">Group Contact</span>
@@ -465,6 +472,15 @@ export default function IntroRowCard({
               </div>
             )}
           </div>
+        )}
+        {item.vipSessionId && (
+          <VipRegistrationsSheet
+            open={vipRegOpen}
+            onOpenChange={setVipRegOpen}
+            vipSessionId={item.vipSessionId}
+            vipGroupName={item.vipGroupName || null}
+            userName={userName}
+          />
         )}
       </div>
     );
