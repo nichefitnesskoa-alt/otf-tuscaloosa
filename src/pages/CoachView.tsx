@@ -115,15 +115,37 @@ export default function CoachView() {
 
     if (rows.length > 0) {
       const ids = rows.map(b => b.id);
-      const { data: qs } = await supabase
-        .from('intro_questionnaires')
-        .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes' as any)
-        .in('booking_id', ids);
+
+      // Fetch questionnaires and originating booking statuses in parallel
+      const origIds = rows
+        .map(b => b.originating_booking_id)
+        .filter((id): id is string => !!id);
+
+      const [qsRes, origRes] = await Promise.all([
+        supabase
+          .from('intro_questionnaires')
+          .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes' as any)
+          .in('booking_id', ids),
+        origIds.length > 0
+          ? supabase
+              .from('intros_booked')
+              .select('id, booking_status_canon')
+              .in('id', origIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
       const qMap: QuestionnaireMap = {};
-      (qs || []).forEach((q: any) => {
+      (qsRes.data || []).forEach((q: any) => {
         if (q.booking_id) qMap[q.booking_id] = q;
       });
       setQuestionnaires(qMap);
+
+      // Build map of originating booking statuses for no-show detection
+      const origStatusMap: Record<string, string> = {};
+      ((origRes.data || []) as any[]).forEach((o: any) => {
+        origStatusMap[o.id] = o.booking_status_canon;
+      });
+      setOriginatingStatuses(origStatusMap);
     }
 
     if (!isRefetch) setLoading(false);
