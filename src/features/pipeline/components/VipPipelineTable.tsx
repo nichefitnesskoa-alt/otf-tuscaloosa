@@ -945,21 +945,22 @@ export function VipPipelineTable() {
             {filtered.map((row, idx) => {
               const phone = displayPhone(row);
               const email = displayEmail(row);
-              const isExpanded = expandedRows.has(row.bookingId);
-              const isSelected = selectedRows.has(row.bookingId);
+              const isExpanded = expandedRows.has(row.rowId);
+              const isSelected = selectedRows.has(row.rowId);
+              const hasBooking = !!row.bookingId;
               return (
                 <>
                   <tr
-                    key={row.bookingId}
+                    key={row.rowId}
                     className={`border-t transition-colors cursor-pointer ${
                       isSelected ? 'bg-primary/5' : idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                     } hover:bg-muted/40`}
-                    onClick={() => toggleRow(row.bookingId)}
+                    onClick={() => toggleRow(row.rowId)}
                   >
                     <td className="p-2" onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={() => toggleSelect(row.bookingId)}
+                        onCheckedChange={() => toggleSelect(row.rowId)}
                         className="h-3.5 w-3.5"
                       />
                     </td>
@@ -992,33 +993,45 @@ export function VipPipelineTable() {
                       {row.weightLbs ? `${row.weightLbs} lbs` : <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="p-2">
-                      {row.sessionDate && row.sessionDate !== new Date().toISOString().split('T')[0] || row.vipSessionId ? (
+                      {(row.sessionDate && row.sessionDate !== new Date().toISOString().split('T')[0]) || row.vipSessionId ? (
                         <span className="text-foreground">{sessionLabel(row)}</span>
                       ) : (
                         <span className="text-warning font-medium">Unscheduled</span>
                       )}
                     </td>
                     <td className="p-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 h-4 ${
-                          row.bookingStatus === 'Active' ? 'bg-success/20 text-success' :
-                          row.bookingStatus === 'Unscheduled' ? 'bg-warning/20 text-warning' :
-                          'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {row.bookingStatus || 'Unscheduled'}
-                      </Badge>
+                      {!hasBooking ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 h-4 bg-warning/20 text-warning"
+                          title="Registered via VIP form. No intro booking has been created yet."
+                        >
+                          Registered – No booking
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] px-1.5 h-4 ${
+                            row.bookingStatus === 'Active' ? 'bg-success/20 text-success' :
+                            row.bookingStatus === 'Unscheduled' ? 'bg-warning/20 text-warning' :
+                            'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {row.bookingStatus || 'Unscheduled'}
+                        </Badge>
+                      )}
                     </td>
                     <td className="p-2" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
                         <Button
-                          variant="ghost" size="sm"
-                          className="h-6 px-1.5 text-[10px] gap-0.5 text-primary"
-                          title="Book Intro"
+                          variant={hasBooking ? 'ghost' : 'default'}
+                          size="sm"
+                          className={`h-6 px-1.5 text-[10px] gap-0.5 ${hasBooking ? 'text-primary' : ''}`}
+                          title={hasBooking ? 'Book Intro (convert)' : 'Create booking from this registration'}
                           onClick={() => setConvertRow(row)}
                         >
                           <ArrowRight className="w-3 h-3" />
+                          {!hasBooking && <span>Create</span>}
                         </Button>
                         <Button
                           variant="ghost" size="sm"
@@ -1040,8 +1053,9 @@ export function VipPipelineTable() {
                         <Button
                           variant="ghost" size="sm"
                           className="h-6 px-1.5 text-[10px] gap-0.5"
-                          title="Assign session"
+                          title={hasBooking ? 'Assign session' : 'Create booking first to assign a session'}
                           onClick={() => { setAssignRow(row); setAssignDate(''); setAssignTime(''); }}
+                          disabled={!hasBooking}
                         >
                           <CalendarPlus className="w-3 h-3" />
                         </Button>
