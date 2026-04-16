@@ -585,7 +585,10 @@ export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueToda
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-[17px] md:text-sm whitespace-normal break-words leading-tight">{item.person_name}</p>
             {item.phone && item.phone.trim() ? (
-              <a href={`tel:${item.phone}`} onClick={e => e.stopPropagation()}>
+              <a
+                href={`sms:+1${(item.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                onClick={e => e.stopPropagation()}
+              >
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-0.5 text-muted-foreground font-normal cursor-pointer hover:text-primary">
                   <Phone className="w-2.5 h-2.5" />
                   {formatPhoneDisplay(item.phone) || item.phone}

@@ -155,8 +155,11 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                  {r.phone && (
-                    <a href={`tel:${r.phone}`} className="flex items-center gap-1 text-primary underline min-h-[28px]">
+                  {r.phone && formatPhoneDisplay(r.phone) && (
+                    <a
+                      href={`sms:+1${(r.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                      className="flex items-center gap-1 text-primary underline min-h-[28px]"
+                    >
                       <Phone className="w-3 h-3" /> {formatPhoneDisplay(r.phone)}
                     </a>
                   )}

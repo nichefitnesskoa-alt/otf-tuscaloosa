@@ -379,7 +379,11 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
           {item.phone && (
             <>
               <span>·</span>
-              <a href={`tel:${stripCountryCode(item.phone) || item.phone}`} className="text-primary hover:underline inline-flex items-center gap-0.5">
+              <a
+                href={`sms:+1${stripCountryCode(item.phone) || ''}`}
+                onClick={e => e.stopPropagation()}
+                className="text-primary hover:underline inline-flex items-center gap-0.5"
+              >
                 <Phone className="w-3 h-3" />
                 {formatPhoneDisplay(item.phone) || item.phone}
               </a>

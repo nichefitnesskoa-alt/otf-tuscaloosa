@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format, differenceInDays } from 'date-fns';
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
+import { PhoneLink } from '@/components/shared/PhoneLink';
 import { toast } from 'sonner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import {
@@ -224,11 +225,16 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
           </span>
         </div>
 
-        {/* Line 2: Date · SA */}
+        {/* Line 2: Date · SA · Phone (tappable → opens SMS) */}
         <p className="text-xs text-muted-foreground">
           {introDateLabel}
           {item.saName && ` · SA: ${item.saName}`}
-          {item.phone && ` · ${item.phone}`}
+          {item.phone && (
+            <>
+              {' · '}
+              <PhoneLink phone={item.phone} className="text-muted-foreground hover:text-primary" />
+            </>
+          )}
         </p>
 
         {/* Line 3: Days since intro */}

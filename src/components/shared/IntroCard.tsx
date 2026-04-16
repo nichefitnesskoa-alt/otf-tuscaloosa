@@ -205,13 +205,20 @@ export default function IntroCard({
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
 
-  // Build meta segments for non-editable mode
-  const metaSegments: string[] = [];
+  // Build meta segments for non-editable mode (phone rendered as PhoneLink so it opens SMS)
+  const metaSegments: React.ReactNode[] = [];
   if (!canEdit) {
     if (introTime) metaSegments.push(formatDisplayTime(introTime));
     if (coachName && coachName !== 'TBD') metaSegments.push(coachName);
     if (leadSource) metaSegments.push(leadSource);
-    if (phone) metaSegments.push(formatPhoneDisplay(phone) || phone);
+    if (phone) {
+      const display = formatPhoneDisplay(phone);
+      metaSegments.push(
+        display
+          ? <PhoneLink phone={phone} className="text-inherit no-underline hover:underline" />
+          : phone,
+      );
+    }
   }
 
   return (
