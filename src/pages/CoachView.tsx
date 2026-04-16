@@ -336,6 +336,7 @@ export default function CoachView() {
                         onUpdateBooking={handleUpdateBooking}
                         userName={user?.name || ''}
                         autoExpand={selectedIsToday}
+                        originatingStatuses={originatingStatuses}
                       />
                     </CollapsibleContent>
                   </Collapsible>
