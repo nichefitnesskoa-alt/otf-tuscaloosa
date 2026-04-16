@@ -49,7 +49,10 @@ import { useAuth } from '@/context/AuthContext';
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface VipRow {
-  bookingId: string;
+  // rowId is registration id when no booking yet, else booking id (kept stable per row)
+  rowId: string;
+  registrationId: string | null;
+  bookingId: string | null;
   memberName: string;
   groupName: string;
   regPhone: string | null;
