@@ -82,6 +82,7 @@ export default function CoachView() {
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
+  const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [coachFilter, setCoachFilter] = useState<string>('all');
 
