@@ -33,6 +33,9 @@ export default function IntroDayGroup({
   expandedBookingId = null, onExpandCard, shoutoutMap = {},
 }: IntroDayGroupProps) {
   const qPercent = Math.round(group.qSentRatio * 100);
+  // VIP groups are not counted as intros
+  const trueIntros = group.items.filter(i => !i.isVipSession);
+  const vipGroupCount = group.items.length - trueIntros.length;
 
   // Group items by class time
   const timeGroups = useMemo(() => {
@@ -56,9 +59,14 @@ export default function IntroDayGroup({
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold">{group.label}</h3>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-            {group.items.length} intro{group.items.length !== 1 ? 's' : ''}
+            {trueIntros.length} intro{trueIntros.length !== 1 ? 's' : ''}
           </Badge>
-          {!needsOutcome && (
+          {vipGroupCount > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">
+              +{vipGroupCount} VIP group{vipGroupCount !== 1 ? 's' : ''}
+            </Badge>
+          )}
+          {!needsOutcome && trueIntros.length > 0 && (
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${qPercent === 100 ? 'text-emerald-700 border-emerald-300' : qPercent >= 50 ? 'text-amber-700 border-amber-300' : 'text-destructive border-destructive/30'}`}>
               Q: {qPercent}%
             </Badge>
