@@ -36,6 +36,7 @@ export function isSecondIntroFromList(
     class_date: string;
     created_at?: string;
     is_vip?: boolean | null;
+    booking_status_canon?: string | null;
     phone?: string | null;
     phone_e164?: string | null;
   }>
@@ -47,12 +48,16 @@ export function isSecondIntroFromList(
   if (booking.originating_booking_id) {
     const orig = allBookings.find(b => b.id === booking.originating_booking_id);
     if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '')) {
-      return true;
+      // Only count as 2nd intro if the originating booking wasn't a no-show
+      if ((orig as any).booking_status_canon !== 'NO_SHOW') {
+        return true;
+      }
     }
     // Different member = friend booking, not a 2nd intro — fall through
   }
 
-  const nonVip = allBookings.filter(b => !b.is_vip);
+  // Exclude VIP and NO_SHOW bookings — no-shows never had their intro
+  const nonVip = allBookings.filter(b => !b.is_vip && b.booking_status_canon !== 'NO_SHOW');
 
   // Name-based grouping
   const nameKey = booking.member_name.toLowerCase().replace(/\s+/g, '');

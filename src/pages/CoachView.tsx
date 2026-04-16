@@ -82,6 +82,7 @@ export default function CoachView() {
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
+  const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [coachFilter, setCoachFilter] = useState<string>('all');
 
@@ -115,15 +116,37 @@ export default function CoachView() {
 
     if (rows.length > 0) {
       const ids = rows.map(b => b.id);
-      const { data: qs } = await supabase
-        .from('intro_questionnaires')
-        .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes' as any)
-        .in('booking_id', ids);
+
+      // Fetch questionnaires and originating booking statuses in parallel
+      const origIds = rows
+        .map(b => b.originating_booking_id)
+        .filter((id): id is string => !!id);
+
+      const [qsRes, origRes] = await Promise.all([
+        supabase
+          .from('intro_questionnaires')
+          .select('booking_id, q1_fitness_goal, q2_fitness_level, q3_obstacle, q5_emotional_driver, q6_weekly_commitment, q6b_available_days, q7_coach_notes' as any)
+          .in('booking_id', ids),
+        origIds.length > 0
+          ? supabase
+              .from('intros_booked')
+              .select('id, booking_status_canon')
+              .in('id', origIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
       const qMap: QuestionnaireMap = {};
-      (qs || []).forEach((q: any) => {
+      (qsRes.data || []).forEach((q: any) => {
         if (q.booking_id) qMap[q.booking_id] = q;
       });
       setQuestionnaires(qMap);
+
+      // Build map of originating booking statuses for no-show detection
+      const origStatusMap: Record<string, string> = {};
+      ((origRes.data || []) as any[]).forEach((o: any) => {
+        origStatusMap[o.id] = o.booking_status_canon;
+      });
+      setOriginatingStatuses(origStatusMap);
     }
 
     if (!isRefetch) setLoading(false);
@@ -313,6 +336,7 @@ export default function CoachView() {
                         onUpdateBooking={handleUpdateBooking}
                         userName={user?.name || ''}
                         autoExpand={selectedIsToday}
+                        originatingStatuses={originatingStatuses}
                       />
                     </CollapsibleContent>
                   </Collapsible>
@@ -327,13 +351,14 @@ export default function CoachView() {
 
 // ── Per-class-time: expandable card list (accordion — one at a time) ──
 function ClassTimeIntroSelector({
-  intros, questionnaires, onUpdateBooking, userName, autoExpand = true,
+  intros, questionnaires, onUpdateBooking, userName, autoExpand = true, originatingStatuses = {},
 }: {
   intros: CoachBooking[];
   questionnaires: QuestionnaireMap;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
   autoExpand?: boolean;
+  originatingStatuses?: Record<string, string>;
 }) {
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
@@ -364,7 +389,9 @@ function ClassTimeIntroSelector({
     <div className="space-y-2">
       {intros.map(intro => {
         const isExpanded = expandedId === intro.id;
-        const isSecondIntro = !!intro.originating_booking_id;
+        // A no-showed originating booking doesn't make this a 2nd intro
+        const isSecondIntro = !!intro.originating_booking_id && 
+          originatingStatuses[intro.originating_booking_id] !== 'NO_SHOW';
         const qStatus = intro.questionnaire_status_canon;
         const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
 
