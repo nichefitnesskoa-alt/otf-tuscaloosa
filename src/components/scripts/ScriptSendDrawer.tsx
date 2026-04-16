@@ -90,8 +90,9 @@ export function ScriptSendDrawer({
     }
     resolved = resolved.replace(/\{sa-name\}/gi, saName || '[SA Name]');
     resolved = resolved.replace(/\{sa-first-name\}/gi, saName?.split(' ')[0] || '[SA Name]');
-    resolved = resolved.replace(/\{coach-name\}/gi, '[Coach Name]');
-    resolved = resolved.replace(/\{coach-first-name\}/gi, '[Coach Name]');
+    // The logged-in user IS the coach when sending coach scripts; resolve to their name
+    resolved = resolved.replace(/\{coach-name\}/gi, saName || '[Coach Name]');
+    resolved = resolved.replace(/\{coach-first-name\}/gi, saName?.split(' ')[0] || '[Coach Name]');
     resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
     resolved = resolved.replace(/\{day\}/gi, '[Day]');
     resolved = resolved.replace(/\{time\}/gi, '[Time]');
