@@ -264,7 +264,10 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            item.isSecondIntro = true;
+            // Only count as 2nd intro if the originating booking wasn't a no-show
+            if ((orig as any).booking_status_canon !== 'NO_SHOW') {
+              item.isSecondIntro = true;
+            }
           }
           // If originating booking not in batch, query it
           if (!orig && b.originating_booking_id) {
