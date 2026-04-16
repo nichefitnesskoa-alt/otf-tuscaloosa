@@ -1072,7 +1072,7 @@ export function VipPipelineTable() {
                   </tr>
                   {/* Expanded row */}
                   {isExpanded && (
-                    <tr key={`${row.bookingId}-expanded`} className="border-t bg-muted/30">
+                    <tr key={`${row.rowId}-expanded`} className="border-t bg-muted/30">
                       <td colSpan={selectedGroup === 'All' ? 10 : 9} className="px-4 py-3">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                           <div>
