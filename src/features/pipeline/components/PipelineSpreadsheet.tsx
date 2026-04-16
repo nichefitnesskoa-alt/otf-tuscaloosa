@@ -441,9 +441,13 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
       }
       case 'phone':
         return phone ? (
-          <button className="text-xs hover:text-primary flex items-center gap-0.5" onClick={e => { e.stopPropagation(); copyPhone(); }}>
-            <Copy className="w-3 h-3" /> {formatPhoneDisplay(phone) || phone}
-          </button>
+          <a
+            href={`sms:+1${(phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+            onClick={e => e.stopPropagation()}
+            className="text-xs hover:text-primary underline decoration-dotted underline-offset-2"
+          >
+            {formatPhoneDisplay(phone) || phone}
+          </a>
         ) : <span className="text-xs text-muted-foreground">—</span>;
       case 'touch': {
         const allActions = journey.bookings.flatMap(bk => scriptActionsMap.get(bk.id) || []);

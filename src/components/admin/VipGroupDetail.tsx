@@ -529,7 +529,13 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-medium text-sm">{member.member_name}</span>
                 {phone ? (
-                  <span className="text-xs text-muted-foreground">{formatPhoneDisplay(phone) || phone}</span>
+                  <a
+                    href={`sms:+1${(phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                    onClick={e => e.stopPropagation()}
+                    className="text-xs text-muted-foreground hover:text-primary underline decoration-dotted underline-offset-2"
+                  >
+                    {formatPhoneDisplay(phone) || phone}
+                  </a>
                 ) : (
                   <Badge variant="destructive" className="text-[9px] px-1 py-0">No Phone</Badge>
                 )}
@@ -580,9 +586,16 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
             <div className="grid grid-cols-1 gap-1.5 text-xs">
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                <span className={phone ? 'text-foreground' : 'text-muted-foreground italic'}>
-                  {formatPhoneDisplay(phone) || phone || 'Not provided'}
-                </span>
+                {phone ? (
+                  <a
+                    href={`sms:+1${(phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                    className="text-foreground hover:text-primary underline decoration-dotted underline-offset-2"
+                  >
+                    {formatPhoneDisplay(phone) || phone}
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground italic">Not provided</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />

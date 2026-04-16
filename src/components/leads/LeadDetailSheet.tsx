@@ -150,7 +150,10 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                 <FollowUpStatusBadge personName={`${lead.first_name} ${lead.last_name}`} />
               </div>
               <div className="flex items-center gap-4 text-sm">
-                <a href={`tel:${lead.phone}`} className="flex items-center gap-1 hover:text-primary">
+                <a
+                  href={`sms:+1${(lead.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                  className="flex items-center gap-1 hover:text-primary underline"
+                >
                   <Phone className="w-4 h-4" />{lead.phone}
                 </a>
                 {lead.email && (

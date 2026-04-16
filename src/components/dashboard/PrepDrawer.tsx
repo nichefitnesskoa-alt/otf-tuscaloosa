@@ -351,7 +351,12 @@ export function PrepDrawer({
                 <div className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-muted-foreground text-xs w-16">Phone</span>
-                  <button onClick={() => window.open(`tel:${phone}`)} className="text-primary underline text-xs font-medium">{formatPhoneDisplay(phone) || phone}</button>
+                  <a
+                    href={`sms:+1${(phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10)}`}
+                    className="text-primary underline text-xs font-medium"
+                  >
+                    {formatPhoneDisplay(phone) || phone}
+                  </a>
                 </div>
               )}
               {email && (

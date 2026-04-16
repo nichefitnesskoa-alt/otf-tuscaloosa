@@ -151,7 +151,8 @@ export function MyDayIntroCard({
             const phoneDigits = stripCountryCode(booking.phone);
             return phoneDisplay && phoneDigits ? (
               <a
-                href={`tel:${phoneDigits}`}
+                href={`sms:+1${phoneDigits}`}
+                onClick={e => e.stopPropagation()}
                 className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0 h-4 rounded border text-muted-foreground font-normal hover:text-primary"
               >
                 <Phone className="w-2.5 h-2.5" />
