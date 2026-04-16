@@ -1,35 +1,31 @@
-## Plan: Refine VIP Session Display on My Day
 
-### What changes
+## Plan: Add 2 Coach Follow-Up Scripts
 
-1. **Remove "Estimated Size" field** from the expanded VIP session card
-2. **Make "X registered" tappable** — opens a detail view showing every registered member with their full registration form details (name, phone, email, biometrics, waiver status, etc.)
-3. **Stop counting VIP sessions as intros** in the day header — "3 intros" should only count true (non-VIP) intros. VIP groups remain visible as separate cards but don't inflate intro counts
+Add two new script templates for coaches to use after class when a member didn't buy.
 
-### Files to change
+### What to add
 
-`**src/features/myDay/IntroDayGroup.tsx**` (or wherever the day header count is computed)
+Two new entries in `script_templates` table:
 
-- Filter out items where `isVipSession === true` when computing the `intros` count and Q% denominator
-- VIP cards still render in the list, just not counted
+**1. "First Class — Didn't Buy"**
+- Category: Coach Follow-Up (or existing coach category)
+- Body: `Hey {first-name}, Coach {coach-first-name} here from OTF! You really stood out in your first class, you did so well! How are you feeling?`
 
-`**src/features/myDay/IntroRowCard.tsx**` (VIP session card section)
+**2. "2nd Intro — Didn't Buy"**
+- Category: Coach Follow-Up
+- Body: `Hey {first-name}, Coach {coach-first-name} here from OTF! How did round 2 go for you?`
 
-- Remove the "Estimated Size" field from the expanded view
-- Convert the "X registered" line into a tappable button that opens a registrations sheet
-- Keep Group, Date & Time, Group Contact fields
+### Merge field mapping
+- `{first_name}` → `{first-name}` (matches existing script context engine)
+- `{coach_name}` → `{coach-first-name}` (uses coach's first name only, matches the casual tone)
 
-**New component: `src/features/myDay/VipRegistrationsSheet.tsx**`
+### Implementation
+- Single DB migration inserting both rows into `script_templates` with `is_active = true`
+- Use existing "Coach Follow-Up" category if present; otherwise create it first
+- No code changes needed — scripts will auto-appear in the script library, Coach View, and ScriptSendDrawer
 
-- Sheet/drawer that fetches `vip_registrations` for the given `vip_session_id`
-- Displays each registrant's full form data: name, phone, email, emergency contact, DOB/age, waiver acceptance, any biometrics or notes captured during registration
-- Read-only view — staff can see who registered and contact them
+### Files changed
+1. One migration file inserting the two templates (and the category if it doesn't exist)
 
-### Downstream effects
-
-- **Day header count** ("3 intros") → will correctly show only true intros (excludes VIP groups)
-- **Q% calculation** in header →
-
-&nbsp;
-
-I need to be able to choose an outcome from each person in the registration detailed expansion list
+### Confirm before building
+I'll first read the `script_categories` table to find the correct coach category slug. If no "Coach Follow-Up" category exists, I'll create one so these slot in cleanly on the coach side.
