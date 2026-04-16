@@ -1143,6 +1143,7 @@ export function VipPipelineTable() {
             phone: displayPhone(convertRow),
             email: displayEmail(convertRow),
           }}
+          registrationId={convertRow.registrationId}
           referredByMember={
             groupMetas.find(g => g.vip_class_name === convertRow.groupName)?.referring_member_name || null
           }
