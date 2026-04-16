@@ -387,7 +387,9 @@ function ClassTimeIntroSelector({
     <div className="space-y-2">
       {intros.map(intro => {
         const isExpanded = expandedId === intro.id;
-        const isSecondIntro = !!intro.originating_booking_id;
+        // A no-showed originating booking doesn't make this a 2nd intro
+        const isSecondIntro = !!intro.originating_booking_id && 
+          originatingStatuses[intro.originating_booking_id] !== 'NO_SHOW';
         const qStatus = intro.questionnaire_status_canon;
         const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
 
