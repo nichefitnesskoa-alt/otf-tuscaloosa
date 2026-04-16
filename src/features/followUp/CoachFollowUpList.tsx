@@ -180,7 +180,7 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
   const handleSendText = (e: React.MouseEvent) => {
     e.stopPropagation();
     window.dispatchEvent(new CustomEvent('myday:open-script', {
-      detail: { bookingId: item.bookingId, category: 'follow_up' },
+      detail: { bookingId: item.bookingId, category: 'coach_followup' },
     }));
   };
 
