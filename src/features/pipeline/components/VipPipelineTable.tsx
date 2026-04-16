@@ -166,31 +166,51 @@ export function VipPipelineTable() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch all VIP bookings
-      const { data: bookings, error: bErr } = await supabase
+      // Anchor on vip_sessions (groups) — match Scheduler exactly
+      const sb = supabase as any;
+      const { data: sessions, error: sErr } = await sb
+        .from('vip_sessions')
+        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at, session_date, session_time');
+      if (sErr) throw sErr;
+
+      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
+
+      // Build session metadata lookup
+      const sessionById = new Map<string, any>();
+      (sessions || []).forEach((s: any) => sessionById.set(s.id, s));
+
+      // Fetch ALL registrations (excluding the group contact rows)
+      const { data: regs, error: rErr } = await sb
+        .from('vip_registrations')
+        .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name, vip_session_id, is_group_contact')
+        .eq('is_group_contact', false);
+      if (rErr) throw rErr;
+
+      // Fetch any bookings referenced by these registrations (for booking-side fields)
+      const bookingIds = (regs || []).map((r: any) => r.booking_id).filter(Boolean);
+      let bookingMap = new Map<string, any>();
+      if (bookingIds.length > 0) {
+        const { data: bookings } = await sb
+          .from('intros_booked')
+          .select('id, member_name, vip_class_name, class_date, intro_time, booking_status, vip_session_id, phone, email, deleted_at')
+          .in('id', bookingIds);
+        (bookings || []).forEach((b: any) => {
+          if (!b.deleted_at) bookingMap.set(b.id, b);
+        });
+      }
+
+      // Also pull bookings created via "Add Member" that have no registration row yet
+      // (lead_source = 'VIP Class', has vip_class_name, not deleted, no matching registration.booking_id)
+      const { data: extraBookings } = await sb
         .from('intros_booked')
         .select('id, member_name, vip_class_name, class_date, intro_time, booking_status, vip_session_id, phone, email')
         .eq('lead_source', 'VIP Class')
         .is('deleted_at', null)
         .not('vip_class_name', 'is', null);
+      const regBookingIds = new Set(bookingIds);
+      const orphanBookings = (extraBookings || []).filter((b: any) => !regBookingIds.has(b.id));
 
-      if (bErr) throw bErr;
-
-      // Fetch all VIP registrations
-      const { data: regs, error: rErr } = await supabase
-        .from('vip_registrations')
-        .select('booking_id, phone, email, birthday, weight_lbs, vip_class_name');
-
-      if (rErr) throw rErr;
-
-      // Fetch VIP session metas for referring_member_name
-      const { data: sessions } = await supabase
-        .from('vip_sessions')
-        .select('id, vip_class_name, referring_member_name, status, reserved_by_group, archived_at');
-
-      setGroupMetas((sessions || []) as unknown as VipGroupMeta[]);
-
-      // Track which groups are archived — use reserved_by_group (the user-facing name)
+      // Build rows: one per registration (booking optional), plus orphan bookings
       const archivedSet = new Set<string>();
       (sessions || []).forEach((s: any) => {
         if (s.archived_at) {
@@ -200,41 +220,73 @@ export function VipPipelineTable() {
       });
       setArchivedGroups(archivedSet);
 
-      // Build reg map by booking_id
-      const regMap = new Map<string, { phone: string | null; email: string | null; birthday: string | null; weight_lbs: number | null }>();
-      (regs || []).forEach((r: any) => {
-        if (r.booking_id) regMap.set(r.booking_id, r);
-      });
+      const builtRows: VipRow[] = [];
 
-      const builtRows: VipRow[] = (bookings || []).map((b: any) => {
-        const reg = regMap.get(b.id);
-        return {
+      for (const r of (regs || [])) {
+        const session = r.vip_session_id ? sessionById.get(r.vip_session_id) : null;
+        // Group label resolution: reserved_by_group → registration.vip_class_name → session.vip_class_name
+        const groupName =
+          session?.reserved_by_group ||
+          r.vip_class_name ||
+          session?.vip_class_name ||
+          'Unknown';
+
+        const booking = r.booking_id ? bookingMap.get(r.booking_id) : null;
+        const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown';
+
+        builtRows.push({
+          rowId: booking?.id || r.id,
+          registrationId: r.id,
+          bookingId: booking?.id || null,
+          memberName: booking?.member_name || fullName,
+          groupName,
+          regPhone: r.phone || null,
+          regEmail: r.email || null,
+          birthday: r.birthday || null,
+          weightLbs: r.weight_lbs || null,
+          bookingPhone: booking?.phone || null,
+          bookingEmail: booking?.email || null,
+          sessionDate: booking?.class_date || session?.session_date || null,
+          sessionTime: booking?.intro_time || session?.session_time || null,
+          bookingStatus: booking ? booking.booking_status : 'Registered – No booking',
+          vipSessionId: booking?.vip_session_id || r.vip_session_id || null,
+        });
+      }
+
+      // Add orphan bookings (manual adds without registrations)
+      for (const b of orphanBookings) {
+        builtRows.push({
+          rowId: b.id,
+          registrationId: null,
           bookingId: b.id,
           memberName: b.member_name,
           groupName: b.vip_class_name || 'Unknown',
-          regPhone: reg?.phone || null,
-          regEmail: reg?.email || null,
-          birthday: reg?.birthday || null,
-          weightLbs: reg?.weight_lbs || null,
+          regPhone: null,
+          regEmail: null,
+          birthday: null,
+          weightLbs: null,
           bookingPhone: b.phone,
           bookingEmail: b.email,
           sessionDate: b.class_date,
           sessionTime: b.intro_time,
           bookingStatus: b.booking_status,
           vipSessionId: b.vip_session_id,
-        } as VipRow;
-      });
+        });
+      }
 
       setRows(builtRows);
 
-      // Only show groups that have actual registrations (claimed slots)
-      const claimedSessionNames = (sessions || [])
-        .filter((s: any) => s.status === 'reserved' && s.reserved_by_group)
-        .map((s: any) => s.reserved_by_group)
-        .filter(Boolean);
-      const allGroupNames = new Set([...builtRows.map(r => r.groupName), ...claimedSessionNames]);
-      const uniqueGroups = Array.from(allGroupNames).sort();
-      setGroups(uniqueGroups);
+      // Group list: every reserved/claimed session group + every orphan booking group
+      const groupNamesSet = new Set<string>();
+      (sessions || []).forEach((s: any) => {
+        if (s.status === 'reserved' && s.reserved_by_group) groupNamesSet.add(s.reserved_by_group);
+        // Also include sessions that have a vip_class_name as a placeholder group (manual created)
+        if (s.vip_class_name && !s.reserved_by_group && s.archived_at === null) groupNamesSet.add(s.vip_class_name);
+      });
+      builtRows.forEach(r => groupNamesSet.add(r.groupName));
+      // Always include archived so the dropdown can show them when toggled
+      archivedSet.forEach(g => groupNamesSet.add(g));
+      setGroups(Array.from(groupNamesSet).sort());
     } catch (err) {
       console.error('VIP fetch error:', err);
       toast.error('Failed to load VIP data');
