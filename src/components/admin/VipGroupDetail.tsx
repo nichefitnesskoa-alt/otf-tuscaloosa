@@ -88,38 +88,81 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [sessionsRes, membersRes, registrationsRes] = await Promise.all([
-        supabase
-          .from('vip_sessions')
-          .select('*')
-          .eq('vip_class_name', groupName)
-          .order('session_date', { ascending: true }),
+      // Find ALL sessions tied to this group — match either reserved_by_group OR vip_class_name
+      // (Phi Gam-style groups store the user-facing name in reserved_by_group, while
+      // older/manual groups store it in vip_class_name.)
+      const { data: allSessions } = await supabase
+        .from('vip_sessions')
+        .select('*')
+        .or(`reserved_by_group.eq.${groupName},vip_class_name.eq.${groupName}`)
+        .order('session_date', { ascending: true });
+      const sessionList = (allSessions || []) as any[];
+      const sessionIds = sessionList.map(s => s.id).filter(Boolean);
+
+      // Members: bookings either match by vip_class_name OR by vip_session_id in this group's sessions
+      const memberQueries: Promise<any>[] = [];
+      memberQueries.push(
         supabase
           .from('intros_booked')
           .select('id, member_name, class_date, intro_time, coach_name, booking_status, vip_session_id, phone, email, lead_source')
           .eq('vip_class_name', groupName)
           .is('deleted_at', null)
-          .order('member_name', { ascending: true }),
+      );
+      if (sessionIds.length > 0) {
+        memberQueries.push(
+          supabase
+            .from('intros_booked')
+            .select('id, member_name, class_date, intro_time, coach_name, booking_status, vip_session_id, phone, email, lead_source')
+            .in('vip_session_id', sessionIds)
+            .is('deleted_at', null)
+        );
+      }
+
+      // Registrations: same dual-match strategy
+      const regQueries: Promise<any>[] = [];
+      regQueries.push(
         supabase
           .from('vip_registrations')
           .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name')
-          .eq('vip_class_name', groupName),
-      ]);
+          .eq('vip_class_name', groupName)
+      );
+      if (sessionIds.length > 0) {
+        regQueries.push(
+          supabase
+            .from('vip_registrations')
+            .select('id, booking_id, first_name, last_name, phone, email, birthday, weight_lbs, vip_class_name')
+            .in('vip_session_id', sessionIds)
+        );
+      }
 
-      if (sessionsRes.data) setSessions(sessionsRes.data as VipSession[]);
-      if (membersRes.data) setMembers(membersRes.data as VipMember[]);
-      if (registrationsRes.data) setRegistrations(registrationsRes.data as VipRegistration[]);
+      const memberResults = await Promise.all(memberQueries);
+      const regResults = await Promise.all(regQueries);
+
+      // Dedupe by id
+      const memberMap = new Map<string, any>();
+      memberResults.forEach(r => (r.data || []).forEach((m: any) => memberMap.set(m.id, m)));
+      const memberList = Array.from(memberMap.values()).sort((a, b) =>
+        (a.member_name || '').localeCompare(b.member_name || '')
+      );
+
+      const regMap = new Map<string, any>();
+      regResults.forEach(r => (r.data || []).forEach((rg: any) => regMap.set(rg.id, rg)));
+      const regList = Array.from(regMap.values());
+
+      setSessions(sessionList as VipSession[]);
+      setMembers(memberList as VipMember[]);
+      setRegistrations(regList as VipRegistration[]);
 
       // Fetch questionnaire stats
-      if (membersRes.data && membersRes.data.length > 0) {
-        const ids = membersRes.data.map((m: any) => m.id);
+      if (memberList.length > 0) {
+        const ids = memberList.map((m: any) => m.id);
         const { data: qData } = await supabase
           .from('intro_questionnaires')
           .select('booking_id, status')
           .in('booking_id', ids);
         
         const completed = (qData || []).filter((q: any) => q.status === 'completed' || q.status === 'submitted').length;
-        const scheduled = membersRes.data.filter((m: any) => m.vip_session_id).length;
+        const scheduled = memberList.filter((m: any) => m.vip_session_id).length;
         setQuestionnaireStats({ completed, total: scheduled });
       }
     } catch (err) {
