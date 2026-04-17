@@ -48,6 +48,7 @@ interface SearchResult {
   intro_owner: string | null;
   intro_owner_locked: boolean | null;
   vip_session_id: string | null;
+  originating_booking_id: string | null;
 }
 
 export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
