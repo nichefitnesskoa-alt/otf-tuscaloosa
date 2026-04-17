@@ -262,18 +262,17 @@ export default function CoachView() {
         </div>
       )}
 
-      {isAdmin && (
-        <>
-          <TheSystemSection />
-          <CollapsibleSection
-            id="coaching-scripts"
-            title="Coaching Scripts"
-            icon={<span>📋</span>}
-            defaultOpen={false}
-          >
-            <CoachingScripts />
-          </CollapsibleSection>
-        </>
+      {isAdmin && <TheSystemSection />}
+
+      {(isAdmin || user?.role === 'Coach') && (
+        <CollapsibleSection
+          id="coaching-scripts"
+          title="Coaching Scripts"
+          icon={<span>📋</span>}
+          defaultOpen={false}
+        >
+          <CoachingScripts />
+        </CollapsibleSection>
       )}
 
       {/* Intros content */}
