@@ -221,6 +221,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
         vip_session_id: leadSource.toLowerCase().includes('vip') ? (vipSessionId || null) : null,
         rebooked_from_booking_id: rebookedFromId,
+        originating_booking_id: selectedBooking ? (selectedBooking.originating_booking_id || selectedBooking.id) : null,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
       }).select('id').single();
 
