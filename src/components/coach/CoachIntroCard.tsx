@@ -394,6 +394,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           )}
 
           {/* ══════ SECTION 2 — POST-CLASS — DID YOU HIT YOUR LEAD MEASURES? ══════ */}
+          {/* Hidden for 2nd intros — they don't count toward coach lead measures */}
+          {!isSecondIntro && (
+            <>
               <Separator />
               <div>
                 <h4 className="font-bold text-sm tracking-wide">
@@ -509,6 +512,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                   Submit Lead Measures
                 </Button>
               )}
+            </>
+          )}
 
           {booking.last_edited_by && booking.last_edited_at && (
             <p className="text-[10px] text-muted-foreground text-right">
