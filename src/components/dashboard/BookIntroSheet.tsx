@@ -48,6 +48,7 @@ interface SearchResult {
   intro_owner: string | null;
   intro_owner_locked: boolean | null;
   vip_session_id: string | null;
+  originating_booking_id: string | null;
 }
 
 export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
@@ -107,7 +108,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     try {
       const { data } = await supabase
         .from('intros_booked')
-        .select('id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon, intro_owner, intro_owner_locked, vip_session_id')
+        .select('id, member_name, phone, lead_source, coach_name, class_date, booking_status_canon, intro_owner, intro_owner_locked, vip_session_id, originating_booking_id')
         .ilike('member_name', `%${query.trim()}%`)
         .is('deleted_at', null)
         .order('class_date', { ascending: false })
@@ -220,6 +221,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
         vip_session_id: leadSource.toLowerCase().includes('vip') ? (vipSessionId || null) : null,
         rebooked_from_booking_id: rebookedFromId,
+        originating_booking_id: selectedBooking ? (selectedBooking.originating_booking_id || selectedBooking.id) : null,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
       }).select('id').single();
 
