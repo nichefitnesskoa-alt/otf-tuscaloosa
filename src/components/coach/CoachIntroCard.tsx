@@ -226,11 +226,14 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   // Submit Lead Measures
   const handleSubmitDebrief = async () => {
     const errors = new Set<string>();
-    if (consent === null) errors.add('shoutout_consent');
-    if (shoutoutStart === null) errors.add('coach_shoutout_start');
-    if (shoutoutEnd === null) errors.add('coach_shoutout_end');
-    if (usedWhy === null) errors.add('goal_why_captured');
-    if (introducedMember === null) errors.add('made_a_friend');
+    // 2nd intros skip lead-measure validation entirely
+    if (!isSecondIntro) {
+      if (consent === null) errors.add('shoutout_consent');
+      if (shoutoutStart === null) errors.add('coach_shoutout_start');
+      if (shoutoutEnd === null) errors.add('coach_shoutout_end');
+      if (usedWhy === null) errors.add('goal_why_captured');
+      if (introducedMember === null) errors.add('made_a_friend');
+    }
 
     if (errors.size > 0) {
       setValidationErrors(errors);
