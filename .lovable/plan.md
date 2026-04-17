@@ -1,52 +1,54 @@
 
-## Goal
-2nd intros are not first-time experiences — coaches shouldn't be asked to log lead measures for them, the 2nd-intro coach shouldn't earn credit for running them, and the full prep card shouldn't expand on the coach's screen. Total Journey already credits the original 1st-intro coach when the 2nd intro sells; we're locking that down everywhere and removing the noise.
 
-## What changes
+## Root cause
 
-### 1. Coach View — collapse 2nd intros to a one-line stub
-File: `src/pages/CoachView.tsx`
+`BookIntroSheet`'s "Reschedule existing member" path writes `rebooked_from_booking_id` but **never sets `originating_booking_id`**. CoachView identifies 2nd intros solely by `originating_booking_id`, so Helen's 2nd booking shows "1st Intro" there. MyDay catches it via a fallback prior-run lookup, which is why the two sides disagree.
 
-When `isSecondIntro === true` for an intro in the day list:
-- Render only a compact, **non-expandable** row: name + "2nd Intro" badge + time + coach.
-- No chevron, no expand on tap, no `CoachIntroCard` mounted underneath.
-- No "No Q Needed", "Debrief needed", or shoutout badges (those don't apply).
-- Subtle visual treatment (muted background) so the coach instantly sees it's informational only.
+The canonical field for "this is a follow-up to an earlier booking by the same person" is `originating_booking_id` (per the Intro Owner Management memory: 2nd intros must inherit `intro_owner` from the originating booking via this column). `rebooked_from_booking_id` is a separate concept used for cancel/reschedule audit. The reschedule path conflates them.
 
-1st intros keep the existing expandable card behavior unchanged.
+## Fix
 
-### 2. Coach lead-measure denominators — explicitly exclude 2nd intros
-Files audited & confirmed already correct, with one safety addition:
-- `src/pages/Wig.tsx` (line 343): already filters to first intros for the WIG coach lead-measure rollup. ✅
-- `src/components/dashboard/PerCoachTable.tsx`: already first-intro only with Total Journey credit. ✅
-- `src/components/dashboard/CoachPerformance.tsx`: already first-intro only. ✅
-- `src/components/coach/CoachIntroCard.tsx`: already skips fetching `intros_run` lead-measure fields when `isSecondIntro`. We'll go one step further — if somehow a 2nd intro card is opened (e.g. via deep link), the POST-CLASS LEAD MEASURES section is hidden entirely, and the Submit Debrief flow doesn't require those fields. (Belt and suspenders since CoachView won't expand it anymore.)
+### 1. `src/components/dashboard/BookIntroSheet.tsx` — set `originating_booking_id` when rebooking an existing member
 
-### 3. WIG tab "coach close credit" — confirm it ignores the 2nd-intro coach
-`src/pages/Wig.tsx` lines 408-470: the close-rate aggregation iterates `intros_run` for **first-intro bookings only** and credits `r.coach_name` from those runs. When the 2nd intro sells, credit is added to the **first intro's coach** via the `secondRunSaleSet` lookup — never to the 2nd-intro coach. ✅ Already correct, no change needed.
+In `handleSave`, when `selectedBooking` exists, also write:
+```ts
+originating_booking_id: selectedBooking.originating_booking_id || selectedBooking.id,
+```
 
-### 4. Total Journey coverage for shoutout / pair / curiosity / debrief
-These are first-class-only behaviors by definition — already filtered to `firstIntroBookings` in WIG. No change.
+Use the original booking's `originating_booking_id` if it has one (so a 3rd intro still chains back to the true 1st), otherwise point to the selected booking. Keep `rebooked_from_booking_id` as-is for audit.
+
+Also pull `originating_booking_id` into the `SearchResult` select query and type so we can inherit it correctly.
+
+### 2. One-time backfill migration
+
+Find existing bookings created by this broken path and link them:
+```sql
+UPDATE intros_booked b
+SET originating_booking_id = COALESCE(orig.originating_booking_id, orig.id)
+FROM intros_booked orig
+WHERE b.rebooked_from_booking_id = orig.id
+  AND b.originating_booking_id IS NULL
+  AND b.deleted_at IS NULL;
+```
+This fixes Helen's current booking and any others stuck in the same state.
 
 ## Files changed
-1. `src/pages/CoachView.tsx` — collapse 2nd-intro rows to a one-line, non-expandable stub.
-2. `src/components/coach/CoachIntroCard.tsx` — hide POST-CLASS LEAD MEASURES section + skip those fields in submit validation when `isSecondIntro`. Defensive only.
+1. `src/components/dashboard/BookIntroSheet.tsx` — add `originating_booking_id` to insert + `SearchResult` query
+2. New migration — backfill `originating_booking_id` from `rebooked_from_booking_id` where missing
 
 ## Files audited, no change needed
-- `src/pages/Wig.tsx` — already first-intro only, already Total-Journey-credits 1st coach
-- `src/components/dashboard/PerCoachTable.tsx` — same
-- `src/components/dashboard/CoachPerformance.tsx` — same
+- `src/pages/CoachView.tsx` — logic is correct, just needed the field populated
+- `src/features/myDay/useUpcomingIntrosData.ts` — already detects correctly via prior-run fallback
 
-## Downstream effects (every one explicit)
-- Coach View daily list: 2nd intros render as a one-line "Name · 2nd Intro · 6:00 PM · Coach" stub with no expand.
-- Coach View no longer prompts coach for shoutout/curiosity/pair/debrief on 2nd intros — those toggles never appear.
-- WIG → Coach Lead Measures: denominators (coached, shoutout %, curiosity %, pair %, debrief %) continue to use first intros only — unchanged numbers.
-- WIG → Coach Close Rate: credit for a 2nd-intro sale continues to flow to the **first** intro's coach via Total Journey (already in place).
-- Per-Coach Performance (Studio): unchanged — already first-intro Total Journey.
-- Coach Performance card: unchanged — already first-intro only.
-- SA-side My Day intros tab and pipeline: unaffected.
-- VIP isolation: unaffected.
-- No DB / no RLS / no migrations.
+## Downstream effects (all positive, all explicit)
+- CoachView shows Helen's booking as a one-line 2nd Intro stub (matches My Day)
+- 2nd intro `intro_owner` correctly inherits from originating booking via existing canon (per Intro Owner memory)
+- Total Journey close-rate credit flows to the original 1st-intro coach (already wired off `originating_booking_id`)
+- No-show originating bookings still correctly demote the chain (CoachView's existing `originatingStatuses[id] !== 'NO_SHOW'` check)
+- Friend bookings unaffected (separate `referred_by_member_name` path, no rebook involved)
+- VIP, COMP isolation unaffected
+- No RLS changes, no new tables
 
 ## Confirm before building
-None — scope is clear and matches existing canon ("first intros only" is already the standard everywhere except CoachView's expand UI).
+None — fix is mechanical and matches existing canon.
+
