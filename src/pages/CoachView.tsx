@@ -388,10 +388,31 @@ function ClassTimeIntroSelector({
   return (
     <div className="space-y-2">
       {intros.map(intro => {
-        const isExpanded = expandedId === intro.id;
         // A no-showed originating booking doesn't make this a 2nd intro
-        const isSecondIntro = !!intro.originating_booking_id && 
+        const isSecondIntro = !!intro.originating_booking_id &&
           originatingStatuses[intro.originating_booking_id] !== 'NO_SHOW';
+
+        // 2nd intros render as a non-expandable stub — no card, no debrief, no lead measures
+        if (isSecondIntro) {
+          return (
+            <div
+              key={intro.id}
+              className="rounded-lg border border-border bg-muted/40 px-3 py-2 flex items-center justify-between gap-2"
+              style={{ minHeight: '44px' }}
+            >
+              <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm">{intro.member_name}</span>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">2nd Intro</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground italic shrink-0">No prep needed</span>
+            </div>
+          );
+        }
+
+        const isExpanded = expandedId === intro.id;
         const qStatus = intro.questionnaire_status_canon;
         const isQComplete = qStatus === 'completed' || qStatus === 'submitted';
 
@@ -407,12 +428,10 @@ function ClassTimeIntroSelector({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-sm">{intro.member_name}</span>
-                  <Badge variant={isSecondIntro ? 'secondary' : 'default'} className="text-[10px] px-1.5 py-0 h-4">
-                    {isSecondIntro ? '2nd Intro' : '1st Intro'}
+                  <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
+                    1st Intro
                   </Badge>
-                  {isSecondIntro ? (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">No Q Needed</Badge>
-                  ) : isQComplete ? (
+                  {isQComplete ? (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>
                   ) : (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive text-white border-transparent">No Questionnaire</Badge>
