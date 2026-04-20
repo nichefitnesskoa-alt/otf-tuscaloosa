@@ -52,8 +52,8 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
 
     const ids = newLeads.map(l => l.id);
 
-    // Check script_send_log, lead_activities, and intros_booked for any contact or booking
-    const [sendLogRes, activitiesRes, bookedByIdRes] = await Promise.all([
+    // Check script_send_log, lead_activities, intros_booked, and vip_registrations
+    const [sendLogRes, activitiesRes, bookedByIdRes, vipRegsRes] = await Promise.all([
       supabase
         .from('script_send_log')
         .select('lead_id')
@@ -62,18 +62,40 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
         .from('lead_activities')
         .select('lead_id')
         .in('lead_id', ids),
-      // Check if any lead has a linked booking via booked_intro_id on the lead record
       supabase
         .from('leads')
         .select('id, booked_intro_id')
         .in('id', ids)
         .not('booked_intro_id', 'is', null),
+      // Exclude leads who are already registered for a VIP class
+      supabase
+        .from('vip_registrations')
+        .select('first_name, last_name, phone'),
     ]);
 
     const contactedIds = new Set<string>();
     (sendLogRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
     (activitiesRes.data || []).forEach((r: any) => { if (r.lead_id) contactedIds.add(r.lead_id); });
     (bookedByIdRes.data || []).forEach((r: any) => { if (r.id) contactedIds.add(r.id); });
+
+    // Build VIP registrant lookup sets (name + last-10-digits of phone)
+    const normPhone = (p: string | null | undefined) => (p || '').replace(/\D/g, '').slice(-10);
+    const vipNameSet = new Set<string>();
+    const vipPhoneSet = new Set<string>();
+    (vipRegsRes.data || []).forEach((r: any) => {
+      const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim().toLowerCase();
+      if (fullName) vipNameSet.add(fullName);
+      const ph = normPhone(r.phone);
+      if (ph.length === 10) vipPhoneSet.add(ph);
+    });
+
+    newLeads.forEach(l => {
+      const fullName = `${l.first_name} ${l.last_name}`.trim().toLowerCase();
+      const ph = normPhone(l.phone);
+      if (vipNameSet.has(fullName) || (ph.length === 10 && vipPhoneSet.has(ph))) {
+        contactedIds.add(l.id);
+      }
+    });
 
     // Also check by name match against intros_booked
     const leadNames = newLeads
