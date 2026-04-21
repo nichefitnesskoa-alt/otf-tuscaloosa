@@ -309,6 +309,23 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           </SheetDescription>
         </SheetHeader>
 
+        <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <Label className="text-xs font-semibold">Who coached this VIP class? <span className="text-destructive">*</span></Label>
+          <Select value={vipCoach} onValueChange={saveVipCoach} disabled={savingCoach}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Select VIP class coach…" />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map(c => (
+                <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            Sale credits go to this coach for any VIP-class attendee who buys — even if a different coach runs their follow-up intro.
+          </p>
+        </div>
+
         <div className="mt-4 space-y-3">
           {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
           {!loading && regs.length === 0 && (
