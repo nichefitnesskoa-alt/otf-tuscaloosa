@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Phone, Mail, Star, Save, Check, Users } from 'lucide-react';
+import { Phone, Mail, Save, Check, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -96,7 +96,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         .from('vip_registrations' as any)
         .select('*')
         .eq('vip_session_id', vipSessionId)
-        .order('is_group_contact', { ascending: false })
+        .eq('is_group_contact', false)
         .order('created_at', { ascending: true });
       if (cancelled) return;
       if (error) {
@@ -315,11 +315,6 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm">{fullName}</span>
-                      {r.is_group_contact && (
-                        <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-500 text-white border-transparent gap-0.5">
-                          <Star className="w-2.5 h-2.5" /> Group Contact
-                        </Badge>
-                      )}
                       {isLogged && (
                         <Badge className="text-[9px] px-1.5 py-0 h-4 bg-emerald-600 text-white border-transparent gap-0.5">
                           <Check className="w-2.5 h-2.5" /> {OUTCOME_OPTIONS.find(o => o.value === r.outcome)?.label || r.outcome}
