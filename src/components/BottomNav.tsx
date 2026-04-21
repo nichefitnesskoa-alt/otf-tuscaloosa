@@ -80,6 +80,7 @@ export function BottomNav() {
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/recaps', label: 'Studio', icon: TrendingUp },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   ];
