@@ -235,6 +235,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunNotes: run?.notes || null,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: false, // will be set after prior-run lookup
+          isVipClassIntro: !!((b.lead_source || '').startsWith('VIP Class') && (b as any).vip_session_id),
           prepped: (b as any).prepped ?? false,
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
