@@ -9,6 +9,7 @@ function getLocalDateString(d = new Date()): string {
 export interface ScriptContext {
   personType: 'booking' | 'lead';
   isSecondIntro?: boolean;
+  isVipClassIntro?: boolean;
   classDate?: string;
   classTime?: string | null;
   bookingCreatedAt?: string;
@@ -75,6 +76,13 @@ export function selectBestScript(
 
     // TOMORROW
     if (isClassTomorrow) {
+      if (ctx.isVipClassIntro) {
+        return {
+          template: find('booking_confirmation', t => t.name.toLowerCase().includes('1st')),
+          note: 'VIP Class intro — no questionnaire needed.',
+          relevantCategories: ['booking_confirmation', 'pre_class_reminder'],
+        };
+      }
       if (ctx.isSecondIntro) {
         return {
           template: find('booking_confirmation', t => t.name.toLowerCase().includes('2nd')),
@@ -174,9 +182,9 @@ export function selectBestScript(
     // FUTURE (not tomorrow)
     return {
       template: find('booking_confirmation', t =>
-        ctx.isSecondIntro ? t.name.toLowerCase().includes('2nd') : t.name.toLowerCase().includes('1st')
+        ctx.isSecondIntro && !ctx.isVipClassIntro ? t.name.toLowerCase().includes('2nd') : t.name.toLowerCase().includes('1st')
       ),
-      note: null,
+      note: ctx.isVipClassIntro ? 'VIP Class intro — no questionnaire needed.' : null,
       relevantCategories: ['booking_confirmation', 'pre_class_reminder'],
     };
   }
