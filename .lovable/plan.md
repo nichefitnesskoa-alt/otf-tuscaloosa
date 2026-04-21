@@ -2,47 +2,41 @@
 
 ## Goal
 
-Friends brought by VIP attendees should NOT show the **VIP Class Intro** badge and SHOULD receive a questionnaire (red **No Questionnaire** chip until sent). Only the direct VIP attendees (`lead_source = "VIP Class"`) get the purple VIP badge and **No Q Needed** suppression.
+On the My Day intro card collapsed header row, show the lead source as an always-visible badge (next to the 1st/2nd/VIP badge), and remove the Shoutout badge from that same collapsed row. Both changes apply only to the collapsed summary header — expanded card content stays untouched.
 
-## Root cause
+## Root cause / current state
 
-In `src/features/myDay/useUpcomingIntrosData.ts` line 238, the previous build set `isVipClassIntro` to true for any source starting with `"vip class"` — which includes both `VIP Class` AND `VIP Class (Friend)`. That flag drives both the purple badge and the "No Q Needed" suppression in `IntroRowCard.tsx`. Friends got swept in by accident.
-
-Friends are real first intros from someone outside the VIP context — they need a questionnaire like any other 1st intro.
+In `src/features/myDay/IntroRowCard.tsx` the collapsed header (lines ~387–404 area) currently renders the intro-type badge (`1st Intro` / `2nd Intro` / `VIP Class Intro`) and a Shoutout badge, but never renders the lead source. Lead source only appears once the card is expanded (inside `IntroCard.tsx`'s editable header). At-a-glance scanning of the day requires knowing the source without expanding.
 
 ## Changes
 
-### 1) `src/features/myDay/useUpcomingIntrosData.ts` (line 238)
-Tighten the derivation to exact match on `"VIP Class"` only — exclude `"VIP Class (Friend)"`:
+### 1) `src/features/myDay/IntroRowCard.tsx` — collapsed header badge row
 
-```
-const src = (b.lead_source || '').toLowerCase();
-isVipClassIntro: src === 'vip class',
-```
+- **Add**: Render `<LeadSourceTag source={item.leadSource} />` from `src/components/dashboard/IntroTypeBadge.tsx` immediately after the existing `IntroTypeBadge` in the collapsed header. Only render when `item.leadSource` is truthy. Use the same `text-[10px] px-1.5 py-0 h-4` sizing already used by sibling badges so the row height does not shift.
+- **Remove**: The Shoutout badge currently rendered in the collapsed header row. Delete only that badge node — leave all Shoutout logic, the `shoutoutConsent` prop, and any Shoutout display inside the expanded card body fully intact.
 
-### 2) `src/features/myDay/IntroRowCard.tsx` (badge area, lines ~387–404)
-Remove the dual-badge branch added in the previous build. Friends now fall through to the standard `1st Intro` badge path automatically since `isVipClassIntro` is false for them. No special VIP friend handling needed.
+No other badge in the collapsed row changes. No layout, spacing, color, or expand/collapse behavior changes. The existing `LeadSourceTag` component already provides:
+- Consistent color mapping per source (IG DM pink, Referral emerald, Web Lead blue, VIP purple, etc.)
+- Short labels (`IG DM`, `Referral`, `Web Lead`, `VIP`, `Lead Mgmt`, `Personal`, `Biz Partner`, `Event`, etc.) so the badge fits on the single header line at the current viewport.
 
-Resulting behavior:
-- `lead_source = "VIP Class"` → purple **VIP Class Intro** badge, **No Q Needed** chip
-- `lead_source = "VIP Class (Friend)"` → standard **1st Intro** badge, red **No Questionnaire** chip until sent
-- All other sources → unchanged
+So no new component, no new color decisions, no invented labels.
 
-### 3) Questionnaire auto-creation
-Already handled — `intro_questionnaires` rows are auto-provisioned by DB trigger for first intros regardless of source. Friends already have questionnaire records; the UI just needs to stop suppressing the prompt. The above two changes accomplish that.
+### 2) Nothing else touched
+
+- `IntroCard.tsx` (expanded body): unchanged — lead source inline editor and Shoutout display remain.
+- `useUpcomingIntrosData.ts`: unchanged — `leadSource` is already on `UpcomingIntroItem`.
+- VIP detection, questionnaire status, "No Q Needed" rules, attribution, role permissions: unchanged.
 
 ## Files touched
 
-- `src/features/myDay/useUpcomingIntrosData.ts` — tighten `isVipClassIntro` to exact `"vip class"` match.
-- `src/features/myDay/IntroRowCard.tsx` — remove the friend dual-badge branch; let friends use the standard 1st Intro path.
-
-No DB changes. No RLS changes. No effect on attribution, VIP isolation, or conversion math.
+- `src/features/myDay/IntroRowCard.tsx` — add `LeadSourceTag` to collapsed header; remove Shoutout badge from collapsed header.
 
 ## Downstream effects
 
-- VIP friend bookings (e.g. PJ's Coffee friends) immediately show the standard **1st Intro** badge and red **No Questionnaire** prompt until the SA sends one.
-- Direct VIP attendees keep their purple **VIP Class Intro** badge and **No Q Needed** suppression — unchanged.
-- `Send Q` / `Resend Q` actions in the card already work for friends since their questionnaire records exist — no extra wiring needed.
-- Inline `VIP class: …` linking in `IntroCard.tsx` is unaffected; SAs can still attach a session for attribution if relevant.
-- Attribution math, scoreboard exclusions, and VIP isolation rules untouched — those depend on `vip_session_id` / `isVipBooking`, not the visual flag.
+- SAs can see the lead source of every intro at a glance on the My Day list without expanding cards.
+- Collapsed row is one badge lighter (Shoutout removed) and one badge heavier (Lead Source added) — net same density, cleaner signal.
+- Shoutout information is preserved everywhere it currently appears in the expanded card body — only the duplicate collapsed-row chip is removed.
+- No data writes, no DB changes, no RLS changes, no role permission changes.
+- No effect on attribution, conversion math, VIP isolation, or questionnaire flow.
+- Central Time conventions untouched.
 
