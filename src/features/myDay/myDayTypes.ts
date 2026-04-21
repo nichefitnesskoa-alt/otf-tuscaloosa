@@ -41,7 +41,7 @@ export interface UpcomingIntroItem {
   latestRunNotes: string | null;
   originatingBookingId: string | null;
   isSecondIntro: boolean;
-  isVipClassIntro: boolean;
+  isVipClassIntro?: boolean;
   referredBy: string | null;
   prepped: boolean;
   preppedAt: string | null;
