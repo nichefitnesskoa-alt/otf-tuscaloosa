@@ -384,14 +384,28 @@ export default function IntroRowCard({
     >
       <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
         <span className="font-semibold text-sm truncate">{item.memberName}</span>
-        <span className="pointer-events-none">
-          {item.isVipClassIntro ? (
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
-          ) : (
-            <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
-              {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
-            </Badge>
-          )}
+        <span className="pointer-events-none flex items-center gap-1 flex-wrap">
+          {(() => {
+            const isVipFriend = (item.leadSource || '').toLowerCase() === 'vip class (friend)';
+            if (item.isVipClassIntro && !isVipFriend) {
+              return (
+                <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
+              );
+            }
+            if (item.isVipClassIntro && isVipFriend) {
+              return (
+                <>
+                  <Badge variant="default" className="text-[9px] px-1.5 py-0 h-4">1st Intro</Badge>
+                  <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
+                </>
+              );
+            }
+            return (
+              <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
+                {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
+              </Badge>
+            );
+          })()}
         </span>
         <span>
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
