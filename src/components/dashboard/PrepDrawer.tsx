@@ -325,7 +325,7 @@ export function PrepDrawer({
           </SheetTitle>
           <SheetDescription className="sr-only">Client preparation details</SheetDescription>
           <div className="flex flex-wrap gap-1.5 mt-1">
-            <IntroTypeBadge isSecondIntro={isSecondIntro} />
+            <IntroTypeBadge isSecondIntro={isSecondIntro} isVipClassIntro={(leadSource || '').startsWith('VIP Class')} />
             <LeadSourceTag source={leadSource} />
             {hasSale && <Badge className="bg-success text-success-foreground text-[10px]">Purchased</Badge>}
             {totalCommission > 0 && (
