@@ -83,6 +83,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
     obstacle: string | null;
     why: string | null;
     isSecondIntro?: boolean;
+    isVipClassIntro?: boolean;
     phone?: string | null;
   } | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
@@ -159,12 +160,15 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
           ? rawPhone.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
           : null;
 
+        const ls = (booking as any).lead_source || '';
+        const isVipClass = ls.startsWith('VIP Class') && !!(booking as any).vip_session_id;
         setMemberCtx({
           name: booking.member_name,
           goal: q ? trim(q.q1_fitness_goal) : null,
           obstacle: q ? trim(q.q3_obstacle) : null,
           why: q ? trim(q.q5_emotional_driver) : null,
-          isSecondIntro: !!booking.originating_booking_id,
+          isSecondIntro: !!booking.originating_booking_id && !isVipClass,
+          isVipClassIntro: isVipClass,
           phone: displayPhone,
         });
 
@@ -280,7 +284,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
               ) : memberCtx ? (
                 <>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Name:</span><span className="font-medium">{memberCtx.name}</span></div>
-                  <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Visit:</span><span className="font-medium">{memberCtx.isSecondIntro ? '2nd Intro' : '1st Intro'}</span></div>
+                  <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Visit:</span><span className="font-medium">{memberCtx.isVipClassIntro ? 'VIP Class Intro' : memberCtx.isSecondIntro ? '2nd Intro' : '1st Intro'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Goal:</span><span>{memberCtx.goal ?? 'Ask before class'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Obstacle:</span><span>{memberCtx.obstacle ?? 'Ask before class'}</span></div>
                   <div className="flex gap-1"><span className="text-muted-foreground w-16 shrink-0">Why:</span><span>{memberCtx.why ?? 'Ask before class'}</span></div>
@@ -393,7 +397,7 @@ export function ScriptPickerSheet({ open, onOpenChange, suggestedCategories, mer
                     {phoneCopied ? 'Copied!' : `Copy phone`}
                   </button>
                 )}
-                {!memberCtx?.isSecondIntro && resolvedQuestionnaireUrl && (
+                {!memberCtx?.isSecondIntro && !memberCtx?.isVipClassIntro && resolvedQuestionnaireUrl && (
                   <button
                     className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 py-1 min-h-[44px]"
                     onClick={async () => {
