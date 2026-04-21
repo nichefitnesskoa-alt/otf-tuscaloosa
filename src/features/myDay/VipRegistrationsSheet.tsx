@@ -1,17 +1,29 @@
 /**
  * Sheet showing all VIP session registrants with their full registration details
  * and per-attendee outcome logging.
+ *
+ * When the SA picks "Booked an Intro" for a registrant, an inline booking form
+ * appears that creates a real `intros_booked` row (with VIP source attribution),
+ * a questionnaire, and optionally a paired friend booking + referral.
  */
 import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Phone, Mail, Star, Save, Check } from 'lucide-react';
+import { Phone, Mail, Star, Save, Check, Users } from 'lucide-react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
+import { COACHES } from '@/types';
+import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
+import { autoCreateQuestionnaire } from '@/lib/introHelpers';
+import { generateUniqueSlug } from '@/lib/utils';
 
 interface Registration {
   id: string;
@@ -40,6 +52,26 @@ const OUTCOME_OPTIONS = [
   { value: 'purchased', label: 'Purchased Membership' },
 ];
 
+interface BookingDraft {
+  classDate: string;
+  classTime: string;
+  coach: string;
+  bringingFriend: 'yes' | 'no' | null;
+  friendFirstName: string;
+  friendLastName: string;
+  friendPhone: string;
+}
+
+const emptyBooking = (): BookingDraft => ({
+  classDate: format(new Date(), 'yyyy-MM-dd'),
+  classTime: '',
+  coach: '',
+  bringingFriend: null,
+  friendFirstName: '',
+  friendLastName: '',
+  friendPhone: '',
+});
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +85,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [regs, setRegs] = useState<Registration[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { outcome: string; notes: string }>>({});
+  const [bookingDrafts, setBookingDrafts] = useState<Record<string, BookingDraft>>({});
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
@@ -81,7 +114,18 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     return () => { cancelled = true; };
   }, [open, vipSessionId]);
 
-  const handleSave = async (regId: string) => {
+  const setOutcome = (regId: string, value: string) => {
+    setDrafts(prev => ({ ...prev, [regId]: { ...(prev[regId] || { outcome: '', notes: '' }), outcome: value } }));
+    if (value === 'booked_intro' && !bookingDrafts[regId]) {
+      setBookingDrafts(prev => ({ ...prev, [regId]: emptyBooking() }));
+    }
+  };
+
+  const updateBookingDraft = (regId: string, patch: Partial<BookingDraft>) => {
+    setBookingDrafts(prev => ({ ...prev, [regId]: { ...(prev[regId] || emptyBooking()), ...patch } }));
+  };
+
+  const handleSaveOutcomeOnly = async (regId: string) => {
     const draft = drafts[regId];
     if (!draft || !draft.outcome) {
       toast.error('Pick an outcome first');
@@ -115,6 +159,135 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     }
   };
 
+  const handleSaveBooking = async (reg: Registration) => {
+    const bd = bookingDrafts[reg.id] || emptyBooking();
+    const draft = drafts[reg.id] || { outcome: 'booked_intro', notes: '' };
+
+    if (!bd.classDate) { toast.error('Class date is required'); return; }
+    if (!bd.classTime) { toast.error('Class time is required'); return; }
+    if (!bd.coach) { toast.error('Coach is required'); return; }
+    if (bd.bringingFriend === 'yes') {
+      if (!bd.friendFirstName.trim()) { toast.error('Friend first name is required'); return; }
+      if (!bd.friendPhone.trim()) { toast.error('Friend phone is required'); return; }
+    }
+
+    const memberName = `${reg.first_name || ''} ${reg.last_name || ''}`.trim() || 'Unnamed';
+    const classStartAt = `${bd.classDate}T${bd.classTime}:00`;
+    const h = new Date().getHours();
+    const shiftLabel = h < 11 ? 'AM Shift' : h < 16 ? 'Mid Shift' : 'PM Shift';
+
+    setSavingId(reg.id);
+    try {
+      // 1. Create primary booking
+      const { data: inserted, error: insertErr } = await supabase.from('intros_booked').insert({
+        member_name: memberName,
+        class_date: bd.classDate,
+        intro_time: bd.classTime,
+        class_start_at: classStartAt,
+        coach_name: bd.coach,
+        lead_source: 'VIP Class',
+        sa_working_shift: shiftLabel,
+        booked_by: userName,
+        intro_owner: userName,
+        intro_owner_locked: false,
+        phone: reg.phone || null,
+        email: reg.email || null,
+        booking_type_canon: 'STANDARD',
+        booking_status_canon: 'ACTIVE',
+        questionnaire_status_canon: 'not_sent',
+        is_vip: false,
+        vip_session_id: vipSessionId,
+      }).select('id').single();
+      if (insertErr) throw insertErr;
+
+      // 2. Auto-create questionnaire (fire-and-forget)
+      if (inserted?.id) {
+        autoCreateQuestionnaire({ bookingId: inserted.id, memberName, classDate: bd.classDate }).catch(() => {});
+      }
+
+      // 3. Friend booking (optional)
+      if (inserted?.id && bd.bringingFriend === 'yes' && bd.friendFirstName.trim()) {
+        const friendFullName = `${bd.friendFirstName.trim()} ${bd.friendLastName.trim()}`.trim();
+        const { data: friendBooking } = await supabase.from('intros_booked').insert({
+          member_name: friendFullName,
+          class_date: bd.classDate,
+          intro_time: bd.classTime,
+          class_start_at: classStartAt,
+          coach_name: bd.coach,
+          lead_source: 'VIP Class (Friend)',
+          sa_working_shift: shiftLabel,
+          booked_by: userName,
+          intro_owner: userName,
+          intro_owner_locked: false,
+          phone: bd.friendPhone.trim() || null,
+          booking_type_canon: 'STANDARD',
+          booking_status_canon: 'ACTIVE',
+          questionnaire_status_canon: 'not_sent',
+          is_vip: false,
+          vip_session_id: vipSessionId,
+          paired_booking_id: inserted.id,
+          referred_by_member_name: memberName,
+        }).select('id').single();
+
+        if (friendBooking?.id) {
+          await Promise.all([
+            supabase.from('intros_booked').update({ paired_booking_id: friendBooking.id }).eq('id', inserted.id),
+            supabase.from('referrals').insert({
+              referrer_name: memberName,
+              referred_name: friendFullName,
+              referrer_booking_id: inserted.id,
+              referred_booking_id: friendBooking.id,
+              discount_applied: false,
+            }),
+          ]);
+          const fParts = friendFullName.split(' ');
+          try {
+            const slug = await generateUniqueSlug(fParts[0], fParts.slice(1).join(' '), supabase);
+            await supabase.from('intro_questionnaires').insert({
+              booking_id: friendBooking.id,
+              client_first_name: fParts[0],
+              client_last_name: fParts.slice(1).join(' ') || '',
+              scheduled_class_date: bd.classDate,
+              scheduled_class_time: bd.classTime,
+              status: 'not_sent',
+              slug,
+            } as any);
+          } catch {}
+        }
+      }
+
+      // 4. Update registration outcome
+      const nowIso = new Date().toISOString();
+      const { error: updErr } = await supabase
+        .from('vip_registrations' as any)
+        .update({
+          outcome: 'booked_intro',
+          outcome_notes: draft.notes || null,
+          outcome_logged_at: nowIso,
+          outcome_logged_by: userName,
+        })
+        .eq('id', reg.id);
+      if (updErr) throw updErr;
+
+      setRegs(prev => prev.map(r => r.id === reg.id ? {
+        ...r,
+        outcome: 'booked_intro',
+        outcome_notes: draft.notes || null,
+        outcome_logged_at: nowIso,
+        outcome_logged_by: userName,
+      } : r));
+
+      const friendSuffix = bd.bringingFriend === 'yes' && bd.friendFirstName.trim() ? ` + ${bd.friendFirstName.trim()}` : '';
+      toast.success(`${memberName}${friendSuffix} booked for ${format(new Date(bd.classDate + 'T12:00:00'), 'MMM d')}`);
+      window.dispatchEvent(new CustomEvent('myday:walk-in-added'));
+    } catch (e: any) {
+      console.error('VIP booking save error:', e);
+      toast.error(e?.message || 'Failed to create booking');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
@@ -134,6 +307,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
             const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unnamed';
             const draft = drafts[r.id] || { outcome: '', notes: '' };
             const isLogged = !!r.outcome;
+            const showBookingForm = draft.outcome === 'booked_intro';
+            const bd = bookingDrafts[r.id] || emptyBooking();
             return (
               <div key={r.id} className="rounded-lg border bg-card p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -186,7 +361,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                   <div className="flex gap-2 items-center">
                     <Select
                       value={draft.outcome}
-                      onValueChange={(v) => setDrafts(prev => ({ ...prev, [r.id]: { ...draft, outcome: v } }))}
+                      onValueChange={(v) => setOutcome(r.id, v)}
                     >
                       <SelectTrigger className="h-9 text-xs flex-1">
                         <SelectValue placeholder="Select outcome…" />
@@ -197,20 +372,126 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      size="sm"
-                      className="h-9 gap-1 text-xs"
-                      onClick={() => handleSave(r.id)}
-                      disabled={savingId === r.id}
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      {savingId === r.id ? 'Saving…' : 'Save'}
-                    </Button>
+                    {!showBookingForm && (
+                      <Button
+                        size="sm"
+                        className="h-9 gap-1 text-xs"
+                        onClick={() => handleSaveOutcomeOnly(r.id)}
+                        disabled={savingId === r.id}
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        {savingId === r.id ? 'Saving…' : 'Save'}
+                      </Button>
+                    )}
                   </div>
+
+                  {showBookingForm && (
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
+                      <div className="text-xs font-semibold text-primary">Book intro for {fullName}</div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Class Date</Label>
+                        <DatePickerField
+                          value={bd.classDate}
+                          onChange={(v) => updateBookingDraft(r.id, { classDate: v })}
+                          className="h-9 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Class Time</Label>
+                        <ClassTimeSelect
+                          value={bd.classTime}
+                          onValueChange={(v) => updateBookingDraft(r.id, { classTime: v })}
+                          triggerClassName="h-9 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Coach</Label>
+                        <Select value={bd.coach} onValueChange={(v) => updateBookingDraft(r.id, { coach: v })}>
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Select coach…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COACHES.map(c => (
+                              <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs flex items-center gap-1.5">
+                          <Users className="w-3 h-3" /> Bringing a friend?
+                        </Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={bd.bringingFriend === 'yes' ? 'default' : 'outline'}
+                            className="h-8 text-xs flex-1"
+                            onClick={() => updateBookingDraft(r.id, { bringingFriend: 'yes' })}
+                          >Yes</Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={bd.bringingFriend === 'no' ? 'default' : 'outline'}
+                            className="h-8 text-xs flex-1"
+                            onClick={() => updateBookingDraft(r.id, { bringingFriend: 'no', friendFirstName: '', friendLastName: '', friendPhone: '' })}
+                          >No</Button>
+                        </div>
+                      </div>
+
+                      {bd.bringingFriend === 'yes' && (
+                        <div className="space-y-2 rounded border border-border bg-card p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Friend First Name</Label>
+                              <Input
+                                value={bd.friendFirstName}
+                                onChange={(e) => updateBookingDraft(r.id, { friendFirstName: autoCapitalizeName(e.target.value) })}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Friend Last Name</Label>
+                              <Input
+                                value={bd.friendLastName}
+                                onChange={(e) => updateBookingDraft(r.id, { friendLastName: autoCapitalizeName(e.target.value) })}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Friend Phone</Label>
+                            <Input
+                              value={bd.friendPhone}
+                              onChange={(e) => updateBookingDraft(r.id, { friendPhone: formatPhoneAsYouType(e.target.value) })}
+                              placeholder="(555) 123-4567"
+                              className="h-8 text-xs"
+                              inputMode="tel"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <Button
+                        size="sm"
+                        className="h-9 w-full gap-1 text-xs"
+                        onClick={() => handleSaveBooking(r)}
+                        disabled={savingId === r.id}
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        {savingId === r.id ? 'Saving…' : 'Save Booking'}
+                      </Button>
+                    </div>
+                  )}
+
                   <Textarea
                     placeholder="Notes (optional)"
                     value={draft.notes}
-                    onChange={(e) => setDrafts(prev => ({ ...prev, [r.id]: { ...draft, notes: e.target.value } }))}
+                    onChange={(e) => setDrafts(prev => ({ ...prev, [r.id]: { ...(prev[r.id] || { outcome: '', notes: '' }), notes: e.target.value } }))}
                     className="text-xs min-h-[60px]"
                   />
                   {r.outcome_logged_by && r.outcome_logged_at && (
