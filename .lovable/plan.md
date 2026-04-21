@@ -1,103 +1,67 @@
 
+
 ## Goal
 
-Fix the real root cause behind the “stuck” inline dropdowns on regular My Day intro cards so coach and lead source can actually change again, and fix every other inline header editor that shares the same bug.
+When the user changes `lead_source` to `VIP Class` or `VIP Class (Friend)` from the **inline header dropdown** on a My Day intro card, the app should:
+1. Save the lead source change.
+2. Automatically try to detect which past VIP session this member came from.
+3. Open an inline VIP class picker so the SA can confirm or change the detected session — choosing from any past VIP class we've ran (active + archived).
+4. Save `vip_session_id` (and `vip_class_name`) onto the booking.
 
-## Root cause
+If a `vip_session_id` is already set, picking the lead source again should still let them open the picker to change it.
 
-The problem is not the dropdown component itself.
+## Root cause (why this is missing today)
 
-The broken behavior comes from the shared editable card header in `src/components/shared/IntroCard.tsx`:
+`IntroCard.tsx` `InlineSelect` only writes `lead_source` to `intros_booked`. It has no awareness of VIP. Every other surface that sets `lead_source = VIP Class` (BookIntroSheet, EditBookingDialog, PipelineDialogs) renders `<VipSessionPicker>` right next to the source field — the inline editor on My Day cards is the one place that skips this. So when the SA changes source to VIP inline, the booking ends up with `lead_source = VIP Class` but `vip_session_id = NULL`, which silently breaks VIP attribution and reporting.
 
-- `InlineSelect`
-- `InlineTimePicker`
-- `InlineDatePicker`
-- `InlineText`
+## Changes
 
-These controls save directly to the database, but they do **not**:
-1. update any local display state after a change, or
-2. call `onFieldSaved()` after a successful save.
+### 1) `src/components/shared/IntroCard.tsx`
+- After the `InlineSelect` for `lead_source` saves successfully, detect if the new value is `VIP Class` or `VIP Class (Friend)`.
+- If yes:
+  - Auto-detect best-match VIP session for this member (logic below).
+  - Open a small inline VIP picker popover anchored to the lead source chip showing:
+    - **Suggested** (auto-detected match, if any) at top, pre-selected.
+    - All past VIP sessions (active + archived) below, newest first — matches the existing `VipSessionPicker` behavior.
+  - On confirm: write both `vip_session_id` and `vip_class_name` (derived from the chosen session's `reserved_by_group`) to `intros_booked` for this booking, plus `last_edited_at` / `last_edited_by`. Trigger `onSaved()` to refresh.
+  - On dismiss without choosing: leave `vip_session_id` as-is, show a small amber "VIP class not set" hint next to the source chip until set.
+- Also: if `lead_source` already starts with `VIP Class`, render a small "VIP class: <name>" link/button right after the source chip in the header. Tapping it reopens the same picker so the SA can change which past VIP class.
 
-Because each control is rendered from the old prop value, the UI immediately falls back to the stale value and looks “stuck” even when the interaction fired.
+### 2) Auto-detect logic (new helper, e.g. `src/lib/vip/detectVipSessionForBooking.ts`)
+Given the booking row (`member_name`, `phone`, `email`, `class_date`), pick the best VIP session via this priority:
+1. **Exact registration match** — `vip_registrations` row whose `first_name + last_name` (case-insensitive) matches `member_name`, OR `phone` matches the booking's `phone`, OR `email` matches `email`. Return that row's `vip_session_id`.
+2. **Class-date proximity** — most recent `vip_sessions` row with `session_date <= class_date` (booking date) and matching `reserved_by_group` if `vip_class_name` is already set on the booking.
+3. **Most recent VIP session overall** if nothing else matches — only used as a soft suggestion, NOT auto-saved without user confirmation.
 
-That same shared bug affects:
-- coach dropdown
-- lead source dropdown
-- inline class time
-- inline class date
-- inline phone text edit
+Tier 1 is the only one that auto-saves silently. Tiers 2 and 3 pre-select inside the picker but require the user to confirm.
 
-on any My Day card using `IntroCard` in editable mode.
+### 3) Reuse `VipSessionPicker` look
+The inline popover should reuse the same option rendering (`reserved_by_group — Mon D, YYYY at H:MM AM`, archived section grouped separately) from `src/components/shared/VipSessionPicker.tsx` so the experience matches Edit Booking / Book Intro / Pipeline. No duplicate UI.
 
-## Files affected
+### 4) Field writes
+On confirm, single update to `intros_booked`:
+- `vip_session_id` = chosen session id
+- `vip_class_name` = chosen session's `reserved_by_group` (kept in sync so legacy reports still work)
+- `is_vip` = `true`
+- `last_edited_at` = now (Central Time as elsewhere)
+- `last_edited_by` = current user
 
-### `src/components/shared/IntroCard.tsx`
-Fix the shared inline editor primitives at the source.
+If lead source is changed away from VIP later, leave `vip_session_id` intact (matches existing behavior — no destructive cleanup).
 
-### `src/features/myDay/IntroRowCard.tsx`
-No behavior redesign needed, but this card will immediately benefit because it already passes:
-- `editable={true}`
-- `editedBy={userName}`
-- `onFieldSaved={onRefresh}`
+## Files touched
 
-## Implementation
+- `src/components/shared/IntroCard.tsx` — add inline VIP picker trigger + popover after lead source change; render "VIP class: …" affordance when lead_source is VIP.
+- `src/lib/vip/detectVipSessionForBooking.ts` — new file, auto-detect logic.
+- (Reused as-is) `src/components/shared/VipSessionPicker.tsx` — same options rendering, called from the new popover.
 
-### 1) Fix `InlineSelect`
-Update it so a successful selection does all three:
-- saves to `intros_booked`
-- updates its displayed value locally right away
-- calls `onSaved()` after success so parent data refreshes
+No DB changes. No RLS changes. No changes to BookIntroSheet, EditBookingDialog, or PipelineDialogs flows.
 
-Behavior:
-- optimistic local value updates on selection
-- if save fails, revert to previous value and show existing error toast
-- if save succeeds, keep the new value visible and trigger parent refresh
+## Downstream effects
 
-This directly fixes:
-- coach dropdown
-- lead source dropdown
+- My Day intro cards now correctly link to a VIP session whenever lead source is set to `VIP Class` or `VIP Class (Friend)` inline — no more silently-orphaned VIP rows from inline edits.
+- VIP attribution surfaces (`isVipBooking` in `src/lib/vip/vipRules.ts`, `VipClassPerformanceTable`, VIP isolation in conversion metrics, scoreboard exclusions) all start counting these bookings under their correct VIP session.
+- Coach/SA can change which past VIP class a member came from at any time via the same inline header.
+- Auto-detect via registration match means the most common case (member registered for a VIP, then booked) requires zero extra clicks.
+- No effect on bookings where lead source isn't VIP. No retroactive change to existing bookings — auto-detect only runs when the SA actively sets the source.
+- Central Time conventions preserved for `last_edited_at`.
 
-### 2) Fix `InlineTimePicker`
-Apply the same pattern:
-- keep local selected time state
-- update visible value immediately
-- call `onSaved()` after successful save
-- revert on failure
-
-This fixes the inline time control before it causes the same “stuck” behavior.
-
-### 3) Fix `InlineDatePicker`
-Apply the same pattern:
-- keep local date state
-- reflect chosen date immediately
-- call `onSaved()` after successful save
-- revert on failure
-
-### 4) Fix `InlineText`
-After successful blur-save:
-- keep the latest visible value
-- call `onSaved()` so My Day refreshes cleanly
-
-This fixes the same stale-prop issue for inline phone editing.
-
-### 5) Preserve existing styling and layout
-Do not redesign the card header UI.
-Only repair save/state flow inside the shared inline editor primitives.
-
-## Expected result after fix
-
-On regular My Day cards:
-- changing coach works immediately
-- changing lead source works immediately
-- changing date/time/phone no longer snaps back
-- saved values remain visible without feeling frozen
-- parent card data still refreshes through existing `onRefresh`
-
-## Downstream effects implemented
-
-- Root cause fixed in the shared editable header component, not patched only for one dropdown
-- All inline editable header fields on My Day cards fixed together
-- No database schema changes
-- No role/RLS changes
-- No changes to VIP notifications, VIP group sheet layout, Outcome Drawer, or any unrelated page
-- No visual styling changes outside the specific broken inline editor behavior
