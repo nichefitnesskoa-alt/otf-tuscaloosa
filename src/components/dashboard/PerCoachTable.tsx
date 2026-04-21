@@ -86,6 +86,8 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
     // Group by coach
     const coachMap = new Map<string, { coached: number; closes: number }>();
     filtered.forEach(r => {
+      // Exclude VIP Class Intro outcomes from close-rate math entirely
+      if ((r as any).result_canon === 'VIP_CLASS_INTRO') return;
       const linkedBooking = r.linked_intro_booked_id ? bookingById.get(r.linked_intro_booked_id) : null;
       const name = resolveCoach(linkedBooking, (r as any).coach_name);
       if (!name) return;
