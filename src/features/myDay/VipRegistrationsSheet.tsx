@@ -1,12 +1,10 @@
 /**
- * Privacy-first VIP group sheet: shows ONLY the group name + total registration count
- * + an outcome roll-up. No individual registrant names, phones, or PII rendered.
+ * VIP group sheet: shows the group name, total registration count, an outcome
+ * roll-up, the required coach picker, and a per-attendee list with names +
+ * outcome dropdowns so SAs can log how each registrant did.
  *
- * The coach picker stays at the top — it's required for VIP-class sale attribution.
- *
- * When an attendee actually books a follow-up intro, that's done through the standard
- * Book Intro sheet on the floor (with lead_source = 'VIP Class' + vip_session_id),
- * and the SA logs the outcome on the resulting intro card via the standard OutcomeDrawer.
+ * Names ARE shown here (this is staff-facing, behind login). Privacy stripping
+ * applies only to the front-page notification banner — not to this sheet.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -19,17 +17,24 @@ import { COACHES } from '@/types';
 
 interface RegRow {
   id: string;
+  first_name: string | null;
+  last_name: string | null;
   outcome: string | null;
+  created_at: string;
 }
 
-const OUTCOME_LABELS: Record<string, string> = {
-  showed: 'showed',
-  no_show: 'no-show',
-  interested: 'interested',
-  not_interested: 'not interested',
-  booked_intro: 'booked intro',
-  purchased: 'purchased',
-};
+const OUTCOME_OPTIONS: { value: string; label: string }[] = [
+  { value: 'showed', label: 'Showed' },
+  { value: 'no_show', label: 'No-show' },
+  { value: 'interested', label: 'Interested' },
+  { value: 'not_interested', label: 'Not interested' },
+  { value: 'booked_intro', label: 'Booked intro' },
+  { value: 'purchased', label: 'Purchased' },
+];
+
+const OUTCOME_LABELS: Record<string, string> = Object.fromEntries(
+  OUTCOME_OPTIONS.map(o => [o.value, o.label.toLowerCase()])
+);
 
 interface Props {
   open: boolean;
@@ -39,11 +44,12 @@ interface Props {
   userName: string;
 }
 
-export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId, vipGroupName }: Props) {
+export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId, vipGroupName, userName }: Props) {
   const [loading, setLoading] = useState(false);
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [vipCoach, setVipCoach] = useState<string>('');
   const [savingCoach, setSavingCoach] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
@@ -53,9 +59,10 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, outcome')
+          .select('id, first_name, last_name, outcome, created_at')
           .eq('vip_session_id', vipSessionId)
-          .eq('is_group_contact', false),
+          .eq('is_group_contact', false)
+          .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
           .select('coach_name')
@@ -93,6 +100,30 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     }
   };
 
+  const saveOutcome = async (regId: string, outcome: string) => {
+    const prev = regs;
+    setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome } : r));
+    setSavingId(regId);
+    try {
+      const { error } = await supabase
+        .from('vip_registrations' as any)
+        .update({
+          outcome,
+          outcome_logged_at: new Date().toISOString(),
+          outcome_logged_by: userName || null,
+        })
+        .eq('id', regId);
+      if (error) throw error;
+      toast.success('Saved');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to save outcome');
+      setRegs(prev);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const totalRegistered = regs.length;
   const outcomeBreakdown = useMemo(() => {
     const counts = new Map<string, number>();
@@ -111,7 +142,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         <SheetHeader>
           <SheetTitle>{vipGroupName || 'VIP Group'}</SheetTitle>
           <SheetDescription>
-            {totalRegistered} registered for this VIP class. We don't store names — privacy by design.
+            {totalRegistered} registered for this VIP class.
           </SheetDescription>
         </SheetHeader>
 
@@ -156,6 +187,37 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
             </>
           )}
         </div>
+
+        {!loading && regs.length > 0 && (
+          <div className="mt-4 rounded-lg border bg-card divide-y">
+            {regs.map((r) => {
+              const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+              return (
+                <div key={r.id} className="flex items-center gap-3 p-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{fullName}</div>
+                  </div>
+                  <Select
+                    value={r.outcome || ''}
+                    onValueChange={(v) => saveOutcome(r.id, v)}
+                    disabled={savingId === r.id}
+                  >
+                    <SelectTrigger className="h-9 w-40 text-xs">
+                      <SelectValue placeholder="Log outcome…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OUTCOME_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value} className="text-xs">
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground leading-relaxed">

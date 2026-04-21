@@ -155,10 +155,11 @@ function ClaimDialog({
       );
       const formattedTime = formatDisplayTime(session.session_time);
 
+      // Privacy-first staff alert: group + slot only, no contact name.
       await sb.from('notifications').insert({
         notification_type: 'vip_slot_claimed',
         title: `${groupName.trim()} claimed VIP slot`,
-        body: `${groupName.trim()} claimed the ${formattedDate} ${formattedTime} VIP slot (${sessionType}). Contact: ${name.trim()}`,
+        body: `${groupName.trim()} claimed the ${formattedDate} ${formattedTime} VIP slot (${sessionType}).`,
         target_user: null,
         meta: {
           session_id: session.id,
