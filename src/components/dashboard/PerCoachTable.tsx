@@ -28,13 +28,45 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { introsRun, introsBooked } = useData();
   const [sortColumn, setSortColumn] = useState<SortColumn>('introsCoached');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [vipCoachByVipSession, setVipCoachByVipSession] = useState<Map<string, string>>(new Map());
+
+  // Pre-fetch vip_sessions.coach_name for VIP Class attribution
+  useEffect(() => {
+    const vipIds = Array.from(new Set(
+      (introsBooked as any[])
+        .filter(b => (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id)
+        .map(b => b.vip_session_id as string)
+    ));
+    if (vipIds.length === 0) { setVipCoachByVipSession(new Map()); return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('vip_sessions')
+        .select('id, coach_name')
+        .in('id', vipIds);
+      const m = new Map<string, string>();
+      for (const v of (data || [])) {
+        if (v.coach_name) m.set(v.id, v.coach_name);
+      }
+      setVipCoachByVipSession(m);
+    })();
+  }, [introsBooked]);
 
   const data = useMemo(() => {
-    // Build originating map
+    // Build originating + booking lookup map
     const originatingMap = new Map<string, boolean>();
+    const bookingById = new Map<string, any>();
     introsBooked.forEach((b: any) => {
       originatingMap.set(b.id, !!b.originating_booking_id);
+      bookingById.set(b.id, b);
     });
+
+    const resolveCoach = (b: any, fallback: string | null): string | null => {
+      if (b && (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id) {
+        const vc = vipCoachByVipSession.get(b.vip_session_id);
+        if (vc) return vc;
+      }
+      return fallback;
+    };
 
     // First intros only
     const firstIntroRuns = introsRun.filter(r => {
@@ -54,7 +86,8 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
     // Group by coach
     const coachMap = new Map<string, { coached: number; closes: number }>();
     filtered.forEach(r => {
-      const name = (r as any).coach_name;
+      const linkedBooking = r.linked_intro_booked_id ? bookingById.get(r.linked_intro_booked_id) : null;
+      const name = resolveCoach(linkedBooking, (r as any).coach_name);
       if (!name) return;
       const ex = coachMap.get(name) || { coached: 0, closes: 0 };
       ex.coached++;
@@ -82,7 +115,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       closes: d.closes,
       closeRate: d.coached > 0 ? (d.closes / d.coached) * 100 : 0,
     }));
-  }, [introsRun, introsBooked, dateRange]);
+  }, [introsRun, introsBooked, dateRange, vipCoachByVipSession]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
