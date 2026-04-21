@@ -27,6 +27,12 @@ interface BookIntroSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  prefillFirstName?: string;
+  prefillLastName?: string;
+  prefillPhone?: string;
+  prefillLeadSource?: string;
+  prefillVipSessionId?: string;
+  prefillCoach?: string;
 }
 
 const REFERRAL_SOURCES = new Set([
@@ -51,7 +57,7 @@ interface SearchResult {
   originating_booking_id: string | null;
 }
 
-export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
+export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, prefillLastName, prefillPhone, prefillLeadSource, prefillVipSessionId, prefillCoach }: BookIntroSheetProps) {
   const { user } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -92,6 +98,18 @@ export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetPr
     if (!open) reset();
     onOpenChange(open);
   };
+
+  // Apply prefills when opened
+  useEffect(() => {
+    if (!open) return;
+    if (prefillFirstName !== undefined) setFirstName(prefillFirstName || '');
+    if (prefillLastName !== undefined) setLastName(prefillLastName || '');
+    if (prefillPhone !== undefined) setPhone(prefillPhone ? formatPhoneAsYouType(prefillPhone) : '');
+    if (prefillLeadSource !== undefined) setLeadSource(prefillLeadSource || '');
+    if (prefillVipSessionId !== undefined) setVipSessionId(prefillVipSessionId || '');
+    if (prefillCoach !== undefined) setCoach(prefillCoach || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);

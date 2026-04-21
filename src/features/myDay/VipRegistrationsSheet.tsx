@@ -14,11 +14,13 @@ import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { COACHES } from '@/types';
+import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 
 interface RegRow {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   outcome: string | null;
   created_at: string;
 }
@@ -26,8 +28,6 @@ interface RegRow {
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
   { value: 'showed', label: 'Showed' },
   { value: 'no_show', label: 'No-show' },
-  { value: 'interested', label: 'Interested' },
-  { value: 'not_interested', label: 'Not interested' },
   { value: 'booked_intro', label: 'Booked intro' },
   { value: 'purchased', label: 'Purchased' },
 ];
@@ -50,6 +50,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [vipCoach, setVipCoach] = useState<string>('');
   const [savingCoach, setSavingCoach] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [bookIntroOpen, setBookIntroOpen] = useState(false);
+  const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
@@ -59,7 +61,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, outcome, created_at')
+          .select('id, first_name, last_name, phone, outcome, created_at')
           .eq('vip_session_id', vipSessionId)
           .eq('is_group_contact', false)
           .order('created_at', { ascending: true }),
@@ -121,6 +123,17 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       setRegs(prev);
     } finally {
       setSavingId(null);
+    }
+
+    // If user picked Booked intro, open the standard Book Intro sheet pre-filled
+    if (outcome === 'booked_intro') {
+      const reg = regs.find(r => r.id === regId);
+      setBookIntroPrefill({
+        firstName: reg?.first_name || '',
+        lastName: reg?.last_name || '',
+        phone: reg?.phone || '',
+      });
+      setBookIntroOpen(true);
     }
   };
 
@@ -227,6 +240,17 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           </p>
         </div>
       </SheetContent>
+      <BookIntroSheet
+        open={bookIntroOpen}
+        onOpenChange={setBookIntroOpen}
+        onSaved={() => setBookIntroOpen(false)}
+        prefillFirstName={bookIntroPrefill?.firstName}
+        prefillLastName={bookIntroPrefill?.lastName}
+        prefillPhone={bookIntroPrefill?.phone}
+        prefillLeadSource="VIP Class"
+        prefillVipSessionId={vipSessionId}
+        prefillCoach={vipCoach}
+      />
     </Sheet>
   );
 }
