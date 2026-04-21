@@ -105,9 +105,10 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
 }
 
 /* ── inline select ── */
-function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, placeholder }: {
+function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, placeholder, onAfterSave }: {
   value: string; field: string; bookingId: string; editedBy: string; onSaved: () => void;
   options: readonly string[]; placeholder?: string;
+  onAfterSave?: (newVal: string) => void;
 }) {
   const [localValue, setLocalValue] = useState(value);
   useEffect(() => { setLocalValue(value); }, [value]);
@@ -124,6 +125,7 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
     } else {
       toast.success('Saved');
       onSaved();
+      onAfterSave?.(val);
     }
   };
 
