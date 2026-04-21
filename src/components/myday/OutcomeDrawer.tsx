@@ -94,6 +94,7 @@ interface OutcomeDrawerProps {
   initialCoach?: string;
   initialObjection?: string;
   initialNotes?: string;
+  isVipClassIntro?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -111,6 +112,7 @@ export function OutcomeDrawer({
   initialCoach = '',
   initialObjection = '',
   initialNotes = '',
+  isVipClassIntro = false,
   onSaved,
   onCancel,
 }: OutcomeDrawerProps) {
@@ -738,7 +740,7 @@ export function OutcomeDrawer({
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
             <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-t mt-1">Other</div>
-            {NON_SALE_OUTCOMES.map(o => (
+            {NON_SALE_OUTCOMES.filter(o => o.value !== 'VIP Class Intro' || isVipClassIntro).map(o => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
             <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-t mt-1">Reschedule</div>
