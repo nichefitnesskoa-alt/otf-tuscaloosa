@@ -240,6 +240,17 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           </p>
         </div>
       </SheetContent>
+      <BookIntroSheet
+        open={bookIntroOpen}
+        onOpenChange={setBookIntroOpen}
+        onSaved={() => setBookIntroOpen(false)}
+        prefillFirstName={bookIntroPrefill?.firstName}
+        prefillLastName={bookIntroPrefill?.lastName}
+        prefillPhone={bookIntroPrefill?.phone}
+        prefillLeadSource="VIP Class"
+        prefillVipSessionId={vipSessionId}
+        prefillCoach={vipCoach}
+      />
     </Sheet>
   );
 }
