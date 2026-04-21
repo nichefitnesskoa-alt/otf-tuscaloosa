@@ -29,6 +29,7 @@ export type IntroResult =
   | 'PLANNING_TO_BUY'
   | 'ON_5_CLASS_PACK'
   | 'PLANNING_RESCHEDULE'
+  | 'VIP_CLASS_INTRO'
   | 'UNRESOLVED';
 
 // ── Normalizers ──
@@ -84,6 +85,8 @@ const RESULT_MAP: Record<string, IntroResult> = {
   'on_5_class_pack': 'ON_5_CLASS_PACK',
   'planning to reschedule': 'PLANNING_RESCHEDULE',
   'planning_reschedule': 'PLANNING_RESCHEDULE',
+  'vip class intro': 'VIP_CLASS_INTRO',
+  'vip_class_intro': 'VIP_CLASS_INTRO',
   'unresolved': 'UNRESOLVED',
 };
 
@@ -148,6 +151,8 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
       return 'ACTIVE';
     case 'PLANNING_RESCHEDULE':
       return 'PLANNING_RESCHEDULE';
+    case 'VIP_CLASS_INTRO':
+      return 'NOT_INTERESTED';
     case 'UNRESOLVED':
     default:
       return 'ACTIVE';
@@ -197,6 +202,8 @@ export function formatIntroResultForDb(result: IntroResult, membershipType?: str
       return 'On 5 Class Pack';
     case 'PLANNING_RESCHEDULE':
       return 'Planning to Reschedule';
+    case 'VIP_CLASS_INTRO':
+      return 'VIP Class Intro';
     case 'UNRESOLVED':
     default:
       return 'Unresolved';

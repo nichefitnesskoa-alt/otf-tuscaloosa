@@ -252,12 +252,13 @@ export function useDashboardMetrics(
     // =========================================
 
     const perSAData: PerSAMetrics[] = Array.from(allSAs).map(saName => {
-      // Count 1st intros RAN (showed, not no-show) for this SA in date range
+      // Count 1st intros RAN (showed, not no-show, not VIP Class Intro) for this SA in date range
       const saFirstRuns = activeRuns.filter(run => {
         if (run.intro_owner !== saName) return false;
         if (!run.linked_intro_booked_id || !firstIntroBookingIds.has(run.linked_intro_booked_id)) return false;
         const res = (run.result || '').toLowerCase();
         if (res === 'no-show' || res === 'no show') return false;
+        if ((run as any).result_canon === 'VIP_CLASS_INTRO') return false;
         return isRunInRange(run, dateRange);
       });
       let introsRanCount = saFirstRuns.length;

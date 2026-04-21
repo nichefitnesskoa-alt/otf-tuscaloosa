@@ -686,6 +686,7 @@ export default function IntroRowCard({
           initialCoach={item.latestRunCoach || item.coachName || ''}
           initialObjection={item.latestRunObjection || ''}
           initialNotes={item.latestRunNotes || ''}
+          isVipClassIntro={!!item.isVipClassIntro}
           onSaved={() => { onRefresh(); }}
           onCancel={() => setOutcomeOpen(false)}
         />

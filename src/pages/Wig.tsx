@@ -497,6 +497,8 @@ export default function Wig() {
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
           (runs || []).forEach((r: any) => {
+            // Exclude VIP Class Intro outcomes from close-rate math entirely
+            if (r.result_canon === 'VIP_CLASS_INTRO') return;
             const linkedBooking = r.linked_intro_booked_id ? bookingByIdMap.get(r.linked_intro_booked_id) : null;
             // For VIP Class intros, credit the VIP class coach instead of the follow-up coach
             const cName = linkedBooking
