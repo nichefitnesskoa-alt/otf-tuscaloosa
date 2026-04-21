@@ -1,51 +1,103 @@
 
-
 ## Goal
-Two changes to the My Day VIP registrants sheet:
 
-1. **Trim the outcome dropdown** to only the four outcomes that matter for VIP attendees: `Showed`, `No-show`, `Booked intro`, `Purchased`. Drop `Interested`, `Not interested`.
-2. **Restore the "Booked Intro" booking flow** — when an SA picks `Booked intro` for a VIP attendee, open the standard Book Intro sheet pre-filled with that attendee's name, `lead_source = 'VIP Class'`, and `vip_session_id` set. Saving the booking creates a real `intros_booked` row tied to the VIP session (same as before the recent changes).
+Fix the real root cause behind the “stuck” inline dropdowns on regular My Day intro cards so coach and lead source can actually change again, and fix every other inline header editor that shares the same bug.
 
-## Changes
+## Root cause
 
-**`src/features/myDay/VipRegistrationsSheet.tsx`**
-- `OUTCOME_OPTIONS` becomes exactly:
-  - `showed` → "Showed"
-  - `no_show` → "No-show"
-  - `booked_intro` → "Booked intro"
-  - `purchased` → "Purchased"
-- `OUTCOME_LABELS` (used in the aggregate roll-up at top) trimmed to the same four.
-- When the user selects `booked_intro` from a row's dropdown:
-  1. Save the outcome to `vip_registrations.outcome` (existing logic).
-  2. Open `BookIntroSheet` with prefill:
-     - `member_name` = attendee's `first_name + last_name`
-     - `phone` / `email` = pulled from that registration row (need to add these back to the query — privacy is preserved since it's a deliberate booking action by the SA)
-     - `lead_source` = `'VIP Class'`
-     - `vip_session_id` = current VIP session id
-     - `coach_name` = the coach picker value (already on this sheet)
-  3. On successful booking save, the registration row keeps `outcome = 'booked_intro'` and the new intro shows up on My Day under the standard intros list (already happens via existing realtime/refetch).
-- Query update: re-add `first_name, last_name, phone, email` to the `vip_registrations` select (needed for prefill). PII still never renders in the row UI — rows still show `Attendee N` style or just the dropdown; phone/email are used only as prefill payload when the SA clicks Booked intro.
-  - **CONFIRM THIS VALUE** — last turn the user said "I do want to see names in the VIP group card." So row labels should show `first_name + last_name` (not "Attendee N"). Building it that way unless told otherwise.
+The problem is not the dropdown component itself.
 
-**`src/components/dashboard/BookIntroSheet.tsx`** (or whichever Book Intro sheet `MyDayPage` already uses — will confirm by reading both `BookIntroSheet.tsx` and `IntroBookingEntry.tsx` during build)
-- Accept new optional props: `prefillName`, `prefillPhone`, `prefillEmail`, `prefillLeadSource`, `prefillVipSessionId`, `prefillCoachName`.
-- When opened with these, populate the form fields. `vip_session_id` saves to `intros_booked.vip_session_id` so the new intro is linked back to the VIP session for attribution.
-- All other Book Intro behavior unchanged.
+The broken behavior comes from the shared editable card header in `src/components/shared/IntroCard.tsx`:
 
-**No changes** to:
-- `OutcomeDrawer.tsx` (the actual intro card outcome list — separate surface).
-- Reporting carve-outs for `VIP_CLASS_INTRO`.
-- `vip_registrations` schema.
-- VIP signup flows.
-- RLS / role permissions.
+- `InlineSelect`
+- `InlineTimePicker`
+- `InlineDatePicker`
+- `InlineText`
 
-## Downstream effects
-- VIP card on My Day now offers exactly four outcomes per attendee: Showed, No-show, Booked intro, Purchased. The aggregate roll-up at the top reflects only these four.
-- Picking `Booked intro` saves the outcome AND opens the standard Book Intro sheet pre-filled with that person's name, phone, email, lead source `VIP Class`, the VIP session id, and the coach selected at the top of the VIP sheet. Saving creates a real `intros_booked` row that appears on My Day as a normal intro.
-- Names visible in the VIP card rows (per user's last instruction).
-- Picking `Purchased`, `Showed`, or `No-show` just saves to `vip_registrations.outcome` — no booking is created (those are pure status logging).
-- Notifications still anonymous (last build).
-- Central Time preserved everywhere.
-- No retroactive change.
-- No RLS/role changes.
+These controls save directly to the database, but they do **not**:
+1. update any local display state after a change, or
+2. call `onFieldSaved()` after a successful save.
 
+Because each control is rendered from the old prop value, the UI immediately falls back to the stale value and looks “stuck” even when the interaction fired.
+
+That same shared bug affects:
+- coach dropdown
+- lead source dropdown
+- inline class time
+- inline class date
+- inline phone text edit
+
+on any My Day card using `IntroCard` in editable mode.
+
+## Files affected
+
+### `src/components/shared/IntroCard.tsx`
+Fix the shared inline editor primitives at the source.
+
+### `src/features/myDay/IntroRowCard.tsx`
+No behavior redesign needed, but this card will immediately benefit because it already passes:
+- `editable={true}`
+- `editedBy={userName}`
+- `onFieldSaved={onRefresh}`
+
+## Implementation
+
+### 1) Fix `InlineSelect`
+Update it so a successful selection does all three:
+- saves to `intros_booked`
+- updates its displayed value locally right away
+- calls `onSaved()` after success so parent data refreshes
+
+Behavior:
+- optimistic local value updates on selection
+- if save fails, revert to previous value and show existing error toast
+- if save succeeds, keep the new value visible and trigger parent refresh
+
+This directly fixes:
+- coach dropdown
+- lead source dropdown
+
+### 2) Fix `InlineTimePicker`
+Apply the same pattern:
+- keep local selected time state
+- update visible value immediately
+- call `onSaved()` after successful save
+- revert on failure
+
+This fixes the inline time control before it causes the same “stuck” behavior.
+
+### 3) Fix `InlineDatePicker`
+Apply the same pattern:
+- keep local date state
+- reflect chosen date immediately
+- call `onSaved()` after successful save
+- revert on failure
+
+### 4) Fix `InlineText`
+After successful blur-save:
+- keep the latest visible value
+- call `onSaved()` so My Day refreshes cleanly
+
+This fixes the same stale-prop issue for inline phone editing.
+
+### 5) Preserve existing styling and layout
+Do not redesign the card header UI.
+Only repair save/state flow inside the shared inline editor primitives.
+
+## Expected result after fix
+
+On regular My Day cards:
+- changing coach works immediately
+- changing lead source works immediately
+- changing date/time/phone no longer snaps back
+- saved values remain visible without feeling frozen
+- parent card data still refreshes through existing `onRefresh`
+
+## Downstream effects implemented
+
+- Root cause fixed in the shared editable header component, not patched only for one dropdown
+- All inline editable header fields on My Day cards fixed together
+- No database schema changes
+- No role/RLS changes
+- No changes to VIP notifications, VIP group sheet layout, Outcome Drawer, or any unrelated page
+- No visual styling changes outside the specific broken inline editor behavior
