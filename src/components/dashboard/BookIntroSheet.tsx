@@ -27,6 +27,12 @@ interface BookIntroSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  prefillFirstName?: string;
+  prefillLastName?: string;
+  prefillPhone?: string;
+  prefillLeadSource?: string;
+  prefillVipSessionId?: string;
+  prefillCoach?: string;
 }
 
 const REFERRAL_SOURCES = new Set([
