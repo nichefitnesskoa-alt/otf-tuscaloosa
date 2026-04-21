@@ -124,6 +124,17 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     } finally {
       setSavingId(null);
     }
+
+    // If user picked Booked intro, open the standard Book Intro sheet pre-filled
+    if (outcome === 'booked_intro') {
+      const reg = regs.find(r => r.id === regId);
+      setBookIntroPrefill({
+        firstName: reg?.first_name || '',
+        lastName: reg?.last_name || '',
+        phone: reg?.phone || '',
+      });
+      setBookIntroOpen(true);
+    }
   };
 
   const totalRegistered = regs.length;
