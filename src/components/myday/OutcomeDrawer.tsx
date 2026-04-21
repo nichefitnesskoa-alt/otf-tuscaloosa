@@ -43,6 +43,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Planning to buy', label: '🛒 Planning to buy' },
   { value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' },
   { value: 'Not interested', label: '🚫 Not interested' },
+  { value: 'VIP Class Intro', label: '🎟️ VIP Class Intro (not expected to buy)' },
 ];
 
 const SECOND_INTRO_REASON_OPTIONS = [
