@@ -86,18 +86,27 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [savingId, setSavingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { outcome: string; notes: string }>>({});
   const [bookingDrafts, setBookingDrafts] = useState<Record<string, BookingDraft>>({});
+  const [vipCoach, setVipCoach] = useState<string>('');
+  const [savingCoach, setSavingCoach] = useState(false);
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data, error } = await supabase
-        .from('vip_registrations' as any)
-        .select('*')
-        .eq('vip_session_id', vipSessionId)
-        .eq('is_group_contact', false)
-        .order('created_at', { ascending: true });
+      const [{ data, error }, { data: sessionRow }] = await Promise.all([
+        supabase
+          .from('vip_registrations' as any)
+          .select('*')
+          .eq('vip_session_id', vipSessionId)
+          .eq('is_group_contact', false)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('vip_sessions' as any)
+          .select('coach_name')
+          .eq('id', vipSessionId)
+          .maybeSingle(),
+      ]);
       if (cancelled) return;
       if (error) {
         toast.error('Failed to load registrations');
@@ -109,10 +118,29 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         for (const r of list) initial[r.id] = { outcome: r.outcome || '', notes: r.outcome_notes || '' };
         setDrafts(initial);
       }
+      setVipCoach((sessionRow as any)?.coach_name || '');
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [open, vipSessionId]);
+
+  const saveVipCoach = async (coach: string) => {
+    setVipCoach(coach);
+    setSavingCoach(true);
+    try {
+      const { error } = await supabase
+        .from('vip_sessions' as any)
+        .update({ coach_name: coach || null })
+        .eq('id', vipSessionId);
+      if (error) throw error;
+      toast.success('VIP class coach saved');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to save coach');
+    } finally {
+      setSavingCoach(false);
+    }
+  };
 
   const setOutcome = (regId: string, value: string) => {
     setDrafts(prev => ({ ...prev, [regId]: { ...(prev[regId] || { outcome: '', notes: '' }), outcome: value } }));
@@ -163,6 +191,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     const bd = bookingDrafts[reg.id] || emptyBooking();
     const draft = drafts[reg.id] || { outcome: 'booked_intro', notes: '' };
 
+    if (!vipCoach) { toast.error('Select who coached this VIP class first (top of sheet)'); return; }
     if (!bd.classDate) { toast.error('Class date is required'); return; }
     if (!bd.classTime) { toast.error('Class time is required'); return; }
     if (!bd.coach) { toast.error('Coach is required'); return; }
@@ -178,7 +207,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
 
     setSavingId(reg.id);
     try {
-      // 1. Create primary booking
+      // 1. Create primary booking — no questionnaire (VIP Class intro)
       const { data: inserted, error: insertErr } = await supabase.from('intros_booked').insert({
         member_name: memberName,
         class_date: bd.classDate,
@@ -194,16 +223,11 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         email: reg.email || null,
         booking_type_canon: 'STANDARD',
         booking_status_canon: 'ACTIVE',
-        questionnaire_status_canon: 'not_sent',
+        questionnaire_status_canon: 'not_required',
         is_vip: false,
         vip_session_id: vipSessionId,
       }).select('id').single();
       if (insertErr) throw insertErr;
-
-      // 2. Auto-create questionnaire (fire-and-forget)
-      if (inserted?.id) {
-        autoCreateQuestionnaire({ bookingId: inserted.id, memberName, classDate: bd.classDate }).catch(() => {});
-      }
 
       // 3. Friend booking (optional)
       if (inserted?.id && bd.bringingFriend === 'yes' && bd.friendFirstName.trim()) {
