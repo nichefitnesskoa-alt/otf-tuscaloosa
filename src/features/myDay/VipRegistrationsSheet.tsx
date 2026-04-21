@@ -22,8 +22,7 @@ import { toast } from 'sonner';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { COACHES } from '@/types';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
-import { autoCreateQuestionnaire } from '@/lib/introHelpers';
-import { generateUniqueSlug } from '@/lib/utils';
+
 
 interface Registration {
   id: string;
