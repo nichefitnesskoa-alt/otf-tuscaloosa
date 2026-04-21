@@ -78,7 +78,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     const wasNoShow = params.previousResult === 'No-show';
     const isNowDidntBuy = params.newResult === "Didn't Buy" || params.newResult === 'Follow-up needed';
     const isNowNoShow = params.newResult === 'No-show';
-    const isNowNotInterested = params.newResult === 'Not interested';
+    const isNowNotInterested = params.newResult === 'Not interested' || params.newResult === 'VIP Class Intro';
     const isNowPlanning2nd = params.newResult === 'Planning to Book 2nd Intro';
     const isNowPlanningToBuy = params.newResult === 'Planning to buy';
     const isNowOn5ClassPack = params.newResult === 'On 5 Class Pack';
