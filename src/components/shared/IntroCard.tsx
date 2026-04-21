@@ -54,18 +54,29 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
   value: string; field: string; bookingId: string; editedBy: string; onSaved: () => void; type?: string;
 }) {
   const [editing, setEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(value);
   const [val, setVal] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
 
+  useEffect(() => { setLocalValue(value); setVal(value); }, [value]);
   useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
 
   const save = async () => {
     setEditing(false);
-    if (val === value) return;
+    if (val === localValue) return;
+    const prev = localValue;
+    setLocalValue(val); // optimistic
     const { error } = await supabase.from('intros_booked').update({
       [field]: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) { toast.error('Save failed'); setVal(value); } else { toast.success('Saved'); }
+    if (error) {
+      toast.error('Save failed');
+      setLocalValue(prev);
+      setVal(prev);
+    } else {
+      toast.success('Saved');
+      onSaved();
+    }
   };
 
   if (!editing) {
@@ -73,13 +84,13 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
       <button type="button" onClick={() => setEditing(true)}
         className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors truncate max-w-[120px]"
         style={{ color: 'inherit' }}>
-        {value || '—'}
+        {localValue || '—'}
       </button>
     );
   }
   return (
     <Input ref={ref} type={type} value={val} onChange={e => setVal(e.target.value)}
-      onBlur={save} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(value); setEditing(false); } }}
+      onBlur={save} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setVal(localValue); setEditing(false); } }}
       className="h-5 text-[11px] w-24 px-1 py-0 bg-background text-foreground border rounded" />
   );
 }
@@ -89,15 +100,26 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
   value: string; field: string; bookingId: string; editedBy: string; onSaved: () => void;
   options: readonly string[]; placeholder?: string;
 }) {
+  const [localValue, setLocalValue] = useState(value);
+  useEffect(() => { setLocalValue(value); }, [value]);
+
   const save = async (val: string) => {
+    const prev = localValue;
+    setLocalValue(val); // optimistic
     const { error } = await supabase.from('intros_booked').update({
       [field]: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
+    if (error) {
+      toast.error('Save failed');
+      setLocalValue(prev);
+    } else {
+      toast.success('Saved');
+      onSaved();
+    }
   };
 
   return (
-    <Select value={value || ''} onValueChange={save}>
+    <Select value={localValue || ''} onValueChange={save}>
       <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-white/10 transition-colors"
         style={{ color: 'inherit' }}>
         <SelectValue placeholder={placeholder || '—'} />
@@ -113,17 +135,27 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
 function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
   value: string | null; bookingId: string; editedBy: string; onSaved: () => void;
 }) {
+  const [localValue, setLocalValue] = useState<string | null>(value);
   const [customMode, setCustomMode] = useState(false);
   const [customVal, setCustomVal] = useState(value || '');
   const ref = useRef<HTMLInputElement>(null);
 
+  useEffect(() => { setLocalValue(value); setCustomVal(value || ''); }, [value]);
   useEffect(() => { if (customMode) ref.current?.focus(); }, [customMode]);
 
   const save = async (val: string) => {
+    const prev = localValue;
+    setLocalValue(val); // optimistic
     const { error } = await supabase.from('intros_booked').update({
       intro_time: val, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
+    if (error) {
+      toast.error('Save failed');
+      setLocalValue(prev);
+    } else {
+      toast.success('Saved');
+      onSaved();
+    }
   };
 
   const handleSelect = (val: string) => {
@@ -134,7 +166,7 @@ function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
 
   const handleCustomBlur = () => {
     setCustomMode(false);
-    if (customVal && customVal !== value) save(customVal);
+    if (customVal && customVal !== localValue) save(customVal);
   };
 
   if (customMode) {
@@ -145,10 +177,10 @@ function InlineTimePicker({ value, bookingId, editedBy, onSaved }: {
     );
   }
 
-  const display = value ? (CLASS_TIME_LABELS[value] || formatDisplayTime(value)) : '—';
+  const display = localValue ? (CLASS_TIME_LABELS[localValue] || formatDisplayTime(localValue)) : '—';
 
   return (
-    <Select value={value || ''} onValueChange={handleSelect}>
+    <Select value={localValue || ''} onValueChange={handleSelect}>
       <SelectTrigger className="h-5 text-[11px] px-1 py-0 border-0 bg-transparent gap-0.5 w-auto min-w-0 focus:ring-0 hover:bg-white/10 transition-colors"
         style={{ color: 'inherit' }}>
         <SelectValue placeholder="Time">{display}</SelectValue>
@@ -168,16 +200,27 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
   value: string; bookingId: string; editedBy: string; onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const dateObj = value ? parse(value, 'yyyy-MM-dd', new Date()) : undefined;
+  const [localValue, setLocalValue] = useState(value);
+  useEffect(() => { setLocalValue(value); }, [value]);
+
+  const dateObj = localValue ? parse(localValue, 'yyyy-MM-dd', new Date()) : undefined;
 
   const save = async (d: Date | undefined) => {
     if (!d) return;
     const ymd = format(d, 'yyyy-MM-dd');
     setOpen(false);
+    const prev = localValue;
+    setLocalValue(ymd); // optimistic
     const { error } = await supabase.from('intros_booked').update({
       class_date: ymd, last_edited_at: new Date().toISOString(), last_edited_by: editedBy,
     } as any).eq('id', bookingId);
-    if (error) toast.error('Save failed'); else { toast.success('Saved'); }
+    if (error) {
+      toast.error('Save failed');
+      setLocalValue(prev);
+    } else {
+      toast.success('Saved');
+      onSaved();
+    }
   };
 
   return (
@@ -186,7 +229,7 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
         <button type="button" className="hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors flex items-center gap-0.5"
           style={{ color: 'inherit' }}>
           <CalendarIcon className="w-3 h-3 opacity-60" />
-          {value ? format(parse(value, 'yyyy-MM-dd', new Date()), 'M/d') : '—'}
+          {localValue ? format(parse(localValue, 'yyyy-MM-dd', new Date()), 'M/d') : '—'}
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
