@@ -246,7 +246,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           phone: bd.friendPhone.trim() || null,
           booking_type_canon: 'STANDARD',
           booking_status_canon: 'ACTIVE',
-          questionnaire_status_canon: 'not_sent',
+          questionnaire_status_canon: 'not_required',
           is_vip: false,
           vip_session_id: vipSessionId,
           paired_booking_id: inserted.id,
@@ -264,19 +264,6 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
               discount_applied: false,
             }),
           ]);
-          const fParts = friendFullName.split(' ');
-          try {
-            const slug = await generateUniqueSlug(fParts[0], fParts.slice(1).join(' '), supabase);
-            await supabase.from('intro_questionnaires').insert({
-              booking_id: friendBooking.id,
-              client_first_name: fParts[0],
-              client_last_name: fParts.slice(1).join(' ') || '',
-              scheduled_class_date: bd.classDate,
-              scheduled_class_time: bd.classTime,
-              status: 'not_sent',
-              slug,
-            } as any);
-          } catch {}
         }
       }
 
