@@ -31,10 +31,24 @@ const SHORT_SOURCE: Record<string, string> = {
 
 interface IntroTypeBadgeProps {
   isSecondIntro: boolean;
+  isVipClassIntro?: boolean;
   className?: string;
 }
 
-export function IntroTypeBadge({ isSecondIntro, className }: IntroTypeBadgeProps) {
+export function IntroTypeBadge({ isSecondIntro, isVipClassIntro, className }: IntroTypeBadgeProps) {
+  if (isVipClassIntro) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          'text-[10px] px-1.5 py-0 h-4 font-semibold bg-purple-500/15 text-purple-700 border-purple-500/30',
+          className
+        )}
+      >
+        VIP Class Intro
+      </Badge>
+    );
+  }
   return (
     <Badge
       variant="outline"
