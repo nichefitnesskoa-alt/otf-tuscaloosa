@@ -355,7 +355,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (origBooking && origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
             item.isSecondIntro = true;
           }
-        }
+      }
+
+      // VIP Class intros are neither 1st nor 2nd — force flag off
+      for (const item of rawItems) {
+        if (item.isVipClassIntro) item.isSecondIntro = false;
+      }
       }
 
       // ── 2nd intro phone inheritance: fill missing phone from originating booking ──
