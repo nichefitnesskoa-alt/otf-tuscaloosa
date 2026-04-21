@@ -16,6 +16,7 @@ import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
+import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { TheirStory } from '@/components/shared/TheirStory';
 import { SABriefFields } from '@/components/shared/SABriefFields';
 import { supabase } from '@/integrations/supabase/client';
@@ -392,11 +393,13 @@ export default function IntroRowCard({
               {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
             </Badge>
           )}
+          {item.leadSource && (
+            <LeadSourceTag source={item.leadSource} className="text-[9px] h-4" />
+          )}
         </span>
         <span>
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
         </span>
-        <ShoutoutLabel consent={shoutoutConsent} />
         {item.vipClassName && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-600/20 text-purple-400 border-purple-500/30">
             VIP: {item.vipClassName}
