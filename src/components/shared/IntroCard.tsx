@@ -3,7 +3,7 @@
  *
  * Supports inline-editable header fields when `editable` is true.
  */
-import { ReactNode, useState, useRef, useEffect } from 'react';
+import { ReactNode, useState, useRef, useEffect, useCallback } from 'react';
 import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
@@ -16,7 +16,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { CalendarIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CalendarIcon, Sparkles } from 'lucide-react';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { detectVipSessionForBooking } from '@/lib/vip/detectVipSessionForBooking';
+
+const isVipSource = (s: string | null | undefined) =>
+  !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
 
 export interface IntroCardProps {
   memberName: string;
@@ -25,6 +31,9 @@ export interface IntroCardProps {
   coachName: string | null;
   leadSource: string | null;
   phone: string | null;
+  email?: string | null;
+  vipSessionId?: string | null;
+  vipClassName?: string | null;
   referredBy?: string | null;
 
   /** Inline editing support */
@@ -96,9 +105,10 @@ function InlineText({ value, field, bookingId, editedBy, onSaved, type = 'text' 
 }
 
 /* ── inline select ── */
-function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, placeholder }: {
+function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, placeholder, onAfterSave }: {
   value: string; field: string; bookingId: string; editedBy: string; onSaved: () => void;
   options: readonly string[]; placeholder?: string;
+  onAfterSave?: (newVal: string) => void;
 }) {
   const [localValue, setLocalValue] = useState(value);
   useEffect(() => { setLocalValue(value); }, [value]);
@@ -115,6 +125,7 @@ function InlineSelect({ value, field, bookingId, editedBy, onSaved, options, pla
     } else {
       toast.success('Saved');
       onSaved();
+      onAfterSave?.(val);
     }
   };
 
@@ -240,13 +251,74 @@ function InlineDatePicker({ value, bookingId, editedBy, onSaved }: {
 }
 
 export default function IntroCard({
-  memberName, classDate, introTime, coachName, leadSource, phone, referredBy,
+  memberName, classDate, introTime, coachName, leadSource, phone, email,
+  vipSessionId, vipClassName, referredBy,
   bookingId, editable = false, editedBy = '', onFieldSaved,
   badges, outcomeBadge, timingInfo, actionButtons, secondaryActions,
   lastContactSummary, topBanner, outcomeBanner, children, className, id, style,
 }: IntroCardProps) {
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
+
+  // VIP picker state — opens after lead source becomes VIP, or via affordance
+  const [vipPickerOpen, setVipPickerOpen] = useState(false);
+  const [vipPickerValue, setVipPickerValue] = useState<string>(vipSessionId || '');
+  const [localVipClassName, setLocalVipClassName] = useState<string | null>(vipClassName || null);
+  const [localVipSessionId, setLocalVipSessionId] = useState<string | null>(vipSessionId || null);
+  useEffect(() => { setLocalVipSessionId(vipSessionId || null); setVipPickerValue(vipSessionId || ''); }, [vipSessionId]);
+  useEffect(() => { setLocalVipClassName(vipClassName || null); }, [vipClassName]);
+
+  const saveVipSession = useCallback(async (sessionId: string) => {
+    if (!bookingId) return;
+    // Look up reserved_by_group for vip_class_name sync
+    const sb = supabase as any;
+    const { data: sess } = await sb
+      .from('vip_sessions')
+      .select('reserved_by_group, vip_class_name')
+      .eq('id', sessionId)
+      .maybeSingle();
+    const className = sess?.reserved_by_group || sess?.vip_class_name || null;
+    const prevId = localVipSessionId;
+    const prevName = localVipClassName;
+    setLocalVipSessionId(sessionId);
+    setLocalVipClassName(className);
+    setVipPickerValue(sessionId);
+    const { error } = await supabase.from('intros_booked').update({
+      vip_session_id: sessionId,
+      vip_class_name: className,
+      is_vip: true,
+      last_edited_at: new Date().toISOString(),
+      last_edited_by: editedBy,
+    } as any).eq('id', bookingId);
+    if (error) {
+      toast.error('Failed to link VIP class');
+      setLocalVipSessionId(prevId);
+      setLocalVipClassName(prevName);
+    } else {
+      toast.success('VIP class linked');
+      onFieldSaved?.();
+    }
+  }, [bookingId, editedBy, localVipSessionId, localVipClassName, onFieldSaved]);
+
+  const handleLeadSourceChanged = useCallback(async (newSource: string) => {
+    if (!isVipSource(newSource) || !bookingId) return;
+    // Try auto-detect
+    const det = await detectVipSessionForBooking({
+      member_name: memberName,
+      phone,
+      email,
+      class_date: classDate,
+      vip_class_name: localVipClassName,
+    });
+    if (det.sessionId && det.autoSave) {
+      // Tier-1 silent auto-save
+      await saveVipSession(det.sessionId);
+      return;
+    }
+    // Pre-select suggestion (if any) and open picker for confirmation
+    if (det.sessionId) setVipPickerValue(det.sessionId);
+    setVipPickerOpen(true);
+  }, [bookingId, memberName, phone, email, classDate, localVipClassName, saveVipSession]);
 
   // Build meta segments for non-editable mode (phone rendered as PhoneLink so it opens SMS)
   const metaSegments: React.ReactNode[] = [];
@@ -263,6 +335,8 @@ export default function IntroCard({
       );
     }
   }
+
+  const showVipAffordance = isVipSource(leadSource);
 
   return (
     <div className={cn('mb-5 rounded-lg border-2 border-black dark:border-white overflow-hidden', className)} id={id} style={style}>
@@ -290,7 +364,46 @@ export default function IntroCard({
                 options={COACHES} placeholder="Coach" />
               <span className="opacity-50">·</span>
               <InlineSelect value={leadSource || ''} field="lead_source" bookingId={bookingId!} editedBy={editedBy!} onSaved={refresh}
-                options={LEAD_SOURCES} placeholder="Source" />
+                options={LEAD_SOURCES} placeholder="Source" onAfterSave={handleLeadSourceChanged} />
+              {showVipAffordance && (
+                <Popover open={vipPickerOpen} onOpenChange={setVipPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        'text-[10px] px-1.5 py-0 rounded-full border shrink-0 font-medium hover:bg-white/10 transition-colors flex items-center gap-1',
+                        localVipSessionId
+                          ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30'
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40',
+                      )}
+                    >
+                      <Sparkles className="w-2.5 h-2.5" />
+                      {localVipSessionId
+                        ? `VIP class: ${localVipClassName || 'set'}`
+                        : 'VIP class not set — pick one'}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-3" align="start">
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Which past VIP class did this member come from?
+                      </p>
+                      <VipSessionPicker
+                        value={vipPickerValue}
+                        onValueChange={(id) => {
+                          setVipPickerValue(id);
+                          if (id) {
+                            saveVipSession(id);
+                            setVipPickerOpen(false);
+                          }
+                        }}
+                        required
+                        showWarning={!vipPickerValue}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               {phone !== undefined && (
                 <>
                   <span className="opacity-50">·</span>
