@@ -31,6 +31,9 @@ export interface IntroCardProps {
   coachName: string | null;
   leadSource: string | null;
   phone: string | null;
+  email?: string | null;
+  vipSessionId?: string | null;
+  vipClassName?: string | null;
   referredBy?: string | null;
 
   /** Inline editing support */
