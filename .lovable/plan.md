@@ -1,54 +1,62 @@
 
 
+## Goal
+When logging "Booked an Intro" for a VIP registrant in the VIP Group outcomes sheet, actually create a real `intros_booked` record (with VIP source attribution) — and let the SA add a friend at the same time, mirroring the regular Book Intro drawer.
+
 ## Root cause
+Today, picking "Booked an Intro" in `VipRegistrationsSheet` just writes `outcome = 'booked_intro'` on the `vip_registrations` row. No `intros_booked` row is created, so the registrant never appears in the intro pipeline, no questionnaire is provisioned, no commission attribution exists, and no friend can be added.
 
-`BookIntroSheet`'s "Reschedule existing member" path writes `rebooked_from_booking_id` but **never sets `originating_booking_id`**. CoachView identifies 2nd intros solely by `originating_booking_id`, so Helen's 2nd booking shows "1st Intro" there. MyDay catches it via a fallback prior-run lookup, which is why the two sides disagree.
+## What changes
 
-The canonical field for "this is a follow-up to an earlier booking by the same person" is `originating_booking_id` (per the Intro Owner Management memory: 2nd intros must inherit `intro_owner` from the originating booking via this column). `rebooked_from_booking_id` is a separate concept used for cancel/reschedule audit. The reschedule path conflates them.
+### 1. `src/features/myDay/VipRegistrationsSheet.tsx`
+When the SA picks **Booked an Intro** for a registrant, expand an inline booking form below that registrant's row (no separate dialog — keeps context). The form contains:
+- **Class Date** (DatePickerField, required, default = today CST)
+- **Class Time** (ClassTimeSelect, required)
+- **Coach** (Select from `COACHES`, required)
+- **Bringing a friend?** Yes/No toggle (matches `BookIntroSheet` pattern)
+  - If Yes: First Name (required), Last Name, Phone (required)
 
-## Fix
+A single **Save Booking** button (replaces the generic Save when this outcome is chosen) does all of the following in order:
+1. Insert into `intros_booked` with:
+   - `member_name`, `phone`, `email` from the VIP registration
+   - `lead_source = 'VIP Class'`
+   - `vip_session_id = vipSessionId` (from sheet props)
+   - `booking_type_canon = 'STANDARD'`, `booking_status_canon = 'ACTIVE'`, `is_vip = false`
+   - `intro_owner = booked_by = userName`, `coach_name`, `class_date`, `intro_time`, `class_start_at`
+   - `sa_working_shift` (computed from current hour, same as BookIntroSheet)
+   - `questionnaire_status_canon = 'not_sent'`
+2. Auto-create questionnaire via existing `autoCreateQuestionnaire` helper
+3. If friend = Yes: insert second `intros_booked` row with `lead_source = 'VIP Class (Friend)'`, `paired_booking_id` linked both ways, `referred_by_member_name = registrant's full name`, plus a `referrals` row and friend questionnaire (mirrors `BookIntroSheet` lines 263-316)
+4. Update the `vip_registrations` row: `outcome = 'booked_intro'`, `outcome_notes`, `outcome_logged_at`, `outcome_logged_by = userName`
+5. Toast success, collapse the inline form, mark row as logged
 
-### 1. `src/components/dashboard/BookIntroSheet.tsx` — set `originating_booking_id` when rebooking an existing member
+Other outcomes (Showed, No-Show, Interested, Not Interested, Purchased Membership) keep current behavior — only `booked_intro` triggers the booking form.
 
-In `handleSave`, when `selectedBooking` exists, also write:
-```ts
-originating_booking_id: selectedBooking.originating_booking_id || selectedBooking.id,
-```
-
-Use the original booking's `originating_booking_id` if it has one (so a 3rd intro still chains back to the true 1st), otherwise point to the selected booking. Keep `rebooked_from_booking_id` as-is for audit.
-
-Also pull `originating_booking_id` into the `SearchResult` select query and type so we can inherit it correctly.
-
-### 2. One-time backfill migration
-
-Find existing bookings created by this broken path and link them:
-```sql
-UPDATE intros_booked b
-SET originating_booking_id = COALESCE(orig.originating_booking_id, orig.id)
-FROM intros_booked orig
-WHERE b.rebooked_from_booking_id = orig.id
-  AND b.originating_booking_id IS NULL
-  AND b.deleted_at IS NULL;
-```
-This fixes Helen's current booking and any others stuck in the same state.
+### 2. No changes needed elsewhere
+- `intros_booked` already supports VIP attribution via `vip_session_id` + `lead_source = 'VIP Class'`
+- VIP isolation memory: VIP bookings excluded from standard pipeline metrics — preserved
+- Questionnaire trigger fires automatically for the new booking
+- `My Day → Intros` will show the new booking via existing `vip_session_id` linkage
 
 ## Files changed
-1. `src/components/dashboard/BookIntroSheet.tsx` — add `originating_booking_id` to insert + `SearchResult` query
-2. New migration — backfill `originating_booking_id` from `rebooked_from_booking_id` where missing
+1. `src/features/myDay/VipRegistrationsSheet.tsx` — add inline booking form when `booked_intro` outcome selected; on save, create `intros_booked` (+ friend booking + questionnaires + referral) before logging the outcome
 
 ## Files audited, no change needed
-- `src/pages/CoachView.tsx` — logic is correct, just needed the field populated
-- `src/features/myDay/useUpcomingIntrosData.ts` — already detects correctly via prior-run fallback
+- `src/components/dashboard/BookIntroSheet.tsx` — reference pattern for friend logic (lines 263-316), reused
+- `src/lib/introHelpers.ts` — `autoCreateQuestionnaire` already exists
+- `src/components/shared/FormHelpers.tsx` — `ClassTimeSelect`, `DatePickerField`, `formatPhoneAsYouType`, `autoCapitalizeName` reused
+- `src/types/index.ts` — `COACHES` reused
 
-## Downstream effects (all positive, all explicit)
-- CoachView shows Helen's booking as a one-line 2nd Intro stub (matches My Day)
-- 2nd intro `intro_owner` correctly inherits from originating booking via existing canon (per Intro Owner memory)
-- Total Journey close-rate credit flows to the original 1st-intro coach (already wired off `originating_booking_id`)
-- No-show originating bookings still correctly demote the chain (CoachView's existing `originatingStatuses[id] !== 'NO_SHOW'` check)
-- Friend bookings unaffected (separate `referred_by_member_name` path, no rebook involved)
-- VIP, COMP isolation unaffected
-- No RLS changes, no new tables
+## Downstream effects (explicit)
+- VIP registrant marked "Booked an Intro" now appears as a real intro in My Day → Intros tab (filtered/visible per existing VIP rules)
+- New booking gets a questionnaire link auto-provisioned
+- Friend booking (when Yes) also created, paired, and given its own questionnaire + referral record (Group Contact / referrer attribution preserved)
+- Total Journey close-rate, Per-SA, Per-Coach metrics: VIP isolation rules already exclude these from standard funnels — unchanged
+- Commission attribution: `intro_owner = userName` (the SA logging the outcome) — matches existing intro ownership canon
+- Coach View / WIG / Pipeline: VIP bookings stay isolated per existing `VIP Isolation` memory — no metric pollution
+- No DB schema, no RLS, no migration changes
+- No changes to other VIP outcome paths
 
 ## Confirm before building
-None — fix is mechanical and matches existing canon.
+None — friend pattern, VIP isolation, and questionnaire auto-creation are all established canon; this plan reuses them mechanically.
 
