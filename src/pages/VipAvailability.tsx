@@ -133,6 +133,14 @@ function ClaimDialog({
         .is('archived_at', null);
       if (upErr) throw upErr;
 
+      // Idempotent claim: remove any prior group-contact row for this session
+      // (prevents stale orphans when a slot was previously claimed by a different group)
+      await sb
+        .from('vip_registrations')
+        .delete()
+        .eq('vip_session_id', session.id)
+        .eq('is_group_contact', true);
+
       await sb.from('vip_registrations').insert({
         vip_session_id: session.id,
         first_name: name.trim().split(' ')[0] || name.trim(),
