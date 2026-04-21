@@ -57,7 +57,7 @@ interface SearchResult {
   originating_booking_id: string | null;
 }
 
-export function BookIntroSheet({ open, onOpenChange, onSaved }: BookIntroSheetProps) {
+export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, prefillLastName, prefillPhone, prefillLeadSource, prefillVipSessionId, prefillCoach }: BookIntroSheetProps) {
   const { user } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
