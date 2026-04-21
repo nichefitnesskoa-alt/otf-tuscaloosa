@@ -14,11 +14,13 @@ import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { COACHES } from '@/types';
+import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 
 interface RegRow {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   outcome: string | null;
   created_at: string;
 }
@@ -26,8 +28,6 @@ interface RegRow {
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
   { value: 'showed', label: 'Showed' },
   { value: 'no_show', label: 'No-show' },
-  { value: 'interested', label: 'Interested' },
-  { value: 'not_interested', label: 'Not interested' },
   { value: 'booked_intro', label: 'Booked intro' },
   { value: 'purchased', label: 'Purchased' },
 ];
