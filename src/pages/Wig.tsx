@@ -326,7 +326,7 @@ export default function Wig() {
       // Fetch showed first-intro bookings for the date range
       const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_name, coach_shoutout_start, coach_shoutout_end, shoutout_consent, coach_debrief_submitted, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, coach_member_pair_plan')
+        .select('id, coach_name, coach_shoutout_start, coach_shoutout_end, shoutout_consent, coach_debrief_submitted, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, coach_member_pair_plan, lead_source, vip_session_id')
         .gte('class_date', rangeStart)
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
@@ -343,6 +343,30 @@ export default function Wig() {
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id || !!b.referred_by_member_name
       );
+
+      // ── VIP Class attribution map: vip_session_id -> coach who taught the VIP class ──
+      const vipCoachMap = new Map<string, string>();
+      const vipSessionIds = Array.from(new Set(
+        firstIntroBookings
+          .filter(b => (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id)
+          .map(b => b.vip_session_id as string)
+      ));
+      if (vipSessionIds.length > 0) {
+        const { data: vipSessionRows } = await (supabase as any)
+          .from('vip_sessions')
+          .select('id, coach_name')
+          .in('id', vipSessionIds);
+        for (const v of (vipSessionRows || [])) {
+          if (v.coach_name) vipCoachMap.set(v.id, v.coach_name);
+        }
+      }
+      const resolveCloseCoach = (b: any, fallback: string | null | undefined): string | null => {
+        if ((b.lead_source || '').startsWith('VIP Class') && b.vip_session_id) {
+          const vc = vipCoachMap.get(b.vip_session_id);
+          if (vc) return vc;
+        }
+        return fallback || null;
+      };
 
       // Fetch linked intros_run rows for run-side fields (goal_why_captured, made_a_friend, result)
       const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
