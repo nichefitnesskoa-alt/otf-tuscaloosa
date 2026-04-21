@@ -2,66 +2,60 @@
 
 ## Goal
 
-When the user changes `lead_source` to `VIP Class` or `VIP Class (Friend)` from the **inline header dropdown** on a My Day intro card, the app should:
-1. Save the lead source change.
-2. Automatically try to detect which past VIP session this member came from.
-3. Open an inline VIP class picker so the SA can confirm or change the detected session — choosing from any past VIP class we've ran (active + archived).
-4. Save `vip_session_id` (and `vip_class_name`) onto the booking.
+Show the **VIP Class Intro** badge and **No Q Needed** indicator on My Day intro cards as soon as the lead source identifies the intro as VIP — even if the booking hasn't yet been linked to a specific `vip_session_id`. Friends brought by VIP attendees still count as 1st intros, but should also display the VIP context badge.
 
-If a `vip_session_id` is already set, picking the lead source again should still let them open the picker to change it.
+## Root cause
 
-## Root cause (why this is missing today)
+In `src/features/myDay/useUpcomingIntrosData.ts` (line 238), `isVipClassIntro` is only set true when **both** conditions hold:
+- `lead_source` starts with `"VIP Class"`
+- `vip_session_id` is set
 
-`IntroCard.tsx` `InlineSelect` only writes `lead_source` to `intros_booked`. It has no awareness of VIP. Every other surface that sets `lead_source = VIP Class` (BookIntroSheet, EditBookingDialog, PipelineDialogs) renders `<VipSessionPicker>` right next to the source field — the inline editor on My Day cards is the one place that skips this. So when the SA changes source to VIP inline, the booking ends up with `lead_source = VIP Class` but `vip_session_id = NULL`, which silently breaks VIP attribution and reporting.
+The PJ's Coffee bookings (and their friends) have the right `lead_source` but `vip_session_id` is still null. So the card falls back to the generic "1st Intro" + red "No Questionnaire" treatment, which is exactly what the screenshot shows.
+
+The friend variant uses `lead_source = "VIP Class (Friend)"` — also already a VIP source — and should get the VIP visual treatment too while still being labeled "1st Intro" semantically (no `isSecondIntro` change).
 
 ## Changes
 
-### 1) `src/components/shared/IntroCard.tsx`
-- After the `InlineSelect` for `lead_source` saves successfully, detect if the new value is `VIP Class` or `VIP Class (Friend)`.
-- If yes:
-  - Auto-detect best-match VIP session for this member (logic below).
-  - Open a small inline VIP picker popover anchored to the lead source chip showing:
-    - **Suggested** (auto-detected match, if any) at top, pre-selected.
-    - All past VIP sessions (active + archived) below, newest first — matches the existing `VipSessionPicker` behavior.
-  - On confirm: write both `vip_session_id` and `vip_class_name` (derived from the chosen session's `reserved_by_group`) to `intros_booked` for this booking, plus `last_edited_at` / `last_edited_by`. Trigger `onSaved()` to refresh.
-  - On dismiss without choosing: leave `vip_session_id` as-is, show a small amber "VIP class not set" hint next to the source chip until set.
-- Also: if `lead_source` already starts with `VIP Class`, render a small "VIP class: <name>" link/button right after the source chip in the header. Tapping it reopens the same picker so the SA can change which past VIP class.
+### 1) `src/features/myDay/useUpcomingIntrosData.ts`
+Loosen the `isVipClassIntro` derivation so the visual VIP context appears the moment the source says VIP, regardless of session linkage:
 
-### 2) Auto-detect logic (new helper, e.g. `src/lib/vip/detectVipSessionForBooking.ts`)
-Given the booking row (`member_name`, `phone`, `email`, `class_date`), pick the best VIP session via this priority:
-1. **Exact registration match** — `vip_registrations` row whose `first_name + last_name` (case-insensitive) matches `member_name`, OR `phone` matches the booking's `phone`, OR `email` matches `email`. Return that row's `vip_session_id`.
-2. **Class-date proximity** — most recent `vip_sessions` row with `session_date <= class_date` (booking date) and matching `reserved_by_group` if `vip_class_name` is already set on the booking.
-3. **Most recent VIP session overall** if nothing else matches — only used as a soft suggestion, NOT auto-saved without user confirmation.
+```
+isVipClassIntro: (b.lead_source || '').toLowerCase().startsWith('vip class')
+```
 
-Tier 1 is the only one that auto-saves silently. Tiers 2 and 3 pre-select inside the picker but require the user to confirm.
+This matches both `VIP Class` and `VIP Class (Friend)`. No other field affected. `vip_session_id` linkage continues to drive real attribution; this flag is purely the visual/at-a-glance signal.
 
-### 3) Reuse `VipSessionPicker` look
-The inline popover should reuse the same option rendering (`reserved_by_group — Mon D, YYYY at H:MM AM`, archived section grouped separately) from `src/components/shared/VipSessionPicker.tsx` so the experience matches Edit Booking / Book Intro / Pipeline. No duplicate UI.
+### 2) `src/features/myDay/IntroRowCard.tsx` — summary header bar (lines ~387–404)
+Two small adjustments so the badge area communicates the user's mental model on first glance:
 
-### 4) Field writes
-On confirm, single update to `intros_booked`:
-- `vip_session_id` = chosen session id
-- `vip_class_name` = chosen session's `reserved_by_group` (kept in sync so legacy reports still work)
-- `is_vip` = `true`
-- `last_edited_at` = now (Central Time as elsewhere)
-- `last_edited_by` = current user
+- For VIP Class **Friend** bookings: keep the **`1st Intro`** badge (since friends are real first intros), and *also* show the **`VIP Class Intro`** purple badge next to it. Currently it shows only one or the other.
+- For non-friend VIP class intros: keep current single `VIP Class Intro` badge as today.
 
-If lead source is changed away from VIP later, leave `vip_session_id` intact (matches existing behavior — no destructive cleanup).
+Logic:
+```
+const isVipFriend = (item.leadSource || '').toLowerCase() === 'vip class (friend)';
+// render:
+//   if isVipClassIntro && !isVipFriend → just "VIP Class Intro"
+//   if isVipClassIntro && isVipFriend  → "1st Intro" + "VIP Class Intro"
+//   else                                → existing "1st"/"2nd" badge
+```
+
+The "No Q Needed" treatment already keys off `item.isVipClassIntro || item.isSecondIntro` (line 397), so once the flag flips true these cards will automatically show **`No Q Needed`** in muted gray instead of the red **`No Questionnaire`** chip — no further change needed.
+
+### 3) Surface `leadSource` to the card
+`UpcomingIntroItem` already exposes `leadSource`, so the friend check works without a type change.
 
 ## Files touched
 
-- `src/components/shared/IntroCard.tsx` — add inline VIP picker trigger + popover after lead source change; render "VIP class: …" affordance when lead_source is VIP.
-- `src/lib/vip/detectVipSessionForBooking.ts` — new file, auto-detect logic.
-- (Reused as-is) `src/components/shared/VipSessionPicker.tsx` — same options rendering, called from the new popover.
+- `src/features/myDay/useUpcomingIntrosData.ts` — broaden `isVipClassIntro` derivation.
+- `src/features/myDay/IntroRowCard.tsx` — show `1st Intro` + `VIP Class Intro` together for VIP friends; keep solo VIP badge for direct VIP attendees.
 
-No DB changes. No RLS changes. No changes to BookIntroSheet, EditBookingDialog, or PipelineDialogs flows.
+No DB changes. No RLS changes. No effect on attribution math, conversion funnel, or VIP isolation rules — those still depend on the actual `vip_session_id` and the canonical `isVipBooking` predicate. This change is purely the at-a-glance label and the suppression of the red questionnaire chip.
 
 ## Downstream effects
 
-- My Day intro cards now correctly link to a VIP session whenever lead source is set to `VIP Class` or `VIP Class (Friend)` inline — no more silently-orphaned VIP rows from inline edits.
-- VIP attribution surfaces (`isVipBooking` in `src/lib/vip/vipRules.ts`, `VipClassPerformanceTable`, VIP isolation in conversion metrics, scoreboard exclusions) all start counting these bookings under their correct VIP session.
-- Coach/SA can change which past VIP class a member came from at any time via the same inline header.
-- Auto-detect via registration match means the most common case (member registered for a VIP, then booked) requires zero extra clicks.
-- No effect on bookings where lead source isn't VIP. No retroactive change to existing bookings — auto-detect only runs when the SA actively sets the source.
-- Central Time conventions preserved for `last_edited_at`.
+- PJ's Coffee bookings (and any future VIP-source bookings) immediately show the purple **VIP Class Intro** badge in the My Day list and stop showing red **No Questionnaire** prompts.
+- Friends of VIP attendees show **1st Intro · VIP Class Intro** together, accurately reflecting that they are first-time intros that came in through a VIP class context.
+- Inline VIP class linking (the `VIP class: …` affordance added in the previous build inside `IntroCard.tsx`) is unaffected — SAs can still attach the specific past VIP session when ready, which then powers attribution and reporting.
+- No retroactive data writes. Central Time conventions preserved.
 
