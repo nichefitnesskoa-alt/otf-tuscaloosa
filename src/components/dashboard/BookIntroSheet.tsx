@@ -99,6 +99,18 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
     onOpenChange(open);
   };
 
+  // Apply prefills when opened
+  useEffect(() => {
+    if (!open) return;
+    if (prefillFirstName !== undefined) setFirstName(prefillFirstName || '');
+    if (prefillLastName !== undefined) setLastName(prefillLastName || '');
+    if (prefillPhone !== undefined) setPhone(prefillPhone ? formatPhoneAsYouType(prefillPhone) : '');
+    if (prefillLeadSource !== undefined) setLeadSource(prefillLeadSource || '');
+    if (prefillVipSessionId !== undefined) setVipSessionId(prefillVipSessionId || '');
+    if (prefillCoach !== undefined) setCoach(prefillCoach || '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const handleLeadSourceChange = (val: string) => {
     setLeadSource(val);
     if (!val.toLowerCase().includes('vip')) setVipSessionId('');
