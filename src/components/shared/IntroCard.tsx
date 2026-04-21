@@ -3,7 +3,7 @@
  *
  * Supports inline-editable header fields when `editable` is true.
  */
-import { ReactNode, useState, useRef, useEffect } from 'react';
+import { ReactNode, useState, useRef, useEffect, useCallback } from 'react';
 import { format, parse } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
@@ -16,7 +16,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { CalendarIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CalendarIcon, Sparkles } from 'lucide-react';
+import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { detectVipSessionForBooking } from '@/lib/vip/detectVipSessionForBooking';
+
+const isVipSource = (s: string | null | undefined) =>
+  !!s && (s === 'VIP Class' || s === 'VIP Class (Friend)' || s.toLowerCase().startsWith('vip class'));
 
 export interface IntroCardProps {
   memberName: string;
