@@ -77,8 +77,8 @@ export function groupByDay(items: UpcomingIntroItem[]): DayGroup[] {
   const sortedDates = [...groups.keys()].sort();
   for (const date of sortedDates) {
     const dayItems = groups.get(date)!;
-    // Q ratio uses only 1st intros — 2nd intros don't need questionnaires
-    const firstIntros = dayItems.filter(i => !i.isSecondIntro);
+    // Q ratio uses only 1st intros — 2nd intros and VIP Class intros don't need questionnaires
+    const firstIntros = dayItems.filter(i => !i.isSecondIntro && !i.isVipClassIntro);
     const qSentOrDone = firstIntros.filter(i => i.questionnaireStatus !== 'NO_Q').length;
     result.push({
       date,
@@ -102,7 +102,7 @@ function formatDayLabel(dateStr: string): string {
 // ── Bulk filtering helpers ──
 
 export function filterNoQ(items: UpcomingIntroItem[]): UpcomingIntroItem[] {
-  return items.filter(i => i.questionnaireStatus === 'NO_Q' && !i.isSecondIntro);
+  return items.filter(i => i.questionnaireStatus === 'NO_Q' && !i.isSecondIntro && !i.isVipClassIntro);
 }
 
 export function filterUnconfirmed24h(items: UpcomingIntroItem[], nowISO: string): UpcomingIntroItem[] {

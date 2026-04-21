@@ -39,8 +39,8 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   }
 }
 
-function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], isSecondIntro = false) {
-  if (isSecondIntro) {
+function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNeeded = false) {
+  if (noQNeeded) {
     return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">No Q Needed</Badge>;
   }
   switch (status) {
@@ -54,10 +54,10 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], isSec
   }
 }
 
-function TappableQBadge({ status, onTap, isSecondIntro = false }: { status: UpcomingIntroItem['questionnaireStatus']; onTap: () => void; isSecondIntro?: boolean }) {
+function TappableQBadge({ status, onTap, noQNeeded = false }: { status: UpcomingIntroItem['questionnaireStatus']; onTap: () => void; noQNeeded?: boolean }) {
   const [copied, setCopied] = useState(false);
 
-  if (isSecondIntro) return getQBadgeStatic(status, true);
+  if (noQNeeded) return getQBadgeStatic(status, true);
   if (status !== 'NO_Q') return getQBadgeStatic(status);
 
   const handleClick = (e: React.MouseEvent) => {
@@ -385,12 +385,16 @@ export default function IntroRowCard({
       <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
         <span className="font-semibold text-sm truncate">{item.memberName}</span>
         <span className="pointer-events-none">
-          <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
-            {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
-          </Badge>
+          {item.isVipClassIntro ? (
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
+          ) : (
+            <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
+              {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
+            </Badge>
+          )}
         </span>
         <span>
-          <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} isSecondIntro={item.isSecondIntro} />
+          <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
         </span>
         <ShoutoutLabel consent={shoutoutConsent} />
         {item.vipClassName && (

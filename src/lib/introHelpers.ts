@@ -160,6 +160,14 @@ export async function autoCreateQuestionnaire(params: {
 }): Promise<void> {
   const { bookingId, memberName, classDate } = params;
 
+  // Defensive: VIP Class intros never get a questionnaire
+  const { data: bookingRow } = await supabase
+    .from('intros_booked')
+    .select('lead_source')
+    .eq('id', bookingId)
+    .maybeSingle();
+  if (bookingRow?.lead_source && bookingRow.lead_source.startsWith('VIP Class')) return;
+
   // Check if one already exists
   const { data: existing } = await supabase
     .from('intro_questionnaires')

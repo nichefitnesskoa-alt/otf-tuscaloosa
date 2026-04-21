@@ -5,10 +5,11 @@ interface PrepScoreDotProps {
   qCompleted: boolean;
   confirmationSent: boolean;
   isSecondIntro: boolean;
+  isVipClassIntro?: boolean;
 }
 
-export function PrepScoreDot({ hasPhone, qCompleted, confirmationSent, isSecondIntro }: PrepScoreDotProps) {
-  const qReady = isSecondIntro || qCompleted;
+export function PrepScoreDot({ hasPhone, qCompleted, confirmationSent, isSecondIntro, isVipClassIntro }: PrepScoreDotProps) {
+  const qReady = isSecondIntro || isVipClassIntro || qCompleted;
   const score = (hasPhone ? 1 : 0) + (qReady ? 1 : 0) + (confirmationSent ? 1 : 0);
 
   const color = score >= 3

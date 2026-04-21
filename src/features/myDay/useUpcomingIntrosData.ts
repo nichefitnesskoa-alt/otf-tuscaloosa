@@ -235,6 +235,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           latestRunNotes: run?.notes || null,
           originatingBookingId: b.originating_booking_id,
           isSecondIntro: false, // will be set after prior-run lookup
+          isVipClassIntro: !!((b.lead_source || '').startsWith('VIP Class') && (b as any).vip_session_id),
           prepped: (b as any).prepped ?? false,
           preppedAt: (b as any).prepped_at || null,
           preppedBy: (b as any).prepped_by || null,
@@ -354,7 +355,12 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (origBooking && origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
             item.isSecondIntro = true;
           }
-        }
+      }
+
+      // VIP Class intros are neither 1st nor 2nd — force flag off
+      for (const item of rawItems) {
+        if (item.isVipClassIntro) item.isSecondIntro = false;
+      }
       }
 
       // ── 2nd intro phone inheritance: fill missing phone from originating booking ──

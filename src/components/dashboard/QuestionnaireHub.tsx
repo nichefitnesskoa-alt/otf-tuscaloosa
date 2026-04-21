@@ -645,7 +645,7 @@ export function QuestionnaireHub() {
       // Also get all bookings (including 1st intros) missing Q records
       const { data: allBookingsNoQ } = await supabase
         .from('intros_booked')
-        .select('id, member_name, class_date')
+        .select('id, member_name, class_date, lead_source')
         .is('deleted_at', null)
         .not('booking_type_canon', 'in', '("VIP","COMP")')
         .is('originating_booking_id', null);
@@ -654,7 +654,8 @@ export function QuestionnaireHub() {
         .select('booking_id')
         .not('booking_id', 'is', null);
       const hasQ = new Set((existingQBookingIds || []).map((r: any) => r.booking_id));
-      const missing = (allBookingsNoQ || []).filter((b: any) => !hasQ.has(b.id));
+      // Exclude VIP Class intros — they don't need questionnaires
+      const missing = (allBookingsNoQ || []).filter((b: any) => !hasQ.has(b.id) && !((b.lead_source || '').startsWith('VIP Class')));
       let created = 0;
       for (const b of missing) {
         const { autoCreateQuestionnaire } = await import('@/lib/introHelpers');

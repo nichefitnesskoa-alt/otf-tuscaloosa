@@ -108,6 +108,7 @@ export interface JourneyContext {
   introResult?: string | null;
   primaryObjection?: string | null;
   isSecondIntro?: boolean;
+  isVipClassIntro?: boolean;
   
   // Status checks
   confirmationSent?: boolean;
@@ -176,6 +177,12 @@ export function getJourneyGuidanceWithAction(ctx: JourneyContext): { text: strin
 
     if (classTimePassed) {
       return { text: 'Step 7: Log what happened → tap Log Intro', actionType: null };
+    }
+
+    if (ctx.isVipClassIntro) {
+      return ctx.confirmationSent
+        ? { text: 'Ready for VIP intro. No questionnaire needed.', actionType: null }
+        : { text: 'Send confirmation for their VIP intro → tap Script', actionType: 'confirmation_sent' };
     }
 
     if (ctx.isSecondIntro) {
