@@ -393,46 +393,60 @@ export default function Wig() {
 
       // Aggregate coaches from booking data
       const coachMap = new Map<string, { coached: number; preShoutouts: number; answeredPre: number; postShoutouts: number; answeredPost: number; whyUsed: number; answeredWhy: number; paired: number; answeredPaired: number; debriefed: number }>();
+      const ensureCoach = (name: string) =>
+        coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
+
       showedFirstIntroBookings.forEach(b => {
-        const name = b.coach_name;
-        const ex = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
+        const runCoach = b.coach_name;
+        // VIP coach gets credit for "coached" denominator on VIP Class intros
+        const coachedCoach = resolveCloseCoach(b, runCoach) || runCoach;
+
+        const ex = ensureCoach(coachedCoach);
         ex.coached++;
+        coachMap.set(coachedCoach, ex);
+
+        // Lead-measure fields (shoutout/why/pair/debrief) credit the actual run coach
+        const measureEx = ensureCoach(runCoach);
 
         // Pre-class shoutout
         if (b.coach_shoutout_start != null) {
-          ex.answeredPre++;
-          if (b.coach_shoutout_start) ex.preShoutouts++;
+          measureEx.answeredPre++;
+          if (b.coach_shoutout_start) measureEx.preShoutouts++;
         }
 
         // Post-class shoutout
         if (b.coach_shoutout_end != null) {
-          ex.answeredPost++;
-          if (b.coach_shoutout_end) ex.postShoutouts++;
+          measureEx.answeredPost++;
+          if (b.coach_shoutout_end) measureEx.postShoutouts++;
         }
 
         // Run-side fields
         const run = runsByBookingId.get(b.id);
         if (run) {
           if (run.goal_why_captured != null) {
-            ex.answeredWhy++;
-            if (run.goal_why_captured === 'yes') ex.whyUsed++;
+            measureEx.answeredWhy++;
+            if (run.goal_why_captured === 'yes') measureEx.whyUsed++;
           }
           if (run.made_a_friend != null) {
-            ex.answeredPaired++;
-            if (run.made_a_friend) ex.paired++;
+            measureEx.answeredPaired++;
+            if (run.made_a_friend) measureEx.paired++;
           }
         }
 
         // Debrief submitted
-        if (b.coach_debrief_submitted) ex.debriefed++;
+        if (b.coach_debrief_submitted) measureEx.debriefed++;
 
-        coachMap.set(name, ex);
+        coachMap.set(runCoach, measureEx);
       });
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
       // Total Journey: also check if a 2nd intro booking resulted in a sale
       const coachCloseMap = new Map<string, { total: number; closed: number }>();
       const showedFirstIntroBookingIds = showedFirstIntroBookings.map(b => b.id);
+      // Map booking_id -> booking row so we can resolve VIP-coach attribution per run
+      const bookingByIdMap = new Map<string, any>();
+      showedFirstIntroBookings.forEach(b => bookingByIdMap.set(b.id, b));
+
       if (showedFirstIntroBookingIds.length > 0) {
         const closeBatches: string[][] = [];
         for (let i = 0; i < showedFirstIntroBookingIds.length; i += 500) closeBatches.push(showedFirstIntroBookingIds.slice(i, i + 500));
@@ -483,7 +497,11 @@ export default function Wig() {
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
           (runs || []).forEach((r: any) => {
-            const cName = r.coach_name;
+            const linkedBooking = r.linked_intro_booked_id ? bookingByIdMap.get(r.linked_intro_booked_id) : null;
+            // For VIP Class intros, credit the VIP class coach instead of the follow-up coach
+            const cName = linkedBooking
+              ? (resolveCloseCoach(linkedBooking, r.coach_name) || r.coach_name)
+              : r.coach_name;
             if (!cName) return;
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
