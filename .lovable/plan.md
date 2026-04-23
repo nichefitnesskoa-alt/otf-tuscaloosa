@@ -2,72 +2,81 @@
 
 ## Goal
 
-Auto-detect and assign the correct `vip_session_id` for VIP-source intro bookings that aren't currently linked to a session — so cards like Huntley Marshall's automatically show which VIP class she came from, even if the booking was created outside the VIP outcome drawer.
+Stop intro cards from disappearing when their VIP class is linked. Linking a member's intro to the VIP class they came from is **attribution-only** — it must never flip them into the VIP-funnel exclusion bucket.
 
 ## Root cause
 
-`detectVipSessionForBooking` already exists (registration match → date proximity → most-recent), but it only fires when the SA manually changes the lead source inline on `IntroCard.tsx`. Any booking saved from any other path (Pipeline, Book Intro sheet, sheet import, Mindbody re-entry, manual entry) with a VIP-related source but no `vip_session_id` stays unlinked forever. Huntley's booking falls in this bucket.
+Three places set `is_vip = true` on the `intros_booked` row whenever a `vip_session_id` is attached:
+
+1. `src/lib/vip/backfillVipSessionLinks.ts` (auto-backfill) — recently added
+2. `src/components/shared/IntroCard.tsx` (manual VIP class picker) — line 289
+3. `src/components/dashboard/BookIntroSheet.tsx` already sets `is_vip: false` (correct), so this one is fine
+
+But `is_vip = true` is the canonical flag for "this row is a VIP group session, exclude from intros funnel." The My Day fetch in `useUpcomingIntrosData.ts` (line 415) filters them out: `activeItems.filter(i => !i.isVip)`.
+
+So the moment Huntley's card got auto-linked to the Kappa Delta VIP class, `is_vip` flipped to `true` and she dropped off the My Day list on next refresh. Same thing has been silently happening to anyone whose VIP class was manually linked from the card — they just didn't notice because the in-memory list didn't refilter until the next fetch.
+
+The two concepts must be separated:
+- `vip_session_id` = "this intro came from a VIP class" (attribution, badge, performance link) — safe to set
+- `is_vip` = "this row IS a VIP group session, not a real intro" (funnel exclusion) — must stay `false` for normal intro bookings
 
 ## Changes
 
-### 1) New shared backfill helper — `src/lib/vip/backfillVipSessionLinks.ts`
+### 1) `src/lib/vip/backfillVipSessionLinks.ts` — remove `is_vip: true` from update payload
 
-A single async function that:
+Update payload becomes:
+```
+vip_session_id: det.sessionId,
+vip_class_name: className,
+last_edited_at: ...,
+last_edited_by: 'auto-vip-detect',
+```
 
-- Queries `intros_booked` for rows where:
-  - `deleted_at IS NULL`
-  - `vip_session_id IS NULL`
-  - `lead_source` matches VIP (`'VIP Class'`, `'VIP Class (Friend)'`, or any source starting with `vip class`)
-  - Optional `sinceDays` window (default 60) so we don't scan years of history.
-- For each row, calls existing `detectVipSessionForBooking` with `member_name`, `phone`, `email`, `class_date`, `vip_class_name`.
-- **Only writes** when `autoSave === true` (Tier 1 = registration name/phone/email match). This is the safe tier — no guesses get persisted.
-- Updates `intros_booked.vip_session_id` and stamps `last_edited_by = 'auto-vip-detect'`, `last_edited_at = now()` so the audit trail is clear.
-- Runs in batches of 25 with small awaits to avoid hammering the DB.
-- Returns `{ scanned, linked, suggestionsOnly }` for logging.
+`is_vip` is left untouched. Existing rows that genuinely are VIP group sessions already have `is_vip = true` set by their own creation path; we never need to flip it from a backfill.
 
-### 2) Fire the backfill automatically on My Day mount
+### 2) `src/components/shared/IntroCard.tsx` — remove `is_vip: true` from the manual VIP-class link payload
 
-In `src/features/myDay/useUpcomingIntrosData.ts`, after the initial fetch completes, kick off `backfillVipSessionLinks({ sinceDays: 60 })` in the background (not awaited, no UI block). On completion, if `linked > 0`, trigger a silent refresh so newly linked sessions appear on cards immediately. This covers ongoing daily use — every time an SA opens My Day, recent VIP-source bookings get auto-linked behind the scenes.
+Around line 289, drop `is_vip: true`. Keep `vip_session_id`, `vip_class_name`, `last_edited_at`, `last_edited_by`. Same reasoning — manually attaching the VIP class an intro came from is attribution, not a type change.
 
-Guard with a session-scoped flag (`window.__vipBackfillRanThisSession`) so it runs once per page load, not on every refresh.
+### 3) One-shot SQL repair migration for already-corrupted rows
 
-### 3) Inline auto-detect on card render (catch-up safety net)
+Any intros that got `is_vip = true` flipped on by the recent backfill or by previous manual links need to be repaired so they reappear on My Day. Migration logic:
 
-In `src/components/shared/IntroCard.tsx`, when the card renders with a VIP-source `leadSource` AND no `vipSessionId` AND `editable && bookingId`, call `detectVipSessionForBooking` once on mount. If `autoSave: true`, persist silently and call `onFieldSaved`. If suggestion only (Tiers 2/3), do nothing (current picker UI already lets the SA confirm a suggestion).
+```
+UPDATE intros_booked
+SET is_vip = false
+WHERE is_vip = true
+  AND booking_type_canon = 'STANDARD'
+  AND (
+    last_edited_by = 'auto-vip-detect'
+    OR vip_session_id IS NOT NULL
+  )
+  AND deleted_at IS NULL;
+```
 
-This guarantees that any VIP-source card the SA actually views gets a chance to link itself, even outside My Day.
-
-### 4) Admin one-click "Re-link VIP sessions" button
-
-In `src/components/admin/VipClassPerformanceTable.tsx` header (Admin only), add a small "Re-link unlinked VIP intros" button that calls the same `backfillVipSessionLinks` helper with `sinceDays: 365` and toasts the result (`"Linked 4 of 17 unlinked VIP intros"`). This gives Koa a manual lever to clean up historical data without writing migrations.
-
-### 5) Booking creation path safety net
-
-In `src/components/dashboard/BookIntroSheet.tsx`, in the insert payload (around line 240), if `leadSource` is VIP-related and `vipSessionId` is empty, run `detectVipSessionForBooking` once before insert and use the result if `autoSave: true`. Prevents new bookings from being saved unlinked when an obvious registration match exists.
+Safety guard: only flip rows where `booking_type_canon = 'STANDARD'`, so genuine VIP group session rows (which use `booking_type_canon = 'VIP'`) are never touched. This restores Huntley and any other auto-flipped intros immediately.
 
 ## Files touched
 
-- New: `src/lib/vip/backfillVipSessionLinks.ts`
-- Modified: `src/features/myDay/useUpcomingIntrosData.ts` — fire backfill once per session after first fetch
-- Modified: `src/components/shared/IntroCard.tsx` — on-mount detect for unlinked VIP cards
-- Modified: `src/components/admin/VipClassPerformanceTable.tsx` — admin "Re-link" button
-- Modified: `src/components/dashboard/BookIntroSheet.tsx` — pre-insert detect when VIP source + empty session
+- Modified: `src/lib/vip/backfillVipSessionLinks.ts` — drop `is_vip: true` from update
+- Modified: `src/components/shared/IntroCard.tsx` — drop `is_vip: true` from manual link update
+- New migration: repair `is_vip` on standard intro bookings that were incorrectly flipped
 
-No DB schema changes. No new tables. No RLS changes. No migrations.
+## What does NOT change
 
-## Safety rails
+- VIP isolation rules unchanged — true VIP group sessions (`booking_type_canon = 'VIP'`) still excluded from the intros funnel
+- `vipRules.isVipBooking` predicate unchanged — it correctly handles all three signals (`is_vip`, `booking_type_canon = 'VIP'`, `vip_session_id`); we're just no longer feeding it false positives
+- VIP class badge on the card face still shows when `vip_session_id` / `vipClassName` is present (no UI change needed — IntroRowCard already renders `VIP Class: …` from `vipClassName`)
+- Attribution math, conversion math, performance tables, `VipClassPerformanceTable`, friend handling, questionnaire flow: all unchanged
+- Role permissions: unchanged
+- Central Time conventions: unchanged
 
-- **Only Tier 1 (registration match) writes are persisted automatically.** Tiers 2 and 3 (date proximity, most-recent) never write — they only feed the existing suggestion UI. So we cannot mis-attribute someone to a class they never registered for.
-- All writes stamped with `last_edited_by = 'auto-vip-detect'` so any wrong link is identifiable and reversible.
-- Existing manual `vip_session_id` values are never overwritten — the backfill query filters to `vip_session_id IS NULL` only.
-- Friend bookings (`VIP Class (Friend)`) follow the same rule — they only auto-link if the friend's own name/phone/email matches a registration row, so unrelated friends aren't lumped into the wrong class.
-- Central Time conventions preserved (queries use `class_date` strings, no UTC arithmetic).
+## Downstream effects implemented in this build
 
-## Downstream effects
-
-- Huntley Marshall and any similar unlinked VIP intros automatically gain their `vip_session_id` on next My Day load (assuming a registration row exists for her).
-- VIP attribution, performance tables (`VipClassPerformanceTable`), and conversion math immediately benefit — no extra data entry from staff.
-- VIP isolation rules unchanged. Conversion math unchanged. Friend logic unchanged. Questionnaire flow unchanged.
-- Role permissions unchanged (admin button is admin-only; backfill helper itself is SA-safe to call since it only reads + writes the linked field).
-- Realtime subscriptions on `intros_booked` will broadcast the auto-link update to other open sessions immediately.
+- Huntley Marshall's card reappears immediately on next My Day load with the linked VIP class still showing
+- Any other intro that was silently auto-hidden by the recent backfill returns to My Day
+- Future auto-links and manual VIP class links on intro cards no longer make those cards disappear
+- VIP class attribution still flows to `VipClassPerformanceTable` (it joins on `vip_session_id`, not `is_vip`)
+- Real VIP group sessions on My Day intros tab continue to be excluded as before
+- No regression to friend-vs-organizer logic — friend bookings keep `is_vip = false` and stay visible with their `VIP Class (Friend)` source badge
 
