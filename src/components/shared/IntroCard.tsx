@@ -286,7 +286,6 @@ export default function IntroCard({
     const { error } = await supabase.from('intros_booked').update({
       vip_session_id: sessionId,
       vip_class_name: className,
-      is_vip: true,
       last_edited_at: new Date().toISOString(),
       last_edited_by: editedBy,
     } as any).eq('id', bookingId);
