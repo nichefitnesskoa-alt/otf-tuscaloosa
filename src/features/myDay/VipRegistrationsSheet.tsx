@@ -138,15 +138,18 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   };
 
   const totalRegistered = regs.length;
-  const outcomeBreakdown = useMemo(() => {
-    const counts = new Map<string, number>();
+  const summary = useMemo(() => {
+    let noShow = 0;
+    let attended = 0;
+    let bookedIntro = 0;
+    let unlogged = 0;
     for (const r of regs) {
-      if (!r.outcome) continue;
-      counts.set(r.outcome, (counts.get(r.outcome) || 0) + 1);
+      if (!r.outcome) { unlogged++; continue; }
+      if (r.outcome === 'no_show') noShow++;
+      if (r.outcome === 'showed' || r.outcome === 'booked_intro' || r.outcome === 'purchased') attended++;
+      if (r.outcome === 'booked_intro' || r.outcome === 'purchased') bookedIntro++;
     }
-    return Array.from(counts.entries())
-      .map(([k, v]) => `${v} ${OUTCOME_LABELS[k] || k}`)
-      .join(' · ');
+    return { noShow, attended, bookedIntro, unlogged, anyLogged: noShow + attended > 0 };
   }, [regs]);
 
   return (
