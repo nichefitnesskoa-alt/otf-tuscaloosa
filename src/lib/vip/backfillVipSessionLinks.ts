@@ -80,7 +80,6 @@ export async function backfillVipSessionLinks(opts: BackfillOptions = {}): Promi
             .update({
               vip_session_id: det.sessionId,
               vip_class_name: className,
-              is_vip: true,
               last_edited_at: new Date().toISOString(),
               last_edited_by: 'auto-vip-detect',
             })
