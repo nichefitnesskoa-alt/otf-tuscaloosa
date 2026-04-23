@@ -45,6 +45,8 @@ export function VipClassPerformanceTable() {
       setRelinking(false);
     }
   };
+
+  useEffect(() => {
     (async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data: sessions } = await sb
