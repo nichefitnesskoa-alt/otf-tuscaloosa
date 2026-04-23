@@ -11,6 +11,7 @@ import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
+import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
@@ -509,6 +510,23 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Background VIP session backfill — runs once per page load after first fetch.
+  // Auto-links any VIP-source bookings whose registration record matches (Tier 1 only).
+  useEffect(() => {
+    if (isLoading) return;
+    const w = window as any;
+    if (w.__vipBackfillRanThisSession) return;
+    w.__vipBackfillRanThisSession = true;
+    backfillVipSessionLinks({ sinceDays: 60 })
+      .then((res) => {
+        if (res.linked > 0) {
+          // Silent refresh so newly linked sessions appear on cards
+          fetchData(true);
+        }
+      })
+      .catch(() => { /* silent */ });
+  }, [isLoading, fetchData]);
 
   return { items, isLoading, lastSyncAt, isOnline, isCapped, refreshAll: fetchData, silentRefresh };
 }

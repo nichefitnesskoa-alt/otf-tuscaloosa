@@ -6,10 +6,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
+import { toast } from 'sonner';
 
 const sb = supabase as any;
 
@@ -29,6 +32,19 @@ export function VipClassPerformanceTable() {
   const [rows, setRows] = useState<VipPerfRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [relinking, setRelinking] = useState(false);
+
+  const handleRelink = async () => {
+    setRelinking(true);
+    try {
+      const res = await backfillVipSessionLinks({ sinceDays: 365, maxRows: 2000 });
+      toast.success(`Linked ${res.linked} of ${res.scanned} unlinked VIP intros`);
+    } catch {
+      toast.error('Re-link failed');
+    } finally {
+      setRelinking(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -126,11 +142,24 @@ export function VipClassPerformanceTable() {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-2 cursor-pointer min-h-[44px]">
-        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        <span className="font-semibold text-sm">VIP Class Performance</span>
-        <span className="text-xs text-muted-foreground ml-1">Past VIP sessions with conversion tracking</span>
-      </CollapsibleTrigger>
+      <div className="flex items-center justify-between gap-2">
+        <CollapsibleTrigger className="flex items-center gap-2 flex-1 text-left py-2 cursor-pointer min-h-[44px]">
+          {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          <span className="font-semibold text-sm">VIP Class Performance</span>
+          <span className="text-xs text-muted-foreground ml-1">Past VIP sessions with conversion tracking</span>
+        </CollapsibleTrigger>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleRelink}
+          disabled={relinking}
+          className="h-8 text-xs gap-1.5 shrink-0"
+          title="Scan past VIP-source intros and auto-link any with a matching registration"
+        >
+          {relinking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
+          Re-link unlinked VIP intros
+        </Button>
+      </div>
       <CollapsibleContent>
         <Card className="mt-2">
           <CardContent className="p-3 space-y-3">

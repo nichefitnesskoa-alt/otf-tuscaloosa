@@ -220,6 +220,24 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
 
       const rebookedFromId = selectedBooking?.id || null;
 
+      // Auto-detect VIP session if VIP-source and not manually picked (Tier 1 = registration match)
+      let resolvedVipSessionId: string | null = leadSource.toLowerCase().includes('vip')
+        ? (vipSessionId || null)
+        : null;
+      if (leadSource.toLowerCase().includes('vip') && !resolvedVipSessionId) {
+        try {
+          const { detectVipSessionForBooking } = await import('@/lib/vip/detectVipSessionForBooking');
+          const det = await detectVipSessionForBooking({
+            member_name: memberName,
+            phone: phone.trim() || null,
+            email: null,
+            class_date: classDate,
+            vip_class_name: null,
+          });
+          if (det.sessionId && det.autoSave) resolvedVipSessionId = det.sessionId;
+        } catch { /* silent */ }
+      }
+
       const { data: inserted, error } = await supabase.from('intros_booked').insert({
         member_name: memberName,
         class_date: classDate,
@@ -237,7 +255,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
         questionnaire_status_canon: 'not_sent',
         is_vip: false,
         referred_by_member_name: REFERRAL_SOURCES.has(leadSource) ? (referredBy.trim() || null) : null,
-        vip_session_id: leadSource.toLowerCase().includes('vip') ? (vipSessionId || null) : null,
+        vip_session_id: resolvedVipSessionId,
         rebooked_from_booking_id: rebookedFromId,
         originating_booking_id: selectedBooking ? (selectedBooking.originating_booking_id || selectedBooking.id) : null,
         rebook_reason: rebookedFromId ? 'Rescheduled from My Day' : null,
