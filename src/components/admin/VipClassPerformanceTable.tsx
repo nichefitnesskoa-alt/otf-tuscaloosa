@@ -6,10 +6,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
+import { toast } from 'sonner';
 
 const sb = supabase as any;
 
@@ -29,8 +32,19 @@ export function VipClassPerformanceTable() {
   const [rows, setRows] = useState<VipPerfRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [relinking, setRelinking] = useState(false);
 
-  useEffect(() => {
+  const handleRelink = async () => {
+    setRelinking(true);
+    try {
+      const res = await backfillVipSessionLinks({ sinceDays: 365, maxRows: 2000 });
+      toast.success(`Linked ${res.linked} of ${res.scanned} unlinked VIP intros`);
+    } catch {
+      toast.error('Re-link failed');
+    } finally {
+      setRelinking(false);
+    }
+  };
     (async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data: sessions } = await sb
