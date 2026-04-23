@@ -300,6 +300,31 @@ export default function IntroCard({
     }
   }, [bookingId, editedBy, localVipSessionId, localVipClassName, onFieldSaved]);
 
+  // Auto-detect VIP session on mount when card is editable, VIP-source, and not yet linked.
+  // Only Tier 1 (registration match) writes silently — Tiers 2/3 are surfaced via the picker.
+  const autoDetectAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (autoDetectAttemptedRef.current) return;
+    if (!editable || !bookingId) return;
+    if (!isVipSource(leadSource)) return;
+    if (localVipSessionId) return;
+    autoDetectAttemptedRef.current = true;
+    (async () => {
+      try {
+        const det = await detectVipSessionForBooking({
+          member_name: memberName,
+          phone,
+          email,
+          class_date: classDate,
+          vip_class_name: localVipClassName,
+        });
+        if (det.sessionId && det.autoSave) {
+          await saveVipSession(det.sessionId);
+        }
+      } catch { /* silent */ }
+    })();
+  }, [editable, bookingId, leadSource, localVipSessionId, memberName, phone, email, classDate, localVipClassName, saveVipSession]);
+
   const handleLeadSourceChanged = useCallback(async (newSource: string) => {
     if (!isVipSource(newSource) || !bookingId) return;
     // Try auto-detect

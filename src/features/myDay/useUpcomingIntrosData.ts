@@ -11,6 +11,7 @@ import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
 import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
+import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 
 interface UseUpcomingIntrosOptions {
   timeRange: TimeRange;
