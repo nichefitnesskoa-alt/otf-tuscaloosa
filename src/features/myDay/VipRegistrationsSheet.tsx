@@ -195,9 +195,21 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                   <div className="text-xs text-muted-foreground">people registered</div>
                 </div>
               </div>
-              {outcomeBreakdown && (
-                <div className="text-xs text-muted-foreground border-t pt-2">
-                  {outcomeBreakdown}
+              {summary.anyLogged && (
+                <div className="text-xs text-muted-foreground border-t pt-2 space-y-1">
+                  <div>
+                    <span className="font-medium text-foreground">{summary.attended} showed</span>
+                    {' · '}
+                    <span>{summary.noShow} no-show</span>
+                    {summary.unlogged > 0 && (
+                      <span className="text-muted-foreground"> · {summary.unlogged} still need outcome logged</span>
+                    )}
+                  </div>
+                  {summary.attended > 0 && (
+                    <div>
+                      Of those {summary.attended} who showed → <span className="font-medium text-foreground">{summary.bookedIntro} booked an intro</span>
+                    </div>
+                  )}
                 </div>
               )}
             </>
