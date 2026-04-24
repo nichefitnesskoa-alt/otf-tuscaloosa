@@ -224,17 +224,42 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           <div className="mt-4 rounded-lg border bg-card divide-y">
             {regs.map((r) => {
               const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+              const copyPhone = async () => {
+                if (!r.phone) return;
+                await navigator.clipboard.writeText(r.phone);
+                setCopiedPhoneId(r.id);
+                toast.success('Phone copied!');
+                setTimeout(() => setCopiedPhoneId(curr => (curr === r.id ? null : curr)), 2000);
+              };
               return (
-                <div key={r.id} className="flex items-center gap-3 p-3">
-                  <div className="flex-1 min-w-0">
+                <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
+                  <div className="flex-1 min-w-[140px]">
                     <div className="text-sm font-medium truncate">{fullName}</div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
+                    onClick={copyPhone}
+                    disabled={!r.phone}
+                  >
+                    {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Script
+                  </Button>
                   <Select
                     value={r.outcome || ''}
                     onValueChange={(v) => saveOutcome(r.id, v)}
                     disabled={savingId === r.id}
                   >
-                    <SelectTrigger className="h-9 w-40 text-xs">
+                    <SelectTrigger className="h-9 w-36 text-xs">
                       <SelectValue placeholder="Log outcome…" />
                     </SelectTrigger>
                     <SelectContent>
