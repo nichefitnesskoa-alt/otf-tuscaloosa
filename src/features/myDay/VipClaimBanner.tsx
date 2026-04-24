@@ -158,7 +158,7 @@ export function VipClaimBanner() {
         onOpenChange={(open) => setScriptDrawer(s => ({ ...s, open }))}
         leadName={scriptDrawer.name}
         leadPhone={scriptDrawer.phone}
-        categoryFilter="booking_confirmation"
+        categoryFilter="vip_class"
         saName={user?.name || ''}
       />
     </div>

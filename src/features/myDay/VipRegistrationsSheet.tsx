@@ -300,7 +300,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         onOpenChange={(open) => setScriptDrawer(s => ({ ...s, open }))}
         leadName={scriptDrawer.name}
         leadPhone={scriptDrawer.phone}
-        categoryFilter="booking_confirmation"
+        categoryFilter="vip_class"
         saName={userName || ''}
       />
     </Sheet>

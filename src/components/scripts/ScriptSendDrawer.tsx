@@ -143,7 +143,7 @@ export function ScriptSendDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[90vh] flex flex-col">
         <DrawerHeader className="pb-2">
           <div className="flex items-center justify-between">
             <DrawerTitle className="text-base">
@@ -216,7 +216,7 @@ export function ScriptSendDrawer({
         )}
 
         {/* Script list */}
-        <ScrollArea className="flex-1 px-4 pb-4 max-h-[55vh]">
+        <ScrollArea className="flex-1 min-h-0 px-4 pb-4">
           <div className="space-y-3">
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">No scripts found for this category.</p>
