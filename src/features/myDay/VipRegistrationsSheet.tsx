@@ -295,6 +295,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         prefillVipSessionId={vipSessionId}
         prefillCoach={vipCoach}
       />
+      <ScriptSendDrawer
+        open={scriptDrawer.open}
+        onOpenChange={(open) => setScriptDrawer(s => ({ ...s, open }))}
+        leadName={scriptDrawer.name}
+        leadPhone={scriptDrawer.phone}
+        categoryFilter="booking_confirmation"
+        saName={userName || ''}
+      />
     </Sheet>
   );
 }
