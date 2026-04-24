@@ -10,11 +10,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, Copy, Check, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { COACHES } from '@/types';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
+import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 
 interface RegRow {
   id: string;
