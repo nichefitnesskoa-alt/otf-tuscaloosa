@@ -149,17 +149,23 @@ export default function VipMemberRegister() {
       const formattedDate = format(new Date(session.session_date + 'T00:00:00'), 'MMM d');
       const formattedTime = formatDisplayTime(session.session_time);
 
-      // Notify staff — privacy-first: no names in alerts. Aggregate count only.
+      // Notify staff with name + phone so SAs can text booking confirmation directly.
       const groupLabel = session.reserved_by_group || 'VIP';
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       await sb.from('notifications').insert({
         notification_type: 'vip_member_registered',
-        title: `${groupLabel} — new VIP registration`,
-        body: `${count || 0} registered for ${groupLabel} on ${formattedDate} at ${formattedTime}.`,
+        title: `${fullName} — ${groupLabel}`,
+        body: `Just registered for ${groupLabel} on ${formattedDate} at ${formattedTime}. Text them to confirm. (${count || 0} total registered)`,
         target_user: null,
         meta: {
           session_id: session.id,
           group_name: session.reserved_by_group,
           total_registered: count || 0,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim(),
+          session_date: session.session_date,
+          session_time: session.session_time,
         },
       });
 

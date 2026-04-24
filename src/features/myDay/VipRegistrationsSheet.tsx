@@ -10,11 +10,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, Copy, Check, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { COACHES } from '@/types';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
+import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 
 interface RegRow {
   id: string;
@@ -52,6 +54,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [savingId, setSavingId] = useState<string | null>(null);
   const [bookIntroOpen, setBookIntroOpen] = useState(false);
   const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
+  const [scriptDrawer, setScriptDrawer] = useState<{ open: boolean; name: string; phone: string }>({ open: false, name: '', phone: '' });
+  const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
@@ -220,17 +224,42 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           <div className="mt-4 rounded-lg border bg-card divide-y">
             {regs.map((r) => {
               const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+              const copyPhone = async () => {
+                if (!r.phone) return;
+                await navigator.clipboard.writeText(r.phone);
+                setCopiedPhoneId(r.id);
+                toast.success('Phone copied!');
+                setTimeout(() => setCopiedPhoneId(curr => (curr === r.id ? null : curr)), 2000);
+              };
               return (
-                <div key={r.id} className="flex items-center gap-3 p-3">
-                  <div className="flex-1 min-w-0">
+                <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
+                  <div className="flex-1 min-w-[140px]">
                     <div className="text-sm font-medium truncate">{fullName}</div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
+                    onClick={copyPhone}
+                    disabled={!r.phone}
+                  >
+                    {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    Script
+                  </Button>
                   <Select
                     value={r.outcome || ''}
                     onValueChange={(v) => saveOutcome(r.id, v)}
                     disabled={savingId === r.id}
                   >
-                    <SelectTrigger className="h-9 w-40 text-xs">
+                    <SelectTrigger className="h-9 w-36 text-xs">
                       <SelectValue placeholder="Log outcome…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -265,6 +294,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         prefillLeadSource="VIP Class"
         prefillVipSessionId={vipSessionId}
         prefillCoach={vipCoach}
+      />
+      <ScriptSendDrawer
+        open={scriptDrawer.open}
+        onOpenChange={(open) => setScriptDrawer(s => ({ ...s, open }))}
+        leadName={scriptDrawer.name}
+        leadPhone={scriptDrawer.phone}
+        categoryFilter="booking_confirmation"
+        saName={userName || ''}
       />
     </Sheet>
   );

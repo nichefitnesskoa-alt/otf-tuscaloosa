@@ -1,59 +1,79 @@
-
-
 ## Goal
 
-Rewrite the VIP outcome roll-up so the math is intuitive and accountable:
-**"15 registered → 13 showed (2 no-show) · of the 13 who showed, 4 booked an intro"**
-
-Today's line `9 showed · 4 booked intro · 2 no-show` reads like 9+4+2=15, but "Booked intro" attendees also physically showed — so showed should be 13, not 9. The flat tally double-decks the buckets.
+Treat VIP registrants like New Leads — staff see the registrant's name on the front of MyDay the moment they register, and can copy their phone or send a booking-confirmation script with one tap, both from the **VIP Updates banner** and from the **VIP Registrations sheet**.
 
 ## Root cause
 
-`VipRegistrationsSheet.tsx` builds `outcomeBreakdown` as a flat count of each `outcome` value ('showed', 'no_show', 'booked_intro', 'purchased') joined by `·`. The four outcomes are treated as mutually exclusive even though three of them (`showed`, `booked_intro`, `purchased`) all imply the person physically attended. Only `no_show` is a true non-attendance state.
+Three gaps today:
+1. `VipClaimBanner` only shows aggregate copy (`"15 registered for X on Mon Apr 28..."`) because the original notification was privacy-stripped — no name, no phone in `meta`.
+2. The registrant rows inside `VipRegistrationsSheet` have only an outcome dropdown — no Copy Phone, no Send Script. SAs can't text the booking confirmation without leaving the sheet.
+3. The VIP Updates banner has zero action buttons — only Dismiss.
 
-## Change
+The fix is a single coherent loop: write the data on registration → display + actionize it everywhere it surfaces.
 
-### `src/features/myDay/VipRegistrationsSheet.tsx`
+## Changes
 
-Replace the flat `outcomeBreakdown` with a two-line summary derived from the same `regs` array — no schema change, no new data, no new outcome values.
+### A. `src/pages/VipMemberRegister.tsx` — write name + phone into the notification
 
-Logic:
-- `noShow` = count of `outcome === 'no_show'`
-- `attended` = count of `outcome IN ('showed', 'booked_intro', 'purchased')`
-- `bookedIntro` = count of `outcome IN ('booked_intro', 'purchased')` (a purchase implies they also booked/ran)
-- `unlogged` = count where `outcome IS NULL`
+Replace the current `notifications.insert` (privacy-stripped) with one that puts the registrant's name in the title and includes `first_name`, `last_name`, `phone`, `session_date`, `session_time` in `meta` so consumers can render actions.
 
-Display inside the existing white summary card, replacing the single "9 showed · 4 booked intro · 2 no-show" line:
+- New `title`: `"{First Last} — {GroupName}"`
+- New `body`: `"Just registered for {Group} on {Date} at {Time}. Text them to confirm. ({count} total registered)"`
+- `meta` adds: `first_name`, `last_name`, `phone`, `session_date`, `session_time` (existing keys preserved)
 
-```
-13 showed · 2 no-show
-Of those 13 who showed → 4 booked an intro
-```
+This is staff-facing only (notifications already require login to view). No PII leaves the staff app.
 
-If `unlogged > 0`, append a small muted note: `· N still need outcome logged`.
-If no outcomes are logged yet, hide the breakdown lines (current behavior).
+### B. `src/features/myDay/VipClaimBanner.tsx` — add actions for `vip_member_registered`
 
-The big `15 people registered` headline stays exactly as-is. The per-attendee list, coach picker, Book Intro hand-off, and database writes are untouched.
+For each notification card, when `notification_type === 'vip_member_registered'` and `meta.phone` is present:
+
+- Render a row of two buttons under the body text, matching the New Leads alert pattern:
+  - **Copy Phone** — `navigator.clipboard.writeText(meta.phone)` → 2-second `Copied!` confirmation, never collapses card.
+  - **Send Script** — opens `ScriptSendDrawer` with `categoryFilter="booking_confirmation"`, `leadName={meta.first_name} {meta.last_name}`, `leadPhone={meta.phone}`, `bookingId={null}`, `leadId={null}`, `saName={user.name}`.
+- Pass `user.name` from `useAuth()` (already used elsewhere in MyDay) — banner now reads it on mount.
+- `vip_slot_claimed` notifications keep current behavior (no actions, no phone available).
+- Dismiss button stays where it is, top-right.
+
+44px tap targets, OTF orange CTA on Send Script, outline on Copy Phone, Lucide `Phone`/`Copy`/`Send` icons with full text labels.
+
+### C. `src/features/myDay/VipRegistrationsSheet.tsx` — per-row Copy Phone + Send Script
+
+In the per-attendee list (lines 219–248), each row currently shows `name + outcome dropdown`. Add two compact icon-buttons between name and outcome dropdown:
+
+- **Copy Phone** (icon `Copy` + "Copy") — disabled if `r.phone` is null. Shows `Copied!` for 2s.
+- **Send Script** (icon `Send` + "Script") — opens shared `ScriptSendDrawer` instance with:
+  - `categoryFilter="booking_confirmation"`
+  - `leadName="{r.first_name} {r.last_name}"`
+  - `leadPhone={r.phone}`
+  - `saName={userName}` (already a prop)
+- Drawer state held at sheet level (single instance, opened with the active row's data) so it doesn't fight with the existing `BookIntroSheet` instance.
+- Outcome dropdown stays exactly where it is on the right.
+
+Row layout on mobile/tablet: name (truncate) · [Copy] [Script] · [Outcome ▾]. Row may wrap actions to a second sub-row under 380px width using existing flex-wrap pattern.
 
 ## Files touched
 
-- Modified: `src/features/myDay/VipRegistrationsSheet.tsx` — replace `outcomeBreakdown` memo + the single line that renders it with the new two-line layered summary.
+- Modified: `src/pages/VipMemberRegister.tsx` — restore name in notification title + add phone/name/session fields to `meta`.
+- Modified: `src/features/myDay/VipClaimBanner.tsx` — wire `useAuth`, render Copy Phone + Send Script for `vip_member_registered`, mount one shared `ScriptSendDrawer`.
+- Modified: `src/features/myDay/VipRegistrationsSheet.tsx` — add Copy Phone + Send Script buttons to each registrant row, mount one shared `ScriptSendDrawer`.
 
-No other file changes. No DB schema changes. No migration. No new outcome values. No changes to `vip_registrations` semantics.
+No DB schema changes. No migration. No new outcome values. No new categories — `booking_confirmation` already exists per `normalizeCategory.ts`.
 
 ## What does NOT change
 
-- Outcome dropdown options, labels, save logic, optimistic update behavior — unchanged
-- `vipRules.isVipBooking` and VIP isolation — unchanged
-- `VipClassPerformanceTable` math (which already correctly separates Registered / Attended / Intros Booked / Joins) — unchanged
-- Coach attribution, sale credit routing, friend logic, questionnaire flow — unchanged
-- Realtime subscriptions, role permissions, Central Time conventions — unchanged
-- The `15 registered for this VIP class` subtitle and the big numeric headline — unchanged
+- Outcome dropdown options, save logic, optimistic updates, BookIntroSheet hand-off — unchanged
+- VIP isolation (`is_vip` stays false on registrant intros), conversion math, friend logic — unchanged
+- `vip_slot_claimed` notifications (still aggregate, no PII to display) — unchanged
+- Notifications table schema, RLS, realtime subscription — unchanged
+- The two-line outcome summary just shipped (`13 showed · 2 no-show / Of those 13 → 4 booked an intro`) — unchanged
+- Coach picker, attribution rules, Central Time conventions, role permissions — unchanged
+- New Leads alert behavior — unchanged (this build mirrors its pattern, doesn't modify it)
 
-## Downstream effects implemented
+## Downstream effects implemented in this build
 
-- Sheet math is now self-consistent: no-show + showed = registered, and "booked intro" is correctly framed as a subset of showed
-- SAs reading the sheet immediately understand attendance vs conversion without mental math
-- No other surface displays this breakdown, so nothing else needs to change
-- No effect on stored data — any existing logged outcomes render correctly under the new framing
-
+- VIP Updates banner now shows the registrant's name on the face of MyDay as soon as they register, with one-tap Copy Phone + Send Script — matching the New Leads alert workflow exactly.
+- Inside the VIP Registrations sheet, every registrant row gets the same two actions, so SAs can text confirmations after the fact without leaving the sheet.
+- `script_send_log` and `script_actions` rows are auto-written by `ScriptSendDrawer.handleCopy` (existing behavior) — these VIP-confirmation sends now show up in the Activity Log, Per-SA touch counts, and shift recap automatically.
+- The new `meta.phone` payload is consumed only by the banner today; future surfaces (e.g. shift recap, manager Slack-style digests) can read it without a follow-up migration.
+- Existing notifications inserted before this build still render — the banner gracefully omits action buttons when `meta.phone` is missing.
+- No new role visibility added: only SAs/Coaches/Admins who already see MyDay see VIP Updates; behavior unchanged.
