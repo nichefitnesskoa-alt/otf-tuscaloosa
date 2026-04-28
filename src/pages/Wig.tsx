@@ -378,7 +378,7 @@ export default function Wig() {
         for (const batch of runBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, goal_why_captured, made_a_friend, result, result_canon')
+            .select('linked_intro_booked_id, goal_why_captured, made_a_friend, result, result_canon, coach_name, run_date, created_at')
             .in('linked_intro_booked_id', batch);
           (runs || []).forEach((r: any) => {
             // Skip no-shows for run-side data
