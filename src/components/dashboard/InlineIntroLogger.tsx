@@ -75,6 +75,10 @@ export function InlineIntroLogger({
       toast.error('Select a membership type');
       return;
     }
+    if (bookingHasNoCoach && !pickedCoach) {
+      toast.error('Pick the coach who taught this class');
+      return;
+    }
     setSaving(true);
     try {
       const saName = user?.name || 'Unknown';
