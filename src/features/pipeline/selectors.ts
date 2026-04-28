@@ -43,6 +43,26 @@ function isBookingUpcoming(booking: PipelineBooking): boolean {
   return booking.intro_time > currentTime;
 }
 
+/**
+ * True 2nd-intro check: a booking is a real 2nd intro only when its
+ * originating booking exists in the journey AND that originator wasn't a
+ * no-show or soft-deleted. A no-show originator means the member never had
+ * their intro — the rebook IS their 1st intro.
+ */
+function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): boolean {
+  if (!b.originating_booking_id) return false;
+  const orig = journey.bookings.find(o => o.id === b.originating_booking_id);
+  if (!orig) {
+    // Originator not in journey — fall back to treating it as 2nd intro
+    // (we can't prove it was a no-show; safer to label as 2nd than to lose it).
+    return true;
+  }
+  if ((orig as any).deleted_at) return false;
+  if (orig.booking_status_canon === 'NO_SHOW') return false;
+  if ((orig as any).booking_status === 'No-show') return false;
+  return true;
+}
+
 function hasPurchasedMembership(journey: ClientJourney): boolean {
   const hasSaleResult = journey.runs.some(r => isMembershipSale(r.result));
   const hasClosedBooking = journey.bookings.some(
@@ -182,13 +202,13 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
       r => r.result === 'Follow-up needed' || r.result === 'Booked 2nd intro'
     );
     const hasUpcoming2ndIntroForCount = journey.bookings.some(b =>
-      b.originating_booking_id &&
+      isRealSecondIntro(b, journey) &&
       (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') &&
       isBookingUpcoming(b)
     );
     if (!hasPurchased && hasMissedResult && !hasUpcoming2ndIntroForCount) counts.missed_guest++;
 
-    const has2ndIntro = journey.bookings.some(b => b.originating_booking_id) ||
+    const has2ndIntro = journey.bookings.some(b => isRealSecondIntro(b, journey)) ||
       journey.runs.some(r => r.result === 'Booked 2nd intro') ||
       (journey.bookings.length > 1 && journey.bookings.some(b =>
         (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)
@@ -260,7 +280,7 @@ export function filterJourneysByTab(
         if (hasPurchased) return false;
         if (journey.status === 'not_interested') return false;
         const hasUpcoming2ndIntro = journey.bookings.some(b =>
-          b.originating_booking_id &&
+          isRealSecondIntro(b, journey) &&
           (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') &&
           isBookingUpcoming(b)
         );
@@ -269,7 +289,7 @@ export function filterJourneysByTab(
       }
       case 'second_intro':
         if (hasPurchased) return false;
-        return journey.bookings.some(b => b.originating_booking_id) ||
+        return journey.bookings.some(b => isRealSecondIntro(b, journey)) ||
           journey.runs.some(r => r.result === 'Booked 2nd intro') ||
           (journey.bookings.length > 1 && journey.bookings.some(b =>
             (b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active') && isBookingUpcoming(b)

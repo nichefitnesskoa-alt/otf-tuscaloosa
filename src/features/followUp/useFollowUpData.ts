@@ -176,11 +176,25 @@ export function useFollowUpData() {
         }
       }
 
-      // 2nd intro bookings by originating_booking_id
+      // 2nd intro bookings by originating_booking_id.
+      // A booking only counts as a real 2nd intro if its originator wasn't a
+      // no-show (or soft-deleted). A no-show originator means the member never
+      // had their first intro — the rebook IS the 1st intro, and the original
+      // no-show follow-up should NOT be dismissed.
+      const bookingByIdEarly = new Map(bookings.map(b => [b.id, b]));
+      const isRealSecondIntroBooking = (b: typeof bookings[0]): boolean => {
+        if (!b.originating_booking_id) return false;
+        const orig = bookingByIdEarly.get(b.originating_booking_id);
+        if (!orig) return true; // originator outside batch — be permissive
+        if ((orig as any).deleted_at) return false;
+        if ((orig as any).booking_status_canon === 'NO_SHOW') return false;
+        return orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '');
+      };
+
       const secondIntroByOrigin = new Map<string, (typeof bookings)[0]>();
       for (const b of bookings) {
-        if (b.originating_booking_id && !runsByBookingId.has(b.id) && b.class_date >= today) {
-          secondIntroByOrigin.set(b.originating_booking_id, b);
+        if (isRealSecondIntroBooking(b) && !runsByBookingId.has(b.id) && b.class_date >= today) {
+          secondIntroByOrigin.set(b.originating_booking_id!, b);
         }
       }
 
@@ -207,9 +221,8 @@ export function useFollowUpData() {
       const bookingById = new Map(bookings.map(b => [b.id, b]));
 
       const checkIsSecondIntro = (booking: typeof bookings[0] | undefined): boolean => {
-        if (!booking?.originating_booking_id) return false;
-        const orig = bookingById.get(booking.originating_booking_id);
-        return !!orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === booking.member_name.toLowerCase().replace(/\s+/g, '');
+        if (!booking) return false;
+        return isRealSecondIntroBooking(booking);
       };
 
       // Process runs for No-Show, Didn't Buy, Plans to Reschedule
@@ -359,7 +372,8 @@ export function useFollowUpData() {
 
       // Unrun 2nd intro bookings → Didn't Buy 1st (they need to show up for their 2nd)
       for (const b of bookings) {
-        if (!b.originating_booking_id) continue;
+        // Only treat as a 2nd intro if the originator wasn't a no-show / soft-deleted.
+        if (!isRealSecondIntroBooking(b)) continue;
         if (runsByBookingId.has(b.id)) continue;
         const memberNameLower = b.member_name.toLowerCase();
         if (terminalMembers.has(memberNameLower)) continue;

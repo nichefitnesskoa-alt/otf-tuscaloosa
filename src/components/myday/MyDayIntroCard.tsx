@@ -52,6 +52,13 @@ interface MyDayIntroCardProps {
   onLogOutcome?: (bookingId: string, runId?: string) => void;
   onSendQ?: (bookingId: string) => void;
   onCopyQLink?: (bookingId: string) => void;
+  /**
+   * 2nd-intro flag resolved by the parent (which has access to the originating
+   * booking's status). Pass `false` when the originator was a no-show — the
+   * rebook is then the member's 1st intro. If omitted, defaults to `false`
+   * to avoid mislabeling rebooks of no-shows as 2nd intros.
+   */
+  isSecondIntro?: boolean;
   className?: string;
 }
 
@@ -79,10 +86,13 @@ export function MyDayIntroCard({
   onLogOutcome,
   onSendQ,
   onCopyQLink,
+  isSecondIntro: isSecondIntroProp,
   className,
 }: MyDayIntroCardProps) {
   const isOnline = useOnlineStatus();
-  const isSecondIntro = !!booking.originating_booking_id;
+  // Only trust the prop. Naive `!!originating_booking_id` would mis-flag
+  // rebookings of no-shows as 2nd intros (the no-show isn't a real prior visit).
+  const isSecondIntro = isSecondIntroProp ?? false;
   const qBar = getQBar(questionnaireStatus);
 
   const guardOnline = (fn: () => void) => () => {

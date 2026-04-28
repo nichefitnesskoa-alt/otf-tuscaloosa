@@ -347,13 +347,19 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
-          // Originating booking is outside batch — check if same member
+          // Originating booking is outside batch — check if same member AND wasn't a no-show / soft-deleted.
+          // A no-show originator means the member never had their intro, so the rebook IS the 1st intro.
           const { data: origBooking } = await supabase
             .from('intros_booked')
-            .select('member_name')
+            .select('member_name, booking_status_canon, deleted_at')
             .eq('id', b.originating_booking_id)
             .maybeSingle();
-          if (origBooking && origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
+          if (
+            origBooking &&
+            origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '') &&
+            (origBooking as any).booking_status_canon !== 'NO_SHOW' &&
+            !(origBooking as any).deleted_at
+          ) {
             item.isSecondIntro = true;
           }
       }
