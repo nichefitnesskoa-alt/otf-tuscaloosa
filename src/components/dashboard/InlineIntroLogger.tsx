@@ -12,6 +12,7 @@ import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
+import { COACHES } from '@/types';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
