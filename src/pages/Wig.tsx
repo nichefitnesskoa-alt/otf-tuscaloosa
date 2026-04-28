@@ -396,8 +396,19 @@ export default function Wig() {
       const ensureCoach = (name: string) =>
         coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
 
+      const isMissingCoach = (v: any) =>
+        !v || (typeof v === 'string' && (btrimEq(v, '') || /^tbd$/i.test(v.trim())));
+
       showedFirstIntroBookings.forEach(b => {
-        const runCoach = b.coach_name;
+        // If booking coach is blank/TBD, fall back to the linked run's coach
+        // (defense in depth — the DB trigger should keep these in sync, but this
+        // protects WIG numbers if any code path bypasses the trigger)
+        const linkedRunForCoach = runsByBookingId.get(b.id);
+        const runCoachRaw = isMissingCoach(b.coach_name)
+          ? (linkedRunForCoach?.coach_name || b.coach_name)
+          : b.coach_name;
+        if (isMissingCoach(runCoachRaw)) return; // still no coach → skip
+        const runCoach = runCoachRaw;
         // VIP coach gets credit for "coached" denominator on VIP Class intros
         const coachedCoach = resolveCloseCoach(b, runCoach) || runCoach;
 
@@ -407,6 +418,7 @@ export default function Wig() {
 
         // Lead-measure fields (shoutout/why/pair/debrief) credit the actual run coach
         const measureEx = ensureCoach(runCoach);
+
 
         // Pre-class shoutout
         if (b.coach_shoutout_start != null) {
