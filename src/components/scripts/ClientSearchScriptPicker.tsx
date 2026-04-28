@@ -45,12 +45,18 @@ function useSearchPeople(query: string) {
     queryFn: async () => {
       const results: SearchResult[] = [];
       const q = `%${query}%`;
+      const qDigits = query.replace(/\D/g, '');
+      const phoneActive = qDigits.length >= 3;
+      const phonePattern = `%${qDigits}%`;
 
-      // Search leads
+      // Search leads (name OR phone digits)
+      const leadsOr = phoneActive
+        ? `first_name.ilike.${q},last_name.ilike.${q},phone.ilike.${phonePattern}`
+        : `first_name.ilike.${q},last_name.ilike.${q}`;
       const { data: leads } = await supabase
         .from('leads')
         .select('*')
-        .or(`first_name.ilike.${q},last_name.ilike.${q}`)
+        .or(leadsOr)
         .limit(10);
 
       if (leads) {
@@ -68,13 +74,11 @@ function useSearchPeople(query: string) {
         }
       }
 
-      // Search bookings
-      const { data: bookings } = await supabase
-        .from('intros_booked')
-        .select('*')
-        .ilike('member_name', q)
-        .is('deleted_at', null)
-        .limit(10);
+      // Search bookings (name OR phone digits)
+      const bookingsQuery = phoneActive
+        ? supabase.from('intros_booked').select('*').or(`member_name.ilike.${q},phone.ilike.${phonePattern},phone_e164.ilike.${phonePattern}`).is('deleted_at', null).limit(10)
+        : supabase.from('intros_booked').select('*').ilike('member_name', q).is('deleted_at', null).limit(10);
+      const { data: bookings } = await bookingsQuery;
 
       if (bookings) {
         for (const b of bookings) {
@@ -308,7 +312,7 @@ export function ClientSearchScriptPicker({ open, onOpenChange, preSelectedPerson
                 <Input
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by name..."
+                  placeholder="Search by name or phone..."
                   className="pl-8"
                   autoFocus
                 />
