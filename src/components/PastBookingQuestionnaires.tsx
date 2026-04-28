@@ -122,6 +122,7 @@ export default function PastBookingQuestionnaires() {
         member_name: b.member_name,
         class_date: b.class_date,
         intro_time: b.intro_time,
+        phone: (b as any).phone || null,
         questionnaire_id: q?.id || null,
         q_status: q?.status || null,
         q_slug: q?.slug || null,
@@ -139,6 +140,7 @@ export default function PastBookingQuestionnaires() {
             member_name: fullName,
             class_date: q.scheduled_class_date || '',
             intro_time: q.scheduled_class_time || null,
+            phone: null,
             questionnaire_id: q.id,
             q_status: q.status,
             q_slug: q.slug || null,
@@ -328,7 +330,7 @@ export default function PastBookingQuestionnaires() {
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search by name..."
+                      placeholder="Search by name or phone..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-9 h-9 text-sm"
