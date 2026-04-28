@@ -60,8 +60,11 @@ export function InlineIntroLogger({
   const [membershipType, setMembershipType] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const bookingHasNoCoach = !coachName || coachName.trim() === '' || /^tbd$/i.test(coachName.trim());
+  const [pickedCoach, setPickedCoach] = useState<string>(bookingHasNoCoach ? '' : coachName);
 
   const selectedOption = MEMBERSHIP_OPTIONS.find(m => m.label === membershipType);
+  const effectiveCoach = bookingHasNoCoach ? pickedCoach : coachName;
 
   const handleSubmit = async () => {
     if (!outcome) {
