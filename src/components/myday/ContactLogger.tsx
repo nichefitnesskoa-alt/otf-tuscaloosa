@@ -25,8 +25,18 @@ export function ContactLogger({ userName }: ContactLoggerProps) {
   const options = useMemo(() => {
     if (!search || search.length < 2) return [];
     const lower = search.toLowerCase();
+    const qDigits = search.replace(/\D/g, '');
+    const phoneActive = qDigits.length >= 3;
     return introsBooked
-      .filter(b => !b.deleted_at && b.member_name.toLowerCase().includes(lower))
+      .filter(b => {
+        if (b.deleted_at) return false;
+        if (b.member_name.toLowerCase().includes(lower)) return true;
+        if (phoneActive) {
+          const p = String((b as any).phone || '').replace(/\D/g, '');
+          if (p && p.includes(qDigits)) return true;
+        }
+        return false;
+      })
       .slice(0, 8)
       .map(b => ({ id: b.id, name: b.member_name, date: b.class_date }));
   }, [search, introsBooked]);
@@ -78,7 +88,7 @@ export function ContactLogger({ userName }: ContactLoggerProps) {
             <Input
               value={search}
               onChange={e => { setSearch(e.target.value); setSelectedId(null); setSelectedName(''); }}
-              placeholder="Search name…"
+              placeholder="Search name or phone…"
               className="h-8 text-sm"
             />
             {options.length > 0 && !selectedId && (
