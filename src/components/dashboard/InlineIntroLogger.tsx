@@ -131,7 +131,7 @@ export function InlineIntroLogger({
           class_time: classTime || '00:00',
           lead_source: leadSource,
           result,
-          coach_name: coachName,
+          coach_name: effectiveCoach,
           sa_name: saName,
           intro_owner: saName,
           intro_owner_locked: true,
