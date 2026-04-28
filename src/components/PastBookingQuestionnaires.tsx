@@ -20,6 +20,7 @@ interface BookingWithQ {
   member_name: string;
   class_date: string;
   intro_time: string | null;
+  phone: string | null;
   questionnaire_id: string | null;
   q_status: string | null;
   q_slug: string | null;
@@ -44,7 +45,7 @@ export default function PastBookingQuestionnaires() {
     const [{ data: bookingsData }, { data: questionnaires }, { data: introsRun }] = await Promise.all([
       supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time')
+        .select('id, member_name, class_date, intro_time, phone')
         .is('deleted_at', null)
         .eq('booking_status', 'Active')
         .order('class_date', { ascending: false }),
@@ -285,9 +286,17 @@ export default function PastBookingQuestionnaires() {
     }
   };
 
-  const filtered = bookings.filter((b) =>
-    b.member_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = bookings.filter((b) => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+    if (b.member_name.toLowerCase().includes(term)) return true;
+    const qDigits = searchTerm.replace(/\D/g, '');
+    if (qDigits.length >= 3) {
+      const p = String(b.phone || '').replace(/\D/g, '');
+      if (p && p.includes(qDigits)) return true;
+    }
+    return false;
+  });
 
   const pending = filtered.filter((b) => b.q_status !== 'completed');
   const completed = filtered.filter((b) => b.q_status === 'completed');
