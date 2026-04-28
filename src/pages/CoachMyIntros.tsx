@@ -270,6 +270,57 @@ export default function CoachMyIntros() {
     const allFuByBooking = new Map<string, FollowUpRow>();
     allFollowUps.forEach(fu => { if (fu.booking_id) allFuByBooking.set(fu.booking_id, fu); });
 
+    // Total Journey: build set of every booking id linked to any of the coach's
+    // bookings via originating_booking_id (this booking, its 2nd intro, or its
+    // originating 1st intro). Then look up sales across that whole chain so a
+    // member who bought on a later visit drops off this active queue.
+    const myBookingIds = bookings.map(b => b.id);
+    const originatingIds = bookings.map(b => (b as any).originating_booking_id).filter(Boolean) as string[];
+    const chainBookingIds = new Set<string>([...myBookingIds, ...originatingIds]);
+    if (myBookingIds.length > 0) {
+      const { data: rebooks } = await supabase
+        .from('intros_booked')
+        .select('id, originating_booking_id')
+        .in('originating_booking_id', myBookingIds);
+      (rebooks || []).forEach((r: any) => {
+        if (r.id) chainBookingIds.add(r.id);
+        if (r.originating_booking_id) chainBookingIds.add(r.originating_booking_id);
+      });
+    }
+    // Map: any booking in chainBookingIds with a SALE run
+    const soldBookingIds = new Set<string>();
+    if (chainBookingIds.size > 0) {
+      const { data: chainRuns } = await supabase
+        .from('intros_run')
+        .select('linked_intro_booked_id, result, result_canon')
+        .in('linked_intro_booked_id', Array.from(chainBookingIds));
+      (chainRuns || []).forEach((r: any) => {
+        if (!r.linked_intro_booked_id) return;
+        if (r.result_canon === 'SALE') soldBookingIds.add(r.linked_intro_booked_id);
+      });
+    }
+    // Map booking id → true if any booking in its chain has a sale
+    const chainSaleByBooking = new Map<string, boolean>();
+    bookings.forEach(b => {
+      const ids = new Set<string>([b.id]);
+      const orig = (b as any).originating_booking_id;
+      if (orig) ids.add(orig);
+      // Sibling bookings: anything originating from this booking, or from same originator
+      // Already covered by the rebooks fetch above (added to chainBookingIds), but we
+      // need per-booking chain membership. Cheap approach: a sale anywhere in the
+      // global chainBookingIds for this member's chain. Build by walking originating links.
+      // For simplicity: include all chainBookingIds that share originating_booking_id with b.
+      bookings.forEach(other => {
+        const otherOrig = (other as any).originating_booking_id;
+        if (other.id === b.id) return;
+        if (orig && (other.id === orig || otherOrig === orig)) ids.add(other.id);
+        if (otherOrig === b.id) ids.add(other.id);
+      });
+      let sold = false;
+      ids.forEach(id => { if (soldBookingIds.has(id)) sold = true; });
+      chainSaleByBooking.set(b.id, sold);
+    });
+
     // Merge: bookings as primary, enriched with run + followup data
     const merged: MergedIntro[] = bookings.map(b => {
       const run = runByBooking.get(b.id);
@@ -280,7 +331,10 @@ export default function CoachMyIntros() {
       const transferred = !!(allFu?.transferred_to_sa_at);
       const notInterested = allFu?.not_interested_at || null;
 
-      const resultCanon = run?.result_canon || 'UNRESOLVED';
+      const baseResultCanon = run?.result_canon || 'UNRESOLVED';
+      // Total Journey override: if any booking in this person's chain has a sale,
+      // treat this intro as Joined and route it to "Caught up".
+      const resultCanon = chainSaleByBooking.get(b.id) ? 'SALE' : baseResultCanon;
       const isSecondIntro = !!b.originating_booking_id;
 
       const lastTouch = lastTouchRow
@@ -338,17 +392,17 @@ export default function CoachMyIntros() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Filtered list
+  // Filtered list. Bought members drop off every view except "Joined" — they're done.
   const filtered = useMemo(() => {
-    if (activeFilter === 'all') return intros;
     return intros.filter(i => {
       switch (activeFilter) {
+        case 'all': return i.resultCanon !== 'SALE';
         case 'needs_followup': return ['DIDNT_BUY', 'UNRESOLVED'].includes(i.resultCanon) && !i.transferred;
-        case 'second_intro': return i.isSecondIntro || i.resultCanon === 'SECOND_INTRO';
+        case 'second_intro': return (i.isSecondIntro || i.resultCanon === 'SECOND_INTRO') && i.resultCanon !== 'SALE';
         case 'missed_guest': return i.resultCanon === 'MISSED_GUEST';
         case 'joined': return i.resultCanon === 'SALE';
         case 'no_show': return i.resultCanon === 'NO_SHOW';
-        default: return true;
+        default: return i.resultCanon !== 'SALE';
       }
     });
   }, [intros, activeFilter]);
