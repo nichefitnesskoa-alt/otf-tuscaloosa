@@ -940,13 +940,18 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
+      {/* Coach who taught the class — hidden for reschedule outcomes; forced visible if booking has no coach */}
+      {outcome && !isReschedule && !isPlanningToReschedule && (!isPlanningToBuy || bookingHasNoCoach) && (!isOn5ClassPack || bookingHasNoCoach) && (
         <div className="space-y-1">
+          {bookingHasNoCoach && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1">
+              ⚠️ No coach on file — pick who taught this class so they get credit.
+            </p>
+          )}
           <Label className="text-xs">
             Coach who taught the class
-            {!isNoShow && <span className="text-destructive ml-1">*</span>}
-            {isNoShow && <span className="text-muted-foreground ml-1">(optional)</span>}
+            {coachRequired && <span className="text-destructive ml-1">*</span>}
+            {!coachRequired && <span className="text-muted-foreground ml-1">(optional)</span>}
           </Label>
           <Select value={coachName} onValueChange={setCoachName}>
             <SelectTrigger className="h-8 text-sm">
