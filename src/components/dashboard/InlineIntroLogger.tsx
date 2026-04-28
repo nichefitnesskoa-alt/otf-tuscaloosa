@@ -155,9 +155,12 @@ export function InlineIntroLogger({
           .update({
             intro_owner: saName,
             intro_owner_locked: true,
+            ...(bookingHasNoCoach && pickedCoach ? { coach_name: pickedCoach } : {}),
             last_edited_at: new Date().toISOString(),
             last_edited_by: saName,
-            edit_reason: 'Intro owner locked on first run via MyDay',
+            edit_reason: bookingHasNoCoach && pickedCoach
+              ? 'Intro owner locked + coach assigned (was TBD/empty) on first run via MyDay'
+              : 'Intro owner locked on first run via MyDay',
           })
           .eq('id', bookingId);
       } catch (e) {
