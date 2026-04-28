@@ -237,6 +237,24 @@ export function InlineIntroLogger({
     <div className="border-t mt-2 pt-2 space-y-2">
       <Label className="text-xs font-semibold text-muted-foreground">Log Intro Result</Label>
 
+      {bookingHasNoCoach && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1">
+            ⚠️ No coach on file — pick who taught this class.
+          </p>
+          <Select value={pickedCoach} onValueChange={setPickedCoach}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select coach…" />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-1.5">
         <Button
           variant={outcome === 'purchased' ? 'default' : 'outline'}
