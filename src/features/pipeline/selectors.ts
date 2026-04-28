@@ -290,9 +290,19 @@ export function filterJourneysByTab(
 export function filterBySearch(journeys: ClientJourney[], searchTerm: string): ClientJourney[] {
   if (!searchTerm) return journeys;
   const term = searchTerm.toLowerCase();
-  return journeys.filter(
-    j => j.memberName.toLowerCase().includes(term) || j.latestIntroOwner?.toLowerCase().includes(term)
-  );
+  const qDigits = searchTerm.replace(/\D/g, '');
+  const phoneActive = qDigits.length >= 3;
+  return journeys.filter(j => {
+    if (j.memberName.toLowerCase().includes(term)) return true;
+    if (j.latestIntroOwner?.toLowerCase().includes(term)) return true;
+    if (phoneActive) {
+      for (const b of j.bookings) {
+        const p = (b.phone || '').replace(/\D/g, '');
+        if (p && p.includes(qDigits)) return true;
+      }
+    }
+    return false;
+  });
 }
 
 // ── Lead source options ──
