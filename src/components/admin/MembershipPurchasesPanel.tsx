@@ -121,14 +121,36 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
       // Fetch bookings for booked_by, lead_source, and coach info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by, lead_source, coach_name');
+        .select('id, sa_working_shift, booked_by, lead_source, coach_name, vip_session_id');
+
+      // Fetch VIP-class coach attribution: VIP-sourced bookings should credit the
+      // coach who ran the VIP class, not the coach of the next intro.
+      const vipSessionIds = Array.from(new Set(
+        (bookings || [])
+          .filter(b => (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id)
+          .map(b => b.vip_session_id as string)
+      ));
+      let vipCoachByVipSession = new Map<string, string>();
+      if (vipSessionIds.length > 0) {
+        const { data: vipRows } = await (supabase as any)
+          .from('vip_sessions')
+          .select('id, coach_name')
+          .in('id', vipSessionIds);
+        for (const v of (vipRows || [])) {
+          if (v.coach_name) vipCoachByVipSession.set(v.id, v.coach_name);
+        }
+      }
 
       const bookingMap = new Map(
-        (bookings || []).map(b => [b.id, { 
-          bookedBy: b.sa_working_shift || b.booked_by || null,
-          leadSource: b.lead_source || null,
-          coach: b.coach_name || null
-        }])
+        (bookings || []).map(b => {
+          const isVipSourced = (b.lead_source || '').startsWith('VIP Class');
+          const vipCoach = isVipSourced && b.vip_session_id ? vipCoachByVipSession.get(b.vip_session_id) : null;
+          return [b.id, {
+            bookedBy: b.sa_working_shift || b.booked_by || null,
+            leadSource: b.lead_source || null,
+            coach: vipCoach || b.coach_name || null,
+          }];
+        })
       );
 
       const allPurchases: MembershipPurchase[] = [];
