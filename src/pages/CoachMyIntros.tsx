@@ -392,17 +392,17 @@ export default function CoachMyIntros() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Filtered list
+  // Filtered list. Bought members drop off every view except "Joined" — they're done.
   const filtered = useMemo(() => {
-    if (activeFilter === 'all') return intros;
     return intros.filter(i => {
       switch (activeFilter) {
+        case 'all': return i.resultCanon !== 'SALE';
         case 'needs_followup': return ['DIDNT_BUY', 'UNRESOLVED'].includes(i.resultCanon) && !i.transferred;
-        case 'second_intro': return i.isSecondIntro || i.resultCanon === 'SECOND_INTRO';
+        case 'second_intro': return (i.isSecondIntro || i.resultCanon === 'SECOND_INTRO') && i.resultCanon !== 'SALE';
         case 'missed_guest': return i.resultCanon === 'MISSED_GUEST';
         case 'joined': return i.resultCanon === 'SALE';
         case 'no_show': return i.resultCanon === 'NO_SHOW';
-        default: return true;
+        default: return i.resultCanon !== 'SALE';
       }
     });
   }, [intros, activeFilter]);
