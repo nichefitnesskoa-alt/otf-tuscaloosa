@@ -25,6 +25,8 @@ interface RegRow {
   phone: string | null;
   outcome: string | null;
   created_at: string;
+  birthday: string | null;
+  weight_lbs: number | null;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
@@ -65,7 +67,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, outcome, created_at')
+          .select('id, first_name, last_name, phone, outcome, created_at, birthday, weight_lbs')
           .eq('vip_session_id', vipSessionId)
           .eq('is_group_contact', false)
           .order('created_at', { ascending: true }),
@@ -235,6 +237,22 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-sm font-medium truncate">{fullName}</div>
+                    {(r.birthday || r.weight_lbs) && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
+                        {r.birthday && (
+                          <span>🎂 {(() => {
+                            try {
+                              // birthday is a date string like '1995-03-14'
+                              const [y, m, d] = r.birthday.split('-').map(Number);
+                              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                              if (m && d) return `${months[m-1]} ${d}`;
+                              return r.birthday;
+                            } catch { return r.birthday; }
+                          })()}</span>
+                        )}
+                        {r.weight_lbs && <span>⚖ {r.weight_lbs} lb</span>}
+                      </div>
+                    )}
                   </div>
                   <Button
                     variant="outline"

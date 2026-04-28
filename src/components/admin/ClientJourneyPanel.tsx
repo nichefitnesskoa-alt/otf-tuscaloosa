@@ -707,10 +707,19 @@ export default function ClientJourneyPanel() {
     // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(j => 
-        j.memberName.toLowerCase().includes(term) ||
-        j.latestIntroOwner?.toLowerCase().includes(term)
-      );
+      const qDigits = searchTerm.replace(/\D/g, '');
+      const phoneActive = qDigits.length >= 3;
+      filtered = filtered.filter(j => {
+        if (j.memberName.toLowerCase().includes(term)) return true;
+        if (j.latestIntroOwner?.toLowerCase().includes(term)) return true;
+        if (phoneActive) {
+          for (const b of (j.bookings as any[])) {
+            const p = String(b.phone || '').replace(/\D/g, '');
+            if (p && p.includes(qDigits)) return true;
+          }
+        }
+        return false;
+      });
     }
 
     // Apply inconsistency filter
@@ -1649,7 +1658,7 @@ export default function ClientJourneyPanel() {
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name or intro owner..."
+              placeholder="Search by name, phone, or intro owner..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"

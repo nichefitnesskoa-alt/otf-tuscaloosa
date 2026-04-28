@@ -20,6 +20,7 @@ interface BookingWithQ {
   member_name: string;
   class_date: string;
   intro_time: string | null;
+  phone: string | null;
   questionnaire_id: string | null;
   q_status: string | null;
   q_slug: string | null;
@@ -44,7 +45,7 @@ export default function PastBookingQuestionnaires() {
     const [{ data: bookingsData }, { data: questionnaires }, { data: introsRun }] = await Promise.all([
       supabase
         .from('intros_booked')
-        .select('id, member_name, class_date, intro_time')
+        .select('id, member_name, class_date, intro_time, phone')
         .is('deleted_at', null)
         .eq('booking_status', 'Active')
         .order('class_date', { ascending: false }),
@@ -121,6 +122,7 @@ export default function PastBookingQuestionnaires() {
         member_name: b.member_name,
         class_date: b.class_date,
         intro_time: b.intro_time,
+        phone: (b as any).phone || null,
         questionnaire_id: q?.id || null,
         q_status: q?.status || null,
         q_slug: q?.slug || null,
@@ -138,6 +140,7 @@ export default function PastBookingQuestionnaires() {
             member_name: fullName,
             class_date: q.scheduled_class_date || '',
             intro_time: q.scheduled_class_time || null,
+            phone: null,
             questionnaire_id: q.id,
             q_status: q.status,
             q_slug: q.slug || null,
@@ -285,9 +288,17 @@ export default function PastBookingQuestionnaires() {
     }
   };
 
-  const filtered = bookings.filter((b) =>
-    b.member_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = bookings.filter((b) => {
+    const term = searchTerm.toLowerCase();
+    if (!term) return true;
+    if (b.member_name.toLowerCase().includes(term)) return true;
+    const qDigits = searchTerm.replace(/\D/g, '');
+    if (qDigits.length >= 3) {
+      const p = String(b.phone || '').replace(/\D/g, '');
+      if (p && p.includes(qDigits)) return true;
+    }
+    return false;
+  });
 
   const pending = filtered.filter((b) => b.q_status !== 'completed');
   const completed = filtered.filter((b) => b.q_status === 'completed');
@@ -319,7 +330,7 @@ export default function PastBookingQuestionnaires() {
                   <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search by name..."
+                      placeholder="Search by name or phone..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-9 h-9 text-sm"

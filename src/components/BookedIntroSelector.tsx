@@ -36,6 +36,7 @@ interface BookedIntro {
   fitness_goal: string | null;
   booking_status: string | null;
   intro_owner: string | null;
+  phone: string | null;
 }
 
 // Status values that should be excluded from the booking pool
@@ -107,6 +108,7 @@ export default function BookedIntroSelector({
         fitness_goal: row.fitness_goal,
         booking_status: row.booking_status,
         intro_owner: row.intro_owner,
+        phone: (row as any).phone || null,
       }));
 
       setBookings(mappedBookings);
@@ -129,9 +131,20 @@ export default function BookedIntroSelector({
       return !EXCLUDED_STATUSES.some(s => status.includes(s.toUpperCase()));
     });
     
-    // Apply search filter
-    const searched = searchQuery.trim()
-      ? activeBookings.filter(b => b.member_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    // Apply search filter (name or phone digits)
+    const q = searchQuery.trim();
+    const qLower = q.toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
+    const phoneActive = qDigits.length >= 3;
+    const searched = q
+      ? activeBookings.filter(b => {
+          if (b.member_name.toLowerCase().includes(qLower)) return true;
+          if (phoneActive) {
+            const p = String(b.phone || '').replace(/\D/g, '');
+            if (p && p.includes(qDigits)) return true;
+          }
+          return false;
+        })
       : activeBookings;
     
     // Sort alphabetically by member name
@@ -242,7 +255,7 @@ export default function BookedIntroSelector({
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by member name..."
+                placeholder="Search by name or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-8 h-8 text-sm"
