@@ -397,7 +397,7 @@ export default function Wig() {
         coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
 
       const isMissingCoach = (v: any) =>
-        !v || (typeof v === 'string' && (btrimEq(v, '') || /^tbd$/i.test(v.trim())));
+        !v || (typeof v === 'string' && (v.trim() === '' || /^tbd$/i.test(v.trim())));
 
       showedFirstIntroBookings.forEach(b => {
         // If booking coach is blank/TBD, fall back to the linked run's coach
