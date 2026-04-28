@@ -242,10 +242,11 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                         {r.birthday && (
                           <span>🎂 {(() => {
                             try {
-                              // birthday is a date string like '1995-03-14'
+                              // birthday is a date string like '1995-03-14' — show MM/DD/YYYY for HRM setup
                               const [y, m, d] = r.birthday.split('-').map(Number);
-                              const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                              if (m && d) return `${months[m-1]} ${d}`;
+                              if (y && m && d) {
+                                return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;
+                              }
                               return r.birthday;
                             } catch { return r.birthday; }
                           })()}</span>
