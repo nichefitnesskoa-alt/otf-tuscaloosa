@@ -25,6 +25,8 @@ interface RegRow {
   phone: string | null;
   outcome: string | null;
   created_at: string;
+  birthday: string | null;
+  weight_lbs: number | null;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
@@ -65,7 +67,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, outcome, created_at')
+          .select('id, first_name, last_name, phone, outcome, created_at, birthday, weight_lbs')
           .eq('vip_session_id', vipSessionId)
           .eq('is_group_contact', false)
           .order('created_at', { ascending: true }),
