@@ -1,63 +1,48 @@
-I want the pipeline journey to also reflect that they took a VIP class as well. not just show up after their first intro after. That should solve a lot of problems too  
-  
-Three fixes
+## Problem
 
-### 1. Coach "My Intros" — hide people who bought (Total Journey)
+Carsyn Gleichowski no-showed her Feb 4 booking, then was rebooked via the Reschedule flow for Apr 28. The new booking has `originating_booking_id` pointing to the no-show. Because something has an originating link, several parts of the app flag the new booking as a **2nd Intro**, send "No Q Needed", auto-prep it, and skip questionnaire prompts.
 
-**File:** `src/pages/CoachMyIntros.tsx`
+This violates the canon rule already documented in the project: **a no-show is not a prior visit — the person never had their intro.** The rebooking IS their 1st intro.
 
-Right now an intro stays on the list even after the member buys on a later visit (e.g., Shelby Millinder shows as "Unresolved"). It's only marked SALE if the run linked directly to that booking is a SALE. We need Total Journey logic: if **any** booking in the chain (this booking, its 2nd intro, or its originating booking) ended in a sale, treat this intro as "Joined" and hide it from the active queue.
+The MyDay 2nd-intro detector already has this check for bookings inside the current batch, but:
 
-Changes:
+1. **MyDay's "outside-batch" lookup** (`useUpcomingIntrosData.ts` step 3) only fetches `member_name` for the originating booking — it never checks status, so a no-show originator still flips the new booking to 2nd intro. **This is what's hitting Carsyn.**
+2. **`MyDayIntroCard.tsx`** uses naive `!!booking.originating_booking_id` with no status check at all.
+3. **Pipeline `selectors.ts`** (`has2ndIntro`, journey detection) treats any `originating_booking_id` as a 2nd intro without checking whether the originator was a no-show.
+4. **FollowUp `useFollowUpData.ts`** maps `secondIntroByOrigin` and dismisses parent follow-ups whenever an `originating_booking_id` exists — same blind check.
+5. **`useIntroTypeDetection.ts`** has the no-show guard for in-memory bookings but no fallback when the originator isn't loaded.
 
-- In `fetchData`, also pull all related bookings/runs in the chain. Easiest: build two maps after the existing fetch:
-  - `chainSaleByBookingId`: for each of the coach's bookings, check if any `intros_run` row in the entire `intros_run` set has `result_canon = 'SALE'` (or `isMembershipSale(result)`) AND links to either (a) this booking, (b) a booking whose `originating_booking_id = this.id`, or (c) the booking referenced by `this.originating_booking_id`.
-  - To do this we need a wider fetch: pull `intros_booked` rows (id, originating_booking_id) for every `originating_booking_id` referenced by the coach's bookings AND every booking that has one of the coach's bookings as its originating, plus pull `intros_run` for any of those bookings. One query: `select id, originating_booking_id from intros_booked where id in (...) or originating_booking_id in (...)`. Then `select linked_intro_booked_id, result, result_canon from intros_run where linked_intro_booked_id in (chain ids)`.
-- When merging, set `resultCanon = 'SALE'` whenever the chain has a sale (overriding `UNRESOLVED`/`DIDNT_BUY`/`NO_SHOW`). This automatically routes the intro to "Caught up" (tier 5) via existing `computePriority`, and the badge becomes "Joined".
-- Filter the rendered list (or in the `filtered` memo) so `'all'` and any non-`joined` filter exclude `resultCanon === 'SALE'`. Only the "Joined" filter shows them. This matches the user's intent: bought people leave the active list.
+## Fix — single rule, applied everywhere
 
-### 2. VIP Class intros — credit the VIP class coach in Studio Sales
+> A booking is a **2nd Intro** only if the originating (or any prior) booking for the same member was **NOT** `booking_status_canon = 'NO_SHOW'` AND was not soft-deleted. No-show originators are ignored; the current booking is treated as the **1st Intro**.
 
-**File:** `src/components/admin/MembershipPurchasesPanel.tsx`
+### Files to change
 
-Today the "Coach" column reads `intros_booked.coach_name`, which is the next intro's coach (Natalya), not the VIP class coach. Apply the same resolver pattern already used in `PerCoachTable.tsx`:
+**1. `src/features/myDay/useUpcomingIntrosData.ts`** (step 3, ~line 351)
+- Update the outside-batch query to also select `booking_status_canon, deleted_at`.
+- Only flip `isSecondIntro = true` when the originating booking is same-member AND not `NO_SHOW` AND not soft-deleted.
 
-- After fetching `bookings`, collect `vip_session_id`s from any booking whose `lead_source` starts with `"VIP Class"` and `vip_session_id` is set.
-- Fetch those `vip_sessions` rows (`id, coach_name`) and build `vipCoachByVipSession` map.
-- Extend the `bookingMap` value to also include `vipSessionId` and `leadSource` (already there).
-- When building each purchase row, if `bookingInfo.leadSource?.startsWith('VIP Class')` and a VIP coach exists for `bookingInfo.vipSessionId`, use that as `coach`. Otherwise fall back to `bookingInfo.coach`.
+**2. `src/components/myday/MyDayIntroCard.tsx`** (line 85)
+- Stop computing `isSecondIntro` from `originating_booking_id` alone. Accept `isSecondIntro` as a prop from the parent (which already does the proper detection), or look up the originating booking's status. Prefer prop-passing — parent (`useUpcomingIntrosData`) already resolves it correctly.
 
-This makes Jill Gaylard (and every VIP-class-sourced sale) credit the VIP class coach, matching the canonical attribution rule already enforced in coach performance and commission.
+**3. `src/features/pipeline/selectors.ts`** (lines 185, 191, 263, 272)
+- For each `originating_booking_id` check, also look up the originator in `journey.bookings` and require `booking_status_canon !== 'NO_SHOW'` and `!deleted_at` before counting it as a 2nd intro / setting `has2ndIntro`.
 
-### 3. Add Kaiya & Jayna to staff dropdowns everywhere
+**4. `src/features/followUp/useFollowUpData.ts`** (lines 182, 210–211, 362)
+- When building `secondIntroByOrigin` and when resolving `orig` in the dismissal logic, treat a no-show originator the same as "no originator" — do not dismiss the originator's follow-up, and do not surface the new booking as a 2nd intro on the parent.
+- For the parent-dismissal block (line ~210), only dismiss when the originator is `SHOWED` or otherwise non-no-show.
 
-**File:** `src/types/index.ts`
+**5. `src/hooks/useIntroTypeDetection.ts`** (already handles in-memory case; no change needed for that branch). Add a small note in the comment that callers must pass the originating booking row when available; outside-batch resolution is the caller's responsibility.
 
-`Kaiya` and `Jayna` exist in the `staff` table (both active SAs), but every dropdown in the app reads from the hardcoded `SALES_ASSOCIATES` / `COACHES` / `ALL_STAFF` arrays in `src/types/index.ts`. Add them:
+### Why `MyDayIntroCard` matters separately
+That card is rendered in a couple of places that don't run through `useUpcomingIntrosData` (e.g., direct booking views). Either pass `isSecondIntro` in or fetch the originator's status. Passing it as a prop is simpler and matches `IntroRowCard`'s pattern.
 
-```ts
-export const SALES_ASSOCIATES = [
-  'Bre','Bri','Elizabeth','Grace','Jayna','Kailey','Katie','Kaiya','Kayla','Koa','Lauren','Nora','Sophie'
-] as const;
-```
+### What NOT to change
+- The DB / `originating_booking_id` linkage from the Reschedule flow is correct — it's how we trace the journey for follow-ups and analytics. We only change how it's *interpreted* for the 1st-vs-2nd label.
+- VIP and friend (`referred_by_member_name`) carve-outs already in place stay as-is.
 
-`COACHES` stays the same (they aren't coaches). `ALL_STAFF` is auto-derived from both arrays, so it picks them up automatically. This single change propagates to all 16 files that import these constants — including the Pipeline "Intro Owner" dropdown shown in your screenshot, Edit Sale, Set Owner, Book Intro, Outcome Drawer, etc.
-
-## Downstream effects implemented
-
-- Coach My Intros priority/filter logic, "Caught up" totals, urgent-count banner all reflect bought members being removed from active.
-- Studio → Membership Purchases → Coach column updates for both Intro Sales and Outside Sales views (Outside Sales already had no coach value, so unchanged).
-- Per-Coach Performance table (`PerCoachTable.tsx`) — already uses VIP resolver; no change needed but consistent.
-- All 16 files reading `SALES_ASSOCIATES`/`ALL_STAFF` (Pipeline dialogs, Edit Sale, Book Intro Sheet, Walk-In Sheet, Outcome Drawer, VIP scheduler/convert, Fix Booking Attribution, Client Journey, Data Health, Follow-Ups Due Today, IntroBookingEntry, IntroRunEntry, IntroCard, VipRegistrationsSheet) instantly include Kaiya and Jayna.
-
-## Files changed
-
-- `src/pages/CoachMyIntros.tsx` — chain-sale lookup + filter bought from active
-- `src/components/admin/MembershipPurchasesPanel.tsx` — VIP coach resolver
-- `src/types/index.ts` — add Kaiya, Jayna to SALES_ASSOCIATES
-
-## Out of scope (not touched)
-
-- VIP class coach resolution in any other report (only Membership Purchases was called out and already-correct elsewhere will be re-verified, no edits).
-- The `staff` table itself (Kaiya/Jayna already exist as active).
-- No DB migrations.
+### Verification (after build mode)
+- Confirm Carsyn's Apr 28 booking shows **1st Intro** badge on MyDay, gets a "Send Q" prompt, and is not auto-prepped.
+- Confirm a true 2nd intro (originator with `SHOWED` or any non-no-show status) still shows the **2nd** badge and skips the Q.
+- Confirm Pipeline journey for Carsyn shows one chain but the active row is labeled 1st Intro.
+- Confirm her old no-show follow-up isn't dismissed by the rebook (since the new booking shouldn't be treated as a 2nd intro).
