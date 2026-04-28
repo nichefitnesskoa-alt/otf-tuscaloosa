@@ -352,7 +352,7 @@ export function InlineIntroLogger({
             size="sm"
             className="w-full h-8 text-xs"
             onClick={handleSubmit}
-            disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection) || (outcome === 'purchased' && !objection)}
+            disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection) || (outcome === 'purchased' && !objection) || (bookingHasNoCoach && !pickedCoach)}
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
             {saving ? 'Saving...' : 'Submit'}
