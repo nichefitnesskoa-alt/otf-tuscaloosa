@@ -678,10 +678,21 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
             )}
             {pickFromPipeline && !fromRun && !secondIntroOriginatingId ? (
               <div className="space-y-2">
-                <Input value={pipelineSearch} onChange={e => setPipelineSearch(e.target.value)} placeholder="Search name..." autoFocus />
+                <Input value={pipelineSearch} onChange={e => setPipelineSearch(e.target.value)} placeholder="Search name or phone..." autoFocus />
                 {pipelineSearch.length >= 2 && (
                   <ScrollArea className="max-h-48 border rounded-md">
-                    {journeys.filter(j => j.memberName.toLowerCase().includes(pipelineSearch.toLowerCase())).slice(0, 15).map(j => {
+                    {journeys.filter(j => {
+                      const term = pipelineSearch.toLowerCase();
+                      if (j.memberName.toLowerCase().includes(term)) return true;
+                      const qDigits = pipelineSearch.replace(/\D/g, '');
+                      if (qDigits.length >= 3) {
+                        for (const b of j.bookings) {
+                          const p = String((b as any).phone || '').replace(/\D/g, '');
+                          if (p && p.includes(qDigits)) return true;
+                        }
+                      }
+                      return false;
+                    }).slice(0, 15).map(j => {
                       const jLatest = j.bookings[0];
                       const jDate = jLatest?.class_date ? format(new Date(jLatest.class_date + 'T12:00:00'), 'MMM d') : null;
                       return (
