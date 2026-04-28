@@ -520,6 +520,22 @@ export function OutcomeDrawer({
       });
 
       if (result.success) {
+        // If booking had no coach (or "TBD") and SA picked one, persist to intros_booked so it stops appearing as TBD downstream
+        if (bookingHasNoCoach && coachName) {
+          try {
+            await supabase
+              .from('intros_booked')
+              .update({
+                coach_name: coachName,
+                last_edited_at: new Date().toISOString(),
+                last_edited_by: editedBy,
+                edit_reason: 'Coach assigned during outcome logging (was TBD/empty)',
+              })
+              .eq('id', bookingId);
+          } catch (e) {
+            console.error('Failed to backfill coach_name on booking:', e);
+          }
+        }
         toast.success('Outcome saved');
         if (result.newBookingId && secondIntroDate && secondIntroTime) {
           setSavedSecondIntro({
