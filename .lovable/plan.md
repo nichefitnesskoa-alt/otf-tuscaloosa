@@ -1,48 +1,59 @@
-## Problem
+# April WIG Window: Bookings With Coach = TBD
 
-Carsyn Gleichowski no-showed her Feb 4 booking, then was rebooked via the Reschedule flow for Apr 28. The new booking has `originating_booking_id` pointing to the no-show. Because something has an originating link, several parts of the app flag the new booking as a **2nd Intro**, send "No Q Needed", auto-prep it, and skip questionnaire prompts.
+These 12 standard intros for **April 1 – April 30, 2026** have `coach_name = 'TBD'` and are currently flowing into WIG without an attributed coach. Full file: `tbd_april_wig.csv`.
 
-This violates the canon rule already documented in the project: **a no-show is not a prior visit — the person never had their intro.** The rebooking IS their 1st intro.
+| Member | Day | Time | Status | Outcome |
+|---|---|---|---|---|
+| Bradli Davis | Wed 4/01 | 6:15 AM | Planning Reschedule | — |
+| jasmine beamon | Wed 4/01 | 5:30 PM | 2nd Intro Scheduled | Booked 2nd intro |
+| Calleigh George | Fri 4/03 | 8:45 AM | Planning Reschedule | — |
+| Amanda Nichols | Mon 4/13 | 10:00 AM | Active | Pending |
+| Steel Rawls | Tue 4/14 | 11:15 AM | Planning Reschedule | — |
+| Trinity Adams | Thu 4/16 | 8:45 AM | 2nd Intro Scheduled | Booked 2nd intro |
+| ellie swearingen | Thu 4/16 | 11:15 AM | Active | On 5 Class Pack |
+| Aubrey Thomas | Wed 4/22 | 8:45 AM | Active | Pending |
+| Ella Minton | Thu 4/23 | 5:30 PM | 2nd Intro Scheduled | Booked 2nd intro |
+| Noah Mesa | Sat 4/25 | 10:30 AM | Active | Follow-up needed |
+| Rory Duggan | Sat 4/25 | 10:30 AM | Active | No-show |
+| Shea Jackson | Sun 4/26 | 10:00 AM | Active | Follow-up needed |
 
-The MyDay 2nd-intro detector already has this check for bookings inside the current batch, but:
+All 12 are `Online Intro Offer (self-booked)` — confirms the self-booked pipeline never assigns a coach at booking time.
 
-1. **MyDay's "outside-batch" lookup** (`useUpcomingIntrosData.ts` step 3) only fetches `member_name` for the originating booking — it never checks status, so a no-show originator still flips the new booking to 2nd intro. **This is what's hitting Carsyn.**
-2. **`MyDayIntroCard.tsx`** uses naive `!!booking.originating_booking_id` with no status check at all.
-3. **Pipeline `selectors.ts`** (`has2ndIntro`, journey detection) treats any `originating_booking_id` as a 2nd intro without checking whether the originator was a no-show.
-4. **FollowUp `useFollowUpData.ts`** maps `secondIntroByOrigin` and dismisses parent follow-ups whenever an `originating_booking_id` exists — same blind check.
-5. **`useIntroTypeDetection.ts`** has the no-show guard for in-memory bookings but no fallback when the originator isn't loaded.
+---
 
-## Fix — single rule, applied everywhere
+# Build: Require Coach When Logging Outcome (If Missing)
 
-> A booking is a **2nd Intro** only if the originating (or any prior) booking for the same member was **NOT** `booking_status_canon = 'NO_SHOW'` AND was not soft-deleted. No-show originators are ignored; the current booking is treated as the **1st Intro**.
+## Rule
+When an SA opens the outcome flow on a booking whose `coach_name` is empty or "TBD", the coach dropdown becomes a **required field for every outcome** (sale, no-show, follow-up, planning, reschedule — all of them). Save is blocked with a toast until a real coach is picked. Once saved, the booking's `coach_name` is updated to the chosen coach so it stops appearing as TBD everywhere downstream (WIG, Pipeline, Coach attribution).
 
-### Files to change
+If the booking already has a real coach assigned, behavior is unchanged.
 
-**1. `src/features/myDay/useUpcomingIntrosData.ts`** (step 3, ~line 351)
-- Update the outside-batch query to also select `booking_status_canon, deleted_at`.
-- Only flip `isSecondIntro = true` when the originating booking is same-member AND not `NO_SHOW` AND not soft-deleted.
+## Files Touched
 
-**2. `src/components/myday/MyDayIntroCard.tsx`** (line 85)
-- Stop computing `isSecondIntro` from `originating_booking_id` alone. Accept `isSecondIntro` as a prop from the parent (which already does the proper detection), or look up the originating booking's status. Prefer prop-passing — parent (`useUpcomingIntrosData`) already resolves it correctly.
+**`src/components/myday/OutcomeDrawer.tsx`**
+- Add `bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim())`.
+- Update `coachRequired` to: existing rule **OR** `bookingHasNoCoach && !!outcome`.
+- Show coach dropdown whenever `coachRequired` is true (it already renders for sale outcomes — extend the visibility condition).
+- Add a small amber helper line above the coach dropdown when `bookingHasNoCoach`: "No coach on file — pick who taught this class."
+- On save, when `bookingHasNoCoach && coachName`, also `update intros_booked set coach_name = coachName, last_edited_at, last_edited_by` so the booking record is corrected.
 
-**3. `src/features/pipeline/selectors.ts`** (lines 185, 191, 263, 272)
-- For each `originating_booking_id` check, also look up the originator in `journey.bookings` and require `booking_status_canon !== 'NO_SHOW'` and `!deleted_at` before counting it as a 2nd intro / setting `has2ndIntro`.
+**`src/components/dashboard/OutcomeEditor.tsx`**
+- This editor currently has no coach picker. Add one (using `COACHES` from `@/types`) shown only when the underlying booking has no coach / is TBD.
+- Accept `currentCoach` prop from caller; require selection before save when missing; persist back to `intros_booked.coach_name` and pass `coachName` through to `applyIntroOutcomeUpdate`.
+- Update the one call site to pass `currentCoach`.
 
-**4. `src/features/followUp/useFollowUpData.ts`** (lines 182, 210–211, 362)
-- When building `secondIntroByOrigin` and when resolving `orig` in the dismissal logic, treat a no-show originator the same as "no originator" — do not dismiss the originator's follow-up, and do not surface the new booking as a 2nd intro on the parent.
-- For the parent-dismissal block (line ~210), only dismiss when the originator is `SHOWED` or otherwise non-no-show.
+**`src/components/dashboard/InlineIntroLogger.tsx`**
+- Today it blindly writes the prop `coachName` into `intros_run`. If the prop is empty/"TBD", show the coach dropdown and require selection before submit; on submit, also patch `intros_booked.coach_name`.
 
-**5. `src/hooks/useIntroTypeDetection.ts`** (already handles in-memory case; no change needed for that branch). Add a small note in the comment that callers must pass the originating booking row when available; outside-batch resolution is the caller's responsibility.
+**No DB migration needed** — uses existing `coach_name` column and existing `applyIntroOutcomeUpdate` plumbing.
 
-### Why `MyDayIntroCard` matters separately
-That card is rendered in a couple of places that don't run through `useUpcomingIntrosData` (e.g., direct booking views). Either pass `isSecondIntro` in or fetch the originator's status. Passing it as a prop is simpler and matches `IntroRowCard`'s pattern.
+## Downstream Effects (all handled in this build)
+- WIG per-coach table stops counting "TBD" rows for new outcomes — coach gets proper credit.
+- Pipeline coach column updates immediately because we patch `intros_booked.coach_name` on save.
+- Coach View / Follow-Up ownership unaffected (already keyed off coach_name).
+- Existing 12 TBD records above are **not** auto-fixed — they only get repaired when an SA next logs/edits an outcome on them. (If you want a one-time backfill UI, say the word and I'll add it.)
 
-### What NOT to change
-- The DB / `originating_booking_id` linkage from the Reschedule flow is correct — it's how we trace the journey for follow-ups and analytics. We only change how it's *interpreted* for the 1st-vs-2nd label.
-- VIP and friend (`referred_by_member_name`) carve-outs already in place stay as-is.
-
-### Verification (after build mode)
-- Confirm Carsyn's Apr 28 booking shows **1st Intro** badge on MyDay, gets a "Send Q" prompt, and is not auto-prepped.
-- Confirm a true 2nd intro (originator with `SHOWED` or any non-no-show status) still shows the **2nd** badge and skips the Q.
-- Confirm Pipeline journey for Carsyn shows one chain but the active row is labeled 1st Intro.
-- Confirm her old no-show follow-up isn't dismissed by the rebook (since the new booking shouldn't be treated as a 2nd intro).
+## Out of Scope
+- Backfilling the 12 existing April TBD records.
+- Fixing self-booked ingestion to auto-assign a coach at booking time (separate problem).
+- Touching role permissions, navigation, or unrelated pages.

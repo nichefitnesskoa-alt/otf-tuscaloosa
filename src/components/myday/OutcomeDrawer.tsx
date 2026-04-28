@@ -201,7 +201,10 @@ export function OutcomeDrawer({
   const isNoShow = outcome === 'No-show';
   const isVipClassIntroOutcome = outcome === 'VIP Class Intro';
   const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
+  // Booking has no real coach assigned (empty or "TBD") — force coach selection on every outcome
+  const bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim());
+  const coachRequiredBase = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
+  const coachRequired = coachRequiredBase || (bookingHasNoCoach && !!outcome && !isReschedule && !isPlanningToReschedule);
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
@@ -517,6 +520,22 @@ export function OutcomeDrawer({
       });
 
       if (result.success) {
+        // If booking had no coach (or "TBD") and SA picked one, persist to intros_booked so it stops appearing as TBD downstream
+        if (bookingHasNoCoach && coachName) {
+          try {
+            await supabase
+              .from('intros_booked')
+              .update({
+                coach_name: coachName,
+                last_edited_at: new Date().toISOString(),
+                last_edited_by: editedBy,
+                edit_reason: 'Coach assigned during outcome logging (was TBD/empty)',
+              })
+              .eq('id', bookingId);
+          } catch (e) {
+            console.error('Failed to backfill coach_name on booking:', e);
+          }
+        }
         toast.success('Outcome saved');
         if (result.newBookingId && secondIntroDate && secondIntroTime) {
           setSavedSecondIntro({
@@ -937,13 +956,18 @@ export function OutcomeDrawer({
         </div>
       )}
 
-      {/* Coach who taught the class — hidden for reschedule outcomes */}
-      {outcome && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && (
+      {/* Coach who taught the class — hidden for reschedule outcomes; forced visible if booking has no coach */}
+      {outcome && !isReschedule && !isPlanningToReschedule && (!isPlanningToBuy || bookingHasNoCoach) && (!isOn5ClassPack || bookingHasNoCoach) && (
         <div className="space-y-1">
+          {bookingHasNoCoach && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1">
+              ⚠️ No coach on file — pick who taught this class so they get credit.
+            </p>
+          )}
           <Label className="text-xs">
             Coach who taught the class
-            {!isNoShow && <span className="text-destructive ml-1">*</span>}
-            {isNoShow && <span className="text-muted-foreground ml-1">(optional)</span>}
+            {coachRequired && <span className="text-destructive ml-1">*</span>}
+            {!coachRequired && <span className="text-muted-foreground ml-1">(optional)</span>}
           </Label>
           <Select value={coachName} onValueChange={setCoachName}>
             <SelectTrigger className="h-8 text-sm">

@@ -12,6 +12,7 @@ import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
+import { COACHES } from '@/types';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
@@ -59,8 +60,11 @@ export function InlineIntroLogger({
   const [membershipType, setMembershipType] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const bookingHasNoCoach = !coachName || coachName.trim() === '' || /^tbd$/i.test(coachName.trim());
+  const [pickedCoach, setPickedCoach] = useState<string>(bookingHasNoCoach ? '' : coachName);
 
   const selectedOption = MEMBERSHIP_OPTIONS.find(m => m.label === membershipType);
+  const effectiveCoach = bookingHasNoCoach ? pickedCoach : coachName;
 
   const handleSubmit = async () => {
     if (!outcome) {
@@ -69,6 +73,10 @@ export function InlineIntroLogger({
     }
     if (outcome === 'purchased' && !membershipType) {
       toast.error('Select a membership type');
+      return;
+    }
+    if (bookingHasNoCoach && !pickedCoach) {
+      toast.error('Pick the coach who taught this class');
       return;
     }
     setSaving(true);
@@ -123,7 +131,7 @@ export function InlineIntroLogger({
           class_time: classTime || '00:00',
           lead_source: leadSource,
           result,
-          coach_name: coachName,
+          coach_name: effectiveCoach,
           sa_name: saName,
           intro_owner: saName,
           intro_owner_locked: true,
@@ -147,9 +155,12 @@ export function InlineIntroLogger({
           .update({
             intro_owner: saName,
             intro_owner_locked: true,
+            ...(bookingHasNoCoach && pickedCoach ? { coach_name: pickedCoach } : {}),
             last_edited_at: new Date().toISOString(),
             last_edited_by: saName,
-            edit_reason: 'Intro owner locked on first run via MyDay',
+            edit_reason: bookingHasNoCoach && pickedCoach
+              ? 'Intro owner locked + coach assigned (was TBD/empty) on first run via MyDay'
+              : 'Intro owner locked on first run via MyDay',
           })
           .eq('id', bookingId);
       } catch (e) {
@@ -225,6 +236,24 @@ export function InlineIntroLogger({
   return (
     <div className="border-t mt-2 pt-2 space-y-2">
       <Label className="text-xs font-semibold text-muted-foreground">Log Intro Result</Label>
+
+      {bookingHasNoCoach && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2 py-1">
+            ⚠️ No coach on file — pick who taught this class.
+          </p>
+          <Select value={pickedCoach} onValueChange={setPickedCoach}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select coach…" />
+            </SelectTrigger>
+            <SelectContent>
+              {COACHES.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-1.5">
         <Button
@@ -323,7 +352,7 @@ export function InlineIntroLogger({
             size="sm"
             className="w-full h-8 text-xs"
             onClick={handleSubmit}
-            disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection) || (outcome === 'purchased' && !objection)}
+            disabled={saving || (outcome === 'purchased' && !membershipType) || (outcome === 'didnt_buy' && !objection) || (outcome === 'purchased' && !objection) || (bookingHasNoCoach && !pickedCoach)}
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
             {saving ? 'Saving...' : 'Submit'}
