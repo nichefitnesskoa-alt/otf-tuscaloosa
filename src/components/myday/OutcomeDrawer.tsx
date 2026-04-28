@@ -201,7 +201,10 @@ export function OutcomeDrawer({
   const isNoShow = outcome === 'No-show';
   const isVipClassIntroOutcome = outcome === 'VIP Class Intro';
   const needsObjection = !isSale && !isNoShow && !isReschedule && !isPlanningToReschedule && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome && !!outcome;
-  const coachRequired = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
+  // Booking has no real coach assigned (empty or "TBD") — force coach selection on every outcome
+  const bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim());
+  const coachRequiredBase = !!outcome && !isNoShow && !isReschedule && !isPlanningToReschedule && !isFollowUpNeeded && !isPlanningToBook2ndIntro && !isPlanningToBuy && !isOn5ClassPack && !isVipClassIntroOutcome;
+  const coachRequired = coachRequiredBase || (bookingHasNoCoach && !!outcome && !isReschedule && !isPlanningToReschedule);
 
   // Computed commission — live recomputes on outcome change
   const commission = computeCommission({ membershipType: isSale ? outcome : null });
