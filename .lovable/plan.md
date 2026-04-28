@@ -1,59 +1,69 @@
-# April WIG Window: Bookings With Coach = TBD
+## The Problem
 
-These 12 standard intros for **April 1 – April 30, 2026** have `coach_name = 'TBD'` and are currently flowing into WIG without an attributed coach. Full file: `tbd_april_wig.csv`.
+Jasmine Beamon's 4/1 intro shows "TBD" on the WIG even though Natalya clearly ran the class. The drill-in shows Natalya because that view reads `intros_run.coach_name`. The WIG "Coach Performance" table reads `intros_booked.coach_name` — which was never updated when the run was logged.
 
-| Member | Day | Time | Status | Outcome |
-|---|---|---|---|---|
-| Bradli Davis | Wed 4/01 | 6:15 AM | Planning Reschedule | — |
-| jasmine beamon | Wed 4/01 | 5:30 PM | 2nd Intro Scheduled | Booked 2nd intro |
-| Calleigh George | Fri 4/03 | 8:45 AM | Planning Reschedule | — |
-| Amanda Nichols | Mon 4/13 | 10:00 AM | Active | Pending |
-| Steel Rawls | Tue 4/14 | 11:15 AM | Planning Reschedule | — |
-| Trinity Adams | Thu 4/16 | 8:45 AM | 2nd Intro Scheduled | Booked 2nd intro |
-| ellie swearingen | Thu 4/16 | 11:15 AM | Active | On 5 Class Pack |
-| Aubrey Thomas | Wed 4/22 | 8:45 AM | Active | Pending |
-| Ella Minton | Thu 4/23 | 5:30 PM | 2nd Intro Scheduled | Booked 2nd intro |
-| Noah Mesa | Sat 4/25 | 10:30 AM | Active | Follow-up needed |
-| Rory Duggan | Sat 4/25 | 10:30 AM | Active | No-show |
-| Shea Jackson | Sun 4/26 | 10:00 AM | Active | Follow-up needed |
+## Root Cause
 
-All 12 are `Online Intro Offer (self-booked)` — confirms the self-booked pipeline never assigns a coach at booking time.
+When an SA logs an intro outcome, the coach is saved to `intros_run.coach_name`. The matching `intros_booked.coach_name` row is only patched if (a) the SA went through `OutcomeDrawer` recently and (b) the booking coach was empty/TBD at save time. Older rows, rows logged via other paths (InlineIntroLogger, ClientJourneyPanel, IntroRunEntry, mobile flows), and any backfilled history were never synced.
 
----
+Result: a coach IS attached to the run, but the booking still says "TBD" — so every metric anchored to `intros_booked.coach_name` (WIG Coach Performance, Per-Coach close rate denominator, TBD lists) silently undercounts that coach.
 
-# Build: Require Coach When Logging Outcome (If Missing)
+## Scope of Damage
 
-## Rule
-When an SA opens the outcome flow on a booking whose `coach_name` is empty or "TBD", the coach dropdown becomes a **required field for every outcome** (sale, no-show, follow-up, planning, reschedule — all of them). Save is blocked with a toast until a real coach is picked. Once saved, the booking's `coach_name` is updated to the chosen coach so it stops appearing as TBD everywhere downstream (WIG, Pipeline, Coach attribution).
+A query against the database returned **30+ bookings** going back to February 2026 where:
+- `intros_booked.coach_name` is `'TBD'`, empty, or null
+- `intros_run.coach_name` has a real coach (Natalya, Elizabeth, Bre, Koa, James, Nathan, Kaitlyn H, Premier, etc.)
 
-If the booking already has a real coach assigned, behavior is unchanged.
+These coaches are losing credit for "Intros Coached" in the WIG every month.
+
+## The Fix (Three Parts — All Built In One Pass)
+
+### 1. One-Time Backfill Migration
+
+For every `intros_booked` row where `coach_name` is null/empty/TBD AND a linked `intros_run` row has a real coach name, copy the run's coach into the booking. Audit fields:
+- `last_edited_by = 'System (Coach Backfill)'`
+- `edit_reason = 'Backfilled from linked run coach_name'`
+- `last_edited_at = now()`
+
+Skip soft-deleted bookings.
+
+### 2. Database Trigger — Auto-Sync Going Forward
+
+Add an `AFTER INSERT OR UPDATE` trigger on `intros_run`. Whenever `coach_name` is set to a non-empty, non-TBD value AND the linked booking's `coach_name` is null/empty/TBD, patch the booking. This eliminates the recurrence — no app code can forget to sync because the database does it.
+
+```text
+intros_run.coach_name set ──► trigger ──► intros_booked.coach_name updated
+                                          (only if booking coach was missing)
+```
+
+### 3. WIG Query Hardening (defense in depth)
+
+Update `src/pages/Wig.tsx` coach measures and `src/components/dashboard/PerCoachTable.tsx` so when `intros_booked.coach_name` is null/empty/'TBD', they fall back to the linked `intros_run.coach_name`. This protects against any future code path that bypasses the trigger.
+
+## Downstream Effects (all addressed in this build)
+
+- WIG → Coach Performance table: Natalya, Elizabeth, Bre, Koa, etc. immediately get correct "Intros Coached" counts for past months
+- WIG → Per-Coach close rate: denominators correct, close rates recalculate
+- Pipeline → coach displays: row cards stop showing "TBD" for these clients
+- TBD-coach enforcement (built last build): the "no coach on file" warning stops triggering for these resolved bookings
+- Drill-in views already showed the right coach — now they match the WIG
 
 ## Files Touched
 
-**`src/components/myday/OutcomeDrawer.tsx`**
-- Add `bookingHasNoCoach = !initialCoach || initialCoach.trim() === '' || /^tbd$/i.test(initialCoach.trim())`.
-- Update `coachRequired` to: existing rule **OR** `bookingHasNoCoach && !!outcome`.
-- Show coach dropdown whenever `coachRequired` is true (it already renders for sale outcomes — extend the visibility condition).
-- Add a small amber helper line above the coach dropdown when `bookingHasNoCoach`: "No coach on file — pick who taught this class."
-- On save, when `bookingHasNoCoach && coachName`, also `update intros_booked set coach_name = coachName, last_edited_at, last_edited_by` so the booking record is corrected.
+- New migration: backfill SQL + trigger function + trigger
+- `src/pages/Wig.tsx` — fallback to run coach when booking coach is missing
+- `src/components/dashboard/PerCoachTable.tsx` — same fallback in `resolveCoach`
 
-**`src/components/dashboard/OutcomeEditor.tsx`**
-- This editor currently has no coach picker. Add one (using `COACHES` from `@/types`) shown only when the underlying booking has no coach / is TBD.
-- Accept `currentCoach` prop from caller; require selection before save when missing; persist back to `intros_booked.coach_name` and pass `coachName` through to `applyIntroOutcomeUpdate`.
-- Update the one call site to pass `currentCoach`.
+## What Will NOT Change
 
-**`src/components/dashboard/InlineIntroLogger.tsx`**
-- Today it blindly writes the prop `coachName` into `intros_run`. If the prop is empty/"TBD", show the coach dropdown and require selection before submit; on submit, also patch `intros_booked.coach_name`.
+- Existing UI, layouts, navigation, role permissions
+- Any flow where `intros_booked.coach_name` already has a real value (trigger only fills gaps, never overwrites)
+- VIP attribution logic (vip_session coach precedence preserved)
+- Manual coach edits via Pipeline edit dialog (those still win — trigger only fills missing values)
 
-**No DB migration needed** — uses existing `coach_name` column and existing `applyIntroOutcomeUpdate` plumbing.
+## Verification After Deploy
 
-## Downstream Effects (all handled in this build)
-- WIG per-coach table stops counting "TBD" rows for new outcomes — coach gets proper credit.
-- Pipeline coach column updates immediately because we patch `intros_booked.coach_name` on save.
-- Coach View / Follow-Up ownership unaffected (already keyed off coach_name).
-- Existing 12 TBD records above are **not** auto-fixed — they only get repaired when an SA next logs/edits an outcome on them. (If you want a one-time backfill UI, say the word and I'll add it.)
-
-## Out of Scope
-- Backfilling the 12 existing April TBD records.
-- Fixing self-booked ingestion to auto-assign a coach at booking time (separate problem).
-- Touching role permissions, navigation, or unrelated pages.
+1. Re-query the "TBD with run coach" list — should return 0 rows
+2. Open WIG → Coach Performance for March/April — Natalya/Elizabeth/Bre counts should jump
+3. Insert a new run with coach_name on a TBD booking — confirm booking auto-updates
+4. Confirm Jasmine Beamon's 4/1 intro now credits Natalya in the WIG
