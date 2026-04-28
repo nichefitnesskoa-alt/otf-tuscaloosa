@@ -331,7 +331,10 @@ export default function CoachMyIntros() {
       const transferred = !!(allFu?.transferred_to_sa_at);
       const notInterested = allFu?.not_interested_at || null;
 
-      const resultCanon = run?.result_canon || 'UNRESOLVED';
+      const baseResultCanon = run?.result_canon || 'UNRESOLVED';
+      // Total Journey override: if any booking in this person's chain has a sale,
+      // treat this intro as Joined and route it to "Caught up".
+      const resultCanon = chainSaleByBooking.get(b.id) ? 'SALE' : baseResultCanon;
       const isSecondIntro = !!b.originating_booking_id;
 
       const lastTouch = lastTouchRow
