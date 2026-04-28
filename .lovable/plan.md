@@ -1,79 +1,41 @@
-## Goal
+## What you'll get
 
-Treat VIP registrants like New Leads — staff see the registrant's name on the front of MyDay the moment they register, and can copy their phone or send a booking-confirmation script with one tap, both from the **VIP Updates banner** and from the **VIP Registrations sheet**.
+1. **Search by phone in Pipeline** (and the other in‑app search boxes that should support it)
+2. **Birthday + weight visible** for each registrant in the MyDay VIP group sheet — no more bouncing to Pipeline to look it up
 
-## Root cause
+## 1. Phone search
 
-Three gaps today:
-1. `VipClaimBanner` only shows aggregate copy (`"15 registered for X on Mon Apr 28..."`) because the original notification was privacy-stripped — no name, no phone in `meta`.
-2. The registrant rows inside `VipRegistrationsSheet` have only an outcome dropdown — no Copy Phone, no Send Script. SAs can't text the booking confirmation without leaving the sheet.
-3. The VIP Updates banner has zero action buttons — only Dismiss.
+Right now the Pipeline search bar only matches **member name** and **intro owner**. It will be updated to also match **phone number** (digits-only matching, so `(205) 555-1234`, `205-555-1234`, and `2055551234` all work).
 
-The fix is a single coherent loop: write the data on registration → display + actionize it everywhere it surfaces.
+The same upgrade will apply to the other "name-only" search boxes that show up daily:
 
-## Changes
+| Location | Today | After |
+|---|---|---|
+| Pipeline filter bar | name / owner | + phone |
+| Pipeline → Find existing client dialog | name | + phone |
+| Admin → Client Journey Panel | name / owner | + phone |
+| Past Booking Questionnaires picker | name | + phone |
+| Booked Intro Selector | name | + phone |
+| ContactLogger (My Day) | name | + phone |
+| Client Search Script Picker | name | + phone |
 
-### A. `src/pages/VipMemberRegister.tsx` — write name + phone into the notification
+Out of scope (already supports phone, or not relevant): GlobalSearch (already does), VIP pipeline table (already does), Scripts search, Milestones search.
 
-Replace the current `notifications.insert` (privacy-stripped) with one that puts the registrant's name in the title and includes `first_name`, `last_name`, `phone`, `session_date`, `session_time` in `meta` so consumers can render actions.
+## 2. MyDay VIP group sheet — show birthday & weight
 
-- New `title`: `"{First Last} — {GroupName}"`
-- New `body`: `"Just registered for {Group} on {Date} at {Time}. Text them to confirm. ({count} total registered)"`
-- `meta` adds: `first_name`, `last_name`, `phone`, `session_date`, `session_time` (existing keys preserved)
+In the VIP registrations sheet (opened from a VIP card on My Day), each attendee row currently shows just **Name + Copy/Script/Outcome buttons**. It will be expanded to show:
 
-This is staff-facing only (notifications already require login to view). No PII leaves the staff app.
+- **Birthday** (e.g. "🎂 Mar 14") — only if on file
+- **Weight** (e.g. "⚖ 165 lb") — only if on file
 
-### B. `src/features/myDay/VipClaimBanner.tsx` — add actions for `vip_member_registered`
+Displayed as a small muted line under the name, so the row stays compact. Missing values are simply hidden (no "—").
 
-For each notification card, when `notification_type === 'vip_member_registered'` and `meta.phone` is present:
+The data already exists on the `vip_registrations` table (`birthday`, `weight_lbs` columns) — just need to select and render them.
 
-- Render a row of two buttons under the body text, matching the New Leads alert pattern:
-  - **Copy Phone** — `navigator.clipboard.writeText(meta.phone)` → 2-second `Copied!` confirmation, never collapses card.
-  - **Send Script** — opens `ScriptSendDrawer` with `categoryFilter="booking_confirmation"`, `leadName={meta.first_name} {meta.last_name}`, `leadPhone={meta.phone}`, `bookingId={null}`, `leadId={null}`, `saName={user.name}`.
-- Pass `user.name` from `useAuth()` (already used elsewhere in MyDay) — banner now reads it on mount.
-- `vip_slot_claimed` notifications keep current behavior (no actions, no phone available).
-- Dismiss button stays where it is, top-right.
+## Technical notes
 
-44px tap targets, OTF orange CTA on Send Script, outline on Copy Phone, Lucide `Phone`/`Copy`/`Send` icons with full text labels.
+- **Pipeline search**: extend `filterBySearch` in `src/features/pipeline/selectors.ts` to also match against `bookings[].phone` using a digits-only comparison (strip non-digits from both query and stored value, require ≥3 digits before phone-matching to avoid noise). Update placeholder to "Search name, phone, or intro owner…".
+- **Other search boxes**: add the same digits-only phone match alongside existing name match in each component listed above.
+- **VIP sheet**: add `birthday, weight_lbs` to the `vip_registrations` select in `src/features/myDay/VipRegistrationsSheet.tsx`, render under the name with `date-fns` formatting for birthday.
 
-### C. `src/features/myDay/VipRegistrationsSheet.tsx` — per-row Copy Phone + Send Script
-
-In the per-attendee list (lines 219–248), each row currently shows `name + outcome dropdown`. Add two compact icon-buttons between name and outcome dropdown:
-
-- **Copy Phone** (icon `Copy` + "Copy") — disabled if `r.phone` is null. Shows `Copied!` for 2s.
-- **Send Script** (icon `Send` + "Script") — opens shared `ScriptSendDrawer` instance with:
-  - `categoryFilter="booking_confirmation"`
-  - `leadName="{r.first_name} {r.last_name}"`
-  - `leadPhone={r.phone}`
-  - `saName={userName}` (already a prop)
-- Drawer state held at sheet level (single instance, opened with the active row's data) so it doesn't fight with the existing `BookIntroSheet` instance.
-- Outcome dropdown stays exactly where it is on the right.
-
-Row layout on mobile/tablet: name (truncate) · [Copy] [Script] · [Outcome ▾]. Row may wrap actions to a second sub-row under 380px width using existing flex-wrap pattern.
-
-## Files touched
-
-- Modified: `src/pages/VipMemberRegister.tsx` — restore name in notification title + add phone/name/session fields to `meta`.
-- Modified: `src/features/myDay/VipClaimBanner.tsx` — wire `useAuth`, render Copy Phone + Send Script for `vip_member_registered`, mount one shared `ScriptSendDrawer`.
-- Modified: `src/features/myDay/VipRegistrationsSheet.tsx` — add Copy Phone + Send Script buttons to each registrant row, mount one shared `ScriptSendDrawer`.
-
-No DB schema changes. No migration. No new outcome values. No new categories — `booking_confirmation` already exists per `normalizeCategory.ts`.
-
-## What does NOT change
-
-- Outcome dropdown options, save logic, optimistic updates, BookIntroSheet hand-off — unchanged
-- VIP isolation (`is_vip` stays false on registrant intros), conversion math, friend logic — unchanged
-- `vip_slot_claimed` notifications (still aggregate, no PII to display) — unchanged
-- Notifications table schema, RLS, realtime subscription — unchanged
-- The two-line outcome summary just shipped (`13 showed · 2 no-show / Of those 13 → 4 booked an intro`) — unchanged
-- Coach picker, attribution rules, Central Time conventions, role permissions — unchanged
-- New Leads alert behavior — unchanged (this build mirrors its pattern, doesn't modify it)
-
-## Downstream effects implemented in this build
-
-- VIP Updates banner now shows the registrant's name on the face of MyDay as soon as they register, with one-tap Copy Phone + Send Script — matching the New Leads alert workflow exactly.
-- Inside the VIP Registrations sheet, every registrant row gets the same two actions, so SAs can text confirmations after the fact without leaving the sheet.
-- `script_send_log` and `script_actions` rows are auto-written by `ScriptSendDrawer.handleCopy` (existing behavior) — these VIP-confirmation sends now show up in the Activity Log, Per-SA touch counts, and shift recap automatically.
-- The new `meta.phone` payload is consumed only by the banner today; future surfaces (e.g. shift recap, manager Slack-style digests) can read it without a follow-up migration.
-- Existing notifications inserted before this build still render — the banner gracefully omits action buttons when `meta.phone` is missing.
-- No new role visibility added: only SAs/Coaches/Admins who already see MyDay see VIP Updates; behavior unchanged.
+No DB changes. No new dependencies.
