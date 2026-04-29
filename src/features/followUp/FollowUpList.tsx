@@ -456,6 +456,16 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             size="sm"
             variant="outline"
             className="min-h-[44px] flex-1 cursor-pointer"
+            onClick={handleLogSent}
+            disabled={loggingSent}
+          >
+            <CheckCheck className="w-3.5 h-3.5 mr-1" />
+            {loggingSent ? 'Logging…' : 'Log Sent'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] flex-1 cursor-pointer"
             onClick={handleLogOutcome}
           >
             <ClipboardList className="w-3.5 h-3.5 mr-1" />
