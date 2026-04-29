@@ -22,7 +22,8 @@ const TAB_CATEGORY_MAP: Record<string, string[]> = {
   confirmation: ['booking_confirmation', 'pre_class_reminder', 'day_before_reminder', 'confirmation'],
   questionnaire: ['booking_confirmation', 'pre_class_reminder', 'questionnaire'],
   no_show: ['no_show'],
-  follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up', 'reschedule'],
+  follow_up: ['no_show', 'post_class_no_close', 'post_class_joined', 'cancel_freeze', 'follow_up', 'reschedule', 'coach_followup'],
+  coach_followup: ['coach_followup', 'follow_up', 'post_class_no_close', 'post_class_joined'],
   outreach: ['web_lead', 'cold_lead', 'ig_dm', 'referral_ask', 'promo', 'outreach'],
   web_lead: ['web_lead'],
   cold_lead: ['cold_lead'],
@@ -41,6 +42,8 @@ interface MergeContext {
   'sa-name'?: string;
   'coach-name'?: string;
   'coach-first-name'?: string;
+  'first-intro-coach-name'?: string;
+  'first-intro-coach-full-name'?: string;
   day?: string;
   time?: string;
   'today/tomorrow'?: string;
