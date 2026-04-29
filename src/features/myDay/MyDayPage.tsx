@@ -79,6 +79,7 @@ export default function MyDayPage() {
 
   // Prep/Script/Coach/Outcome drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
+  const [prepIsSecondIntro, setPrepIsSecondIntro] = useState(false);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
   const [scriptFromFollowUp, setScriptFromFollowUp] = useState(false);
@@ -177,7 +178,11 @@ export default function MyDayPage() {
 
   // Listen for Prep/Script/Coach events from IntroRowCard
   useEffect(() => {
-    const onPrep = (e: Event) => setPrepBookingId((e as CustomEvent).detail.bookingId);
+    const onPrep = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setPrepBookingId(detail.bookingId);
+      setPrepIsSecondIntro(!!detail.isSecondIntro);
+    };
     const onScript = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       setScriptBookingId(detail.bookingId);
@@ -500,7 +505,7 @@ export default function MyDayPage() {
           classTime={prepBooking.intro_time}
           coachName={prepBooking.coach_name}
           leadSource={prepBooking.lead_source}
-          isSecondIntro={!!prepBooking.originating_booking_id && !(prepBooking as any).referred_by_member_name}
+          isSecondIntro={prepIsSecondIntro}
           originatingBookingId={prepBooking.originating_booking_id}
           phone={null}
           email={null}

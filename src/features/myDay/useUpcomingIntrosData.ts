@@ -10,6 +10,7 @@ import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayT
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
+import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
 import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 
@@ -266,8 +267,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            // Only count as 2nd intro if the originating booking wasn't a no-show
-            if ((orig as any).booking_status_canon !== 'NO_SHOW') {
+            // Only count as 2nd intro if the originating booking actually ran
+            // (not no-show, not rescheduled, not cancelled, not soft-deleted)
+            if (!NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) {
               item.isSecondIntro = true;
             }
           }
@@ -289,7 +291,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             .from('intros_run')
             .select('member_name, linked_intro_booked_id, result_canon')
             .in('member_name', batchExtended)
-            .neq('result_canon', 'NO_SHOW');
+            .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)');
           if (priorRuns) {
             for (const pr of priorRuns) {
               priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
@@ -330,7 +332,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
               .from('intros_run')
               .select('id, linked_intro_booked_id, result_canon')
               .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
-              .neq('result_canon', 'NO_SHOW')
+              .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)')
               .limit(5);
             const hasExternalRun = (externalRuns || []).some(r => 
               r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
@@ -347,8 +349,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           const b = bookings.find(bk => bk.id === item.bookingId);
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           if (bookings.find(o => o.id === b.originating_booking_id)) continue; // already handled
-          // Originating booking is outside batch — check if same member AND wasn't a no-show / soft-deleted.
-          // A no-show originator means the member never had their intro, so the rebook IS the 1st intro.
+          // Originating booking is outside batch — check if same member AND originator actually ran.
+          // If originator status is in NON_RAN_BOOKING_STATUSES (no-show, rescheduled, cancelled,
+          // soft-deleted), the member never had a real first intro, so this rebook IS the 1st intro.
           const { data: origBooking } = await supabase
             .from('intros_booked')
             .select('member_name, booking_status_canon, deleted_at')
@@ -357,7 +360,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (
             origBooking &&
             origBooking.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '') &&
-            (origBooking as any).booking_status_canon !== 'NO_SHOW' &&
+            !NON_RAN_BOOKING_STATUSES.has((origBooking as any).booking_status_canon || '') &&
             !(origBooking as any).deleted_at
           ) {
             item.isSecondIntro = true;
