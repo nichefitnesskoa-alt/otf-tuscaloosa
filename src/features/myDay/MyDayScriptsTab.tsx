@@ -36,12 +36,14 @@ export function MyDayScriptsTab() {
 
   const resolvePlaceholders = (body: string) => {
     let resolved = body;
-    resolved = resolved.replace(/\{first-name\}/gi, '[Name]');
-    resolved = resolved.replace(/\{name\}/gi, '[Name]');
+    resolved = resolved.replace(/\{first-name\}/gi, '[Member name]');
+    resolved = resolved.replace(/\{name\}/gi, '[Member name]');
     resolved = resolved.replace(/\{sa-name\}/gi, user?.name?.split(' ')[0] || '[SA Name]');
     resolved = resolved.replace(/\{sa-first-name\}/gi, user?.name?.split(' ')[0] || '[SA Name]');
-    resolved = resolved.replace(/\{coach-name\}/gi, '[Coach Name]');
-    resolved = resolved.replace(/\{coach-first-name\}/gi, '[Coach Name]');
+    resolved = resolved.replace(/\{first-intro-coach-name\}/gi, '[Coach name]');
+    resolved = resolved.replace(/\{first-intro-coach-full-name\}/gi, '[Coach name]');
+    resolved = resolved.replace(/\{coach-name\}/gi, '[Coach name]');
+    resolved = resolved.replace(/\{coach-first-name\}/gi, '[Coach name]');
     resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
     resolved = resolved.replace(/\{day\}/gi, '[Day]');
     resolved = resolved.replace(/\{time\}/gi, '[Time]');
