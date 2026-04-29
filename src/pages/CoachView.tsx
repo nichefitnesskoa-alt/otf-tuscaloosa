@@ -17,6 +17,7 @@ import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
 import { CLASS_TIME_LABELS } from '@/types';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 import { getTodayYMD } from '@/lib/dateUtils';
+import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 function formatTime(t: string) {
   if (t === 'TBD') return 'TBD';
@@ -387,9 +388,15 @@ function ClassTimeIntroSelector({
   return (
     <div className="space-y-2">
       {intros.map(intro => {
-        // A no-showed originating booking doesn't make this a 2nd intro
-        const isSecondIntro = !!intro.originating_booking_id &&
-          originatingStatuses[intro.originating_booking_id] !== 'NO_SHOW';
+        // Only a real ran originator makes this a 2nd intro. PLANNING_RESCHEDULE,
+        // CANCELLED, DELETED_SOFT, NO_SHOW originators all mean the prior intro
+        // never ran — this booking is the real 1st intro.
+        const origStatus = intro.originating_booking_id
+          ? originatingStatuses[intro.originating_booking_id]
+          : null;
+        const isSecondIntro = !!intro.originating_booking_id
+          && !!origStatus
+          && !NON_RAN_BOOKING_STATUSES.has(origStatus);
 
         // 2nd intros render as a non-expandable stub — no card, no debrief, no lead measures
         if (isSecondIntro) {
@@ -468,6 +475,7 @@ function ClassTimeIntroSelector({
                   questionnaire={questionnaires[intro.id] || null}
                   onUpdateBooking={onUpdateBooking}
                   userName={userName}
+                  originatingBookingStatus={origStatus}
                 />
               </div>
             )}

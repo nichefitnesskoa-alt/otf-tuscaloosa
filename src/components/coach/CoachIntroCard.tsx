@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 
 interface CoachBooking {
   id: string;
@@ -53,6 +54,10 @@ interface Props {
   questionnaire: QuestionnaireData | null;
   onUpdateBooking: (id: string, updates: Partial<CoachBooking>) => void;
   userName: string;
+  /** Status canon of the originating booking, if any. Used to decide
+   *  whether this booking is a real 2nd intro or whether the originator
+   *  was cancelled/rescheduled/no-show (in which case this IS the 1st intro). */
+  originatingBookingStatus?: string | null;
 }
 
 function SavedIndicator({ show }: { show: boolean }) {
@@ -61,7 +66,7 @@ function SavedIndicator({ show }: { show: boolean }) {
 }
 
 
-export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName }: Props) {
+export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName, originatingBookingStatus }: Props) {
   const { user } = useAuth();
   const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
 
@@ -86,7 +91,12 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
-  const isSecondIntro = !!booking.originating_booking_id;
+  // Only count as a real 2nd intro when the originating booking actually ran.
+  // PLANNING_RESCHEDULE / CANCELLED / DELETED_SOFT / NO_SHOW originators mean
+  // the prior intro never happened — this booking is the real 1st intro.
+  const isSecondIntro = !!booking.originating_booking_id
+    && !!originatingBookingStatus
+    && !NON_RAN_BOOKING_STATUSES.has(originatingBookingStatus);
   const coachName = booking.coach_name;
 
   // Fetch conversation fields + run data + debrief status
