@@ -42,6 +42,67 @@ export function getBookingDayBucket(
 }
 
 /**
+ * Result canon values that mean "the intro never actually happened" —
+ * the member did not show up to a class. Use this to filter the
+ * "Intro Runs" list, count runs for stats, and decide whether a
+ * subsequent booking is the real 1st intro.
+ *
+ * NO_SHOW              — class happened, member didn't come
+ * PLANNING_RESCHEDULE  — member cancelled, will rebook
+ * PLANNING_2ND_INTRO   — they're rescheduling to a different date
+ * UNRESOLVED           — no outcome captured yet
+ * VIP_CLASS_INTRO      — VIP event marker, not a real intro run
+ */
+export const NON_RAN_RESULT_CANONS = new Set([
+  'NO_SHOW',
+  'PLANNING_RESCHEDULE',
+  'PLANNING_2ND_INTRO',
+  'UNRESOLVED',
+  'VIP_CLASS_INTRO',
+]);
+
+const NON_RAN_RESULT_DISPLAY = new Set([
+  'no-show',
+  'no show',
+  'planning to reschedule',
+  'planning to book 2nd intro',
+  'unresolved',
+  '',
+  'vip class intro',
+]);
+
+/**
+ * Returns true ONLY when a member actually showed up to the class.
+ * Use this everywhere you need to know "did this intro actually run?"
+ * — the Pipeline "Intro Runs" list, run counts, 1st-vs-2nd-intro
+ * detection, performance metrics, etc.
+ */
+export function didIntroActuallyRun(r: {
+  result_canon?: string | null;
+  result?: string | null;
+} | null | undefined): boolean {
+  if (!r) return false;
+  const canon = (r.result_canon || '').toUpperCase().trim();
+  if (canon) return !NON_RAN_RESULT_CANONS.has(canon);
+  const legacy = (r.result || '').toLowerCase().trim();
+  if (!legacy) return false;
+  return !NON_RAN_RESULT_DISPLAY.has(legacy);
+}
+
+/**
+ * Booking statuses that mean the booking never produced a real intro
+ * (member cancelled, was rescheduled, soft-deleted). When a downstream
+ * booking points at one of these as its `originating_booking_id`, the
+ * downstream booking is itself the 1st intro — not a 2nd intro.
+ */
+export const NON_RAN_BOOKING_STATUSES = new Set([
+  'PLANNING_RESCHEDULE',
+  'CANCELLED',
+  'DELETED_SOFT',
+  'NO_SHOW',
+]);
+
+/**
  * Returns true if the booking+run combination represents a resolved outcome.
  */
 export function isResolvedOutcome(booking: any, run: any | null): boolean {

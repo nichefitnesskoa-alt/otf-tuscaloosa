@@ -118,7 +118,12 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     }
 
     // A2: CREATE RUN IF MISSING
-    if (!existingRun && params.bookingId) {
+    // Skip auto-create for outcomes that mean the intro never actually
+    // happened (member cancelled, will reschedule). The booking's status
+    // is updated below; we don't want a fake "ran" record polluting the
+    // Intro Runs list, run counts, or 1st-vs-2nd-intro detection.
+    const skipRunCreate = isNowPlanningReschedule;
+    if (!existingRun && params.bookingId && !skipRunCreate) {
       // Fetch booking to auto-populate run fields from the source record
       const { data: bookingData } = await supabase
         .from('intros_booked')
