@@ -428,17 +428,58 @@ export default function CoachMyIntros() {
       };
     });
 
+    // Synthesize MergedIntro rows from VIP attendees the coach saw
+    const vipMerged: MergedIntro[] = vipRegs.map(r => {
+      const sess = vipSessionById.get(r.vip_session_id) || {};
+      const memberName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+      const classDate: string = sess.session_date || format(new Date(), 'yyyy-MM-dd');
+      const introTime: string | null = sess.session_time || null;
+      let classStartAt: string | null = null;
+      try {
+        if (classDate && introTime) classStartAt = new Date(`${classDate}T${introTime}`).toISOString();
+      } catch { /* noop */ }
+      const baseResultCanon = r.outcome === 'booked_intro' ? 'SECOND_INTRO' : 'DIDNT_BUY';
+      const sold = soldNames.has(norm(memberName));
+      const resultCanon = sold ? 'SALE' : baseResultCanon;
+      const priority = computePriority(classStartAt, classDate, null, resultCanon, false, null);
+      return {
+        bookingId: `vip:${r.id}`,
+        memberName,
+        classDate,
+        introTime,
+        classStartAt,
+        phone: r.phone || null,
+        resultCanon,
+        isSecondIntro: false,
+        followUpRow: null,
+        questionnaire: null,
+        saConversation: null,
+        lastTouch: null,
+        rescheduleContactDate: null,
+        linkedIgLeadId: null,
+        transferred: false,
+        touchNumber: 1,
+        priorityTier: priority.tier,
+        priorityLabel: priority.label,
+        statusBadge: getStatusBadge(resultCanon, false),
+      } as MergedIntro;
+    });
+
+    const allMerged = [...merged, ...vipMerged];
+
     // Sort: priority tier asc, then newest class date first
-    merged.sort((a, b) => {
+    allMerged.sort((a, b) => {
       if (a.priorityTier !== b.priorityTier) return a.priorityTier - b.priorityTier;
       return b.classDate.localeCompare(a.classDate);
     });
 
     // Deduplicate by member name — one card per person.
-    // Sort already places the highest-priority/most-recent first, so keep that one.
+    // Real intro bookings are listed first in `allMerged`, and within each group
+    // the higher-priority/most-recent wins, so VIP synthetic rows for the same
+    // person automatically drop when a real intro exists.
     const seen = new Set<string>();
     const deduped: MergedIntro[] = [];
-    for (const m of merged) {
+    for (const m of allMerged) {
       const key = (m.memberName || '').trim().toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
