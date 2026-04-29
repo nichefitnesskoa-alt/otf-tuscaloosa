@@ -1,100 +1,121 @@
-# Fix coach-side 2nd-intro detection (Kyle Davis bug, app-wide)
+# Coach My Intros — Scripts Linking Fix
 
-## Root cause
+## Root Cause
 
-When we fixed My Day and Pipeline, we did not update the coach surfaces. Three coach files still use legacy logic that flags any booking with an `originating_booking_id` as a 2nd intro (or only disqualifies `NO_SHOW`). They never check the canonical `NON_RAN_BOOKING_STATUSES` set, so Kyle's 4/29 booking — whose originator is `PLANNING_RESCHEDULE` — incorrectly renders as 2nd Intro on the coach side.
-
-## Files to change
-
-### 1. `src/pages/CoachView.tsx` (Coach View weekly grid)
-
-Line 391–392 currently:
-```ts
-const isSecondIntro = !!intro.originating_booking_id &&
-  originatingStatuses[intro.originating_booking_id] !== 'NO_SHOW';
-```
-
-Replace with the canonical set:
-```ts
-import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
-...
-const origStatus = intro.originating_booking_id
-  ? originatingStatuses[intro.originating_booking_id]
-  : null;
-const isSecondIntro = !!intro.originating_booking_id
-  && !!origStatus
-  && !NON_RAN_BOOKING_STATUSES.has(origStatus);
-```
-
-This is what gates the "2nd Intro" stub render on line 395–411 and the "no prep needed" badge — so fixing this single line correctly demotes Kyle to a full 1st-intro card with prep, debrief, and lead measures.
-
-### 2. `src/components/coach/CoachIntroCard.tsx` (the actual coach card)
-
-Line 89 currently:
-```ts
-const isSecondIntro = !!booking.originating_booking_id;
-```
-
-This is the worst offender — it doesn't even check the originator status. Add `originating_booking_status` to the `CoachBooking` type (and to the SELECT in `CoachView.tsx` / `CoachMyIntros.tsx` queries), then:
+On `/my-intros` (Coach My Intros), the "Send Text" button opens `ScriptSendDrawer` with:
 
 ```ts
-import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
-...
-const isSecondIntro = !!booking.originating_booking_id
-  && !!booking.originating_booking_status
-  && !NON_RAN_BOOKING_STATUSES.has(booking.originating_booking_status);
+categoryFilter={['follow-up', 'post-intro', 'no-show', 'missed-guest']}
 ```
 
-The simplest plumbing: have `CoachView.tsx` (which already fetches `originatingStatuses`) pass `originatingBookingStatus` as a prop into `CoachIntroCard`. That avoids a per-card extra query and reuses the lookup we already do.
+Those slugs **do not exist** in the database. Real DB categories are:
+`coach_followup`, `no_show`, `missed_guest`, `post_class_joined`, `promo`, etc.
 
-`isSecondIntro` controls:
-- whether we fetch `intros_run` data (line 101)
-- whether we render the prep/debrief/lead-measures sections (line 230, 398)
+Result: drawer renders "No scripts found for this category." Coaches cannot reach the scripts that already exist (`First Class — Didn't Buy`, `2nd Intro — Didn't Buy`).
 
-So this fix flows through all of those automatically.
+Same root cause needs fixing in any other surface using non-canonical slugs. The SA Follow-Up tab dispatches `category: 'follow_up'` to `ScriptPickerSheet`, which has a `TAB_CATEGORY_MAP` that already aliases `follow_up` → `coach_followup`-adjacent categories — but `coach_followup` itself is NOT in that map's `follow_up` list, so the SA-side scripts also fail to surface.
 
-### 3. `src/pages/CoachMyIntros.tsx` (Coach My Intros page)
+## Database Changes (single migration)
 
-Line 338 currently:
+1. **Confirm the 3 required scripts exist; insert/update by exact name (no duplicates):**
+   - `After First Class` — category `coach_followup`
+     - Body: `Hey {first-name}, Coach {first-intro-coach-name} here from OTF! You really stood out in your first class, you did so well! How are you feeling?`
+   - `After 2nd Intro` — category `coach_followup`
+     - Body: `Hey {first-name}, Coach {first-intro-coach-name} here from OTF! How did round 2 go for you?`
+   - `April Deal` — category `promo`
+     - Body: `Hey {first-name}, Coach {first-intro-coach-name} here from OTF! Randomly thought of you. We have a deal ending in the next couple days. $99 to get started and the heart rate monitor is on us. Didn't want you to miss it if timing ever felt off before. No pressure at all.`
+   - All `is_active=true`, `channel='sms'`.
+   - Use `INSERT ... ON CONFLICT (name) DO UPDATE` (or upsert via merge) so reruns don't duplicate.
+
+2. **Deactivate or rename the old duplicates** (`First Class — Didn't Buy`, `2nd Intro — Didn't Buy`) by setting `is_active=false`, since the new canonical names replace them. CONFIRM THIS VALUE — keep both vs deactivate old? Default plan: deactivate old to avoid coach confusion.
+
+3. **Ensure `Promotions` category exists** in `script_categories` (slug `promo`, name `Promotions`). Insert if missing.
+
+## Code Changes
+
+### A. New universal merge field `{first-intro-coach-name}`
+
+Add to `src/lib/script-context.ts` and every other resolver. Resolution rule (run on script render anywhere):
+
+1. Look up the booking's first-intro coach:
+   - If `intros_booked.originating_booking_id` is set, traverse to the originator booking.
+   - Otherwise this booking IS the first intro.
+2. From that first-intro booking, prefer `intros_run.coach_name` (latest linked run); fall back to `intros_booked.coach_name`; fall back to empty string.
+3. Strip TBD variants via existing `normalizeCoachName`.
+4. Use first-name token for the merge field value.
+5. **Coach-context override**: in `CoachMyIntros` and `CoachFollowUpList`, the logged-in coach IS the first-intro coach (they only see their own queue). When the resolver returns empty, fall back to the coach's own first name.
+6. **Never** substitute `sa-name` for this field.
+
+Add a helper `resolveFirstIntroCoachName(bookingId): Promise<string | null>` in `src/lib/script-context.ts`. Call it from `buildScriptContext`. Have `ScriptSendDrawer` and `MyDayScriptsTab` await it when `bookingId` is present and inject `first-intro-coach-name` into their merge maps.
+
+Placeholder display when no person in context (Scripts tab browse mode): show `[Coach name]` for `{first-intro-coach-name}` and `[Member name]` for `{first-name}`. Never render raw `{...}` tags to end users.
+
+### B. Fix the `categoryFilter` slug mismatch (root cause)
+
+`src/pages/CoachMyIntros.tsx` line 777 — change from:
 ```ts
-const isSecondIntro = !!b.originating_booking_id;
+categoryFilter={['follow-up', 'post-intro', 'no-show', 'missed-guest']}
 ```
-
-Add `originating_booking_status` lookup the same way (we already fetch `chainBookingIds` data, just include `booking_status_canon` in that select on line 283), then:
-
+to the actual DB slugs:
 ```ts
-const origStatus = b.originating_booking_id
-  ? origStatusById.get(b.originating_booking_id)
-  : null;
-const isSecondIntro = !!b.originating_booking_id
-  && !!origStatus
-  && !NON_RAN_BOOKING_STATUSES.has(origStatus);
+categoryFilter={['coach_followup', 'no_show', 'missed_guest', 'post_class_joined']}
 ```
+Default selected pill: `coach_followup` (Follow-Up) so the two prescribed scripts appear first.
 
-This affects the `second_intro` filter tab (line 401) and the badge rendering for each row.
+`ScriptSendDrawer` — accept a new optional prop `defaultCategory` so the drawer pre-selects the Follow-Up pill on open instead of "All".
 
-## Why this is the full fix (not a patch)
+### C. SA Follow-Up tab pre-filter
 
-After the My Day fix, Pipeline and My Day used the canonical rule, but Coach View, CoachIntroCard, and Coach My Intros each had their own copy-pasted detection. Kyle showed correctly on SA surfaces and incorrectly on coach surfaces. This change makes all five surfaces import from the same canonical helper (`NON_RAN_BOOKING_STATUSES` in `src/lib/canon/introRules.ts`) so future changes to the rule apply everywhere automatically.
+`ScriptPickerSheet.TAB_CATEGORY_MAP.follow_up` — add `coach_followup` to the array so the prescribed Follow-Up scripts surface when SA taps Send Text from a follow-up card.
 
-## Downstream effects (all implemented in this build)
+`MyDayPage` — when `scriptFromFollowUp` is true, ensure the suggested category list starts with `follow_up` (already does via FollowUpNeededTab dispatching `category: 'follow_up'`; verify event payload is honored as the active tab in the sheet).
 
-- Coach View weekly grid: Kyle renders as full 1st-intro card with prep banner, debrief section, and lead measures — not the collapsed "No prep needed" stub.
-- CoachIntroCard: fetches `intros_run` row, shows the goal/why prompt, made-a-friend toggle, and relationship experience field.
-- Coach My Intros page: Kyle no longer appears under "2nd Intro" filter tab; appears under "1st Intro" tab with correct badge.
-- Pipeline, My Day, Follow-up tabs: unchanged (already correct).
-- No DB changes required — Kyle's data is correct, only three more code surfaces needed the canonical rule.
+### D. SA Scripts tab (`MyDayScriptsTab`) and Admin `Scripts` page
 
-## Verification
+Both already render every active template grouped by `category` pill from `useScriptCategoryOptions`. The `Promotions` (`promo`) category will now contain `April Deal`. The `coach_followup` (or rename to `Follow-Up`) category will contain `After First Class` and `After 2nd Intro`.
 
-After the build, on Coach View / CoachMyIntros / CoachIntroCard for 4/29:
-- Kyle Davis 6:15 with Koa shows "1st Intro" badge everywhere.
-- Coach prep, debrief, and lead-measure sections all render for him.
-- Other clients whose originator was a real ran intro (`SHOWED`, `SOLD`, etc.) still correctly show "2nd Intro".
-- Pipeline + My Day behavior unchanged.
+CONFIRM THIS VALUE — should `coach_followup` category be renamed to display `Follow-Up`? The user prompt says category `Follow-Up` for Scripts 1/2. Default plan: update the `script_categories` row for slug `coach_followup` to set `name='Follow-Up'` (display label). Do NOT change the slug — that would break every existing template/filter.
 
-## Files touched
+Add `{first-intro-coach-name}` placeholder rendering to `MyDayScriptsTab.resolvePlaceholders` and `Scripts.tsx` template card preview so coaches/SAs see `[Coach name]` instead of raw tags.
 
-- `src/pages/CoachView.tsx` (detection + add `booking_status_canon` to originating-status fetch — already there)
-- `src/components/coach/CoachIntroCard.tsx` (detection + accept new prop)
-- `src/pages/CoachMyIntros.tsx` (detection + add `booking_status_canon` to chain query)
+### E. `script_send_log` already stores resolved body
+
+`ScriptSendDrawer.handleCopy` already writes `message_body_sent: resolved`. Verify the same in `MyDayScriptsTab.handleCopy` (it does). No change needed beyond ensuring `{first-intro-coach-name}` is replaced before insert.
+
+### F. Coach Follow-Up Page (separate from My Intros)
+
+`CoachFollowUpList.tsx` is currently not rendered anywhere. CONFIRM THIS VALUE — does the user want it wired into a route, or is "Coach Follow-Up Page" a synonym for `/my-intros`? Default plan: treat `/my-intros` as the coach follow-up surface (matches the screenshot). Skip wiring `CoachFollowUpList` until clarified.
+
+If user confirms `CoachFollowUpList` should be exposed, fix its dispatched event payload (`category: 'coach_followup'`) which is already correct, and ensure the page mounts the `ScriptPickerSheet` listener.
+
+### G. Hide `April Deal` from coach surfaces
+
+`CoachMyIntros` `categoryFilter` excludes `promo` (already does in fix B). Confirm the Coach scripts library (if any standalone view exists) also excludes `promo`. Currently coaches don't have a dedicated scripts library — only the Send Text drawer — so the filter exclusion is sufficient.
+
+## Files Touched
+
+- `supabase/migrations/<new>.sql` — upsert 3 templates, deactivate old duplicates, ensure `promo`/`Promotions` category, rename `coach_followup` display label to `Follow-Up`.
+- `src/lib/script-context.ts` — add `resolveFirstIntroCoachName` + inject `first-intro-coach-name` merge field.
+- `src/pages/CoachMyIntros.tsx` — fix `categoryFilter` slugs, pass `defaultCategory='coach_followup'`, pass coach context for merge field fallback.
+- `src/components/scripts/ScriptSendDrawer.tsx` — add `defaultCategory` prop, resolve `{first-intro-coach-name}` in `resolveMergeFields` (await `resolveFirstIntroCoachName(bookingId)` on open), with coach-context fallback.
+- `src/components/scripts/ScriptPickerSheet.tsx` — add `coach_followup` to `follow_up` tab map; resolve `{first-intro-coach-name}` in template body rendering.
+- `src/features/myDay/MyDayScriptsTab.tsx` — placeholder display + (when bookingId present) real value.
+- `src/features/myDay/MyDayPage.tsx` — pass `first-intro-coach-name` into `scriptMergeContext`.
+- `src/components/dashboard/PipelineScriptPicker.tsx` — same merge-field addition for parity.
+- `src/components/scripts/MergeFieldReference.tsx` — list new field.
+
+## Subsequent Effects Implemented
+
+1. `{first-intro-coach-name}` resolves identically across every surface (My Day Scripts, Send Script drawer, Pipeline picker, Coach My Intros, Admin Scripts page).
+2. `script_send_log.message_body_sent` already stores the fully resolved text — verified in both copy handlers.
+3. Scripts tab category bar shows `Promotions` (renamed from `Promos`) — `April Deal` is findable.
+4. Old `First Class — Didn't Buy` / `2nd Intro — Didn't Buy` deactivated — no duplicate confusion.
+5. Coach My Intros Send Text drawer now lists Follow-Up scripts (root-cause slug fix).
+6. SA Follow-Up Send Text drawer surfaces the same Follow-Up scripts (TAB_CATEGORY_MAP fix).
+7. `April Deal` hidden from coach surfaces via `categoryFilter` exclusion.
+
+## Open Confirmations (will block implementation if not answered)
+
+- Deactivate old `First Class — Didn't Buy` / `2nd Intro — Didn't Buy`, or keep both?
+- Rename `coach_followup` category display name to `Follow-Up`?
+- Is `/my-intros` the "Coach Follow-Up Page" referenced in the prompt, or is there a separate page that needs wiring?

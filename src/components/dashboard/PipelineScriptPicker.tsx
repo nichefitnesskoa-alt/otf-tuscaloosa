@@ -134,6 +134,16 @@ function buildMergeContext(journey: ClientJourney): Record<string, string> {
   context['coach-name'] = resolvedCoach || 'your coach';
   context['coach-first-name'] = resolvedCoach ? resolvedCoach.split(/\s+/)[0] : 'your coach';
 
+  // First-intro coach: use the run on the first booking in the chain (oldest), prefer run.coach_name
+  const firstBooking = journey.bookings[journey.bookings.length - 1] || latestBooking;
+  const firstRun = journey.runs.find(r => (r as any).linked_intro_booked_id === firstBooking?.id) || journey.runs[journey.runs.length - 1];
+  const firstIntroCoach =
+    normalizeCoachName(firstRun?.coach_name ?? null) ??
+    normalizeCoachName(firstBooking?.coach_name ?? null) ??
+    resolvedCoach;
+  context['first-intro-coach-name'] = firstIntroCoach ? firstIntroCoach.split(/\s+/)[0] : 'your coach';
+  context['first-intro-coach-full-name'] = firstIntroCoach || 'your coach';
+
   if (latestBooking) {
     try {
       const classDate = parseLocalDate(latestBooking.class_date);

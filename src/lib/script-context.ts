@@ -50,6 +50,54 @@ export function getCoachName(
 }
 
 /**
+ * Resolve the FIRST-INTRO coach name for a booking.
+ *
+ * Rules:
+ * 1. If booking has originating_booking_id, traverse to that originator (the first intro).
+ * 2. Otherwise this booking IS the first intro.
+ * 3. Prefer intros_run.coach_name (latest linked run), fall back to intros_booked.coach_name.
+ * 4. Strip TBD via normalizeCoachName. Returns null if nothing usable.
+ *
+ * Returns the FULL name (callers can split for first-name).
+ */
+export async function resolveFirstIntroCoachName(bookingId: string): Promise<string | null> {
+  if (!bookingId) return null;
+  try {
+    const { data: booking } = await supabase
+      .from('intros_booked')
+      .select('id, coach_name, originating_booking_id')
+      .eq('id', bookingId)
+      .maybeSingle();
+    if (!booking) return null;
+
+    const firstIntroId = booking.originating_booking_id || booking.id;
+
+    let firstBookingCoach: string | null = booking.coach_name || null;
+    if (firstIntroId !== booking.id) {
+      const { data: orig } = await supabase
+        .from('intros_booked')
+        .select('coach_name')
+        .eq('id', firstIntroId)
+        .maybeSingle();
+      firstBookingCoach = orig?.coach_name || null;
+    }
+
+    // Prefer intros_run.coach_name on the first-intro booking
+    const { data: runs } = await supabase
+      .from('intros_run')
+      .select('coach_name, created_at')
+      .eq('linked_intro_booked_id', firstIntroId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const runCoach = runs?.[0]?.coach_name || null;
+
+    return normalizeCoachName(runCoach) ?? normalizeCoachName(firstBookingCoach) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Post-process a rendered script body to fix awkward coach fallback phrasing.
  * e.g. "Coach your coach" → "your coach"
  */
@@ -74,6 +122,11 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
 
   const resolvedCoach = normalizeCoachName(coachName);
 
+  // Resolve first-intro coach for this booking (traverses originating_booking_id).
+  // Falls back to the prep-time coach if first-intro lookup yields nothing.
+  const firstIntroCoachFull = await resolveFirstIntroCoachName(bookingId) ?? resolvedCoach;
+  const firstIntroCoachFirst = firstIntroCoachFull ? firstIntroCoachFull.split(/\s+/)[0] : null;
+
   const ctx: Record<string, string | undefined> = {
     'first-name': firstName,
     'last-name': lastName,
@@ -82,6 +135,8 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
     coach: resolvedCoach || undefined,
     'coach-name': resolvedCoach || 'your coach',
     'coach-first-name': resolvedCoach ? resolvedCoach.split(/\s+/)[0] : 'your coach',
+    'first-intro-coach-name': firstIntroCoachFirst || 'your coach',
+    'first-intro-coach-full-name': firstIntroCoachFull || 'your coach',
   };
 
   // Date/time merge fields

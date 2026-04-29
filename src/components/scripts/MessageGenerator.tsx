@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { cleanCoachFallbackPhrasing } from '@/lib/script-context';
+import { cleanCoachFallbackPhrasing, resolveFirstIntroCoachName } from '@/lib/script-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,8 @@ interface MergeContext {
   'sa-name'?: string;
   'coach-name'?: string;
   'coach-first-name'?: string;
+  'first-intro-coach-name'?: string;
+  'first-intro-coach-full-name'?: string;
   day?: string;
   time?: string;
   'today/tomorrow'?: string;
@@ -115,11 +117,26 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
+  // Resolve {first-intro-coach-name} from the booking chain when not pre-supplied
+  const [resolvedFirstIntroCoach, setResolvedFirstIntroCoach] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !bookingId || mergeContext['first-intro-coach-name']) {
+      setResolvedFirstIntroCoach(null);
+      return;
+    }
+    resolveFirstIntroCoachName(bookingId).then(full => {
+      if (!cancelled) setResolvedFirstIntroCoach(full ? full.split(/\s+/)[0] : null);
+    });
+    return () => { cancelled = true; };
+  }, [open, bookingId, mergeContext]);
+
   const fullContext: MergeContext = useMemo(() => ({
     'location-name': 'Tuscaloosa',
     'sa-name': user?.name,
+    ...(resolvedFirstIntroCoach ? { 'first-intro-coach-name': resolvedFirstIntroCoach } : {}),
     ...mergeContext,
-  }), [mergeContext, user]);
+  }), [mergeContext, user, resolvedFirstIntroCoach]);
 
   const templateBody = bodyOverride || template.body;
   const unfilledFields = useMemo(() => extractUnfilledFields(templateBody, fullContext), [templateBody, fullContext]);

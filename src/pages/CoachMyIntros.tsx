@@ -774,8 +774,10 @@ export default function CoachMyIntros() {
         leadId={scriptDrawer.leadId}
         leadName={scriptDrawer.name}
         leadPhone={scriptDrawer.phone}
-        categoryFilter={['follow-up', 'post-intro', 'no-show', 'missed-guest']}
+        categoryFilter={['coach_followup', 'no_show', 'missed_guest', 'post_class_joined']}
+        defaultCategory="coach_followup"
         saName={coachName}
+        coachContextFallback={coachName}
       />
 
       {/* Not interested confirmation */}
