@@ -337,9 +337,10 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Action buttons */}
           <div className="pt-2 border-t border-dashed flex gap-2 flex-wrap">
