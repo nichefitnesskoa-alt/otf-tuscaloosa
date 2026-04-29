@@ -653,30 +653,74 @@ export function VipPipelineTable() {
         .single();
       if (bookingErr) throw bookingErr;
 
-      // 3. The DB trigger auto-creates the vip_registrations row from the booking,
-      //    but we still defensively upsert here in case the trigger is ever disabled
-      //    or this booking races another insert. NOT EXISTS guards the duplicate case.
-      const { data: existingReg } = await sb
+      // 3. Match-or-create the vip_registrations row.
+      // The DB trigger handles this on its own, but we mirror the logic here so
+      // the UI stays correct even if the trigger is ever disabled.
+      // CRITICAL: never blindly insert — if a self-registration already exists
+      // in this session for the same phone (or name), update it instead.
+      // Otherwise the My Day group card will show duplicate names.
+      const { data: alreadyLinked } = await sb
         .from('vip_registrations')
         .select('id')
         .eq('booking_id', newBooking.id)
         .maybeSingle();
 
-      if (!existingReg) {
+      if (!alreadyLinked) {
         const firstName = trimmedName.split(' ')[0] || trimmedName;
         const lastName = trimmedName.includes(' ')
           ? trimmedName.substring(trimmedName.indexOf(' ') + 1).trim() || null
           : null;
-        await sb.from('vip_registrations').insert({
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          email,
-          vip_class_name: targetGroup,
-          vip_session_id: session.id,
-          booking_id: newBooking.id,
-          is_group_contact: false,
-        });
+        const normPhone = (phone || '').replace(/\D/g, '');
+
+        // Look for an existing registration in this session by normalized phone first.
+        let existingId: string | null = null;
+        if (normPhone) {
+          const { data: rows } = await sb
+            .from('vip_registrations')
+            .select('id, phone')
+            .eq('vip_session_id', session.id);
+          const match = (rows || []).find(
+            (r: any) => (r.phone || '').replace(/\D/g, '') === normPhone,
+          );
+          existingId = match?.id || null;
+        }
+        // Fallback: match by first/last name when no phone is provided.
+        if (!existingId && !normPhone) {
+          const { data: nameRows } = await sb
+            .from('vip_registrations')
+            .select('id, first_name, last_name, phone')
+            .eq('vip_session_id', session.id);
+          const match = (nameRows || []).find(
+            (r: any) =>
+              (r.first_name || '').toLowerCase() === firstName.toLowerCase() &&
+              ((r.last_name || '').toLowerCase() === (lastName || '').toLowerCase()) &&
+              !((r.phone || '').replace(/\D/g, '')),
+          );
+          existingId = match?.id || null;
+        }
+
+        if (existingId) {
+          await sb
+            .from('vip_registrations')
+            .update({
+              booking_id: newBooking.id,
+              last_name: lastName ?? undefined,
+              email: email ?? undefined,
+              phone: phone ?? undefined,
+            })
+            .eq('id', existingId);
+        } else {
+          await sb.from('vip_registrations').insert({
+            first_name: firstName,
+            last_name: lastName,
+            phone,
+            email,
+            vip_class_name: targetGroup,
+            vip_session_id: session.id,
+            booking_id: newBooking.id,
+            is_group_contact: false,
+          });
+        }
       }
 
       toast.success(`${trimmedName} added to ${targetGroup}`);
