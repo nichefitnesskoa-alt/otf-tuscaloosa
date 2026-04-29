@@ -8,7 +8,7 @@ import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, Check
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
-import { format, differenceInDays, endOfWeek } from 'date-fns';
+import { format, differenceInDays, endOfWeek, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
