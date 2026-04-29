@@ -320,7 +320,25 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
         booking_id: item.bookingId,
       });
       if (error) throw error;
-      toast.success('Logged as sent');
+
+      // Push next contact date out so card moves out of "Focus Today" into "Coming Up"
+      const cooldownDays: Record<FollowUpType, number> = {
+        noshow_1st: 2,
+        noshow_2nd: 2,
+        reschedule: 2,
+        didnt_buy_1st: 3,
+        didnt_buy_2nd: 3,
+        planning_to_buy: 2,
+      };
+      const days = cooldownDays[item.followUpType] ?? 3;
+      const nextDate = format(addDays(new Date(), days), 'yyyy-MM-dd');
+      await (supabase as any)
+        .from('intros_booked')
+        .update({ reschedule_contact_date: nextDate })
+        .eq('id', item.bookingId);
+
+      const nextLabel = format(addDays(new Date(), days), 'MMM d');
+      toast.success(`Logged — next touch ${nextLabel}`);
       onRefresh();
     } catch (err) {
       console.error('Failed to log sent:', err);
