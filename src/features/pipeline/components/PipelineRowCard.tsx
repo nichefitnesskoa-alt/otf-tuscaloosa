@@ -186,7 +186,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                           Booked by: {capitalizeDisplay(b.booked_by || b.sa_working_shift)}
                           {b.lead_source && <span> | {b.lead_source}</span>}
                         </div>
-                        {b.originating_booking_id && (
+                        {isRealSecondIntro(b, journey) && (
                           <Badge variant="outline" className="text-[10px] mt-0.5">2nd Intro</Badge>
                         )}
                         {b.is_vip && (
