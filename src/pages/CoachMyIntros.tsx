@@ -452,6 +452,20 @@ export default function CoachMyIntros() {
           transferred ? 'TRANSFERRED' : resultCanon,
           transferred,
         ),
+        visitType: ((): MergedIntro['visitType'] => {
+          const cameViaVip = vipAttendeeNames.has((b.member_name || '').trim().toLowerCase())
+            || b.lead_source === 'VIP Class';
+          if (cameViaVip) return isSecondIntro ? 'VIP_THEN_SECOND' : 'VIP_THEN_FIRST';
+          return isSecondIntro ? 'SECOND' : 'FIRST';
+        })(),
+        visitBadge: (() => {
+          const cameViaVip = vipAttendeeNames.has((b.member_name || '').trim().toLowerCase())
+            || b.lead_source === 'VIP Class';
+          const vt: MergedIntro['visitType'] = cameViaVip
+            ? (isSecondIntro ? 'VIP_THEN_SECOND' : 'VIP_THEN_FIRST')
+            : (isSecondIntro ? 'SECOND' : 'FIRST');
+          return getVisitBadge(vt);
+        })(),
       };
     });
 
