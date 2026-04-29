@@ -1,57 +1,66 @@
-## Make "Log Sent" clear the follow-up card
+## Goal
+VIP class attendees the coach actually saw (`outcome = showed` or `booked_intro`) should appear on the coach's **My Intros** list as follow-up cards. VIP no-shows are an SA reschedule task and should NOT show on the coach side — they go to the SA follow-up queue instead.
 
-Right now, tapping **Log Sent** on a follow-up card just records a `script_actions` row and shows a toast. The card stays put, which is the opposite of what should happen — once you've reached out, that person should be off your list for the day.
+## Scope
+- File: `src/pages/CoachMyIntros.tsx`
+- File: `src/components/vip/` outcome logging path (where `vip_registrations.outcome` is saved — `VipRegistrationsSheet.tsx` `saveOutcome`) — add a side-effect to enqueue an SA reschedule task on `no_show`.
+- No schema changes. Reuse existing tables: `vip_registrations`, `vip_sessions`, `follow_up_queue`.
 
-### What changes
+## 1. Coach My Intros — pull in VIP attendees
 
-**File: `src/features/followUp/FollowUpList.tsx`**
+In `fetchData`:
+1. Query `vip_sessions` where `coach_name = coachName` to get session ids the coach ran.
+2. Query `vip_registrations` for those `vip_session_id`s where:
+   - `outcome IN ('showed', 'booked_intro')`
+   - `is_group_contact = false`
+   - `booking_id IS NULL` (if `booking_id` is set, a real intro already exists and will appear via the normal bookings query — skip to avoid the duplicate the user already complained about).
+3. Map each VIP reg into a synthetic `MergedIntro`:
+   - `bookingId`: prefix `vip:` + `vip_registrations.id` so it's unique and never collides with real bookings.
+   - `memberName`: `first_name + last_name`.
+   - `classDate`: `vip_sessions.session_date`.
+   - `introTime`: `vip_sessions.session_time`.
+   - `phone`: `vip_registrations.phone`.
+   - `resultCanon`:
+     - `outcome = 'booked_intro'` → `'SECOND_INTRO'` (uses existing teal "2nd Intro Planned" badge — semantically: they took the next step).
+     - `outcome = 'showed'` → `'DIDNT_BUY'` (orange "Follow-Up" badge — needs a touch).
+   - `rescheduleContactDate`: null (uses 48-hr post-class priority window from `class_start_at` we synthesize from session date+time).
+   - `lastTouch`, `questionnaire`, `saConversation`, `followUpRow`: null.
+   - `transferred`: false.
+4. Run the existing **Total Journey** sale check against these too (by normalized member name match against `soldNames`) so anyone who later bought drops off automatically.
+5. Push into `merged` BEFORE the dedup pass. Dedup is already by lowercased member name, so if the same person also has a real intro booking the real one wins (it sorted first by priority/date) and the VIP duplicate is dropped — same rule the user asked for: one card per person.
 
-Update `handleLogSent` in `FollowUpCard` so it does two things:
+## 2. Card behavior for VIP entries
+- The existing card UI works as-is because everything keys off `MergedIntro`.
+- Hide the "Log Sent" / "Mark Not Interested" buttons that write to `follow_up_queue` for synthetic VIP rows (no `follow_up_queue` row exists). Replace with a single **"Convert to Intro"** action that opens the existing `ConvertVipToIntroDialog` (already in the codebase). After conversion the synthetic card disappears next refresh because `booking_id` is now set on the registration.
+- "Copy phone" and "Send Script" buttons still work (they only need name + phone).
 
-1. **Insert into `script_actions`** (unchanged) — so the daily "follow-ups sent" counter on My Day still increments.
-2. **Mark the booking as dismissed for today's queue** by setting `intros_booked.followup_dismissed_at = now()` on `item.bookingId`.
+## 3. VIP no-shows → SA reschedule task
 
-Then call `onRefresh()` so the list re-reads. The existing fetch in `useFollowUpData` already filters out bookings with `followup_dismissed_at IS NOT NULL` (line 139), so the card will disappear immediately — no new query logic needed.
+In `VipRegistrationsSheet.tsx` `saveOutcome`, when `outcome === 'no_show'`:
+- Insert a `follow_up_queue` row:
+  - `person_name`: full name
+  - `person_type`: `'vip_no_show'`
+  - `owner_role`: `'SA'`
+  - `coach_owner`: null
+  - `scheduled_date` / `trigger_date`: today
+  - `touch_number`: 1
+  - `status`: `'pending'`
+  - `is_vip`: true
+  - `closed_reason`: null
+  - Store `vip_session_id` and `vip_registration_id` in the existing free-text columns we have (or skip linkage — the SA just needs the name + phone + "VIP no-show, try to reschedule" context). Use `fitness_goal` field as a short note: `"VIP no-show — reschedule into intro"` so it surfaces on the existing SA follow-up card.
+- Toast: "Logged no-show — sent to SA reschedule queue".
+- Idempotent: check before insert that no `follow_up_queue` row already exists with the same `person_name` + same day + `person_type = 'vip_no_show'`.
 
-Toast copy changes from `"Logged as sent"` to `"Logged — cleared from today's list"` so the user knows why the card vanished.
+## Downstream effects
+- Coach My Intros: now shows VIP showed/booked-intro attendees alongside real intros. Dedup still guarantees one card per person.
+- SA Follow-Up page (`useFollowUpData`): VIP no-shows surface as standard SA follow-ups (it already reads `follow_up_queue` where `owner_role = 'SA'`). No code change needed there — the row inserted in step 3 will just appear.
+- VIP Registrations sheet: behavior is additive. Existing `booked_intro` flow that opens `BookIntroSheet` still runs.
+- Sales drop-off: Total Journey sale matching extended to VIP rows so a member who bought after the VIP class is auto-removed from the coach list (matches existing rule).
+- No tables changed. No new RLS. No new triggers.
 
-### Why this works without breaking anything
-
-- `followup_dismissed_at` is already used by the **swipe-left → Not Interested** flow at the bottom of the same file (lines 333–345). We're reusing the exact same dismissal mechanism, just without marking them "not interested" in `follow_up_queue` — so they'll naturally come back into the queue on the next outcome cycle if needed (e.g., if their `contactNextDate` rolls forward and someone re-opens them via outcome edit).
-- Wait — that's the catch. Setting `followup_dismissed_at` permanently removes them from the queue, which is too aggressive for "I sent a text today, show them again in a few days."
-
-### Better approach: use cooling, not dismissal
-
-The list already has 7-day cooling logic via `lastContactAt` (read from `script_actions`), and a "Focus Today" vs "Coming Up" split based on `contactNextDate`. The cleanest fix:
-
-1. Insert the `script_actions` row (already happens).
-2. Update `intros_booked.reschedule_contact_date` to **3 days from today** (or read the per-type cadence from `computeContactNext`-style logic) so the card moves from **Focus Today** into **Coming Up**.
-3. Call `onRefresh()`.
-
-Result: the card disappears from the visible "Focus Today" section (which is what the user sees by default — "Coming Up" starts collapsed), but the person isn't lost — they reappear in a few days when it's time for the next touch.
-
-Toast: `"Logged — next touch in 3 days"`.
-
-### Recommended implementation
-
-Go with the **cooling approach** above, not permanent dismissal. Specifically:
-
-- In `handleLogSent`:
-  - Insert `script_actions` row (existing code).
-  - Compute new contact-next date based on `item.followUpType`:
-    - `noshow_1st` / `noshow_2nd` → +2 days
-    - `reschedule` → +2 days
-    - `didnt_buy_1st` / `didnt_buy_2nd` → +3 days
-    - `planning_to_buy` → +2 days
-  - Update `intros_booked.reschedule_contact_date` for `item.bookingId` to that ISO date.
-  - Toast: `"Logged — next touch {date}"` (e.g., "Logged — next touch May 2").
-  - `onRefresh()`.
-
-Since `Coming Up` is collapsed by default, the card visually disappears from the user's view immediately. They can expand `Coming Up` if they want to see it.
-
-### Out of scope
-
-- No changes to `CoachFollowUpList` (separate component).
-- No changes to `script_actions` schema or the daily counter on My Day.
-- No changes to `follow_up_queue` ownership / not-interested logic.
-- No changes to the swipe-left "Not Interested" flow.
+## Done means
+- Coach sees VIP attendees they coached on My Intros, with correct status badges, sorted with their normal intros by priority.
+- VIP no-shows do NOT appear on the coach side.
+- VIP no-shows DO appear on the SA Follow-Up page as a reschedule task.
+- One card per person — no duplicates between real intros and VIP rows.
+- Logging a VIP outcome does not break the existing "Booked intro" → BookIntroSheet flow.

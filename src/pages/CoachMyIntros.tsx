@@ -243,6 +243,28 @@ export default function CoachMyIntros() {
     const questionnaires = (qRes.data || []) as QuestionnaireRow[];
     const touches = (touchRes.data || []) as TouchRow[];
 
+    // VIP attendees this coach actually saw — pull them in as synthetic intros so
+    // the coach has a follow-up card. No-shows are SA's job and are excluded here.
+    const { data: vipSessionRows } = await supabase
+      .from('vip_sessions' as any)
+      .select('id, session_date, session_time, vip_class_name, reserved_by_group')
+      .eq('coach_name', coachName);
+    const vipSessions = (vipSessionRows || []) as any[];
+    const vipSessionById = new Map<string, any>();
+    vipSessions.forEach(s => vipSessionById.set(s.id, s));
+    let vipRegs: any[] = [];
+    if (vipSessions.length > 0) {
+      const sessionIds = vipSessions.map(s => s.id);
+      const { data: regRows } = await supabase
+        .from('vip_registrations' as any)
+        .select('id, first_name, last_name, phone, outcome, vip_session_id, booking_id, is_group_contact')
+        .in('vip_session_id', sessionIds)
+        .in('outcome', ['showed', 'booked_intro'])
+        .eq('is_group_contact', false)
+        .is('booking_id', null);
+      vipRegs = (regRows as any[]) || [];
+    }
+
     // Build lookup maps
     const fuByBooking = new Map<string, FollowUpRow>();
     followUps.forEach(fu => { if (fu.booking_id) fuByBooking.set(fu.booking_id, fu); });
@@ -406,17 +428,58 @@ export default function CoachMyIntros() {
       };
     });
 
+    // Synthesize MergedIntro rows from VIP attendees the coach saw
+    const vipMerged: MergedIntro[] = vipRegs.map(r => {
+      const sess = vipSessionById.get(r.vip_session_id) || {};
+      const memberName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+      const classDate: string = sess.session_date || format(new Date(), 'yyyy-MM-dd');
+      const introTime: string | null = sess.session_time || null;
+      let classStartAt: string | null = null;
+      try {
+        if (classDate && introTime) classStartAt = new Date(`${classDate}T${introTime}`).toISOString();
+      } catch { /* noop */ }
+      const baseResultCanon = r.outcome === 'booked_intro' ? 'SECOND_INTRO' : 'DIDNT_BUY';
+      const sold = soldNames.has(norm(memberName));
+      const resultCanon = sold ? 'SALE' : baseResultCanon;
+      const priority = computePriority(classStartAt, classDate, null, resultCanon, false, null);
+      return {
+        bookingId: `vip:${r.id}`,
+        memberName,
+        classDate,
+        introTime,
+        classStartAt,
+        phone: r.phone || null,
+        resultCanon,
+        isSecondIntro: false,
+        followUpRow: null,
+        questionnaire: null,
+        saConversation: null,
+        lastTouch: null,
+        rescheduleContactDate: null,
+        linkedIgLeadId: null,
+        transferred: false,
+        touchNumber: 1,
+        priorityTier: priority.tier,
+        priorityLabel: priority.label,
+        statusBadge: getStatusBadge(resultCanon, false),
+      } as MergedIntro;
+    });
+
+    const allMerged = [...merged, ...vipMerged];
+
     // Sort: priority tier asc, then newest class date first
-    merged.sort((a, b) => {
+    allMerged.sort((a, b) => {
       if (a.priorityTier !== b.priorityTier) return a.priorityTier - b.priorityTier;
       return b.classDate.localeCompare(a.classDate);
     });
 
     // Deduplicate by member name — one card per person.
-    // Sort already places the highest-priority/most-recent first, so keep that one.
+    // Real intro bookings are listed first in `allMerged`, and within each group
+    // the higher-priority/most-recent wins, so VIP synthetic rows for the same
+    // person automatically drop when a real intro exists.
     const seen = new Set<string>();
     const deduped: MergedIntro[] = [];
-    for (const m of merged) {
+    for (const m of allMerged) {
       const key = (m.memberName || '').trim().toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -453,6 +516,19 @@ export default function CoachMyIntros() {
   const handleLogDone = async (intro: MergedIntro) => {
     setLoggingDone(intro.bookingId);
     try {
+      // VIP synthetic row — just log a touch keyed by no booking id and refresh.
+      if (intro.bookingId.startsWith('vip:')) {
+        await supabase.from('followup_touches').insert({
+          created_by: coachName,
+          touch_type: 'mark_done',
+          channel: 'coach_my_intros_vip',
+          notes: `VIP follow-up touch for ${intro.memberName}`,
+        } as any);
+        toast.success('Logged');
+        setLoggingDone(null);
+        fetchData();
+        return;
+      }
       // Write touch
       await supabase.from('followup_touches').insert({
         created_by: coachName,
@@ -700,13 +776,18 @@ export default function CoachMyIntros() {
                           : 'Never contacted'}
                       </p>
 
-                      {/* Contact next editor */}
-                      <ContactNextEditor
-                        bookingId={intro.bookingId}
-                        contactNextDate={intro.rescheduleContactDate}
-                        rescheduleContactDate={intro.rescheduleContactDate}
-                        onSaved={fetchData}
-                      />
+                      {/* Contact next editor — only meaningful for real bookings */}
+                      {!intro.bookingId.startsWith('vip:') && (
+                        <ContactNextEditor
+                          bookingId={intro.bookingId}
+                          contactNextDate={intro.rescheduleContactDate}
+                          rescheduleContactDate={intro.rescheduleContactDate}
+                          onSaved={fetchData}
+                        />
+                      )}
+                      {intro.bookingId.startsWith('vip:') && (
+                        <p className="text-[11px] text-muted-foreground italic">From VIP class — convert to a real intro from the VIP roster to enable scheduling.</p>
+                      )}
                     </div>
 
                     {/* Section 2: Actions */}
@@ -718,7 +799,7 @@ export default function CoachMyIntros() {
                             e.stopPropagation();
                             setScriptDrawer({
                               open: true,
-                              bookingId: intro.bookingId,
+                              bookingId: intro.bookingId.startsWith('vip:') ? null : intro.bookingId,
                               leadId: intro.linkedIgLeadId,
                               name: intro.memberName,
                               phone: intro.phone,
