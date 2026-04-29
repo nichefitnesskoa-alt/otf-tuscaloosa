@@ -475,6 +475,7 @@ function ClassTimeIntroSelector({
                   questionnaire={questionnaires[intro.id] || null}
                   onUpdateBooking={onUpdateBooking}
                   userName={userName}
+                  originatingBookingStatus={origStatus}
                 />
               </div>
             )}
