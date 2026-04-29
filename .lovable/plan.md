@@ -1,92 +1,60 @@
-## Root cause
+## What went wrong
 
-The My Day "VIP group" intro card (`VipRegistrationsSheet`) reads people exclusively from the **`vip_registrations`** table, filtered by `vip_session_id`.
+Yesterday's backfill migration (`20260429031846`) inserted a `vip_registrations` row for every VIP-class booking that didn't already have a `booking_id`-linked registration. But Bama Catholic members had **already self-registered** through the public VIP form — those rows existed with `booking_id = NULL`. When you later booked their intros, the backfill saw "no registration linked to this booking" and inserted a *second* row, instead of attaching the booking to the existing self-reg row.
 
-The Pipeline "Add Member" button (`VipPipelineTable.handleAddMember`) only inserts into **`intros_booked`** with a `vip_class_name`. It does NOT write a `vip_registrations` row, and it does NOT set `vip_session_id`. So manually added people are visible in the Pipeline VIP table (which knows how to read both sources) but invisible to the My Day card.
+Result in the My Day group card for Bama Catholic:
+- Jenna Nygaard ×2, Kaelyn Bannon ×2, Siena Warriner ×2 (+1 group contact = 3), Emily Signor ×2
+- Elise Jurkovic ×2 — same person, but her phone digits differ across the two rows (`904480426` vs `(904) 480-426`), which is a separate normalization issue
 
-Confirmed in the live data for Bama Catholic:
+The same `auto_create_vip_registration` trigger has the same bug for any *future* booking of a member who already self-registered: it only checks `booking_id`, not phone/name match, so it'll keep duplicating.
 
-```text
-vip_sessions row:        Bama Catholic → session_id 0bd3...82d
-vip_registrations rows:  12 people, all linked to that session_id  ✅ shown in My Day card
-intros_booked "Elise":   vip_class_name="Bama Catholic", vip_session_id=NULL, no matching registration  ❌ missing from card
+## Fix
+
+### 1. Database migration — dedupe + harden trigger
+
+**a) Merge duplicates (keep the oldest, attach the booking_id to it):**
+For every (`vip_session_id`, normalized phone) pair with multiple rows:
+- Pick the earliest-created row as the survivor
+- If any sibling has a `booking_id` and the survivor doesn't, copy that `booking_id` (and email, last_name if missing) onto the survivor
+- Re-point any FK references (none expected, but safe to check `booking_id` uniqueness)
+- Delete the duplicate rows
+
+Phone normalization for matching = strip everything but digits, keep last 10 digits. This collapses Elise's `904480426` (9 digits — clearly a malformed entry, will be treated as its own phone) vs `(904) 480-426` (also 9 digits when stripped — they actually match). Both Elise rows normalize to `904480426` → merge.
+
+For rows with no phone, fall back to (`vip_session_id`, lower(first_name), lower(last_name)).
+
+**b) Add a unique partial index** to make duplicates impossible going forward:
+```
+CREATE UNIQUE INDEX vip_registrations_session_phone_uniq
+  ON vip_registrations (vip_session_id, regexp_replace(phone, '\D', '', 'g'))
+  WHERE phone IS NOT NULL;
 ```
 
-A second Elise row also exists with `vip_session_id` filled but `vip_class_name` NULL — created by a separate flow (likely conversion). Neither one produces a registration row.
+**c) Rewrite the `auto_create_vip_registration` trigger** so that when a VIP-class booking is inserted, it:
+1. Looks up an existing `vip_registrations` row in the same `vip_session_id` matching by normalized phone (or name fallback).
+2. **If found:** updates that row's `booking_id` (and fills `last_name`/`email` if blank). No insert.
+3. **Only if no match exists** does it insert a new row.
 
-## What to fix
+This makes self-reg → later booking flow correctly attach instead of duplicate.
 
-### 1. Pipeline → "Add Member" must write the registration row
+### 2. App code — `VipPipelineTable.handleAddMember`
 
-In `src/features/pipeline/components/VipPipelineTable.tsx` `handleAddMember`:
+Mirror the same "match-or-create" logic in `src/features/pipeline/components/VipPipelineTable.tsx`:
+before inserting a new `vip_registrations` row, query for an existing one in that session by normalized phone. If found, update it with the new `booking_id` instead of inserting.
 
-- Look up the target group's `vip_sessions.id` from `groupMetas` (already loaded as `selectedGroupMeta`).
-- Split the typed name into `first_name` / `last_name` (first token vs. rest, mirroring `auto_create_questionnaire`).
-- Insert into `vip_registrations` with: `first_name`, `last_name`, `phone`, `email`, `vip_class_name = targetGroup`, `vip_session_id = session.id`, `is_group_contact = false`, `booking_id = newBooking.id`.
-- Keep the existing `intros_booked` insert, but also stamp `vip_session_id = session.id` on it so the two sides are linked both ways.
-- If no `vip_sessions` row exists yet for that group name, create one first (mirrors the existing pattern at line 630 / 497) so we always have a session id to attach to.
+This keeps the UX path safe even if the trigger is ever bypassed.
 
-### 2. Backfill Elise (and any other orphans)
+### 3. Verification queries (run after migration)
 
-One-time migration:
+- Bama Catholic session should show: Audrey, Caroline, Chloe, Elise (1), Emily, Ethan, Grace, Hana, Jenna, Kaelyn, Lucas, Siena (1 attendee + 1 group contact)
+- No `vip_session_id`+normalized-phone pair has count > 1
+- Every booking with `lead_source='VIP Class'` and a `vip_session_id` has exactly one `vip_registrations` row pointing at it
 
-```sql
--- For every intros_booked row that is a VIP-class booking with no matching
--- vip_registrations row, create the registration and link booking ↔ session.
-INSERT INTO vip_registrations (first_name, last_name, phone, email,
-                               vip_class_name, vip_session_id,
-                               booking_id, is_group_contact)
-SELECT
-  split_part(b.member_name, ' ', 1),
-  NULLIF(substring(b.member_name FROM position(' ' IN b.member_name) + 1), ''),
-  b.phone, b.email,
-  COALESCE(b.vip_class_name, s.vip_class_name, s.reserved_by_group),
-  COALESCE(b.vip_session_id, s.id),
-  b.id,
-  false
-FROM intros_booked b
-LEFT JOIN vip_sessions s
-  ON s.reserved_by_group = b.vip_class_name
-  OR s.vip_class_name    = b.vip_class_name
-WHERE b.lead_source = 'VIP Class'
-  AND b.deleted_at IS NULL
-  AND COALESCE(b.vip_session_id, s.id) IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM vip_registrations r WHERE r.booking_id = b.id
-  );
-```
+### Files to change
 
-Plus a small UPDATE to fill `intros_booked.vip_session_id` when null:
+- New migration: dedupe + unique index + rewritten trigger
+- `src/features/pipeline/components/VipPipelineTable.tsx` — match-or-update in `handleAddMember`
 
-```sql
-UPDATE intros_booked b
-SET vip_session_id = s.id
-FROM vip_sessions s
-WHERE b.lead_source = 'VIP Class'
-  AND b.vip_session_id IS NULL
-  AND b.deleted_at IS NULL
-  AND (s.reserved_by_group = b.vip_class_name OR s.vip_class_name = b.vip_class_name);
-```
+### Out of scope (flagging only)
 
-### 3. Safety net — DB trigger so this never silently desyncs again
-
-Add an `AFTER INSERT` trigger on `intros_booked` that, when `lead_source = 'VIP Class'` AND `vip_session_id IS NOT NULL` AND no `vip_registrations` row exists for that booking, auto-creates one. This protects against any other code path (conversion flow, future imports) that forgets to write the registration.
-
-## Files touched
-
-- `src/features/pipeline/components/VipPipelineTable.tsx` — fix `handleAddMember`
-- New Supabase migration — backfill + trigger
-
-## Downstream effects checked
-
-- **My Day VIP group card**: Elise (and any past orphans) appear immediately after backfill; future manual adds appear in real time.
-- **Pipeline VIP table**: Already merges registrations + orphan bookings, so no change in behavior for existing data; orphans simply become non-orphans.
-- **VIP roster / scheduler**: Reads `vip_registrations` by session — gains the missing rows, which is the desired behavior.
-- **Convert-to-real-intro flow**: Still works — `ConvertVipToIntroDialog` already updates `vip_registrations.booking_id`, and the new trigger is no-op when a registration already exists.
-- **Outcome logging in the My Day card**: Now possible for manually added people (was impossible before because they didn't appear).
-
-## Out of scope
-
-- No UI changes to the My Day card itself.
-- No changes to the public VIP registration form.
-- No changes to attribution / coach-credit logic.
+The `904480426` (9-digit) phone on Elise's booking is a separate data-entry/normalization bug. After dedupe she'll be one row with `(904) 480-426`. If you want, a follow-up pass can re-normalize all `intros_booked.phone` values through the same NANP rules used elsewhere — say the word and I'll add it.
