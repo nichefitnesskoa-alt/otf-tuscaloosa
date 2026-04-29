@@ -1,30 +1,42 @@
-## Problem
+## Add "Log Sent" button to Follow-Up cards
 
-In the screenshot, the April Deal script is opened on a real member (Aubrey) — `{first-name}` resolved correctly, but `{first-intro-coach-full-name}` is highlighted as unfilled and is asking the SA to manually type it.
+The follow-up cards on My Day (rendered by `src/features/followUp/FollowUpList.tsx`) currently show three actions: **Send Text**, **Copy Phone**, **Log Outcome**. There is no way to mark a script as sent without going back through the Send Text drawer. This adds a fourth action: **Log Sent**.
 
-The data is already available — `resolveFirstIntroCoachName(bookingId)` returns the full coach name from `intros_run` / `intros_booked`. The bug is in `MessageGenerator.tsx`:
+### What changes
 
-- It only sets `first-intro-coach-name` (first name only) into context.
-- It never sets `first-intro-coach-full-name`, so that token stays unresolved → "Fill in missing fields" shows.
+**File: `src/features/followUp/FollowUpList.tsx`**
 
-## Fix
+In `FollowUpCard`, add a `Log Sent` button to the action row, between Copy Phone and Log Outcome.
 
-Edit `src/components/scripts/MessageGenerator.tsx`:
+- Label: **Log Sent** (full readable text, no abbreviation)
+- Icon: `CheckCheck` from lucide-react
+- Style: `variant="outline"`, `min-h-[44px]`, matches sibling buttons
+- On click: insert into `script_actions` with:
+  - `action_type: 'script_sent'`
+  - `booking_id: item.bookingId`
+  - `category` mapped from `followUpType` using the same map already used by `handleSendText` (no_show / reschedule / follow_up)
+  - `created_by: userName`
+- Show toast `"Logged as sent"` (2-second confirmation per UI standards)
+- After insert, call `onRefresh()` so the card re-reads `lastContactAt` and the 7-day cooling/dimming logic applies immediately
+- Disable the button briefly while the insert is in flight (local `useState` saving flag) to prevent double-taps
 
-1. Track both the full and first-name resolutions from `resolveFirstIntroCoachName(bookingId)`:
-   - `resolvedFirstIntroCoachFull` = full name
-   - `resolvedFirstIntroCoachFirst` = first token of full name
-2. In `fullContext`, populate both keys when resolved (and only when not already supplied via `mergeContext`):
-   - `first-intro-coach-name` ← first name
-   - `first-intro-coach-full-name` ← full name
-3. As a final fallback when `bookingId` is present but lookup returns null (TBD coach, missing run/booking row), fall back to the booking's own `coach_name` so the field still auto-fills the majority of the time.
+### Action row layout
 
-## Outcome
+```text
+[ Send Text (orange, flex-1) ] [ Copy ] [ Log Sent ] [ Log Outcome (flex-1) ]
+```
 
-- Coach name (full or first) auto-populates whenever the booking has a coach in either `intros_run` or `intros_booked` (which is the vast majority of cases).
-- "Fill in missing fields" only appears in the rare case where no coach is assigned anywhere in the booking chain — matching the user's stated rule.
-- No other call sites change; this is a single-file fix that flows through every surface using `MessageGenerator` (My Day cards, Follow-Up queue, Pipeline, Coach pages, Questionnaire Hub, etc.).
+`Log Sent` and `Log Outcome` both stay 44px tall with full labels. Copy stays as the icon-only square it already is.
 
-## Files
+### Downstream effects (verified, none broken)
 
-- `src/components/scripts/MessageGenerator.tsx`
+- `FollowUpQueue` on the Leads page is a separate component and is out of scope.
+- `script_actions` insert is the same shape used elsewhere when the Send Text drawer logs a sent message, so the daily "follow-ups sent" counter on My Day (`todayFollowUpsSent` in `MyDayPage.tsx`) will pick this up automatically — no other file needs changes.
+- 7-day cooling dimming reads `lastContactAt` via `useFollowUpData`; calling `onRefresh()` after insert refreshes that data so the card visually dims as expected.
+- No schema changes. No RLS changes. No role-permission changes.
+
+### Out of scope
+
+- No changes to `FollowUpQueue` (Leads page).
+- No changes to the Send Text flow, script picker, or script_actions schema.
+- No changes to layout/styling of any other card or page.
