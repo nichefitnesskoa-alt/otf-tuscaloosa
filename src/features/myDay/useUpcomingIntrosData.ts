@@ -267,8 +267,9 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
           if (!b || !b.originating_booking_id || b.referred_by_member_name) continue;
           const orig = bookings.find(o => o.id === b.originating_booking_id);
           if (orig && orig.member_name.toLowerCase().replace(/\s+/g, '') === b.member_name.toLowerCase().replace(/\s+/g, '')) {
-            // Only count as 2nd intro if the originating booking wasn't a no-show
-            if ((orig as any).booking_status_canon !== 'NO_SHOW') {
+            // Only count as 2nd intro if the originating booking actually ran
+            // (not no-show, not rescheduled, not cancelled, not soft-deleted)
+            if (!NON_RAN_BOOKING_STATUSES.has((orig as any).booking_status_canon || '')) {
               item.isSecondIntro = true;
             }
           }
