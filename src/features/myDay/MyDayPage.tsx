@@ -79,6 +79,7 @@ export default function MyDayPage() {
 
   // Prep/Script/Coach/Outcome drawer state
   const [prepBookingId, setPrepBookingId] = useState<string | null>(null);
+  const [prepIsSecondIntro, setPrepIsSecondIntro] = useState(false);
   const [scriptBookingId, setScriptBookingId] = useState<string | null>(null);
   const [scriptIsSecondIntro, setScriptIsSecondIntro] = useState(false);
   const [scriptFromFollowUp, setScriptFromFollowUp] = useState(false);
