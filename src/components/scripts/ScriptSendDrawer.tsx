@@ -80,14 +80,14 @@ export function ScriptSendDrawer({
     if (!open) return;
     const fallback = normalizeCoachName(coachContextFallback);
     if (!bookingId) {
-      setFirstIntroCoach(fallback ? fallback.split(/\s+/)[0] : null);
+      setFirstIntroCoach(fallback);
       return;
     }
     (async () => {
       const full = await resolveFirstIntroCoachName(bookingId);
       if (cancelled) return;
       const resolved = full ?? fallback;
-      setFirstIntroCoach(resolved ? resolved.split(/\s+/)[0] : null);
+      setFirstIntroCoach(resolved);
     })();
     return () => { cancelled = true; };
   }, [open, bookingId, coachContextFallback]);
@@ -122,14 +122,16 @@ export function ScriptSendDrawer({
 
     // {first-intro-coach-name} — resolved from booking chain (intros_run.coach_name on first intro).
     // Falls back to coachContextFallback (logged-in coach on coach surfaces) and finally to placeholder.
-    const firstIntroCoachVal = firstIntroCoach || (coachContextFallback ? (normalizeCoachName(coachContextFallback)?.split(/\s+/)[0] ?? null) : null);
-    resolved = resolved.replace(/\{first-intro-coach-name\}/gi, firstIntroCoachVal || '[Coach name]');
-    resolved = resolved.replace(/\{first-intro-coach-full-name\}/gi, firstIntroCoachVal || '[Coach name]');
+    const firstIntroCoachFull = firstIntroCoach || (coachContextFallback ? normalizeCoachName(coachContextFallback) : null);
+    const firstIntroCoachFirst = firstIntroCoachFull ? firstIntroCoachFull.split(/\s+/)[0] : null;
+    resolved = resolved.replace(/\{first-intro-coach-name\}/gi, firstIntroCoachFirst || '[Coach name]');
+    resolved = resolved.replace(/\{first-intro-coach-full-name\}/gi, firstIntroCoachFull || '[Coach name]');
 
     // Generic {coach-name} / {coach-first-name}: use first-intro coach when known, else fall back to saName (legacy).
-    const genericCoach = firstIntroCoachVal || saName?.split(' ')[0] || null;
-    resolved = resolved.replace(/\{coach-name\}/gi, genericCoach || '[Coach name]');
-    resolved = resolved.replace(/\{coach-first-name\}/gi, genericCoach || '[Coach name]');
+    const genericCoachFull = firstIntroCoachFull || saName || null;
+    const genericCoachFirst = genericCoachFull ? genericCoachFull.split(/\s+/)[0] : null;
+    resolved = resolved.replace(/\{coach-name\}/gi, genericCoachFull || '[Coach name]');
+    resolved = resolved.replace(/\{coach-first-name\}/gi, genericCoachFirst || '[Coach name]');
 
     resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
     resolved = resolved.replace(/\{day\}/gi, '[Day]');

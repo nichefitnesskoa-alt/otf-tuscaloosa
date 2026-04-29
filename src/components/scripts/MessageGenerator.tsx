@@ -169,18 +169,25 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const [editedMessage, setEditedMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const prevOpenRef = useRef(false);
+  const userEditedRef = useRef(false);
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      const applied = cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, {}));
-      setEditedMessage(applied);
+      userEditedRef.current = false;
       setManualFields({});
       setCopied(false);
     }
     prevOpenRef.current = open;
   }, [open]);
 
+  useEffect(() => {
+    if (!open || userEditedRef.current) return;
+    const applied = cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, manualFields));
+    setEditedMessage(applied);
+  }, [open, templateBody, fullContext, manualFields]);
+
   const handleManualChange = (field: string, value: string) => {
+    userEditedRef.current = true;
     const newManual = { ...manualFields, [field]: value };
     setManualFields(newManual);
     setEditedMessage(cleanCoachFallbackPhrasing(applyMergeFields(templateBody, fullContext, newManual)));
@@ -307,7 +314,10 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
             <Label className="text-xs">Edit message</Label>
             <Textarea
               value={editedMessage}
-              onChange={(e) => setEditedMessage(e.target.value)}
+              onChange={(e) => {
+                userEditedRef.current = true;
+                setEditedMessage(e.target.value);
+              }}
               className="mt-1 min-h-[100px] text-sm"
             />
           </div>
