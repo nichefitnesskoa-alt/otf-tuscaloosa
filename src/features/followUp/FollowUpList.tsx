@@ -309,6 +309,27 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
     }));
   };
 
+  const handleLogSent = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (loggingSent) return;
+    setLoggingSent(true);
+    try {
+      const { error } = await (supabase as any).from('script_actions').insert({
+        action_type: 'script_sent',
+        completed_by: userName || 'Unknown',
+        booking_id: item.bookingId,
+      });
+      if (error) throw error;
+      toast.success('Logged as sent');
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to log sent:', err);
+      toast.error('Failed to log');
+    } finally {
+      setLoggingSent(false);
+    }
+  };
+
   const handleDismiss = async () => {
     await supabase.from('follow_up_queue').update({
       not_interested_at: new Date().toISOString(),
