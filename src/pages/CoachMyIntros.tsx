@@ -776,14 +776,18 @@ export default function CoachMyIntros() {
                           : 'Never contacted'}
                       </p>
 
-                      {/* Contact next editor */}
-                      <ContactNextEditor
-                        bookingId={intro.bookingId}
-                        contactNextDate={intro.rescheduleContactDate}
-                        rescheduleContactDate={intro.rescheduleContactDate}
-                        onSaved={fetchData}
-                      />
-                    </div>
+                      {/* Contact next editor — only meaningful for real bookings */}
+                      {!intro.bookingId.startsWith('vip:') && (
+                        <ContactNextEditor
+                          bookingId={intro.bookingId}
+                          contactNextDate={intro.rescheduleContactDate}
+                          rescheduleContactDate={intro.rescheduleContactDate}
+                          onSaved={fetchData}
+                        />
+                      )}
+                      {intro.bookingId.startsWith('vip:') && (
+                        <p className="text-[11px] text-muted-foreground italic">From VIP class — convert to a real intro from the VIP roster to enable scheduling.</p>
+                      )}
 
                     {/* Section 2: Actions */}
                     {!intro.transferred && intro.resultCanon !== 'SALE' && (
