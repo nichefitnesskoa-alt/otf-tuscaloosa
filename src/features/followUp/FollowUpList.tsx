@@ -257,6 +257,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   userName: string;
 }) {
   const [swiped, setSwiped] = useState(false);
+  const [loggingSent, setLoggingSent] = useState(false);
   const touchStartX = useRef(0);
   const priority = getPriority(item, todayStr);
 
