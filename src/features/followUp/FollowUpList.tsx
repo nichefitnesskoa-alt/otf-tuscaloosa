@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, CheckCheck } from 'lucide-react';
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
@@ -257,6 +257,7 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
   userName: string;
 }) {
   const [swiped, setSwiped] = useState(false);
+  const [loggingSent, setLoggingSent] = useState(false);
   const touchStartX = useRef(0);
   const priority = getPriority(item, todayStr);
 
@@ -306,6 +307,27 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
     window.dispatchEvent(new CustomEvent('myday:open-outcome', {
       detail: { bookingId: item.bookingId },
     }));
+  };
+
+  const handleLogSent = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (loggingSent) return;
+    setLoggingSent(true);
+    try {
+      const { error } = await (supabase as any).from('script_actions').insert({
+        action_type: 'script_sent',
+        completed_by: userName || 'Unknown',
+        booking_id: item.bookingId,
+      });
+      if (error) throw error;
+      toast.success('Logged as sent');
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to log sent:', err);
+      toast.error('Failed to log');
+    } finally {
+      setLoggingSent(false);
+    }
   };
 
   const handleDismiss = async () => {
@@ -429,6 +451,16 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             onClick={handleCopyPhone}
           >
             <Copy className="w-4 h-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px] flex-1 cursor-pointer"
+            onClick={handleLogSent}
+            disabled={loggingSent}
+          >
+            <CheckCheck className="w-3.5 h-3.5 mr-1" />
+            {loggingSent ? 'Logging…' : 'Log Sent'}
           </Button>
           <Button
             size="sm"
