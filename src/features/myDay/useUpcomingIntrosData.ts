@@ -332,7 +332,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
               .from('intros_run')
               .select('id, linked_intro_booked_id, result_canon')
               .or(`member_name.eq.${item.memberName},member_name.eq.${item.memberName.toLowerCase()}`)
-              .neq('result_canon', 'NO_SHOW')
+              .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)')
               .limit(5);
             const hasExternalRun = (externalRuns || []).some(r => 
               r.linked_intro_booked_id && !batchIds.has(r.linked_intro_booked_id)
