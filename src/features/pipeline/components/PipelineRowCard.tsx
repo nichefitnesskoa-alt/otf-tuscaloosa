@@ -25,6 +25,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isVipBooking } from '@/lib/vip/vipRules';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { isRealSecondIntro } from '../selectors';
 import { useAuth } from '@/context/AuthContext';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import type { ClientJourney, PipelineBooking, PipelineRun, VipInfo } from '../pipelineTypes';
