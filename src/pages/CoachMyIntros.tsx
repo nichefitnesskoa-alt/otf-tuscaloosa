@@ -788,6 +788,7 @@ export default function CoachMyIntros() {
                       {intro.bookingId.startsWith('vip:') && (
                         <p className="text-[11px] text-muted-foreground italic">From VIP class — convert to a real intro from the VIP roster to enable scheduling.</p>
                       )}
+                    </div>
 
                     {/* Section 2: Actions */}
                     {!intro.transferred && intro.resultCanon !== 'SALE' && (
