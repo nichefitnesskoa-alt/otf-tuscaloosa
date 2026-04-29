@@ -4,7 +4,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList } from 'lucide-react';
+import { RefreshCw, ChevronDown, ChevronRight, Phone, Copy, ClipboardList, CheckCheck } from 'lucide-react';
 import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { useFollowUpData, type FollowUpItem, type FollowUpType } from './useFollowUpData';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
