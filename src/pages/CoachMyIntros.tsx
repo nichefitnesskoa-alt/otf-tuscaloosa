@@ -715,6 +715,9 @@ export default function CoachMyIntros() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-semibold text-sm">{intro.memberName}</span>
+                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.visitBadge.color)}>
+                        {intro.visitBadge.label}
+                      </span>
                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.statusBadge.color)}>
                         {intro.statusBadge.label}
                       </span>
