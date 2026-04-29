@@ -799,7 +799,7 @@ export default function CoachMyIntros() {
                             e.stopPropagation();
                             setScriptDrawer({
                               open: true,
-                              bookingId: intro.bookingId,
+                              bookingId: intro.bookingId.startsWith('vip:') ? null : intro.bookingId,
                               leadId: intro.linkedIgLeadId,
                               name: intro.memberName,
                               phone: intro.phone,
