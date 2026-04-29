@@ -503,6 +503,8 @@ export default function CoachMyIntros() {
         priorityTier: priority.tier,
         priorityLabel: priority.label,
         statusBadge: getStatusBadge(resultCanon, false),
+        visitType: 'VIP_ONLY',
+        visitBadge: getVisitBadge('VIP_ONLY'),
       } as MergedIntro;
     });
 
