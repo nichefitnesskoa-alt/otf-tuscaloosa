@@ -154,7 +154,7 @@ export function buildJourneys(
     else if (hasNoShow && !hasActive) status = 'no_show';
     else if (hasActive) status = 'active';
 
-    const latestRun = data.runs.find(r => r.result !== 'No-show');
+    const latestRun = data.runs.find(r => didIntroActuallyRun(r));
     const latestIntroOwner = latestRun?.intro_owner || latestRun?.ran_by || data.bookings[0]?.intro_owner || null;
     const totalCommission = data.runs.reduce((sum, r) => sum + (r.commission_amount || 0), 0);
 
@@ -201,7 +201,7 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
     );
     const hasPurchased = hasPurchasedMembership(journey);
 
-    if (journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show')) counts.completed++;
+    if (journey.runs.some(r => didIntroActuallyRun(r))) counts.completed++;
     if (latestActiveBooking && isBookingUpcoming(latestActiveBooking)) counts.upcoming++;
     if (latestActiveBooking && isBookingToday(latestActiveBooking)) counts.today++;
 
@@ -282,7 +282,7 @@ export function filterJourneysByTab(
       case 'today':
         return latestActiveBooking && isBookingToday(latestActiveBooking);
       case 'completed':
-        return journey.runs.length > 0 && journey.runs.some(r => r.result !== 'No-show');
+        return journey.runs.some(r => didIntroActuallyRun(r));
       case 'no_show': {
         if (hasPurchased) return false;
         const hasActiveBooking = journey.bookings.some(
