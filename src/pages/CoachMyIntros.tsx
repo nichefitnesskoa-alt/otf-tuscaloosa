@@ -15,6 +15,7 @@ import { ChevronDown, Phone, Copy, Check, MessageSquare, CalendarPlus, CheckCirc
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
+import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -277,14 +278,28 @@ export default function CoachMyIntros() {
     const myBookingIds = bookings.map(b => b.id);
     const originatingIds = bookings.map(b => (b as any).originating_booking_id).filter(Boolean) as string[];
     const chainBookingIds = new Set<string>([...myBookingIds, ...originatingIds]);
+    // Map originating booking id → its booking_status_canon. Used below to
+    // decide whether each booking is a real 2nd intro (originator actually ran)
+    // or whether the originator was rescheduled/cancelled/no-show — in which
+    // case this booking IS the 1st intro.
+    const origStatusById = new Map<string, string>();
     if (myBookingIds.length > 0) {
       const { data: rebooks } = await supabase
         .from('intros_booked')
-        .select('id, originating_booking_id')
+        .select('id, originating_booking_id, booking_status_canon')
         .in('originating_booking_id', myBookingIds);
       (rebooks || []).forEach((r: any) => {
         if (r.id) chainBookingIds.add(r.id);
         if (r.originating_booking_id) chainBookingIds.add(r.originating_booking_id);
+      });
+    }
+    if (originatingIds.length > 0) {
+      const { data: origs } = await supabase
+        .from('intros_booked')
+        .select('id, booking_status_canon')
+        .in('id', originatingIds);
+      (origs || []).forEach((r: any) => {
+        if (r.id) origStatusById.set(r.id, r.booking_status_canon || '');
       });
     }
     // Map: any booking in chainBookingIds with a SALE run
@@ -335,7 +350,10 @@ export default function CoachMyIntros() {
       // Total Journey override: if any booking in this person's chain has a sale,
       // treat this intro as Joined and route it to "Caught up".
       const resultCanon = chainSaleByBooking.get(b.id) ? 'SALE' : baseResultCanon;
-      const isSecondIntro = !!b.originating_booking_id;
+      const origStatus = b.originating_booking_id ? origStatusById.get(b.originating_booking_id) : null;
+      const isSecondIntro = !!b.originating_booking_id
+        && !!origStatus
+        && !NON_RAN_BOOKING_STATUSES.has(origStatus);
 
       const lastTouch = lastTouchRow
         ? { daysAgo: differenceInDays(new Date(), new Date(lastTouchRow.created_at)), channel: lastTouchRow.channel || lastTouchRow.touch_type }
