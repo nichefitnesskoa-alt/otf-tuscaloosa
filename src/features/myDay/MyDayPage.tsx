@@ -505,7 +505,7 @@ export default function MyDayPage() {
           classTime={prepBooking.intro_time}
           coachName={prepBooking.coach_name}
           leadSource={prepBooking.lead_source}
-          isSecondIntro={!!prepBooking.originating_booking_id && !(prepBooking as any).referred_by_member_name}
+          isSecondIntro={prepIsSecondIntro}
           originatingBookingId={prepBooking.originating_booking_id}
           phone={null}
           email={null}
