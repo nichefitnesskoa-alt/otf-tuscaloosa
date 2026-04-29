@@ -178,7 +178,11 @@ export default function MyDayPage() {
 
   // Listen for Prep/Script/Coach events from IntroRowCard
   useEffect(() => {
-    const onPrep = (e: Event) => setPrepBookingId((e as CustomEvent).detail.bookingId);
+    const onPrep = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setPrepBookingId(detail.bookingId);
+      setPrepIsSecondIntro(!!detail.isSecondIntro);
+    };
     const onScript = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       setScriptBookingId(detail.bookingId);
