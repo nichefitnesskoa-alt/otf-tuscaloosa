@@ -48,15 +48,17 @@ export function getBookingDayBucket(
  * subsequent booking is the real 1st intro.
  *
  * NO_SHOW              — class happened, member didn't come
- * PLANNING_RESCHEDULE  — member cancelled, will rebook
- * PLANNING_2ND_INTRO   — they're rescheduling to a different date
- * UNRESOLVED           — no outcome captured yet
+ * PLANNING_RESCHEDULE  — member cancelled before class, will rebook
+ * UNRESOLVED           — no outcome captured yet (run row is an artifact)
  * VIP_CLASS_INTRO      — VIP event marker, not a real intro run
+ *
+ * NOTE: PLANNING_2ND_INTRO IS a ran intro — the member showed up,
+ * had the class, and decided they want to book a 2nd intro before
+ * deciding. Do NOT include it here.
  */
 export const NON_RAN_RESULT_CANONS = new Set([
   'NO_SHOW',
   'PLANNING_RESCHEDULE',
-  'PLANNING_2ND_INTRO',
   'UNRESOLVED',
   'VIP_CLASS_INTRO',
 ]);
@@ -65,8 +67,8 @@ const NON_RAN_RESULT_DISPLAY = new Set([
   'no-show',
   'no show',
   'planning to reschedule',
-  'planning to book 2nd intro',
   'unresolved',
+  'pending',
   '',
   'vip class intro',
 ]);
