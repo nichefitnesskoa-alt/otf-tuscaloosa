@@ -277,6 +277,21 @@ export default function CoachMyIntros() {
       vipRegs = (regRows as any[]) || [];
     }
 
+    // Separate fetch: ALL VIP attendees (any outcome, including those already converted
+    // to bookings) — used to detect "this person came via VIP" on real intro cards.
+    const vipAttendeeNames = new Set<string>();
+    if (vipSessions.length > 0) {
+      const sessionIds = vipSessions.map(s => s.id);
+      const { data: allRegs } = await supabase
+        .from('vip_registrations' as any)
+        .select('first_name, last_name')
+        .in('vip_session_id', sessionIds);
+      ((allRegs as any[]) || []).forEach(r => {
+        const n = [r.first_name, r.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+        if (n) vipAttendeeNames.add(n);
+      });
+    }
+
     // Build lookup maps
     const fuByBooking = new Map<string, FollowUpRow>();
     followUps.forEach(fu => { if (fu.booking_id) fuByBooking.set(fu.booking_id, fu); });
