@@ -291,7 +291,7 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             .from('intros_run')
             .select('member_name, linked_intro_booked_id, result_canon')
             .in('member_name', batchExtended)
-            .neq('result_canon', 'NO_SHOW');
+            .not('result_canon', 'in', '(NO_SHOW,PLANNING_RESCHEDULE,UNRESOLVED,VIP_CLASS_INTRO)');
           if (priorRuns) {
             for (const pr of priorRuns) {
               priorRunMembers.add(pr.member_name.toLowerCase().replace(/\s+/g, ''));
