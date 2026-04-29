@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveFirstIntroCoachName, normalizeCoachName, cleanCoachFallbackPhrasing } from '@/lib/script-context';
 import { toast } from 'sonner';
 
 interface ScriptSendDrawerProps {
@@ -29,7 +30,14 @@ interface ScriptSendDrawerProps {
   leadName?: string | null;
   leadPhone?: string | null;
   categoryFilter?: string | string[] | null;
+  /** Pre-select this category pill when the drawer opens. Must match a slug in categoryFilter. */
+  defaultCategory?: string | null;
   saName: string;
+  /**
+   * Fallback for {first-intro-coach-name} when the booking lookup yields nothing.
+   * Pass the logged-in coach's name on coach-only surfaces (My Intros, Coach Follow-Up).
+   */
+  coachContextFallback?: string | null;
 }
 
 export function ScriptSendDrawer({
@@ -40,7 +48,9 @@ export function ScriptSendDrawer({
   leadName = null,
   leadPhone = null,
   categoryFilter = null,
+  defaultCategory = null,
   saName,
+  coachContextFallback = null,
 }: ScriptSendDrawerProps) {
   const { data: templates = [] } = useScriptTemplates();
   const { options: categoryOptions } = useScriptCategoryOptions();
@@ -50,18 +60,37 @@ export function ScriptSendDrawer({
     return Array.isArray(categoryFilter) ? categoryFilter : [categoryFilter];
   }, [categoryFilter]);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(defaultCategory || '');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [phoneCopied, setPhoneCopied] = useState(false);
+  const [firstIntroCoach, setFirstIntroCoach] = useState<string | null>(null);
 
-  // Reset state when drawer opens
+  // Reset state when drawer opens; pre-select default category
   useEffect(() => {
     if (open) {
-      setSelectedCategory('');
+      setSelectedCategory(defaultCategory || '');
       setCopiedId(null);
       setPhoneCopied(false);
     }
-  }, [open]);
+  }, [open, defaultCategory]);
+
+  // Resolve {first-intro-coach-name} once per open when bookingId is present
+  useEffect(() => {
+    let cancelled = false;
+    if (!open) return;
+    const fallback = normalizeCoachName(coachContextFallback);
+    if (!bookingId) {
+      setFirstIntroCoach(fallback ? fallback.split(/\s+/)[0] : null);
+      return;
+    }
+    (async () => {
+      const full = await resolveFirstIntroCoachName(bookingId);
+      if (cancelled) return;
+      const resolved = full ?? fallback;
+      setFirstIntroCoach(resolved ? resolved.split(/\s+/)[0] : null);
+    })();
+    return () => { cancelled = true; };
+  }, [open, bookingId, coachContextFallback]);
 
   // Available categories based on filter
   const availableCategories = useMemo(() => {
@@ -85,20 +114,29 @@ export function ScriptSendDrawer({
       resolved = resolved.replace(/\{first-name\}/gi, firstName);
       resolved = resolved.replace(/\{name\}/gi, leadName);
     } else {
-      resolved = resolved.replace(/\{first-name\}/gi, '[Name]');
-      resolved = resolved.replace(/\{name\}/gi, '[Name]');
+      resolved = resolved.replace(/\{first-name\}/gi, '[Member name]');
+      resolved = resolved.replace(/\{name\}/gi, '[Member name]');
     }
     resolved = resolved.replace(/\{sa-name\}/gi, saName || '[SA Name]');
     resolved = resolved.replace(/\{sa-first-name\}/gi, saName?.split(' ')[0] || '[SA Name]');
-    // The logged-in user IS the coach when sending coach scripts; resolve to their name
-    resolved = resolved.replace(/\{coach-name\}/gi, saName || '[Coach Name]');
-    resolved = resolved.replace(/\{coach-first-name\}/gi, saName?.split(' ')[0] || '[Coach Name]');
+
+    // {first-intro-coach-name} — resolved from booking chain (intros_run.coach_name on first intro).
+    // Falls back to coachContextFallback (logged-in coach on coach surfaces) and finally to placeholder.
+    const firstIntroCoachVal = firstIntroCoach || (coachContextFallback ? (normalizeCoachName(coachContextFallback)?.split(/\s+/)[0] ?? null) : null);
+    resolved = resolved.replace(/\{first-intro-coach-name\}/gi, firstIntroCoachVal || '[Coach name]');
+    resolved = resolved.replace(/\{first-intro-coach-full-name\}/gi, firstIntroCoachVal || '[Coach name]');
+
+    // Generic {coach-name} / {coach-first-name}: use first-intro coach when known, else fall back to saName (legacy).
+    const genericCoach = firstIntroCoachVal || saName?.split(' ')[0] || null;
+    resolved = resolved.replace(/\{coach-name\}/gi, genericCoach || '[Coach name]');
+    resolved = resolved.replace(/\{coach-first-name\}/gi, genericCoach || '[Coach name]');
+
     resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
     resolved = resolved.replace(/\{day\}/gi, '[Day]');
     resolved = resolved.replace(/\{time\}/gi, '[Time]');
     resolved = resolved.replace(/\{location-name\}/gi, 'Tuscaloosa');
     resolved = resolved.replace(/\{questionnaire-link\}/gi, '[Questionnaire Link]');
-    return resolved;
+    return cleanCoachFallbackPhrasing(resolved);
   };
 
   const handleCopy = async (template: ScriptTemplate) => {
