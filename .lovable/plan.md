@@ -1,69 +1,92 @@
-## The Problem
+## Root cause
 
-Jasmine Beamon's 4/1 intro shows "TBD" on the WIG even though Natalya clearly ran the class. The drill-in shows Natalya because that view reads `intros_run.coach_name`. The WIG "Coach Performance" table reads `intros_booked.coach_name` — which was never updated when the run was logged.
+The My Day "VIP group" intro card (`VipRegistrationsSheet`) reads people exclusively from the **`vip_registrations`** table, filtered by `vip_session_id`.
 
-## Root Cause
+The Pipeline "Add Member" button (`VipPipelineTable.handleAddMember`) only inserts into **`intros_booked`** with a `vip_class_name`. It does NOT write a `vip_registrations` row, and it does NOT set `vip_session_id`. So manually added people are visible in the Pipeline VIP table (which knows how to read both sources) but invisible to the My Day card.
 
-When an SA logs an intro outcome, the coach is saved to `intros_run.coach_name`. The matching `intros_booked.coach_name` row is only patched if (a) the SA went through `OutcomeDrawer` recently and (b) the booking coach was empty/TBD at save time. Older rows, rows logged via other paths (InlineIntroLogger, ClientJourneyPanel, IntroRunEntry, mobile flows), and any backfilled history were never synced.
-
-Result: a coach IS attached to the run, but the booking still says "TBD" — so every metric anchored to `intros_booked.coach_name` (WIG Coach Performance, Per-Coach close rate denominator, TBD lists) silently undercounts that coach.
-
-## Scope of Damage
-
-A query against the database returned **30+ bookings** going back to February 2026 where:
-- `intros_booked.coach_name` is `'TBD'`, empty, or null
-- `intros_run.coach_name` has a real coach (Natalya, Elizabeth, Bre, Koa, James, Nathan, Kaitlyn H, Premier, etc.)
-
-These coaches are losing credit for "Intros Coached" in the WIG every month.
-
-## The Fix (Three Parts — All Built In One Pass)
-
-### 1. One-Time Backfill Migration
-
-For every `intros_booked` row where `coach_name` is null/empty/TBD AND a linked `intros_run` row has a real coach name, copy the run's coach into the booking. Audit fields:
-- `last_edited_by = 'System (Coach Backfill)'`
-- `edit_reason = 'Backfilled from linked run coach_name'`
-- `last_edited_at = now()`
-
-Skip soft-deleted bookings.
-
-### 2. Database Trigger — Auto-Sync Going Forward
-
-Add an `AFTER INSERT OR UPDATE` trigger on `intros_run`. Whenever `coach_name` is set to a non-empty, non-TBD value AND the linked booking's `coach_name` is null/empty/TBD, patch the booking. This eliminates the recurrence — no app code can forget to sync because the database does it.
+Confirmed in the live data for Bama Catholic:
 
 ```text
-intros_run.coach_name set ──► trigger ──► intros_booked.coach_name updated
-                                          (only if booking coach was missing)
+vip_sessions row:        Bama Catholic → session_id 0bd3...82d
+vip_registrations rows:  12 people, all linked to that session_id  ✅ shown in My Day card
+intros_booked "Elise":   vip_class_name="Bama Catholic", vip_session_id=NULL, no matching registration  ❌ missing from card
 ```
 
-### 3. WIG Query Hardening (defense in depth)
+A second Elise row also exists with `vip_session_id` filled but `vip_class_name` NULL — created by a separate flow (likely conversion). Neither one produces a registration row.
 
-Update `src/pages/Wig.tsx` coach measures and `src/components/dashboard/PerCoachTable.tsx` so when `intros_booked.coach_name` is null/empty/'TBD', they fall back to the linked `intros_run.coach_name`. This protects against any future code path that bypasses the trigger.
+## What to fix
 
-## Downstream Effects (all addressed in this build)
+### 1. Pipeline → "Add Member" must write the registration row
 
-- WIG → Coach Performance table: Natalya, Elizabeth, Bre, Koa, etc. immediately get correct "Intros Coached" counts for past months
-- WIG → Per-Coach close rate: denominators correct, close rates recalculate
-- Pipeline → coach displays: row cards stop showing "TBD" for these clients
-- TBD-coach enforcement (built last build): the "no coach on file" warning stops triggering for these resolved bookings
-- Drill-in views already showed the right coach — now they match the WIG
+In `src/features/pipeline/components/VipPipelineTable.tsx` `handleAddMember`:
 
-## Files Touched
+- Look up the target group's `vip_sessions.id` from `groupMetas` (already loaded as `selectedGroupMeta`).
+- Split the typed name into `first_name` / `last_name` (first token vs. rest, mirroring `auto_create_questionnaire`).
+- Insert into `vip_registrations` with: `first_name`, `last_name`, `phone`, `email`, `vip_class_name = targetGroup`, `vip_session_id = session.id`, `is_group_contact = false`, `booking_id = newBooking.id`.
+- Keep the existing `intros_booked` insert, but also stamp `vip_session_id = session.id` on it so the two sides are linked both ways.
+- If no `vip_sessions` row exists yet for that group name, create one first (mirrors the existing pattern at line 630 / 497) so we always have a session id to attach to.
 
-- New migration: backfill SQL + trigger function + trigger
-- `src/pages/Wig.tsx` — fallback to run coach when booking coach is missing
-- `src/components/dashboard/PerCoachTable.tsx` — same fallback in `resolveCoach`
+### 2. Backfill Elise (and any other orphans)
 
-## What Will NOT Change
+One-time migration:
 
-- Existing UI, layouts, navigation, role permissions
-- Any flow where `intros_booked.coach_name` already has a real value (trigger only fills gaps, never overwrites)
-- VIP attribution logic (vip_session coach precedence preserved)
-- Manual coach edits via Pipeline edit dialog (those still win — trigger only fills missing values)
+```sql
+-- For every intros_booked row that is a VIP-class booking with no matching
+-- vip_registrations row, create the registration and link booking ↔ session.
+INSERT INTO vip_registrations (first_name, last_name, phone, email,
+                               vip_class_name, vip_session_id,
+                               booking_id, is_group_contact)
+SELECT
+  split_part(b.member_name, ' ', 1),
+  NULLIF(substring(b.member_name FROM position(' ' IN b.member_name) + 1), ''),
+  b.phone, b.email,
+  COALESCE(b.vip_class_name, s.vip_class_name, s.reserved_by_group),
+  COALESCE(b.vip_session_id, s.id),
+  b.id,
+  false
+FROM intros_booked b
+LEFT JOIN vip_sessions s
+  ON s.reserved_by_group = b.vip_class_name
+  OR s.vip_class_name    = b.vip_class_name
+WHERE b.lead_source = 'VIP Class'
+  AND b.deleted_at IS NULL
+  AND COALESCE(b.vip_session_id, s.id) IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM vip_registrations r WHERE r.booking_id = b.id
+  );
+```
 
-## Verification After Deploy
+Plus a small UPDATE to fill `intros_booked.vip_session_id` when null:
 
-1. Re-query the "TBD with run coach" list — should return 0 rows
-2. Open WIG → Coach Performance for March/April — Natalya/Elizabeth/Bre counts should jump
-3. Insert a new run with coach_name on a TBD booking — confirm booking auto-updates
-4. Confirm Jasmine Beamon's 4/1 intro now credits Natalya in the WIG
+```sql
+UPDATE intros_booked b
+SET vip_session_id = s.id
+FROM vip_sessions s
+WHERE b.lead_source = 'VIP Class'
+  AND b.vip_session_id IS NULL
+  AND b.deleted_at IS NULL
+  AND (s.reserved_by_group = b.vip_class_name OR s.vip_class_name = b.vip_class_name);
+```
+
+### 3. Safety net — DB trigger so this never silently desyncs again
+
+Add an `AFTER INSERT` trigger on `intros_booked` that, when `lead_source = 'VIP Class'` AND `vip_session_id IS NOT NULL` AND no `vip_registrations` row exists for that booking, auto-creates one. This protects against any other code path (conversion flow, future imports) that forgets to write the registration.
+
+## Files touched
+
+- `src/features/pipeline/components/VipPipelineTable.tsx` — fix `handleAddMember`
+- New Supabase migration — backfill + trigger
+
+## Downstream effects checked
+
+- **My Day VIP group card**: Elise (and any past orphans) appear immediately after backfill; future manual adds appear in real time.
+- **Pipeline VIP table**: Already merges registrations + orphan bookings, so no change in behavior for existing data; orphans simply become non-orphans.
+- **VIP roster / scheduler**: Reads `vip_registrations` by session — gains the missing rows, which is the desired behavior.
+- **Convert-to-real-intro flow**: Still works — `ConvertVipToIntroDialog` already updates `vip_registrations.booking_id`, and the new trigger is no-op when a registration already exists.
+- **Outcome logging in the My Day card**: Now possible for manually added people (was impossible before because they didn't appear).
+
+## Out of scope
+
+- No UI changes to the My Day card itself.
+- No changes to the public VIP registration form.
+- No changes to attribution / coach-credit logic.
