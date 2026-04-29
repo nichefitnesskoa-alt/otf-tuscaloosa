@@ -60,6 +60,8 @@ interface MergeContext {
   'sa-name'?: string;
   'coach-name'?: string;
   'coach-first-name'?: string;
+  'first-intro-coach-name'?: string;
+  'first-intro-coach-full-name'?: string;
   day?: string;
   time?: string;
   'today/tomorrow'?: string;
