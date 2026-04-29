@@ -117,11 +117,26 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
+  // Resolve {first-intro-coach-name} from the booking chain when not pre-supplied
+  const [resolvedFirstIntroCoach, setResolvedFirstIntroCoach] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!open || !bookingId || mergeContext['first-intro-coach-name']) {
+      setResolvedFirstIntroCoach(null);
+      return;
+    }
+    resolveFirstIntroCoachName(bookingId).then(full => {
+      if (!cancelled) setResolvedFirstIntroCoach(full ? full.split(/\s+/)[0] : null);
+    });
+    return () => { cancelled = true; };
+  }, [open, bookingId, mergeContext]);
+
   const fullContext: MergeContext = useMemo(() => ({
     'location-name': 'Tuscaloosa',
     'sa-name': user?.name,
+    ...(resolvedFirstIntroCoach ? { 'first-intro-coach-name': resolvedFirstIntroCoach } : {}),
     ...mergeContext,
-  }), [mergeContext, user]);
+  }), [mergeContext, user, resolvedFirstIntroCoach]);
 
   const templateBody = bodyOverride || template.body;
   const unfilledFields = useMemo(() => extractUnfilledFields(templateBody, fullContext), [templateBody, fullContext]);
