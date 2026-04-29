@@ -122,6 +122,11 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
 
   const resolvedCoach = normalizeCoachName(coachName);
 
+  // Resolve first-intro coach for this booking (traverses originating_booking_id).
+  // Falls back to the prep-time coach if first-intro lookup yields nothing.
+  const firstIntroCoachFull = await resolveFirstIntroCoachName(bookingId) ?? resolvedCoach;
+  const firstIntroCoachFirst = firstIntroCoachFull ? firstIntroCoachFull.split(/\s+/)[0] : null;
+
   const ctx: Record<string, string | undefined> = {
     'first-name': firstName,
     'last-name': lastName,
@@ -130,6 +135,8 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
     coach: resolvedCoach || undefined,
     'coach-name': resolvedCoach || 'your coach',
     'coach-first-name': resolvedCoach ? resolvedCoach.split(/\s+/)[0] : 'your coach',
+    'first-intro-coach-name': firstIntroCoachFirst || 'your coach',
+    'first-intro-coach-full-name': firstIntroCoachFull || 'your coach',
   };
 
   // Date/time merge fields
