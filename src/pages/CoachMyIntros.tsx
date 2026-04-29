@@ -516,6 +516,19 @@ export default function CoachMyIntros() {
   const handleLogDone = async (intro: MergedIntro) => {
     setLoggingDone(intro.bookingId);
     try {
+      // VIP synthetic row — just log a touch keyed by no booking id and refresh.
+      if (intro.bookingId.startsWith('vip:')) {
+        await supabase.from('followup_touches').insert({
+          created_by: coachName,
+          touch_type: 'mark_done',
+          channel: 'coach_my_intros_vip',
+          notes: `VIP follow-up touch for ${intro.memberName}`,
+        } as any);
+        toast.success('Logged');
+        setLoggingDone(null);
+        fetchData();
+        return;
+      }
       // Write touch
       await supabase.from('followup_touches').insert({
         created_by: coachName,
