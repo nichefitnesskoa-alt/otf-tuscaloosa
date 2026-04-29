@@ -110,6 +110,18 @@ interface MergedIntro {
   priorityTier: number; // 1=within48h, 2=overdue, 3=dueToday, 4=thisWeek, 5=caughtUp
   priorityLabel: string;
   statusBadge: { label: string; color: string };
+  visitType: 'FIRST' | 'SECOND' | 'VIP_ONLY' | 'VIP_THEN_FIRST' | 'VIP_THEN_SECOND';
+  visitBadge: { label: string; color: string };
+}
+
+function getVisitBadge(v: MergedIntro['visitType']): { label: string; color: string } {
+  switch (v) {
+    case 'FIRST': return { label: '1st Intro', color: 'bg-blue-600 text-white' };
+    case 'SECOND': return { label: '2nd Intro', color: 'bg-indigo-600 text-white' };
+    case 'VIP_ONLY': return { label: 'VIP Class', color: 'bg-purple-600 text-white' };
+    case 'VIP_THEN_FIRST': return { label: 'VIP → 1st Intro', color: 'bg-fuchsia-600 text-white' };
+    case 'VIP_THEN_SECOND': return { label: 'VIP → 2nd Intro', color: 'bg-fuchsia-700 text-white' };
+  }
 }
 
 // ── Priority calculation ──
