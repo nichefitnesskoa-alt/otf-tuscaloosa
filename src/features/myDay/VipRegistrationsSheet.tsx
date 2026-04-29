@@ -122,7 +122,37 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         })
         .eq('id', regId);
       if (error) throw error;
-      toast.success('Saved');
+
+      // VIP no-shows → SA reschedule task. Coaches don't chase no-shows.
+      if (outcome === 'no_show') {
+        const reg = regs.find(r => r.id === regId);
+        const fullName = [reg?.first_name, reg?.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
+        const today = new Date().toISOString().slice(0, 10);
+        // Idempotency: skip if a same-day pending vip_no_show row already exists for this person
+        const { data: existing } = await supabase
+          .from('follow_up_queue')
+          .select('id')
+          .eq('person_name', fullName)
+          .eq('person_type', 'vip_no_show')
+          .eq('scheduled_date', today)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await supabase.from('follow_up_queue').insert({
+            person_name: fullName,
+            person_type: 'vip_no_show',
+            owner_role: 'SA',
+            scheduled_date: today,
+            trigger_date: today,
+            touch_number: 1,
+            status: 'pending',
+            is_vip: true,
+            fitness_goal: 'VIP no-show — try to reschedule into a real intro',
+          } as any);
+        }
+        toast.success('Logged no-show — sent to SA reschedule queue');
+      } else {
+        toast.success('Saved');
+      }
     } catch (e) {
       console.error(e);
       toast.error('Failed to save outcome');
