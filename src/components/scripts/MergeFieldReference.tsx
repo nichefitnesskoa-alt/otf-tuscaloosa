@@ -4,6 +4,8 @@ const MERGE_FIELDS = [
   { field: '{sa-name}', desc: 'Logged-in SA name' },
   { field: '{coach-name}', desc: "Coach's name (auto)" },
   { field: '{coach-first-name}', desc: "Coach's first name (auto)" },
+  { field: '{first-intro-coach-name}', desc: "First-intro coach's first name (auto)" },
+  { field: '{first-intro-coach-full-name}', desc: "First-intro coach's full name (auto)" },
   { field: '{day}', desc: 'Class day (e.g. Tuesday)' },
   { field: '{time}', desc: 'Class time (e.g. 5:30 PM)' },
   { field: '{today/tomorrow}', desc: 'Smart: today/tomorrow/day name' },
