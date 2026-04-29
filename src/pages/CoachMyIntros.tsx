@@ -110,6 +110,18 @@ interface MergedIntro {
   priorityTier: number; // 1=within48h, 2=overdue, 3=dueToday, 4=thisWeek, 5=caughtUp
   priorityLabel: string;
   statusBadge: { label: string; color: string };
+  visitType: 'FIRST' | 'SECOND' | 'VIP_ONLY' | 'VIP_THEN_FIRST' | 'VIP_THEN_SECOND';
+  visitBadge: { label: string; color: string };
+}
+
+function getVisitBadge(v: MergedIntro['visitType']): { label: string; color: string } {
+  switch (v) {
+    case 'FIRST': return { label: '1st Intro', color: 'bg-blue-600 text-white' };
+    case 'SECOND': return { label: '2nd Intro', color: 'bg-indigo-600 text-white' };
+    case 'VIP_ONLY': return { label: 'VIP Class', color: 'bg-purple-600 text-white' };
+    case 'VIP_THEN_FIRST': return { label: 'VIP → 1st Intro', color: 'bg-fuchsia-600 text-white' };
+    case 'VIP_THEN_SECOND': return { label: 'VIP → 2nd Intro', color: 'bg-fuchsia-700 text-white' };
+  }
 }
 
 // ── Priority calculation ──
@@ -263,6 +275,21 @@ export default function CoachMyIntros() {
         .eq('is_group_contact', false)
         .is('booking_id', null);
       vipRegs = (regRows as any[]) || [];
+    }
+
+    // Separate fetch: ALL VIP attendees (any outcome, including those already converted
+    // to bookings) — used to detect "this person came via VIP" on real intro cards.
+    const vipAttendeeNames = new Set<string>();
+    if (vipSessions.length > 0) {
+      const sessionIds = vipSessions.map(s => s.id);
+      const { data: allRegs } = await supabase
+        .from('vip_registrations' as any)
+        .select('first_name, last_name')
+        .in('vip_session_id', sessionIds);
+      ((allRegs as any[]) || []).forEach(r => {
+        const n = [r.first_name, r.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+        if (n) vipAttendeeNames.add(n);
+      });
     }
 
     // Build lookup maps
@@ -425,6 +452,20 @@ export default function CoachMyIntros() {
           transferred ? 'TRANSFERRED' : resultCanon,
           transferred,
         ),
+        visitType: ((): MergedIntro['visitType'] => {
+          const cameViaVip = vipAttendeeNames.has((b.member_name || '').trim().toLowerCase())
+            || b.lead_source === 'VIP Class';
+          if (cameViaVip) return isSecondIntro ? 'VIP_THEN_SECOND' : 'VIP_THEN_FIRST';
+          return isSecondIntro ? 'SECOND' : 'FIRST';
+        })(),
+        visitBadge: (() => {
+          const cameViaVip = vipAttendeeNames.has((b.member_name || '').trim().toLowerCase())
+            || b.lead_source === 'VIP Class';
+          const vt: MergedIntro['visitType'] = cameViaVip
+            ? (isSecondIntro ? 'VIP_THEN_SECOND' : 'VIP_THEN_FIRST')
+            : (isSecondIntro ? 'SECOND' : 'FIRST');
+          return getVisitBadge(vt);
+        })(),
       };
     });
 
@@ -462,6 +503,8 @@ export default function CoachMyIntros() {
         priorityTier: priority.tier,
         priorityLabel: priority.label,
         statusBadge: getStatusBadge(resultCanon, false),
+        visitType: 'VIP_ONLY',
+        visitBadge: getVisitBadge('VIP_ONLY'),
       } as MergedIntro;
     });
 
@@ -672,6 +715,9 @@ export default function CoachMyIntros() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-semibold text-sm">{intro.memberName}</span>
+                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.visitBadge.color)}>
+                        {intro.visitBadge.label}
+                      </span>
                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.statusBadge.color)}>
                         {intro.statusBadge.label}
                       </span>

@@ -1,66 +1,68 @@
 ## Goal
-VIP class attendees the coach actually saw (`outcome = showed` or `booked_intro`) should appear on the coach's **My Intros** list as follow-up cards. VIP no-shows are an SA reschedule task and should NOT show on the coach side — they go to the SA follow-up queue instead.
+On the coach's **My Intros** cards, clearly show which visit type each card represents:
+- **1st Intro** — standard first visit
+- **2nd Intro** — booked after a previous intro
+- **VIP Class** — they only attended a VIP class (synthetic VIP row)
+- **VIP → 1st Intro** / **VIP → 2nd Intro** — they attended a VIP class with this coach AND have a real intro booking
 
 ## Scope
-- File: `src/pages/CoachMyIntros.tsx`
-- File: `src/components/vip/` outcome logging path (where `vip_registrations.outcome` is saved — `VipRegistrationsSheet.tsx` `saveOutcome`) — add a side-effect to enqueue an SA reschedule task on `no_show`.
-- No schema changes. Reuse existing tables: `vip_registrations`, `vip_sessions`, `follow_up_queue`.
+Single file: `src/pages/CoachMyIntros.tsx`. No schema changes, no new queries — we already have the data.
 
-## 1. Coach My Intros — pull in VIP attendees
+## Detection logic (computed during merge)
 
-In `fetchData`:
-1. Query `vip_sessions` where `coach_name = coachName` to get session ids the coach ran.
-2. Query `vip_registrations` for those `vip_session_id`s where:
-   - `outcome IN ('showed', 'booked_intro')`
-   - `is_group_contact = false`
-   - `booking_id IS NULL` (if `booking_id` is set, a real intro already exists and will appear via the normal bookings query — skip to avoid the duplicate the user already complained about).
-3. Map each VIP reg into a synthetic `MergedIntro`:
-   - `bookingId`: prefix `vip:` + `vip_registrations.id` so it's unique and never collides with real bookings.
-   - `memberName`: `first_name + last_name`.
-   - `classDate`: `vip_sessions.session_date`.
-   - `introTime`: `vip_sessions.session_time`.
-   - `phone`: `vip_registrations.phone`.
-   - `resultCanon`:
-     - `outcome = 'booked_intro'` → `'SECOND_INTRO'` (uses existing teal "2nd Intro Planned" badge — semantically: they took the next step).
-     - `outcome = 'showed'` → `'DIDNT_BUY'` (orange "Follow-Up" badge — needs a touch).
-   - `rescheduleContactDate`: null (uses 48-hr post-class priority window from `class_start_at` we synthesize from session date+time).
-   - `lastTouch`, `questionnaire`, `saConversation`, `followUpRow`: null.
-   - `transferred`: false.
-4. Run the existing **Total Journey** sale check against these too (by normalized member name match against `soldNames`) so anyone who later bought drops off automatically.
-5. Push into `merged` BEFORE the dedup pass. Dedup is already by lowercased member name, so if the same person also has a real intro booking the real one wins (it sorted first by priority/date) and the VIP duplicate is dropped — same rule the user asked for: one card per person.
+Add a `visitType` field to `MergedIntro`:
 
-## 2. Card behavior for VIP entries
-- The existing card UI works as-is because everything keys off `MergedIntro`.
-- Hide the "Log Sent" / "Mark Not Interested" buttons that write to `follow_up_queue` for synthetic VIP rows (no `follow_up_queue` row exists). Replace with a single **"Convert to Intro"** action that opens the existing `ConvertVipToIntroDialog` (already in the codebase). After conversion the synthetic card disappears next refresh because `booking_id` is now set on the registration.
-- "Copy phone" and "Send Script" buttons still work (they only need name + phone).
+1. **Synthetic VIP row** (`bookingId` starts with `vip:`) → `VIP_ONLY`
+2. **Real booking** where the person also has a VIP attendance with this coach:
+   - Build a Set of normalized names from the already-fetched `vipRegs` (any outcome, not just showed/booked).
+   - Actually expand the VIP fetch slightly: pull ALL `vip_registrations` for this coach's `vip_sessions` (drop the `outcome IN (...)` and `booking_id IS NULL` filters into a separate query just for the name set) so we can detect "this person came via VIP" even when their VIP reg is now linked to a booking.
+   - If the booking's normalized member name is in that set → `VIP_THEN_SECOND` (when `isSecondIntro` is true) or `VIP_THEN_FIRST`.
+3. **Real booking, `isSecondIntro` true** → `SECOND`
+4. **Otherwise** → `FIRST`
 
-## 3. VIP no-shows → SA reschedule task
+## Badge rendering
 
-In `VipRegistrationsSheet.tsx` `saveOutcome`, when `outcome === 'no_show'`:
-- Insert a `follow_up_queue` row:
-  - `person_name`: full name
-  - `person_type`: `'vip_no_show'`
-  - `owner_role`: `'SA'`
-  - `coach_owner`: null
-  - `scheduled_date` / `trigger_date`: today
-  - `touch_number`: 1
-  - `status`: `'pending'`
-  - `is_vip`: true
-  - `closed_reason`: null
-  - Store `vip_session_id` and `vip_registration_id` in the existing free-text columns we have (or skip linkage — the SA just needs the name + phone + "VIP no-show, try to reschedule" context). Use `fitness_goal` field as a short note: `"VIP no-show — reschedule into intro"` so it surfaces on the existing SA follow-up card.
-- Toast: "Logged no-show — sent to SA reschedule queue".
-- Idempotent: check before insert that no `follow_up_queue` row already exists with the same `person_name` + same day + `person_type = 'vip_no_show'`.
+Add `getVisitBadge(visitType)` returning `{ label, color }`:
+- `FIRST` → "1st Intro", blue
+- `SECOND` → "2nd Intro", indigo
+- `VIP_ONLY` → "VIP Class", purple
+- `VIP_THEN_FIRST` → "VIP → 1st Intro", fuchsia
+- `VIP_THEN_SECOND` → "VIP → 2nd Intro", fuchsia darker
+
+Render the badge inline in the card header next to the existing `statusBadge` (line ~599 area), same pill style, full readable label (no abbreviations, per UX rules).
+
+Also show the same badge in the expanded section near the existing "Outcome:" line so it's visible without collapsing.
+
+## Implementation steps
+
+1. Extend `MergedIntro` type with `visitType` and `visitBadge`.
+2. Add `getVisitBadge()` helper next to existing `getStatusBadge()`.
+3. In `fetchData`, after fetching `vipRegs` (the showed/booked set), add a second fetch for all VIP regs in the coach's sessions to get the name set:
+   ```ts
+   const { data: allVipRegs } = await supabase
+     .from('vip_registrations')
+     .select('first_name, last_name')
+     .in('vip_session_id', sessionIds);
+   const vipAttendeeNames = new Set(allVipRegs.map(r => norm(`${r.first_name} ${r.last_name}`)));
+   ```
+4. In the bookings → MergedIntro map, compute `visitType`:
+   ```ts
+   const isVipAttendee = vipAttendeeNames.has(norm(b.member_name));
+   const visitType = isVipAttendee
+     ? (isSecondIntro ? 'VIP_THEN_SECOND' : 'VIP_THEN_FIRST')
+     : (isSecondIntro ? 'SECOND' : 'FIRST');
+   ```
+5. In the VIP synthetic merge, set `visitType: 'VIP_ONLY'`.
+6. Render `<span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.visitBadge.color)}>{intro.visitBadge.label}</span>` in the card header right after the status badge.
+7. Mirror the badge in the expanded "Outcome:" row for redundancy.
 
 ## Downstream effects
-- Coach My Intros: now shows VIP showed/booked-intro attendees alongside real intros. Dedup still guarantees one card per person.
-- SA Follow-Up page (`useFollowUpData`): VIP no-shows surface as standard SA follow-ups (it already reads `follow_up_queue` where `owner_role = 'SA'`). No code change needed there — the row inserted in step 3 will just appear.
-- VIP Registrations sheet: behavior is additive. Existing `booked_intro` flow that opens `BookIntroSheet` still runs.
-- Sales drop-off: Total Journey sale matching extended to VIP rows so a member who bought after the VIP class is auto-removed from the coach list (matches existing rule).
-- No tables changed. No new RLS. No new triggers.
+- Pure additive UI change — no behavior change to filters, sort, dedup, or actions.
+- Existing `isSecondIntro` logic unchanged.
+- No new tables, RLS, or queries against unfamiliar shapes.
+- One extra `vip_registrations` SELECT per page load (small — already scoped to this coach's sessions).
 
 ## Done means
-- Coach sees VIP attendees they coached on My Intros, with correct status badges, sorted with their normal intros by priority.
-- VIP no-shows do NOT appear on the coach side.
-- VIP no-shows DO appear on the SA Follow-Up page as a reschedule task.
-- One card per person — no duplicates between real intros and VIP rows.
-- Logging a VIP outcome does not break the existing "Booked intro" → BookIntroSheet flow.
+- Every card on Coach My Intros shows a visible visit-type badge in the header.
+- All five states render with the correct label.
+- Existing layout, sort order, and actions unchanged.
