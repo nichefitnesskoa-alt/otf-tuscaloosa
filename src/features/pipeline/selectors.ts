@@ -54,7 +54,7 @@ function isBookingUpcoming(booking: PipelineBooking): boolean {
  * ran, OR has a resolved post-class status. A booking that's still
  * "Active" with no run yet doesn't make a later booking a 2nd intro.
  */
-function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): boolean {
+export function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): boolean {
   if (!b.originating_booking_id) return false;
   const orig = journey.bookings.find(o => o.id === b.originating_booking_id);
   if (!orig) {
