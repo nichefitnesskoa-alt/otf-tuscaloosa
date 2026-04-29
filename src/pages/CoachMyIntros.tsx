@@ -412,7 +412,18 @@ export default function CoachMyIntros() {
       return b.classDate.localeCompare(a.classDate);
     });
 
-    setIntros(merged);
+    // Deduplicate by member name — one card per person.
+    // Sort already places the highest-priority/most-recent first, so keep that one.
+    const seen = new Set<string>();
+    const deduped: MergedIntro[] = [];
+    for (const m of merged) {
+      const key = (m.memberName || '').trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(m);
+    }
+
+    setIntros(deduped);
     setLoading(false);
   }, [coachName]);
 
