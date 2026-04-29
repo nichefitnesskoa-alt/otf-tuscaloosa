@@ -243,6 +243,28 @@ export default function CoachMyIntros() {
     const questionnaires = (qRes.data || []) as QuestionnaireRow[];
     const touches = (touchRes.data || []) as TouchRow[];
 
+    // VIP attendees this coach actually saw — pull them in as synthetic intros so
+    // the coach has a follow-up card. No-shows are SA's job and are excluded here.
+    const { data: vipSessionRows } = await supabase
+      .from('vip_sessions' as any)
+      .select('id, session_date, session_time, vip_class_name, reserved_by_group')
+      .eq('coach_name', coachName);
+    const vipSessions = (vipSessionRows || []) as any[];
+    const vipSessionById = new Map<string, any>();
+    vipSessions.forEach(s => vipSessionById.set(s.id, s));
+    let vipRegs: any[] = [];
+    if (vipSessions.length > 0) {
+      const sessionIds = vipSessions.map(s => s.id);
+      const { data: regRows } = await supabase
+        .from('vip_registrations' as any)
+        .select('id, first_name, last_name, phone, outcome, vip_session_id, booking_id, is_group_contact')
+        .in('vip_session_id', sessionIds)
+        .in('outcome', ['showed', 'booked_intro'])
+        .eq('is_group_contact', false)
+        .is('booking_id', null);
+      vipRegs = (regRows as any[]) || [];
+    }
+
     // Build lookup maps
     const fuByBooking = new Map<string, FollowUpRow>();
     followUps.forEach(fu => { if (fu.booking_id) fuByBooking.set(fu.booking_id, fu); });
