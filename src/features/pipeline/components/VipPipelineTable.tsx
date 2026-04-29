@@ -581,32 +581,105 @@ export function VipPipelineTable() {
     }
   };
 
-  // Manual add member to VIP group
+  // Manual add member to VIP group.
+  // Writes BOTH a vip_registrations row (so they appear on the My Day group card)
+  // AND an intros_booked row (so they show up in the Pipeline VIP table & funnel).
+  // The two are linked via booking_id ↔ vip_session_id.
   const handleAddMember = async () => {
     const targetGroup = selectedGroup || null;
     if (!addName.trim()) { toast.error('Name is required'); return; }
     if (!targetGroup) { toast.error('Select a VIP group first'); return; }
     setAddingMember(true);
     try {
+      const sb = supabase as any;
       const saName = user?.name || 'Unknown';
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { error } = await supabase.from('intros_booked').insert({
-        member_name: addName.trim(),
-        class_date: today,
-        coach_name: 'TBD',
-        sa_working_shift: saName,
-        lead_source: 'VIP Class',
-        booked_by: saName,
-        phone: addPhone.trim() || null,
-        email: addEmail.trim().toLowerCase() || null,
-        is_vip: true,
-        booking_type_canon: 'VIP',
-        booking_status: 'Active',
-        booking_status_canon: 'ACTIVE',
-        vip_class_name: targetGroup,
-      });
-      if (error) throw error;
-      toast.success(`${addName.trim()} added to ${targetGroup}`);
+
+      // 1. Resolve (or create) the vip_sessions row for this group.
+      // groupMetas is matched on vip_class_name only, but real sessions may use reserved_by_group.
+      let session = groupMetas.find(
+        g => g.vip_class_name === targetGroup ||
+             (g as any).reserved_by_group === targetGroup,
+      ) as any;
+
+      if (!session?.id) {
+        const { data: found } = await sb
+          .from('vip_sessions')
+          .select('id, vip_class_name, reserved_by_group, session_date, session_time')
+          .or(`vip_class_name.eq.${targetGroup},reserved_by_group.eq.${targetGroup}`)
+          .order('archived_at', { ascending: true, nullsFirst: true })
+          .limit(1)
+          .maybeSingle();
+        session = found;
+      }
+
+      if (!session?.id) {
+        const { data: created, error: createErr } = await sb
+          .from('vip_sessions')
+          .insert({ reserved_by_group: targetGroup, status: 'reserved' })
+          .select('id, session_date, session_time')
+          .single();
+        if (createErr) throw createErr;
+        session = created;
+      }
+
+      // 2. Insert the intros_booked row, stamping vip_session_id so both sides are linked.
+      const classDate = session?.session_date || today;
+      const introTime = session?.session_time || null;
+      const trimmedName = addName.trim();
+      const phone = addPhone.trim() || null;
+      const email = addEmail.trim().toLowerCase() || null;
+
+      const { data: newBooking, error: bookingErr } = await sb
+        .from('intros_booked')
+        .insert({
+          member_name: trimmedName,
+          class_date: classDate,
+          intro_time: introTime,
+          coach_name: 'TBD',
+          sa_working_shift: saName,
+          lead_source: 'VIP Class',
+          booked_by: saName,
+          phone,
+          email,
+          is_vip: true,
+          booking_type_canon: 'VIP',
+          booking_status: 'Active',
+          booking_status_canon: 'ACTIVE',
+          vip_class_name: targetGroup,
+          vip_session_id: session.id,
+        })
+        .select('id')
+        .single();
+      if (bookingErr) throw bookingErr;
+
+      // 3. The DB trigger auto-creates the vip_registrations row from the booking,
+      //    but we still defensively upsert here in case the trigger is ever disabled
+      //    or this booking races another insert. NOT EXISTS guards the duplicate case.
+      const { data: existingReg } = await sb
+        .from('vip_registrations')
+        .select('id')
+        .eq('booking_id', newBooking.id)
+        .maybeSingle();
+
+      if (!existingReg) {
+        const firstName = trimmedName.split(' ')[0] || trimmedName;
+        const lastName = trimmedName.includes(' ')
+          ? trimmedName.substring(trimmedName.indexOf(' ') + 1).trim() || null
+          : null;
+        await sb.from('vip_registrations').insert({
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          email,
+          vip_class_name: targetGroup,
+          vip_session_id: session.id,
+          booking_id: newBooking.id,
+          is_group_contact: false,
+        });
+      }
+
+      toast.success(`${trimmedName} added to ${targetGroup}`);
       setAddName('');
       setAddPhone('');
       setAddEmail('');
