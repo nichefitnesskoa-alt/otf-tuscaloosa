@@ -10,6 +10,7 @@ import type { UpcomingIntroItem, TimeRange, QuestionnaireStatus } from './myDayT
 import { enrichWithRisk, sortByTime } from './myDaySelectors';
 import { normalizeDbTime } from '@/lib/time/timeUtils';
 import { isVipBooking } from '@/lib/vip/vipRules';
+import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { extractPhone, stripCountryCode } from '@/lib/parsing/phone';
 import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 
