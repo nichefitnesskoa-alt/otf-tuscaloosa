@@ -117,26 +117,51 @@ export function MessageGenerator({ open, onOpenChange, template, mergeContext = 
   const { user } = useAuth();
   const logSent = useLogScriptSent();
 
-  // Resolve {first-intro-coach-name} from the booking chain when not pre-supplied
-  const [resolvedFirstIntroCoach, setResolvedFirstIntroCoach] = useState<string | null>(null);
+  // Resolve {first-intro-coach-name} and {first-intro-coach-full-name} from the booking chain
+  // when not pre-supplied. Falls back to the booking's own coach_name so the field auto-fills
+  // in the vast majority of cases — SAs only see "Fill in missing fields" when no coach is
+  // assigned anywhere in the chain.
+  const [resolvedFirstIntroCoachFull, setResolvedFirstIntroCoachFull] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (!open || !bookingId || mergeContext['first-intro-coach-name']) {
-      setResolvedFirstIntroCoach(null);
+    if (!open || !bookingId) {
+      setResolvedFirstIntroCoachFull(null);
       return;
     }
-    resolveFirstIntroCoachName(bookingId).then(full => {
-      if (!cancelled) setResolvedFirstIntroCoach(full ? full.split(/\s+/)[0] : null);
-    });
+    if (mergeContext['first-intro-coach-name'] && mergeContext['first-intro-coach-full-name']) {
+      setResolvedFirstIntroCoachFull(null);
+      return;
+    }
+    (async () => {
+      let full = await resolveFirstIntroCoachName(bookingId);
+      // Fallback: this booking's own coach_name (covers cases where chain lookup returns null)
+      if (!full) {
+        const { data } = await supabase
+          .from('intros_booked')
+          .select('coach_name')
+          .eq('id', bookingId)
+          .maybeSingle();
+        const own = (data as any)?.coach_name as string | null | undefined;
+        if (own && own.trim() && !/^tbd$/i.test(own.trim())) {
+          full = own.trim();
+        }
+      }
+      if (!cancelled) setResolvedFirstIntroCoachFull(full ?? null);
+    })();
     return () => { cancelled = true; };
   }, [open, bookingId, mergeContext]);
+
+  const resolvedFirstIntroCoachFirst = resolvedFirstIntroCoachFull
+    ? resolvedFirstIntroCoachFull.split(/\s+/)[0]
+    : null;
 
   const fullContext: MergeContext = useMemo(() => ({
     'location-name': 'Tuscaloosa',
     'sa-name': user?.name,
-    ...(resolvedFirstIntroCoach ? { 'first-intro-coach-name': resolvedFirstIntroCoach } : {}),
+    ...(resolvedFirstIntroCoachFirst ? { 'first-intro-coach-name': resolvedFirstIntroCoachFirst } : {}),
+    ...(resolvedFirstIntroCoachFull ? { 'first-intro-coach-full-name': resolvedFirstIntroCoachFull } : {}),
     ...mergeContext,
-  }), [mergeContext, user, resolvedFirstIntroCoach]);
+  }), [mergeContext, user, resolvedFirstIntroCoachFirst, resolvedFirstIntroCoachFull]);
 
   const templateBody = bodyOverride || template.body;
   const unfilledFields = useMemo(() => extractUnfilledFields(templateBody, fullContext), [templateBody, fullContext]);
