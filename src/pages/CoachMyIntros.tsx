@@ -303,7 +303,7 @@ export default function CoachMyIntros() {
         if (r.id) origStatusById.set(r.id, r.booking_status_canon || '');
       });
     }
-    // Map: any booking in chainBookingIds with a SALE run
+    // Map: any booking in chainBookingIds with a SALE run (canon OR legacy membership sale text)
     const soldBookingIds = new Set<string>();
     if (chainBookingIds.size > 0) {
       const { data: chainRuns } = await supabase
@@ -312,25 +312,32 @@ export default function CoachMyIntros() {
         .in('linked_intro_booked_id', Array.from(chainBookingIds));
       (chainRuns || []).forEach((r: any) => {
         if (!r.linked_intro_booked_id) return;
-        if (r.result_canon === 'SALE') soldBookingIds.add(r.linked_intro_booked_id);
+        if (r.result_canon === 'SALE' || isMembershipSale(r.result || '')) {
+          soldBookingIds.add(r.linked_intro_booked_id);
+        }
       });
     }
-    // Map booking id → true if any booking in its chain has a sale
+    // Also: any run by this coach with a sale, keyed by normalized member name —
+    // catches sales where the run wasn't linked to the booking row.
+    const soldNames = new Set<string>();
+    runs.forEach(r => {
+      if (r.result_canon === 'SALE') soldNames.add((r.member_name || '').trim().toLowerCase());
+    });
+    // Map booking id → true if any booking in its chain (or any run with same name) has a sale
+    const norm = (s: string) => (s || '').trim().toLowerCase();
     const chainSaleByBooking = new Map<string, boolean>();
     bookings.forEach(b => {
+      if (soldNames.has(norm(b.member_name))) { chainSaleByBooking.set(b.id, true); return; }
       const ids = new Set<string>([b.id]);
       const orig = (b as any).originating_booking_id;
       if (orig) ids.add(orig);
-      // Sibling bookings: anything originating from this booking, or from same originator
-      // Already covered by the rebooks fetch above (added to chainBookingIds), but we
-      // need per-booking chain membership. Cheap approach: a sale anywhere in the
-      // global chainBookingIds for this member's chain. Build by walking originating links.
-      // For simplicity: include all chainBookingIds that share originating_booking_id with b.
       bookings.forEach(other => {
         const otherOrig = (other as any).originating_booking_id;
         if (other.id === b.id) return;
         if (orig && (other.id === orig || otherOrig === orig)) ids.add(other.id);
         if (otherOrig === b.id) ids.add(other.id);
+        // Same member name → same person, share sale status
+        if (norm(other.member_name) === norm(b.member_name)) ids.add(other.id);
       });
       let sold = false;
       ids.forEach(id => { if (soldBookingIds.has(id)) sold = true; });
