@@ -1,60 +1,96 @@
-## What went wrong
+&nbsp;
 
-Yesterday's backfill migration (`20260429031846`) inserted a `vip_registrations` row for every VIP-class booking that didn't already have a `booking_id`-linked registration. But Bama Catholic members had **already self-registered** through the public VIP form — those rows existed with `booking_id = NULL`. When you later booked their intros, the backfill saw "no registration linked to this booking" and inserted a *second* row, instead of attaching the booking to the existing self-reg row.
+We also need to determine what other outcomes need to go to the intro never happened outcome as well
 
-Result in the My Day group card for Bama Catholic:
-- Jenna Nygaard ×2, Kaelyn Bannon ×2, Siena Warriner ×2 (+1 group contact = 3), Emily Signor ×2
-- Elise Jurkovic ×2 — same person, but her phone digits differ across the two rows (`904480426` vs `(904) 480-426`), which is a separate normalization issue
+## The two real bugs
 
-The same `auto_create_vip_registration` trigger has the same bug for any *future* booking of a member who already self-registered: it only checks `booking_id`, not phone/name match, so it'll keep duplicating.
+Looking at Kyle Davis's data confirms both issues come from the same root cause: **Planning to Reschedule is a "the intro never happened" outcome, but the system is treating it like a completed (ran) intro.**
 
-## Fix
+Kyle's actual records:
 
-### 1. Database migration — dedupe + harden trigger
+- Booking 4/27 @ 6:15 with James → status = `PLANNING_RESCHEDULE`
+- A run row was created on 4/27 with `result = "Planning to Reschedule"` (this should never have existed — he didn't run)
+- Booking 4/29 @ 6:15 with Koa → has `originating_booking_id` pointing to the 4/27 booking, so it gets the "2nd Intro" badge
 
-**a) Merge duplicates (keep the oldest, attach the booking_id to it):**
-For every (`vip_session_id`, normalized phone) pair with multiple rows:
-- Pick the earliest-created row as the survivor
-- If any sibling has a `booking_id` and the survivor doesn't, copy that `booking_id` (and email, last_name if missing) onto the survivor
-- Re-point any FK references (none expected, but safe to check `booking_id` uniqueness)
-- Delete the duplicate rows
+So we have two visible symptoms and one underlying mistake.
 
-Phone normalization for matching = strip everything but digits, keep last 10 digits. This collapses Elise's `904480426` (9 digits — clearly a malformed entry, will be treated as its own phone) vs `(904) 480-426` (also 9 digits when stripped — they actually match). Both Elise rows normalize to `904480426` → merge.
+### Bug 1 — Planning to Reschedule is shown in "Intro Runs"
 
-For rows with no phone, fall back to (`vip_session_id`, lower(first_name), lower(last_name)).
+The Pipeline row card lists every row from `intros_run` under "Intro Runs (1)". A row exists for Kyle 4/27 with result `PLANNING_RESCHEDULE`. That row should not be there at all — Planning to Reschedule means the member cancelled before the class and is going to rebook, so no intro was actually run.
 
-**b) Add a unique partial index** to make duplicates impossible going forward:
+### Bug 2 — Kyle's 4/29 booking shows the "2nd" badge
+
+The 2nd-intro detector (`isRealSecondIntro` in `selectors.ts`) only filters out originators that are `NO_SHOW` or soft-deleted. It does not filter out originators with status `PLANNING_RESCHEDULE` or `CANCELLED`. Since Kyle's 4/27 booking is a Planning to Reschedule (the intro never happened), the 4/29 booking is actually his **1st** real intro, not his 2nd.
+
+The "2nd" badge in the row card is even more naive — it just checks `if (b.originating_booking_id)` without checking whether the originator was a real ran intro.
+
+## Canonical rule we're enforcing
+
+**An intro counts as "ran" only if the member actually showed up to a class.** The following result_canon values mean the intro did NOT happen:
+
+- `NO_SHOW`
+- `PLANNING_RESCHEDULE`
+- `PLANNING_2ND_INTRO` (they're rescheduling to a different date)
+- `UNRESOLVED` (no outcome captured yet)
+
+A booking only counts as a "1st intro" for 2nd-intro-chain purposes if it was either:
+
+- Linked to a run with a `SHOWED`-class result (anything that isn't NO_SHOW / PLANNING_RESCHEDULE / PLANNING_2ND / UNRESOLVED), OR
+- Has a `booking_status_canon` indicating an actual outcome (`CLOSED_PURCHASED`, `CLOSED_DIDNT_BUY`, `NOT_INTERESTED`, `SHOWED`).
+
+If the originator was `PLANNING_RESCHEDULE`, `CANCELLED`, `NO_SHOW`, or `DELETED_SOFT`, the rebook IS the 1st intro.
+
+## Changes
+
+### 1. `src/lib/canon/introRules.ts` (or a new helper if it doesn't have one)
+
+Add a single shared predicate `didIntroActuallyRun(run)` so every part of the app uses the same rule:
+
+```ts
+const NON_RAN_RESULTS = new Set(['NO_SHOW','PLANNING_RESCHEDULE','PLANNING_2ND_INTRO','UNRESOLVED']);
+export function didIntroActuallyRun(r: { result_canon?: string|null; result?: string|null }): boolean {
+  const canon = r.result_canon || normalizeIntroResult(r.result || '');
+  return !NON_RAN_RESULTS.has(canon);
+}
 ```
-CREATE UNIQUE INDEX vip_registrations_session_phone_uniq
-  ON vip_registrations (vip_session_id, regexp_replace(phone, '\D', '', 'g'))
-  WHERE phone IS NOT NULL;
-```
 
-**c) Rewrite the `auto_create_vip_registration` trigger** so that when a VIP-class booking is inserted, it:
-1. Looks up an existing `vip_registrations` row in the same `vip_session_id` matching by normalized phone (or name fallback).
-2. **If found:** updates that row's `booking_id` (and fills `last_name`/`email` if blank). No insert.
-3. **Only if no match exists** does it insert a new row.
+### 2. `src/features/pipeline/selectors.ts`
 
-This makes self-reg → later booking flow correctly attach instead of duplicate.
+- Update `isRealSecondIntro` so the originator is also disqualified when its `booking_status_canon` is `PLANNING_RESCHEDULE`, `CANCELLED`, or `DELETED_SOFT`, OR when it has no run that actually ran. This fixes the 2nd badge being wrong for Kyle.
+- Anywhere counts use `journey.runs.length > 0` / `journey.runs.some(r => r.result !== 'No-show')` (the `completed`, `missed_guest`, `no_show`, `second_intro` tab filters/counts), switch to `didIntroActuallyRun(r)` so Planning to Reschedule rows don't make a journey appear "Completed" or push it out of the No-Show tab.
 
-### 2. App code — `VipPipelineTable.handleAddMember`
+### 3. `src/features/pipeline/components/PipelineRowCard.tsx`
 
-Mirror the same "match-or-create" logic in `src/features/pipeline/components/VipPipelineTable.tsx`:
-before inserting a new `vip_registrations` row, query for an existing one in that session by normalized phone. If found, update it with the new `booking_id` instead of inserting.
+- The "2nd Intro" badge currently uses `b.originating_booking_id` alone. Change it to use `isRealSecondIntro(b, journey)` so it matches the selector's logic.
+- In the "Intro Runs" section, hide rows where `didIntroActuallyRun(r)` is false. They aren't real runs — they were created by a follow-up/outcome action and represent the booking's status, not a class attended. We'll keep them in the DB (so commission/audit history is intact) but they don't belong in the "Intro Runs" list. Consider a small "Status events" collapsed section beneath if Koa wants visibility, but default is just hide.
 
-This keeps the UX path safe even if the trigger is ever bypassed.
+### 4. Investigate why a `Planning to Reschedule` run row was created in the first place
 
-### 3. Verification queries (run after migration)
+Search every "create run" / "save outcome" path (`OutcomeDrawer`, `applyIntroOutcomeUpdate`, follow-up flows) and confirm: when a user selects Planning to Reschedule (or Cancelled, or anything that means the intro didn't happen), the booking's `booking_status_canon` should be updated **without** inserting an `intros_run` row. If we're inserting one today, stop doing that. This is the upstream root cause — fixing it stops new bad rows from being created.
 
-- Bama Catholic session should show: Audrey, Caroline, Chloe, Elise (1), Emily, Ethan, Grace, Hana, Jenna, Kaelyn, Lucas, Siena (1 attendee + 1 group contact)
-- No `vip_session_id`+normalized-phone pair has count > 1
-- Every booking with `lead_source='VIP Class'` and a `vip_session_id` has exactly one `vip_registrations` row pointing at it
+### 5. One-time data cleanup migration
 
-### Files to change
+Delete (or soft-flag) existing `intros_run` rows where `result_canon IN ('PLANNING_RESCHEDULE','PLANNING_2ND_INTRO','UNRESOLVED')` and the booking's `booking_status_canon` matches, since those rows shouldn't exist. We'll preview the count first via `read_query` before the migration runs.
 
-- New migration: dedupe + unique index + rewritten trigger
-- `src/features/pipeline/components/VipPipelineTable.tsx` — match-or-update in `handleAddMember`
+## Verification
 
-### Out of scope (flagging only)
+After changes, on the Pipeline page for Kyle Davis:
 
-The `904480426` (9-digit) phone on Elise's booking is a separate data-entry/normalization bug. After dedupe she'll be one row with `(904) 480-426`. If you want, a follow-up pass can re-normalize all `intros_booked.phone` values through the same NANP rules used elsewhere — say the word and I'll add it.
+- "Intro Runs (1)" section disappears (he has no actual ran intros)
+- 4/27 booking still shows in Bookings list with "Planning to Reschedule" status
+- 4/29 booking with Koa is shown as a normal booking — no "2nd" badge
+- He shows up in the right tab (Today / Upcoming) as a 1st intro
+
+Same logic will fix every other client where a no-show-class or rescheduled booking was incorrectly inflating the run count or marking the rebook as a 2nd intro.
+
+## Files touched
+
+- `src/lib/canon/introRules.ts` (add `didIntroActuallyRun`)
+- `src/features/pipeline/selectors.ts` (fix `isRealSecondIntro` + counts/filters)
+- `src/features/pipeline/components/PipelineRowCard.tsx` (fix 2nd badge + filter Intro Runs list)
+- `src/components/myday/OutcomeDrawer.tsx` and `src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts` (stop creating run rows for non-ran outcomes — confirm in implementation)
+- New migration: cleanup of existing PLANNING_RESCHEDULE runs
+
+## Memory update
+
+Add a Core rule: "An intro is 'ran' only if result_canon is not NO_SHOW / PLANNING_RESCHEDULE / PLANNING_2ND_INTRO / UNRESOLVED. Use `didIntroActuallyRun()` everywhere."
