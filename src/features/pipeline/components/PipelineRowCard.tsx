@@ -260,14 +260,20 @@ export const PipelineRowCard = memo(function PipelineRowCard({
             </div>
           )}
 
-          {/* Runs */}
-          {journey.runs.length > 0 && (
-            <div>
-              <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                <Target className="w-3 h-3" /> Intro Runs
-              </div>
-              <div className="space-y-1">
-                {journey.runs.map((r, idx) => (
+          {/* Runs — only rows where the member actually showed up.
+              Runs that represent non-attendance outcomes (Planning to
+              Reschedule, No-show, etc.) are excluded so this section
+              reflects real intros that happened. */}
+          {(() => {
+            const ranRuns = journey.runs.filter(r => didIntroActuallyRun(r));
+            if (ranRuns.length === 0) return null;
+            return (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Intro Runs
+                </div>
+                <div className="space-y-1">
+                  {ranRuns.map((r, idx) => (
                   <div key={r.id} className="text-xs p-2 bg-background rounded border">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
