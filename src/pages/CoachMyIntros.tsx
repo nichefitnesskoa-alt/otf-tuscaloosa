@@ -849,6 +849,8 @@ export default function CoachMyIntros() {
                               leadId: intro.linkedIgLeadId,
                               name: intro.memberName,
                               phone: intro.phone,
+                              classDate: intro.classDate || null,
+                              classTime: intro.introTime || null,
                             });
                           }}
                         >
