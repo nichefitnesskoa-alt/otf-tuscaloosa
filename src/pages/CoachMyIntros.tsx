@@ -926,6 +926,8 @@ export default function CoachMyIntros() {
         defaultCategory="coach_followup"
         saName={coachName}
         coachContextFallback={coachName}
+        classDate={scriptDrawer.classDate}
+        classTime={scriptDrawer.classTime}
       />
 
       {/* Not interested confirmation */}
