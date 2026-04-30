@@ -200,7 +200,7 @@ export default function CoachMyIntros() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Script drawer
-  const [scriptDrawer, setScriptDrawer] = useState<{ open: boolean; bookingId: string | null; leadId: string | null; name: string | null; phone: string | null }>({ open: false, bookingId: null, leadId: null, name: null, phone: null });
+  const [scriptDrawer, setScriptDrawer] = useState<{ open: boolean; bookingId: string | null; leadId: string | null; name: string | null; phone: string | null; classDate: string | null; classTime: string | null }>({ open: false, bookingId: null, leadId: null, name: null, phone: null, classDate: null, classTime: null });
 
   // Not interested dialog
   const [notInterestedTarget, setNotInterestedTarget] = useState<MergedIntro | null>(null);
