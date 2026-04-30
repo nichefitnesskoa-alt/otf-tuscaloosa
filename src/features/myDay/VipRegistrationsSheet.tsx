@@ -76,7 +76,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
-          .select('coach_name')
+          .select('coach_name, session_date, session_time')
           .eq('id', vipSessionId)
           .maybeSingle(),
       ]);
