@@ -53,6 +53,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [loading, setLoading] = useState(false);
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [vipCoach, setVipCoach] = useState<string>('');
+  const [vipSessionDate, setVipSessionDate] = useState<string | null>(null);
+  const [vipSessionTime, setVipSessionTime] = useState<string | null>(null);
   const [savingCoach, setSavingCoach] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [bookIntroOpen, setBookIntroOpen] = useState(false);
@@ -74,7 +76,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
-          .select('coach_name')
+          .select('coach_name, session_date, session_time')
           .eq('id', vipSessionId)
           .maybeSingle(),
       ]);
@@ -86,6 +88,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         setRegs((data as any as RegRow[]) || []);
       }
       setVipCoach((sessionRow as any)?.coach_name || '');
+      setVipSessionDate((sessionRow as any)?.session_date || null);
+      setVipSessionTime((sessionRow as any)?.session_time || null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -357,6 +361,9 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         leadPhone={scriptDrawer.phone}
         categoryFilter="vip_class"
         saName={userName || ''}
+        coachContextFallback={vipCoach || null}
+        classDate={vipSessionDate}
+        classTime={vipSessionTime}
       />
     </Sheet>
   );
