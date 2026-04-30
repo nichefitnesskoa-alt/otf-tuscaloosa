@@ -43,6 +43,10 @@ interface ScriptSendDrawerProps {
    * Pass the logged-in coach's name on coach-only surfaces (My Intros, Coach Follow-Up).
    */
   coachContextFallback?: string | null;
+  /** Class date (YYYY-MM-DD) used to render {day} and {today/tomorrow}. */
+  classDate?: string | null;
+  /** Class time (HH:mm or HH:mm:ss) used to render {time}. */
+  classTime?: string | null;
 }
 
 export function ScriptSendDrawer({
@@ -56,6 +60,8 @@ export function ScriptSendDrawer({
   defaultCategory = null,
   saName,
   coachContextFallback = null,
+  classDate = null,
+  classTime = null,
 }: ScriptSendDrawerProps) {
   const { data: templates = [] } = useScriptTemplates();
   const { options: categoryOptions } = useScriptCategoryOptions();
