@@ -361,6 +361,9 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         leadPhone={scriptDrawer.phone}
         categoryFilter="vip_class"
         saName={userName || ''}
+        coachContextFallback={vipCoach || null}
+        classDate={vipSessionDate}
+        classTime={vipSessionTime}
       />
     </Sheet>
   );
