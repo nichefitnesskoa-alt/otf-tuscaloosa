@@ -20,7 +20,12 @@ import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
 import { useScriptCategoryOptions } from '@/hooks/useScriptCategories';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveFirstIntroCoachName, normalizeCoachName, cleanCoachFallbackPhrasing } from '@/lib/script-context';
+import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { format } from 'date-fns';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import { toast } from 'sonner';
+
+const CENTRAL_TZ = 'America/Chicago';
 
 interface ScriptSendDrawerProps {
   open: boolean;
