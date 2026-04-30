@@ -88,6 +88,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         setRegs((data as any as RegRow[]) || []);
       }
       setVipCoach((sessionRow as any)?.coach_name || '');
+      setVipSessionDate((sessionRow as any)?.session_date || null);
+      setVipSessionTime((sessionRow as any)?.session_time || null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
