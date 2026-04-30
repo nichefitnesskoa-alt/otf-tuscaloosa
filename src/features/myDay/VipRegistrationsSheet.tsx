@@ -23,6 +23,7 @@ interface RegRow {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email: string | null;
   outcome: string | null;
   created_at: string;
   birthday: string | null;
@@ -67,7 +68,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, outcome, created_at, birthday, weight_lbs')
+          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs')
           .eq('vip_session_id', vipSessionId)
           .eq('is_group_contact', false)
           .order('created_at', { ascending: true }),
@@ -267,6 +268,11 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
                   <div className="flex-1 min-w-[140px]">
                     <div className="text-sm font-medium truncate">{fullName}</div>
+                    {r.email && (
+                      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                        ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
+                      </div>
+                    )}
                     {(r.birthday || r.weight_lbs) && (
                       <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
                         {r.birthday && (
