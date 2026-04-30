@@ -55,6 +55,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [vipCoach, setVipCoach] = useState<string>('');
   const [vipSessionDate, setVipSessionDate] = useState<string | null>(null);
   const [vipSessionTime, setVipSessionTime] = useState<string | null>(null);
+  const [savingCoach, setSavingCoach] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [bookIntroOpen, setBookIntroOpen] = useState(false);
   const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
