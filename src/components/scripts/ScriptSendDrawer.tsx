@@ -138,15 +138,37 @@ export function ScriptSendDrawer({
     resolved = resolved.replace(/\{first-intro-coach-name\}/gi, firstIntroCoachFirst || '[Coach name]');
     resolved = resolved.replace(/\{first-intro-coach-full-name\}/gi, firstIntroCoachFull || '[Coach name]');
 
-    // Generic {coach-name} / {coach-first-name}: use first-intro coach when known, else fall back to saName (legacy).
-    const genericCoachFull = firstIntroCoachFull || saName || null;
+    // Generic {coach-name} / {coach-first-name}: use first-intro/assigned coach when known.
+    // Never fall back to saName — the logged-in SA is not the coach running the class.
+    const genericCoachFull = firstIntroCoachFull || null;
     const genericCoachFirst = genericCoachFull ? genericCoachFull.split(/\s+/)[0] : null;
     resolved = resolved.replace(/\{coach-name\}/gi, genericCoachFull || '[Coach name]');
     resolved = resolved.replace(/\{coach-first-name\}/gi, genericCoachFirst || '[Coach name]');
 
-    resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
-    resolved = resolved.replace(/\{day\}/gi, '[Day]');
-    resolved = resolved.replace(/\{time\}/gi, '[Time]');
+    // Date/time: render real values when class date/time provided, else placeholders.
+    // All "today/tomorrow" comparisons anchored to America/Chicago (Central Time).
+    let dayStr = '[Day]';
+    let todayTomorrowStr = '[Day]';
+    let timeStr = '[Time]';
+    if (classDate) {
+      try {
+        // Parse YYYY-MM-DD as a Central-Time calendar date (avoid UTC drift).
+        const classDateInCT = toZonedTime(`${classDate}T12:00:00Z`, CENTRAL_TZ);
+        dayStr = format(classDateInCT, 'EEEE, MMMM d');
+        const todayCT = formatInTimeZone(new Date(), CENTRAL_TZ, 'yyyy-MM-dd');
+        const tomorrowCT = formatInTimeZone(new Date(Date.now() + 86400000), CENTRAL_TZ, 'yyyy-MM-dd');
+        if (classDate === todayCT) todayTomorrowStr = 'today';
+        else if (classDate === tomorrowCT) todayTomorrowStr = 'tomorrow';
+        else todayTomorrowStr = format(classDateInCT, 'EEEE');
+      } catch { /* keep placeholder */ }
+    }
+    if (classTime) {
+      const formatted = formatDisplayTime(classTime);
+      if (formatted && formatted !== 'Time TBD') timeStr = formatted;
+    }
+    resolved = resolved.replace(/\{today\/tomorrow\}/gi, todayTomorrowStr);
+    resolved = resolved.replace(/\{day\}/gi, dayStr);
+    resolved = resolved.replace(/\{time\}/gi, timeStr);
     resolved = resolved.replace(/\{location-name\}/gi, 'Tuscaloosa');
     resolved = resolved.replace(/\{questionnaire-link\}/gi, '[Questionnaire Link]');
     return cleanCoachFallbackPhrasing(resolved);
