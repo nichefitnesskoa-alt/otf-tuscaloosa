@@ -23,6 +23,7 @@ interface RegRow {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email: string | null;
   outcome: string | null;
   created_at: string;
   birthday: string | null;
