@@ -7,10 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Check, Plus, PartyPopper, Rocket, AlertTriangle, Pencil, ExternalLink, Search } from 'lucide-react';
+import { Check, Plus, PartyPopper, AlertTriangle, Pencil, ExternalLink, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -61,10 +59,8 @@ interface MilestonesDeploySectionProps {
 export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionProps = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('celebrations');
   const [celSearch, setCelSearch] = useState('');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
-  const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
   const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
   const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -88,42 +84,24 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [editPack, setEditPack] = useState(false);
   const [editFriendName, setEditFriendName] = useState('');
   const [editFriendContact, setEditFriendContact] = useState('');
-  const [editDepItem, setEditDepItem] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editCelebrated, setEditCelebrated] = useState(false);
-
-  // Deploy form
-  const [depOpen, setDepOpen] = useState(false);
-  const [depName, setDepName] = useState('');
-  const [depItem, setDepItem] = useState('');
-  const [depSaving, setDepSaving] = useState(false);
 
   const rangeStartYMD = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-01');
   const rangeEndYMD = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [milRes, depRes] = await Promise.all([
-      supabase
-        .from('milestones')
-        .select('*')
-        .eq('entry_type', 'milestone')
-        .gte('created_at', rangeStartYMD)
-        .lte('created_at', rangeEndYMD + 'T23:59:59')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('milestones')
-        .select('*')
-        .eq('entry_type', 'deploy')
-        .gte('created_at', rangeStartYMD)
-        .lte('created_at', rangeEndYMD + 'T23:59:59')
-        .order('created_at', { ascending: false }),
-    ]);
+    const milRes = await supabase
+      .from('milestones')
+      .select('*')
+      .eq('entry_type', 'milestone')
+      .gte('created_at', rangeStartYMD)
+      .lte('created_at', rangeEndYMD + 'T23:59:59')
+      .order('created_at', { ascending: false });
 
     const mils = (milRes.data || []) as unknown as MilestoneRow[];
-    const deps = (depRes.data || []) as unknown as MilestoneRow[];
     setMilestones(mils);
-    setDeploys(deps);
 
     // Track pack friend show-ups and conversions
     const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
@@ -206,8 +184,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
       packs: mils.filter(m => m.five_class_pack_gifted).length,
       friends: mils.filter(m => m.converted_to_lead_id).length,
-      deployed: deps.length,
-      converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
+      deployed: 0,
+      converted: 0,
       friendsShowedUp: totalShowedUp,
       convertedToMember: totalConverted,
     });
@@ -321,31 +299,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     loadData();
   };
 
-  const handleDeploySubmit = async () => {
-    if (!depName.trim() || !depItem || !user?.name) return;
-    setDepSaving(true);
-
-    const { error } = await supabase
-      .from('milestones')
-      .insert({
-        entry_type: 'deploy',
-        member_name: depName.trim(),
-        deploy_item_given: depItem,
-        created_by: user.name,
-      } as any);
-
-    if (error) {
-      toast.error('Failed to save');
-      setDepSaving(false);
-      return;
-    }
-
-    toast.success('Deploy saved!');
-    setDepSaving(false);
-    setDepName(''); setDepItem(''); setDepOpen(false);
-    loadData();
-  };
-
   const openEdit = (item: MilestoneRow) => {
     setEditItem(item);
     setEditName(item.member_name);
@@ -354,7 +307,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditCelebrated(item.actually_celebrated ?? false);
     setEditFriendName(item.friend_name || '');
     setEditFriendContact(item.friend_contact || '');
-    setEditDepItem(item.deploy_item_given || '');
     setEditOpen(true);
   };
 
@@ -374,8 +326,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       updates.actually_celebrated = editCelebrated;
       updates.friend_name = editFriendName.trim() || null;
       updates.friend_contact = editFriendContact.trim() || null;
-    } else {
-      updates.deploy_item_given = editDepItem;
     }
 
     const { error } = await supabase
@@ -393,13 +343,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditSaving(false);
     setEditOpen(false);
     setEditItem(null);
-    loadData();
-  };
-
-  const toggleDeployConverted = async (id: string, current: boolean) => {
-    const newVal = !current;
-    setDeploys(prev => prev.map(d => d.id === id ? { ...d, deploy_converted: newVal } : d));
-    await supabase.from('milestones').update({ deploy_converted: newVal } as any).eq('id', id);
     loadData();
   };
 
@@ -421,13 +364,11 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     { label: 'Friends showed up', value: String(summary.friendsShowedUp) },
     { label: 'Converted to member', value: String(summary.convertedToMember) },
     { label: 'Friends in pipeline', value: String(summary.friends) },
-    { label: 'Members deployed', value: String(summary.deployed) },
-    { label: 'Converted', value: String(summary.converted) },
   ];
 
   return (
     <div className="space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones & Deploy</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
 
       {/* Weekly summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
@@ -441,19 +382,13 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         ))}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="celebrations" className="gap-1">
-            <PartyPopper className="w-3.5 h-3.5" /> Celebrations
-          </TabsTrigger>
-          <TabsTrigger value="deploy" className="gap-1">
-            <Rocket className="w-3.5 h-3.5" /> Deploy 5
-          </TabsTrigger>
-        </TabsList>
+      {/* Celebrations */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PartyPopper className="w-3.5 h-3.5" />
+          <span className="text-sm font-semibold">Celebrations</span>
+        </div>
 
-        {/* CELEBRATIONS TAB */}
-        <TabsContent value="celebrations" className="space-y-3 mt-3">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -606,94 +541,13 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
               </Card>
             );
           })()}
-        </TabsContent>
-
-        {/* DEPLOY TAB */}
-        <TabsContent value="deploy" className="space-y-3 mt-3">
-          <div className="flex justify-end">
-            <Dialog open={depOpen} onOpenChange={setDepOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 h-8 text-xs">
-                  <Plus className="w-3.5 h-3.5" /> Deploy Member
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Deploy Member</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs">Member name *</Label>
-                    <Input value={depName} onChange={e => setDepName(e.target.value)} placeholder="Member name" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">What did you give them? *</Label>
-                    <Select value={depItem} onValueChange={setDepItem}>
-                      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Marketing Materials">Marketing Materials</SelectItem>
-                        <SelectItem value="VIP Event Contact">VIP Event Contact</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleDeploySubmit} disabled={depSaving || !depName.trim() || !depItem} className="w-full">
-                    {depSaving ? 'Saving…' : 'Save'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
-          ) : deploys.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No deployments this week.</p>
-          ) : (
-            <Card className="divide-y divide-border">
-              {deploys.map(d => (
-                <div key={d.id} className="p-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{d.member_name}</span>
-                      <Badge variant="outline" className="text-[9px] h-4">{d.deploy_item_given}</Badge>
-                      {d.deploy_converted && (
-                        <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted</Badge>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {d.created_by} · {format(new Date(d.created_at), 'EEE h:mm a')}
-                      {d.last_edited_by && (
-                        <span className="ml-1">· edited by {d.last_edited_by}</span>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!d.deploy_converted && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-[10px] px-2 text-muted-foreground"
-                        onClick={() => toggleDeployConverted(d.id, d.deploy_converted)}
-                      >
-                        Mark converted
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(d)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) setEditItem(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit {editItem?.entry_type === 'milestone' ? 'Celebration' : 'Deploy'}</DialogTitle>
+            <DialogTitle>Edit Celebration</DialogTitle>
           </DialogHeader>
           {editItem && (
             <div className="space-y-3">
@@ -701,51 +555,36 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                 <Label className="text-xs">Member name *</Label>
                 <Input value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
-              {editItem.entry_type === 'milestone' ? (
+              <div>
+                <Label className="text-xs">Milestone type *</Label>
+                <Input value={editType} onChange={e => setEditType(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
+                <Label className="text-xs">Actually celebrated in studio?</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={editPack} onCheckedChange={setEditPack} />
+                <Label className="text-xs">5-class pack gifted?</Label>
+              </div>
+              {editPack && (
                 <>
                   <div>
-                    <Label className="text-xs">Milestone type *</Label>
-                    <Input value={editType} onChange={e => setEditType(e.target.value)} />
+                    <Label className="text-xs">Friend name</Label>
+                    <Input value={editFriendName} onChange={e => setEditFriendName(e.target.value)} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
-                    <Label className="text-xs">Actually celebrated in studio?</Label>
+                  <div>
+                    <Label className="text-xs">Friend contact</Label>
+                    <Input value={editFriendContact} onChange={e => setEditFriendContact(e.target.value)} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={editPack} onCheckedChange={setEditPack} />
-                    <Label className="text-xs">5-class pack gifted?</Label>
-                  </div>
-                  {editPack && (
-                    <>
-                      <div>
-                        <Label className="text-xs">Friend name</Label>
-                        <Input value={editFriendName} onChange={e => setEditFriendName(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Friend contact</Label>
-                        <Input value={editFriendContact} onChange={e => setEditFriendContact(e.target.value)} />
-                      </div>
-                    </>
-                  )}
                 </>
-              ) : (
-                <div>
-                  <Label className="text-xs">What did you give them? *</Label>
-                  <Select value={editDepItem} onValueChange={setEditDepItem}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Marketing Materials">Marketing Materials</SelectItem>
-                      <SelectItem value="VIP Event Contact">VIP Event Contact</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               )}
               <p className="text-[10px] text-muted-foreground">
                 Created by {editItem.created_by} · {format(new Date(editItem.created_at), 'MMM d, h:mm a')}
               </p>
               <Button
                 onClick={handleEditSave}
-                disabled={editSaving || !editName.trim() || (editItem.entry_type === 'milestone' && !editType.trim()) || (editItem.entry_type === 'deploy' && !editDepItem)}
+                disabled={editSaving || !editName.trim() || !editType.trim()}
                 className="w-full"
               >
                 {editSaving ? 'Saving…' : 'Save Changes'}

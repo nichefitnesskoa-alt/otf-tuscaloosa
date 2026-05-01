@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
+import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 
@@ -276,19 +277,13 @@ export default function Wig() {
       const rangeStart = rangeStartYMD;
       const rangeEnd = rangeEndYMD;
 
-      const [refRes, deployRes, milestoneRes] = await Promise.all([
+      const [refRes, milestoneRes] = await Promise.all([
         supabase
           .from('intros_booked')
           .select('booked_by, coach_referral_asked')
           .eq('coach_referral_asked', true)
           .gte('class_date', rangeStart)
           .lte('class_date', rangeEnd),
-        supabase
-          .from('milestones')
-          .select('created_by')
-          .eq('entry_type', 'deploy')
-          .gte('created_at', rangeStart)
-          .lte('created_at', rangeEnd + 'T23:59:59'),
         supabase
           .from('milestones')
           .select('created_by, five_class_pack_gifted')
@@ -299,22 +294,16 @@ export default function Wig() {
       ]);
 
       // Aggregate by SA
-      const saMap = new Map<string, { referralAsks: number; deploys: number; packs: number }>();
+      const saMap = new Map<string, { referralAsks: number; packs: number }>();
       (refRes.data || []).forEach((r: any) => {
         const name = r.booked_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.referralAsks++;
-        saMap.set(name, ex);
-      });
-      (deployRes.data || []).forEach((r: any) => {
-        const name = r.created_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
-        ex.deploys++;
         saMap.set(name, ex);
       });
       (milestoneRes.data || []).forEach((r: any) => {
         const name = r.created_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.packs++;
         saMap.set(name, ex);
       });
@@ -570,7 +559,7 @@ export default function Wig() {
 
   useEffect(() => { loadLeadMeasures(); }, [loadLeadMeasures]);
 
-  const totalTeamDeploys = saLeadMeasures.reduce((s, r) => s + r.deploys, 0);
+  
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -713,19 +702,6 @@ export default function Wig() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {/* Team deploy total */}
-            <div className="px-4 py-2 border-b">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Team Deploy Activations</span>
-                <span className="font-medium">{totalTeamDeploys} / 5</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden mt-1">
-                <div
-                  className={cn('h-full rounded-full transition-all', totalTeamDeploys >= 4 ? 'bg-success' : totalTeamDeploys >= 2 ? 'bg-warning' : 'bg-destructive')}
-                  style={{ width: `${Math.min((totalTeamDeploys / 5) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
             {measuresLoading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
@@ -740,7 +716,6 @@ export default function Wig() {
                     <TableRow>
                       <TableHead className="text-xs">SA</TableHead>
                       <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
-                      <TableHead className="text-xs text-center">Deploys</TableHead>
                       <TableHead className="text-xs text-center">Packs Gifted</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -749,7 +724,6 @@ export default function Wig() {
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
                         <TableCell className="text-sm text-center">{row.referralAsks}</TableCell>
-                        <TableCell className="text-sm text-center">{row.deploys}</TableCell>
                         <TableCell className="text-sm text-center">{row.packs}</TableCell>
                       </TableRow>
                     ))}
@@ -759,6 +733,9 @@ export default function Wig() {
             )}
           </CardContent>
         </Card>
+
+        {/* Referral Ask Tracker — closed memberships needing a referral ask */}
+        <ReferralAskTracker dateRange={dateRange} />
 
         {/* Coach Lead Measures */}
         <Card>

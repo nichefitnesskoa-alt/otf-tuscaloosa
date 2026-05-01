@@ -1,107 +1,100 @@
-## Problem
+## What we're changing
 
-When you open **Send Script** from the VIP Registrations sheet (a VIP attendee like Jerica), the rendered script shows:
+1. **Remove Deploy 5 lead measure** from WIG (and the supporting UI section).
+2. **Make POS Referral Ask easier to complete and track.** Today the only way `coach_referral_asked = true` gets set is from the coach's pre/post panel. SAs have no obvious place to confirm "yes I asked the new member for referrals at point-of-sale." We'll add a **Closed Memberships → Referral Ask tracker** on the WIG page that lists every membership sale in the selected date range and lets the SA mark each one:
+   - **Asked at POS** (done in the moment), or
+   - **Will follow up** (text/in-person later), with a one-tap completion when done.
 
-- `[Time]` and `[Day]` instead of the actual VIP class date/time
-- The wrong coach name — it falls back to the logged-in SA's name (or `[Coach name]`) instead of the coach assigned to that VIP class
+This gives a visible queue of "you sold a membership but haven't asked for a referral yet" — exactly the prompt the user described.
 
-## Root Cause
+---
 
-There are two separate bugs, both in how `ScriptSendDrawer` is invoked from VIP surfaces.
+## 1. Remove Deploy 5
 
-### Bug 1 — Date/time merge fields are hard-coded to placeholders
+### `src/pages/Wig.tsx`
+- Remove the `deployRes` query and the `deploys` aggregation in `loadLeadMeasures`.
+- Remove the `Team Deploy Activations` progress bar block (the "X / 5" bar above the SA table).
+- Remove the **Deploys** column from the SA Lead Measures table (header + cell).
+- Remove the `totalTeamDeploys` calculation.
+- **Keep** `MilestonesDeploySection` mounted on WIG for now (it still tracks Celebrations and 5-class packs, which are referenced by other lead measures). We'll just hide the Deploy tab inside it (next step) so nothing here references "Deploy 5" as a measure.
 
-In `src/components/scripts/ScriptSendDrawer.tsx` (`resolveMergeFields`), `{day}`, `{today/tomorrow}`, and `{time}` are unconditionally replaced with the literal strings `[Day]` and `[Time]`:
+### `src/components/dashboard/MilestonesDeploySection.tsx`
+- Remove the **Deploy** tab (`TabsTrigger value="deploy"` and `TabsContent value="deploy"`).
+- Remove the `Members deployed` summary stat.
+- Remove the `deploys` state, `loadDeploys` query, `handleDeploySubmit`, `toggleDeployConverted`, and Deploy edit branch.
+- Keep Celebrations and the 5-class pack flow untouched.
 
-```ts
-resolved = resolved.replace(/\{today\/tomorrow\}/gi, '[Day]');
-resolved = resolved.replace(/\{day\}/gi, '[Day]');
-resolved = resolved.replace(/\{time\}/gi, '[Time]');
+### Data
+- No DB migration. The `milestones` table keeps `entry_type = 'deploy'` rows for historical reporting, we just stop reading/writing them from the app.
+
+---
+
+## 2. New: Closed Memberships → Referral Ask tracker (WIG)
+
+A new card on WIG, between **SA Lead Measures** and **Coach Lead Measures**.
+
+### Data source
+- Use the already-loaded `introsRun` from `DataContext` (no new fetch).
+- Filter: `isMembershipSale(result)` AND `buy_date` (or run_date fallback) within the WIG date range.
+- Join to the booking via `linked_intro_booked_id` to read `member_name`, `intro_owner` (the SA who gets credit), and `coach_referral_asked`.
+
+### UI (per row)
+```
+[Member name] · sold by [intro_owner] · [date]
+  Status: [● Asked at POS] [○ Need to follow up] [✓ Done — asked later]
 ```
 
-The drawer never accepts or formats real class date/time. So even though `buildScriptContext` knows how to format these, the drawer never uses it. Every caller (VIP, New Leads, Coach My Intros, etc.) shows `[Time]` / `[Day]`.
+- If `coach_referral_asked = true` → row collapses with a small "✓ Asked" badge and is hidden by default behind a "Show completed" toggle.
+- If false → three buttons:
+  1. **Asked at POS** → sets `coach_referral_asked = true`, `last_edited_by = current user`, `edit_reason = 'POS referral ask logged on WIG'`.
+  2. **Will follow up** → sets a new flag `referral_ask_followup_pending = true` (see DB section). Row stays visible with an amber "Follow up pending" badge.
+  3. **Done — asked later** → same effect as "Asked at POS" plus clears the pending flag. Used when the SA texts/asks in person later.
 
-### Bug 2 — Coach name falls back to the logged-in user
+### Empty state
+"No membership sales in this period — nothing to ask about yet."
 
-In the drawer:
+### Why this works for the user's ask
+- The SA sees every closed membership the moment they open WIG — that's the "pops up when a closed membership happens" behavior.
+- They can confirm in the moment (POS) or defer ("ask later via text/in person") and the row stays in their face until completed.
 
-```ts
-const genericCoachFull = firstIntroCoachFull || saName || null;
-...
-resolved.replace(/\{coach-name\}/gi, genericCoachFull || '[Coach name]');
+---
+
+## 3. DB change
+
+One small additive column on `intros_booked`:
+
+```
+ALTER TABLE intros_booked
+  ADD COLUMN referral_ask_followup_pending boolean NOT NULL DEFAULT false;
 ```
 
-When `VipRegistrationsSheet` opens the drawer for a VIP attendee, it passes **no `bookingId`** and **no `coachContextFallback`**. So:
+- No data migration needed; defaults to false.
+- No RLS changes (existing public policies cover it).
+- No trigger changes.
 
-1. `firstIntroCoach` resolution returns `null` (no booking).
-2. `{coach-name}` falls through to `saName` — the logged-in SA. That's why every VIP script reads "This is Koa at OrangeTheory" regardless of which coach is actually running the VIP class.
+---
 
-The VIP session already stores the assigned coach in `vip_sessions.coach_name` (loaded into `vipCoach` state in the sheet), but it's never passed to the drawer.
+## 4. Tone / copy (per project rules)
 
-## Fix
+- Card title: **"Ask for a referral"**
+- Subtitle: **"Every new member from this period. Tap once you've asked."**
+- Buttons: **"Asked at POS"** · **"Ask later"** · **"Done"** (no jargon)
 
-### 1. Make `ScriptSendDrawer` accept real class date + time and format them
+---
 
-Add two optional props:
+## Files I will change
 
-```ts
-classDate?: string | null;   // ISO 'YYYY-MM-DD'
-classTime?: string | null;   // 'HH:MM' or 'HH:MM:SS'
-```
+- `src/pages/Wig.tsx` — remove Deploy 5 measure, add the referral-ask tracker card.
+- `src/components/dashboard/MilestonesDeploySection.tsx` — remove the Deploy tab/state/handlers.
+- New migration adding `referral_ask_followup_pending` to `intros_booked`.
 
-In `resolveMergeFields`, replace the hard-coded placeholders with formatted values when provided (Central Time aware), reusing the same logic already in `src/lib/script-context.ts`:
+## Files I will NOT change
 
-- `{day}` → `format(parseISO(classDate), 'EEEE, MMMM d')` (e.g. "Saturday, May 9")
-- `{today/tomorrow}` → `'today'` / `'tomorrow'` / weekday name, computed against America/Chicago
-- `{time}` → 12-hour with AM/PM (e.g. "9:00 AM")
+- `coach_referral_asked` semantics (still the source of truth for "was a referral ask made").
+- Coach pre/post panel — still toggles the same field.
+- Any commission / scoreboard / reporting logic.
+- Other pages (My Day, Coach View, Pipeline) — no UI changes.
 
-If `classDate` / `classTime` are not provided, fall back to the current `[Day]` / `[Time]` placeholders so existing callers don't regress.
+## Open question (only if you want to answer — otherwise I'll default)
 
-Use `date-fns-tz` or the existing Central Time helpers in `src/lib/time/timeUtils.ts` to anchor "today/tomorrow" to America/Chicago (per project rule).
-
-### 2. Pass the VIP coach + session date/time from `VipRegistrationsSheet`
-
-In `src/features/myDay/VipRegistrationsSheet.tsx`:
-
-- Extend the `vip_sessions` select to include `session_date` and `session_time` (already exists in schema).
-- Store them in component state alongside `vipCoach`.
-- When opening `ScriptSendDrawer`, pass:
-  ```tsx
-  coachContextFallback={vipCoach}
-  classDate={vipSessionDate}
-  classTime={vipSessionTime}
-  ```
-
-This makes `{coach-name}` / `{coach-first-name}` / `{first-intro-coach-name}` all resolve to the assigned VIP class coach (via the existing `coachContextFallback` path in the drawer), and `{day}` / `{time}` resolve to the VIP class date/time.
-
-### 3. Audit other callers (no behavior change required)
-
-Quick check on the four other call sites — all already pass `coachContextFallback` correctly OR are in contexts where the existing fallback is right:
-
-- `CoachMyIntros.tsx` — passes `bookingId`, coach resolved from booking chain ✓
-- `NewLeadsAlert.tsx` — no booking yet, coach unknown, fallback to `[Coach name]` is correct
-- `VipClaimBanner.tsx` — verify it passes the claiming coach (will confirm during build and pass `coachContextFallback` if missing)
-- `ShiftChecklist.tsx` — generic shift scripts, no specific coach context
-
-For any caller that has class date/time available (e.g. `CoachMyIntros`), pass the new `classDate` / `classTime` props so `{day}` and `{time}` render correctly there too.
-
-## Files to Change
-
-- `src/components/scripts/ScriptSendDrawer.tsx` — add `classDate` + `classTime` props, format them in `resolveMergeFields` using Central Time
-- `src/features/myDay/VipRegistrationsSheet.tsx` — fetch + pass `session_date`, `session_time`, and `vipCoach` to the drawer
-- `src/pages/CoachMyIntros.tsx` — pass `classDate` + `classTime` from each booking to the drawer
-- `src/features/myDay/VipClaimBanner.tsx` — confirm coach is passed; pass session date/time
-
-## Downstream Effects
-
-- VIP scripts now render real day/time and the assigned VIP coach's name everywhere the VIP drawer is opened.
-- Coach My Intros scripts (1st intro, 2nd intro, post-class) now render real class day/time.
-- No data-model changes; no migrations.
-- No role-permission changes.
-- Existing callers that don't pass the new props keep current `[Day]` / `[Time]` behavior — zero regression.
-
-## What I Will NOT Change
-
-- The `buildScriptContext` function and other script-generation paths
-- Any database schema, RLS, or edge functions
-- Any UI outside the drawer + the four caller files listed above
+Default I'll pick: the new tracker card is visible to **SAs and Admin** on WIG (Coaches don't need it). Tell me if you'd rather show it to coaches too.
