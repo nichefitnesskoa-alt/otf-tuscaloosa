@@ -701,19 +701,6 @@ export default function Wig() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {/* Team deploy total */}
-            <div className="px-4 py-2 border-b">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Team Deploy Activations</span>
-                <span className="font-medium">{totalTeamDeploys} / 5</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden mt-1">
-                <div
-                  className={cn('h-full rounded-full transition-all', totalTeamDeploys >= 4 ? 'bg-success' : totalTeamDeploys >= 2 ? 'bg-warning' : 'bg-destructive')}
-                  style={{ width: `${Math.min((totalTeamDeploys / 5) * 100, 100)}%` }}
-                />
-              </div>
-            </div>
             {measuresLoading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
@@ -728,7 +715,6 @@ export default function Wig() {
                     <TableRow>
                       <TableHead className="text-xs">SA</TableHead>
                       <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
-                      <TableHead className="text-xs text-center">Deploys</TableHead>
                       <TableHead className="text-xs text-center">Packs Gifted</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -737,7 +723,6 @@ export default function Wig() {
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
                         <TableCell className="text-sm text-center">{row.referralAsks}</TableCell>
-                        <TableCell className="text-sm text-center">{row.deploys}</TableCell>
                         <TableCell className="text-sm text-center">{row.packs}</TableCell>
                       </TableRow>
                     ))}
