@@ -387,19 +387,13 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         ))}
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="celebrations" className="gap-1">
-            <PartyPopper className="w-3.5 h-3.5" /> Celebrations
-          </TabsTrigger>
-          <TabsTrigger value="deploy" className="gap-1">
-            <Rocket className="w-3.5 h-3.5" /> Deploy 5
-          </TabsTrigger>
-        </TabsList>
+      {/* Celebrations */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PartyPopper className="w-3.5 h-3.5" />
+          <span className="text-sm font-semibold">Celebrations</span>
+        </div>
 
-        {/* CELEBRATIONS TAB */}
-        <TabsContent value="celebrations" className="space-y-3 mt-3">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
