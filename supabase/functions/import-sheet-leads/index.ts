@@ -307,6 +307,74 @@ Deno.serve(async (req) => {
           // BOOKING PATH → intros_booked
           // ═══════════════════════════════════════
 
+          // ── Reschedule detection ──
+          // If this person (matched by phone OR email) already has an ACTIVE booking on a
+          // DIFFERENT date, treat this as a reschedule: update that row in place instead of
+          // creating a duplicate. This prevents Mindbody re-emails from creating ghost
+          // bookings on the new date while the original lingers.
+          if (phone || email) {
+            let rescheduleQuery = supabase
+              .from('intros_booked')
+              .select('id, class_date, intro_time, member_name')
+              .is('deleted_at', null)
+              .eq('booking_status_canon', 'ACTIVE')
+              .neq('class_date', classDate)
+              .order('class_date', { ascending: false })
+              .limit(1);
+
+            const orFilters: string[] = [];
+            if (phone) orFilters.push(`phone.eq.${phone}`, `phone_e164.eq.+1${phone}`);
+            if (email) orFilters.push(`email.eq.${email}`);
+            if (orFilters.length > 0) {
+              rescheduleQuery = rescheduleQuery.or(orFilters.join(','));
+            }
+
+            const { data: existingActive } = await rescheduleQuery.maybeSingle();
+
+            if (existingActive) {
+              // Update the existing booking in place
+              const { error: updErr } = await supabase
+                .from('intros_booked')
+                .update({
+                  class_date: classDate,
+                  intro_time: introTime,
+                  class_start_at: introTime ? `${classDate}T${introTime}:00` : null,
+                  last_edited_at: new Date().toISOString(),
+                  last_edited_by: 'System (Sheet Import)',
+                  edit_reason: `Auto-rescheduled from ${existingActive.class_date} via sheet import`,
+                  // Backfill phone_e164/email if missing on the existing record
+                  ...(phone ? { phone: phone, phone_e164: `+1${phone}` } : {}),
+                  ...(email ? { email } : {}),
+                })
+                .eq('id', existingActive.id);
+
+              if (updErr) {
+                console.error(`Row ${i + 1} reschedule update error:`, updErr);
+                errors++;
+                details.push(`Row ${i + 1}: reschedule update failed — ${updErr.message}`);
+              } else {
+                imported++;
+                details.push(`Row ${i + 1}: rescheduled ${memberName} from ${existingActive.class_date} to ${classDate}`);
+                if (messageId) {
+                  await supabase.from('intake_events').insert({
+                    source: 'sheet_import',
+                    external_id: messageId,
+                    payload: {
+                      row_index: i,
+                      member_name: memberName,
+                      action: 'rescheduled_in_place',
+                      from_date: existingActive.class_date,
+                      to_date: classDate,
+                    },
+                    booking_id: existingActive.id,
+                  });
+                  existingMessageIds.add(messageId);
+                }
+              }
+              continue;
+            }
+          }
+
           // Respect active bookings and previously removed bookings so auto-import
           // does not resurrect rows the team intentionally deleted.
           const { data: existByNameDate } = await supabase
