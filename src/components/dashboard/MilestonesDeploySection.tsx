@@ -302,31 +302,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     loadData();
   };
 
-  const handleDeploySubmit = async () => {
-    if (!depName.trim() || !depItem || !user?.name) return;
-    setDepSaving(true);
-
-    const { error } = await supabase
-      .from('milestones')
-      .insert({
-        entry_type: 'deploy',
-        member_name: depName.trim(),
-        deploy_item_given: depItem,
-        created_by: user.name,
-      } as any);
-
-    if (error) {
-      toast.error('Failed to save');
-      setDepSaving(false);
-      return;
-    }
-
-    toast.success('Deploy saved!');
-    setDepSaving(false);
-    setDepName(''); setDepItem(''); setDepOpen(false);
-    loadData();
-  };
-
   const openEdit = (item: MilestoneRow) => {
     setEditItem(item);
     setEditName(item.member_name);
@@ -335,7 +310,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditCelebrated(item.actually_celebrated ?? false);
     setEditFriendName(item.friend_name || '');
     setEditFriendContact(item.friend_contact || '');
-    setEditDepItem(item.deploy_item_given || '');
     setEditOpen(true);
   };
 
@@ -355,8 +329,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       updates.actually_celebrated = editCelebrated;
       updates.friend_name = editFriendName.trim() || null;
       updates.friend_contact = editFriendContact.trim() || null;
-    } else {
-      updates.deploy_item_given = editDepItem;
     }
 
     const { error } = await supabase
@@ -374,13 +346,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     setEditSaving(false);
     setEditOpen(false);
     setEditItem(null);
-    loadData();
-  };
-
-  const toggleDeployConverted = async (id: string, current: boolean) => {
-    const newVal = !current;
-    setDeploys(prev => prev.map(d => d.id === id ? { ...d, deploy_converted: newVal } : d));
-    await supabase.from('milestones').update({ deploy_converted: newVal } as any).eq('id', id);
     loadData();
   };
 
