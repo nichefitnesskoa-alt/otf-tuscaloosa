@@ -734,6 +734,9 @@ export default function Wig() {
           </CardContent>
         </Card>
 
+        {/* Referral Ask Tracker — closed memberships needing a referral ask */}
+        <ReferralAskTracker dateRange={dateRange} />
+
         {/* Coach Lead Measures */}
         <Card>
           <CardHeader className="pb-2">
