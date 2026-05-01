@@ -64,7 +64,6 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [tab, setTab] = useState('celebrations');
   const [celSearch, setCelSearch] = useState('');
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
-  const [deploys, setDeploys] = useState<MilestoneRow[]>([]);
   const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
   const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -88,15 +87,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
   const [editPack, setEditPack] = useState(false);
   const [editFriendName, setEditFriendName] = useState('');
   const [editFriendContact, setEditFriendContact] = useState('');
-  const [editDepItem, setEditDepItem] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editCelebrated, setEditCelebrated] = useState(false);
-
-  // Deploy form
-  const [depOpen, setDepOpen] = useState(false);
-  const [depName, setDepName] = useState('');
-  const [depItem, setDepItem] = useState('');
-  const [depSaving, setDepSaving] = useState(false);
 
   const rangeStartYMD = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-01');
   const rangeEndYMD = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
