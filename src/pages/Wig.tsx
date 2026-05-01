@@ -558,7 +558,7 @@ export default function Wig() {
 
   useEffect(() => { loadLeadMeasures(); }, [loadLeadMeasures]);
 
-  const totalTeamDeploys = saLeadMeasures.reduce((s, r) => s + r.deploys, 0);
+  
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
