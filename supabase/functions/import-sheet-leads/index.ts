@@ -307,6 +307,72 @@ Deno.serve(async (req) => {
           // BOOKING PATH → intros_booked
           // ═══════════════════════════════════════
 
+          // ── Same-date active guard ──
+          // If the correct active booking already exists on this date, treat the
+          // sheet row as a duplicate before considering any deleted historical rows.
+          const activeDateFilters: string[] = [`member_name.ilike.${memberName}`];
+          if (phone) activeDateFilters.push(`phone.eq.${phone}`, `phone_e164.eq.+1${phone}`);
+          if (email) activeDateFilters.push(`email.eq.${email}`);
+
+          const { data: activeOnSameDate } = await supabase
+            .from('intros_booked')
+            .select('id')
+            .eq('class_date', classDate)
+            .is('deleted_at', null)
+            .or(activeDateFilters.join(','))
+            .limit(1)
+            .maybeSingle();
+
+          if (activeOnSameDate) {
+            skippedDuplicate++;
+            if (messageId) {
+              await supabase.from('intake_events').insert({
+                source: 'sheet_import',
+                external_id: messageId,
+                payload: { row_index: i, member_name: memberName, skipped_reason: 'matched_existing_active_booking_on_same_date' },
+                booking_id: activeOnSameDate.id,
+              });
+              existingMessageIds.add(messageId);
+            }
+            continue;
+          }
+
+          // ── Deleted-date guard ──
+          // If the sheet still contains an old booking row that the team already
+          // soft-deleted for this same person/date, do not let that stale row
+          // reschedule a later active booking back onto the removed date.
+          const deletedDateFilters: string[] = [`member_name.ilike.${memberName}`];
+          if (phone) deletedDateFilters.push(`phone.eq.${phone}`, `phone_e164.eq.+1${phone}`);
+          if (email) deletedDateFilters.push(`email.eq.${email}`);
+
+          const { data: intentionallyRemovedOnDate } = await supabase
+            .from('intros_booked')
+            .select('id')
+            .eq('class_date', classDate)
+            .not('deleted_at', 'is', null)
+            .or(deletedDateFilters.join(','))
+            .limit(1)
+            .maybeSingle();
+
+          if (intentionallyRemovedOnDate) {
+            skippedDuplicate++;
+            details.push(`Row ${i + 1}: skipped stale removed booking for ${memberName} on ${classDate}`);
+            if (messageId) {
+              await supabase.from('intake_events').insert({
+                source: 'sheet_import',
+                external_id: messageId,
+                payload: {
+                  row_index: i,
+                  member_name: memberName,
+                  skipped_reason: 'matched_soft_deleted_booking_on_same_date',
+                },
+                booking_id: intentionallyRemovedOnDate.id,
+              });
+              existingMessageIds.add(messageId);
+            }
+            continue;
+          }
+
           // ── Reschedule detection ──
           // If this person (matched by phone OR email) already has an ACTIVE booking on a
           // DIFFERENT date, treat this as a reschedule: update that row in place instead of
@@ -353,6 +419,14 @@ Deno.serve(async (req) => {
                 errors++;
                 details.push(`Row ${i + 1}: reschedule update failed — ${updErr.message}`);
               } else {
+                await supabase
+                  .from('intro_questionnaires')
+                  .update({
+                    scheduled_class_date: classDate,
+                    scheduled_class_time: introTime,
+                  })
+                  .eq('booking_id', existingActive.id);
+
                 imported++;
                 details.push(`Row ${i + 1}: rescheduled ${memberName} from ${existingActive.class_date} to ${classDate}`);
                 if (messageId) {
