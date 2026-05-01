@@ -276,19 +276,13 @@ export default function Wig() {
       const rangeStart = rangeStartYMD;
       const rangeEnd = rangeEndYMD;
 
-      const [refRes, deployRes, milestoneRes] = await Promise.all([
+      const [refRes, milestoneRes] = await Promise.all([
         supabase
           .from('intros_booked')
           .select('booked_by, coach_referral_asked')
           .eq('coach_referral_asked', true)
           .gte('class_date', rangeStart)
           .lte('class_date', rangeEnd),
-        supabase
-          .from('milestones')
-          .select('created_by')
-          .eq('entry_type', 'deploy')
-          .gte('created_at', rangeStart)
-          .lte('created_at', rangeEnd + 'T23:59:59'),
         supabase
           .from('milestones')
           .select('created_by, five_class_pack_gifted')
@@ -299,22 +293,16 @@ export default function Wig() {
       ]);
 
       // Aggregate by SA
-      const saMap = new Map<string, { referralAsks: number; deploys: number; packs: number }>();
+      const saMap = new Map<string, { referralAsks: number; packs: number }>();
       (refRes.data || []).forEach((r: any) => {
         const name = r.booked_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.referralAsks++;
-        saMap.set(name, ex);
-      });
-      (deployRes.data || []).forEach((r: any) => {
-        const name = r.created_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
-        ex.deploys++;
         saMap.set(name, ex);
       });
       (milestoneRes.data || []).forEach((r: any) => {
         const name = r.created_by || 'Unknown';
-        const ex = saMap.get(name) || { referralAsks: 0, deploys: 0, packs: 0 };
+        const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.packs++;
         saMap.set(name, ex);
       });
