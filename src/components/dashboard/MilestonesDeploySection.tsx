@@ -95,27 +95,16 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [milRes, depRes] = await Promise.all([
-      supabase
-        .from('milestones')
-        .select('*')
-        .eq('entry_type', 'milestone')
-        .gte('created_at', rangeStartYMD)
-        .lte('created_at', rangeEndYMD + 'T23:59:59')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('milestones')
-        .select('*')
-        .eq('entry_type', 'deploy')
-        .gte('created_at', rangeStartYMD)
-        .lte('created_at', rangeEndYMD + 'T23:59:59')
-        .order('created_at', { ascending: false }),
-    ]);
+    const milRes = await supabase
+      .from('milestones')
+      .select('*')
+      .eq('entry_type', 'milestone')
+      .gte('created_at', rangeStartYMD)
+      .lte('created_at', rangeEndYMD + 'T23:59:59')
+      .order('created_at', { ascending: false });
 
     const mils = (milRes.data || []) as unknown as MilestoneRow[];
-    const deps = (depRes.data || []) as unknown as MilestoneRow[];
     setMilestones(mils);
-    setDeploys(deps);
 
     // Track pack friend show-ups and conversions
     const packFriends = mils.filter(m => m.five_class_pack_gifted && m.friend_name);
