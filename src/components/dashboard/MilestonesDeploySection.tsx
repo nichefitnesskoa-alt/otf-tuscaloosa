@@ -552,7 +552,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) setEditItem(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit {editItem?.entry_type === 'milestone' ? 'Celebration' : 'Deploy'}</DialogTitle>
+            <DialogTitle>Edit Celebration</DialogTitle>
           </DialogHeader>
           {editItem && (
             <div className="space-y-3">
@@ -560,51 +560,36 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
                 <Label className="text-xs">Member name *</Label>
                 <Input value={editName} onChange={e => setEditName(e.target.value)} />
               </div>
-              {editItem.entry_type === 'milestone' ? (
+              <div>
+                <Label className="text-xs">Milestone type *</Label>
+                <Input value={editType} onChange={e => setEditType(e.target.value)} />
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
+                <Label className="text-xs">Actually celebrated in studio?</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={editPack} onCheckedChange={setEditPack} />
+                <Label className="text-xs">5-class pack gifted?</Label>
+              </div>
+              {editPack && (
                 <>
                   <div>
-                    <Label className="text-xs">Milestone type *</Label>
-                    <Input value={editType} onChange={e => setEditType(e.target.value)} />
+                    <Label className="text-xs">Friend name</Label>
+                    <Input value={editFriendName} onChange={e => setEditFriendName(e.target.value)} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={editCelebrated} onCheckedChange={setEditCelebrated} />
-                    <Label className="text-xs">Actually celebrated in studio?</Label>
+                  <div>
+                    <Label className="text-xs">Friend contact</Label>
+                    <Input value={editFriendContact} onChange={e => setEditFriendContact(e.target.value)} />
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={editPack} onCheckedChange={setEditPack} />
-                    <Label className="text-xs">5-class pack gifted?</Label>
-                  </div>
-                  {editPack && (
-                    <>
-                      <div>
-                        <Label className="text-xs">Friend name</Label>
-                        <Input value={editFriendName} onChange={e => setEditFriendName(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Friend contact</Label>
-                        <Input value={editFriendContact} onChange={e => setEditFriendContact(e.target.value)} />
-                      </div>
-                    </>
-                  )}
                 </>
-              ) : (
-                <div>
-                  <Label className="text-xs">What did you give them? *</Label>
-                  <Select value={editDepItem} onValueChange={setEditDepItem}>
-                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Marketing Materials">Marketing Materials</SelectItem>
-                      <SelectItem value="VIP Event Contact">VIP Event Contact</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               )}
               <p className="text-[10px] text-muted-foreground">
                 Created by {editItem.created_by} · {format(new Date(editItem.created_at), 'MMM d, h:mm a')}
               </p>
               <Button
                 onClick={handleEditSave}
-                disabled={editSaving || !editName.trim() || (editItem.entry_type === 'milestone' && !editType.trim()) || (editItem.entry_type === 'deploy' && !editDepItem)}
+                disabled={editSaving || !editName.trim() || !editType.trim()}
                 className="w-full"
               >
                 {editSaving ? 'Saving…' : 'Save Changes'}
