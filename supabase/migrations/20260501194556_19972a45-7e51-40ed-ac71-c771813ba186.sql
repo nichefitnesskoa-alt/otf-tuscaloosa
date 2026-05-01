@@ -1,0 +1,1 @@
+ALTER TABLE public.intros_booked ADD COLUMN IF NOT EXISTS referral_ask_followup_pending boolean NOT NULL DEFAULT false;

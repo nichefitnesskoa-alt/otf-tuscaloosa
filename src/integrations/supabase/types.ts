@@ -944,6 +944,7 @@ export type Database = {
           rebook_reason: string | null
           rebooked_at: string | null
           rebooked_from_booking_id: string | null
+          referral_ask_followup_pending: boolean
           referred_by_member_name: string | null
           reschedule_contact_date: string | null
           sa_buying_criteria: string | null
@@ -1017,6 +1018,7 @@ export type Database = {
           rebook_reason?: string | null
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
+          referral_ask_followup_pending?: boolean
           referred_by_member_name?: string | null
           reschedule_contact_date?: string | null
           sa_buying_criteria?: string | null
@@ -1090,6 +1092,7 @@ export type Database = {
           rebook_reason?: string | null
           rebooked_at?: string | null
           rebooked_from_booking_id?: string | null
+          referral_ask_followup_pending?: boolean
           referred_by_member_name?: string | null
           reschedule_contact_date?: string | null
           sa_buying_criteria?: string | null
