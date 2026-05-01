@@ -307,6 +307,36 @@ Deno.serve(async (req) => {
           // BOOKING PATH → intros_booked
           // ═══════════════════════════════════════
 
+          // ── Same-date active guard ──
+          // If the correct active booking already exists on this date, treat the
+          // sheet row as a duplicate before considering any deleted historical rows.
+          const activeDateFilters: string[] = [`member_name.ilike.${memberName}`];
+          if (phone) activeDateFilters.push(`phone.eq.${phone}`, `phone_e164.eq.+1${phone}`);
+          if (email) activeDateFilters.push(`email.eq.${email}`);
+
+          const { data: activeOnSameDate } = await supabase
+            .from('intros_booked')
+            .select('id')
+            .eq('class_date', classDate)
+            .is('deleted_at', null)
+            .or(activeDateFilters.join(','))
+            .limit(1)
+            .maybeSingle();
+
+          if (activeOnSameDate) {
+            skippedDuplicate++;
+            if (messageId) {
+              await supabase.from('intake_events').insert({
+                source: 'sheet_import',
+                external_id: messageId,
+                payload: { row_index: i, member_name: memberName, skipped_reason: 'matched_existing_active_booking_on_same_date' },
+                booking_id: activeOnSameDate.id,
+              });
+              existingMessageIds.add(messageId);
+            }
+            continue;
+          }
+
           // ── Deleted-date guard ──
           // If the sheet still contains an old booking row that the team already
           // soft-deleted for this same person/date, do not let that stale row
