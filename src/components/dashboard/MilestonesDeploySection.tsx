@@ -367,13 +367,11 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
     { label: 'Friends showed up', value: String(summary.friendsShowedUp) },
     { label: 'Converted to member', value: String(summary.convertedToMember) },
     { label: 'Friends in pipeline', value: String(summary.friends) },
-    { label: 'Members deployed', value: String(summary.deployed) },
-    { label: 'Converted', value: String(summary.converted) },
   ];
 
   return (
     <div className="space-y-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones & Deploy</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
 
       {/* Weekly summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
