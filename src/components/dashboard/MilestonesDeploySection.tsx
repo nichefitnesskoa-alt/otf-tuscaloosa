@@ -187,8 +187,8 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       actuallyCelebrated: mils.filter(m => m.actually_celebrated).length,
       packs: mils.filter(m => m.five_class_pack_gifted).length,
       friends: mils.filter(m => m.converted_to_lead_id).length,
-      deployed: deps.length,
-      converted: [...mils, ...deps].filter(m => m.deploy_converted).length,
+      deployed: 0,
+      converted: 0,
       friendsShowedUp: totalShowedUp,
       convertedToMember: totalConverted,
     });
