@@ -87,7 +87,7 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
   }, [fileUrl, isPdf]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-x-0 top-0 bottom-16 z-40 bg-background flex flex-col pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
         <Button variant="ghost" size="icon" onClick={onClose}>
           <ArrowLeft className="w-5 h-5" />
