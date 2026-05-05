@@ -36,6 +36,7 @@ export function BottomNav() {
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
+      { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
     ];
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
