@@ -2427,8 +2427,6 @@ export default function ClientJourneyPanel() {
                 </div>
 
                 {/* Lead Measures section removed — superseded by FV Scorecard */}
-                  </div>
-                </div>
 
                 {/* Quality Metrics */}
                 <div className="grid grid-cols-2 gap-2">
