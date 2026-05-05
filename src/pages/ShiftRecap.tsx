@@ -745,9 +745,7 @@ export default function ShiftRecap() {
             result: run.outcome,
             intro_owner: introOwner,
             intro_owner_locked: introOwnerLocked,
-            goal_why_captured: run.goalWhyCaptured || null,
-            relationship_experience: run.relationshipExperience || null,
-            made_a_friend: run.madeAFriend,
+            // legacy lead-measure fields removed
             notes: run.notes || null,
             primary_objection: run.primaryObjection || null,
             sa_name: user?.name || null,
