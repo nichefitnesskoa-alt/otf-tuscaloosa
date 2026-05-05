@@ -309,7 +309,40 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* Lead-measure debrief replaced by First Visit Experience Scorecard */}
+          {/* First Visit Experience Scorecard triggers */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setScorecardEvalType('self_eval'); setScorecardOpen(true); }}
+              className="gap-1.5"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              Score This Intro (Self)
+            </Button>
+            {user?.role === 'Admin' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setScorecardEvalType('formal_eval'); setScorecardOpen(true); }}
+                className="gap-1.5"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                Evaluate This Coach
+              </Button>
+            )}
+          </div>
+          <ScorecardForm
+            open={scorecardOpen}
+            onOpenChange={setScorecardOpen}
+            firstTimerId={booking.id}
+            defaultMemberName={booking.member_name}
+            defaultClassDate={booking.class_date}
+            defaultCoachName={coachName}
+            defaultEvaluator={user?.name || ''}
+            evalType={scorecardEvalType}
+          />
+
 
           {booking.last_edited_by && booking.last_edited_at && (
             <p className="text-[10px] text-muted-foreground text-right">
