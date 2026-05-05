@@ -57,7 +57,6 @@ export interface UpcomingIntroItem {
   saConversation5of5: string | null;
   saConversationMeaning: string | null;
   saConversationObstacle: string | null;
-  shoutoutConsent: boolean | null;
 
   // VIP session fields (for reserved group sessions shown in intros tab)
   isVipSession?: boolean;
