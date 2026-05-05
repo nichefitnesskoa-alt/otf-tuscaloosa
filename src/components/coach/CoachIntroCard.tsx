@@ -87,6 +87,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [debriefSubmittedAt, setDebriefSubmittedAt] = useState<string | null>(null);
   const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [scorecardOpen, setScorecardOpen] = useState(false);
+  const [scorecardEvalType, setScorecardEvalType] = useState<'self_eval' | 'formal_eval'>('self_eval');
 
   const isSecondIntro = !!booking.originating_booking_id
     && !!originatingBookingStatus
