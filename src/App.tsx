@@ -26,6 +26,8 @@ import VipMemberRegister from "./pages/VipMemberRegister";
 import VipRoster from "./pages/VipRoster";
 import CoachView from "./pages/CoachView";
 import CoachMyIntros from "./pages/CoachMyIntros";
+import CoachScorecards from "./pages/CoachScorecards";
+import Reports from "./pages/Reports";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
