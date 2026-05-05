@@ -638,12 +638,12 @@ export default function Wig() {
           })}
         </div>
 
-        {/* Coach Lead Measures — moved up under target goals */}
+        {/* Coach Lead Measures table removed — replaced by First Visit Experience scorecard system (coming next) */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-primary" />
-              Coach Lead Measures
+              Coach — Coached & Closes
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -653,21 +653,16 @@ export default function Wig() {
                 <span className="text-xs text-muted-foreground">Loading…</span>
               </div>
             ) : coachLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                     <TableRow>
+                    <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
                       <TableHead className="text-xs text-center">Closes</TableHead>
                       <TableHead className="text-xs text-center">Close %</TableHead>
-                      <TableHead className="text-xs text-center">Overall WIG %</TableHead>
-                      <TableHead className="text-xs text-center">Pre %</TableHead>
-                      <TableHead className="text-xs text-center">Post %</TableHead>
-                      <TableHead className="text-xs text-center">Got Curious %</TableHead>
-                      <TableHead className="text-xs text-center">Pairing %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -679,31 +674,6 @@ export default function Wig() {
                         <TableCell className="text-sm text-center">
                           <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                             {row.closeRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.overallPct >= 90 ? 'text-success' : row.overallPct >= 70 ? 'text-warning' : 'text-destructive'}>
-                            {row.overallPct.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.preRate >= 100 ? 'text-success' : row.preRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.preRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.postRate >= 100 ? 'text-success' : row.postRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.postRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.whyUsedRate >= 75 ? 'text-success' : row.whyUsedRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.whyUsedRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.pairingRate >= 100 ? 'text-success' : row.pairingRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.pairingRate.toFixed(0)}%
                           </span>
                         </TableCell>
                       </TableRow>
