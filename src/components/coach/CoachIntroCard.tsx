@@ -10,8 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
-import { ScorecardForm } from '@/components/scorecard/ScorecardForm';
-import { ClipboardList } from 'lucide-react';
+import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
 
 interface CoachBooking {
   id: string;
@@ -87,7 +86,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [debriefSubmittedAt, setDebriefSubmittedAt] = useState<string | null>(null);
   const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
-  const [scorecardOpen, setScorecardOpen] = useState(false);
   const [scorecardEvalType, setScorecardEvalType] = useState<'self_eval' | 'formal_eval'>('self_eval');
 
   const isSecondIntro = !!booking.originating_booking_id
@@ -297,39 +295,20 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* First Visit Experience Scorecard triggers */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setScorecardEvalType('self_eval'); setScorecardOpen(true); }}
-              className="gap-1.5"
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Score This Intro (Self)
-            </Button>
-            {user?.role === 'Admin' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setScorecardEvalType('formal_eval'); setScorecardOpen(true); }}
-                className="gap-1.5"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                Evaluate This Coach
-              </Button>
-            )}
+          {/* First Visit Experience Scorecard — inline */}
+          <div className="border-t pt-4 mt-2">
+            <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
+            <ScorecardFormBody
+              firstTimerId={booking.id}
+              defaultMemberName={booking.member_name}
+              defaultClassDate={booking.class_date}
+              defaultCoachName={coachName}
+              defaultEvaluator={user?.name || ''}
+              evalType={scorecardEvalType}
+              onEvalTypeChange={setScorecardEvalType}
+              showEvalToggle
+            />
           </div>
-          <ScorecardForm
-            open={scorecardOpen}
-            onOpenChange={setScorecardOpen}
-            firstTimerId={booking.id}
-            defaultMemberName={booking.member_name}
-            defaultClassDate={booking.class_date}
-            defaultCoachName={coachName}
-            defaultEvaluator={user?.name || ''}
-            evalType={scorecardEvalType}
-          />
 
 
           {booking.last_edited_by && booking.last_edited_at && (

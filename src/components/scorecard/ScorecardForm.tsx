@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -7,30 +7,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
 import { BULLETS, COLUMNS, CLASS_TYPES, scoreToLevel, bulletsToColumnScore, type ColumnKey, type ClassType, type EvalType } from '@/lib/scorecard/levels';
 import { BulletControl } from './BulletControl';
 import { ScoreReveal } from './ScoreReveal';
+import { COACHES } from '@/types';
 import { toast } from 'sonner';
 
-interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** First-timer subject — pass either firstTimerId or practiceName */
+interface BodyProps {
   firstTimerId?: string | null;
   defaultMemberName?: string;
-  defaultClassDate?: string; // yyyy-MM-dd
+  defaultClassDate?: string;
   defaultCoachName?: string;
   defaultEvaluator?: string;
   evalType: EvalType;
-  /** Existing scorecard id to edit */
+  onEvalTypeChange?: (t: EvalType) => void;
   existingId?: string | null;
   onSubmitted?: (scorecardId: string, level: 1 | 2 | 3) => void;
+  showEvalToggle?: boolean;
 }
 
-export function ScorecardForm(props: Props) {
+export function ScorecardFormBody(props: BodyProps) {
   const { user } = useAuth();
-  const { open, onOpenChange, firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, existingId, onSubmitted } = props;
+  const { firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, onEvalTypeChange, existingId, onSubmitted, showEvalToggle } = props;
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [scorecardId, setScorecardId] = useState<string | null>(existingId ?? null);
@@ -45,20 +43,11 @@ export function ScorecardForm(props: Props) {
   const [interactionsNotes, setInteractionsNotes] = useState('');
   const [otbeatNotes, setOtbeatNotes] = useState('');
   const [handbackNotes, setHandbackNotes] = useState('');
-  const [coaches, setCoaches] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [revealLevel, setRevealLevel] = useState<1 | 2 | 3 | null>(null);
 
-  // Load active coaches
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('staff').select('name, role, is_active').eq('is_active', true);
-      const list = (data || []).filter((s: any) => /coach/i.test(s.role || '')).map((s: any) => s.name).sort();
-      setCoaches(list);
-    })();
-  }, []);
+  const coachOptions = ['TBD', ...COACHES];
 
-  // Load existing scorecard if editing
   useEffect(() => {
     if (!existingId) { setScorecardId(null); return; }
     (async () => {
@@ -90,7 +79,6 @@ export function ScorecardForm(props: Props) {
 
   const ensureScorecard = async (): Promise<string> => {
     if (scorecardId) {
-      // Persist live edits
       await supabase.from('fv_scorecards' as any).update({
         evaluator_name: evaluator,
         evaluatee_name: evaluatee,
@@ -140,7 +128,6 @@ export function ScorecardForm(props: Props) {
     await supabase.from('fv_scorecard_bullets' as any).upsert({
       scorecard_id: id, column_key: col, bullet_key: key, score: val,
     }, { onConflict: 'scorecard_id,bullet_key' });
-    // Update aggregate column score
     const newBullets = { ...bullets, [key]: val };
     const colSum = BULLETS[col].reduce((s, b) => s + (newBullets[b.key] ?? 0), 0);
     const colField = `${col}_score`;
@@ -148,7 +135,7 @@ export function ScorecardForm(props: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!evaluatee) { toast.error('Pick a coach to evaluate'); return; }
+    if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
     if (!isPractice && !firstTimerId) { toast.error('Missing first-timer link'); return; }
     if (isPractice && !practiceName) { toast.error('Practice name required'); return; }
     setSubmitting(true);
@@ -156,7 +143,6 @@ export function ScorecardForm(props: Props) {
       const id = await ensureScorecard();
       const { error } = await supabase.from('fv_scorecards' as any).update({ submitted_at: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
-      // If linked to a first-timer & is self-eval, mark debrief done
       if (firstTimerId && evalType === 'self_eval') {
         await supabase.from('intros_booked').update({
           coach_debrief_submitted: true,
@@ -174,115 +160,142 @@ export function ScorecardForm(props: Props) {
   };
 
   return (
-    <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{evalType === 'self_eval' ? 'Score Yourself' : 'Evaluate Coach'} — First Visit Experience</SheetTitle>
-          </SheetHeader>
+    <div className="space-y-4">
+      {showEvalToggle && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onEvalTypeChange?.('self_eval')}
+            className={`flex-1 px-3 rounded-md border text-xs font-semibold ${evalType === 'self_eval' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input text-muted-foreground hover:bg-muted'}`}
+            style={{ minHeight: '36px' }}
+          >Self Eval</button>
+          {user?.role === 'Admin' && (
+            <button
+              type="button"
+              onClick={() => onEvalTypeChange?.('formal_eval')}
+              className={`flex-1 px-3 rounded-md border text-xs font-semibold ${evalType === 'formal_eval' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input text-muted-foreground hover:bg-muted'}`}
+              style={{ minHeight: '36px' }}
+            >Formal Eval</button>
+          )}
+        </div>
+      )}
 
-          <div className="mt-4 space-y-4">
-            {/* Header inputs */}
-            <Card className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Date</Label>
-                  <Input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="h-10" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Class Type</Label>
-                  <Select value={classType} onValueChange={v => setClassType(v as ClassType)}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CLASS_TYPES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Coach</Label>
-                  <Select value={evaluatee} onValueChange={setEvaluatee}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Select coach" /></SelectTrigger>
-                    <SelectContent>
-                      {coaches.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Member Count</Label>
-                  <Input type="number" value={memberCount} onChange={e => setMemberCount(e.target.value)} placeholder="e.g. 18" className="h-10" />
-                </div>
-              </div>
-              {!firstTimerId && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Practice / Subject Name</Label>
-                  <Input value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Tuesday practice run" className="h-10" />
-                </div>
-              )}
-              {defaultMemberName && (
-                <p className="text-xs text-muted-foreground">First-timer: <span className="font-medium text-foreground">{defaultMemberName}</span></p>
-              )}
-            </Card>
-
-            {/* 5 columns */}
-            {COLUMNS.map(col => (
-              <Card key={col.key} className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm tracking-wide">
-                    {col.label.toUpperCase()}{col.subtitle && <span className="text-xs text-muted-foreground ml-1">({col.subtitle})</span>}
-                  </h3>
-                  <span className="text-sm font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                    {colTotal(col.key)}/6
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {BULLETS[col.key].map(b => (
-                    <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} />
-                  ))}
-                </div>
-              </Card>
-            ))}
-
-            {/* Notes */}
-            <Card className="p-4 space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Interactions notes</Label>
-                <Textarea value={interactionsNotes} onChange={e => setInteractionsNotes(e.target.value)} placeholder="What stood out about the interactions..." className="min-h-[60px]" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">OTBeat notes</Label>
-                <Textarea value={otbeatNotes} onChange={e => setOtbeatNotes(e.target.value)} placeholder="Anything to call out about heart-rate coaching..." className="min-h-[60px]" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Handback notes</Label>
-                <Textarea value={handbackNotes} onChange={e => setHandbackNotes(e.target.value)} placeholder="Recap, recommendation, prebook..." className="min-h-[60px]" />
-              </div>
-            </Card>
-
-            {/* Sticky footer */}
-            <div className="sticky bottom-0 bg-background border-t pt-3 pb-4 -mx-6 px-6 mt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/15</span>
-              </div>
-              <div className="text-xs text-muted-foreground text-center">
-                {total >= 11 ? 'Level 3 — Studio Best' : total >= 6 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
-              </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full text-white font-bold"
-                style={{ minHeight: '44px', backgroundColor: '#E8540A' }}
-              >
-                {submitting ? 'Submitting…' : 'Submit Scorecard'}
-              </Button>
-            </div>
+      {/* Header inputs — table-like row */}
+      <div className="border rounded-md overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border bg-muted/40">
+          <div className="p-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Date</Label>
+            <Input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="h-9" />
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="p-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Class Type</Label>
+            <Select value={classType} onValueChange={v => setClassType(v as ClassType)}>
+              <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CLASS_TYPES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="p-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Coach</Label>
+            <Select value={evaluatee} onValueChange={setEvaluatee}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select coach" /></SelectTrigger>
+              <SelectContent>
+                {coachOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="p-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Member Count</Label>
+            <Input type="number" value={memberCount} onChange={e => setMemberCount(e.target.value)} placeholder="e.g. 18" className="h-9" />
+          </div>
+        </div>
+      </div>
+
+      {!firstTimerId && (
+        <div className="space-y-1">
+          <Label className="text-xs">Practice / Subject Name</Label>
+          <Input value={practiceName} onChange={e => setPracticeName(e.target.value)} placeholder="e.g. Tuesday practice run" className="h-10" />
+        </div>
+      )}
+
+      {/* 5 columns — table grid */}
+      <div className="border rounded-md overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-border">
+          {COLUMNS.map(col => (
+            <div key={col.key} className="p-3 space-y-3 min-w-0">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="font-bold text-xs tracking-wide uppercase truncate">
+                  {col.label}{col.subtitle && <span className="text-[10px] text-muted-foreground ml-1">({col.subtitle})</span>}
+                </h3>
+                <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                  {colTotal(col.key)}/6
+                </span>
+              </div>
+              <div className="space-y-2">
+                {BULLETS[col.key].map(b => (
+                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Interactions notes</Label>
+          <Textarea value={interactionsNotes} onChange={e => setInteractionsNotes(e.target.value)} onBlur={() => scorecardId && supabase.from('fv_scorecards' as any).update({ interactions_notes: interactionsNotes || null }).eq('id', scorecardId)} placeholder="What stood out about the interactions..." className="min-h-[60px]" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">OTBeat notes</Label>
+          <Textarea value={otbeatNotes} onChange={e => setOtbeatNotes(e.target.value)} onBlur={() => scorecardId && supabase.from('fv_scorecards' as any).update({ otbeat_notes: otbeatNotes || null }).eq('id', scorecardId)} placeholder="Heart-rate coaching..." className="min-h-[60px]" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Handback notes</Label>
+          <Textarea value={handbackNotes} onChange={e => setHandbackNotes(e.target.value)} onBlur={() => scorecardId && supabase.from('fv_scorecards' as any).update({ handback_notes: handbackNotes || null }).eq('id', scorecardId)} placeholder="Recap, recommendation, prebook..." className="min-h-[60px]" />
+        </div>
+      </div>
+
+      {/* Submit row */}
+      <div className="flex items-center justify-between gap-3 border-t pt-3">
+        <div className="text-sm">
+          <span className="text-muted-foreground mr-2">Total</span>
+          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/15</span>
+          <span className="text-xs text-muted-foreground ml-2">
+            {total >= 11 ? 'Level 3 — Studio Best' : total >= 6 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
+          </span>
+        </div>
+        <Button onClick={handleSubmit} disabled={submitting} className="text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
+          {submitting ? 'Submitting…' : 'Submit Scorecard'}
+        </Button>
+      </div>
 
       {revealLevel && (
-        <ScoreReveal level={revealLevel} total={total} onClose={() => { setRevealLevel(null); onOpenChange(false); }} />
+        <ScoreReveal level={revealLevel} total={total} onClose={() => setRevealLevel(null)} />
       )}
-    </>
+    </div>
+  );
+}
+
+interface SheetProps extends BodyProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function ScorecardForm(props: SheetProps) {
+  const { open, onOpenChange, evalType, ...rest } = props;
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{evalType === 'self_eval' ? 'Score Yourself' : 'Evaluate Coach'} — First Visit Experience</SheetTitle>
+        </SheetHeader>
+        <div className="mt-4">
+          <ScorecardFormBody evalType={evalType} {...rest} onSubmitted={(id, lvl) => { rest.onSubmitted?.(id, lvl); }} />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
