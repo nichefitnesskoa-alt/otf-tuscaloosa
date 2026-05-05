@@ -174,6 +174,30 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/scorecards"
+        element={
+          <ProtectedRoute>
+            <CoachScorecards />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scorecards/me"
+        element={
+          <ProtectedRoute>
+            <CoachScorecards />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute requireAdmin>
+            <Reports />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
