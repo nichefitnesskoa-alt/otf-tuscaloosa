@@ -172,33 +172,9 @@ export function TheirStory({
     return s.length > max ? s.slice(0, max) + '…' : s;
   };
 
-  // Shoutout bar display
-  const consentLabel = consent === true
-    ? 'Shoutout: YES — tap to change'
-    : consent === false
-      ? 'Shoutout: NO — tap to change'
-      : 'Shoutout — tap to set';
-  const consentBg = consent === true ? '#22c55e' : consent === false ? '#E8540A' : '#F59E0B';
-
   return (
     <div className="space-y-3" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       <h4 className="font-bold text-sm">THEIR STORY</h4>
-
-      {/* ── SHOUTOUT CONSENT — tappable bar ── */}
-      <div
-        className="w-full flex items-center justify-between px-3 py-2 rounded-md cursor-pointer select-none hover:opacity-90 transition-opacity"
-        style={{ backgroundColor: consentBg, minHeight: '44px' }}
-        onClick={toggleConsent}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        <span className="text-white text-sm font-bold tracking-wide">
-          {consentLabel}
-        </span>
-        <div className="flex items-center gap-1">
-          <SavedIndicator show={savedField === 'shoutout_consent'} />
-          <ChevronRight className="w-4 h-4 text-white" />
-        </div>
-      </div>
 
       {/* ── ZONE 2: Three horizontal conversation fields with adaptive subtext ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
