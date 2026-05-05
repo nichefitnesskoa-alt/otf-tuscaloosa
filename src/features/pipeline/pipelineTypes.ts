@@ -64,9 +64,6 @@ export interface PipelineRun {
   commission_amount: number | null;
   linked_intro_booked_id: string | null;
   coach_name: string | null;
-  goal_why_captured: string | null;
-  relationship_experience: string | null;
-  made_a_friend: boolean | null;
   buy_date: string | null;
   sa_name: string | null;
   amc_incremented_at: string | null;

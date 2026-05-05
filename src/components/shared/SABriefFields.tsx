@@ -1,12 +1,9 @@
 /**
- * SABriefFields — editable Brief fields for SA intro card Zone 3.
- * Auto-fetches current values from intros_booked on mount.
+ * SABriefFields — editable Brief field for SA intro card Zone 3.
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -21,11 +18,7 @@ function SavedIndicator({ show }: { show: boolean }) {
 }
 
 export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
-  const [lookingFor, setLookingFor] = useState('');
-  const [objection, setObjection] = useState('');
-  const [fiveVision, setFiveVision] = useState('');
   const [humanDetail, setHumanDetail] = useState('');
-  const [consent, setConsent] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [savedField, setSavedField] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -34,16 +27,11 @@ export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
     (async () => {
       const { data } = await supabase
         .from('intros_booked')
-        .select('sa_buying_criteria, sa_objection, coach_brief_five_vision, coach_brief_human_detail, shoutout_consent')
+        .select('coach_brief_human_detail')
         .eq('id', bookingId)
         .single();
       if (data) {
-        const d = data as any;
-        setLookingFor(d.sa_buying_criteria || '');
-        setObjection(d.sa_objection || '');
-        setFiveVision(d.coach_brief_five_vision || '');
-        setHumanDetail(d.coach_brief_human_detail || '');
-        setConsent(d.shoutout_consent ?? false);
+        setHumanDetail((data as any).coach_brief_human_detail || '');
       }
       setLoaded(true);
     })();
@@ -85,8 +73,6 @@ export function SABriefFields({ bookingId, editedBy, onSaved }: Props) {
           className="min-h-[48px] text-sm"
         />
       </div>
-
-      {/* Shoutout consent removed — now lives at top of TheirStory */}
     </div>
   );
 }
