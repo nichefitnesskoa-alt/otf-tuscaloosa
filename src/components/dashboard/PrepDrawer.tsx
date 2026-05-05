@@ -161,8 +161,6 @@ export function PrepDrawer({
   const [sendLogs, setSendLogs] = useState<SendLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [linkQOpen, setLinkQOpen] = useState(false);
-  const [shoutoutConsent, setShoutoutConsent] = useState<boolean | null>(null);
-  const [savingConsent, setSavingConsent] = useState(false);
   const [studioTrend, setStudioTrend] = useState<{ objection: string; percent: number } | null>(null);
   const [prevVisitData, setPrevVisitData] = useState<{ objection: string | null; notes: string | null; goal: string | null; why: string | null; coachName: string | null; classDate: string | null; introTime: string | null; leadSource: string | null; result: string | null; obstacle: string | null } | null>(null);
   const [buyingCriteria, setBuyingCriteria] = useState('');
@@ -170,12 +168,10 @@ export function PrepDrawer({
   const [savingBrief, setSavingBrief] = useState(false);
   const [coachNotesOnBooking, setCoachNotesOnBooking] = useState<string | null>(null);
   const [coachBriefHumanDetail, setCoachBriefHumanDetail] = useState<string | null>(null);
-  const [coachBriefWhyMoment, setCoachBriefWhyMoment] = useState<string | null>(null);
   const [coachBriefFiveVision, setCoachBriefFiveVision] = useState<string | null>(null);
   const [saConv5of5, setSaConv5of5] = useState<string | null>(null);
   const [saConvMeaning, setSaConvMeaning] = useState<string | null>(null);
   const [saConvObstacle, setSaConvObstacle] = useState<string | null>(null);
-  const [coachMemberPairPlan, setCoachMemberPairPlan] = useState<string | null>(null);
   const { data: objectionPlaybooks = [] } = useObjectionPlaybooks();
 
   const defaultBookings = bookings || [{
@@ -203,7 +199,7 @@ export function PrepDrawer({
         .limit(20),
       supabase
         .from('intros_booked')
-        .select('shoutout_consent, sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_why_moment, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_member_pair_plan' as any)
+        .select('sa_buying_criteria, sa_objection, coach_notes, coach_brief_human_detail, coach_brief_five_vision, sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle' as any)
         .eq('id', bookingId)
         .single(),
     ]).then(([qRes, logRes, consentRes]) => {
@@ -212,17 +208,14 @@ export function PrepDrawer({
       setQuestionnaire(completed || allQ[0] || null);
       setSendLogs((logRes.data || []) as SendLogEntry[]);
       const bookingData = consentRes.data as any;
-      setShoutoutConsent(bookingData?.shoutout_consent ?? null);
       setBuyingCriteria(bookingData?.sa_buying_criteria || '');
       setSaObjection(bookingData?.sa_objection || '');
       setCoachNotesOnBooking(bookingData?.coach_notes || null);
       setCoachBriefHumanDetail(bookingData?.coach_brief_human_detail || null);
-      setCoachBriefWhyMoment(bookingData?.coach_brief_why_moment || null);
       setCoachBriefFiveVision(bookingData?.coach_brief_five_vision || null);
       setSaConv5of5(bookingData?.sa_conversation_5_of_5 || null);
       setSaConvMeaning(bookingData?.sa_conversation_meaning || null);
       setSaConvObstacle(bookingData?.sa_conversation_obstacle || null);
-      setCoachMemberPairPlan(bookingData?.coach_member_pair_plan || null);
       setLoading(false);
     });
 
@@ -270,14 +263,6 @@ export function PrepDrawer({
       });
     }
   }, [open, bookingId]);
-
-  const handleSaveConsent = useCallback(async (val: boolean) => {
-    setSavingConsent(true);
-    setShoutoutConsent(val);
-    await supabase.from('intros_booked').update({ shoutout_consent: val } as any).eq('id', bookingId);
-    setSavingConsent(false);
-    toast.success(val ? 'Shoutout consent saved ✓' : 'Low-key preference saved ✓');
-  }, [bookingId]);
 
   const handleSaveBrief = useCallback(async (field: string, value: string) => {
     setSavingBrief(true);
@@ -388,29 +373,7 @@ export function PrepDrawer({
                     )}
                   </div>
 
-                  {/* Section 2 — Shoutout Consent */}
-                  <div className="rounded-lg border-2 border-amber-400 bg-amber-50/60 dark:bg-amber-950/20 p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-2">BEFORE YOU START</p>
-                    <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed mb-3">
-                      "One thing about our coaches — they're going to hype you up out there. Would you be against the coach shouting you out and getting the room hyped for you?"
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSaveConsent(true)}
-                        disabled={savingConsent}
-                        className={`flex-1 rounded-lg border-2 px-3 py-2 text-xs font-bold transition-all ${shoutoutConsent === true ? 'border-green-500 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'border-muted bg-background hover:border-green-300'}`}
-                      >
-                        ✓ Yes — good to go
-                      </button>
-                      <button
-                        onClick={() => handleSaveConsent(false)}
-                        disabled={savingConsent}
-                        className={`flex-1 rounded-lg border-2 px-3 py-2 text-xs font-bold transition-all ${shoutoutConsent === false ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'border-muted bg-background hover:border-blue-300'}`}
-                      >
-                        ✗ No — keep it low key
-                      </button>
-                    </div>
-                  </div>
+                  {/* Section 2 — Shoutout Consent removed (superseded by FV Scorecard) */}
 
                   {/* Section 2.5 — What They Told Us */}
                   <div className="rounded-lg border overflow-hidden">
@@ -996,8 +959,7 @@ export function PrepDrawer({
                   <div>Available days: {questionnaire?.q6b_available_days || '—'}</div>
                 </div>
                 <div style={{ flex: 1, ...fsSmall }}>
-                  <div>Shoutout: {shoutoutConsent === true ? '☑ Yes  □ No' : shoutoutConsent === false ? '□ Yes  ☑ No' : '□ Yes  □ No'}</div>
-                  <div style={{ marginTop: '2px' }}>Any notes: {coachNotesOnBooking || blankLine}</div>
+                  <div>Any notes: {coachNotesOnBooking || blankLine}</div>
                 </div>
               </div>
 
@@ -1020,7 +982,6 @@ export function PrepDrawer({
                   <div>Why: {emotionalDriver || '—'}</div>
                   <div>Obstacle: {obstacle || '—'}</div>
                   <div>Commit: {commitment || '—'} | {questionnaire?.q6b_available_days || '—'}</div>
-                  <div style={{ fontWeight: 'bold' }}>Shoutout: {shoutoutConsent === true ? 'YES' : shoutoutConsent === false ? 'NO' : '—'}</div>
 
                   {(saConv5of5 || saConvMeaning || saConvObstacle) && (
                     <div style={{ marginTop: '4px', borderTop: '1px solid #ddd', paddingTop: '3px' }}>
@@ -1031,9 +992,6 @@ export function PrepDrawer({
                     </div>
                   )}
 
-                  {coachMemberPairPlan && (
-                    <div style={{ marginTop: '3px' }}>Planned member pair: {coachMemberPairPlan}</div>
-                  )}
                 </div>
 
                 {/* RIGHT COLUMN — THE CLOSE */}

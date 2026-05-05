@@ -315,7 +315,7 @@ export default function Wig() {
       // Fetch showed first-intro bookings for the date range
       const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_name, coach_shoutout_start, coach_shoutout_end, shoutout_consent, coach_debrief_submitted, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, coach_member_pair_plan, lead_source, vip_session_id')
+        .select('id, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id')
         .gte('class_date', rangeStart)
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
@@ -328,12 +328,11 @@ export default function Wig() {
         return true;
       });
 
-      // First intros only (no originating_booking_id, unless it's a referral)
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id || !!b.referred_by_member_name
       );
 
-      // ── VIP Class attribution map: vip_session_id -> coach who taught the VIP class ──
+      // ── VIP Class attribution map ──
       const vipCoachMap = new Map<string, string>();
       const vipSessionIds = Array.from(new Set(
         firstIntroBookings
@@ -357,7 +356,7 @@ export default function Wig() {
         return fallback || null;
       };
 
-      // Fetch linked intros_run rows for run-side fields (goal_why_captured, made_a_friend, result)
+      // Fetch linked intros_run rows for showed-intro detection + close coach attribution
       const firstIntroBookingIds = firstIntroBookings.map(b => b.id);
       const showedBookingIds = new Set<string>();
       const runsByBookingId = new Map<string, any>();
@@ -367,10 +366,9 @@ export default function Wig() {
         for (const batch of runBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, goal_why_captured, made_a_friend, result, result_canon, coach_name, run_date, created_at')
+            .select('linked_intro_booked_id, result, result_canon, coach_name, run_date, created_at')
             .in('linked_intro_booked_id', batch);
           (runs || []).forEach((r: any) => {
-            // Skip no-shows for run-side data
             if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
             showedBookingIds.add(r.linked_intro_booked_id);
             runsByBookingId.set(r.linked_intro_booked_id, r);
@@ -380,64 +378,25 @@ export default function Wig() {
 
       const showedFirstIntroBookings = firstIntroBookings.filter(b => showedBookingIds.has(b.id));
 
-      // Aggregate coaches from booking data
-      const coachMap = new Map<string, { coached: number; preShoutouts: number; answeredPre: number; postShoutouts: number; answeredPost: number; whyUsed: number; answeredWhy: number; paired: number; answeredPaired: number; debriefed: number }>();
-      const ensureCoach = (name: string) =>
-        coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
+      // Aggregate "coached" denominator only — lead-measure detail moved to FV Scorecard section
+      const coachMap = new Map<string, { coached: number }>();
+      const ensureCoach = (name: string) => coachMap.get(name) || { coached: 0 };
 
       const isMissingCoach = (v: any) =>
         !v || (typeof v === 'string' && (v.trim() === '' || /^tbd$/i.test(v.trim())));
 
       showedFirstIntroBookings.forEach(b => {
-        // If booking coach is blank/TBD, fall back to the linked run's coach
-        // (defense in depth — the DB trigger should keep these in sync, but this
-        // protects WIG numbers if any code path bypasses the trigger)
         const linkedRunForCoach = runsByBookingId.get(b.id);
         const runCoachRaw = isMissingCoach(b.coach_name)
           ? (linkedRunForCoach?.coach_name || b.coach_name)
           : b.coach_name;
-        if (isMissingCoach(runCoachRaw)) return; // still no coach → skip
+        if (isMissingCoach(runCoachRaw)) return;
         const runCoach = runCoachRaw;
-        // VIP coach gets credit for "coached" denominator on VIP Class intros
         const coachedCoach = resolveCloseCoach(b, runCoach) || runCoach;
 
         const ex = ensureCoach(coachedCoach);
         ex.coached++;
         coachMap.set(coachedCoach, ex);
-
-        // Lead-measure fields (shoutout/why/pair/debrief) credit the actual run coach
-        const measureEx = ensureCoach(runCoach);
-
-
-        // Pre-class shoutout
-        if (b.coach_shoutout_start != null) {
-          measureEx.answeredPre++;
-          if (b.coach_shoutout_start) measureEx.preShoutouts++;
-        }
-
-        // Post-class shoutout
-        if (b.coach_shoutout_end != null) {
-          measureEx.answeredPost++;
-          if (b.coach_shoutout_end) measureEx.postShoutouts++;
-        }
-
-        // Run-side fields
-        const run = runsByBookingId.get(b.id);
-        if (run) {
-          if (run.goal_why_captured != null) {
-            measureEx.answeredWhy++;
-            if (run.goal_why_captured === 'yes') measureEx.whyUsed++;
-          }
-          if (run.made_a_friend != null) {
-            measureEx.answeredPaired++;
-            if (run.made_a_friend) measureEx.paired++;
-          }
-        }
-
-        // Debrief submitted
-        if (b.coach_debrief_submitted) measureEx.debriefed++;
-
-        coachMap.set(runCoach, measureEx);
       });
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
@@ -522,22 +481,12 @@ export default function Wig() {
 
       const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
-        const wk = coachMap.get(name) || { coached: 0, preShoutouts: 0, answeredPre: 0, postShoutouts: 0, answeredPost: 0, whyUsed: 0, answeredWhy: 0, paired: 0, answeredPaired: 0, debriefed: 0 };
+        const wk = coachMap.get(name) || { coached: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
-        const preRate = wk.answeredPre > 0 ? (wk.preShoutouts / wk.answeredPre) * 100 : 0;
-        const postRate = wk.answeredPost > 0 ? (wk.postShoutouts / wk.answeredPost) * 100 : 0;
-        const whyUsedRate = wk.answeredWhy > 0 ? (wk.whyUsed / wk.answeredWhy) * 100 : 0;
-        const pairingRate = wk.answeredPaired > 0 ? (wk.paired / wk.answeredPaired) * 100 : 0;
-        const overallPct = (preRate + postRate + whyUsedRate + pairingRate) / 4;
         return {
           name,
           coached: wk.coached,
           closes: cl.closed,
-          preRate,
-          postRate,
-          whyUsedRate,
-          pairingRate,
-          overallPct,
           closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
           closeTotal: cl.total,
         };
@@ -689,12 +638,12 @@ export default function Wig() {
           })}
         </div>
 
-        {/* Coach Lead Measures — moved up under target goals */}
+        {/* Coach Lead Measures table removed — replaced by First Visit Experience scorecard system (coming next) */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <UserCheck className="w-4 h-4 text-primary" />
-              Coach Lead Measures
+              Coach — Coached & Closes
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -704,21 +653,16 @@ export default function Wig() {
                 <span className="text-xs text-muted-foreground">Loading…</span>
               </div>
             ) : coachLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                     <TableRow>
+                    <TableRow>
                       <TableHead className="text-xs">Coach</TableHead>
                       <TableHead className="text-xs text-center">Coached</TableHead>
                       <TableHead className="text-xs text-center">Closes</TableHead>
                       <TableHead className="text-xs text-center">Close %</TableHead>
-                      <TableHead className="text-xs text-center">Overall WIG %</TableHead>
-                      <TableHead className="text-xs text-center">Pre %</TableHead>
-                      <TableHead className="text-xs text-center">Post %</TableHead>
-                      <TableHead className="text-xs text-center">Got Curious %</TableHead>
-                      <TableHead className="text-xs text-center">Pairing %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -730,31 +674,6 @@ export default function Wig() {
                         <TableCell className="text-sm text-center">
                           <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                             {row.closeRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.overallPct >= 90 ? 'text-success' : row.overallPct >= 70 ? 'text-warning' : 'text-destructive'}>
-                            {row.overallPct.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.preRate >= 100 ? 'text-success' : row.preRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.preRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.postRate >= 100 ? 'text-success' : row.postRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.postRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.whyUsedRate >= 75 ? 'text-success' : row.whyUsedRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.whyUsedRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.pairingRate >= 100 ? 'text-success' : row.pairingRate >= 50 ? 'text-warning' : 'text-destructive'}>
-                            {row.pairingRate.toFixed(0)}%
                           </span>
                         </TableCell>
                       </TableRow>

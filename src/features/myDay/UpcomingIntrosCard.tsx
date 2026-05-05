@@ -58,25 +58,8 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     dateOverrides,
   });
 
-  // Shoutout consent map
-  const [shoutoutMap, setShoutoutMap] = useState<Record<string, boolean | null>>({});
-  useEffect(() => {
-    if (items.length === 0) return;
-    const ids = items.map(i => i.bookingId);
-    (async () => {
-      const batches: string[][] = [];
-      for (let i = 0; i < ids.length; i += 500) batches.push(ids.slice(i, i + 500));
-      const map: Record<string, boolean | null> = {};
-      for (const batch of batches) {
-        const { data } = await supabase
-          .from('intros_booked')
-          .select('id, shoutout_consent')
-          .in('id', batch);
-        (data || []).forEach((r: any) => { map[r.id] = r.shoutout_consent; });
-      }
-      setShoutoutMap(map);
-    })();
-  }, [items]);
+  // Shoutout consent removed (superseded by FV Scorecard)
+  const [shoutoutMap] = useState<Record<string, boolean | null>>({});
 
   // Fetch confirmation reflection results
   useEffect(() => {

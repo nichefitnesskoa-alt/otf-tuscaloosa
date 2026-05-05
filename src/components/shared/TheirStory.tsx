@@ -37,7 +37,6 @@ interface TheirStoryProps {
     sa_conversation_5_of_5: string | null;
     sa_conversation_meaning: string | null;
     sa_conversation_obstacle: string | null;
-    shoutout_consent?: boolean | null;
   } | null;
 }
 
@@ -83,7 +82,8 @@ export function TheirStory({
       setGoalText(prefetchedConv.sa_conversation_5_of_5 || '');
       setDriverText(prefetchedConv.sa_conversation_meaning || '');
       setObstacleText(prefetchedConv.sa_conversation_obstacle || '');
-      setConsent(prefetchedConv.shoutout_consent ?? null);
+      // shoutout_consent removed
+      setConsent(null);
       setLoading(false);
     }
     if (prefetchedQ) {

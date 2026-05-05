@@ -52,7 +52,6 @@ function makeItem(overrides: Partial<UpcomingIntroItem> = {}): UpcomingIntroItem
     saConversation5of5: null,
     saConversationMeaning: null,
     saConversationObstacle: null,
-    shoutoutConsent: null,
     timeStartISO: '2026-02-18T10:00',
     riskFlags: { noQ: false, qIncomplete: false, unconfirmed: false, coachTbd: false, missingOwner: false },
     riskScore: 0,

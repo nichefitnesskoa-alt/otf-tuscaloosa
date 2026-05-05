@@ -66,9 +66,6 @@ function makeRun(overrides: Partial<PipelineRun> = {}): PipelineRun {
     sa_name: 'SA1',
     goal_quality: null,
     pricing_engagement: null,
-    goal_why_captured: null,
-    relationship_experience: null,
-    made_a_friend: false,
     amc_incremented_at: null,
     ...overrides,
   };

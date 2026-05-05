@@ -141,10 +141,6 @@ interface ClientRun {
   commission_amount: number | null;
   linked_intro_booked_id: string | null;
   coach_name: string | null;
-  // Lead measures fields
-  goal_why_captured: string | null;
-  relationship_experience: string | null;
-  made_a_friend: boolean | null;
   buy_date: string | null;
 }
 
@@ -345,7 +341,7 @@ export default function ClientJourneyPanel() {
           .order('class_date', { ascending: false }),
         supabase
           .from('intros_run')
-          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, goal_why_captured, relationship_experience, made_a_friend, buy_date, coach_name')
+          .select('id, run_id, member_name, run_date, class_time, result, intro_owner, ran_by, lead_source, goal_quality, pricing_engagement, notes, commission_amount, linked_intro_booked_id, buy_date, coach_name')
           .order('run_date', { ascending: false }),
       ]);
 
@@ -1379,10 +1375,7 @@ export default function ClientJourneyPanel() {
           notes: editingRun.notes,
           linked_intro_booked_id: editingRun.linked_intro_booked_id,
           coach_name: editingRun.coach_name,
-          // Lead measures
-          goal_why_captured: editingRun.goal_why_captured,
-          relationship_experience: editingRun.relationship_experience,
-          made_a_friend: editingRun.made_a_friend,
+          // Sale fields below
           // Sale fields
           commission_amount: editingRun.commission_amount,
           buy_date: editingRun.buy_date,
@@ -2433,53 +2426,7 @@ export default function ClientJourneyPanel() {
                   </Select>
                 </div>
 
-                {/* Lead Measures Section */}
-                <div className="border-t pt-3">
-                  <Label className="text-xs font-semibold mb-2 block">Lead Measures</Label>
-                  <div className="space-y-2">
-                    <div>
-                      <Label className="text-xs">Goal + Why Captured</Label>
-                      <Select
-                        value={editingRun.goal_why_captured || ''}
-                        onValueChange={(v) => setEditingRun({...editingRun, goal_why_captured: v})}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="Partial">Partial</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Peak Gym Experience</Label>
-                      <Select
-                        value={editingRun.relationship_experience || ''}
-                        onValueChange={(v) => setEditingRun({...editingRun, relationship_experience: v})}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="Partial">Partial</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Made a Friend (Start a great relationship & natural conversation)</Label>
-                      <Select
-                        value={editingRun.made_a_friend === true ? 'Yes' : editingRun.made_a_friend === false ? 'No' : ''}
-                        onValueChange={(v) => setEditingRun({...editingRun, made_a_friend: v === 'Yes'})}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
+                {/* Lead Measures section removed — superseded by FV Scorecard */}
 
                 {/* Quality Metrics */}
                 <div className="grid grid-cols-2 gap-2">

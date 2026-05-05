@@ -47,7 +47,6 @@ interface CoachBooking {
   originating_booking_id: string | null;
   sa_buying_criteria: string | null;
   sa_objection: string | null;
-  shoutout_consent: boolean | null;
   coach_notes: string | null;
   booking_status_canon: string;
   is_vip: boolean;
@@ -56,8 +55,6 @@ interface CoachBooking {
   last_edited_at: string | null;
   questionnaire_status_canon?: string;
   coach_brief_five_vision?: string | null;
-  coach_shoutout_start?: boolean | null;
-  coach_shoutout_end?: boolean | null;
   coach_referral_asked?: boolean | null;
   coach_referral_names?: string | null;
   coach_debrief_submitted?: boolean;
@@ -104,7 +101,7 @@ export default function CoachView() {
 
     let query = supabase
       .from('intros_booked')
-      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, shoutout_consent, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon, coach_brief_five_vision, coach_shoutout_start, coach_shoutout_end, coach_referral_asked, coach_referral_names, coach_debrief_submitted' as any)
+      .select('id, member_name, class_date, intro_time, coach_name, lead_source, intro_owner, originating_booking_id, sa_buying_criteria, sa_objection, coach_notes, booking_status_canon, is_vip, deleted_at, last_edited_by, last_edited_at, questionnaire_status_canon, coach_brief_five_vision, coach_referral_asked, coach_referral_names, coach_debrief_submitted' as any)
       .gte('class_date', weekData.weekStart)
       .lte('class_date', weekData.weekEnd)
       .is('deleted_at', null)
@@ -448,15 +445,7 @@ function ClassTimeIntroSelector({
                   {intro.coach_debrief_submitted !== true && isClassTimePastStatic(intro.class_date, intro.intro_time, getTodayYMD()) && (
                     <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Debrief needed</Badge>
                   )}
-                  {intro.shoutout_consent === true && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success/20 text-success border-transparent">Shoutout ✓</Badge>
-                  )}
-                  {intro.shoutout_consent === false && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive/20 text-destructive border-transparent">Shoutout ✗</Badge>
-                  )}
-                  {intro.shoutout_consent == null && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">Shoutout?</Badge>
-                  )}
+                  {/* Shoutout badges removed — superseded by FV Scorecard */}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
                   <span>{intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'}</span>

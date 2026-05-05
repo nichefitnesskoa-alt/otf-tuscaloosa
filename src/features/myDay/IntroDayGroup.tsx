@@ -127,7 +127,6 @@ export default function IntroDayGroup({
                       anyFocused={!!focusedBookingId}
                       isExpanded={expandedBookingId === item.bookingId}
                       onExpand={() => onExpandCard?.(item.bookingId)}
-                      shoutoutConsent={shoutoutMap[item.bookingId] ?? null}
                     />
                   ))}
                 </div>
