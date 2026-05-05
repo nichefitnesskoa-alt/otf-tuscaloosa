@@ -1,19 +1,12 @@
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
 import { useParams } from 'react-router-dom';
+import { COACHES } from '@/types';
 
 export default function CoachScorecards() {
   const { user } = useAuth();
   const { who } = useParams();
-  const [coaches, setCoaches] = useState<string[]>([]);
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('staff').select('name, role, is_active').eq('is_active', true);
-      setCoaches((data || []).filter((s: any) => /coach/i.test(s.role || '')).map((s: any) => s.name).sort());
-    })();
-  }, []);
+  const coaches = [...COACHES];
   const allowPicker = user?.role === 'Admin' && who !== 'me';
   const target = who === 'me' || user?.role === 'Coach' ? (user?.name || '') : (coaches[0] || '');
   if (!target) return <div className="p-4">Loading…</div>;
@@ -24,3 +17,4 @@ export default function CoachScorecards() {
     </div>
   );
 }
+
