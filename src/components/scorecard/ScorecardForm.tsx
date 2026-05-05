@@ -134,6 +134,22 @@ export function ScorecardFormBody(props: BodyProps) {
     await supabase.from('fv_scorecards' as any).update({ [colField]: colSum }).eq('id', id);
   };
 
+  const clearBullet = async (col: ColumnKey, key: string) => {
+    setBullets(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (!scorecardId) return;
+    await supabase.from('fv_scorecard_bullets' as any).delete().eq('scorecard_id', scorecardId).eq('bullet_key', key);
+    const newBullets = { ...bullets };
+    delete newBullets[key];
+    const colSum = BULLETS[col].reduce((s, b) => s + (newBullets[b.key] ?? 0), 0);
+    const colField = `${col}_score`;
+    await supabase.from('fv_scorecards' as any).update({ [colField]: colSum }).eq('id', scorecardId);
+  };
+
+
   const handleSubmit = async () => {
     if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
     if (!isPractice && !firstTimerId) { toast.error('Missing first-timer link'); return; }
