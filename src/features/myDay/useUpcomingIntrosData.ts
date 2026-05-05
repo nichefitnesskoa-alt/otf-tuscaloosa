@@ -484,7 +484,6 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
             saConversation5of5: null,
             saConversationMeaning: null,
             saConversationObstacle: null,
-            shoutoutConsent: null,
             isVipSession: true,
             vipGroupName: v.reserved_by_group,
             vipEstimatedSize: v.estimated_group_size,

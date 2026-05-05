@@ -113,7 +113,6 @@ interface IntroRowCardProps {
   anyFocused?: boolean;
   isExpanded?: boolean;
   onExpand?: () => void;
-  shoutoutConsent?: boolean | null;
 }
 
 export default function IntroRowCard({
@@ -129,7 +128,6 @@ export default function IntroRowCard({
   anyFocused = false,
   isExpanded = true,
   onExpand,
-  shoutoutConsent,
 }: IntroRowCardProps) {
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [prepped, setPrepped] = useState(item.prepped);
