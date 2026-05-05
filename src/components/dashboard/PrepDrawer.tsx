@@ -959,8 +959,7 @@ export function PrepDrawer({
                   <div>Available days: {questionnaire?.q6b_available_days || '—'}</div>
                 </div>
                 <div style={{ flex: 1, ...fsSmall }}>
-                  <div>Shoutout: {shoutoutConsent === true ? '☑ Yes  □ No' : shoutoutConsent === false ? '□ Yes  ☑ No' : '□ Yes  □ No'}</div>
-                  <div style={{ marginTop: '2px' }}>Any notes: {coachNotesOnBooking || blankLine}</div>
+                  <div>Any notes: {coachNotesOnBooking || blankLine}</div>
                 </div>
               </div>
 
@@ -983,7 +982,6 @@ export function PrepDrawer({
                   <div>Why: {emotionalDriver || '—'}</div>
                   <div>Obstacle: {obstacle || '—'}</div>
                   <div>Commit: {commitment || '—'} | {questionnaire?.q6b_available_days || '—'}</div>
-                  <div style={{ fontWeight: 'bold' }}>Shoutout: {shoutoutConsent === true ? 'YES' : shoutoutConsent === false ? 'NO' : '—'}</div>
 
                   {(saConv5of5 || saConvMeaning || saConvObstacle) && (
                     <div style={{ marginTop: '4px', borderTop: '1px solid #ddd', paddingTop: '3px' }}>
@@ -994,9 +992,6 @@ export function PrepDrawer({
                     </div>
                   )}
 
-                  {coachMemberPairPlan && (
-                    <div style={{ marginTop: '3px' }}>Planned member pair: {coachMemberPairPlan}</div>
-                  )}
                 </div>
 
                 {/* RIGHT COLUMN — THE CLOSE */}
