@@ -22,7 +22,6 @@ interface CoachBooking {
   originating_booking_id: string | null;
   sa_buying_criteria: string | null;
   sa_objection: string | null;
-  shoutout_consent: boolean | null;
   coach_notes: string | null;
   booking_status_canon: string;
   is_vip: boolean;
@@ -31,10 +30,7 @@ interface CoachBooking {
   last_edited_at: string | null;
   questionnaire_status_canon?: string;
   coach_brief_human_detail?: string | null;
-  coach_brief_why_moment?: string | null;
   coach_brief_five_vision?: string | null;
-  coach_shoutout_start?: boolean | null;
-  coach_shoutout_end?: boolean | null;
   coach_referral_asked?: boolean | null;
   coach_referral_names?: string | null;
 }
@@ -68,20 +64,19 @@ function SavedIndicator({ show }: { show: boolean }) {
 
 export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userName, originatingBookingStatus }: Props) {
   const { user } = useAuth();
-  const [runData, setRunData] = useState<{ id: string; goal_why_captured: string | null; made_a_friend: boolean | null; relationship_experience: string | null } | null>(null);
 
   // Conversation fields (read-only for coach)
   const [convGoal, setConvGoal] = useState('');
   const [convMeaning, setConvMeaning] = useState('');
   const [convObstacle, setConvObstacle] = useState('');
-  const [consent, setConsent] = useState<boolean | null>(booking.shoutout_consent ?? null);
+  const [consent, setConsent] = useState<boolean | null>(null);
 
-  // Post-class debrief state — NULL = unanswered
-  const [shoutoutStart, setShoutoutStart] = useState<boolean | null>(booking.coach_shoutout_start ?? null);
-  const [shoutoutEnd, setShoutoutEnd] = useState<boolean | null>(booking.coach_shoutout_end ?? null);
-  const [usedWhy, setUsedWhy] = useState<boolean | null>(null);
-  const [introducedMember, setIntroducedMember] = useState<boolean | null>(null);
-  const [memberName, setMemberName] = useState('');
+  // Post-class debrief state — placeholders kept for shape; FV Scorecard supersedes
+  const [shoutoutStart] = useState<boolean | null>(null);
+  const [shoutoutEnd] = useState<boolean | null>(null);
+  const [usedWhy] = useState<boolean | null>(null);
+  const [introducedMember] = useState<boolean | null>(null);
+  const [memberName] = useState('');
   const [savedField, setSavedField] = useState<string | null>(null);
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -91,52 +86,31 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
-  // Only count as a real 2nd intro when the originating booking actually ran.
-  // PLANNING_RESCHEDULE / CANCELLED / DELETED_SOFT / NO_SHOW originators mean
-  // the prior intro never happened — this booking is the real 1st intro.
   const isSecondIntro = !!booking.originating_booking_id
     && !!originatingBookingStatus
     && !NON_RAN_BOOKING_STATUSES.has(originatingBookingStatus);
   const coachName = booking.coach_name;
 
-  // Fetch conversation fields + run data + debrief status
+  // Fetch conversation fields + debrief status
   useEffect(() => {
     (async () => {
-      const [convRes, runRes] = await Promise.all([
-        supabase
-          .from('intros_booked')
-          .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, shoutout_consent, coach_member_pair_plan, coach_brief_why_moment, coach_debrief_submitted, coach_debrief_submitted_at, coach_debrief_submitted_by' as any)
-          .eq('id', booking.id)
-          .single(),
-        !isSecondIntro ? supabase
-          .from('intros_run')
-          .select('id, goal_why_captured, made_a_friend, relationship_experience')
-          .eq('linked_intro_booked_id', booking.id)
-          .limit(1)
-          .maybeSingle() : Promise.resolve({ data: null }),
-      ]);
+      const { data } = await supabase
+        .from('intros_booked')
+        .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, coach_debrief_submitted, coach_debrief_submitted_at, coach_debrief_submitted_by' as any)
+        .eq('id', booking.id)
+        .single();
 
-      if (convRes.data) {
-        const d = convRes.data as any;
+      if (data) {
+        const d = data as any;
         setConvGoal(d.sa_conversation_5_of_5 || '');
         setConvMeaning(d.sa_conversation_meaning || '');
         setConvObstacle(d.sa_conversation_obstacle || '');
-        setConsent(d.shoutout_consent ?? null);
         setDebriefSubmitted(d.coach_debrief_submitted === true);
         setDebriefSubmittedAt(d.coach_debrief_submitted_at || null);
         setDebriefSubmittedBy(d.coach_debrief_submitted_by || null);
       }
-
-      if (runRes.data) {
-        const rd = runRes.data as any;
-        setRunData(rd);
-        setUsedWhy(rd.goal_why_captured === 'yes' ? true : rd.goal_why_captured === 'no' ? false : null);
-        setIntroducedMember(rd.made_a_friend === true ? true : rd.made_a_friend === false ? false : null);
-        setMemberName(rd.relationship_experience || '');
-      }
     })();
   }, [booking.id, isSecondIntro]);
-
 
   // Realtime for conversation updates from SA
   useEffect(() => {
@@ -151,7 +125,6 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           setConvGoal(d.sa_conversation_5_of_5 || '');
           setConvMeaning(d.sa_conversation_meaning || '');
           setConvObstacle(d.sa_conversation_obstacle || '');
-          setConsent(d.shoutout_consent ?? null);
         }
       })
       .subscribe();
@@ -168,70 +141,31 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     flashSaved(field);
   }, [booking.id]);
 
-  const saveRunField = useCallback(async (fields: Record<string, any>) => {
-    if (runData?.id) {
-      await supabase.from('intros_run').update(fields as any).eq('id', runData.id);
-      flashSaved(Object.keys(fields)[0]);
-      return;
-    }
-    // Auto-create intros_run record if none exists
-    const newRow = {
-      linked_intro_booked_id: booking.id,
-      member_name: booking.member_name,
-      class_time: booking.intro_time || '00:00',
-      run_date: booking.class_date,
-      coach_name: booking.coach_name,
-      result: 'Pending',
-      result_canon: 'UNRESOLVED',
-      is_vip: booking.is_vip,
-      ...fields,
-    };
-    const { data, error } = await supabase.from('intros_run').insert(newRow as any).select('id, goal_why_captured, made_a_friend, relationship_experience').single();
-    if (!error && data) {
-      setRunData(data as any);
-      flashSaved(Object.keys(fields)[0]);
-    }
-  }, [runData?.id, booking.id, booking.member_name, booking.intro_time, booking.class_date, booking.coach_name, booking.is_vip]);
-
   const debounceSave = useCallback((key: string, fn: () => void, delay = 800) => {
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
     debounceTimers.current[key] = setTimeout(fn, delay);
   }, []);
 
-
-  // Post-class handlers
-  const handleShoutoutStart = (val: boolean) => { setShoutoutStart(val); saveBookingField('coach_shoutout_start', val); setValidationErrors(prev => { const n = new Set(prev); n.delete('coach_shoutout_start'); return n; }); };
-  const handleShoutoutEnd = (val: boolean) => { setShoutoutEnd(val); saveBookingField('coach_shoutout_end', val); setValidationErrors(prev => { const n = new Set(prev); n.delete('coach_shoutout_end'); return n; }); };
-  const handleUsedWhy = (val: boolean) => { setUsedWhy(val); saveRunField({ goal_why_captured: val ? 'yes' : 'no' }); setValidationErrors(prev => { const n = new Set(prev); n.delete('goal_why_captured'); return n; }); };
-  const handleIntroducedMember = (val: boolean) => {
-    setIntroducedMember(val);
-    setValidationErrors(prev => { const n = new Set(prev); n.delete('made_a_friend'); return n; });
-    if (!val) { setMemberName(''); saveRunField({ made_a_friend: false, relationship_experience: null }); }
-    else { saveRunField({ made_a_friend: true }); }
-  };
-  const handleMemberNameChange = (val: string) => {
-    setMemberName(val);
-    debounceSave('memberName', () => saveRunField({ relationship_experience: val || null }));
-  };
-
-  const handleConsentToggle = (val: boolean) => {
-    setConsent(val);
-    saveBookingField('shoutout_consent', val);
-    setValidationErrors(prev => { const n = new Set(prev); n.delete('shoutout_consent'); return n; });
-  };
-
   const toggleConsent = useCallback(async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const next = consent === true ? false : true;
-    setConsent(next);
-    setValidationErrors(prev => { const n = new Set(prev); n.delete('shoutout_consent'); return n; });
+  }, []);
+
+  // Submit Lead Measures (placeholder — supersession by FV Scorecard pending UI)
+  const handleSubmitDebrief = async () => {
+    const now = new Date().toISOString();
+    const submitter = userName || coachName;
     await supabase.from('intros_booked').update({
-      shoutout_consent: next,
-      last_edited_at: new Date().toISOString(),
-      last_edited_by: userName,
+      coach_debrief_submitted: true,
+      coach_debrief_submitted_at: now,
+      coach_debrief_submitted_by: submitter,
     } as any).eq('id', booking.id);
-    flashSaved('shoutout_consent');
-  }, [booking.id, consent, userName]);
+
+    setDebriefSubmitted(true);
+    setDebriefSubmittedAt(now);
+    setDebriefSubmittedBy(submitter);
+    setValidationErrors(new Set());
+    onUpdateBooking(booking.id, { coach_debrief_submitted: true } as any);
+  };
 
   // Submit Lead Measures
   const handleSubmitDebrief = async () => {
