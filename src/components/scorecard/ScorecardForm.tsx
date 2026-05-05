@@ -278,9 +278,9 @@ export function ScorecardFormBody(props: BodyProps) {
       <div className="flex items-center justify-between gap-3 border-t pt-3">
         <div className="text-sm">
           <span className="text-muted-foreground mr-2">Total</span>
-          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/15</span>
+          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/30</span>
           <span className="text-xs text-muted-foreground ml-2">
-            {total >= 11 ? 'Level 3 — Studio Best' : total >= 6 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
+            {total >= 22 ? 'Level 3 — Studio Best' : total >= 12 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
           </span>
         </div>
         <Button onClick={handleSubmit} disabled={submitting} className="text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
