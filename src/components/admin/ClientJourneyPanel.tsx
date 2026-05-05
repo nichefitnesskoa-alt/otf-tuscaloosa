@@ -77,6 +77,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { incrementAmcOnSale, isAmcEligibleSale } from '@/lib/amc-auto';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
+import { BookingScorecards } from '@/components/scorecard/BookingScorecards';
 
 // Tab types
 type JourneyTab = 'all' | 'upcoming' | 'today' | 'completed' | 'no_show' | 'missed_guest' | 'second_intro' | 'not_interested' | 'by_lead_source' | 'vip_class';
@@ -2223,6 +2224,7 @@ export default function ClientJourneyPanel() {
             </DialogHeader>
             {editingBooking && (
               <div className="space-y-3">
+                <BookingScorecards bookingId={editingBooking.id} />
                 <div>
                   <Label className="text-xs">Member Name</Label>
                   <Input

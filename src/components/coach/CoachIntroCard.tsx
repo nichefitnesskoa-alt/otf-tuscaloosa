@@ -193,19 +193,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* ══════ SECTION 1 — THEIR STORY ══════ */}
           <h4 className="font-bold text-sm tracking-wide">THEIR STORY</h4>
 
-          {/* ── SHOUTOUT CONSENT BAR ── */}
-          <div
-            className={cn('w-full flex items-center justify-between px-3 py-2.5 rounded-md cursor-pointer select-none hover:opacity-90 transition-opacity', consentBg)}
-            style={{ minHeight: '44px' }}
-            onClick={toggleConsent}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <span className="text-white text-sm font-bold tracking-wide">{consentLabel}</span>
-            <div className="flex items-center gap-1">
-              <SavedIndicator show={savedField === 'shoutout_consent'} />
-              <ChevronRight className="w-4 h-4 text-white" />
-            </div>
-          </div>
+          {/* Shoutout consent removed — superseded by FV Scorecard */}
 
           {/* ── QUESTIONNAIRE REFERENCE ROW — 4 columns ── */}
           <div className="grid grid-cols-4 gap-3">
