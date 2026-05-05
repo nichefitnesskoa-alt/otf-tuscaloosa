@@ -27,9 +27,6 @@ interface IntroRun {
   result: string;
   intro_owner: string | null;
   commission_amount: number | null;
-  goal_why_captured: string | null;
-  relationship_experience: string | null;
-  made_a_friend: boolean | null;
   notes: string | null;
 }
 
@@ -93,7 +90,7 @@ export default function ShiftRecapDetails({
             .order('class_date', { ascending: true }),
           supabase
             .from('intros_run')
-            .select('id, member_name, run_date, class_time, lead_source, result, intro_owner, commission_amount, goal_why_captured, relationship_experience, made_a_friend, notes')
+            .select('id, member_name, run_date, class_time, lead_source, result, intro_owner, commission_amount, notes')
             .eq('shift_recap_id', shiftRecapId)
             .order('run_date', { ascending: true }),
           supabase
@@ -262,24 +259,7 @@ export default function ShiftRecapDetails({
                     Intro Owner: {run.intro_owner}
                   </p>
                 )}
-                {/* Lead Measures */}
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {run.goal_why_captured && (
-                    <Badge variant="outline" className="text-xs">
-                      Goal: {run.goal_why_captured}
-                    </Badge>
-                  )}
-                  {run.relationship_experience && (
-                    <Badge variant="outline" className="text-xs">
-                      Peak Exp: {run.relationship_experience}
-                    </Badge>
-                  )}
-                  {run.made_a_friend && (
-                    <Badge variant="outline" className="text-xs bg-success/10 text-success">
-                      Made a friend ✓
-                    </Badge>
-                  )}
-                </div>
+                {/* Lead Measures removed — superseded by FV Scorecard */}
                 {run.notes && (
                   <p className="text-xs text-muted-foreground mt-1 italic">
                     "{run.notes}"
