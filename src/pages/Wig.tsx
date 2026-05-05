@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
+import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 
@@ -734,6 +735,9 @@ export default function Wig() {
         <ReferralAskTracker dateRange={dateRange} />
 
       </div>
+
+      {/* SECTION — FIRST VISIT EXPERIENCE */}
+      <WigFirstVisitSection dateRange={dateRange} />
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
       <MilestonesDeploySection dateRange={dateRange} />

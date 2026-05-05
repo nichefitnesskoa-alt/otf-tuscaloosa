@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy, Clock, UserCheck } from 'lucide-react';
+import { TrendingUp, GitBranch, Home, Settings, Eye, Trophy, Clock, UserCheck, ClipboardList, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -36,6 +36,7 @@ export function BottomNav() {
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
+      { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
     ];
     return (
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
@@ -77,6 +78,7 @@ export function BottomNav() {
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/my-intros', label: 'My Intros', icon: UserCheck },
+    { path: '/reports', label: 'Reports', icon: BarChart3 },
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
