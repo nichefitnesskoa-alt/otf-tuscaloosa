@@ -2223,6 +2223,7 @@ export default function ClientJourneyPanel() {
             </DialogHeader>
             {editingBooking && (
               <div className="space-y-3">
+                <BookingScorecards bookingId={editingBooking.id} />
                 <div>
                   <Label className="text-xs">Member Name</Label>
                   <Input
