@@ -198,7 +198,7 @@ export function ScorecardFormBody(props: BodyProps) {
 
       {/* Header inputs — table-like row */}
       <div className="border rounded-md overflow-hidden">
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border bg-muted/40">
+        <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-border bg-muted/40">
           <div className="p-2 space-y-1">
             <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Date</Label>
             <Input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="h-9" />
@@ -218,6 +218,20 @@ export function ScorecardFormBody(props: BodyProps) {
               <SelectTrigger className="h-9"><SelectValue placeholder="Select coach" /></SelectTrigger>
               <SelectContent>
                 {coachOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="p-2 space-y-1">
+            <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Evaluator</Label>
+            <Select value={evaluator} onValueChange={async (v) => {
+              setEvaluator(v);
+              if (scorecardId) {
+                await supabase.from('fv_scorecards' as any).update({ evaluator_name: v }).eq('id', scorecardId);
+              }
+            }}>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select evaluator" /></SelectTrigger>
+              <SelectContent>
+                {COACHES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
