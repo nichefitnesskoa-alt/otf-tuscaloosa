@@ -37,7 +37,7 @@ interface TheirStoryProps {
     sa_conversation_5_of_5: string | null;
     sa_conversation_meaning: string | null;
     sa_conversation_obstacle: string | null;
-    shoutout_consent: boolean | null;
+    shoutout_consent?: boolean | null;
   } | null;
 }
 
@@ -107,7 +107,7 @@ export function TheirStory({
           .maybeSingle() : null,
         !prefetchedConv ? supabase
           .from('intros_booked')
-          .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle, shoutout_consent')
+          .select('sa_conversation_5_of_5, sa_conversation_meaning, sa_conversation_obstacle')
           .eq('id', bookingId)
           .single() : null,
       ]);
@@ -124,7 +124,6 @@ export function TheirStory({
         setGoalText(b.sa_conversation_5_of_5 || '');
         setDriverText(b.sa_conversation_meaning || '');
         setObstacleText(b.sa_conversation_obstacle || '');
-        setConsent(b.shoutout_consent ?? null);
       }
       setLoading(false);
     })();
@@ -144,7 +143,6 @@ export function TheirStory({
             setGoalText(d.sa_conversation_5_of_5 || '');
             setDriverText(d.sa_conversation_meaning || '');
             setObstacleText(d.sa_conversation_obstacle || '');
-            setConsent(d.shoutout_consent ?? null);
           }
         }
       )
@@ -163,14 +161,9 @@ export function TheirStory({
     const next = consent === true ? false : true;
     setConsent(next);
     onConsentChange?.(next);
-    await supabase.from('intros_booked').update({
-      shoutout_consent: next,
-      last_edited_at: new Date().toISOString(),
-      last_edited_by: editedBy || null,
-    } as any).eq('id', bookingId);
     setSavedField('shoutout_consent');
     setTimeout(() => setSavedField(null), 1000);
-  }, [bookingId, consent, editedBy, onConsentChange]);
+  }, [consent, onConsentChange]);
 
   if (loading) return null;
 
