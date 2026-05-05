@@ -152,6 +152,7 @@ export function ScorecardFormBody(props: BodyProps) {
 
   const handleSubmit = async () => {
     if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
+    if (!evaluator) { toast.error('Pick who is evaluating'); return; }
     if (!isPractice && !firstTimerId) { toast.error('Missing first-timer link'); return; }
     if (isPractice && !practiceName) { toast.error('Practice name required'); return; }
     setSubmitting(true);
