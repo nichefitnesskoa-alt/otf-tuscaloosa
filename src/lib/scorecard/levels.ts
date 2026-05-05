@@ -52,8 +52,8 @@ export const CLASS_TYPES: { value: ClassType; label: string }[] = [
 ];
 
 export function scoreToLevel(total: number): 1 | 2 | 3 {
-  if (total >= 11) return 3;
-  if (total >= 6) return 2;
+  if (total >= 22) return 3;
+  if (total >= 12) return 2;
   return 1;
 }
 
