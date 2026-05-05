@@ -30,7 +30,7 @@ export function ScoreReveal({ level, total, onClose }: { level: 1 | 2 | 3; total
           >
             <div>
               <div className="text-4xl font-black leading-none">L{level}</div>
-              <div className="text-xs font-bold opacity-90 mt-1">{total}/15</div>
+              <div className="text-xs font-bold opacity-90 mt-1">{total}/30</div>
             </div>
           </div>
           <h2 className="text-2xl font-black">{copy.headline}</h2>

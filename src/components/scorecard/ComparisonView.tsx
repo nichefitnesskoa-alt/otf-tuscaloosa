@@ -53,7 +53,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
             </div>
             <div className="text-right">
               <div className="text-3xl font-black tabular-nums" style={{ color: copy.color }}>L{sc.level}</div>
-              <div className="text-xs font-bold tabular-nums">{sc.total_score}/15</div>
+              <div className="text-xs font-bold tabular-nums">{sc.total_score}/30</div>
             </div>
           </Card>
 

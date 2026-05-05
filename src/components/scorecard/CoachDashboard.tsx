@@ -65,7 +65,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
         </Card>
         <Card className="p-4">
           <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Avg score</p>
-          <p className="text-3xl font-black tabular-nums">{avgScore}<span className="text-base text-muted-foreground">/15</span></p>
+          <p className="text-3xl font-black tabular-nums">{avgScore}<span className="text-base text-muted-foreground">/30</span></p>
         </Card>
         <Card className="p-4">
           <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Total scored</p>
@@ -117,7 +117,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
                 </div>
                 <div className="text-right">
                   <span className={`text-lg font-black tabular-nums ${s.level === 3 ? 'text-primary' : s.level === 2 ? 'text-success' : 'text-muted-foreground'}`}>L{s.level}</span>
-                  <p className="text-[10px] text-muted-foreground">{s.total_score}/15</p>
+                  <p className="text-[10px] text-muted-foreground">{s.total_score}/30</p>
                 </div>
               </button>
             ))}

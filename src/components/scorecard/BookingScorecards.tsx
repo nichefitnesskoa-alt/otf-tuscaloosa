@@ -28,7 +28,7 @@ export function BookingScorecards({ bookingId }: { bookingId: string }) {
             {s.eval_type === 'self_eval' ? 'Self' : 'Formal'} · {s.evaluator_name} → {s.evaluatee_name}
             {s.submitted_at ? ` · ${format(new Date(s.submitted_at), 'MMM d')}` : ' · draft'}
           </span>
-          <Badge variant={s.level === 3 ? 'default' : 'secondary'}>L{s.level} · {s.total_score}/15</Badge>
+          <Badge variant={s.level === 3 ? 'default' : 'secondary'}>L{s.level} · {s.total_score}/30</Badge>
         </button>
       ))}
       <ComparisonView scorecardId={openId} open={!!openId} onOpenChange={(o) => { if (!o) setOpenId(null); }} />
