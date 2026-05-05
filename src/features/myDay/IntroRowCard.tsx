@@ -673,7 +673,6 @@ export default function IntroRowCard({
             sa_conversation_5_of_5: item.saConversation5of5,
             sa_conversation_meaning: item.saConversationMeaning,
             sa_conversation_obstacle: item.saConversationObstacle,
-            shoutout_consent: item.shoutoutConsent,
           }}
         />
       </IntroCard>
