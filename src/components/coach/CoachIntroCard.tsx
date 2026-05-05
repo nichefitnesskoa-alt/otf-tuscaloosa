@@ -10,6 +10,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
+import { ScorecardForm } from '@/components/scorecard/ScorecardForm';
+import { ClipboardList } from 'lucide-react';
 
 interface CoachBooking {
   id: string;
