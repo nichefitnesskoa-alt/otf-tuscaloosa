@@ -224,58 +224,31 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           </div>
           <p className="text-[10px] text-muted-foreground text-center">From their questionnaire</p>
 
-          {/* ── CONVERSATION ANSWERS ROW — 3 columns (editable) ── */}
+          {/* ── CONVERSATION ANSWERS ROW — 3 columns (read-only for coach) ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                  What a 5/5 looks like
-                </Label>
-                <SavedIndicator show={savedField === 'sa_conversation_5_of_5'} />
+              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                What a 5/5 looks like
+              </Label>
+              <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
+                {convGoal || <span className="text-muted-foreground italic">Not yet captured</span>}
               </div>
-              <Textarea
-                value={convGoal}
-                onChange={e => { setConvGoal(e.target.value); debounceSave('convGoal', () => saveBookingField('sa_conversation_5_of_5', e.target.value || null)); }}
-                placeholder="Paint me a picture..."
-                className="min-h-[60px] text-sm border border-input"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                {convGoal && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
-              </p>
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                  What would change
-                </Label>
-                <SavedIndicator show={savedField === 'sa_conversation_meaning'} />
+              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                What would change
+              </Label>
+              <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
+                {convMeaning || <span className="text-muted-foreground italic">Not yet captured</span>}
               </div>
-              <Textarea
-                value={convMeaning}
-                onChange={e => { setConvMeaning(e.target.value); debounceSave('convMeaning', () => saveBookingField('sa_conversation_meaning', e.target.value || null)); }}
-                placeholder="What would actually be different?..."
-                className="min-h-[60px] text-sm border border-input"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                {convMeaning && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
-              </p>
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
-                  What's holding them back
-                </Label>
-                <SavedIndicator show={savedField === 'sa_conversation_obstacle'} />
+              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                What's holding them back
+              </Label>
+              <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
+                {convObstacle || <span className="text-muted-foreground italic">Not yet captured</span>}
               </div>
-              <Textarea
-                value={convObstacle}
-                onChange={e => { setConvObstacle(e.target.value); debounceSave('convObstacle', () => saveBookingField('sa_conversation_obstacle', e.target.value || null)); }}
-                placeholder="Don't fix it. Just listen..."
-                className="min-h-[60px] text-sm border border-input"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                {convObstacle && booking.last_edited_by ? `Captured by ${booking.last_edited_by}` : 'Not yet captured — you can add this'}
-              </p>
             </div>
           </div>
 
