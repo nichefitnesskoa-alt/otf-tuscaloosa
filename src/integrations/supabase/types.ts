@@ -41,6 +41,69 @@ export type Database = {
         }
         Relationships: []
       }
+      archived_first_timer_lead_measures_legacy: {
+        Row: {
+          archive_reason: string
+          archived_at: string
+          booking_id: string | null
+          class_date: string | null
+          coach_brief_why_moment: string | null
+          coach_member_pair_plan: string | null
+          coach_name: string | null
+          coach_shoutout_end: boolean | null
+          coach_shoutout_start: boolean | null
+          goal_why_captured: string | null
+          id: string
+          made_a_friend: boolean | null
+          member_name: string | null
+          original_booking_created_at: string | null
+          original_run_created_at: string | null
+          relationship_experience: string | null
+          run_id: string | null
+          shoutout_consent: boolean | null
+        }
+        Insert: {
+          archive_reason?: string
+          archived_at?: string
+          booking_id?: string | null
+          class_date?: string | null
+          coach_brief_why_moment?: string | null
+          coach_member_pair_plan?: string | null
+          coach_name?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
+          goal_why_captured?: string | null
+          id?: string
+          made_a_friend?: boolean | null
+          member_name?: string | null
+          original_booking_created_at?: string | null
+          original_run_created_at?: string | null
+          relationship_experience?: string | null
+          run_id?: string | null
+          shoutout_consent?: boolean | null
+        }
+        Update: {
+          archive_reason?: string
+          archived_at?: string
+          booking_id?: string | null
+          class_date?: string | null
+          coach_brief_why_moment?: string | null
+          coach_member_pair_plan?: string | null
+          coach_name?: string | null
+          coach_shoutout_end?: boolean | null
+          coach_shoutout_start?: boolean | null
+          goal_why_captured?: string | null
+          id?: string
+          made_a_friend?: boolean | null
+          member_name?: string | null
+          original_booking_created_at?: string | null
+          original_run_created_at?: string | null
+          relationship_experience?: string | null
+          run_id?: string | null
+          shoutout_consent?: boolean | null
+        }
+        Relationships: []
+      }
       campaign_sends: {
         Row: {
           campaign_id: string
@@ -735,6 +798,198 @@ export type Database = {
           },
         ]
       }
+      fv_scorecard_bullets: {
+        Row: {
+          bullet_key: string
+          column_key: string
+          created_at: string
+          id: string
+          score: number
+          scorecard_id: string
+          updated_at: string
+        }
+        Insert: {
+          bullet_key: string
+          column_key: string
+          created_at?: string
+          id?: string
+          score: number
+          scorecard_id: string
+          updated_at?: string
+        }
+        Update: {
+          bullet_key?: string
+          column_key?: string
+          created_at?: string
+          id?: string
+          score?: number
+          scorecard_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fv_scorecard_bullets_scorecard_id_fkey"
+            columns: ["scorecard_id"]
+            isOneToOne: false
+            referencedRelation: "fv_scorecards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fv_scorecard_comments: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          scorecard_id: string
+        }
+        Insert: {
+          author_name: string
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          scorecard_id: string
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          scorecard_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fv_scorecard_comments_scorecard_id_fkey"
+            columns: ["scorecard_id"]
+            isOneToOne: false
+            referencedRelation: "fv_scorecards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fv_scorecard_edit_log: {
+        Row: {
+          edited_at: string
+          editor_name: string
+          field_changed: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          scorecard_id: string
+        }
+        Insert: {
+          edited_at?: string
+          editor_name: string
+          field_changed: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          scorecard_id: string
+        }
+        Update: {
+          edited_at?: string
+          editor_name?: string
+          field_changed?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          scorecard_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fv_scorecard_edit_log_scorecard_id_fkey"
+            columns: ["scorecard_id"]
+            isOneToOne: false
+            referencedRelation: "fv_scorecards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fv_scorecards: {
+        Row: {
+          class_date: string
+          class_type: string
+          created_at: string
+          created_by: string
+          eval_type: string
+          evaluatee_name: string
+          evaluator_name: string
+          first_timer_id: string | null
+          floor_score: number
+          handback_notes: string | null
+          handback_score: number
+          id: string
+          interactions_notes: string | null
+          is_practice: boolean
+          level: number | null
+          member_count: number | null
+          otbeat_notes: string | null
+          otbeat_score: number
+          practice_name: string | null
+          rower_score: number
+          submitted_at: string | null
+          total_score: number | null
+          tread_score: number
+          updated_at: string
+        }
+        Insert: {
+          class_date: string
+          class_type: string
+          created_at?: string
+          created_by: string
+          eval_type: string
+          evaluatee_name: string
+          evaluator_name: string
+          first_timer_id?: string | null
+          floor_score?: number
+          handback_notes?: string | null
+          handback_score?: number
+          id?: string
+          interactions_notes?: string | null
+          is_practice?: boolean
+          level?: number | null
+          member_count?: number | null
+          otbeat_notes?: string | null
+          otbeat_score?: number
+          practice_name?: string | null
+          rower_score?: number
+          submitted_at?: string | null
+          total_score?: number | null
+          tread_score?: number
+          updated_at?: string
+        }
+        Update: {
+          class_date?: string
+          class_type?: string
+          created_at?: string
+          created_by?: string
+          eval_type?: string
+          evaluatee_name?: string
+          evaluator_name?: string
+          first_timer_id?: string | null
+          floor_score?: number
+          handback_notes?: string | null
+          handback_score?: number
+          id?: string
+          interactions_notes?: string | null
+          is_practice?: boolean
+          level?: number | null
+          member_count?: number | null
+          otbeat_notes?: string | null
+          otbeat_score?: number
+          practice_name?: string | null
+          rower_score?: number
+          submitted_at?: string | null
+          total_score?: number | null
+          tread_score?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ig_leads: {
         Row: {
           created_at: string
@@ -898,17 +1153,13 @@ export type Database = {
           closed_by: string | null
           coach_brief_five_vision: string | null
           coach_brief_human_detail: string | null
-          coach_brief_why_moment: string | null
           coach_debrief_submitted: boolean
           coach_debrief_submitted_at: string | null
           coach_debrief_submitted_by: string | null
-          coach_member_pair_plan: string | null
           coach_name: string
           coach_notes: string | null
           coach_referral_asked: boolean | null
           coach_referral_names: string | null
-          coach_shoutout_end: boolean | null
-          coach_shoutout_start: boolean | null
           converted_to_booking_id: string | null
           created_at: string
           delete_reason: string | null
@@ -955,7 +1206,6 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number: number | null
           shift_recap_id: string | null
-          shoutout_consent: boolean | null
           vip_class_name: string | null
           vip_session_id: string | null
           vip_status: string | null
@@ -972,17 +1222,13 @@ export type Database = {
           closed_by?: string | null
           coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
-          coach_brief_why_moment?: string | null
           coach_debrief_submitted?: boolean
           coach_debrief_submitted_at?: string | null
           coach_debrief_submitted_by?: string | null
-          coach_member_pair_plan?: string | null
           coach_name: string
           coach_notes?: string | null
           coach_referral_asked?: boolean | null
           coach_referral_names?: string | null
-          coach_shoutout_end?: boolean | null
-          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -1029,7 +1275,6 @@ export type Database = {
           sa_working_shift: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
-          shoutout_consent?: boolean | null
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null
@@ -1046,17 +1291,13 @@ export type Database = {
           closed_by?: string | null
           coach_brief_five_vision?: string | null
           coach_brief_human_detail?: string | null
-          coach_brief_why_moment?: string | null
           coach_debrief_submitted?: boolean
           coach_debrief_submitted_at?: string | null
           coach_debrief_submitted_by?: string | null
-          coach_member_pair_plan?: string | null
           coach_name?: string
           coach_notes?: string | null
           coach_referral_asked?: boolean | null
           coach_referral_names?: string | null
-          coach_shoutout_end?: boolean | null
-          coach_shoutout_start?: boolean | null
           converted_to_booking_id?: string | null
           created_at?: string
           delete_reason?: string | null
@@ -1103,7 +1344,6 @@ export type Database = {
           sa_working_shift?: string
           sheets_row_number?: number | null
           shift_recap_id?: string | null
-          shoutout_consent?: boolean | null
           vip_class_name?: string | null
           vip_session_id?: string | null
           vip_status?: string | null
@@ -1162,7 +1402,6 @@ export type Database = {
           edit_reason: string | null
           fvc_completed: boolean | null
           goal_quality: string | null
-          goal_why_captured: string | null
           halfway_encouragement: boolean | null
           id: string
           ignore_from_metrics: boolean | null
@@ -1175,7 +1414,6 @@ export type Database = {
           lead_measures: string[] | null
           lead_source: string | null
           linked_intro_booked_id: string | null
-          made_a_friend: boolean | null
           member_name: string
           notes: string | null
           premobility_encouragement: boolean | null
@@ -1183,7 +1421,6 @@ export type Database = {
           primary_objection: string | null
           process_checklist: string[] | null
           ran_by: string | null
-          relationship_experience: string | null
           result: string
           result_canon: string
           rfg_presented: boolean | null
@@ -1211,7 +1448,6 @@ export type Database = {
           edit_reason?: string | null
           fvc_completed?: boolean | null
           goal_quality?: string | null
-          goal_why_captured?: string | null
           halfway_encouragement?: boolean | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -1224,7 +1460,6 @@ export type Database = {
           lead_measures?: string[] | null
           lead_source?: string | null
           linked_intro_booked_id?: string | null
-          made_a_friend?: boolean | null
           member_name: string
           notes?: string | null
           premobility_encouragement?: boolean | null
@@ -1232,7 +1467,6 @@ export type Database = {
           primary_objection?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
-          relationship_experience?: string | null
           result: string
           result_canon?: string
           rfg_presented?: boolean | null
@@ -1260,7 +1494,6 @@ export type Database = {
           edit_reason?: string | null
           fvc_completed?: boolean | null
           goal_quality?: string | null
-          goal_why_captured?: string | null
           halfway_encouragement?: boolean | null
           id?: string
           ignore_from_metrics?: boolean | null
@@ -1273,7 +1506,6 @@ export type Database = {
           lead_measures?: string[] | null
           lead_source?: string | null
           linked_intro_booked_id?: string | null
-          made_a_friend?: boolean | null
           member_name?: string
           notes?: string | null
           premobility_encouragement?: boolean | null
@@ -1281,7 +1513,6 @@ export type Database = {
           primary_objection?: string | null
           process_checklist?: string[] | null
           ran_by?: string | null
-          relationship_experience?: string | null
           result?: string
           result_canon?: string
           rfg_presented?: boolean | null
@@ -2757,19 +2988,6 @@ export type Database = {
       }
     }
     Views: {
-      coach_wig_summary: {
-        Row: {
-          coach_name: string | null
-          member_intro_rate: number | null
-          prepped_rate: number | null
-          referral_ask_rate: number | null
-          shoutout_end_rate: number | null
-          shoutout_start_rate: number | null
-          total_first_intros_coached: number | null
-          why_used_rate: number | null
-        }
-        Relationships: []
-      }
       milestone_summary: {
         Row: {
           total_birthdays: number | null
