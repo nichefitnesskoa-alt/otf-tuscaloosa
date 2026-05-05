@@ -51,6 +51,7 @@ export function Header() {
             )}
             {/* Global Search */}
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
+            <NotificationsBell />
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <User className="w-4 h-4 flex-shrink-0" />
               <span className="text-sm font-medium hidden sm:inline truncate">{user.name}</span>
