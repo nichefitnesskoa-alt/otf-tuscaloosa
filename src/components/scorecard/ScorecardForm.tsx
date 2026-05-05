@@ -134,6 +134,22 @@ export function ScorecardFormBody(props: BodyProps) {
     await supabase.from('fv_scorecards' as any).update({ [colField]: colSum }).eq('id', id);
   };
 
+  const clearBullet = async (col: ColumnKey, key: string) => {
+    setBullets(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (!scorecardId) return;
+    await supabase.from('fv_scorecard_bullets' as any).delete().eq('scorecard_id', scorecardId).eq('bullet_key', key);
+    const newBullets = { ...bullets };
+    delete newBullets[key];
+    const colSum = BULLETS[col].reduce((s, b) => s + (newBullets[b.key] ?? 0), 0);
+    const colField = `${col}_score`;
+    await supabase.from('fv_scorecards' as any).update({ [colField]: colSum }).eq('id', scorecardId);
+  };
+
+
   const handleSubmit = async () => {
     if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
     if (!isPractice && !firstTimerId) { toast.error('Missing first-timer link'); return; }
@@ -234,7 +250,7 @@ export function ScorecardFormBody(props: BodyProps) {
               </div>
               <div className="space-y-2">
                 {BULLETS[col.key].map(b => (
-                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} />
+                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} onClear={() => clearBullet(col.key, b.key)} />
                 ))}
               </div>
             </div>
@@ -262,9 +278,9 @@ export function ScorecardFormBody(props: BodyProps) {
       <div className="flex items-center justify-between gap-3 border-t pt-3">
         <div className="text-sm">
           <span className="text-muted-foreground mr-2">Total</span>
-          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/15</span>
+          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/30</span>
           <span className="text-xs text-muted-foreground ml-2">
-            {total >= 11 ? 'Level 3 — Studio Best' : total >= 6 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
+            {total >= 22 ? 'Level 3 — Studio Best' : total >= 12 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
           </span>
         </div>
         <Button onClick={handleSubmit} disabled={submitting} className="text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
