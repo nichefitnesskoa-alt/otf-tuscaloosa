@@ -296,39 +296,20 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* First Visit Experience Scorecard triggers */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => { setScorecardEvalType('self_eval'); setScorecardOpen(true); }}
-              className="gap-1.5"
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Score This Intro (Self)
-            </Button>
-            {user?.role === 'Admin' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setScorecardEvalType('formal_eval'); setScorecardOpen(true); }}
-                className="gap-1.5"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                Evaluate This Coach
-              </Button>
-            )}
+          {/* First Visit Experience Scorecard — inline */}
+          <div className="border-t pt-4 mt-2">
+            <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
+            <ScorecardFormBody
+              firstTimerId={booking.id}
+              defaultMemberName={booking.member_name}
+              defaultClassDate={booking.class_date}
+              defaultCoachName={coachName}
+              defaultEvaluator={user?.name || ''}
+              evalType={scorecardEvalType}
+              onEvalTypeChange={setScorecardEvalType}
+              showEvalToggle
+            />
           </div>
-          <ScorecardForm
-            open={scorecardOpen}
-            onOpenChange={setScorecardOpen}
-            firstTimerId={booking.id}
-            defaultMemberName={booking.member_name}
-            defaultClassDate={booking.class_date}
-            defaultCoachName={coachName}
-            defaultEvaluator={user?.name || ''}
-            evalType={scorecardEvalType}
-          />
 
 
           {booking.last_edited_by && booking.last_edited_at && (
