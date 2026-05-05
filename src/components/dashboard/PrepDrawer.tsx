@@ -373,29 +373,7 @@ export function PrepDrawer({
                     )}
                   </div>
 
-                  {/* Section 2 — Shoutout Consent */}
-                  <div className="rounded-lg border-2 border-amber-400 bg-amber-50/60 dark:bg-amber-950/20 p-3.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300 mb-2">BEFORE YOU START</p>
-                    <p className="text-xs text-amber-900 dark:text-amber-200 leading-relaxed mb-3">
-                      "One thing about our coaches — they're going to hype you up out there. Would you be against the coach shouting you out and getting the room hyped for you?"
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSaveConsent(true)}
-                        disabled={savingConsent}
-                        className={`flex-1 rounded-lg border-2 px-3 py-2 text-xs font-bold transition-all ${shoutoutConsent === true ? 'border-green-500 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'border-muted bg-background hover:border-green-300'}`}
-                      >
-                        ✓ Yes — good to go
-                      </button>
-                      <button
-                        onClick={() => handleSaveConsent(false)}
-                        disabled={savingConsent}
-                        className={`flex-1 rounded-lg border-2 px-3 py-2 text-xs font-bold transition-all ${shoutoutConsent === false ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'border-muted bg-background hover:border-blue-300'}`}
-                      >
-                        ✗ No — keep it low key
-                      </button>
-                    </div>
-                  </div>
+                  {/* Section 2 — Shoutout Consent removed (superseded by FV Scorecard) */}
 
                   {/* Section 2.5 — What They Told Us */}
                   <div className="rounded-lg border overflow-hidden">
