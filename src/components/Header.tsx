@@ -6,6 +6,7 @@ import { LogOut, User, CloudOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { GlobalSearch, GlobalSearchTrigger } from '@/components/GlobalSearch';
+import { NotificationsBell } from '@/components/NotificationsBell';
 
 export function Header() {
   const { user, logout } = useAuth();
