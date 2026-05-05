@@ -250,7 +250,7 @@ export function ScorecardFormBody(props: BodyProps) {
               </div>
               <div className="space-y-2">
                 {BULLETS[col.key].map(b => (
-                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} />
+                  <BulletControl key={b.key} label={b.label} value={bullets[b.key]} onChange={v => setBullet(col.key, b.key, v)} onClear={() => clearBullet(col.key, b.key)} />
                 ))}
               </div>
             </div>
