@@ -164,9 +164,12 @@ export function useDuplicateDetection() {
         });
       }
 
-      // Sort by similarity (highest first), then top 8 (slightly higher to leave room for VIP)
-      found.sort((a, b) => b.similarity - a.similarity);
-      const topMatches = found.slice(0, 8);
+      // Always preserve VIP matches (they're rare and should never be hidden by
+      // a flood of similar booking names). Sort each bucket by similarity, then
+      // surface VIPs first followed by bookings up to a combined cap.
+      const vipMatches = found.filter(m => m.source === 'vip').sort((a, b) => b.similarity - a.similarity);
+      const bookingMatches = found.filter(m => m.source !== 'vip').sort((a, b) => b.similarity - a.similarity);
+      const topMatches = [...vipMatches, ...bookingMatches.slice(0, Math.max(8 - vipMatches.length, 4))];
       setMatches(topMatches);
       return topMatches;
     } catch (err) {
