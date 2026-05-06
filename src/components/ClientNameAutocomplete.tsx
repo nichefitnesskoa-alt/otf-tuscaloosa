@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { AlertTriangle, Loader2, Plus, Calendar, MapPin, User } from 'lucide-react';
+import { AlertTriangle, Loader2, Plus, Calendar, MapPin, User, Star } from 'lucide-react';
 import { useDuplicateDetection, PotentialMatch } from '@/hooks/useDuplicateDetection';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
@@ -144,43 +144,75 @@ export default function ClientNameAutocomplete({
               <CommandEmpty>No existing clients found</CommandEmpty>
             ) : (
               <CommandGroup heading="Existing Clients">
-                {matches.map((client) => (
+                {matches.map((client) => {
+                  const isVip = client.source === 'vip';
+                  const dateStr = client.class_date
+                    ? (() => { try { return format(parseLocalDate(client.class_date), 'MMM d, yyyy'); } catch { return client.class_date; } })()
+                    : null;
+                  return (
                   <CommandItem
-                    key={client.id}
-                    value={client.id}
+                    key={`${client.source || 'booking'}-${client.id}`}
+                    value={`${client.source || 'booking'}-${client.id}`}
                     onSelect={() => handleSelectClient(client)}
                     className="flex flex-col items-start gap-1 py-2.5 cursor-pointer"
                   >
                     <div className="flex items-center gap-2 w-full">
                       <span className="font-medium">{client.member_name}</span>
-                      {shouldShowWarningIcon(client.booking_status) && (
+                      {isVip && <Star className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />}
+                      {!isVip && shouldShowWarningIcon(client.booking_status) && (
                         <AlertTriangle className="w-3.5 h-3.5 text-destructive" />
                       )}
-                      <Badge 
-                        variant={getStatusBadgeVariant(client.booking_status)}
-                        className="ml-auto text-xs py-0 px-1.5"
+                      <Badge
+                        variant={isVip ? 'outline' : getStatusBadgeVariant(client.booking_status)}
+                        className={`ml-auto text-xs py-0 px-1.5 ${isVip ? 'border-purple-500 text-purple-700 bg-purple-50' : ''}`}
                       >
-                        {getStatusDisplayText(client.booking_status)}
+                        {isVip ? 'VIP — needs booking' : getStatusDisplayText(client.booking_status)}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {format(parseLocalDate(client.class_date), 'MMM d, yyyy')}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {client.lead_source}
-                      </span>
-                      {client.booked_by && (
-                        <span className="flex items-center gap-1">
-                          <User className="w-3 h-3" />
-                          {client.booked_by}
-                        </span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      {isVip ? (
+                        <>
+                          <span className="flex items-center gap-1">
+                            <Star className="w-3 h-3 text-purple-600" />
+                            {client.vip_class_name}
+                          </span>
+                          {dateStr && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {dateStr}
+                            </span>
+                          )}
+                          {client.phone && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {client.phone}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {dateStr && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {dateStr}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {client.lead_source}
+                          </span>
+                          {client.booked_by && (
+                            <span className="flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              {client.booked_by}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                   </CommandItem>
-                ))}
+                  );
+                })}
               </CommandGroup>
             )}
             
