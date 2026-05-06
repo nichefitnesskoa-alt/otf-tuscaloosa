@@ -7,9 +7,10 @@ export interface User {
   role: UserRole;
 }
 
-// Staff Data (alphabetically sorted)
-export const COACHES = ['Alex', 'Bre', 'Elizabeth', 'Jackson', 'James', 'Kaitlyn H', 'Koa', 'Nathan', 'Natalya'] as const;
-export const SALES_ASSOCIATES = ['Bre', 'Bri', 'Elizabeth', 'Grace', 'Jayna', 'Kailey', 'Kaiya', 'Katie', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'] as const;
+// Staff Data — ACTIVE STAFF ONLY (alphabetically sorted)
+// Source of truth: staff.is_active = true. Update here when staff are activated/deactivated.
+export const COACHES = ['Jackson', 'James', 'Koa', 'Natalya', 'Nathan'] as const;
+export const SALES_ASSOCIATES = ['Jayna', 'Kaiya', 'Koa', 'Lauren', 'Madison', 'Nora'] as const;
 // Deduplicate staff who appear in both COACHES and SALES_ASSOCIATES
 const _allStaffSet = [...new Set([...COACHES, ...SALES_ASSOCIATES])].sort();
 export const ALL_STAFF = _allStaffSet as readonly string[];
