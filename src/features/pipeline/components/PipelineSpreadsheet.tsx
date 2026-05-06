@@ -582,7 +582,8 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 
 // ── Expanded Row Detail ──
 
-const ALL_STAFF = ['Bre', 'Elizabeth', 'James', 'Nathan', 'Kaitlyn H', 'Natalya', 'Bri', 'Grace', 'Katie', 'Kailey', 'Kayla', 'Koa', 'Lauren', 'Nora', 'Sophie'];
+import { ALL_STAFF as ACTIVE_ALL_STAFF } from '@/types';
+const ALL_STAFF = [...ACTIVE_ALL_STAFF];
 const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
 
 function ExpandedRowDetail({
