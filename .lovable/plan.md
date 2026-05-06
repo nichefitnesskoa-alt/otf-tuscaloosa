@@ -1,66 +1,38 @@
-## Decluttering Plan — Confirmed Decisions
+## What's broken today
 
-Based on your answers:
-- Meeting → **keep** (planned use)
-- My Shifts → **remove**
-- Raffle → **remove**
-- Campaigns → **remove**
-- Stories → **keep**
-- My Day tabs IG DM, Q Hub, Outcome → **remove tabs**, but preserve Q Hub's questionnaire-sending machinery so Scripts can still use it
-- Reports / Recaps / Admin Intelligence → **consolidate into one place**
+When you start booking an intro and type a name, the autocomplete only searches `intros_booked`. VIP attendees who registered through the VIP form but never had a real intro booked **never appear** — so you can't pull them up to schedule one. The Reschedule button is also wired only to update an existing booking; it has no path to "schedule a VIP person who's never had a booking."
 
----
+## Fix in two parts
 
-### 1. Remove `/my-shifts`
-- Delete `src/pages/MyShifts.tsx`
-- Remove route + import from `src/App.tsx`
-- Redirect `/dashboard` (currently → `/my-shifts`) to `/my-day`
-- Search-and-remove any nav links pointing to `/my-shifts`
+### 1. Make the name search find VIP registrants too
+Extend `src/hooks/useDuplicateDetection.ts` so each name lookup runs in parallel against:
+- `intros_booked` (today's behavior — unchanged)
+- `vip_registrations` (NEW) — searches `first_name`/`last_name` with the same fuzzy matcher, joined to `vip_sessions` to get the class date + class name
 
-### 2. Remove Raffle from Admin
-- Delete `src/components/admin/RafflePage.tsx`
-- Remove import, tab definition (line 514), and TabsContent block (lines 690–692) in `src/pages/Admin.tsx`
+VIP results are merged into the same `matches` array but tagged with a new field `source: 'booking' | 'vip'` and carry their `vip_session_id`, phone, email, and class info. If a VIP registrant already has a `booking_id`, we de-dupe — only the booking row is kept.
 
-### 3. Remove Campaigns from Admin
-- Delete `src/components/admin/CampaignsPanel.tsx`
-- Remove import, tab definition (line 505), and TabsContent block (line 598–600) in `src/pages/Admin.tsx`
-- Leave the `campaigns` and `campaign_sends` DB tables in place (no destructive migration) — purely UI removal
+### 2. Make Reschedule work for VIP people
+Update `src/components/ClientNameAutocomplete.tsx` to render VIP results with a purple **VIP** badge + the VIP class name/date underneath, so you can tell them apart instantly.
 
-### 4. My Day — remove three tab triggers, keep underlying logic
-In `src/features/myDay/MyDayPage.tsx`:
-- Remove `TabsTrigger` for `igdm`, `qhub`, `outcome` (both the SA grid at lines 371–388 and any duplicate in the Coach branch if present)
-- Remove the corresponding `TabsContent` blocks (442–462)
-- Remove now-unused imports: `MyDayIgDmTab`, `QuestionnaireHub` import, `setIgDmCount`/`igDmCount` state if only used by the IG DM tab
-- Keep `QuestionnaireHub` component file in place — it's the engine that lets Scripts auto-send questionnaires. It's just no longer surfaced as its own tab.
-- Tab grid drops from 7 → 4 (Intros, Scripts, Follow-Ups, Leads). Update the `grid-cols-*` class accordingly.
+Update `src/components/RescheduleClientDialog.tsx` to handle two modes:
 
-Stories stay untouched.
+- **Existing booking** (today's behavior): UPDATE `intros_booked` with new date/time. Title stays "Reschedule {name}".
+- **VIP registrant, no booking yet** (new): INSERT a new `intros_booked` row pre-filled from the VIP registration (`member_name`, `phone`, `email`, `vip_session_id`, `vip_class_name`, `lead_source = 'VIP Class'`, `booked_by = current user`, plus the new date/time chosen in the dialog). Then back-link by setting `vip_registrations.booking_id = newBookingId`. Title becomes "Schedule {name}" and the button reads "Book Intro" instead of "Update Booking". The current-booking info block is replaced with the VIP class context (e.g. "Registered for: Bama Sorority VIP — Apr 12").
 
-### 5. Consolidate Reports / Recaps / Admin Intelligence
-Single home: **Admin → Intelligence tab** (rename to **Analytics**).
+Everything downstream (auto-questionnaire trigger, VIP back-link trigger, follow-up scheduling) already works on insert — no DB changes needed. The existing `auto_create_vip_registration` trigger handles the booking→registration link the other direction; we add the registration→booking link in app code at the moment of insert so the row Koa just typed is the one that gets attached (avoids the trigger picking the wrong match).
 
-- Move Recaps content (`src/pages/Recaps.tsx`) into Admin Analytics as a sub-section
-- Move Reports content (`src/pages/Reports.tsx`) into Admin Analytics as a sub-section
-- Admin Analytics tab gets internal sub-tabs: **Intelligence | Recaps | Reports**
-- Delete `src/pages/Recaps.tsx` and `src/pages/Reports.tsx` after migrating their bodies into components under `src/components/admin/analytics/`
-- Remove `/recaps` and `/reports` routes from `src/App.tsx`, replace with redirects to `/admin?tab=intelligence`
-- Remove any nav links to `/recaps` or `/reports`
+## Files touched
 
----
+- `src/hooks/useDuplicateDetection.ts` — add VIP query + merge + source tag
+- `src/components/ClientNameAutocomplete.tsx` — VIP badge + secondary line
+- `src/components/RescheduleClientDialog.tsx` — dual-mode (update vs insert) plus VIP context block
 
-### Files Touched (expected)
-- `src/App.tsx` — route removal + redirects
-- `src/pages/Admin.tsx` — remove Raffle/Campaigns, rename Intelligence → Analytics, add sub-tabs
-- `src/pages/MyShifts.tsx` — delete
-- `src/pages/Recaps.tsx` — delete (content migrated)
-- `src/pages/Reports.tsx` — delete (content migrated)
-- `src/components/admin/RafflePage.tsx` — delete
-- `src/components/admin/CampaignsPanel.tsx` — delete
-- `src/components/admin/analytics/RecapsSection.tsx` — new (extracted)
-- `src/components/admin/analytics/ReportsSection.tsx` — new (extracted)
-- `src/features/myDay/MyDayPage.tsx` — remove 3 tabs, keep QuestionnaireHub import path alive only where Scripts use it
-- Any `BottomNav` / `Header` / sidebar components referencing removed routes
+No DB migrations, no changes to other autocomplete consumers (FollowupPurchaseEntry, SaleEntry, IntroBookingEntry, ReferralTracker, OutsideSaleSheets) — they keep working because the new VIP source is purely additive in the matches list, and only RescheduleClientDialog branches on it.
 
-### Confirm Before I Build
-1. **Recaps and Reports**: OK to fold both into Admin → Analytics as sub-tabs (so they're admin-only going forward, same as today)? Or do you want Recaps to stay accessible to SAs?
-2. **Q Hub**: I'll keep the underlying `QuestionnaireHub` component file so the auto-send-on-script flow continues to work. The tab itself disappears. Confirm.
+## One quick confirm
+When you pick a VIP attendee and book their intro, should `lead_source` be:
+1. **`VIP Class`** (recommended — keeps the standard VIP attribution chain), or
+2. **`VIP Class (Friend)`** when they were a +1, or
+3. Let you pick from a dropdown in the dialog?
+
+I'll default to #1 and read `vip_status` from the registration to flip to #2 automatically if they were a friend, unless you say otherwise.
