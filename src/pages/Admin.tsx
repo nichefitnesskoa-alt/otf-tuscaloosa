@@ -18,7 +18,8 @@ import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
 
 import CoachingView from '@/components/admin/CoachingView';
-import CampaignsPanel from '@/components/admin/CampaignsPanel';
+import RecapsPage from '@/pages/Recaps';
+import ReportsPage from '@/pages/Reports';
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
@@ -35,7 +36,7 @@ import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCar
 import ObjectionReport from '@/components/admin/ObjectionReport';
 import ShiftTasksAdmin from '@/components/admin/ShiftTasksAdmin';
 import StaffManagement from '@/components/admin/StaffManagement';
-import RafflePage from '@/components/admin/RafflePage';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -498,11 +499,10 @@ export default function Admin() {
   
   const adminSections = useMemo(() => [
     { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
-    { value: 'intelligence', label: 'Intelligence', icon: <Brain className="w-4 h-4" /> },
+    { value: 'analytics', label: 'Analytics', icon: <Brain className="w-4 h-4" /> },
     { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
     { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
     { value: 'coaching', label: 'Coaching', icon: <BarChart3 className="w-4 h-4" /> },
-    { value: 'campaigns', label: 'Campaigns', icon: <Megaphone className="w-4 h-4" /> },
     { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
     { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
@@ -511,7 +511,6 @@ export default function Admin() {
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
     { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
-    { value: 'raffle', label: 'Raffle', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -580,9 +579,24 @@ export default function Admin() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Intelligence Tab */}
-        <TabsContent value="intelligence" className="space-y-4">
-          <IntelligenceTab />
+        {/* Analytics Tab — combines Intelligence + Recaps + Reports */}
+        <TabsContent value="analytics" className="space-y-4">
+          <Tabs defaultValue="intelligence" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+              <TabsTrigger value="recaps">Studio Recaps</TabsTrigger>
+              <TabsTrigger value="reports">Scorecard Reports</TabsTrigger>
+            </TabsList>
+            <TabsContent value="intelligence" className="space-y-4 mt-4">
+              <IntelligenceTab />
+            </TabsContent>
+            <TabsContent value="recaps" className="mt-4">
+              <RecapsPage />
+            </TabsContent>
+            <TabsContent value="reports" className="mt-4">
+              <ReportsPage />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {/* Objections Tab */}
@@ -593,11 +607,6 @@ export default function Admin() {
         {/* Coaching Tab */}
         <TabsContent value="coaching" className="space-y-4">
           <CoachingView />
-        </TabsContent>
-
-        {/* Campaigns Tab */}
-        <TabsContent value="campaigns" className="space-y-4">
-          <CampaignsPanel />
         </TabsContent>
 
         {/* Referrals Tab */}
@@ -687,10 +696,6 @@ export default function Admin() {
           <TenXExercise />
         </TabsContent>
 
-        {/* Raffle Tab */}
-        <TabsContent value="raffle" className="space-y-4">
-          <RafflePage />
-        </TabsContent>
       </Tabs>
     </div>
   );
