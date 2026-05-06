@@ -1,31 +1,35 @@
-## Add "Evaluator" dropdown to scorecard header
+## Remove inactive staff from all dropdowns
 
-Currently the evaluator silently defaults to the logged-in user (`user?.name`). The coach being evaluated has no clear way to see who scored them, and an admin doing a formal eval has no way to attribute it to themselves explicitly.
+### Root cause
+Every dropdown sources from static arrays in `src/types/index.ts` (`COACHES`, `SALES_ASSOCIATES`, `ALL_STAFF`) — these still include deactivated staff (Alex, Bre, Bri, Elizabeth, Grace, Kailey, Kaitlyn H, Katie, Kayla, Sophie). The `staff.is_active` flag in the DB is the source of truth but the static arrays aren't synced to it. Fixing the arrays fixes every dropdown in one change (Scorecard coach picker, Outcome drawer, IntroBookingEntry, IntroRunEntry, Walk-in, BookIntro, FollowUps, OutcomeDrawer, VipScheduler, VipRegistrations, ConvertVipToIntro, IntroCard inline editor, etc.).
 
-### Change
+### Active staff (per DB `staff.is_active = true`)
+- **Coaches**: Jackson, James, Koa, Natalya, Nathan
+- **SAs**: Jayna, Kaiya, Koa, Lauren, Madison, Nora
 
-In `src/components/scorecard/ScorecardForm.tsx`, update the header grid from a 4-column layout to a **5-column layout** (`md:grid-cols-5`) so it stays inline:
+### Changes
 
+**1. `src/types/index.ts`** — replace the two arrays with active-only lists:
+```ts
+export const COACHES = ['Jackson', 'James', 'Koa', 'Natalya', 'Nathan'] as const;
+export const SALES_ASSOCIATES = ['Jayna', 'Kaiya', 'Koa', 'Lauren', 'Madison', 'Nora'] as const;
 ```
-DATE | CLASS TYPE | COACH | EVALUATOR | MEMBER COUNT
-```
+Add a comment noting these mirror `staff.is_active = true` and must be updated when staff are activated/deactivated.
 
-- New **Evaluator** dropdown using the canonical `COACHES` array from `src/types` (same source as the Coach dropdown), since evaluators are also staff/coaches.
-- Default value = logged-in `user?.name` (same as today).
-- On change, update local `evaluator` state and persist via `ensureScorecard()` on next bullet/note save (already wired — `evaluator_name` is included in the update payload). No extra save logic needed.
-- Submit validation: require evaluator to be set (block submit with toast if empty), matching the existing Coach validation pattern.
+**2. `src/features/pipeline/components/PipelineSpreadsheet.tsx` (line 585)** — local `ALL_STAFF` hard-coded list also includes deactivated staff. Replace with imported `ALL_STAFF` from `@/types` (or a fresh active-only list) so it stays consistent.
 
-### Files touched
+### Out of scope
+- Historical records still reference deactivated staff (e.g., past intros coached by Bre). Display of historical names is unaffected — only NEW selections drop the inactive options. This matches the requested behavior.
+- Login screen: `AuthContext` already filters by `is_active = true` against the staff table on login lookup, and the login picker uses the staff table directly — no change needed there.
 
-- `src/components/scorecard/ScorecardForm.tsx` — header grid + new Select, validation line in `handleSubmit`.
+### Downstream effects (all auto-fixed by the array change)
+- Scorecard Coach + Evaluator dropdowns → active only
+- OutcomeDrawer coach pickers (intro coach, 2nd intro coach, ran-by) → active only
+- IntroBookingEntry / IntroRunEntry / Walk-in / BookIntro / InlineIntroLogger → active only
+- FollowUpsDueToday coach assign → active only
+- VipSchedulerTab + VipRegistrationsSheet + ConvertVipToIntroDialog → active only
+- IntroCard inline coach editor → active only
+- CoachScorecards page picker → active only
 
-### Out of scope (not changed)
-
-- Database schema (`evaluator_name` column already exists on `fv_scorecards`).
-- Dashboard / comparison views — already read `evaluator_name`.
-- Coach picker logic on `CoachScorecards.tsx`.
-
-### Downstream effects
-
-- `fv_scorecards.evaluator_name` will now reflect the chosen evaluator instead of always the logged-in user — this is the intended behavior and existing read paths already display it.
-- No role/permission changes; any logged-in staff can still create scorecards.
+### Future-proofing note
+Long-term the right fix is to drive these dropdowns off `useActiveStaff()` (already exists, queries `staff.is_active`). That's a larger refactor touching ~15 components. For this prompt, syncing the canonical arrays delivers the user's ask immediately and keeps a single update point.
