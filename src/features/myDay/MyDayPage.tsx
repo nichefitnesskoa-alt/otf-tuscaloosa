@@ -22,13 +22,13 @@ import { ShiftChecklist } from './ShiftChecklist';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { CalendarDays, Clock, ClipboardList, Users, Moon, Sun, UserPlus, Instagram, FileText } from 'lucide-react';
+import { CalendarDays, Clock, Users, Moon, Sun, UserPlus, FileText } from 'lucide-react';
 import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 
 // Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
-import { QuestionnaireHub } from '@/components/dashboard/QuestionnaireHub';
+
 import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { LeadDetailSheet } from '@/components/leads/LeadDetailSheet';
@@ -48,7 +48,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 // Canonical intros queue
 import UpcomingIntrosCard from './UpcomingIntrosCard';
 import { MyDayNewLeadsTab } from './MyDayNewLeadsTab';
-import { MyDayIgDmTab } from './MyDayIgDmTab';
+
 
 import { WhatsChangedDialog } from '@/components/shared/WhatsChangedDialog';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
@@ -72,7 +72,7 @@ export default function MyDayPage() {
   const [detailLead, setDetailLead] = useState<Tables<'leads'> | null>(null);
   const [needsOutcomeCount, setNeedsOutcomeCount] = useState(0);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
-  const [igDmCount, setIgDmCount] = useState(0);
+  
   const [activeTab, setActiveTab] = useState('intros');
   const [isAdmin, setIsAdmin] = useState(false);
   const [intelligenceDismissed, setIntelligenceDismissed] = useState(false);
@@ -342,7 +342,7 @@ export default function MyDayPage() {
         {/* Persistent tab bar */}
         <div className="sticky top-[var(--floating-header-h,140px)] z-10 bg-background px-3 pt-2 pb-0">
           {isUserAdmin ? (
-            <TabsList className="w-full grid grid-cols-7 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
+            <TabsList className="w-full grid grid-cols-4 h-auto gap-0 bg-muted/60 p-0 rounded-lg border border-primary/40 divide-x divide-primary/20">
               <TabsTrigger value="intros" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
                 <CalendarDays className="w-3.5 h-3.5" />
                 <span>Intros</span>
@@ -366,24 +366,6 @@ export default function MyDayPage() {
                 <span>Leads</span>
                 {newLeadsCount > 0 && (
                   <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{newLeadsCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="igdm" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <Instagram className="w-3.5 h-3.5" />
-                <span>IG DMs</span>
-                {igDmCount > 0 && (
-                  <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center">{igDmCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="qhub" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <ClipboardList className="w-3.5 h-3.5" />
-                <span>Q Hub</span>
-              </TabsTrigger>
-              <TabsTrigger value="outcome" className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] leading-tight rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-                <Users className="w-3.5 h-3.5" />
-                <span>Outcomes</span>
-                {needsOutcomeCount > 0 && (
-                  <Badge variant="outline" className="h-3.5 px-1 text-[9px] min-w-[18px] flex items-center justify-center border-warning text-warning">{needsOutcomeCount}</Badge>
                 )}
               </TabsTrigger>
             </TabsList>
@@ -430,35 +412,13 @@ export default function MyDayPage() {
           </TabsContent>
 
           {isUserAdmin && (
-            <>
-              <TabsContent value="leads" className="mt-0 space-y-3">
-                <div className="mb-1">
-                  <h2 className="text-sm font-semibold">New Leads</h2>
-                  <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
-                </div>
-                <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
-              </TabsContent>
-
-              <TabsContent value="igdm" className="mt-0 space-y-3">
-                <div className="mb-1">
-                  <h2 className="text-sm font-semibold">IG DM Tracker</h2>
-                  <p className="text-xs text-muted-foreground">Track Instagram outreach — DMs, interest, bookings</p>
-                </div>
-                <MyDayIgDmTab onCountChange={setIgDmCount} />
-              </TabsContent>
-
-              <TabsContent value="qhub" className="mt-0 space-y-3">
-                <QuestionnaireHub />
-              </TabsContent>
-
-              <TabsContent value="outcome" className="mt-0 space-y-3">
-                <div className="mb-1">
-                  <h2 className="text-sm font-semibold">Needs Outcome</h2>
-                  <p className="text-xs text-muted-foreground">Past intros from the last 45 days with no result logged</p>
-                </div>
-                <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="needsOutcome" />
-              </TabsContent>
-            </>
+            <TabsContent value="leads" className="mt-0 space-y-3">
+              <div className="mb-1">
+                <h2 className="text-sm font-semibold">New Leads</h2>
+                <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
+              </div>
+              <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
+            </TabsContent>
           )}
         </div>
       </Tabs>
