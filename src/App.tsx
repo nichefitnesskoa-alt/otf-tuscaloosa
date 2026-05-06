@@ -22,6 +22,7 @@ import VipAvailability from "./pages/VipAvailability";
 import VipMemberRegister from "./pages/VipMemberRegister";
 import VipRoster from "./pages/VipRoster";
 import CoachView from "./pages/CoachView";
+import Recaps from "./pages/Recaps";
 import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
 import Apply from "./pages/Apply";
@@ -69,7 +70,14 @@ function AppRoutes() {
       <Route path="/shift-recap" element={<Navigate to="/my-day" replace />} />
       <Route path="/dashboard" element={<Navigate to="/my-day" replace />} />
       <Route path="/my-shifts" element={<Navigate to="/my-day" replace />} />
-      <Route path="/recaps" element={<Navigate to="/admin" replace />} />
+      <Route
+        path="/recaps"
+        element={
+          <ProtectedRoute>
+            <Recaps />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/reports" element={<Navigate to="/admin" replace />} />
       <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
       <Route
