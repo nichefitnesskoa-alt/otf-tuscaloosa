@@ -582,7 +582,6 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 
 // ── Expanded Row Detail ──
 
-import { ALL_STAFF as ACTIVE_ALL_STAFF } from '@/types';
 const ALL_STAFF = [...ACTIVE_ALL_STAFF];
 const LEAD_SOURCES = ['Member Referral', 'Online Intro Offer', 'Online Intro Offer (self-booked)', 'Walk-in', 'IG DM', 'Cold Lead', 'Friend/Family Referral', 'Corporate', 'Website', 'Other'];
 
