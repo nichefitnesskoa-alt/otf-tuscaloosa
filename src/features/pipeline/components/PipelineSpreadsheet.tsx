@@ -24,6 +24,7 @@ import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialo
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
+import { ALL_STAFF as ACTIVE_ALL_STAFF } from '@/types';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
