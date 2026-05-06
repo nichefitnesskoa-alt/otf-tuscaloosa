@@ -8,9 +8,6 @@ import { DataProvider } from "@/context/DataContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import MyDay from "./pages/MyDay";
-import ShiftRecap from "./pages/ShiftRecap";
-import MyShifts from "./pages/MyShifts";
-import Recaps from "./pages/Recaps";
 import Leads from "./pages/Leads";
 import Meeting from "./pages/Meeting";
 import Admin from "./pages/Admin";
@@ -27,7 +24,6 @@ import VipRoster from "./pages/VipRoster";
 import CoachView from "./pages/CoachView";
 import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
-import Reports from "./pages/Reports";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -69,29 +65,13 @@ function AppRoutes() {
         path="/login" 
         element={isAuthenticated ? <Navigate to={defaultRoute} replace /> : <Login />} 
       />
-      {/* DEPRECATED: functionality moved to MyDay */}
+      {/* DEPRECATED redirects — folded into other surfaces */}
       <Route path="/shift-recap" element={<Navigate to="/my-day" replace />} />
-      <Route
-        path="/dashboard"
-        element={<Navigate to="/my-shifts" replace />}
-      />
-      <Route
-        path="/recaps"
-        element={
-          <ProtectedRoute blockCoach>
-            <Recaps />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/dashboard" element={<Navigate to="/my-day" replace />} />
+      <Route path="/my-shifts" element={<Navigate to="/my-day" replace />} />
+      <Route path="/recaps" element={<Navigate to="/admin" replace />} />
+      <Route path="/reports" element={<Navigate to="/admin" replace />} />
       <Route path="/leads" element={<Navigate to="/pipeline" replace />} />
-      <Route
-        path="/my-shifts"
-        element={
-          <ProtectedRoute blockCoach>
-            <MyShifts />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/scripts"
         element={
@@ -187,14 +167,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CoachScorecards />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute requireAdmin>
-            <Reports />
           </ProtectedRoute>
         }
       />

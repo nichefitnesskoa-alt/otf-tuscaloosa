@@ -73,16 +73,13 @@ export function BottomNav() {
 
   const visibleItems = isAdmin ? [
     { path: '/my-day', label: 'My Day', icon: Home },
-    { path: '/recaps', label: 'Studio', icon: TrendingUp },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/my-intros', label: 'My Intros', icon: UserCheck },
-    { path: '/reports', label: 'Reports', icon: BarChart3 },
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
-    { path: '/recaps', label: 'Studio', icon: TrendingUp },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   ];
