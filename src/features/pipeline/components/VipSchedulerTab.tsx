@@ -653,7 +653,8 @@ export function VipSchedulerTab() {
             );
           })}
         </div>
-      )}
+      );
+      })()}
 
       {/* Recurring Templates Section */}
       <Separator />
