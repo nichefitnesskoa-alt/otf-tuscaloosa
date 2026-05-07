@@ -245,19 +245,21 @@ export default function VipMemberRegister() {
   }
 
   if (submitted) {
+    const shortDate = format(new Date(session.session_date + 'T00:00:00'), 'EEEE, MMMM d');
     return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
-          <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F5F2EE' }}>
+        <div className="text-white py-6 px-4 text-center" style={{ backgroundColor: '#E8540A' }}>
+          <h1 className="text-xl font-extrabold tracking-wide">OTF TUSCALOOSA</h1>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <CheckCircle className="w-16 h-16 text-[#FF6900] mb-4" />
-          <h2 className="text-2xl font-bold mb-2">You're all set, {firstName}!</h2>
-          <p className="text-base text-muted-foreground">
-            We'll see you on {dateLabel} at {timeLabel}.
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-2xl mx-auto">
+          <p className="text-3xl md:text-4xl font-semibold leading-relaxed text-neutral-900">
+            You just did something most people talk about but never do.
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Come 15–20 minutes early so we can get your heart rate monitor set up.
+          <p className="text-base text-neutral-500 mt-8 leading-relaxed">
+            We'll see you on {shortDate}. Come 15 minutes early and we'll get you set up.
+          </p>
+          <p className="text-lg font-semibold mt-6" style={{ color: '#E8540A' }}>
+            See you there. 🧡
           </p>
         </div>
       </div>
