@@ -36,6 +36,7 @@ export function BottomNav() {
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
+      { path: '/vips', label: 'VIPs', icon: Star },
       { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
     ];
     return (
