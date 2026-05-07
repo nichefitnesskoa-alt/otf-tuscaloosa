@@ -396,15 +396,13 @@ export default function MyDayPage() {
             <FollowUpList onCountChange={setFollowUpsDueCount} onRefresh={fetchMetrics} />
           </TabsContent>
 
-          {isUserAdmin && (
-            <TabsContent value="leads" className="mt-0 space-y-3">
-              <div className="mb-1">
-                <h2 className="text-sm font-semibold">New Leads</h2>
-                <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
-              </div>
-              <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
-            </TabsContent>
-          )}
+          <TabsContent value="leads" className="mt-0 space-y-3">
+            <div className="mb-1">
+              <h2 className="text-sm font-semibold">New Leads</h2>
+              <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>
+            </div>
+            <MyDayNewLeadsTab onCountChange={setNewLeadsCount} />
+          </TabsContent>
         </div>
       </Tabs>
 
