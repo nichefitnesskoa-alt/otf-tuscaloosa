@@ -1,67 +1,49 @@
-## Problem
+## What I found
 
-The "New Leads" sub-tab in My Day filters by `stage = 'new'`. Leads get moved out of `new` only when the dedup engine returns **HIGH** confidence (→ `already_in_system`) or **MEDIUM** (→ `flagged`). Today's dedup engine (`src/lib/leads/detectDuplicate.ts`) only checks:
+Karissa Agnew is in the database **3 times** but the dedup engine misses her:
 
-1. `intros_booked` (phone, email, name+date, name-only)
-2. `intros_run` (name+date)
-3. `sales_outside_intro` (name)
+1. **leads** — "Karissa Agnew", phone `2052706992`, stage `new` (the one showing in New Leads)
+2. **intros_booked** — "Karrissa Agnew" (typo, two R's), phone stored as `(205) 270-6992`, status `SECOND_INTRO_SCHEDULED` (4/22)
+3. **intros_booked** — "Karrissa Agnew", phone `(205) 270-6992`, status `CLOSED_PURCHASED` (4/29) — **she bought a Basic membership**
+4. **intros_run** — buy_date 4/29, BASIC membership
 
-It **does not check `vip_registrations` at all**. So someone who registered for a VIP class but has no `intros_booked` row still appears as a brand-new lead. It also can miss people who are already in the active sales pipeline if they only exist as a `leads` row in `contacted` / `flagged` stages (rare but worth verifying).
+The dedup engine should have caught her on phone alone, regardless of name typo. Two bugs are preventing it:
 
-## Goal
+### Bug 1: Phone format mismatch in dedup query
+`detectDuplicate.ts` line 56 queries:
+```
+.or('phone.eq.2052706992,phone_e164.eq.+12052706992')
+```
+But `intros_booked.phone` is stored raw as `(205) 270-6992` and `phone_e164` is null on this record. Neither match. **Every lead whose intro was booked before phone normalization rolled out is invisible to dedup.**
 
-When a new lead arrives, automatically detect and remove from the "New Leads" list anyone who is:
-
-1. **Already a VIP class registrant** (matches a row in `vip_registrations` by phone, email, or name)
-2. **Already in our pipeline** as an existing `intros_booked` / `intros_run` row (already handled, but currently only `phone`/`email`/`name+date` — confirm it catches the "already in pipeline" case the user is seeing)
-
-Hide them from the New Leads tab without losing the record (mark `stage = 'already_in_system'` so they show up in the existing "Already in System" sub-tab and stay auditable).
+### Bug 2: Wrong status constant
+Line 61 / 84 check `booking_status_canon === 'PURCHASED'`, but the canon value is actually `CLOSED_PURCHASED`. So even when a phone match works, purchased members get tagged as "prior_intro" instead of "purchased".
 
 ## Plan
 
-### 1. Add VIP registration pass to dedup engine
-File: `src/lib/leads/detectDuplicate.ts`
+### 1. Fix phone matching in `src/lib/leads/detectDuplicate.ts`
+Replace the strict `.or()` query with a digits-only RPC-style match. Two options, going with the simpler one:
+- Fetch candidate rows by last-7-digits substring (`phone.ilike '%270-6992%'` and `'%2706992%'`), then normalize each row's phone client-side and compare to `normalizedPhone`. Same approach already used in PASS 2b for VIP.
+- Apply the same fix to PASSES 1b (intros_booked phone), 3 (intros_run phone if present), and 2b (already does it).
 
-Add a new check that runs **before** the name-only fallback (after the phone/email passes, alongside `sales_outside_intro`):
+### 2. Fix purchased-status detection
+Change `booking_status_canon === 'PURCHASED'` → `=== 'CLOSED_PURCHASED'` in PASS 1b and PASS 2 (lines 61, 84). Update `summaryNote` to say "purchased membership on {date}" so it's clear in the Already-in-System list.
 
-- Query `vip_registrations` by:
-  - normalized phone (10-digit, regex strip)
-  - normalized email (case-insensitive)
-  - lowercased `first_name + last_name` exact match
-- If any row matches:
-  - Return `confidence: 'HIGH'`, `matchType: 'phone' | 'email' | 'name_date'`
-  - `existingStatus: 'prior_intro'` (closest existing enum value — they are a known VIP contact)
-  - `summaryNote: "VIP class registrant: {name} — {vip_class_name}"`
-  - `matchedRecord.table: 'vip_registrations'`
+### 3. Mark Karissa's lead now
+Update `leads.id = c2e93938-55cb-4cf5-9aef-dd12a0aac716`:
+- `stage = 'already_in_system'`
+- `duplicate_confidence = 'HIGH'`
+- `duplicate_match_type = 'phone'`
+- `duplicate_notes = 'Phone match: Karrissa Agnew — purchased Basic membership on 2026-04-29'`
+- `booked_intro_id = 6d9cb2f0-7e08-4580-94af-341a4b3f05fd`
 
-Because confidence is HIGH, `confidenceToStage()` will move the lead to `already_in_system`, removing it from the New Leads sub-tab automatically.
+### 4. Background re-check picks up the rest
+The 5-min `backgroundDedupRecheck` loop will reclassify any other leads with the same root cause within minutes of the fix shipping — no manual cleanup needed.
 
-### 2. Trigger a re-check on existing new/flagged leads
-The continuous dedup loop (`backgroundDedupRecheck` in `MyDayNewLeadsTab.tsx`) already runs on mount + every 5 minutes against all `new`/`contacted` leads. Once the engine is updated, existing leads matching a VIP registrant will be re-classified on the next pass. **No changes needed there** — but on first deploy, leads will reclassify within ~1.5s of opening My Day.
-
-### 3. (Optional, confirm) Catch "already in pipeline" leads earlier
-Phone/email matches against `intros_booked` already work. The user said "already in our pipeline" — this likely means VIP registrants. Confirm this matches their case before adding any other tables.
-
-## Technical Details
-
-- `vip_registrations` has columns: `first_name`, `last_name`, `phone`, `email`, `vip_class_name`, `vip_session_id`, `booking_id`, `is_group_contact`. No soft-delete column to filter on.
-- Phone normalization in `detectDuplicate.ts` already strips to 10 digits — reuse `normalizePhone()`.
-- VIP registrations may have phone stored in raw format (e.g. `(205) 555-1234`) — query needs `regexp_replace` server-side OR fetch candidates and match client-side. Simplest: fetch candidates by name, then verify phone/email client-side. Keep query under 100 rows.
-- Group-contact rows (`is_group_contact = true`) often have placeholder names — still match them by phone/email but skip pure name matches when `is_group_contact = true` to avoid false positives.
-
-## Files to Change
-
-- `src/lib/leads/detectDuplicate.ts` — add VIP registration pass
-
-## Out of Scope
-
-- No DB migration needed
-- No changes to `MyDayNewLeadsTab.tsx` filter logic (the `stage='new'` filter already does the right thing once dedup reclassifies)
-- No changes to the "Already in System" sub-tab UI
+## Files to change
+- `src/lib/leads/detectDuplicate.ts` — phone matching + purchased status
+- One data update via insert tool for Karissa's lead
 
 ## Verification
-
-1. Pick a known VIP registrant who is currently in New Leads
-2. Reload My Day → within ~2s, they move to "Already in System" sub-tab with note "VIP class registrant: ..."
-3. New leads count badge decreases accordingly
-4. Manually create a new lead with the same phone as a VIP registrant → instantly classified as `already_in_system`
+- Reload My Day → Karissa drops out of New Leads, appears in Already in System with "purchased" badge
+- Spot-check 2-3 other "new" leads with phones that exist in `intros_booked` raw format → they reclassify within 5 min
