@@ -166,6 +166,10 @@ export function VipSchedulerTab() {
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
+  // Past-dates visibility — never persisted, always defaults to off on mount.
+  const [showPast, setShowPast] = useState(false);
+  const [pastJumpDate, setPastJumpDate] = useState<Date | undefined>(undefined);
+
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     const { data } = await sb
