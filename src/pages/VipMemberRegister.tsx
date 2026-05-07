@@ -64,6 +64,8 @@ export default function VipMemberRegister() {
   const [submitted, setSubmitted] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [groupCount, setGroupCount] = useState(0);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     if (!slug) { setNotFound(true); setLoadingSession(false); return; }
