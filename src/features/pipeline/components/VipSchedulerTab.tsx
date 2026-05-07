@@ -594,7 +594,37 @@ export function VipSchedulerTab() {
                     </div>
                   </div>
 
-                  {/* Attendance row for past sessions */}
+                  {/* Registration progress for reserved sessions */}
+                  {s.status === 'reserved' && (() => {
+                    const registered = regCounts[s.id] || 0;
+                    const estimated = regEstimates[s.id] || s.estimated_group_size || 0;
+                    if (!estimated) {
+                      return (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
+                          <Users className="w-3 h-3" /> {registered} registered
+                        </div>
+                      );
+                    }
+                    const pct = Math.min(100, (registered / estimated) * 100);
+                    const color =
+                      registered >= estimated ? 'text-green-600' :
+                      registered > 0 ? 'text-amber-600' :
+                      'text-red-600';
+                    return (
+                      <div className="space-y-1 pt-1">
+                        <div className="h-1 w-full bg-muted rounded-sm overflow-hidden">
+                          <div
+                            className="h-full bg-[#E8540A] rounded-sm transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <div className={`text-xs font-medium ${color}`}>
+                          {registered} of {estimated} registered
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {isPast && s.status === 'reserved' && (
                     <div className="flex items-center gap-2 pt-1 border-t">
                       {attendanceSaved === s.id ? (
