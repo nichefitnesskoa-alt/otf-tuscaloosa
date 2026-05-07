@@ -91,7 +91,7 @@ export async function detectDuplicate(lead: {
 
     if (emailBookings && emailBookings.length > 0) {
       const b = emailBookings[0];
-      const isPurchased = b.booking_status_canon === 'PURCHASED';
+      const isPurchased = b.booking_status_canon === 'CLOSED_PURCHASED';
       return {
         isDuplicate: true,
         confidence: 'HIGH',
