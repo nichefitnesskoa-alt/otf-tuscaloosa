@@ -48,24 +48,34 @@ export async function detectDuplicate(lead: {
   }
 
   // ── PASS 1b: Phone match in intros_booked (highest confidence) ──
+  // intros_booked.phone is stored in mixed formats ('(205) 270-6992', '2052706992', etc.)
+  // and phone_e164 is often null on legacy rows, so we fetch candidates by last-7-digit
+  // substring and normalize client-side to compare.
   if (normalizedPhone) {
+    const last7 = normalizedPhone.slice(-7);
+    const last7Dashed = `${last7.slice(0, 3)}-${last7.slice(3)}`;
     const { data: phoneBookings } = await supabase
       .from('intros_booked')
       .select('id, member_name, class_date, booking_status_canon, phone, phone_e164')
       .is('deleted_at', null)
-      .or(`phone.eq.${normalizedPhone},phone_e164.eq.+1${normalizedPhone}`)
-      .limit(1);
+      .or(`phone.ilike.%${last7}%,phone.ilike.%${last7Dashed}%,phone_e164.eq.+1${normalizedPhone}`)
+      .limit(20);
 
-    if (phoneBookings && phoneBookings.length > 0) {
-      const b = phoneBookings[0];
-      const isPurchased = b.booking_status_canon === 'PURCHASED';
+    const match = phoneBookings?.find(b =>
+      normalizePhone(b.phone) === normalizedPhone ||
+      normalizePhone(b.phone_e164) === normalizedPhone
+    );
+
+    if (match) {
+      const b = match;
+      const isPurchased = b.booking_status_canon === 'CLOSED_PURCHASED';
       return {
         isDuplicate: true,
         confidence: 'HIGH',
         matchType: 'phone',
         matchedRecord: { table: 'intros_booked', id: b.id, name: b.member_name, date: b.class_date },
         existingStatus: isPurchased ? 'purchased' : 'prior_intro',
-        summaryNote: `Phone match: ${b.member_name} — ${isPurchased ? 'purchased' : 'booked intro'} on ${b.class_date}`,
+        summaryNote: `Phone match: ${b.member_name} — ${isPurchased ? 'purchased membership' : 'booked intro'} on ${b.class_date}`,
       };
     }
   }
