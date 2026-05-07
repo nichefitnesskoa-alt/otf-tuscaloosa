@@ -64,6 +64,8 @@ export default function VipMemberRegister() {
   const [submitted, setSubmitted] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [groupCount, setGroupCount] = useState(0);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => {
     if (!slug) { setNotFound(true); setLoadingSession(false); return; }
@@ -82,6 +84,30 @@ export default function VipMemberRegister() {
       setLoadingSession(false);
     })();
   }, [slug]);
+
+  // Live group registration count (excludes group-contact rows)
+  useEffect(() => {
+    if (!session?.id) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      const { count } = await sb
+        .from('vip_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('vip_session_id', session.id)
+        .eq('is_group_contact', false);
+      if (!cancelled) setGroupCount(count || 0);
+    };
+    fetchCount();
+    const channel = sb
+      .channel(`vip-reg-count-${session.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vip_registrations', filter: `vip_session_id=eq.${session.id}` },
+        () => fetchCount(),
+      )
+      .subscribe();
+    return () => { cancelled = true; sb.removeChannel(channel); };
+  }, [session?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,19 +245,21 @@ export default function VipMemberRegister() {
   }
 
   if (submitted) {
+    const shortDate = format(new Date(session.session_date + 'T00:00:00'), 'EEEE, MMMM d');
     return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
-          <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F5F2EE' }}>
+        <div className="text-white py-6 px-4 text-center" style={{ backgroundColor: '#E8540A' }}>
+          <h1 className="text-xl font-extrabold tracking-wide">OTF TUSCALOOSA</h1>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <CheckCircle className="w-16 h-16 text-[#FF6900] mb-4" />
-          <h2 className="text-2xl font-bold mb-2">You're all set, {firstName}!</h2>
-          <p className="text-base text-muted-foreground">
-            We'll see you on {dateLabel} at {timeLabel}.
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-2xl mx-auto">
+          <p className="text-3xl md:text-4xl font-semibold leading-relaxed text-neutral-900">
+            You just did something most people talk about but never do.
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Come 15–20 minutes early so we can get your heart rate monitor set up.
+          <p className="text-base text-neutral-500 mt-8 leading-relaxed">
+            We'll see you on {shortDate}. Come 15 minutes early and we'll get you set up.
+          </p>
+          <p className="text-lg font-semibold mt-6" style={{ color: '#E8540A' }}>
+            See you there. 🧡
           </p>
         </div>
       </div>
@@ -239,19 +267,35 @@ export default function VipMemberRegister() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ backgroundColor: '#F5F2EE' }}>
       {/* Header */}
-      <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
-        <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
+      <div className="text-white py-6 px-4 text-center" style={{ backgroundColor: '#E8540A' }}>
+        <h1 className="text-xl font-extrabold tracking-wide">OTF TUSCALOOSA</h1>
       </div>
 
       <div className="max-w-md mx-auto px-4 py-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-foreground">
-            Welcome — Fill Out Your Info Before Class
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {session.reserved_by_group} · {dateLabel} · {timeLabel}
+        {/* Social proof pill */}
+        {groupCount > 0 && (
+          <div className="flex justify-center">
+            <span
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: '#E8540A' }}
+            >
+              {groupCount} from your group {groupCount === 1 ? 'has' : 'have'} already signed up
+            </span>
+          </div>
+        )}
+
+        {/* Group + session details */}
+        <div className="text-center space-y-1">
+          {session.reserved_by_group && (
+            <h2 className="text-2xl font-extrabold text-neutral-900">{session.reserved_by_group}</h2>
+          )}
+          <p className="text-base font-semibold text-neutral-700">
+            {dateLabel} at {timeLabel}
+          </p>
+          <p className="text-sm text-neutral-500 pt-2">
+            Fill out your info before class.
           </p>
         </div>
 
@@ -404,6 +448,45 @@ export default function VipMemberRegister() {
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit My Info'}
           </Button>
         </form>
+
+        {/* Share with friends */}
+        <div className="pt-2 text-center space-y-2">
+          <p className="text-sm text-neutral-600 font-medium">Know someone who should join?</p>
+          {typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function' ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] h-12 px-6 font-semibold"
+              style={{ borderColor: '#E8540A', color: '#E8540A' }}
+              onClick={async () => {
+                try {
+                  await (navigator as any).share({
+                    title: 'Private OTF class in Tuscaloosa',
+                    text: 'Come to a free private OrangeTheory class with us.',
+                    url: typeof window !== 'undefined' ? window.location.href : '',
+                  });
+                } catch { /* cancelled */ }
+              }}
+            >
+              Share this class
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] h-12 px-6 font-semibold"
+              style={{ borderColor: '#E8540A', color: '#E8540A' }}
+              onClick={async () => {
+                if (typeof window === 'undefined') return;
+                await navigator.clipboard.writeText(window.location.href);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 2000);
+              }}
+            >
+              {shareCopied ? 'Copied!' : 'Copy Link'}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
