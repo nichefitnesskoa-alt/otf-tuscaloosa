@@ -5,6 +5,7 @@
  * No auth required. OTF-branded.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 const sb = supabase as any;
 import { Button } from '@/components/ui/button';
