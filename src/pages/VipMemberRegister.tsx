@@ -267,19 +267,35 @@ export default function VipMemberRegister() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ backgroundColor: '#F5F2EE' }}>
       {/* Header */}
-      <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
-        <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
+      <div className="text-white py-6 px-4 text-center" style={{ backgroundColor: '#E8540A' }}>
+        <h1 className="text-xl font-extrabold tracking-wide">OTF TUSCALOOSA</h1>
       </div>
 
       <div className="max-w-md mx-auto px-4 py-8 space-y-6">
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-foreground">
-            Welcome — Fill Out Your Info Before Class
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {session.reserved_by_group} · {dateLabel} · {timeLabel}
+        {/* Social proof pill */}
+        {groupCount > 0 && (
+          <div className="flex justify-center">
+            <span
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: '#E8540A' }}
+            >
+              {groupCount} from your group {groupCount === 1 ? 'has' : 'have'} already signed up
+            </span>
+          </div>
+        )}
+
+        {/* Group + session details */}
+        <div className="text-center space-y-1">
+          {session.reserved_by_group && (
+            <h2 className="text-2xl font-extrabold text-neutral-900">{session.reserved_by_group}</h2>
+          )}
+          <p className="text-base font-semibold text-neutral-700">
+            {dateLabel} at {timeLabel}
+          </p>
+          <p className="text-sm text-neutral-500 pt-2">
+            Fill out your info before class.
           </p>
         </div>
 
