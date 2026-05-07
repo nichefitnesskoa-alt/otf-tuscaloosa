@@ -326,6 +326,11 @@ export default function MyDayPage() {
       <OfflineBanner />
       <VipClaimBanner />
 
+      {/* ═══ TODAY'S ACTIONS (role-based chips) ═══ */}
+      <div className="px-4 pt-3">
+        <TodaysActions />
+      </div>
+
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
       <div className="px-4 pt-3">
         <ShiftChecklist />
