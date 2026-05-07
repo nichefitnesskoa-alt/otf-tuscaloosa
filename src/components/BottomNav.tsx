@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GitBranch, Home, Settings, Eye, Trophy, UserCheck, ClipboardList, BarChart3 } from 'lucide-react';
+import { GitBranch, Home, Settings, Eye, Trophy, UserCheck, ClipboardList, BarChart3, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useDataAudit } from '@/hooks/useDataAudit';
@@ -36,6 +36,7 @@ export function BottomNav() {
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
+      { path: '/vips', label: 'VIPs', icon: Star },
       { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
     ];
     return (
@@ -75,14 +76,14 @@ export function BottomNav() {
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+    { path: '/vips', label: 'VIPs', icon: Star },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
-    { path: '/my-intros', label: 'My Intros', icon: UserCheck },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/wig', label: 'WIG', icon: Trophy },
-    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+    { path: '/vips', label: 'VIPs', icon: Star },
   ];
 
   return (

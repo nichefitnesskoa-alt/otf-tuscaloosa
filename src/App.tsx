@@ -93,7 +93,7 @@ function AppRoutes() {
       <Route
         path="/pipeline"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireAdmin>
             <Pipeline />
           </ProtectedRoute>
         }
@@ -177,6 +177,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CoachScorecards />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vips"
+        element={
+          <ProtectedRoute>
+            <Vips />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vips/:id"
+        element={
+          <ProtectedRoute>
+            <VipProfile />
           </ProtectedRoute>
         }
       />

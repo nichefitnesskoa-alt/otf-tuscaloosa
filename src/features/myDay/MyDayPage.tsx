@@ -57,6 +57,7 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
 import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
+import { TodaysActions } from './TodaysActions';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -324,6 +325,11 @@ export default function MyDayPage() {
 
       <OfflineBanner />
       <VipClaimBanner />
+
+      {/* ═══ TODAY'S ACTIONS (role-based chips) ═══ */}
+      <div className="px-4 pt-3">
+        <TodaysActions />
+      </div>
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
       <div className="px-4 pt-3">
