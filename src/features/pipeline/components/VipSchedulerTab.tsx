@@ -125,6 +125,7 @@ export function VipSchedulerTab() {
   const [registrations, setRegistrations] = useState<VipRegistration[]>([]);
   const [regLoading, setRegLoading] = useState(false);
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
+  const [regEstimates, setRegEstimates] = useState<Record<string, number>>({});
 
   // Add slot form state
   const [newDate, setNewDate] = useState('');
