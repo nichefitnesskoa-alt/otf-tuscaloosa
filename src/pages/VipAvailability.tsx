@@ -177,8 +177,21 @@ function ClaimDialog({
         body: { action: 'custom', text: gmMsg },
       }).catch(() => {});
 
-      setConfirmed(true);
+      // Compute slug from session date/time (matches generator used elsewhere)
+      const d2 = new Date(session.session_date + 'T00:00:00');
+      const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      const _month = monthNames[d2.getMonth()];
+      const _day = d2.getDate();
+      const [_h, _m] = session.session_time.split(':');
+      const _hour = parseInt(_h);
+      const _min = _m || '00';
+      const _ampm = _hour >= 12 ? 'pm' : 'am';
+      const _h12 = _hour > 12 ? _hour - 12 : _hour === 0 ? 12 : _hour;
+      const slug = `vip-${_month}${_day}-${_h12}${_min !== '00' ? _min : ''}${_ampm}`;
+
       onClaimed(session.id);
+      onOpenChange(false);
+      navigate(`/vip/${slug}/confirmed`);
     } catch (err: any) {
       console.error('Claim error:', err);
       setError('Something went wrong. Please try again.');
