@@ -20,6 +20,7 @@ import SuccessStory from "./pages/SuccessStory";
 import VipRegister from "./pages/VipRegister";
 import VipAvailability from "./pages/VipAvailability";
 import VipMemberRegister from "./pages/VipMemberRegister";
+import VipConfirmed from "./pages/VipConfirmed";
 import VipRoster from "./pages/VipRoster";
 import Vips from "./pages/Vips";
 import CoachView from "./pages/CoachView";
