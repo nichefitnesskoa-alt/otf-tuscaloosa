@@ -85,6 +85,30 @@ export default function VipMemberRegister() {
     })();
   }, [slug]);
 
+  // Live group registration count (excludes group-contact rows)
+  useEffect(() => {
+    if (!session?.id) return;
+    let cancelled = false;
+    const fetchCount = async () => {
+      const { count } = await sb
+        .from('vip_registrations')
+        .select('id', { count: 'exact', head: true })
+        .eq('vip_session_id', session.id)
+        .eq('is_group_contact', false);
+      if (!cancelled) setGroupCount(count || 0);
+    };
+    fetchCount();
+    const channel = sb
+      .channel(`vip-reg-count-${session.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vip_registrations', filter: `vip_session_id=eq.${session.id}` },
+        () => fetchCount(),
+      )
+      .subscribe();
+    return () => { cancelled = true; sb.removeChannel(channel); };
+  }, [session?.id]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
