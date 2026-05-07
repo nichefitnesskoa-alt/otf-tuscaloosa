@@ -76,7 +76,7 @@ function ClaimDialog({
   const [businessSubType, setBusinessSubType] = useState<'staff_only' | 'staff_customers' | 'staff_members' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (open) {
