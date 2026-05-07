@@ -448,6 +448,45 @@ export default function VipMemberRegister() {
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit My Info'}
           </Button>
         </form>
+
+        {/* Share with friends */}
+        <div className="pt-2 text-center space-y-2">
+          <p className="text-sm text-neutral-600 font-medium">Know someone who should join?</p>
+          {typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function' ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] h-12 px-6 font-semibold"
+              style={{ borderColor: '#E8540A', color: '#E8540A' }}
+              onClick={async () => {
+                try {
+                  await (navigator as any).share({
+                    title: 'Private OTF class in Tuscaloosa',
+                    text: 'Come to a free private OrangeTheory class with us.',
+                    url: typeof window !== 'undefined' ? window.location.href : '',
+                  });
+                } catch { /* cancelled */ }
+              }}
+            >
+              Share this class
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] h-12 px-6 font-semibold"
+              style={{ borderColor: '#E8540A', color: '#E8540A' }}
+              onClick={async () => {
+                if (typeof window === 'undefined') return;
+                await navigator.clipboard.writeText(window.location.href);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 2000);
+              }}
+            >
+              {shareCopied ? 'Copied!' : 'Copy Link'}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
