@@ -20,11 +20,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock, Trash2, Download, Pencil, Check, CalendarCheck,
+  CalendarPlus, Copy, Eye, XCircle, RotateCcw, Loader2, Users, BookmarkCheck, Clock, Trash2, Download, Pencil, Check, CalendarCheck, History, CalendarIcon, X,
 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { Calendar as CalendarComp } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { ALL_STAFF, COACHES, SALES_ASSOCIATES } from '@/types';
