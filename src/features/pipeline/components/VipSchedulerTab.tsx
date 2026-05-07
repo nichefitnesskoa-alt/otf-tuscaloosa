@@ -430,8 +430,60 @@ export function VipSchedulerTab() {
         </div>
       </div>
 
+      {/* Past dates toggle + jump-to-date */}
+      <div className="flex items-center justify-between gap-2 flex-wrap rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showPast ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 text-xs gap-1"
+            onClick={() => { setShowPast(p => !p); if (showPast) setPastJumpDate(undefined); }}
+          >
+            <History className="w-3.5 h-3.5" />
+            {showPast ? 'Hide Past Dates' : 'View Past Dates'}
+          </Button>
+          {showPast && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn("h-9 text-xs gap-1", !pastJumpDate && "text-muted-foreground")}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {pastJumpDate ? format(pastJumpDate, 'MMM d, yyyy') : 'Jump to date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComp
+                  mode="single"
+                  selected={pastJumpDate}
+                  onSelect={(d) => setPastJumpDate(d || undefined)}
+                  disabled={(d) => format(d, 'yyyy-MM-dd') >= today}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
+          {showPast && pastJumpDate && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs gap-1" onClick={() => setPastJumpDate(undefined)}>
+              <X className="w-3.5 h-3.5" /> Clear
+            </Button>
+          )}
+        </div>
+        <span className="text-[11px] text-muted-foreground">
+          {showPast
+            ? (pastJumpDate ? `Showing ${format(pastJumpDate, 'MMM d')} → forward` : 'Showing all past + upcoming')
+            : 'Today and forward only'}
+        </span>
+      </div>
+
       {/* Sessions list */}
-      {sessions.length === 0 ? (
+      {(() => {
+        const visibleSessions = sessions.filter(s => {
+          if (s.session_date >= today) return true;
+          if (!showPast) return false;
+          if (pastJumpDate) return s.session_date >= format(pastJumpDate, 'yyyy-MM-dd');
+          return true;
+        });
+        return visibleSessions.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground text-sm">
             No VIP sessions yet. Add a slot to get started.
@@ -439,7 +491,7 @@ export function VipSchedulerTab() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {sessions.map(s => {
+          {visibleSessions.map(s => {
             const isPast = s.session_date < today;
             return (
               <Card key={s.id} className="overflow-hidden">
