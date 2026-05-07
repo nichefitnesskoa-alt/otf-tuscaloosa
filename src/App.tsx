@@ -135,6 +135,7 @@ function AppRoutes() {
       <Route path="/vip-register" element={<VipRegister />} />
       <Route path="/vip-availability" element={<VipAvailability />} />
       <Route path="/vip/:slug/register" element={<VipMemberRegister />} />
+      <Route path="/vip/:slug/confirmed" element={<VipConfirmed />} />
       <Route path="/vip/:slug/roster" element={<VipRoster />} />
       <Route path="/apply" element={<Apply />} />
       <Route path="/apply/:token" element={<Apply />} />
