@@ -2756,63 +2756,6 @@ export type Database = {
         }
         Relationships: []
       }
-      vip_members: {
-        Row: {
-          birthday: string | null
-          created_at: string
-          created_by: string
-          deleted_at: string | null
-          email: string | null
-          first_name: string
-          id: string
-          is_vip: boolean
-          last_name: string | null
-          phone: string | null
-          phone_normalized: string | null
-          updated_at: string
-          vip_last_interaction_at: string | null
-          vip_milestones: Json
-          vip_notes: string | null
-          vip_referral_count: number
-        }
-        Insert: {
-          birthday?: string | null
-          created_at?: string
-          created_by?: string
-          deleted_at?: string | null
-          email?: string | null
-          first_name: string
-          id?: string
-          is_vip?: boolean
-          last_name?: string | null
-          phone?: string | null
-          phone_normalized?: string | null
-          updated_at?: string
-          vip_last_interaction_at?: string | null
-          vip_milestones?: Json
-          vip_notes?: string | null
-          vip_referral_count?: number
-        }
-        Update: {
-          birthday?: string | null
-          created_at?: string
-          created_by?: string
-          deleted_at?: string | null
-          email?: string | null
-          first_name?: string
-          id?: string
-          is_vip?: boolean
-          last_name?: string | null
-          phone?: string | null
-          phone_normalized?: string | null
-          updated_at?: string
-          vip_last_interaction_at?: string | null
-          vip_milestones?: Json
-          vip_notes?: string | null
-          vip_referral_count?: number
-        }
-        Relationships: []
-      }
       vip_registrations: {
         Row: {
           birthday: string | null
@@ -2878,13 +2821,6 @@ export type Database = {
           weight_lbs?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "vip_registrations_vip_member_id_fkey"
-            columns: ["vip_member_id"]
-            isOneToOne: false
-            referencedRelation: "vip_members"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "vip_registrations_vip_session_id_fkey"
             columns: ["vip_session_id"]
@@ -3001,41 +2937,6 @@ export type Database = {
           slot_time?: string
         }
         Relationships: []
-      }
-      vip_touchpoints: {
-        Row: {
-          created_at: string
-          id: string
-          notes: string | null
-          staff_name: string
-          touchpoint_type: string
-          vip_member_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          staff_name: string
-          touchpoint_type: string
-          vip_member_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          staff_name?: string
-          touchpoint_type?: string
-          vip_member_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "vip_touchpoints_vip_member_id_fkey"
-            columns: ["vip_member_id"]
-            isOneToOne: false
-            referencedRelation: "vip_members"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       weekly_digests: {
         Row: {
