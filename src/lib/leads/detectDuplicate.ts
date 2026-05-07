@@ -93,6 +93,72 @@ export async function detectDuplicate(lead: {
     }
   }
 
+  // ── PASS 2b: VIP registration match (phone / email / name) ──
+  // Fetch candidates by name, then verify phone/email client-side because
+  // vip_registrations stores phone in raw format.
+  {
+    const { data: vipCandidates } = await supabase
+      .from('vip_registrations')
+      .select('id, first_name, last_name, phone, email, vip_class_name, is_group_contact, created_at')
+      .or(
+        [
+          normalizedEmail ? `email.ilike.${normalizedEmail}` : null,
+          `and(first_name.ilike.${lead.first_name},last_name.ilike.${lead.last_name})`,
+        ].filter(Boolean).join(',')
+      )
+      .limit(50);
+
+    let vipMatch: any = null;
+    let vipMatchType: DuplicateMatchType = null;
+
+    if (vipCandidates && vipCandidates.length > 0) {
+      // Phone match (strongest)
+      if (normalizedPhone) {
+        vipMatch = vipCandidates.find(v => normalizePhone(v.phone) === normalizedPhone) || null;
+        if (vipMatch) vipMatchType = 'phone';
+      }
+      // Email match
+      if (!vipMatch && normalizedEmail) {
+        vipMatch = vipCandidates.find(v => normalizeEmail(v.email) === normalizedEmail) || null;
+        if (vipMatch) vipMatchType = 'email';
+      }
+      // Name match — skip group-contact rows (placeholder names cause false positives)
+      if (!vipMatch) {
+        vipMatch = vipCandidates.find(v =>
+          !v.is_group_contact &&
+          (v.first_name || '').toLowerCase().trim() === lead.first_name.toLowerCase().trim() &&
+          (v.last_name || '').toLowerCase().trim() === lead.last_name.toLowerCase().trim()
+        ) || null;
+        if (vipMatch) vipMatchType = 'name_date';
+      }
+    }
+
+    // Fallback phone-only query (in case name didn't match but phone exists in VIP regs)
+    if (!vipMatch && normalizedPhone) {
+      const { data: vipByPhone } = await supabase
+        .from('vip_registrations')
+        .select('id, first_name, last_name, phone, email, vip_class_name, is_group_contact, created_at')
+        .not('phone', 'is', null)
+        .limit(500);
+      if (vipByPhone) {
+        vipMatch = vipByPhone.find(v => normalizePhone(v.phone) === normalizedPhone) || null;
+        if (vipMatch) vipMatchType = 'phone';
+      }
+    }
+
+    if (vipMatch) {
+      const fullName = `${vipMatch.first_name || ''} ${vipMatch.last_name || ''}`.trim();
+      return {
+        isDuplicate: true,
+        confidence: 'HIGH',
+        matchType: vipMatchType,
+        matchedRecord: { table: 'vip_registrations', id: vipMatch.id, name: fullName, date: vipMatch.created_at?.split('T')[0] },
+        existingStatus: 'prior_intro',
+        summaryNote: `VIP class registrant: ${fullName}${vipMatch.vip_class_name ? ` — ${vipMatch.vip_class_name}` : ''}`,
+      };
+    }
+  }
+
   // ── PASS 3: Name match in sales_outside_intro (active member / walk-in sale) ──
   const { data: outsideSales } = await supabase
     .from('sales_outside_intro')
