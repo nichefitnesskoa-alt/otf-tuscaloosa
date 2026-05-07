@@ -202,7 +202,7 @@ export async function detectDuplicate(lead: {
 
   if (runs && runs.length > 0) {
     const r = runs[0];
-    const isPurchased = r.result_canon === 'PURCHASED';
+    const isPurchased = ['BASIC','PREMIER','ELITE','PREMIER_OTBEAT','ON_5_CLASS_PACK'].includes(r.result_canon);
     return {
       isDuplicate: true,
       confidence: 'MEDIUM',
