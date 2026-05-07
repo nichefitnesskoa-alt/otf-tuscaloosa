@@ -216,6 +216,17 @@ export function VipSchedulerTab() {
 
   useEffect(() => { fetchSessions(); fetchTemplates(); }, [fetchSessions, fetchTemplates]);
 
+  // Realtime: re-fetch counts/estimates when vip_registrations changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('vip-registrations-progress')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_registrations' }, () => {
+        fetchSessions();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchSessions]);
+
   const handleAddSlot = async () => {
     if (!newDate || !newTime) { toast.error('Date and time are required'); return; }
     setSaving(true);
