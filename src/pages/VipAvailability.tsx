@@ -86,7 +86,6 @@ function ClaimDialog({
       setSessionType('');
       setBusinessSubType(null);
       setError(null);
-      setConfirmed(false);
     }
   }, [open]);
 
