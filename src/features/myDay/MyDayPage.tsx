@@ -57,6 +57,7 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
 import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
+import { TodaysActions } from './TodaysActions';
 
 export default function MyDayPage() {
   const { user } = useAuth();
