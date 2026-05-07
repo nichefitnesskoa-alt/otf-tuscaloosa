@@ -224,7 +224,7 @@ export async function detectDuplicate(lead: {
 
   if (nameBookings && nameBookings.length > 0) {
     const b = nameBookings[0];
-    const isPurchased = b.booking_status_canon === 'PURCHASED';
+    const isPurchased = b.booking_status_canon === 'CLOSED_PURCHASED';
     return {
       isDuplicate: true,
       confidence: 'MEDIUM',
