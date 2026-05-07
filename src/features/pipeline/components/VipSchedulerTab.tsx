@@ -531,11 +531,6 @@ export function VipSchedulerTab() {
                           {getSessionTypeLabel(s)}
                         </Badge>
                       )}
-                      {s.status === 'reserved' && regCounts[s.id] !== undefined && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Users className="w-3 h-3" /> {regCounts[s.id]} registered
-                        </span>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {s.status === 'reserved' && s.shareable_slug && (
