@@ -22,7 +22,6 @@ import VipAvailability from "./pages/VipAvailability";
 import VipMemberRegister from "./pages/VipMemberRegister";
 import VipRoster from "./pages/VipRoster";
 import Vips from "./pages/Vips";
-import VipProfile from "./pages/VipProfile";
 import CoachView from "./pages/CoachView";
 import Recaps from "./pages/Recaps";
 import CoachMyIntros from "./pages/CoachMyIntros";
@@ -185,14 +184,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Vips />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/vips/:id"
-        element={
-          <ProtectedRoute>
-            <VipProfile />
           </ProtectedRoute>
         }
       />
