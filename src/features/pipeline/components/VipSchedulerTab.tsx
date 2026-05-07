@@ -125,6 +125,7 @@ export function VipSchedulerTab() {
   const [registrations, setRegistrations] = useState<VipRegistration[]>([]);
   const [regLoading, setRegLoading] = useState(false);
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
+  const [regEstimates, setRegEstimates] = useState<Record<string, number>>({});
 
   // Add slot form state
   const [newDate, setNewDate] = useState('');
@@ -181,18 +182,24 @@ export function VipSchedulerTab() {
     setSessions((data as any[]) || []);
 
     const counts: Record<string, number> = {};
+    const estimates: Record<string, number> = {};
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id')
-        .in('vip_session_id', ids)
-        .eq('is_group_contact', false);
-      for (const r of (regs || [])) {
-        counts[(r as any).vip_session_id] = (counts[(r as any).vip_session_id] || 0) + 1;
+        .select('vip_session_id, is_group_contact, estimated_group_size')
+        .in('vip_session_id', ids);
+      for (const r of (regs || []) as any[]) {
+        if (!r.vip_session_id) continue;
+        if (r.is_group_contact) {
+          if (r.estimated_group_size) estimates[r.vip_session_id] = r.estimated_group_size;
+        } else {
+          counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        }
       }
     }
     setRegCounts(counts);
+    setRegEstimates(estimates);
     setLoading(false);
   }, []);
 
@@ -208,6 +215,17 @@ export function VipSchedulerTab() {
   }, []);
 
   useEffect(() => { fetchSessions(); fetchTemplates(); }, [fetchSessions, fetchTemplates]);
+
+  // Realtime: re-fetch counts/estimates when vip_registrations changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('vip-registrations-progress')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_registrations' }, () => {
+        fetchSessions();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchSessions]);
 
   const handleAddSlot = async () => {
     if (!newDate || !newTime) { toast.error('Date and time are required'); return; }
@@ -513,11 +531,6 @@ export function VipSchedulerTab() {
                           {getSessionTypeLabel(s)}
                         </Badge>
                       )}
-                      {s.status === 'reserved' && regCounts[s.id] !== undefined && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Users className="w-3 h-3" /> {regCounts[s.id]} registered
-                        </span>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {s.status === 'reserved' && s.shareable_slug && (
@@ -581,7 +594,37 @@ export function VipSchedulerTab() {
                     </div>
                   </div>
 
-                  {/* Attendance row for past sessions */}
+                  {/* Registration progress for reserved sessions */}
+                  {s.status === 'reserved' && (() => {
+                    const registered = regCounts[s.id] || 0;
+                    const estimated = regEstimates[s.id] || s.estimated_group_size || 0;
+                    if (!estimated) {
+                      return (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 pt-1">
+                          <Users className="w-3 h-3" /> {registered} registered
+                        </div>
+                      );
+                    }
+                    const pct = Math.min(100, (registered / estimated) * 100);
+                    const color =
+                      registered >= estimated ? 'text-green-600' :
+                      registered > 0 ? 'text-amber-600' :
+                      'text-red-600';
+                    return (
+                      <div className="space-y-1 pt-1">
+                        <div className="h-1 w-full bg-muted rounded-sm overflow-hidden">
+                          <div
+                            className="h-full bg-[#E8540A] rounded-sm transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <div className={`text-xs font-medium ${color}`}>
+                          {registered} of {estimated} registered
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {isPast && s.status === 'reserved' && (
                     <div className="flex items-center gap-2 pt-1 border-t">
                       {attendanceSaved === s.id ? (
