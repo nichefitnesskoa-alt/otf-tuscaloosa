@@ -180,6 +180,22 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/vips"
+        element={
+          <ProtectedRoute>
+            <Vips />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vips/:id"
+        element={
+          <ProtectedRoute>
+            <VipProfile />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
