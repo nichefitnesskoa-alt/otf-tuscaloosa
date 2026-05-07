@@ -182,18 +182,24 @@ export function VipSchedulerTab() {
     setSessions((data as any[]) || []);
 
     const counts: Record<string, number> = {};
+    const estimates: Record<string, number> = {};
     if (data && data.length > 0) {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id')
-        .in('vip_session_id', ids)
-        .eq('is_group_contact', false);
-      for (const r of (regs || [])) {
-        counts[(r as any).vip_session_id] = (counts[(r as any).vip_session_id] || 0) + 1;
+        .select('vip_session_id, is_group_contact, estimated_group_size')
+        .in('vip_session_id', ids);
+      for (const r of (regs || []) as any[]) {
+        if (!r.vip_session_id) continue;
+        if (r.is_group_contact) {
+          if (r.estimated_group_size) estimates[r.vip_session_id] = r.estimated_group_size;
+        } else {
+          counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+        }
       }
     }
     setRegCounts(counts);
+    setRegEstimates(estimates);
     setLoading(false);
   }, []);
 
