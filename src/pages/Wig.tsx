@@ -270,6 +270,7 @@ export default function Wig() {
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
+  const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [measuresLoading, setMeasuresLoading] = useState(true);
 
   const loadLeadMeasures = useCallback(async () => {
