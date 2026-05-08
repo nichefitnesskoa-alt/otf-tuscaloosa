@@ -70,6 +70,27 @@ export function useTodaysActions(personName: string | null, role: 'Coach' | 'SA'
           tone: 'amber',
         });
       });
+
+      // Weekly cadence chip — alternating self/formal eval, persists past week end if missed.
+      const cadence = getCadenceForDate();
+      const fromYmd = format(new Date(cadence.weekStart.getTime() - 60 * 86400_000), 'yyyy-MM-dd');
+      const toYmd = format(cadence.weekEnd, 'yyyy-MM-dd');
+      const { data: cadenceCards } = await supabase
+        .from('fv_scorecards' as any)
+        .select('*')
+        .eq('evaluatee_name', personName)
+        .gte('class_date', fromYmd)
+        .lte('class_date', toYmd);
+      const met = hasMetCadenceForWeek(personName, (cadenceCards || []) as unknown as FvScorecard[], cadence.weekStart, cadence.weekEnd, cadence.type);
+      if (!met) {
+        next.push({
+          id: 'cadence-' + format(cadence.weekStart, 'yyyy-MM-dd'),
+          kind: 'cadence_eval',
+          label: cadence.type === 'self' ? 'Self-eval owed this week' : 'Formal eval owed this week',
+          meta: { type: cadence.type, weekStart: cadence.weekStart.toISOString() },
+          tone: 'primary',
+        });
+      }
     }
 
     if (role === 'SA') {
