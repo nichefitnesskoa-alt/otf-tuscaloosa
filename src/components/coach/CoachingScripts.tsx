@@ -4,15 +4,58 @@ import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
-import { FileText, Upload, ArrowLeft, CalendarIcon, Trash2 } from 'lucide-react';
+import { FileText, Upload, ArrowLeft, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+// Parse filenames like "May09_2G", "May 9 2G", "2G-May-9", "5.9.25 3G", etc.
+const MONTHS: Record<string, number> = {
+  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+  may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
+};
+
+export function parseScriptFilename(filename: string): { format: '2G' | '3G'; date: Date; title: string } | null {
+  const base = filename.replace(/\.(docx|pdf)$/i, '');
+  const lower = base.toLowerCase();
+
+  // Format
+  let fmt: '2G' | '3G' | null = null;
+  if (/(^|[^a-z0-9])3g([^a-z0-9]|$)/i.test(base)) fmt = '3G';
+  else if (/(^|[^a-z0-9])2g([^a-z0-9]|$)/i.test(base)) fmt = '2G';
+  if (!fmt) return null;
+
+  // Date — try MonthName + Day first
+  let month: number | null = null;
+  let day: number | null = null;
+  let year: number = new Date().getFullYear();
+
+  const monthMatch = lower.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[\s._-]*(\d{1,2})/);
+  if (monthMatch) {
+    month = MONTHS[monthMatch[1]];
+    day = parseInt(monthMatch[2], 10);
+  } else {
+    // Numeric M.D or M.D.YY
+    const numMatch = base.match(/(\d{1,2})[.\-_/](\d{1,2})(?:[.\-_/](\d{2,4}))?/);
+    if (numMatch) {
+      month = parseInt(numMatch[1], 10) - 1;
+      day = parseInt(numMatch[2], 10);
+      if (numMatch[3]) {
+        const y = parseInt(numMatch[3], 10);
+        year = y < 100 ? 2000 + y : y;
+      }
+    }
+  }
+
+  if (month === null || day === null || month < 0 || month > 11 || day < 1 || day > 31) return null;
+
+  const date = new Date(year, month, day);
+  const title = `${fmt} — ${format(date, 'MMM d')}`;
+  return { format: fmt, date, title };
+}
 
 interface CoachingScript {
   id: string;
@@ -242,9 +285,6 @@ export function CoachingScripts() {
               <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm truncate">{s.title}</p>
-                <span className="text-xs text-muted-foreground">
-                  {format(new Date(s.script_date), 'MMM d, yyyy')}
-                </span>
               </div>
               <Badge className={cn('text-[10px] shrink-0', FORMAT_STYLES[s.format] || '')}>
                 {s.format}
@@ -268,111 +308,133 @@ export function CoachingScripts() {
   );
 }
 
-// ── Upload form ──
+// ── Batch upload form ──
+type ParsedFile = {
+  file: File;
+  parsed: ReturnType<typeof parseScriptFilename>;
+};
+
 function UploadForm({ onSuccess }: { onSuccess: () => void }) {
-  const [fmt, setFmt] = useState('');
-  const [date, setDate] = useState<Date>();
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<ParsedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const next: ParsedFile[] = Array.from(files).map((file) => ({
+      file,
+      parsed: parseScriptFilename(file.name),
+    }));
+    setItems(next);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fmt || !date || !file) {
-      toast.error('Please fill in all fields');
+    const valid = items.filter((i) => i.parsed);
+    if (valid.length === 0) {
+      toast.error('No valid filenames. Use names like "May09_2G".');
       return;
     }
 
-    const title = `${fmt} — ${format(date, 'MMM d, yyyy')}`;
-    const dateStr = format(date, 'yyyy-MM-dd');
-
     setUploading(true);
-    try {
-      const ext = file.name.split('.').pop() || 'docx';
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    let uploaded = 0;
+    let failed = 0;
 
-      const { error: uploadErr } = await supabase.storage
-        .from('coaching-scripts')
-        .upload(path, file, {
-          contentType: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
+    await Promise.all(
+      valid.map(async ({ file, parsed }) => {
+        try {
+          const ext = file.name.split('.').pop() || 'docx';
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadErr } = await supabase.storage
+            .from('coaching-scripts')
+            .upload(path, file, {
+              contentType:
+                file.type ||
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            });
+          if (uploadErr) throw uploadErr;
+          const { data: urlData } = supabase.storage
+            .from('coaching-scripts')
+            .getPublicUrl(path);
+          const { error: insertErr } = await supabase
+            .from('coaching_scripts')
+            .insert({
+              title: parsed!.title,
+              format: parsed!.format,
+              script_date: format(parsed!.date, 'yyyy-MM-dd'),
+              file_url: urlData.publicUrl,
+            } as any);
+          if (insertErr) throw insertErr;
+          uploaded++;
+        } catch {
+          failed++;
+        }
+      })
+    );
 
-      if (uploadErr) throw uploadErr;
-
-      const { data: urlData } = supabase.storage
-        .from('coaching-scripts')
-        .getPublicUrl(path);
-
-      const { error: insertErr } = await supabase
-        .from('coaching_scripts')
-        .insert({
-          title,
-          format: fmt,
-          script_date: dateStr,
-          file_url: urlData.publicUrl,
-        } as any);
-
-      if (insertErr) throw insertErr;
-
-      toast.success('Script uploaded');
+    const skipped = items.length - valid.length;
+    setUploading(false);
+    if (uploaded > 0) {
+      toast.success(
+        `Uploaded ${uploaded} script${uploaded === 1 ? '' : 's'}` +
+          (skipped > 0 ? ` · skipped ${skipped} unparseable` : '') +
+          (failed > 0 ? ` · ${failed} failed` : '')
+      );
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
+    } else {
+      toast.error('No scripts uploaded');
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Format</Label>
-        <Select value={fmt} onValueChange={setFmt}>
-          <SelectTrigger><SelectValue placeholder="Select format" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1G">1G</SelectItem>
-            <SelectItem value="2G">2G</SelectItem>
-            <SelectItem value="S50/T50">S50/T50</SelectItem>
-            <SelectItem value="3G">3G</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Date</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !date && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, 'PPP') : <span>Pick a date</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div>
-        <Label>Document (PDF or Word)</Label>
+        <Label>Documents (PDF or Word)</Label>
         <Input
           type="file"
-          accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
-          onChange={e => setFile(e.target.files?.[0] || null)}
+          multiple
+          accept=".docx,.pdf"
+          onChange={(e) => handleFiles(e.target.files)}
         />
+        <p className="text-xs text-muted-foreground mt-1.5">
+          Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
+        </p>
       </div>
-      <Button type="submit" disabled={uploading} className="w-full">
-        {uploading ? 'Uploading...' : 'Upload'}
+
+      {items.length > 0 && (
+        <div className="space-y-1.5 max-h-64 overflow-auto border border-border rounded-md p-2">
+          {items.map(({ file, parsed }, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
+            >
+              {parsed ? (
+                <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-destructive shrink-0" />
+              )}
+              <span className="truncate flex-1 text-muted-foreground">
+                {file.name}
+              </span>
+              {parsed ? (
+                <span className="font-medium shrink-0">{parsed.title}</span>
+              ) : (
+                <span className="text-destructive shrink-0">can't parse</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={uploading || items.length === 0}
+        className="w-full"
+      >
+        {uploading
+          ? 'Uploading...'
+          : `Upload ${items.filter((i) => i.parsed).length || ''}`.trim()}
       </Button>
     </form>
   );
 }
+
