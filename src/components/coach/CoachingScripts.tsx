@@ -207,7 +207,7 @@ export function CoachingScripts() {
     const { data } = await supabase
       .from('coaching_scripts')
       .select('*')
-      .order('script_date', { ascending: false });
+      .order('script_date', { ascending: true });
     setScripts((data as unknown as CoachingScript[]) || []);
     setLoading(false);
   };
