@@ -488,7 +488,7 @@ export default function Wig() {
           name,
           coached: wk.coached,
           closes: cl.closed,
-          closeRate: cl.total > 0 ? (cl.closed / cl.total) * 100 : 0,
+          closeRate: wk.coached > 0 ? (cl.closed / wk.coached) * 100 : 0,
           closeTotal: cl.total,
         };
       }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
