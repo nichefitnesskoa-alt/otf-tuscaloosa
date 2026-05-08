@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
+import { BookingScorecards } from '@/components/scorecard/BookingScorecards';
 
 interface CoachBooking {
   id: string;
