@@ -273,6 +273,10 @@ export default function Wig() {
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [measuresLoading, setMeasuresLoading] = useState(true);
 
+  // Close rate reconciles with the Coach — Coached & Closes table directly below it.
+  const effectiveShowed = Math.max(coachTableTotals.coached, coachTableTotals.closes);
+  const closeRate = effectiveShowed > 0 ? (coachTableTotals.closes / effectiveShowed) * 100 : 0;
+
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
     try {
