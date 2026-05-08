@@ -83,11 +83,14 @@ async function fetchMetrics() {
   if (bookings.length > 0) {
     const ids = bookings.map(b => b.id);
     const { data: runs } = await sb.from('intros_run')
-      .select('linked_intro_booked_id, member_name, result_canon')
-      .in('linked_intro_booked_id', ids)
-      .eq('result_canon', 'SALE');
+      .select('linked_intro_booked_id, member_name, result, result_canon')
+      .in('linked_intro_booked_id', ids);
     const bookingMap = new Map(bookings.map(b => [b.id, b]));
+    const SALE_CANONS = new Set(['SALE', 'BASIC', 'PREMIER', 'ELITE', 'PREMIUM', 'PREMIER_PLUS']);
     (runs || []).forEach((r: any) => {
+      const isSale = SALE_CANONS.has(r.result_canon) ||
+        (r.result && ['premier', 'elite', 'basic'].some(m => r.result.toLowerCase().includes(m)));
+      if (!isSale) return;
       const b = bookingMap.get(r.linked_intro_booked_id);
       const name = norm(r.member_name || b?.member_name);
       if (name) joinKeys.add(name);
