@@ -198,10 +198,10 @@ export function ReferralAskTracker({ dateRange }: Props) {
                             size="sm"
                             variant="outline"
                             className="h-9 text-xs"
-                            onClick={() => handleAskLater(r)}
+                            onClick={() => handleDoneLater(r)}
                             disabled={saving}
                           >
-                            <Clock className="w-3.5 h-3.5 mr-1" /> Ask later
+                            <Check className="w-3.5 h-3.5 mr-1" /> Reached out after
                           </Button>
                         </>
                       )}
