@@ -494,6 +494,10 @@ export default function Wig() {
         };
       }).filter(c => !isMissingCoach(c.name) && (c.coached > 0 || c.closeTotal > 0)).sort((a, b) => b.coached - a.coached);
 
+      const totalsCoached = coachData.reduce((sum, c) => sum + (c.coached || 0), 0);
+      const totalsClosed = coachData.reduce((sum, c) => sum + (c.closes || 0), 0);
+      setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
+
       if (user?.role === 'Coach') {
         setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
       } else {
