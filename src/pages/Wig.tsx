@@ -686,9 +686,11 @@ export default function Wig() {
           </CardContent>
         </Card>
 
+        {/* SECTION — FIRST VISIT EXPERIENCE (auto-counts intros & scorecards per coach) */}
+        <WigFirstVisitSection dateRange={dateRange} />
       </div>
 
-      {/* SECTION 2 — LEAD MEASURES */}
+      {/* SECTION 2 — SA LEAD MEASURES */}
       <div className="space-y-4">
         {/* SA Lead Measures */}
         <Card>
@@ -730,9 +732,6 @@ export default function Wig() {
             )}
           </CardContent>
         </Card>
-
-        {/* SECTION — FIRST VISIT EXPERIENCE (auto-counts intros & scorecards per coach) */}
-        <WigFirstVisitSection dateRange={dateRange} />
 
         {/* Referral Ask Tracker — closed memberships needing a referral ask */}
         <ReferralAskTracker dateRange={dateRange} />
