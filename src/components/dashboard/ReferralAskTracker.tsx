@@ -117,7 +117,7 @@ export function ReferralAskTracker({ dateRange }: Props) {
           Ask for a referral
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-1">
-          Every new member from this period. Tap once you've asked.
+          Goal: every new member gets a referral ask within 24 hours of joining — at the POS desk if you can, or by text right after. Their warmest "yes" is the friend they'd bring next.
         </p>
       </CardHeader>
       <CardContent className="p-0">
