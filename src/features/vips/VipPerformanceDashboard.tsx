@@ -8,44 +8,94 @@ const QUARTER_END = '2026-06-30';
 
 const sb = supabase as any;
 
+const norm = (s: string | null | undefined) =>
+  (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
 async function fetchMetrics() {
-  const [sessionsRes, bookingsRes] = await Promise.all([
-    sb.from('vip_sessions')
-      .select('id, status, actual_attendance, session_date')
-      .gte('session_date', QUARTER_START)
-      .lte('session_date', QUARTER_END)
-      .is('archived_at', null),
+  const sessionsRes = await sb.from('vip_sessions')
+    .select('id, status, actual_attendance, session_date')
+    .gte('session_date', QUARTER_START)
+    .lte('session_date', QUARTER_END)
+    .is('archived_at', null);
+
+  const sessions = (sessionsRes.data as any[]) || [];
+  const sessionIds = sessions.map(s => s.id);
+  const classes = sessions.filter(s => s.status === 'reserved' || s.status === 'completed').length;
+
+  const [regsRes, bookingsRes] = await Promise.all([
+    sessionIds.length
+      ? sb.from('vip_registrations')
+          .select('id, vip_session_id, first_name, last_name, phone, outcome')
+          .in('vip_session_id', sessionIds)
+      : Promise.resolve({ data: [] }),
     sb.from('intros_booked')
-      .select('id, vip_session_id, class_date')
+      .select('id, vip_session_id, member_name, phone, class_date')
       .not('vip_session_id', 'is', null)
       .gte('class_date', QUARTER_START)
       .lte('class_date', QUARTER_END)
       .is('deleted_at', null),
   ]);
 
-  const sessions = (sessionsRes.data as any[]) || [];
+  const regs = (regsRes.data as any[]) || [];
   const bookings = (bookingsRes.data as any[]) || [];
 
-  const classes = sessions.filter(s => s.status === 'reserved' || s.status === 'completed').length;
-  const attended = sessions.filter(s => s.actual_attendance != null);
-  const totalAttendees = attended.length === 0
-    ? null
-    : attended.reduce((sum, s) => sum + (s.actual_attendance || 0), 0);
-  const introsBooked = bookings.length;
+  // ---- Total Attendees: count outcomes per session, fallback to legacy actual_attendance
+  const attendedOutcomes = new Set(['showed', 'booked_intro', 'purchased']);
+  const attendedBySession = new Map<string, number>();
+  const anyOutcomeBySession = new Map<string, boolean>();
+  for (const r of regs) {
+    if (r.outcome) anyOutcomeBySession.set(r.vip_session_id, true);
+    if (r.outcome && attendedOutcomes.has(r.outcome)) {
+      attendedBySession.set(r.vip_session_id, (attendedBySession.get(r.vip_session_id) || 0) + 1);
+    }
+  }
+  let totalAttendees = 0;
+  let anyAttendanceData = false;
+  for (const s of sessions) {
+    if (anyOutcomeBySession.get(s.id)) {
+      totalAttendees += attendedBySession.get(s.id) || 0;
+      anyAttendanceData = true;
+    } else if (s.actual_attendance != null) {
+      totalAttendees += s.actual_attendance;
+      anyAttendanceData = true;
+    }
+  }
 
-  let joins = 0;
+  // ---- Intros Booked from VIP: union of registrations w/ booked_intro|purchased and intros_booked rows
+  const introKeys = new Set<string>();
+  for (const r of regs) {
+    if (r.outcome === 'booked_intro' || r.outcome === 'purchased') {
+      introKeys.add(`${r.vip_session_id}|${norm(r.first_name)} ${norm(r.last_name)}`);
+    }
+  }
+  for (const b of bookings) {
+    introKeys.add(`${b.vip_session_id}|${norm(b.member_name)}`);
+  }
+  const introsBooked = introKeys.size;
+
+  // ---- Joins from VIP: union of registration 'purchased' + intros_run SALE on VIP bookings
+  const joinKeys = new Set<string>();
+  for (const r of regs) {
+    if (r.outcome === 'purchased') {
+      joinKeys.add(`${norm(r.first_name)} ${norm(r.last_name)}`);
+    }
+  }
   if (bookings.length > 0) {
     const ids = bookings.map(b => b.id);
     const { data: runs } = await sb.from('intros_run')
-      .select('linked_intro_booked_id, result_canon')
+      .select('linked_intro_booked_id, member_name, result_canon')
       .in('linked_intro_booked_id', ids)
       .eq('result_canon', 'SALE');
-    const set = new Set<string>();
-    (runs || []).forEach((r: any) => r.linked_intro_booked_id && set.add(r.linked_intro_booked_id));
-    joins = set.size;
+    const bookingMap = new Map(bookings.map(b => [b.id, b]));
+    (runs || []).forEach((r: any) => {
+      const b = bookingMap.get(r.linked_intro_booked_id);
+      const name = norm(r.member_name || b?.member_name);
+      if (name) joinKeys.add(name);
+    });
   }
+  const joins = joinKeys.size;
 
-  return { classes, totalAttendees, introsBooked, joins };
+  return { classes, totalAttendees: anyAttendanceData ? totalAttendees : null, introsBooked, joins };
 }
 
 function MetricCard({ label, value, sublabel }: { label: string; value: string | number; sublabel?: string }) {
@@ -84,7 +134,7 @@ export function VipPerformanceDashboard() {
         <MetricCard
           label="Total Attendees"
           value={data.totalAttendees === null ? '—' : data.totalAttendees}
-          sublabel="Manual attendance logged"
+          sublabel="Auto-counted from outcomes"
         />
         <MetricCard label="Intros Booked from VIP" value={data.introsBooked} />
         <MetricCard label="Joins from VIP" value={data.joins} />
