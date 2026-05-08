@@ -731,13 +731,13 @@ export default function Wig() {
           </CardContent>
         </Card>
 
+        {/* SECTION — FIRST VISIT EXPERIENCE (auto-counts intros & scorecards per coach) */}
+        <WigFirstVisitSection dateRange={dateRange} />
+
         {/* Referral Ask Tracker — closed memberships needing a referral ask */}
         <ReferralAskTracker dateRange={dateRange} />
 
       </div>
-
-      {/* SECTION — FIRST VISIT EXPERIENCE */}
-      <WigFirstVisitSection dateRange={dateRange} />
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
       <MilestonesDeploySection dateRange={dateRange} />
