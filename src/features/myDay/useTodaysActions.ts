@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getTodayYMD } from '@/lib/dateUtils';
+import { getTodayYMD, getNowCentral } from '@/lib/dateUtils';
+import { format } from 'date-fns';
+import { getCadenceForDate, hasMetCadenceForWeek } from '@/lib/scorecard/trends';
+import type { FvScorecard } from '@/hooks/useScorecards';
 
 export interface ActionChip {
   id: string;
-  kind: 'score' | 'follow_up_coach' | 'milestone' | 'referral_ask' | 'formal_eval';
+  kind: 'score' | 'follow_up_coach' | 'milestone' | 'referral_ask' | 'cadence_eval';
   label: string;
   meta?: any;
   tone: 'primary' | 'amber' | 'green';
