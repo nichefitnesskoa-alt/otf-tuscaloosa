@@ -1,49 +1,54 @@
-## What I found
+## Coaching Scripts — Batch Upload, Smart Naming, Auto-Purge, Jackson Access
 
-Karissa Agnew is in the database **3 times** but the dedup engine misses her:
+### 1. Batch file upload
 
-1. **leads** — "Karissa Agnew", phone `2052706992`, stage `new` (the one showing in New Leads)
-2. **intros_booked** — "Karrissa Agnew" (typo, two R's), phone stored as `(205) 270-6992`, status `SECOND_INTRO_SCHEDULED` (4/22)
-3. **intros_booked** — "Karrissa Agnew", phone `(205) 270-6992`, status `CLOSED_PURCHASED` (4/29) — **she bought a Basic membership**
-4. **intros_run** — buy_date 4/29, BASIC membership
+Replace the single-file `UploadForm` in `src/components/coach/CoachingScripts.tsx` with a multi-file uploader.
 
-The dedup engine should have caught her on phone alone, regardless of name typo. Two bugs are preventing it:
+- File input: `multiple` enabled, accepts `.docx,.pdf`
+- No format/date pickers — every file is parsed from its filename
+- Show a per-file preview row before submitting: filename → parsed `{format, date, title}` with a red error if it can't be parsed (skipped on upload)
+- Single "Upload all" button uploads each in parallel, refreshes list, closes dialog
+- Toast: "Uploaded N scripts" (and "Skipped M unparseable" if any)
 
-### Bug 1: Phone format mismatch in dedup query
-`detectDuplicate.ts` line 56 queries:
-```
-.or('phone.eq.2052706992,phone_e164.eq.+12052706992')
-```
-But `intros_booked.phone` is stored raw as `(205) 270-6992` and `phone_e164` is null on this record. Neither match. **Every lead whose intro was booked before phone normalization rolled out is invisible to dedup.**
+### 2. Filename parser
 
-### Bug 2: Wrong status constant
-Line 61 / 84 check `booking_status_canon === 'PURCHASED'`, but the canon value is actually `CLOSED_PURCHASED`. So even when a phone match works, purchased members get tagged as "prior_intro" instead of "purchased".
+New helper `parseScriptFilename(name)` → `{ format: '2G'|'3G', date: Date, title: string } | null`
 
-## Plan
+Rules (case-insensitive, ignores extension):
+- **Format**: match `2G` or `3G` anywhere in the name
+- **Date**: match `MonthName + DayNumber` (e.g. `May09`, `May 9`, `may-9`) using current year
+  - Also tolerate numeric `M.D.YY`, `M-D-YY`, `M_D` as fallbacks
+- Card title (clean): `"2G — May 9"` (format + short date, no year, no upload date)
 
-### 1. Fix phone matching in `src/lib/leads/detectDuplicate.ts`
-Replace the strict `.or()` query with a digits-only RPC-style match. Two options, going with the simpler one:
-- Fetch candidate rows by last-7-digits substring (`phone.ilike '%270-6992%'` and `'%2706992%'`), then normalize each row's phone client-side and compare to `normalizedPhone`. Same approach already used in PASS 2b for VIP.
-- Apply the same fix to PASSES 1b (intros_booked phone), 3 (intros_run phone if present), and 2b (already does it).
+Example: `May09_2G.docx` → format `2G`, date `2026-05-09`, title `2G — May 9`
 
-### 2. Fix purchased-status detection
-Change `booking_status_canon === 'PURCHASED'` → `=== 'CLOSED_PURCHASED'` in PASS 1b and PASS 2 (lines 61, 84). Update `summaryNote` to say "purchased membership on {date}" so it's clear in the Already-in-System list.
+### 3. Auto-delete yesterday's scripts (Central Time)
 
-### 3. Mark Karissa's lead now
-Update `leads.id = c2e93938-55cb-4cf5-9aef-dd12a0aac716`:
-- `stage = 'already_in_system'`
-- `duplicate_confidence = 'HIGH'`
-- `duplicate_match_type = 'phone'`
-- `duplicate_notes = 'Phone match: Karrissa Agnew — purchased Basic membership on 2026-04-29'`
-- `booked_intro_id = 6d9cb2f0-7e08-4580-94af-341a4b3f05fd`
+Hard delete: storage file + DB row, at midnight America/Chicago.
 
-### 4. Background re-check picks up the rest
-The 5-min `backgroundDedupRecheck` loop will reclassify any other leads with the same root cause within minutes of the fix shipping — no manual cleanup needed.
+- New edge function `cleanup-coaching-scripts` (`verify_jwt = false`)
+  - Computes "today" in `America/Chicago`
+  - Selects all `coaching_scripts` where `script_date < today_central`
+  - For each: deletes storage object from `coaching-scripts` bucket, then deletes DB row
+- Schedule via `pg_cron` + `pg_net`: run hourly (cheap insurance against missed minutes / DST), function is idempotent
+  - Cron: `0 * * * *` calls the edge function
+- Insert via `supabase--insert` tool (URL + anon key are project-specific)
 
-## Files to change
-- `src/lib/leads/detectDuplicate.ts` — phone matching + purchased status
-- One data update via insert tool for Karissa's lead
+### 4. Coach Jackson access
 
-## Verification
-- Reload My Day → Karissa drops out of New Leads, appears in Already in System with "purchased" badge
-- Spot-check 2-3 other "new" leads with phones that exist in `intros_booked` raw format → they reclassify within 5 min
+Verified in DB: Jackson is already `role = 'Coach'`, `is_active = true`.
+
+`src/pages/CoachView.tsx:265` already gates Coaching Scripts with `(isAdmin || user?.role === 'Coach')`, so Jackson sees it the next time he logs in. **No code change needed for access** — confirming this in the plan so it isn't missed.
+
+If Koa wants, we can also surface Coaching Scripts inside `CoachMyIntros` page, but current placement on `/coach-view` already covers him. (Confirm if you want it on a second page.)
+
+### Files touched
+
+- `src/components/coach/CoachingScripts.tsx` — replace `UploadForm` with `BatchUploadForm`, add `parseScriptFilename`, drop format/date selects, simplify card title
+- `supabase/functions/cleanup-coaching-scripts/index.ts` — new edge function
+- DB (via `insert` tool): pg_cron schedule + enable `pg_cron`/`pg_net` if not already on
+
+### Out of scope
+
+- 1G / S50/T50 uploads (you said only 2G/3G — those formats stay supported for any legacy rows, just not in batch parser)
+- Manual override UI for unparseable files (they'll just be skipped with a toast; rename and re-drop)
