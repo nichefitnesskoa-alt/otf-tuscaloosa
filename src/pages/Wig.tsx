@@ -491,7 +491,7 @@ export default function Wig() {
           closeRate: wk.coached > 0 ? (cl.closed / wk.coached) * 100 : 0,
           closeTotal: cl.total,
         };
-      }).filter(c => c.coached > 0 || c.closeTotal > 0).sort((a, b) => b.coached - a.coached);
+      }).filter(c => !isMissingCoach(c.name) && (c.coached > 0 || c.closeTotal > 0)).sort((a, b) => b.coached - a.coached);
 
       if (user?.role === 'Coach') {
         setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
