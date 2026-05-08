@@ -1,54 +1,41 @@
-## Coaching Scripts — Batch Upload, Smart Naming, Auto-Purge, Jackson Access
+## What's broken
 
-### 1. Batch file upload
+**VIP page top stats (`VipPerformanceDashboard`)**
+- "Total Attendees" reads `vip_sessions.actual_attendance` — a manual number that's no longer being entered. SAs now log per-registrant outcomes on the group VIP card (`showed` / `booked_intro` / `purchased` / `no_show`) in `vip_registrations.outcome`, but nothing counts them.
+- "Joins from VIP" only counts `intros_run.result_canon = 'SALE'` linked to a VIP-tagged booking. The 2 people who joined straight from VIP (logged as `purchased` on the registration, no intro path) never get counted.
 
-Replace the single-file `UploadForm` in `src/components/coach/CoachingScripts.tsx` with a multi-file uploader.
+**BottomNav** — Pipeline tab is Admin-only; SAs lost it.
 
-- File input: `multiple` enabled, accepts `.docx,.pdf`
-- No format/date pickers — every file is parsed from its filename
-- Show a per-file preview row before submitting: filename → parsed `{format, date, title}` with a red error if it can't be parsed (skipped on upload)
-- Single "Upload all" button uploads each in parallel, refreshes list, closes dialog
-- Toast: "Uploaded N scripts" (and "Skipped M unparseable" if any)
+## Plan
 
-### 2. Filename parser
+### 1. Rewrite `VipPerformanceDashboard` metrics to use registration outcomes
 
-New helper `parseScriptFilename(name)` → `{ format: '2G'|'3G', date: Date, title: string } | null`
+Pull `vip_registrations` for the quarter (joined to `vip_sessions` for date filter, excluding archived sessions and registrations with `is_organizer = true`). Compute:
 
-Rules (case-insensitive, ignores extension):
-- **Format**: match `2G` or `3G` anywhere in the name
-- **Date**: match `MonthName + DayNumber` (e.g. `May09`, `May 9`, `may-9`) using current year
-  - Also tolerate numeric `M.D.YY`, `M-D-YY`, `M_D` as fallbacks
-- Card title (clean): `"2G — May 9"` (format + short date, no year, no upload date)
+- **VIP Classes This Quarter** — unchanged (sessions reserved/completed in range).
+- **Total Attendees** — count of registrations where `outcome IN ('showed','booked_intro','purchased')`. Drop the "Manual attendance logged" sublabel; replace with "Auto-counted from outcomes".
+  - Fallback: if a session has zero outcomes logged but has `actual_attendance` set, still use that legacy number so old data doesn't disappear.
+- **Intros Booked from VIP** — union of:
+  - `vip_registrations.outcome = 'booked_intro'` count, plus
+  - any `intros_booked.vip_session_id` rows not already represented (covers manual bookings created outside the registration flow).
+  - De-dupe by person name + session to avoid double counting.
+- **Joins from VIP** — union of:
+  - `vip_registrations.outcome = 'purchased'` (direct joins), plus
+  - VIP-tagged `intros_booked` whose linked `intros_run.result_canon = 'SALE'` (intro-path joins).
+  - De-dupe by person.
 
-Example: `May09_2G.docx` → format `2G`, date `2026-05-09`, title `2G — May 9`
+### 2. Restore Pipeline for SAs in `BottomNav`
 
-### 3. Auto-delete yesterday's scripts (Central Time)
+Add `/pipeline` to the non-admin nav array. Final SA tabs: My Day · WIG · Pipeline · VIPs (4 items, still fits the bottom bar at 1167px and mobile).
 
-Hard delete: storage file + DB row, at midnight America/Chicago.
+Coaches keep their current condensed nav (no change requested).
 
-- New edge function `cleanup-coaching-scripts` (`verify_jwt = false`)
-  - Computes "today" in `America/Chicago`
-  - Selects all `coaching_scripts` where `script_date < today_central`
-  - For each: deletes storage object from `coaching-scripts` bucket, then deletes DB row
-- Schedule via `pg_cron` + `pg_net`: run hourly (cheap insurance against missed minutes / DST), function is idempotent
-  - Cron: `0 * * * *` calls the edge function
-- Insert via `supabase--insert` tool (URL + anon key are project-specific)
+## Files to change
 
-### 4. Coach Jackson access
+- `src/features/vips/VipPerformanceDashboard.tsx` — rewrite `fetchMetrics` to read `vip_registrations.outcome`, with legacy `actual_attendance` fallback and dedupe logic for joins/intros.
+- `src/components/BottomNav.tsx` — add Pipeline to the SA `visibleItems` array.
 
-Verified in DB: Jackson is already `role = 'Coach'`, `is_active = true`.
+## Out of scope
 
-`src/pages/CoachView.tsx:265` already gates Coaching Scripts with `(isAdmin || user?.role === 'Coach')`, so Jackson sees it the next time he logs in. **No code change needed for access** — confirming this in the plan so it isn't missed.
-
-If Koa wants, we can also surface Coaching Scripts inside `CoachMyIntros` page, but current placement on `/coach-view` already covers him. (Confirm if you want it on a second page.)
-
-### Files touched
-
-- `src/components/coach/CoachingScripts.tsx` — replace `UploadForm` with `BatchUploadForm`, add `parseScriptFilename`, drop format/date selects, simplify card title
-- `supabase/functions/cleanup-coaching-scripts/index.ts` — new edge function
-- DB (via `insert` tool): pg_cron schedule + enable `pg_cron`/`pg_net` if not already on
-
-### Out of scope
-
-- 1G / S50/T50 uploads (you said only 2G/3G — those formats stay supported for any legacy rows, just not in batch parser)
-- Manual override UI for unparseable files (they'll just be skipped with a toast; rename and re-drop)
+- Removing the manual `actual_attendance` input from `VipSchedulerTab` — leaving it as an override/legacy field. Say the word and I'll hide it.
+- Changing `VipClassPerformanceTable` (admin per-class table) — it already prefers `actual_attendance` then falls back to registration count; can switch it to outcome-based in a follow-up if you want it consistent.
