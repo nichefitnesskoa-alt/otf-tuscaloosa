@@ -311,111 +311,133 @@ export function CoachingScripts() {
   );
 }
 
-// ── Upload form ──
+// ── Batch upload form ──
+type ParsedFile = {
+  file: File;
+  parsed: ReturnType<typeof parseScriptFilename>;
+};
+
 function UploadForm({ onSuccess }: { onSuccess: () => void }) {
-  const [fmt, setFmt] = useState('');
-  const [date, setDate] = useState<Date>();
-  const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<ParsedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const next: ParsedFile[] = Array.from(files).map((file) => ({
+      file,
+      parsed: parseScriptFilename(file.name),
+    }));
+    setItems(next);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fmt || !date || !file) {
-      toast.error('Please fill in all fields');
+    const valid = items.filter((i) => i.parsed);
+    if (valid.length === 0) {
+      toast.error('No valid filenames. Use names like "May09_2G".');
       return;
     }
 
-    const title = `${fmt} — ${format(date, 'MMM d, yyyy')}`;
-    const dateStr = format(date, 'yyyy-MM-dd');
-
     setUploading(true);
-    try {
-      const ext = file.name.split('.').pop() || 'docx';
-      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    let uploaded = 0;
+    let failed = 0;
 
-      const { error: uploadErr } = await supabase.storage
-        .from('coaching-scripts')
-        .upload(path, file, {
-          contentType: file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
+    await Promise.all(
+      valid.map(async ({ file, parsed }) => {
+        try {
+          const ext = file.name.split('.').pop() || 'docx';
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadErr } = await supabase.storage
+            .from('coaching-scripts')
+            .upload(path, file, {
+              contentType:
+                file.type ||
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            });
+          if (uploadErr) throw uploadErr;
+          const { data: urlData } = supabase.storage
+            .from('coaching-scripts')
+            .getPublicUrl(path);
+          const { error: insertErr } = await supabase
+            .from('coaching_scripts')
+            .insert({
+              title: parsed!.title,
+              format: parsed!.format,
+              script_date: format(parsed!.date, 'yyyy-MM-dd'),
+              file_url: urlData.publicUrl,
+            } as any);
+          if (insertErr) throw insertErr;
+          uploaded++;
+        } catch {
+          failed++;
+        }
+      })
+    );
 
-      if (uploadErr) throw uploadErr;
-
-      const { data: urlData } = supabase.storage
-        .from('coaching-scripts')
-        .getPublicUrl(path);
-
-      const { error: insertErr } = await supabase
-        .from('coaching_scripts')
-        .insert({
-          title,
-          format: fmt,
-          script_date: dateStr,
-          file_url: urlData.publicUrl,
-        } as any);
-
-      if (insertErr) throw insertErr;
-
-      toast.success('Script uploaded');
+    const skipped = items.length - valid.length;
+    setUploading(false);
+    if (uploaded > 0) {
+      toast.success(
+        `Uploaded ${uploaded} script${uploaded === 1 ? '' : 's'}` +
+          (skipped > 0 ? ` · skipped ${skipped} unparseable` : '') +
+          (failed > 0 ? ` · ${failed} failed` : '')
+      );
       onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
+    } else {
+      toast.error('No scripts uploaded');
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Format</Label>
-        <Select value={fmt} onValueChange={setFmt}>
-          <SelectTrigger><SelectValue placeholder="Select format" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1G">1G</SelectItem>
-            <SelectItem value="2G">2G</SelectItem>
-            <SelectItem value="S50/T50">S50/T50</SelectItem>
-            <SelectItem value="3G">3G</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Date</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full justify-start text-left font-normal",
-                !date && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, 'PPP') : <span>Pick a date</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div>
-        <Label>Document (PDF or Word)</Label>
+        <Label>Documents (PDF or Word)</Label>
         <Input
           type="file"
-          accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
-          onChange={e => setFile(e.target.files?.[0] || null)}
+          multiple
+          accept=".docx,.pdf"
+          onChange={(e) => handleFiles(e.target.files)}
         />
+        <p className="text-xs text-muted-foreground mt-1.5">
+          Filename auto-detects format and date. Example: <code>May09_2G.docx</code>
+        </p>
       </div>
-      <Button type="submit" disabled={uploading} className="w-full">
-        {uploading ? 'Uploading...' : 'Upload'}
+
+      {items.length > 0 && (
+        <div className="space-y-1.5 max-h-64 overflow-auto border border-border rounded-md p-2">
+          {items.map(({ file, parsed }, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-2 text-xs py-1 px-1.5 rounded"
+            >
+              {parsed ? (
+                <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-destructive shrink-0" />
+              )}
+              <span className="truncate flex-1 text-muted-foreground">
+                {file.name}
+              </span>
+              {parsed ? (
+                <span className="font-medium shrink-0">{parsed.title}</span>
+              ) : (
+                <span className="text-destructive shrink-0">can't parse</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={uploading || items.length === 0}
+        className="w-full"
+      >
+        {uploading
+          ? 'Uploading...'
+          : `Upload ${items.filter((i) => i.parsed).length || ''}`.trim()}
       </Button>
     </form>
   );
 }
+
