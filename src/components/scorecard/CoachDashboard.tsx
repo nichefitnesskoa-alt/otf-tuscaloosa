@@ -3,12 +3,15 @@ import { useScorecards } from '@/hooks/useScorecards';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { ComparisonView } from './ComparisonView';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
-
-const L3_TARGET = 6;
+import {
+  getCadenceForDate,
+  hasMetCadenceForWeek,
+  cadenceStreakWeeks,
+  isSelfEvalEveryWeekThisMonth,
+} from '@/lib/scorecard/trends';
 
 export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName: string; allowPicker?: boolean; coaches?: string[] }) {
   const [selected, setSelected] = useState(coachName);
@@ -24,13 +27,23 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
     to: format(new Date(), 'yyyy-MM-dd'),
     evaluatee: selected,
   });
+  // Pull broader window (current + last week submissions) for cadence eval status.
+  const { data: cadenceCards = [] } = useScorecards({
+    from: format(new Date(Date.now() - 60 * 86400_000), 'yyyy-MM-dd'),
+    to: format(new Date(Date.now() + 7 * 86400_000), 'yyyy-MM-dd'),
+    evaluatee: selected,
+  });
   const [openId, setOpenId] = useState<string | null>(null);
 
   const submitted = scorecards.filter(s => !!s.submitted_at);
-  const l3Count = submitted.filter(s => s.level === 3).length;
-  const l2Count = submitted.filter(s => s.level === 2).length;
-  const l1Count = submitted.filter(s => s.level === 1).length;
+  const selfCount = submitted.filter(s => s.eval_type === 'self_eval').length;
+  const formalCount = submitted.filter(s => s.eval_type === 'formal_eval').length;
   const avgScore = submitted.length ? (submitted.reduce((s, c) => s + c.total_score, 0) / submitted.length).toFixed(1) : '—';
+
+  const cadence = getCadenceForDate();
+  const met = hasMetCadenceForWeek(selected, cadenceCards, cadence.weekStart, cadence.weekEnd, cadence.type);
+  const streak = cadenceStreakWeeks(selected, cadenceCards);
+  const exceedsStandard = isSelfEvalEveryWeekThisMonth(selected, cadenceCards);
 
   const trendData = useMemo(() => {
     const byWeek: Record<string, { total: number; count: number }> = {};
@@ -54,26 +67,48 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
         </Select>
       )}
 
+      {/* Cadence panel — replaces 6/month + 2-formal-floor */}
+      <Card className={`p-4 border-2 ${met ? 'border-success/50 bg-success/5' : 'border-primary/40 bg-primary/5'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">This week you owe</p>
+            <p className="text-xl font-black mt-0.5">
+              {cadence.type === 'self' ? 'Self-eval' : 'Formal eval'}
+              {met && <Badge className="ml-2 bg-success text-success-foreground text-[10px]">Met</Badge>}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Week of {format(cadence.weekStart, 'MMM d')} — {format(cadence.weekEnd, 'MMM d')}. Studio cadence alternates weekly.
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Streak</p>
+            <p className="text-2xl font-black tabular-nums text-primary">{streak}<span className="text-xs text-muted-foreground"> wk</span></p>
+          </div>
+        </div>
+        {exceedsStandard && (
+          <p className="text-[11px] mt-2 pt-2 border-t border-success/30 text-success font-semibold">
+            You're self-evaluating every week. That's the standard.
+          </p>
+        )}
+      </Card>
+
       {/* Tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Level 3 this month</p>
-          <p className="text-3xl font-black tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{l3Count}<span className="text-base text-muted-foreground">/{L3_TARGET}</span></p>
-          <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${Math.min(100, (l3Count / L3_TARGET) * 100)}%` }} />
-          </div>
-        </Card>
         <Card className="p-4">
           <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Avg score</p>
           <p className="text-3xl font-black tabular-nums">{avgScore}<span className="text-base text-muted-foreground">/30</span></p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Total scored</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Total this month</p>
           <p className="text-3xl font-black tabular-nums">{submitted.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">L1 / L2 / L3</p>
-          <p className="text-2xl font-black tabular-nums">{l1Count} · {l2Count} · {l3Count}</p>
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Self this month</p>
+          <p className="text-3xl font-black tabular-nums">{selfCount}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[10px] uppercase text-muted-foreground tracking-wide">Formal this month</p>
+          <p className="text-3xl font-black tabular-nums">{formalCount}</p>
         </Card>
       </div>
 
@@ -86,7 +121,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={trendData}>
               <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-              <YAxis domain={[0, 15]} tick={{ fontSize: 10 }} />
+              <YAxis domain={[0, 30]} tick={{ fontSize: 10 }} />
               <RTooltip />
               <Line type="monotone" dataKey="avg" stroke="#E8540A" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
@@ -107,7 +142,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
               <button
                 key={s.id}
                 onClick={() => setOpenId(s.id)}
-                className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-muted text-left transition-colors"
+                className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-muted text-left transition-colors min-h-[44px]"
               >
                 <div>
                   <p className="text-sm font-medium">{s.practice_name || 'First-timer'}</p>

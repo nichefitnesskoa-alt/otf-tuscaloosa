@@ -54,6 +54,9 @@ export function TodaysActions() {
       case 'referral_ask':
         setRefTarget({ bookingId: c.meta.bookingId, memberName: c.meta.memberName });
         break;
+      case 'cadence_eval':
+        navigate('/scorecards/me');
+        break;
     }
   };
 
