@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getTodayYMD, getNowCentral } from '@/lib/dateUtils';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { format } from 'date-fns';
 import { getCadenceForDate, hasMetCadenceForWeek } from '@/lib/scorecard/trends';
 import type { FvScorecard } from '@/hooks/useScorecards';
