@@ -215,8 +215,8 @@ export default function Wig() {
     return count;
   }, [introsRun, dateRange, filteredBookings]);
 
-  const effectiveShowed = Math.max(totalShowed, totalClosed);
-  const closeRate = effectiveShowed > 0 ? (totalClosed / effectiveShowed) * 100 : 0;
+  // Close rate is computed below from coachTableTotals (declared lower in this component).
+  // See `closeRate` after coachTableTotals state.
 
   const getStatusColor = (current: number, target: number) => {
     const ratio = current / target;
@@ -270,7 +270,12 @@ export default function Wig() {
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
+  const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [measuresLoading, setMeasuresLoading] = useState(true);
+
+  // Close rate reconciles with the Coach — Coached & Closes table directly below it.
+  const effectiveShowed = Math.max(coachTableTotals.coached, coachTableTotals.closes);
+  const closeRate = effectiveShowed > 0 ? (coachTableTotals.closes / effectiveShowed) * 100 : 0;
 
   const loadLeadMeasures = useCallback(async () => {
     setMeasuresLoading(true);
@@ -492,6 +497,10 @@ export default function Wig() {
           closeTotal: cl.total,
         };
       }).filter(c => !isMissingCoach(c.name) && (c.coached > 0 || c.closeTotal > 0)).sort((a, b) => b.coached - a.coached);
+
+      const totalsCoached = coachData.reduce((sum, c) => sum + (c.coached || 0), 0);
+      const totalsClosed = coachData.reduce((sum, c) => sum + (c.closes || 0), 0);
+      setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
 
       if (user?.role === 'Coach') {
         setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
