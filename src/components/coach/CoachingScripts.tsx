@@ -285,9 +285,6 @@ export function CoachingScripts() {
               <FileText className="w-5 h-5 text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm truncate">{s.title}</p>
-                <span className="text-xs text-muted-foreground">
-                  {format(new Date(s.script_date), 'MMM d, yyyy')}
-                </span>
               </div>
               <Badge className={cn('text-[10px] shrink-0', FORMAT_STYLES[s.format] || '')}>
                 {s.format}
