@@ -215,8 +215,11 @@ export default function Wig() {
     return count;
   }, [introsRun, dateRange, filteredBookings]);
 
-  const effectiveShowed = Math.max(totalShowed, totalClosed);
-  const closeRate = effectiveShowed > 0 ? (totalClosed / effectiveShowed) * 100 : 0;
+  // Close rate must reconcile with the Coach — Coached & Closes table directly below it.
+  // Use the same denominator (first-intro showed bookings with a real coach) and numerator
+  // (Total Journey closes) so 7/13 = 54% matches what the breakdown shows.
+  const effectiveShowed = Math.max(coachTableTotals.coached, coachTableTotals.closes);
+  const closeRate = effectiveShowed > 0 ? (coachTableTotals.closes / effectiveShowed) * 100 : 0;
 
   const getStatusColor = (current: number, target: number) => {
     const ratio = current / target;
