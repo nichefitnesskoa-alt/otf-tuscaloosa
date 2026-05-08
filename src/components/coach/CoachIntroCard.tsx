@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
+import { BookingScorecards } from '@/components/scorecard/BookingScorecards';
 
 interface CoachBooking {
   id: string;
@@ -271,6 +272,9 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* First Visit Experience Scorecard — inline */}
           <div className="border-t pt-4 mt-2">
             <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
+            <div className="mb-3">
+              <BookingScorecards bookingId={booking.id} />
+            </div>
             <ScorecardFormBody
               firstTimerId={booking.id}
               defaultMemberName={booking.member_name}
