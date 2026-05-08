@@ -4,15 +4,58 @@ import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
-import { FileText, Upload, ArrowLeft, CalendarIcon, Trash2 } from 'lucide-react';
+import { FileText, Upload, ArrowLeft, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+// Parse filenames like "May09_2G", "May 9 2G", "2G-May-9", "5.9.25 3G", etc.
+const MONTHS: Record<string, number> = {
+  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+  may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
+};
+
+export function parseScriptFilename(filename: string): { format: '2G' | '3G'; date: Date; title: string } | null {
+  const base = filename.replace(/\.(docx|pdf)$/i, '');
+  const lower = base.toLowerCase();
+
+  // Format
+  let fmt: '2G' | '3G' | null = null;
+  if (/(^|[^a-z0-9])3g([^a-z0-9]|$)/i.test(base)) fmt = '3G';
+  else if (/(^|[^a-z0-9])2g([^a-z0-9]|$)/i.test(base)) fmt = '2G';
+  if (!fmt) return null;
+
+  // Date — try MonthName + Day first
+  let month: number | null = null;
+  let day: number | null = null;
+  let year: number = new Date().getFullYear();
+
+  const monthMatch = lower.match(/(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[\s._-]*(\d{1,2})/);
+  if (monthMatch) {
+    month = MONTHS[monthMatch[1]];
+    day = parseInt(monthMatch[2], 10);
+  } else {
+    // Numeric M.D or M.D.YY
+    const numMatch = base.match(/(\d{1,2})[.\-_/](\d{1,2})(?:[.\-_/](\d{2,4}))?/);
+    if (numMatch) {
+      month = parseInt(numMatch[1], 10) - 1;
+      day = parseInt(numMatch[2], 10);
+      if (numMatch[3]) {
+        const y = parseInt(numMatch[3], 10);
+        year = y < 100 ? 2000 + y : y;
+      }
+    }
+  }
+
+  if (month === null || day === null || month < 0 || month > 11 || day < 1 || day > 31) return null;
+
+  const date = new Date(year, month, day);
+  const title = `${fmt} — ${format(date, 'MMM d')}`;
+  return { format: fmt, date, title };
+}
 
 interface CoachingScript {
   id: string;
