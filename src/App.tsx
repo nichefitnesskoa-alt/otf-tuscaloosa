@@ -93,7 +93,7 @@ function AppRoutes() {
       <Route
         path="/pipeline"
         element={
-          <ProtectedRoute requireAdmin>
+          <ProtectedRoute>
             <Pipeline />
           </ProtectedRoute>
         }
