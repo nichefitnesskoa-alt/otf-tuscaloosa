@@ -865,6 +865,16 @@ export default function Wig() {
         rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
         attribution={drill ? coachAttribution.get(drill.coach) || null : null}
       />
+
+      <PersonListDrillDown
+        open={!!saDrill}
+        onOpenChange={(o) => { if (!o) setSaDrill(null); }}
+        title={saDrill ? `${saDrill.sa} · ${saDrill.metric === 'referralAsks' ? 'POS Referral Asks' : 'Packs Gifted'}` : ''}
+        scopeBadge="WIG tab"
+        subtitle={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
+        rows={saDrill ? (saPeople.get(saDrill.sa)?.[saDrill.metric] || []) : []}
+        emptyText="No records for this metric."
+      />
     </div>
   );
 }
