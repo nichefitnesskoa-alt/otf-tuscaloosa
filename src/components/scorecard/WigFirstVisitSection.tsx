@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Trophy, ChevronDown, ChevronUp, ClipboardCheck } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
