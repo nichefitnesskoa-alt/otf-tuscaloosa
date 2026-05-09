@@ -182,6 +182,21 @@ export function ScorecardFormBody(props: BodyProps) {
 
   return (
     <div className="space-y-4">
+      {loadedSubmittedAt && (
+        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 bg-muted/40">
+          <span className="text-xs text-muted-foreground">
+            Submitted by <span className="font-semibold text-foreground">{loadedEvaluator}</span>
+            {' · '}
+            {(() => { try { return new Date(loadedSubmittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } })()}
+          </span>
+          <span
+            className="text-[11px] font-bold px-2 py-1 rounded-full text-white"
+            style={{ backgroundColor: '#E8540A' }}
+          >
+            L{level} · {total}/30
+          </span>
+        </div>
+      )}
       {showEvalToggle && (
         <div className="flex gap-2">
           <button
