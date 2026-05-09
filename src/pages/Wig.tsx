@@ -443,8 +443,7 @@ export default function Wig() {
               .select('linked_intro_booked_id, result, result_canon')
               .in('linked_intro_booked_id', batch2);
             (secondRuns || []).forEach((r2: any) => {
-              if (r2.result_canon === 'SALE' || isMembershipSale(r2.result)) {
-                // Find which first-intro this belongs to
+              if (isCloseRun(r2)) {
                 for (const [firstId, secondIds] of secondIntroBookingMap.entries()) {
                   if (secondIds.includes(r2.linked_intro_booked_id)) {
                     secondRunSaleSet.add(firstId);
