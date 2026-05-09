@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
 import { ALL_STAFF } from '@/types';
 
+export interface OutreachPerson {
+  id: string;
+  name: string;
+  subtitle?: string;
+  rightLabel?: string;
+}
+
 export interface SALeadMeasure {
   saName: string;
   speedToLead: number | null; // avg minutes
@@ -13,6 +20,10 @@ export interface SALeadMeasure {
   dmsSent: number;
   leadsReachedOut: number;
   introsRan: number;
+  // Per-metric drill data
+  followUpPeople?: OutreachPerson[];
+  dmPeople?: OutreachPerson[];
+  leadsReachedPeople?: OutreachPerson[];
 }
 
 interface UseLeadMeasuresOpts {
