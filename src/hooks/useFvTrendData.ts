@@ -97,7 +97,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     queryFn: async () => {
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, coach_name, originating_booking_id, is_vip, ignore_from_metrics, booking_status_canon, referred_by_member_name, member_name, paired_booking_id, converted_to_booking_id')
+        .select('id, coach_name, originating_booking_id, is_vip, ignore_from_metrics, booking_status_canon, referred_by_member_name, member_name, class_date, intro_time, paired_booking_id, converted_to_booking_id')
         .gte('class_date', from)
         .lte('class_date', to)
         .is('deleted_at', null);
@@ -112,8 +112,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       const ids = valid.map((b: any) => b.id);
       if (ids.length === 0) return [] as RanFirstIntro[];
 
-      // Determine which bookings actually ran + their coach (we still need run rows for coach attribution).
-      const ran = new Map<string, { coach: string }>();
+      const ran = new Map<string, { coach: string; booking: any }>();
       for (let i = 0; i < ids.length; i += 500) {
         const batch = ids.slice(i, i + 500);
         const { data: runs } = await supabase
@@ -132,16 +131,22 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
           const coachFromBooking = rawBooking && !/^tbd$/i.test(rawBooking) ? rawBooking : '';
           const coach = coachFromRun || coachFromBooking;
           if (!coach) return;
-          if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach });
+          if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach, booking: b });
         });
       }
 
-      // Canonical close detection (direct sale + Total Journey via 2nd intro).
       const closedIds = await resolveClosedFirstIntroIds(Array.from(ran.keys()));
 
       const result: RanFirstIntro[] = [];
       ran.forEach((v, bookingId) => {
-        result.push({ bookingId, coach: v.coach, closed: closedIds.has(bookingId) });
+        result.push({
+          bookingId,
+          coach: v.coach,
+          closed: closedIds.has(bookingId),
+          memberName: v.booking?.member_name || 'Unknown',
+          classDate: v.booking?.class_date || '',
+          introTime: v.booking?.intro_time || null,
+        });
       });
       return result;
     },
