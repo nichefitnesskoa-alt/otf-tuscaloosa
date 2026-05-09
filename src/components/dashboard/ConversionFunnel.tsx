@@ -40,7 +40,7 @@ interface FunnelData {
   soldPeople: DrillPerson[];
 }
 
-function computeFunnelBothRows(
+export function computeFunnelBothRows(
   introsBooked: IntroBooked[],
   introsRun: IntroRun[],
   dateRange: DateRange | null | undefined,
