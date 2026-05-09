@@ -325,7 +325,7 @@ export default function Wig() {
       // Fetch showed first-intro bookings for the date range
       const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id')
+        .select('id, member_name, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id')
         .gte('class_date', rangeStart)
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
