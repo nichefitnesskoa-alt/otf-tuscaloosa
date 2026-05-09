@@ -435,6 +435,10 @@ export default function Wig() {
       const bookingByIdMap = new Map<string, any>();
       showedFirstIntroBookings.forEach(b => bookingByIdMap.set(b.id, b));
 
+      // Hoisted so the post-loop backfill can read it (set of first-intro
+      // booking IDs whose 2nd intro ran a sale — Total Journey).
+      const secondRunSaleSet = new Set<string>();
+
       if (showedFirstIntroBookingIds.length > 0) {
         const closeBatches: string[][] = [];
         for (let i = 0; i < showedFirstIntroBookingIds.length; i += 500) closeBatches.push(showedFirstIntroBookingIds.slice(i, i + 500));
