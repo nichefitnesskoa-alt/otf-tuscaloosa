@@ -395,6 +395,24 @@ export default function Wig() {
       const isMissingCoach = (v: any) =>
         !v || (typeof v === 'string' && (v.trim() === '' || /^tbd$/i.test(v.trim())));
 
+      // Per-coach attribution map for tappable drill-downs
+      const attribMap = new Map<string, CoachAttribution>();
+      const ensureAttrib = (n: string): CoachAttribution => {
+        let a = attribMap.get(n);
+        if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMap.set(n, a); }
+        return a;
+      };
+      const labelFromRun = (r: any): string => {
+        const rc = (r?.result_canon || '').toUpperCase();
+        if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
+        if (rc === 'NO_SHOW') return 'No Show';
+        if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
+        if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
+        if (rc === 'UNRESOLVED') return 'Unresolved';
+        if (rc === 'FOLLOW_UP') return 'Follow-Up';
+        return '—';
+      };
+
       showedFirstIntroBookings.forEach(b => {
         const linkedRunForCoach = runsByBookingId.get(b.id);
         const runCoachRaw = isMissingCoach(b.coach_name)
@@ -407,6 +425,14 @@ export default function Wig() {
         const ex = ensureCoach(coachedCoach);
         ex.coached++;
         coachMap.set(coachedCoach, ex);
+
+        ensureAttrib(coachedCoach).coached.push({
+          bookingId: b.id,
+          member: b.member_name || 'Unknown',
+          classDate: b.class_date,
+          source: b.lead_source,
+          resultLabel: labelFromRun(linkedRunForCoach),
+        });
       });
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
