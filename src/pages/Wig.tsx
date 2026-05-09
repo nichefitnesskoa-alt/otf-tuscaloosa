@@ -20,6 +20,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
@@ -185,10 +186,7 @@ export default function Wig() {
     const todayCentral = getNowCentral();
     const effectiveEnd = dateRange ? (dateRange.end < todayCentral ? dateRange.end : todayCentral) : todayCentral;
     return introsBooked.filter(b => {
-      if ((b as any).is_vip) return false;
-      if ((b as any).ignore_from_metrics) return false;
-      const status = ((b as any).booking_status_canon || '').toUpperCase();
-      if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+      if (isBookingExcludedFromMetrics(b)) return false;
       if (!dateRange) return true;
       try {
         return isWithinInterval(parseLocalDate(b.class_date), { start: dateRange.start, end: effectiveEnd });
@@ -351,13 +349,7 @@ export default function Wig() {
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
 
-      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => {
-        if (b.is_vip) return false;
-        if (b.ignore_from_metrics) return false;
-        const status = (b.booking_status_canon || '').toUpperCase();
-        if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        return true;
-      });
+      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => !isBookingExcludedFromMetrics(b));
 
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id || !!b.referred_by_member_name

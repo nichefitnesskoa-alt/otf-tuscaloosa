@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from './CoachAttributionDrillDown';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
@@ -59,9 +60,11 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { rows, attribution } = useMemo(() => {
     const originatingMap = new Map<string, boolean>();
     const bookingById = new Map<string, any>();
+    const excludedBookingIds = new Set<string>();
     introsBooked.forEach((b: any) => {
       originatingMap.set(b.id, !!b.originating_booking_id);
       bookingById.set(b.id, b);
+      if (isBookingExcludedFromMetrics(b)) excludedBookingIds.add(b.id);
     });
 
     const resolveCoach = (b: any, fallback: string | null): string | null => {
@@ -72,8 +75,11 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       return fallback;
     };
 
-    // First intros only
+    // First intros only — and exclude runs whose linked booking was
+    // soft-deleted, marked duplicate/dead, VIP, or ignored from metrics.
+    // (Matches the WIG tab filter so Studio and WIG stay in lockstep.)
     const firstIntroRuns = introsRun.filter(r => {
+      if (r.linked_intro_booked_id && excludedBookingIds.has(r.linked_intro_booked_id)) return false;
       if (!r.linked_intro_booked_id) return true;
       return !originatingMap.get(r.linked_intro_booked_id);
     });
@@ -125,6 +131,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       if (!directSale && r.linked_intro_booked_id) {
         secondSale = introsRun.some(r2 => {
           if (r2.id === r.id) return false;
+          if (r2.linked_intro_booked_id && excludedBookingIds.has(r2.linked_intro_booked_id)) return false;
           const booking = introsBooked.find((b: any) => b.id === r2.linked_intro_booked_id);
           if (!booking) return false;
           if ((booking as any).originating_booking_id !== r.linked_intro_booked_id) return false;

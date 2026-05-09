@@ -5,6 +5,7 @@ import { CalendarPlus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import type { DateRange } from '@/lib/pay-period';
@@ -52,8 +53,7 @@ export function BookerStatsTable({ data, dateRange }: BookerStatsTableProps) {
     };
     return (introsBooked || [])
       .filter((b: any) => {
-        if (b.deleted_at) return false;
-        if (b.is_vip) return false;
+        if (isBookingExcludedFromMetrics(b)) return false;
         if (b.originating_booking_id && !b.referred_by_member_name) return false;
         if (((b as any).booked_by || b.sa_working_shift) !== drill.sa) return false;
         if (!inRange(b.class_date)) return false;
