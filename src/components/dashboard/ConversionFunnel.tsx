@@ -47,6 +47,35 @@ export function computeFunnelBothRows(
 ): { first: FunnelData; second: FunnelData } {
   const promotedOrphanIds = resolvePromotedOrphanBookingIds(introsBooked as any, introsRun as any);
 
+  // Compute exclusion sets first — we need to skip runs/bookings linked to
+  // soft-deleted, duplicate, or VIP rows when classifying journeys. Otherwise
+  // a phantom "Booked 2nd intro" run on a deleted original booking inflates
+  // the funnel by one (this is the Alexa Brodsky regression).
+  const isBookingExcluded = (b: any): boolean => {
+    const statusCanon = (b.booking_status_canon || '').toUpperCase();
+    const status = (b.booking_status || '').toUpperCase();
+    if (b.deleted_at) return true;
+    if (statusCanon === 'DELETED_SOFT') return true;
+    if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return true;
+    if (b.ignore_from_metrics) return true;
+    if (b.is_vip === true) return true;
+    return false;
+  };
+  const excludedBookingIds = new Set(
+    introsBooked.filter(b => isBookingExcluded(b)).map(b => b.id),
+  );
+
+  const isRunExcludedFromChain = (r: IntroRun): boolean => {
+    const rc = ((r as any).result_canon || '').toUpperCase();
+    if (rc === 'DELETED' || rc === 'VIP_CLASS_INTRO') return true;
+    if ((r as any).ignore_from_metrics) return true;
+    // Run links to an excluded booking (e.g. soft-deleted original) — its
+    // chain is already represented by the promoted-orphan child, so we must
+    // not double-count it as a separate ran/2nd-intro signal.
+    if (r.linked_intro_booked_id && excludedBookingIds.has(r.linked_intro_booked_id)) return true;
+    return false;
+  };
+
   const bookingPersonKey = new Map<string, string>();
   const nameToPersonKey = new Map<string, string>();
   const bookingIsSecond = new Map<string, boolean>();
@@ -56,9 +85,12 @@ export function computeFunnelBothRows(
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
+    // Only count non-excluded bookings as evidence of a real 2nd-intro
+    // booking for the person — deleted children must not flip the chain.
     const hasOrig = !!((b as any).originating_booking_id)
       && !(b as any).referred_by_member_name
-      && !promotedOrphanIds.has(b.id);
+      && !promotedOrphanIds.has(b.id)
+      && !excludedBookingIds.has(b.id);
     bookingIsSecond.set(b.id, hasOrig);
     if (hasOrig) personHasSecondBooking.set(key, true);
     const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
@@ -83,6 +115,7 @@ export function computeFunnelBothRows(
   };
 
   introsRun.forEach(r => {
+    if (isRunExcludedFromChain(r)) return;
     const key = resolveRunKey(r);
     const existing = personRunDates.get(key) || [];
     const rd = r.run_date || r.created_at.split('T')[0];
@@ -90,13 +123,7 @@ export function computeFunnelBothRows(
     personRunDates.set(key, existing);
   });
 
-  const activeBookings = introsBooked.filter(b => {
-    const status = ((b as any).booking_status || '').toUpperCase();
-    if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-    if ((b as any).ignore_from_metrics) return false;
-    if ((b as any).is_vip === true) return false;
-    return true;
-  });
+  const activeBookings = introsBooked.filter(b => !isBookingExcluded(b));
 
   const personBookingDates = new Map<string, string[]>();
   activeBookings.forEach(b => {
