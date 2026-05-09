@@ -90,6 +90,20 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [scorecardEvalType, setScorecardEvalType] = useState<'self_eval' | 'formal_eval'>('self_eval');
 
+  // Pull all scorecards for this booking; pick the right one to rehydrate
+  // into the form so submitted scores stay visible on the card.
+  const queryClient = useQueryClient();
+  const { data: bookingCards = [] } = useScorecards({ firstTimerId: booking.id });
+  const resolvedScorecardId = (() => {
+    const sameType = bookingCards.filter(c => c.eval_type === scorecardEvalType);
+    const submitted = sameType.filter(c => !!c.submitted_at);
+    const mine = submitted.find(c => c.evaluator_name === user?.name);
+    if (mine) return mine.id;
+    if (submitted[0]) return submitted[0].id;
+    const myDraft = sameType.find(c => c.evaluator_name === user?.name);
+    return myDraft?.id ?? null;
+  })();
+
   const isSecondIntro = !!booking.originating_booking_id
     && !!originatingBookingStatus
     && !NON_RAN_BOOKING_STATUSES.has(originatingBookingStatus);
