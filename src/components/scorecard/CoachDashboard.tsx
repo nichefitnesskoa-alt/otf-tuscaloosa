@@ -3,6 +3,7 @@ import { useScorecards } from '@/hooks/useScorecards';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { ComparisonView } from './ComparisonView';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
@@ -55,6 +56,19 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
     });
     return Object.entries(byWeek).map(([week, v]) => ({ week, avg: +(v.total / v.count).toFixed(1) }));
   }, [trend]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-[110px] w-full" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0,1,2,3].map(i => <Skeleton key={i} className="h-[88px]" />)}
+        </div>
+        <Skeleton className="h-[240px] w-full" />
+        <Skeleton className="h-[200px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -116,7 +130,9 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       <Card className="p-4">
         <h3 className="font-bold text-sm mb-3">90-day trend (avg score)</h3>
         {trendData.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic text-center py-8">No scorecards yet — first eval will start the trend.</p>
+          <p className="text-sm text-muted-foreground italic text-center py-8">
+            Your trend line starts with your first scorecard. The studio is watching for what's possible.
+          </p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={trendData}>
@@ -132,10 +148,10 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       {/* Recent */}
       <Card className="p-4">
         <h3 className="font-bold text-sm mb-3">Recent scorecards</h3>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : submitted.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">Nothing yet this month.</p>
+        {submitted.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">
+            Nothing yet. Open the chip in My Day or score your next intro from Coach View.
+          </p>
         ) : (
           <div className="space-y-2">
             {submitted.slice(0, 10).map(s => (

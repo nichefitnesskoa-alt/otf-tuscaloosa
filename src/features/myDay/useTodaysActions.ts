@@ -7,6 +7,7 @@ import type { FvScorecard } from '@/hooks/useScorecards';
 
 export interface ActionChip {
   id: string;
+  // Adding a new kind requires updating TodaysActions.tsx render switch.
   kind: 'score' | 'follow_up_coach' | 'milestone' | 'referral_ask' | 'cadence_eval';
   label: string;
   meta?: any;

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Trophy, ChevronDown, ChevronUp, ClipboardCheck } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -36,8 +38,12 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
+  const hasAnyScorecards = data.scorecards.length > 0;
+  const hasAnyRan = data.ranByCoach.size > 0;
+  const isEmptyRange = !isLoading && !hasAnyScorecards && !hasAnyRan;
 
   return (
     <Card>
@@ -79,89 +85,109 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               { value: 'self', label: 'Self primary' },
             ]}
           />
-          <Badge variant="outline" className="ml-auto text-[10px]">
-            {data.unscoredCount} {data.unscoredCount === 1 ? 'intro' : 'intros'} still waiting on a scorecard
-          </Badge>
-        </div>
-
-        {/* Studio overall trend */}
-        <Card className="p-3 border-border/60">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold">Studio overall</h3>
-            <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
-          </div>
-          <TrendChart
-            points={data.studioPoints}
-            onPointTap={(p) => setDrilldown({ label: `Studio · ${p.bucket}`, cards: p.scorecards })}
-            primaryColor="hsl(20 90% 47%)"
-            secondaryColor="hsl(38 92% 60%)"
-          />
-        </Card>
-
-        {/* Closing-score tiles */}
-        <ClosingTiles tiles={data.closingTiles} />
-
-        {/* Coach leaderboard */}
-        <div>
-          <h3 className="text-sm font-bold mb-2">Coach leaderboard</h3>
-          {isLoading ? (
-            <p className="text-xs text-muted-foreground py-2 text-center">Loading…</p>
-          ) : data.ranByCoach.size === 0 ? (
-            <p className="text-xs text-muted-foreground py-2 text-center">No intros ran in this range.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {[...data.ranByCoach.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([coach, ran]) => {
-                  const formal = data.formalByCoach.get(coach);
-                  const self = data.selfByCoach.get(coach);
-                  const gap = formal?.avg !== undefined && formal?.avg !== null && self?.avg !== undefined && self?.avg !== null
-                    ? formal.avg - self.avg : null;
-                  const dot = cadenceDotStatus(coach, data.scorecards);
-                  const unscored = data.unscoredByCoach.get(coach) || 0;
-                  const expanded = expandedCoach === coach;
-                  const coachPoints = data.perCoachPoints.get(coach) || [];
-                  return (
-                    <div key={coach} className="rounded-md border border-border bg-card overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedCoach(expanded ? null : coach)}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] hover:bg-muted/50 text-left"
-                      >
-                        <CadenceDot status={dot} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{coach}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {ran} ran · Formal {formal?.avg !== null && formal?.avg !== undefined ? formal.avg.toFixed(1) : '—'} ({formal?.count || 0})
-                            · Self {self?.avg !== null && self?.avg !== undefined ? self.avg.toFixed(1) : '—'} ({self?.count || 0})
-                            {gap !== null && (
-                              <> · Gap <span className={gap > 2 ? 'text-destructive' : gap < -2 ? 'text-success' : 'text-warning'}>{gap > 0 ? '+' : ''}{gap.toFixed(1)}</span></>
-                            )}
-                          </p>
-                        </div>
-                        {unscored > 0 && (
-                          <Badge variant="outline" className="text-[10px]">{unscored} unscored</Badge>
-                        )}
-                        {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                      </button>
-                      {expanded && (
-                        <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/20">
-                          <p className="text-[10px] text-muted-foreground mb-1">{coach} vs studio (faded)</p>
-                          <TrendChart
-                            points={coachPoints}
-                            studioOverlay={data.studioPoints}
-                            onPointTap={(p) => setDrilldown({ label: `${coach} · ${p.bucket}`, cards: p.scorecards })}
-                            primaryColor="hsl(20 90% 47%)"
-                            secondaryColor="hsl(38 92% 60%)"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
+          {hasAnyRan && (
+            <Badge variant="outline" className="ml-auto text-[10px]">
+              {data.unscoredCount} {data.unscoredCount === 1 ? 'intro' : 'intros'} still waiting on a scorecard
+            </Badge>
           )}
         </div>
+
+        {isLoading ? (
+          <LoadingState />
+        ) : isEmptyRange ? (
+          <EmptyState onScoreFirst={() => navigate('/scorecards/me')} />
+        ) : (
+          <>
+            {/* Studio overall trend */}
+            <Card className="p-3 border-border/60">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold">Studio overall</h3>
+                <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
+              </div>
+              {data.studioPoints.length === 0 ? (
+                <div className="py-8 text-center space-y-1">
+                  <ClipboardCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+                  <p className="text-sm font-semibold">No scorecards in this range yet.</p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    First Visit Experience is how this studio measures elite. The first scorecard starts the trend.
+                  </p>
+                </div>
+              ) : (
+                <TrendChart
+                  points={data.studioPoints}
+                  onPointTap={(p) => setDrilldown({ label: `Studio · ${p.bucket}`, cards: p.scorecards })}
+                  primaryColor="hsl(20 90% 47%)"
+                  secondaryColor="hsl(38 92% 60%)"
+                />
+              )}
+            </Card>
+
+            {/* Closing-score tiles */}
+            <ClosingTiles tiles={data.closingTiles} />
+
+            {/* Coach leaderboard */}
+            <div>
+              <h3 className="text-sm font-bold mb-2">Coach leaderboard</h3>
+              {data.ranByCoach.size === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 text-center">
+                  No first intros ran in this range yet.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {[...data.ranByCoach.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([coach, ran]) => {
+                      const formal = data.formalByCoach.get(coach);
+                      const self = data.selfByCoach.get(coach);
+                      const gap = formal?.avg !== undefined && formal?.avg !== null && self?.avg !== undefined && self?.avg !== null
+                        ? formal.avg - self.avg : null;
+                      const dot = cadenceDotStatus(coach, data.scorecards);
+                      const unscored = data.unscoredByCoach.get(coach) || 0;
+                      const expanded = expandedCoach === coach;
+                      const coachPoints = data.perCoachPoints.get(coach) || [];
+                      return (
+                        <div key={coach} className="rounded-md border border-border bg-card overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCoach(expanded ? null : coach)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] hover:bg-muted/50 text-left"
+                          >
+                            <CadenceDot status={dot} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold truncate">{coach}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {ran} ran · Formal {formal?.avg !== null && formal?.avg !== undefined ? formal.avg.toFixed(1) : '—'} ({formal?.count || 0})
+                                · Self {self?.avg !== null && self?.avg !== undefined ? self.avg.toFixed(1) : '—'} ({self?.count || 0})
+                                {gap !== null && (
+                                  <> · Gap <span className={gap > 2 ? 'text-destructive' : gap < -2 ? 'text-success' : 'text-warning'}>{gap > 0 ? '+' : ''}{gap.toFixed(1)}</span></>
+                                )}
+                              </p>
+                            </div>
+                            {unscored > 0 && (
+                              <Badge variant="outline" className="text-[10px]">{unscored} unscored</Badge>
+                            )}
+                            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                          </button>
+                          {expanded && (
+                            <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/20">
+                              <p className="text-[10px] text-muted-foreground mb-1">{coach} vs studio (faded)</p>
+                              <TrendChart
+                                points={coachPoints}
+                                studioOverlay={data.studioPoints}
+                                onPointTap={(p) => setDrilldown({ label: `${coach} · ${p.bucket}`, cards: p.scorecards })}
+                                primaryColor="hsl(20 90% 47%)"
+                                secondaryColor="hsl(38 92% 60%)"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </CardContent>
 
       {/* Drill-down modal */}
@@ -294,3 +320,41 @@ function TrendChart({
     </ResponsiveContainer>
   );
 }
+
+function LoadingState() {
+  return (
+    <div className="space-y-4">
+      <Card className="p-3 border-border/60">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-[220px] w-full" />
+      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <Skeleton className="h-[110px]" />
+        <Skeleton className="h-[110px]" />
+        <Skeleton className="h-[110px]" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-40 mb-2" />
+        {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ onScoreFirst }: { onScoreFirst: () => void }) {
+  return (
+    <Card className="p-8 border-2 border-dashed border-primary/30 bg-primary/5 text-center space-y-3">
+      <ClipboardCheck className="w-12 h-12 text-primary mx-auto" />
+      <div>
+        <p className="text-base font-bold">This is where elite gets measured.</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+          First Visit Experience is the standard. The first scorecard starts the trend for every coach in this studio.
+        </p>
+      </div>
+      <Button onClick={onScoreFirst} className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white min-h-[44px]">
+        Score Your First Intro
+      </Button>
+    </Card>
+  );
+}
+
