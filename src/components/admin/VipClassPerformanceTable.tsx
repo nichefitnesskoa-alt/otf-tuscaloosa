@@ -113,15 +113,21 @@ export function VipClassPerformanceTable() {
         const sessionBookings = bookingsBySession[s.id] || [];
         const showedBookings = sessionBookings.filter((b: any) => b.booking_status_canon === 'SHOWED');
 
+        const regName = (r: any) =>
+          [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
+        const regAttended = (r: any) => {
+          const o = (r.outcome || '').toString().toLowerCase();
+          return o === 'attended' || o === 'showed' || o === 'show' || o === 'joined' || o === 'joined_member' || o === 'converted';
+        };
         const registeredPeople: PersonRow[] = sessionRegs.map(r => ({
           id: `reg-${r.id}`,
-          name: r.member_name || 'Unknown',
-          rightLabel: r.attended ? 'Attended' : undefined,
-          rightTone: r.attended ? 'success' : undefined,
+          name: regName(r),
+          rightLabel: regAttended(r) ? 'Attended' : (r.outcome || undefined),
+          rightTone: regAttended(r) ? 'success' : 'muted',
         }));
         const attendedPeople: PersonRow[] = sessionRegs
-          .filter(r => r.attended)
-          .map(r => ({ id: `att-${r.id}`, name: r.member_name || 'Unknown' }));
+          .filter(regAttended)
+          .map(r => ({ id: `att-${r.id}`, name: regName(r) }));
         const bookedPeople: PersonRow[] = sessionBookings.map(b => ({
           id: `bk-${b.id}`,
           name: b.member_name || 'Unknown',
