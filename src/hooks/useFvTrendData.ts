@@ -20,9 +20,7 @@ import {
 } from '@/lib/scorecard/trends';
 import type { DateRange } from '@/lib/pay-period';
 import { resolveClosedFirstIntroIds } from '@/lib/intros/close-detection';
-
-// Match WIG header: only NO_SHOW / UNRESOLVED / VIP_CLASS_INTRO are dropped from "ran" denominator.
-const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'VIP_CLASS_INTRO']);
+import { NON_RAN_RESULT_CANONS } from '@/lib/canon/introRules';
 
 interface RanFirstIntro {
   bookingId: string;
