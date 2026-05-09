@@ -722,8 +722,26 @@ export default function Wig() {
                     {coachLeadMeasures.map(row => (
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center">{row.coached}</TableCell>
-                        <TableCell className="text-sm text-center font-medium text-success">{row.closes}</TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.coached === 0}
+                            onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.coached}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center font-medium text-success p-0">
+                          <button
+                            type="button"
+                            disabled={row.closes === 0}
+                            onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.closes}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-sm text-center">
                           <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                             {row.closeRate.toFixed(0)}%
