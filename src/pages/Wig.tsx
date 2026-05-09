@@ -697,6 +697,7 @@ export default function Wig() {
               <UserCheck className="w-4 h-4 text-primary" />
               Coach — Coached & Closes
             </CardTitle>
+            <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
           </CardHeader>
           <CardContent className="p-0">
             {measuresLoading ? (
