@@ -349,13 +349,7 @@ export default function Wig() {
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
 
-      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => {
-        if (b.is_vip) return false;
-        if (b.ignore_from_metrics) return false;
-        const status = (b.booking_status_canon || '').toUpperCase();
-        if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
-        return true;
-      });
+      const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => !isBookingExcludedFromMetrics(b));
 
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id || !!b.referred_by_member_name
