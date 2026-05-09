@@ -1,128 +1,132 @@
-Edit 1: Cadence chip kind rename safety
-
-Before renaming the 'formal_eval' union to 'cadence_eval', do a full codebase grep for every reference to 'formal_eval' as a chip kind. Update every render site, every conditional, every type guard. Report the full list before merging. The current plan says “and update render site” singular — confirm there’s only one.
-
-Edit 2: Cadence panel ideal-state language
-
-The cadence panel on CoachDashboard should also surface when a coach is exceeding the minimum. Right now it shows what’s owed and the streak. Add one line beneath: when a coach has self-evaluated every week in the current month regardless of cycle, show “You’re self-evaluating every week. That’s the standard.”
-
 &nbsp;
 
-# First Visit Experience — Trends, Closing Score, Weekly Cadence
+Edit 1: Lint guardrail.
 
-## Investigation findings
+After the canonical helper exists, add a custom ESLint rule (or codeowners check) that flags any file containing result_canon === 'SALE' outside of src/lib/intros/close-detection.ts and src/lib/sales-detection.ts. The rule’s error message points to the canonical helper. Costs maybe 10 minutes to add. Saves the next regression entirely.
 
-### 1. Date range component (already studio-grade — reuse, do not rebuild)
+If a custom rule is too heavy, an alternative: a CI grep check that fails the build when the pattern appears outside the allowed files. Same effect, simpler.
 
-- **File:** `src/components/dashboard/DateRangeFilter.tsx`
-- **Used by:** `src/pages/Wig.tsx`, `src/features/myDay/MyDayTopPanel.tsx`, `src/pages/Recaps.tsx`, `src/pages/Admin.tsx`, `src/components/admin/ObjectionReport.tsx`
-- **Presets supported (in `src/lib/pay-period.ts` via `DatePreset` + `getDateRangeForPreset`):** `all_time`, `today`, `this_week`, `last_week`, `this_month`, `last_month`, `this_quarter`, `last_quarter`, `pay_period`, `last_pay_period`, `this_year`, `last_year`, `custom`. **Every preset we need is already there — no extension required.**
-- **Custom range:** dialog with two `Calendar` pickers, applied via `onCustomRangeChange` + `onPresetChange('custom')`.
-- **Pay periods:** biweekly (14 days), anchored `Jan 26 2026`, all derived in CT via `getNowCentral()`.
+Edit 2: Verification numbers in writing.
 
-### 2. Scorecard schema (in place, no migration needed for trends)
+Their verification step says “FV tiles must read 3 closed.” Lock the exact expected numbers into the test or the deploy checklist before merging:
 
-- `fv_scorecards` — has `class_date`, `evaluatee_name`, `eval_type` ('self_eval' | 'formal_eval'), `total_score` (0–30), `level` (1/2/3), `submitted_at`, `first_timer_id` (FK to `intros_booked.id`).
-- `fv_scorecard_bullets`, `fv_scorecard_comments` — present, fine for drill-down.
-- **No-show field:** lives on `intros_run.result_canon`. The canon "did intro actually run" rule (per memory `mem://logic/intro-ran-detection`) excludes `NO_SHOW`, `UNRESOLVED`, `VIP_CLASS_INTRO` (and PLANNING_RESCHEDULE). `WigFirstVisitSection.tsx` already filters this way — we'll reuse the same predicate.
-- "Closed" detection: same Total-Journey rule WIG already uses (membership sale on the chain originating from the first intro).
+	•	This month, Koa: 3 closed, avg score closed = (Madison’s self-eval + Mike’s self-eval + Joyce’s self-eval) / 3
 
-### 3. Existing 6/month + 2-formal-floor logic — much smaller than expected
+	•	This month, James: whatever the WIG header shows (Lovable to look up before deploy)
 
-- `**src/components/scorecard/CoachDashboard.tsx` line 11:** `const L3_TARGET = 6;` — the only "6" target. Drawn as `{l3Count}/6` with a progress bar. **No 2-formal-floor anywhere in code.** No DB column, no setting, no enforcement.
-- `**src/features/myDay/useTodaysActions.ts`:** the `ActionChip.kind` union includes `'formal_eval'` but **no code path ever emits one**. The only scorecard chip emitted is `'score'` ("Score X's intro" for any of the coach's runs from yesterday/today missing a scorecard).
-- `**WigFirstVisitSection.tsx`:** shows L1/L2/L3 counts + per-coach Self/Formal averages + Gap. No cadence enforcement.
-- **No other references** to monthly minimums, formal floor, or cadence streaks anywhere.
-- **Net:** removing the 6/2 system = delete the `L3_TARGET` block in `CoachDashboard.tsx` and replace with the new weekly cadence panel. Nothing else cleans up.
+	•	This month, studio total: matches WIG header studio total exactly
 
-### CONFIRM THESE VALUES before build
+If any number doesn’t match the WIG header to the integer after the fix ships, the bug isn’t fully resolved. Document the expected numbers in the PR description so the verification is binary, not subjective.
 
-1. **Cadence cycle anchor.** The brief asks. Two options:
-  - **(A)** Studio-wide fixed odd/even ISO-week alternation in CT (odd ISO-week = self-eval week, even = formal). Simple, predictable, identical for every coach.
-  - **(B)** Per-coach rolling: their last submitted eval's type flips for next week. More personalized but messy when a coach skips.
-   Recommendation: **(A) studio-wide odd/even ISO weeks**, Monday CT reset.
-2. **Moving-average window.** Brief suggests 4 weeks. Confirm 4-week window (auto-shrinks when range < 4 weeks of data → falls back to range average).
-3. **Closing-score "score of the intro"** when both evals exist: default **Formal Primary** (matches brief), togglable to Self-Eval Primary on the tile.
-4. **Unscored bucket scope:** count is "first intros that ran (per `didIntroActuallyRun`) in range with **zero** scorecards of any type tied to that booking." Confirm.
+## Root cause (confirmed against live data)
 
----
+The WIG header and the new First Visit Experience section run two different "is this intro a sale?" checks. They disagree on Koa's month.
 
-## Build plan (after confirmations)
+**Koa's 5 ran first intros this month (live DB):**
 
-### A. New shared building blocks
 
-- `src/lib/scorecard/trends.ts` — pure functions:
-  - `pickPrimaryScore(cards, mode: 'formal' | 'self')` → one card per `first_timer_id`.
-  - `bucketByTime(points, range)` → auto bucket (daily / weekly / monthly).
-  - `movingAverage(series, window=4)`.
-  - `getCadenceWeek(date)` → `{ isoWeek, type: 'self' | 'formal' }` (CT-anchored, odd/even ISO weeks).
-  - `getCadenceStatus(coach, scorecards, weekStart)` → `{ owed, met, streakWeeks }`.
-- `src/hooks/useFvTrendData.ts` — single React Query hook that fetches `fv_scorecards` + the ran first-intro bookings (with their `intros_run` join) for the date range, returns:
-  - `studioPoints`, `perCoachPoints` (Map),
-  - `closingTiles` (avg-closed, avg-not-closed, coverage %s),
-  - `unscoredCount` (studio + per-coach).
-  - All filtered through `didIntroActuallyRun` (no-show exclusion).
+| Member             | result_canon      | Membership? |
+| ------------------ | ----------------- | ----------- |
+| Elizabeth Williams | `ON_5_CLASS_PACK` | no          |
+| Madison Sullivan   | `BASIC`           | yes (close) |
+| Sophia Tabor       | `PLANNING_TO_BUY` | no          |
+| Mike Shelton       | `PREMIER`         | yes (close) |
+| Joyce Busch        | `PREMIER`         | yes (close) |
 
-### B. WIG — First Visit Experience section
 
-File: `src/components/scorecard/WigFirstVisitSection.tsx` (rewrite)
+**WIG header (`src/pages/Wig.tsx` line 476)** counts a close when:
 
-1. Local state for date range (default `this_month`), Raw vs Moving Avg toggle, Formal/Self primary toggle. Top-mount the existing `<DateRangeFilter />`.
-2. **Studio overall trend graph** (Recharts `LineChart`): two lines (faint amber self-avg, bold orange formal-avg), Y 0–30, x-axis bucketed. Toggle swaps to 4-wk MA. Tap point opens drill-down modal listing every scorecard in that bucket → opens `<ComparisonView />` on selection.
-3. **Closing score tiles** (3 side-by-side, mobile stacks):
-  - Tile 1 (orange): avg score of intros that closed.
-  - Tile 2 (gray): avg score of intros that didn't close.
-  - Tile 3: coverage rows — Formal-eval / Self-eval only / Unscored, each `X% closed (Y of Z)`.
-  - Toggle: Formal Primary / Self-Eval Primary.
-4. **Unscored callout:** small chip "X intros still waiting on a scorecard" beneath studio chart.
-5. **Coach leaderboard** (replaces current per-coach table):
-  - Row: coach, ran-count, formal avg, self avg, gap, **cadence dot** (green met / amber pending / red missed), unscored count, chevron.
-  - Tap row → expands inline with that coach's trend chart, studio overall as faded gray line behind a bold orange coach line. Same Raw/MA toggle, same date range.
-  - Tap point in expanded chart → same drill-down modal.
+```
+r.result_canon === 'SALE' || isMembershipSale(r.result)
+```
 
-### C. CoachDashboard rewrite
+`isMembershipSale` matches `premier | elite | basic` in the result string. → 3 closes. ✅
 
-File: `src/components/scorecard/CoachDashboard.tsx`
+**FV section (`src/hooks/useFvTrendData.ts` line ~95)** counts a close when:
 
-- Remove `L3_TARGET = 6` block.
-- Add **Cadence panel** at top:
-  - "This week you owe: **Self-eval**" (or Formal eval), with picker.
-  - Streak badge: "X-week streak."
-  - Month rollup: total / self / formal counts.
-- Keep recent-cards list and mini trend (now wired through new helpers).
+```
+const sale = r.result_canon === 'SALE';
+```
 
-### D. MyDay weekly action chip
+None of Koa's runs have `result_canon = 'SALE'` (they're `PREMIER`/`BASIC`), so → 0 closes. ❌
 
-File: `src/features/myDay/useTodaysActions.ts`
+That single line is the entire bug. The screenshot ("0 closed / 3 didn't close / Self eval only 0/3 / Unscored 0/9") is the exact output of that broken check.
 
-- Add cadence chip for Coaches:
-  - Compute current week obligation from `getCadenceWeek(today)`.
-  - Check `fv_scorecards` for an evaluatee=coach, eval_type matching, submitted within current Mon–Sun CT.
-  - If unmet, push chip: label `"Self-eval owed this week"` or `"Formal eval owed this week"` with `kind: 'formal_eval'` reused (rename union to `'cadence_eval'` and update render site).
-  - Chip persists past week end if missed (no expiry filter).
-- Render site: search for ActionChip rendering (`TodaysActions.tsx` / `WinTheDay.tsx`) and add the new kind icon/route (opens picker → `ScorecardForm`).
+## Other diffs found between the two implementations
 
-### E. Reports tab refresh
 
-File: `src/pages/Reports.tsx`
+| Concern                                                                      | WIG header                                        | FV hook                                                           | Action                                                                                   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| First-intro filter (`!originating_booking_id || referred_by_member_name`)    | same                                              | same                                                              | keep                                                                                     |
+| Date scope                                                                   | `class_date` in range                             | `class_date` in range                                             | keep — match                                                                             |
+| VIP / ignore_from_metrics / DELETED_SOFT exclusion                           | yes                                               | yes                                                               | keep                                                                                     |
+| Excluded run results                                                         | `NO_SHOW`, `UNRESOLVED`, `VIP_CLASS_INTRO`        | `NO_SHOW`, `UNRESOLVED`, `VIP_CLASS_INTRO`, `PLANNING_RESCHEDULE` | match WIG (drop `PLANNING_RESCHEDULE` from exclusion — Wig counts it as a ran non-close) |
+| Sale detection                                                               | `result_canon='SALE' || isMembershipSale(result)` | `result_canon='SALE'` only                                        | **fix — use canonical helper**                                                           |
+| Total Journey (2nd intro chain via `originating_booking_id`)                 | yes, same sale check                              | yes, but only `result_canon='SALE'`                               | **fix — use canonical helper**                                                           |
+| Coach attribution (VIP session coach override via `vip_sessions.coach_name`) | yes                                               | no — uses run/booking coach only                                  | leave as-is for FV section (per-coach trend, not commission); document                   |
 
-- Replace any 6/2 references (none found, but verify on build) with: scored-coverage breakdown (Formal / Self / Unscored), cadence-streak column per coach.
 
-### F. Verification
+## What to build
 
-- Type check (auto).
-- Re-render WIG with `this_month` default and confirm: chart renders, tiles populate, leaderboard expand works on 440px viewport (current preview width).
-- Confirm chip appears on MyDay for a coach in the current ISO-week obligation window.
+### 1. New canonical helper — `src/lib/intros/close-detection.ts`
 
-### Files touched (final list will be reported on completion)
+Source of truth. Two small pure functions plus a batch resolver. One-line comment at top: *"Source of truth for 'did this intro close.' Every consumer uses this. No second implementation anywhere."*
 
-- `src/components/scorecard/WigFirstVisitSection.tsx` (rewrite)
-- `src/components/scorecard/CoachDashboard.tsx` (cadence + remove 6/2)
-- `src/lib/scorecard/trends.ts` (new)
-- `src/hooks/useFvTrendData.ts` (new)
-- `src/features/myDay/useTodaysActions.ts` (cadence chip)
-- `src/features/myDay/TodaysActions.tsx` or `WinTheDay.tsx` (render new chip kind)
-- `src/pages/Reports.tsx` (coverage + streak surfacing if section exists)
-- `src/pages/Wig.tsx` (only if FV section needs to receive the shared `dateRange` from WIG header — currently it owns its own; leave separate per non-negotiables)
+```ts
+// Pure predicate on a single intros_run row
+export function isCloseRun(run: { result_canon?: string|null; result?: string|null }): boolean
 
-No DB migrations required. No changes to `DateRangeFilter.tsx` or `pay-period.ts`.
+// Given a set of first-intro booking IDs, returns Set<bookingId> that closed
+// (handles direct sale on the booking's runs + Total Journey via 2nd intro chain).
+export async function resolveClosedFirstIntroIds(
+  firstIntroBookingIds: string[]
+): Promise<Set<string>>
+```
+
+`isCloseRun` body: `result_canon === 'SALE' || isMembershipSale(result || '')`.
+
+`resolveClosedFirstIntroIds` consolidates the batched intros_run + chained 2nd-intro lookup that exists today in both places.
+
+### 2. Refactor `src/hooks/useFvTrendData.ts`
+
+- Remove the inline `ran` / `childSales` / `secondRunSaleSet` blocks.
+- After loading the valid first-intro bookings, call `resolveClosedFirstIntroIds(ids)` once and use the returned Set to build the per-coach `RanFirstIntro[]`.
+- Use `isCloseRun` to gate which runs count as "ran" (we still need the run row to know the coach).
+- Drop `PLANNING_RESCHEDULE` from the `RAN_EXCLUDED` set so the FV "ran" denominator matches WIG.
+
+### 3. Refactor `src/pages/Wig.tsx` (Closing Coach section)
+
+Replace the inline batched-fetch block (lines ~408–485) with a call to `resolveClosedFirstIntroIds`. Keep the VIP coach override there (it's WIG-specific commission attribution).
+
+### 4. Audit other consumers
+
+Grep for `isMembershipSale`, `result_canon === 'SALE'`, `result_canon = 'SALE'`. Touch every file that re-derives "closed" for first-intro Total Journey reporting and route it through the helper. Files I expect to update or verify:
+
+- `src/components/scorecard/WigFirstVisitSection.tsx` (reads from the hook — no change needed)
+- `src/components/admin/CoachingView.tsx` (verify; only swap if it's doing Total Journey close detection)
+- `src/components/meeting/ObjectionSection.tsx` (verify)
+- `src/hooks/useDashboardMetrics.ts`, `useLeadMeasures.ts` (verify)
+
+`src/lib/sales-detection.ts` stays — it remains the lowest-level membership-name predicate that the new helper composes.
+
+### 5. Tests
+
+- New `src/lib/intros/__tests__/close-detection.test.ts` covering: direct `SALE`, `PREMIER`/`BASIC`/`ELITE` via `result`, no-show excluded, 2nd-intro Total Journey close, mixed runs (sale wins).
+- Update any existing tests that mocked the old inline logic.
+
+### 6. Verification before shipping
+
+Run three date ranges (this month, last month, current pay period) and assert FV `closingTiles.closedCount` per coach equals WIG header `coachData[coach].closes`. For Koa this month the FV tiles must read **3 closed**, avg score · closed = average of his 3 self-eval scores for Madison/Mike/Joyce.
+
+## Files touched (expected)
+
+- new: `src/lib/intros/close-detection.ts`
+- new: `src/lib/intros/__tests__/close-detection.test.ts`
+- edited: `src/hooks/useFvTrendData.ts`
+- edited: `src/pages/Wig.tsx`
+- possibly edited (after audit): `src/components/admin/CoachingView.tsx`, `src/hooks/useDashboardMetrics.ts`, `src/hooks/useLeadMeasures.ts`
+
+## Confirmed values
+
+- **Canonical close check today**: `r.result_canon === 'SALE' || isMembershipSale(r.result)` in `src/pages/Wig.tsx` (Closing Coach section). Not currently exported — will be extracted.
+- **Date scope**: `class_date` in range. Both WIG header and FV hook already agree on this; we keep it.
