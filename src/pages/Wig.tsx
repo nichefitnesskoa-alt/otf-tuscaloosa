@@ -186,10 +186,7 @@ export default function Wig() {
     const todayCentral = getNowCentral();
     const effectiveEnd = dateRange ? (dateRange.end < todayCentral ? dateRange.end : todayCentral) : todayCentral;
     return introsBooked.filter(b => {
-      if ((b as any).is_vip) return false;
-      if ((b as any).ignore_from_metrics) return false;
-      const status = ((b as any).booking_status_canon || '').toUpperCase();
-      if (status === 'DELETED_SOFT' || status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return false;
+      if (isBookingExcludedFromMetrics(b)) return false;
       if (!dateRange) return true;
       try {
         return isWithinInterval(parseLocalDate(b.class_date), { start: dateRange.start, end: effectiveEnd });
