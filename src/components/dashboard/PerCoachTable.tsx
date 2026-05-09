@@ -60,9 +60,11 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { rows, attribution } = useMemo(() => {
     const originatingMap = new Map<string, boolean>();
     const bookingById = new Map<string, any>();
+    const excludedBookingIds = new Set<string>();
     introsBooked.forEach((b: any) => {
       originatingMap.set(b.id, !!b.originating_booking_id);
       bookingById.set(b.id, b);
+      if (isBookingExcludedFromMetrics(b)) excludedBookingIds.add(b.id);
     });
 
     const resolveCoach = (b: any, fallback: string | null): string | null => {
@@ -73,8 +75,11 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       return fallback;
     };
 
-    // First intros only
+    // First intros only — and exclude runs whose linked booking was
+    // soft-deleted, marked duplicate/dead, VIP, or ignored from metrics.
+    // (Matches the WIG tab filter so Studio and WIG stay in lockstep.)
     const firstIntroRuns = introsRun.filter(r => {
+      if (r.linked_intro_booked_id && excludedBookingIds.has(r.linked_intro_booked_id)) return false;
       if (!r.linked_intro_booked_id) return true;
       return !originatingMap.get(r.linked_intro_booked_id);
     });
