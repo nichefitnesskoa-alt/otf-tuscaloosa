@@ -533,6 +533,7 @@ export default function Wig() {
       });
 
 
+      const allCoachNames = new Set<string>([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
         const wk = coachMap.get(name) || { coached: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
