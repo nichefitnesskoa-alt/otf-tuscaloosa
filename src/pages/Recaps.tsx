@@ -226,6 +226,7 @@ export default function Recaps() {
         </TabsContent>
 
         <TabsContent value="studio" className="space-y-4 mt-4">
+          {isAdmin && <MetricsConsistencyAlert dateRange={dateRange} />}
           <StudioScoreboard
             introsRun={scoreboardIntrosRun}
             introSales={scoreboardSales}
