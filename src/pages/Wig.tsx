@@ -473,7 +473,7 @@ export default function Wig() {
             if (!cName) return;
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
-            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) {
+            if (isCloseRun(r)) {
               ex.closed++;
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach
