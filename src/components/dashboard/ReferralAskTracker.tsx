@@ -227,5 +227,14 @@ export function ReferralAskTracker({ dateRange }: Props) {
         )}
       </CardContent>
     </Card>
+    <PersonListDrillDown
+      open={!!drill}
+      onOpenChange={(o) => { if (!o) setDrill(null); }}
+      title={drill === 'pending' ? 'Referral asks to do' : 'Referral asks completed'}
+      scopeBadge="WIG tab"
+      rows={drillRows}
+      emptyText="Nothing here."
+    />
+    </>
   );
 }
