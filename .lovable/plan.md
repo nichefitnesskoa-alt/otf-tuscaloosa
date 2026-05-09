@@ -1,40 +1,45 @@
-Root cause found:
-- Alexa has three booking rows tied to the same deleted original booking:
-  - Deleted original first intro on May 1.
-  - A May 1 follow-up row that points back to that deleted original.
-  - A May 4 purchased row that also points back to that deleted original.
-- The recent WIG fix promoted every non-deleted child of a deleted original into “first intro” status. That made WIG count Alexa twice: once for the May 1 follow-up row and once for the May 4 sale row.
-- Studio still uses the old first-intro rule, so it excludes both child rows and never shows Alexa in James’s coached or closes drilldown.
+## What's wrong
 
-Plan:
-1. Add one shared helper for “metric base bookings” in `src/lib/intros/excludedBookings.ts`.
-   - Keep existing exclusions: VIP, ignored, soft-deleted, duplicate/dead/deleted canon statuses.
-   - Keep normal first intros.
-   - Keep referred friends as first-intro equivalents.
-   - For orphaned 2nd-intro chains where the originating booking is excluded, pick exactly one active child booking per original person-chain.
-   - Prefer the child booking with a sale run. Otherwise prefer a real ran outcome over planning/follow-up duplicates, then the latest class date.
-   - This makes Alexa resolve to the May 4 sale booking only.
+The Studio Scoreboard shows **9 Intros Run / 7 Sales** while the WIG tab and the Per-Coach Performance table both show **10 ran / 7 sales** (Koa 5 + James 4 + Nathan 1 = 10). The Conversion Funnel under Studio also shows the lower number (1st intro Showed = 9, Sold = 6).
 
-2. Use that helper in the WIG Coach “Coached & Closes” section.
-   - Replace the current `excludedOriginatingIds` promotion that includes all children.
-   - Build WIG’s coached denominator, closes, and drilldown from the single resolved base booking list.
-   - Result: James WIG shows Alexa once, with SALE, not both Follow-Up and SALE.
+This is the same Alexa Brodsky orphan case from the previous fix — just in two surfaces we missed.
 
-3. Use the same helper in Studio’s Per-Coach table and drilldown.
-   - Replace Studio’s old `!originating_booking_id` filter.
-   - Studio and WIG will now include the same resolved person-chain for James.
-   - Result: Alexa appears in James’s Studio coached and closes drilldowns as a sale.
+### Root cause
 
-4. Update Studio aggregate metrics in `src/hooks/useDashboardMetrics.ts` to use the same resolved first-intro/base-booking logic.
-   - This keeps the Studio scoreboard denominator and sales total aligned with the person lists.
-   - Sales stay anchored to buy date, ran/coached stays anchored to class/run date.
+In the previous round we centralized the "orphaned 2nd-intro promotion" logic into `src/lib/intros/orphanedFirstIntros.ts` and wired it into:
+- `src/pages/Wig.tsx` (WIG tab)
+- `src/components/dashboard/PerCoachTable.tsx` (Per-Coach table)
 
-5. Add regression tests around the exact failure mode.
-   - Deleted original + follow-up child + sale child should count one ran/coached and one sale.
-   - No duplicate Alexa-style rows in the resolved base list.
-   - Normal first intros and referred-friend bookings still count correctly.
+But two other surfaces still use the old `!originating_booking_id || referred_by_member_name` rule and never see promoted orphans:
 
-Downstream effect:
-- WIG and Studio drilldowns for James should match for Alexa.
-- Alexa Brodsky should show once as ran/coached and once as closed/sale.
-- Jaden Cerreta and Ethan Forman remain excluded because their bookings are soft-deleted and do not have a valid active sale child promoted as the real intro.
+1. **`src/hooks/useDashboardMetrics.ts`** (line 165) — its `firstIntroBookings` set feeds:
+   - `pipelineShowed` → Studio Scoreboard "Intros Run" (9 instead of 10)
+   - `studioIntroSales` / `effectiveStudioRan` → Scoreboard sales + close rate
+   - `perSAData` → Sales tab Runner Stats
+2. **`src/components/dashboard/ConversionFunnel.tsx`** (lines 56, 105) — its own first-intro filter drives the 1ST INTRO Booked/Showed/Sold tiles.
+
+Because both still ignore the promoted orphan child (Alexa's May 4 sale child of a deleted original), Alexa is excluded from both denominators and the sale numerator.
+
+## Fix
+
+Bring the same `resolvePromotedOrphanBookingIds` / `isFirstIntroForMetrics` helpers into both surfaces so every Studio number matches WIG.
+
+### 1. `src/hooks/useDashboardMetrics.ts`
+- Compute `promotedOrphanIds = resolvePromotedOrphanBookingIds(activeBookings, activeRuns)` once, after `activeBookings` / `activeRuns` are built.
+- Replace the `firstIntroBookings` filter (line 165) with `isFirstIntroForMetrics(b, promotedOrphanIds)` plus the existing date-range check.
+- All downstream sets (`firstIntroBookingIds`, `pastAndTodayBookings`, `firstIntroBookingsNoSelfBooked`, per-SA loops, pipeline counts) automatically pick up the promoted booking, so Scoreboard "Intros Run" goes 9 → 10 and Per-SA Runner Stats stays consistent with Per-Coach.
+
+### 2. `src/components/dashboard/ConversionFunnel.tsx`
+- Same pattern: build `promotedOrphanIds` from the same booking + run inputs the funnel already loads, and update both first-intro checks (lines 56 and 105) to treat promoted IDs as 1st intros. 2nd-intro logic (`hasOrig`) gets the inverse so Alexa isn't double-counted on the 2nd-intro row.
+
+### 3. Regression coverage
+- Extend `src/lib/intros/__tests__/orphanedFirstIntros.test.ts` with one test asserting that for the Alexa shape (deleted original + follow-up child + sale child), `isFirstIntroForMetrics` returns true for exactly one booking — the sale child — so Studio Scoreboard, Per-Coach, Per-SA, Funnel, and WIG all converge on the same count.
+- Run the full vitest suite; expect previous 121 + new test to pass.
+
+### Out of scope
+- No data migration. This is purely a metric-attribution fix.
+- Booker stats, lead-source, milestones, etc. continue to use their existing rules; they don't drive the numbers in question.
+- Cases where the original 1st intro is NOT excluded remain unchanged.
+
+### Expected result after fix
+Studio Scoreboard: **10 Intros Run / 7 Sales / 70% Close Rate**, Conversion Funnel 1st Intro: **Showed 10 / Sold 7**, Per-Coach unchanged at 10/7, WIG unchanged at 10/7. All four surfaces match.
