@@ -21,6 +21,7 @@ import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detec
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
+import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
 export default function Wig() {
@@ -272,6 +273,8 @@ export default function Wig() {
 
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
+  const [saPeople, setSaPeople] = useState<Map<string, { referralAsks: PersonRow[]; packs: PersonRow[] }>>(new Map());
+  const [saDrill, setSaDrill] = useState<{ sa: string; metric: 'referralAsks' | 'packs' } | null>(null);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [coachAttribution, setCoachAttribution] = useState<Map<string, CoachAttribution>>(new Map());
@@ -291,13 +294,13 @@ export default function Wig() {
       const [refRes, milestoneRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('booked_by, coach_referral_asked')
+          .select('id, member_name, class_date, booked_by, coach_referral_asked')
           .eq('coach_referral_asked', true)
           .gte('class_date', rangeStart)
           .lte('class_date', rangeEnd),
         supabase
           .from('milestones')
-          .select('created_by, five_class_pack_gifted')
+          .select('id, member_name, created_at, created_by, five_class_pack_gifted, friend_name')
           .eq('entry_type', 'milestone')
           .eq('five_class_pack_gifted', true)
           .gte('created_at', rangeStart)
@@ -306,21 +309,38 @@ export default function Wig() {
 
       // Aggregate by SA
       const saMap = new Map<string, { referralAsks: number; packs: number }>();
+      const saPeopleMap = new Map<string, { referralAsks: PersonRow[]; packs: PersonRow[] }>();
+      const ensureSaPeople = (n: string) => {
+        let p = saPeopleMap.get(n);
+        if (!p) { p = { referralAsks: [], packs: [] }; saPeopleMap.set(n, p); }
+        return p;
+      };
       (refRes.data || []).forEach((r: any) => {
         const name = r.booked_by || 'Unknown';
         const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.referralAsks++;
         saMap.set(name, ex);
+        ensureSaPeople(name).referralAsks.push({
+          id: `ref-${r.id}`,
+          name: r.member_name || 'Unknown member',
+          subtitle: r.class_date ? `Class ${format(parseLocalDate(r.class_date), 'MMM d')}` : undefined,
+        });
       });
       (milestoneRes.data || []).forEach((r: any) => {
         const name = r.created_by || 'Unknown';
         const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.packs++;
         saMap.set(name, ex);
+        ensureSaPeople(name).packs.push({
+          id: `pack-${r.id}`,
+          name: r.member_name || 'Unknown member',
+          subtitle: [r.friend_name ? `Friend: ${r.friend_name}` : null, r.created_at ? format(new Date(r.created_at), 'MMM d') : null].filter(Boolean).join(' · ') || undefined,
+        });
       });
 
       const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
       setSaLeadMeasures(saData);
+      setSaPeople(saPeopleMap);
 
       // Coach measures — use intros_booked as base for shoutout fields
       // Fetch showed first-intro bookings for the date range
@@ -799,8 +819,26 @@ export default function Wig() {
                     {saLeadMeasures.map(row => (
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center">{row.referralAsks}</TableCell>
-                        <TableCell className="text-sm text-center">{row.packs}</TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.referralAsks === 0}
+                            onClick={() => setSaDrill({ sa: row.name, metric: 'referralAsks' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.referralAsks}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.packs === 0}
+                            onClick={() => setSaDrill({ sa: row.name, metric: 'packs' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.packs}
+                          </button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -826,6 +864,16 @@ export default function Wig() {
         source="wig"
         rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
         attribution={drill ? coachAttribution.get(drill.coach) || null : null}
+      />
+
+      <PersonListDrillDown
+        open={!!saDrill}
+        onOpenChange={(o) => { if (!o) setSaDrill(null); }}
+        title={saDrill ? `${saDrill.sa} · ${saDrill.metric === 'referralAsks' ? 'POS Referral Asks' : 'Packs Gifted'}` : ''}
+        scopeBadge="WIG tab"
+        subtitle={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
+        rows={saDrill ? (saPeople.get(saDrill.sa)?.[saDrill.metric] || []) : []}
+        emptyText="No records for this metric."
       />
     </div>
   );

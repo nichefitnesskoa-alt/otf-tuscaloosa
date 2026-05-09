@@ -1,21 +1,23 @@
 /**
  * VIP Class Performance table for the Studio (Recaps) tab.
  * Shows past VIP sessions with attendance, intros booked/ran, joins, and join rate.
+ * Every numeric cell opens a PersonListDrillDown of the people behind it.
  */
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { isCloseResult } from '@/lib/intros/resultLabels';
+import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChevronDown, ChevronRight, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 import { toast } from 'sonner';
+import { PersonListDrillDown, DrillNumber, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 
 const sb = supabase as any;
+
+type MetricKey = 'registered' | 'attended' | 'introsBooked' | 'introsRan' | 'joins';
 
 interface VipPerfRow {
   id: string;
@@ -27,13 +29,23 @@ interface VipPerfRow {
   introsBooked: number;
   introsRan: number;
   joins: number;
+  people: Record<MetricKey, PersonRow[]>;
 }
+
+const METRIC_TITLE: Record<MetricKey, string> = {
+  registered: 'Registered',
+  attended: 'Attended',
+  introsBooked: 'Intros Booked',
+  introsRan: 'Intros Ran',
+  joins: 'Joins',
+};
 
 export function VipClassPerformanceTable() {
   const [rows, setRows] = useState<VipPerfRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [relinking, setRelinking] = useState(false);
+  const [drill, setDrill] = useState<{ row: VipPerfRow; metric: MetricKey } | null>(null);
 
   const handleRelink = async () => {
     setRelinking(true);
@@ -61,60 +73,111 @@ export function VipClassPerformanceTable() {
 
       const ids = sessions.map((s: any) => s.id);
 
-      const [{ data: regs }, { data: bookings }, { data: runs }] = await Promise.all([
-        sb.from('vip_registrations').select('vip_session_id').in('vip_session_id', ids).eq('is_group_contact', false),
-        sb.from('intros_booked').select('id, vip_session_id, booking_status_canon').in('vip_session_id', ids),
-        sb.from('intros_run').select('linked_intro_booked_id, result, result_canon').in('linked_intro_booked_id',
-          // We need booking IDs that have vip_session_id
-          [] // will be filled below
-        ),
+      const [{ data: regs }, { data: bookings }] = await Promise.all([
+        sb.from('vip_registrations')
+          .select('id, vip_session_id, first_name, last_name, outcome')
+          .in('vip_session_id', ids)
+          .eq('is_group_contact', false),
+        sb.from('intros_booked')
+          .select('id, vip_session_id, member_name, class_date, booking_status_canon')
+          .in('vip_session_id', ids),
       ]);
 
-      // Get booking IDs for runs query
       const bookingIds = (bookings || []).map((b: any) => b.id);
-      let runRows: any[] = runs || [];
+      let runRows: any[] = [];
       if (bookingIds.length > 0) {
-        const { data: r2 } = await sb.from('intros_run').select('linked_intro_booked_id, result, result_canon').in('linked_intro_booked_id', bookingIds);
+        const { data: r2 } = await sb
+          .from('intros_run')
+          .select('linked_intro_booked_id, result, result_canon')
+          .in('linked_intro_booked_id', bookingIds);
         runRows = r2 || [];
-      }
-
-      // Build lookup maps
-      const regMap: Record<string, number> = {};
-      for (const r of (regs || [])) { regMap[r.vip_session_id] = (regMap[r.vip_session_id] || 0) + 1; }
-
-      const bookingsBySession: Record<string, any[]> = {};
-      for (const b of (bookings || [])) {
-        if (!bookingsBySession[b.vip_session_id]) bookingsBySession[b.vip_session_id] = [];
-        bookingsBySession[b.vip_session_id].push(b);
       }
 
       const runByBooking: Record<string, any[]> = {};
       for (const r of runRows) {
         if (!r.linked_intro_booked_id) continue;
-        if (!runByBooking[r.linked_intro_booked_id]) runByBooking[r.linked_intro_booked_id] = [];
-        runByBooking[r.linked_intro_booked_id].push(r);
+        (runByBooking[r.linked_intro_booked_id] ||= []).push(r);
+      }
+
+      const regsBySession: Record<string, any[]> = {};
+      for (const r of (regs || [])) {
+        (regsBySession[r.vip_session_id] ||= []).push(r);
+      }
+      const bookingsBySession: Record<string, any[]> = {};
+      for (const b of (bookings || [])) {
+        (bookingsBySession[b.vip_session_id] ||= []).push(b);
       }
 
       const result: VipPerfRow[] = sessions.map((s: any) => {
+        const sessionRegs = regsBySession[s.id] || [];
         const sessionBookings = bookingsBySession[s.id] || [];
-        const introsBooked = sessionBookings.length;
         const showedBookings = sessionBookings.filter((b: any) => b.booking_status_canon === 'SHOWED');
-        const introsRan = showedBookings.length;
-        let joins = 0;
-        for (const b of sessionBookings) {
-          const bRuns = runByBooking[b.id] || [];
-          if (bRuns.some((r: any) => isCloseResult(r))) joins++;
-        }
+
+        const regName = (r: any) =>
+          [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
+        const regAttended = (r: any) => {
+          const o = (r.outcome || '').toString().toLowerCase();
+          return o === 'attended' || o === 'showed' || o === 'show' || o === 'joined' || o === 'joined_member' || o === 'converted';
+        };
+        const registeredPeople: PersonRow[] = sessionRegs.map(r => ({
+          id: `reg-${r.id}`,
+          name: regName(r),
+          rightLabel: regAttended(r) ? 'Attended' : (r.outcome || undefined),
+          rightTone: regAttended(r) ? 'success' : 'muted',
+        }));
+        const attendedPeople: PersonRow[] = sessionRegs
+          .filter(regAttended)
+          .map(r => ({ id: `att-${r.id}`, name: regName(r) }));
+        const bookedPeople: PersonRow[] = sessionBookings.map(b => ({
+          id: `bk-${b.id}`,
+          name: b.member_name || 'Unknown',
+          subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
+          rightLabel: b.booking_status_canon === 'SHOWED' ? 'Showed' : (b.booking_status_canon || '—'),
+          rightTone: b.booking_status_canon === 'SHOWED' ? 'success' : 'muted',
+          href: `/pipeline?leadId=${b.id}`,
+        }));
+        const ranPeople: PersonRow[] = showedBookings.map(b => {
+          const lastRun = (runByBooking[b.id] || [])[0];
+          return {
+            id: `ran-${b.id}`,
+            name: b.member_name || 'Unknown',
+            subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
+            rightLabel: lastRun ? labelForRun(lastRun) : 'Showed',
+            rightTone: lastRun && isCloseResult(lastRun) ? 'success' : 'muted',
+            href: `/pipeline?leadId=${b.id}`,
+          };
+        });
+        const joinsPeople: PersonRow[] = sessionBookings
+          .filter(b => (runByBooking[b.id] || []).some((r: any) => isCloseResult(r)))
+          .map(b => {
+            const saleRun = (runByBooking[b.id] || []).find((r: any) => isCloseResult(r));
+            return {
+              id: `join-${b.id}`,
+              name: b.member_name || 'Unknown',
+              subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
+              rightLabel: saleRun ? labelForRun(saleRun) : 'SALE',
+              rightTone: 'success',
+              href: `/pipeline?leadId=${b.id}`,
+            };
+          });
+
         return {
           id: s.id,
           session_date: s.session_date,
           session_time: s.session_time,
           reserved_by_group: s.reserved_by_group,
           actual_attendance: s.actual_attendance,
-          regCount: regMap[s.id] || 0,
-          introsBooked,
-          introsRan,
-          joins,
+          regCount: sessionRegs.length,
+          introsBooked: sessionBookings.length,
+          introsRan: showedBookings.length,
+          joins: joinsPeople.length,
+          people: {
+            registered: registeredPeople,
+            attended: attendedPeople,
+            introsBooked: bookedPeople,
+            introsRan: ranPeople,
+            joins: joinsPeople,
+          },
         };
       });
 
@@ -141,6 +204,8 @@ export function VipClassPerformanceTable() {
 
   if (rows.length === 0) return null;
 
+  const drillRows = drill ? drill.row.people[drill.metric] : [];
+
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="flex items-center justify-between gap-2">
@@ -164,12 +229,11 @@ export function VipClassPerformanceTable() {
       <CollapsibleContent>
         <Card className="mt-2">
           <CardContent className="p-3 space-y-3">
-            {/* Summary row */}
             <div className="text-xs text-muted-foreground">
               All time: <strong>{summary.total}</strong> VIP classes · <strong>{summary.totalAttended}</strong> total attended · <strong>{summary.totalJoins}</strong> joins · <strong>{summary.avgJoinRate.toFixed(0)}%</strong> avg join rate
             </div>
+            <p className="text-[11px] text-muted-foreground -mt-1">Tap any number to see who.</p>
 
-            {/* Table */}
             <div className="overflow-x-auto border rounded-lg">
               <table className="w-full text-xs">
                 <thead className="bg-muted/30">
@@ -188,18 +252,28 @@ export function VipClassPerformanceTable() {
                   {rows.map(r => {
                     const denom = r.actual_attendance ?? r.regCount;
                     const joinRate = denom > 0 ? (r.joins / denom) * 100 : 0;
-                    const denomLabel = r.actual_attendance != null ? 'attended' : 'registered';
+                    const cell = (metric: MetricKey, value: number | string) => (
+                      <td className="p-0 text-center">
+                        <DrillNumber
+                          value={value}
+                          onClick={() => setDrill({ row: r, metric })}
+                          ariaLabel={`View ${value} ${METRIC_TITLE[metric]} for ${format(new Date(r.session_date + 'T00:00:00'), 'MMM d')}`}
+                        />
+                      </td>
+                    );
                     return (
                       <tr key={r.id} className="border-t">
                         <td className="p-2 whitespace-nowrap font-medium">
                           {format(new Date(r.session_date + 'T00:00:00'), 'MMM d')}
                         </td>
                         <td className="p-2">{r.reserved_by_group || '—'}</td>
-                        <td className="p-2 text-center">{r.regCount}</td>
-                        <td className="p-2 text-center">{r.actual_attendance ?? <span className="text-muted-foreground">—</span>}</td>
-                        <td className="p-2 text-center">{r.introsBooked}</td>
-                        <td className="p-2 text-center">{r.introsRan}</td>
-                        <td className="p-2 text-center font-medium">{r.joins}</td>
+                        {cell('registered', r.regCount)}
+                        {r.actual_attendance != null
+                          ? cell('attended', r.actual_attendance)
+                          : <td className="p-2 text-center text-muted-foreground">—</td>}
+                        {cell('introsBooked', r.introsBooked)}
+                        {cell('introsRan', r.introsRan)}
+                        {cell('joins', r.joins)}
                         <td className="p-2 text-center">
                           <div>{denom > 0 ? `${joinRate.toFixed(0)}%` : '—'}</div>
                           {denom > 0 && (
@@ -217,6 +291,16 @@ export function VipClassPerformanceTable() {
           </CardContent>
         </Card>
       </CollapsibleContent>
+
+      <PersonListDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        title={drill ? `${METRIC_TITLE[drill.metric]} · ${format(new Date(drill.row.session_date + 'T00:00:00'), 'MMM d')}` : ''}
+        scopeBadge="VIP class"
+        subtitle={drill?.row.reserved_by_group || undefined}
+        rows={drillRows}
+        emptyText="No records for this metric."
+      />
     </Collapsible>
   );
 }
