@@ -163,9 +163,9 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         if (bookedIds.length > 0) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('result_canon')
+            .select('result, result_canon')
             .in('linked_intro_booked_id', bookedIds);
-          converted = (runs || []).some((r: any) => r.result_canon === 'SALE');
+          converted = (runs || []).some((r: any) => isCloseResult(r));
         }
 
         // Auto-update friend_showed_up in DB if detected but not stored
