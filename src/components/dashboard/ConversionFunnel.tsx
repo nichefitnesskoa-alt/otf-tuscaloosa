@@ -45,6 +45,8 @@ function computeFunnelBothRows(
   introsRun: IntroRun[],
   dateRange: DateRange | null | undefined,
 ): { first: FunnelData; second: FunnelData } {
+  const promotedOrphanIds = resolvePromotedOrphanBookingIds(introsBooked as any, introsRun as any);
+
   const bookingPersonKey = new Map<string, string>();
   const nameToPersonKey = new Map<string, string>();
   const bookingIsSecond = new Map<string, boolean>();
@@ -54,7 +56,9 @@ function computeFunnelBothRows(
     const phone = (b as any).phone_e164 as string | null | undefined;
     const key = personKey(phone, b.member_name);
     bookingPersonKey.set(b.id, key);
-    const hasOrig = !!((b as any).originating_booking_id) && !(b as any).referred_by_member_name;
+    const hasOrig = !!((b as any).originating_booking_id)
+      && !(b as any).referred_by_member_name
+      && !promotedOrphanIds.has(b.id);
     bookingIsSecond.set(b.id, hasOrig);
     if (hasOrig) personHasSecondBooking.set(key, true);
     const normName = b.member_name.toLowerCase().replace(/\s+/g, '');
