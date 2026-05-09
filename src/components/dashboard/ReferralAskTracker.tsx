@@ -12,6 +12,7 @@ import { isSaleInRange, getRunSaleDate } from '@/lib/sales-detection';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { toast } from 'sonner';
+import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import type { DateRange } from '@/lib/pay-period';
 
 interface Props {
@@ -109,7 +110,21 @@ export function ReferralAskTracker({ dateRange }: Props) {
   const handleDoneLater = (r: Row) =>
     updateBooking(r.bookingId, { coach_referral_asked: true, referral_ask_followup_pending: false }, 'Referral asked after the fact from WIG');
 
+  const [drill, setDrill] = useState<'pending' | 'completed' | null>(null);
+  const drillRows: PersonRow[] = useMemo(() => {
+    if (!drill) return [];
+    const list = drill === 'pending' ? rows.filter(r => !r.coachReferralAsked) : rows.filter(r => r.coachReferralAsked);
+    return list.map(r => ({
+      id: r.bookingId,
+      name: r.memberName,
+      subtitle: `sold by ${r.introOwner} · ${(() => { try { return format(parseLocalDate(r.saleDate), 'MMM d'); } catch { return r.saleDate; } })()}`,
+      rightLabel: r.coachReferralAsked ? 'Asked' : r.followupPending ? 'Pending' : 'To do',
+      rightTone: r.coachReferralAsked ? 'success' : r.followupPending ? 'warning' : 'destructive',
+    }));
+  }, [drill, rows]);
+
   return (
+    <>
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
@@ -122,13 +137,11 @@ export function ReferralAskTracker({ dateRange }: Props) {
       </CardHeader>
       <CardContent className="p-0">
         <div className="px-4 py-2 border-b flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-muted-foreground">
-              <span className="font-medium text-foreground">{pendingCount}</span> to do
-            </span>
-            <span className="text-muted-foreground">
-              <span className="font-medium text-success">{completedCount}</span> asked
-            </span>
+          <div className="flex items-center gap-1 text-xs">
+            <DrillNumber value={pendingCount} onClick={() => setDrill('pending')} ariaLabel={`View ${pendingCount} pending referral asks`} tone="destructive" className="text-xs" />
+            <span className="text-muted-foreground">to do</span>
+            <DrillNumber value={completedCount} onClick={() => setDrill('completed')} ariaLabel={`View ${completedCount} completed referral asks`} tone="success" className="text-xs ml-2" />
+            <span className="text-muted-foreground">asked</span>
           </div>
           {completedCount > 0 && (
             <div className="flex items-center gap-2">
