@@ -294,13 +294,13 @@ export default function Wig() {
       const [refRes, milestoneRes] = await Promise.all([
         supabase
           .from('intros_booked')
-          .select('booked_by, coach_referral_asked')
+          .select('id, member_name, class_date, booked_by, coach_referral_asked')
           .eq('coach_referral_asked', true)
           .gte('class_date', rangeStart)
           .lte('class_date', rangeEnd),
         supabase
           .from('milestones')
-          .select('created_by, five_class_pack_gifted')
+          .select('id, member_name, created_at, created_by, five_class_pack_gifted, friend_name')
           .eq('entry_type', 'milestone')
           .eq('five_class_pack_gifted', true)
           .gte('created_at', rangeStart)
@@ -309,21 +309,38 @@ export default function Wig() {
 
       // Aggregate by SA
       const saMap = new Map<string, { referralAsks: number; packs: number }>();
+      const saPeopleMap = new Map<string, { referralAsks: PersonRow[]; packs: PersonRow[] }>();
+      const ensureSaPeople = (n: string) => {
+        let p = saPeopleMap.get(n);
+        if (!p) { p = { referralAsks: [], packs: [] }; saPeopleMap.set(n, p); }
+        return p;
+      };
       (refRes.data || []).forEach((r: any) => {
         const name = r.booked_by || 'Unknown';
         const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.referralAsks++;
         saMap.set(name, ex);
+        ensureSaPeople(name).referralAsks.push({
+          id: `ref-${r.id}`,
+          name: r.member_name || 'Unknown member',
+          subtitle: r.class_date ? `Class ${format(parseLocalDate(r.class_date), 'MMM d')}` : undefined,
+        });
       });
       (milestoneRes.data || []).forEach((r: any) => {
         const name = r.created_by || 'Unknown';
         const ex = saMap.get(name) || { referralAsks: 0, packs: 0 };
         ex.packs++;
         saMap.set(name, ex);
+        ensureSaPeople(name).packs.push({
+          id: `pack-${r.id}`,
+          name: r.member_name || 'Unknown member',
+          subtitle: [r.friend_name ? `Friend: ${r.friend_name}` : null, r.created_at ? format(new Date(r.created_at), 'MMM d') : null].filter(Boolean).join(' · ') || undefined,
+        });
       });
 
       const saData = Array.from(saMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.referralAsks - a.referralAsks);
       setSaLeadMeasures(saData);
+      setSaPeople(saPeopleMap);
 
       // Coach measures — use intros_booked as base for shoutout fields
       // Fetch showed first-intro bookings for the date range
