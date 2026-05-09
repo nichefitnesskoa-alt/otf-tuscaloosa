@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
 import { ALL_STAFF } from '@/types';
 
+export interface OutreachPerson {
+  id: string;
+  name: string;
+  subtitle?: string;
+  rightLabel?: string;
+}
+
 export interface SALeadMeasure {
   saName: string;
   speedToLead: number | null; // avg minutes
@@ -13,6 +20,10 @@ export interface SALeadMeasure {
   dmsSent: number;
   leadsReachedOut: number;
   introsRan: number;
+  // Per-metric drill data
+  followUpPeople?: OutreachPerson[];
+  dmPeople?: OutreachPerson[];
+  leadsReachedPeople?: OutreachPerson[];
 }
 
 interface UseLeadMeasuresOpts {
@@ -50,13 +61,13 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .select('id, sa_name, intro_owner, run_date, result, result_canon, linked_intro_booked_id')
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
-          .select('id, created_by, created_at')
+          .select('id, created_by, created_at, lead_id, booking_id, contact_method')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('shift_recaps')
-          .select('staff_name, dms_sent')
+          .select('staff_name, dms_sent, shift_date')
           .gte('shift_date', start).lte('shift_date', end),
         supabase.from('leads')
-          .select('id, created_at, stage, updated_at')
+          .select('id, first_name, last_name, source, created_at, stage, updated_at')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('lead_activities')
           .select('id, lead_id, activity_type, performed_by, created_at')
@@ -79,12 +90,19 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         prepTotal: number; prepDone: number;
         touches: number; dms: number; leadsReached: number;
         speedSumMin: number; speedCount: number; introsRan: number;
+        followUpPeople: OutreachPerson[];
+        dmPeople: OutreachPerson[];
+        leadsReachedPeople: OutreachPerson[];
       }>();
 
       const ensure = (name: string) => {
         if (!name || !ALL_STAFF.includes(name)) return;
-        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0 });
+        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0, followUpPeople: [], dmPeople: [], leadsReachedPeople: [] });
       };
+
+      // Lead lookup map for names
+      const leadById = new Map<string, any>();
+      (leads || []).forEach((l: any) => leadById.set(l.id, l));
 
       // Prep rate by SA (booking-side, only for showed intros)
       allBookings.forEach((b: any) => {
@@ -127,7 +145,16 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!sa) return;
         ensure(sa);
         const entry = saMap.get(sa);
-        if (entry) entry.touches++;
+        if (entry) {
+          entry.touches++;
+          const lead = t.lead_id ? leadById.get(t.lead_id) : null;
+          const name = lead ? `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Lead' : 'Touch';
+          entry.followUpPeople.push({
+            id: t.id,
+            name,
+            subtitle: `${t.contact_method || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
+          });
+        }
       });
 
       // DMs sent
@@ -136,7 +163,15 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!sa || !r.dms_sent) return;
         ensure(sa);
         const entry = saMap.get(sa);
-        if (entry) entry.dms += r.dms_sent;
+        if (entry) {
+          entry.dms += r.dms_sent;
+          entry.dmPeople.push({
+            id: `${sa}-${r.shift_date}`,
+            name: `Shift ${r.shift_date}`,
+            subtitle: `${r.dms_sent} DM${r.dms_sent === 1 ? '' : 's'} logged`,
+            rightLabel: String(r.dms_sent),
+          });
+        }
       });
 
       // Speed to lead + leads reached out
@@ -161,17 +196,24 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Compute speed per SA
       leadFirstContact.forEach((contact, leadId) => {
-        const lead = (leads || []).find((l: any) => l.id === leadId);
+        const lead = leadById.get(leadId);
         if (!lead || !contact.performer) return;
         ensure(contact.performer);
         const s = saMap.get(contact.performer);
         if (!s) return;
         s.leadsReached++;
         const diffMin = (new Date(contact.contactTime).getTime() - new Date(lead.created_at).getTime()) / 60000;
-        if (diffMin > 0 && diffMin < 2880) { // < 48h
+        if (diffMin > 0 && diffMin < 2880) {
           s.speedSumMin += diffMin;
           s.speedCount++;
         }
+        const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Lead';
+        s.leadsReachedPeople.push({
+          id: leadId,
+          name,
+          subtitle: `${lead.source || 'Unknown source'}`,
+          rightLabel: diffMin > 0 && diffMin < 2880 ? (diffMin < 60 ? `${Math.round(diffMin)}m` : `${Math.round(diffMin / 60)}h`) : undefined,
+        });
       });
 
       const result: SALeadMeasure[] = Array.from(saMap.entries())
@@ -185,6 +227,9 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           dmsSent: s.dms,
           leadsReachedOut: s.leadsReached,
           introsRan: s.introsRan,
+          followUpPeople: s.followUpPeople,
+          dmPeople: s.dmPeople,
+          leadsReachedPeople: s.leadsReachedPeople,
         }))
         .filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
         .sort((a, b) => (b.introsRan - a.introsRan) || ((b.prepRatePct ?? 0) - (a.prepRatePct ?? 0)));

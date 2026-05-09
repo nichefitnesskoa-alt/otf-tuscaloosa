@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Users, UserCheck, Target, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
+import { PersonListDrillDown, PersonRow } from './PersonListDrillDown';
 import { LeadSourcePerson } from '@/hooks/useDashboardMetrics';
 
 export interface LeadSourceData {
@@ -105,15 +105,11 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
   const [sortDesc, setSortDesc] = useState(true);
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillTitle, setDrillTitle] = useState('');
-  const [drillPeople, setDrillPeople] = useState<DrillPerson[]>([]);
+  const [drillPeople, setDrillPeople] = useState<LeadSourcePerson[]>([]);
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDesc(prev => !prev);
-    } else {
-      setSortKey(key);
-      setSortDesc(true);
-    }
+    if (sortKey === key) setSortDesc(prev => !prev);
+    else { setSortKey(key); setSortDesc(true); }
   };
 
   const openDrill = (source: string, category: 'booked' | 'showed' | 'sold', item: LeadSourceData) => {
@@ -125,6 +121,12 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
     setDrillPeople(people || []);
     setDrillOpen(true);
   };
+
+  const drillRows: PersonRow[] = useMemo(() => drillPeople.map((p, i) => ({
+    id: `${p.name}-${p.date}-${i}`,
+    name: p.name,
+    subtitle: `${p.date}${p.detail ? ' · ' + p.detail : ''}`,
+  })), [drillPeople]);
 
   const sorted = [...data].filter(d => d.booked > 0).sort((a, b) => {
     let aVal: number, bVal: number;
@@ -220,11 +222,13 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
         </CardContent>
       </Card>
 
-      <FunnelDrillSheet
+      <PersonListDrillDown
         open={drillOpen}
         onOpenChange={setDrillOpen}
         title={drillTitle}
-        people={drillPeople}
+        scopeBadge="Studio tab"
+        rows={drillRows}
+        emptyText="No people in this bucket."
       />
     </>
   );

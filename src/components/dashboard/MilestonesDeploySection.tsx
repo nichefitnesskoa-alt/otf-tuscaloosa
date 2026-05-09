@@ -13,6 +13,8 @@ import { Check, Plus, PartyPopper, AlertTriangle, Pencil, ExternalLink, Search }
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { PersonListDrillDown } from './PersonListDrillDown';
 
 interface MilestoneRow {
   id: string;
@@ -359,12 +361,31 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         ? 'text-amber-500'
         : 'text-destructive';
 
-  const summaryCards = [
-    { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor },
-    { label: 'Packs gifted', value: String(summary.packs) },
-    { label: 'Friends showed up', value: String(summary.friendsShowedUp) },
-    { label: 'Converted to member', value: String(summary.convertedToMember) },
-    { label: 'Friends in pipeline', value: String(summary.friends) },
+  const [drill, setDrill] = useState<null | 'celebrated' | 'packs' | 'showedUp' | 'converted' | 'inPipeline'>(null);
+  const drillRows = (() => {
+    if (!drill) return [];
+    const fmtRow = (m: MilestoneRow, right?: { label: string; tone?: 'success' | 'warning' | 'muted' | 'primary' }) => ({
+      id: m.id, name: m.member_name,
+      subtitle: `${m.milestone_type || ''}${m.friend_name ? ' · friend: ' + m.friend_name : ''}`,
+      rightLabel: right?.label, rightTone: right?.tone,
+    });
+    if (drill === 'celebrated') return milestones.map(m => fmtRow(m, m.actually_celebrated ? { label: 'Celebrated', tone: 'success' } : { label: 'Not yet', tone: 'warning' }));
+    if (drill === 'packs') return milestones.filter(m => m.five_class_pack_gifted).map(m => fmtRow(m, { label: 'Pack', tone: 'primary' }));
+    if (drill === 'showedUp') return milestones.filter(m => friendTracking.get(m.id)?.friendShowedUp).map(m => fmtRow(m, { label: 'Showed', tone: 'success' }));
+    if (drill === 'converted') return milestones.filter(m => friendTracking.get(m.id)?.convertedToMember).map(m => fmtRow(m, { label: 'Converted', tone: 'success' }));
+    if (drill === 'inPipeline') return milestones.filter(m => m.converted_to_lead_id).map(m => ({ ...fmtRow(m, { label: 'In pipeline', tone: 'primary' as const }), href: `/pipeline?leadId=${m.converted_to_lead_id}` }));
+    return [];
+  })();
+  const drillTitles: Record<NonNullable<typeof drill>, string> = {
+    celebrated: 'Celebrations', packs: 'Packs gifted', showedUp: 'Friends who showed up', converted: 'Friends converted to member', inPipeline: 'Friends in pipeline',
+  };
+
+  const summaryCards: Array<{ label: string; value: string; className?: string; key: NonNullable<typeof drill>; count: number }> = [
+    { label: 'Celebrated', value: `${summary.actuallyCelebrated} / ${summary.celebrations}`, className: celebratedColor, key: 'celebrated', count: summary.celebrations },
+    { label: 'Packs gifted', value: String(summary.packs), key: 'packs', count: summary.packs },
+    { label: 'Friends showed up', value: String(summary.friendsShowedUp), key: 'showedUp', count: summary.friendsShowedUp },
+    { label: 'Converted to member', value: String(summary.convertedToMember), key: 'converted', count: summary.convertedToMember },
+    { label: 'Friends in pipeline', value: String(summary.friends), key: 'inPipeline', count: summary.friends },
   ];
 
   return (
@@ -374,14 +395,30 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       {/* Weekly summary */}
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {summaryCards.map(c => (
-          <Card key={c.label}>
-            <CardContent className="p-3 text-center">
-              <p className={`text-xl font-bold ${'className' in c && c.className ? c.className : ''}`}>{c.value}</p>
-              <p className="text-[10px] text-muted-foreground">{c.label}</p>
-            </CardContent>
-          </Card>
+          <button
+            key={c.label}
+            type="button"
+            disabled={c.count === 0}
+            onClick={() => setDrill(c.key)}
+            className={cn(
+              'rounded-lg border bg-card p-3 text-center min-h-[44px]',
+              c.count > 0 ? 'cursor-pointer hover:border-primary/60 hover:underline underline-offset-4 decoration-primary' : 'opacity-60 cursor-default',
+            )}
+          >
+            <p className={`text-xl font-bold ${c.className || ''}`}>{c.value}</p>
+            <p className="text-[10px] text-muted-foreground">{c.label}</p>
+          </button>
         ))}
       </div>
+
+      <PersonListDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        title={drill ? drillTitles[drill] : ''}
+        scopeBadge="WIG tab"
+        rows={drillRows}
+        emptyText="Nothing here yet."
+      />
 
       {/* Celebrations */}
       <div className="space-y-3">
