@@ -453,9 +453,12 @@ export default function Wig() {
           });
         }
 
+      // Hoisted so we can backfill via2ndIntroSale on coached rows after the if-block.
+      const secondRunSaleSet = new Set<string>();
+      if (showedFirstIntroBookingIds.length > 0) {
+        // (note: closeBatches/secondIntroBookingMap defined above are still in scope)
         // Fetch runs for 2nd intro bookings to check for sales
         const allSecondIds = Array.from(secondIntroBookingMap.values()).flat();
-        const secondRunSaleSet = new Set<string>(); // set of originating_booking_ids that have a 2nd-intro sale
         if (allSecondIds.length > 0) {
           for (let i = 0; i < allSecondIds.length; i += 500) {
             const batch2 = allSecondIds.slice(i, i + 500);
