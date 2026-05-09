@@ -1,120 +1,107 @@
+# Plan — Tappable person-tied metrics + canon regression tests
 
-## Root cause: Alexa Brodsky shows "—" instead of "SALE"
+## 1. Regression tests for label + close detection
 
-Alexa actually IS being counted as a close in both WIG and Studio (the footer "Counted as Close (2nd intro · Total Journey): 1" is her). The drill row just looks wrong. Here is her data chain:
+Add `src/lib/intros/__tests__/resultLabels.test.ts` covering every real DB canon value so future schema drift fails CI instead of silently mislabeling members like Alexa.
 
-```text
-Booking 467a (May 1, originating)  → run result_canon = SECOND_INTRO_SCHEDULED
-  ↳ Booking b647 (May 4, child)    → run result_canon = PREMIER  ← the actual sale
-  ↳ Booking 0b19 (May 1, child)    → run result_canon = FOLLOW_UP_NEEDED
-```
+Cases (each asserts both `labelForRun` output and `isCloseResult`):
 
-Her first-intro row uses canon `SECOND_INTRO_SCHEDULED`, but the `labelFor` / `labelFromRun` helpers in `Wig.tsx`, `PerCoachTable.tsx`, and `CoachAttributionDrillDown.tsx` only know about a stale set of canon strings (`PLANNING_2ND`, `PLANNING_2ND_INTRO`, `FOLLOW_UP`, `SALE`). The real DB canon values are different — confirmed via query:
+| result_canon | result string | label | close? |
+|---|---|---|---|
+| SALE | "Premier" | SALE | true |
+| PREMIER | "Premier" | SALE | true |
+| PREMIER_OTBEAT | "Premier + OTbeat" | SALE | true |
+| ELITE | "Elite" | SALE | true |
+| BASIC | "Basic" | SALE | true |
+| SECOND_INTRO_SCHEDULED | "" | Booked 2nd | false |
+| PLANNING_2ND_INTRO | "" | Booked 2nd | false |
+| FOLLOW_UP_NEEDED | "" | Follow-Up | false |
+| FOLLOW_UP | "" | Follow-Up | false |
+| PLANNING_TO_BUY | "" | Planning to Buy | false |
+| ON_5_CLASS_PACK | "5 class pack" | 5 Class Pack | false |
+| NOT_INTERESTED | "" | Not Interested | false |
+| NO_SHOW | "" | No Show | false |
+| VIP_CLASS_INTRO | "" | VIP Intro | false |
+| UNRESOLVED | "" | Unresolved | false |
+| (null) | "Premier + OTbeat" | SALE | true (fallback path) |
+| (null) | "" | — | false |
 
-```text
-SECOND_INTRO_SCHEDULED   71 rows   (label: "Booked 2nd intro")
-FOLLOW_UP_NEEDED         90 rows   (label: "Follow-up needed")
-PLANNING_TO_BUY          11 rows
-PLANNING_2ND_INTRO       23 rows
-NOT_INTERESTED           30 rows
-ON_5_CLASS_PACK           4 rows
-PREMIER / PREMIER_OTBEAT 62 rows   (sale)
-ELITE                    18 rows   (sale)
-BASIC                     3 rows   (sale)
-NO_SHOW / VIP_CLASS_INTRO / UNRESOLVED
-```
+Also extend `close-detection.test.ts` with the new canon values so `isCloseRun` stays in lockstep.
 
-Anything not in the helper falls through to `—`. So Alexa's row says `—` even though she's counted as a close, and any other "Booked 2nd intro" or "Follow-up needed" row also shows `—`. Worse: the close-detection branches in `PerCoachTable.tsx` (line ~129) and `Wig.tsx` (the Total Journey lookup) check `result_canon === 'SALE'`, which never matches; closes only register today because of the `isMembershipSale(r.result)` string fallback. If a future row arrives with `result_canon = PREMIER` and a non-membership `result` string, it would silently miss.
+## 2. Mobile-first shared drilldown
 
-Same canon mismatch exists in: `lib/intros/close-detection.ts`, anywhere using `result_canon === 'SALE'` or `result_canon === 'FOLLOW_UP'`.
+Refactor `CoachAttributionDrillDown.tsx` → `PersonListDrillDown.tsx` (keep existing as a thin wrapper to avoid touching `Wig.tsx` / `PerCoachTable.tsx` callers).
 
-## Fixes
+Changes:
+- Use `Sheet` from `bottom` on mobile (`useIsMobile`), `Dialog` centered on desktop. Bottom sheet snaps to 90vh, drag handle, no input focus required.
+- Trigger affordance: every tappable number gets `min-h-[44px] min-w-[44px]`, underlined OTF Orange numerals on hover/focus, `cursor-pointer`, `aria-label="View N people"`. Disabled (no underline, default cursor) when count is 0.
+- Title accepts `{ scope, metric, count }` so non-coach contexts read naturally ("Premier members · 7", "Friends showed up · 3", "Booked from Instagram · 12").
+- Rows accept generic `PersonRow { id; name; subtitle?; rightLabel?; rightTone?; href? }`. Tapping a row with `href` navigates (e.g. lead detail, pipeline row).
+- Reuse existing reconciliation footer only when caller passes `attribution` (coach context).
 
-### 1. Canonical result helpers (single source of truth)
+## 3. Wire shared drilldown into the four remaining tables
 
-Add `src/lib/intros/resultLabels.ts`:
+Each table builds a `PersonRow[]` for each numeric cell from data already in scope (no new queries unless noted).
 
-```text
-SALE_CANONS        = PREMIER, PREMIER_OTBEAT, ELITE, BASIC, SALE
-FOLLOWUP_CANONS    = FOLLOW_UP, FOLLOW_UP_NEEDED
-PLANNING_2ND_CANONS = PLANNING_2ND, PLANNING_2ND_INTRO, SECOND_INTRO_SCHEDULED
+### PerSATable
+- `Ran`: first-intro bookings attributed to that SA where the run is "ran" (excludes NO_SHOW, UNRESOLVED, VIP_CLASS_INTRO via `didIntroActuallyRun`).
+- `Sales`: same set filtered by `isCloseResult` on direct or 2nd-intro Total Journey run.
+- `Close%`: opens the same Sales list with reconciliation footer ("X of Y ran").
+- Wire by lifting source rows from `Recaps.tsx` (where PerSAMetrics is built) into a `peopleByMetric` map and passing it into the table.
 
-isSaleCanon(rc)          → boolean
-isFollowUpCanon(rc)      → boolean
-isPlanning2ndCanon(rc)   → boolean
-labelForRun({result_canon, result}) → "SALE" | "Booked 2nd" | "Follow-Up" |
-                                       "Planning to Buy" | "Not Interested" |
-                                       "5 Class Pack" | "No Show" | "VIP Intro" |
-                                       "Unresolved" | "—"
-```
+### BookerStatsTable
+- `Booked`: bookings where `booked_by === sa`. Subtitle = class date.
+- `Showed`: same, filtered to `booking_status_canon === 'SHOWED'`.
+- `Show%`: opens the Showed list.
+- Build map alongside `BookerMetrics` in `Recaps.tsx`.
 
-Replace local `labelFor` / `labelFromRun` in `Wig.tsx`, `PerCoachTable.tsx`, and the result-tone map in `CoachAttributionDrillDown.tsx` with these helpers. Add tones for the new labels.
+### OutreachTable
+- `FU`: rows from `followup_touches` for that SA in range — name = lead/member, subtitle = touch type + date.
+- `DMs`: from `shift_task_completions.count_logged` rows; subtitle = shift date. (No name → show "DM batch · {n}" rows.)
+- `Leads`: unique leads first-contacted; subtitle = lead source.
+- `Speed`: opens the same Leads list ordered by minutes-to-first-contact, with the minutes value as `rightLabel`.
+- Source data comes from `useLeadMeasures`; expand the hook to return `peopleByMetric` per SA.
 
-### 2. Make "became a sale via 2nd intro" obvious in the Coached drill
+### ReferralAskTracker
+- `{pendingCount} to do`: tap → list of pending `Row`s.
+- `{completedCount} asked`: tap → completed rows. Each row tappable → opens the lead/member in `/pipeline?leadId=…` (already wired via `navigateToLead` for milestones; mirror that for the booking).
 
-Right now the originator row sits in `coached` with label "—" while a separate row sits in `closes` tagged `via: '2nd_intro'`. The Coached view never reveals the link.
+## 4. Wire shared drilldown into MilestonesDeploySection, VipClassPerformanceTable, LeadSourceChart
 
-When pushing the first-intro row into `coached`, also set `via2ndIntroSale: true` if `secondRunSaleSet.has(booking.id)` (WIG) / the second-sale-lookup matches (Studio). In `CoachAttributionDrillDown.tsx`, when `via2ndIntroSale` is true on a Coached row, render an additional badge "→ SALE via 2nd intro" alongside the result label so Alexa shows as **Booked 2nd · → SALE via 2nd intro** instead of `—`.
+### MilestonesDeploySection
+Each summary card becomes a button. Person rows derived from `milestones` + `friendTracking` already in state:
+- `Celebrated (X / Y)`: two stacked lists — celebrated rows (green tone) and not-yet-celebrated (amber). Subtitle = milestone type + created_at.
+- `Packs gifted`: rows where `five_class_pack_gifted`. Subtitle = friend name if any.
+- `Friends showed up`: rows in `friendTracking` where `friendShowedUp`. Tap row → navigate to friend's intro/lead.
+- `Converted to member`: rows where `convertedToMember`. Tap → lead/booking detail.
+- `Friends in pipeline`: rows with `converted_to_lead_id`. Tap → `/pipeline?leadId=…`.
 
-### 3. Audit other places using stale canon strings
+### VipClassPerformanceTable
+For each session row, the `Booked / Ran / Joins` numbers become tappable. Need a small extension to the existing query — keep the per-session intro rows in state instead of just counts. Person rows show member_name + result label (`labelForRun`).
 
-Grep `result_canon === 'SALE'`, `'FOLLOW_UP'`, `'PLANNING_2ND'` (no `_INTRO`) and route them through `isSaleCanon` / `isFollowUpCanon` / `isPlanning2ndCanon`. Files to check: `lib/intros/close-detection.ts`, `Wig.tsx`, `PerCoachTable.tsx`, any close-rate / 2nd-sale lookup. Report each touched file at the end. No silent symptom patches — fix the helper at the source.
+### LeadSourceChart
+`SourceRow` already calls `onBoxClick(category)` which today opens `FunnelDrillSheet`. Replace that sheet with `PersonListDrillDown` for visual consistency, fed by the existing `bookedPeople / showedPeople / soldPeople` arrays. Map `LeadSourcePerson` → `PersonRow` (name, class date subtitle, status badge). Keep `FunnelDrillSheet` only if other callers depend on it; otherwise delete.
 
-### 4. Make every person-tied number tappable across WIG and Studio
+## 5. Files
 
-Reuse / extend `CoachAttributionDrillDown.tsx` into a shared `PersonListDrillDown.tsx` that takes `{ title, subtitle, source, items: AttribIntro[], footer? }` so any table can open it without bespoke modals.
+**New**
+- `src/lib/intros/__tests__/resultLabels.test.ts`
+- `src/components/dashboard/PersonListDrillDown.tsx` (the new shared component)
 
-**WIG (`src/pages/Wig.tsx`):**
-- Coach Coached / Closes — already tappable, leave as is (just upgraded labels).
-- SA Lead Measures table → Referral Asks count and 5-Class Packs count: tap → list of the actual intros / milestone rows behind the number (member name, date, source).
-- First Visit Experience: each coach's score is already drillable to scorecards — confirm coverage; leave business logic alone.
-- Milestones / Deploy section: tap any per-person count (referrals brought, packs gifted, milestones logged) → list of rows.
-- Referral Ask Tracker: tap any per-SA number → ask list.
-
-**Studio (`src/pages/Recaps.tsx` and children):**
-- `PerSATable.tsx` (Runner Stats) — every numeric per-SA cell (intros run, showed, sold, no-shows, close%) tappable → people behind it.
-- `BookerStatsTable.tsx` (Booker Stats) — every per-SA numeric cell tappable.
-- `OutreachTable.tsx` — per-SA outreach counts tappable.
-- `PerCoachTable.tsx` — Coached / Closes already tappable; add Close% (opens combined view = coached list with SALE highlighted).
-- `LeadSourceChart` — already supports drill via bookedPeople/showedPeople/soldPeople. Confirm a tap surface exists; if not, add it.
-- `VipClassPerformanceTable.tsx` — per-session attendance / conversion counts tappable to attendees.
-
-Standard cell pattern (44 px tap target, visible hover, OTF Orange numerals on close-style metrics, disabled when zero):
-
-```tsx
-<button type="button" disabled={n === 0}
-  onClick={() => openDrill({...})}
-  className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40
-             hover:underline disabled:cursor-default disabled:hover:bg-transparent
-             disabled:hover:no-underline">
-  {n}
-</button>
-```
-
-### 5. Verification
-
-- Open James → Coached in both WIG and Studio for May. Alexa Brodsky should now read **Booked 2nd · → SALE via 2nd intro** (not `—`), Sarah and Mehmet still read **SALE**, footer math unchanged.
-- Open every numeric cell across PerSA, Booker, Outreach, PerCoach, VIP Class, Referral, Milestones tables — each opens a person list with names, dates, sources, and result tags.
-- Confirm no behavior change in totals or close-rate math (display layer + canon helpers only).
+**Edited**
+- `src/lib/intros/__tests__/close-detection.test.ts` (add canon cases)
+- `src/components/dashboard/CoachAttributionDrillDown.tsx` (becomes thin wrapper)
+- `src/components/dashboard/PerSATable.tsx`
+- `src/components/dashboard/BookerStatsTable.tsx`
+- `src/components/dashboard/OutreachTable.tsx`
+- `src/components/dashboard/ReferralAskTracker.tsx`
+- `src/components/dashboard/MilestonesDeploySection.tsx`
+- `src/components/admin/VipClassPerformanceTable.tsx`
+- `src/components/dashboard/LeadSourceChart.tsx`
+- `src/pages/Recaps.tsx` (lift per-row people maps for the four Studio tables)
+- `src/hooks/useLeadMeasures.ts` (expose per-metric people for Outreach)
 
 ## Out of scope
-
-- The bigger WIG-vs-Studio coached/closes reconciliation (already noted as a follow-up).
-- Any change to commission attribution or DB schema.
-
-## Files expected to change
-
-- new: `src/lib/intros/resultLabels.ts`
-- new: `src/components/dashboard/PersonListDrillDown.tsx` (or extend `CoachAttributionDrillDown.tsx` and re-export)
-- edit: `src/components/dashboard/CoachAttributionDrillDown.tsx`
-- edit: `src/pages/Wig.tsx`
-- edit: `src/pages/Recaps.tsx` (if needed for wiring)
-- edit: `src/components/dashboard/PerCoachTable.tsx`
-- edit: `src/components/dashboard/PerSATable.tsx`
-- edit: `src/components/dashboard/BookerStatsTable.tsx`
-- edit: `src/components/dashboard/OutreachTable.tsx`
-- edit: `src/components/dashboard/LeadSourceChart.tsx` (only if drill surface missing)
-- edit: `src/components/admin/VipClassPerformanceTable.tsx`
-- edit: `src/components/dashboard/ReferralAskTracker.tsx`
-- edit: `src/components/dashboard/MilestonesDeploySection.tsx`
-- edit: `src/lib/intros/close-detection.ts` (route through new helper)
+- Reconciling WIG vs Studio totals (separate audit).
+- Commission/attribution rule changes.
+- New DB columns or migrations.
