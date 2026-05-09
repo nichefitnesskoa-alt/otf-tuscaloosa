@@ -241,10 +241,10 @@ export default function Recaps() {
               <TabsTrigger value="outreach">Outreach</TabsTrigger>
             </TabsList>
             <TabsContent value="runner">
-              <PerSATable data={filteredPerSA} />
+              <PerSATable data={filteredPerSA} dateRange={dateRange} />
             </TabsContent>
             <TabsContent value="booker">
-              <BookerStatsTable data={filteredBookerStats} />
+              <BookerStatsTable data={filteredBookerStats} dateRange={dateRange} />
             </TabsContent>
             <TabsContent value="outreach">
               <OutreachTable data={filteredOutreach} loading={leadMeasuresLoading} />
