@@ -12,6 +12,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from './CoachAttributionDrillDown';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
@@ -67,6 +68,13 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       if (isBookingExcludedFromMetrics(b)) excludedBookingIds.add(b.id);
     });
 
+    // Promote one orphan child per excluded original (e.g. Alexa: pick the
+    // sale child, not the follow-up child, so Studio matches WIG).
+    const promotedOrphanIds = resolvePromotedOrphanBookingIds(
+      introsBooked as any[],
+      introsRun as any[],
+    );
+
     const resolveCoach = (b: any, fallback: string | null): string | null => {
       if (b && (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id) {
         const vc = vipCoachByVipSession.get(b.vip_session_id);
@@ -75,12 +83,13 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       return fallback;
     };
 
-    // First intros only — and exclude runs whose linked booking was
-    // soft-deleted, marked duplicate/dead, VIP, or ignored from metrics.
-    // (Matches the WIG tab filter so Studio and WIG stay in lockstep.)
+    // Treat a run as "first intro" if its linked booking is a true first
+    // intro OR a promoted orphan (originating row was excluded). This keeps
+    // Studio in lockstep with WIG.
     const firstIntroRuns = introsRun.filter(r => {
       if (r.linked_intro_booked_id && excludedBookingIds.has(r.linked_intro_booked_id)) return false;
       if (!r.linked_intro_booked_id) return true;
+      if (promotedOrphanIds.has(r.linked_intro_booked_id)) return true;
       return !originatingMap.get(r.linked_intro_booked_id);
     });
 
