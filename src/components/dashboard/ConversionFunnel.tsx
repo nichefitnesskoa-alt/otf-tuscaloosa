@@ -8,6 +8,7 @@ import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detec
 import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
+import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 
 interface ConversionFunnelProps {
   dateRange?: DateRange | null;
