@@ -57,6 +57,19 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
     return Object.entries(byWeek).map(([week, v]) => ({ week, avg: +(v.total / v.count).toFixed(1) }));
   }, [trend]);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-[110px] w-full" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0,1,2,3].map(i => <Skeleton key={i} className="h-[88px]" />)}
+        </div>
+        <Skeleton className="h-[240px] w-full" />
+        <Skeleton className="h-[200px] w-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {allowPicker && coaches && (
