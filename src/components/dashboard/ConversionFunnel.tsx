@@ -158,9 +158,26 @@ export function computeFunnelBothRows(
     return new Date(y, m - 1, d, 23, 59, 59) <= now;
   };
 
-  const firstBookings = activeBookings.filter(b =>
-    isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
-  );
+  // Persons whose 2nd intro has already happened (booking passed). Once a
+  // person has had their 2nd intro, they should NOT also appear in the 1st
+  // Intro row — they're now represented by the 2nd Intro row. This prevents
+  // the same person from being counted in both rows of the funnel.
+  const personHasPassedSecond = new Set<string>();
+  activeBookings.forEach(b => {
+    if (!bookingIsSecond.get(b.id)) return;
+    if (!hasBookingPassed(b)) return;
+    const key = bookingPersonKey.get(b.id);
+    if (key) personHasPassedSecond.add(key);
+  });
+
+  const firstBookings = activeBookings.filter(b => {
+    if (!isFirstBooking(b)) return false;
+    if (!isInRange(b.class_date, dateRange || null)) return false;
+    if (!hasBookingPassed(b)) return false;
+    const key = bookingPersonKey.get(b.id);
+    if (key && personHasPassedSecond.has(key)) return false;
+    return true;
+  });
   const secondBookings = activeBookings.filter(b =>
     !isFirstBooking(b) && isInRange(b.class_date, dateRange || null) && hasBookingPassed(b)
   );
