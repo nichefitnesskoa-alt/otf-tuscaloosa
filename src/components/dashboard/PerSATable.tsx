@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
