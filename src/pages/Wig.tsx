@@ -19,6 +19,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, s
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
+import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
@@ -402,16 +403,7 @@ export default function Wig() {
         if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMap.set(n, a); }
         return a;
       };
-      const labelFromRun = (r: any): string => {
-        const rc = (r?.result_canon || '').toUpperCase();
-        if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
-        if (rc === 'NO_SHOW') return 'No Show';
-        if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
-        if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
-        if (rc === 'UNRESOLVED') return 'Unresolved';
-        if (rc === 'FOLLOW_UP') return 'Follow-Up';
-        return '—';
-      };
+      const labelFromRun = (r: any) => labelForRun(r);
 
       showedFirstIntroBookings.forEach(b => {
         const linkedRunForCoach = runsByBookingId.get(b.id);
@@ -443,6 +435,10 @@ export default function Wig() {
       const bookingByIdMap = new Map<string, any>();
       showedFirstIntroBookings.forEach(b => bookingByIdMap.set(b.id, b));
 
+      // Hoisted so the post-loop backfill can read it (set of first-intro
+      // booking IDs whose 2nd intro ran a sale — Total Journey).
+      const secondRunSaleSet = new Set<string>();
+
       if (showedFirstIntroBookingIds.length > 0) {
         const closeBatches: string[][] = [];
         for (let i = 0; i < showedFirstIntroBookingIds.length; i += 500) closeBatches.push(showedFirstIntroBookingIds.slice(i, i + 500));
@@ -463,7 +459,6 @@ export default function Wig() {
 
         // Fetch runs for 2nd intro bookings to check for sales
         const allSecondIds = Array.from(secondIntroBookingMap.values()).flat();
-        const secondRunSaleSet = new Set<string>(); // set of originating_booking_ids that have a 2nd-intro sale
         if (allSecondIds.length > 0) {
           for (let i = 0; i < allSecondIds.length; i += 500) {
             const batch2 = allSecondIds.slice(i, i + 500);
@@ -525,8 +520,20 @@ export default function Wig() {
         }
       }
 
+      // Backfill via2ndIntroSale flag on coached rows so the drill explains
+      // why an originator with no direct sale is being counted as a close.
+      // secondRunSaleSet holds first-intro booking IDs whose 2nd intro ran a sale.
+      attribMap.forEach(a => {
+        a.coached = a.coached.map(it =>
+          // secondRunSaleSet may be undefined if no first intros existed
+          (typeof secondRunSaleSet !== 'undefined' && secondRunSaleSet.has(it.bookingId))
+            ? { ...it, via2ndIntroSale: true }
+            : it
+        );
+      });
 
-      const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
+
+      const allCoachNames = new Set<string>([...coachMap.keys(), ...coachCloseMap.keys()]);
       const coachData = Array.from(allCoachNames).map(name => {
         const wk = coachMap.get(name) || { coached: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };

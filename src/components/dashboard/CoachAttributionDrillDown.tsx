@@ -8,8 +8,9 @@ export interface AttribIntro {
   member: string;
   classDate: string | null;
   source: string | null;
-  resultLabel: string;       // 'SALE' | 'Follow-Up' | 'No Show' | 'Planning 2nd' | 'VIP Intro' | 'Unresolved' | '—'
+  resultLabel: string;       // see labelForRun()
   via?: 'direct' | '2nd_intro';
+  via2ndIntroSale?: boolean; // true on a Coached row whose Total Journey ended in a sale via 2nd intro
 }
 
 export interface CoachAttribution {
@@ -34,7 +35,10 @@ const RESULT_TONE: Record<string, string> = {
   'SALE': 'bg-success/15 text-success border-success/40',
   'Follow-Up': 'bg-warning/15 text-warning border-warning/40',
   'No Show': 'bg-muted text-muted-foreground border-border',
-  'Planning 2nd': 'bg-primary/10 text-primary border-primary/30',
+  'Booked 2nd': 'bg-primary/10 text-primary border-primary/30',
+  'Planning to Buy': 'bg-primary/10 text-primary border-primary/30',
+  'Not Interested': 'bg-destructive/10 text-destructive border-destructive/30',
+  '5 Class Pack': 'bg-primary/10 text-primary border-primary/30',
   'VIP Intro': 'bg-muted text-muted-foreground border-border italic',
   'Unresolved': 'bg-muted text-muted-foreground border-border',
   '—': 'bg-muted text-muted-foreground border-border',
@@ -86,9 +90,16 @@ export function CoachAttributionDrillDown({
                       {i.via === '2nd_intro' && <> · <span className="text-primary font-semibold">via 2nd intro</span></>}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
-                    {i.resultLabel}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
+                      {i.resultLabel}
+                    </span>
+                    {i.via2ndIntroSale && metric === 'coached' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap bg-success/15 text-success border-success/40">
+                        → SALE via 2nd
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))

@@ -17,6 +17,7 @@ import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { isCloseResult } from '@/lib/intros/resultLabels';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -361,7 +362,7 @@ export default function CoachMyIntros() {
         .in('linked_intro_booked_id', Array.from(chainBookingIds));
       (chainRuns || []).forEach((r: any) => {
         if (!r.linked_intro_booked_id) return;
-        if (r.result_canon === 'SALE' || isMembershipSale(r.result || '')) {
+        if (isCloseResult(r)) {
           soldBookingIds.add(r.linked_intro_booked_id);
         }
       });
@@ -370,7 +371,7 @@ export default function CoachMyIntros() {
     // catches sales where the run wasn't linked to the booking row.
     const soldNames = new Set<string>();
     runs.forEach(r => {
-      if (r.result_canon === 'SALE') soldNames.add((r.member_name || '').trim().toLowerCase());
+      if (isCloseResult(r as any)) soldNames.add((r.member_name || '').trim().toLowerCase());
     });
     // Map booking id → true if any booking in its chain (or any run with same name) has a sale
     const norm = (s: string) => (s || '').trim().toLowerCase();

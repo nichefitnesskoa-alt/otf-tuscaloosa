@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isCloseResult } from '@/lib/intros/resultLabels';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,7 +64,7 @@ export function VipClassPerformanceTable() {
       const [{ data: regs }, { data: bookings }, { data: runs }] = await Promise.all([
         sb.from('vip_registrations').select('vip_session_id').in('vip_session_id', ids).eq('is_group_contact', false),
         sb.from('intros_booked').select('id, vip_session_id, booking_status_canon').in('vip_session_id', ids),
-        sb.from('intros_run').select('linked_intro_booked_id, result_canon').in('linked_intro_booked_id',
+        sb.from('intros_run').select('linked_intro_booked_id, result, result_canon').in('linked_intro_booked_id',
           // We need booking IDs that have vip_session_id
           [] // will be filled below
         ),
@@ -73,7 +74,7 @@ export function VipClassPerformanceTable() {
       const bookingIds = (bookings || []).map((b: any) => b.id);
       let runRows: any[] = runs || [];
       if (bookingIds.length > 0) {
-        const { data: r2 } = await sb.from('intros_run').select('linked_intro_booked_id, result_canon').in('linked_intro_booked_id', bookingIds);
+        const { data: r2 } = await sb.from('intros_run').select('linked_intro_booked_id, result, result_canon').in('linked_intro_booked_id', bookingIds);
         runRows = r2 || [];
       }
 
@@ -102,7 +103,7 @@ export function VipClassPerformanceTable() {
         let joins = 0;
         for (const b of sessionBookings) {
           const bRuns = runByBooking[b.id] || [];
-          if (bRuns.some((r: any) => r.result_canon === 'SALE')) joins++;
+          if (bRuns.some((r: any) => isCloseResult(r))) joins++;
         }
         return {
           id: s.id,

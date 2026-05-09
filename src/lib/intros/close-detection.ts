@@ -1,17 +1,15 @@
 // Source of truth for "did this intro close." Every consumer uses this. No second implementation anywhere.
 import { supabase } from '@/integrations/supabase/client';
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isCloseResult } from '@/lib/intros/resultLabels';
 
 export interface RunRow {
   result_canon?: string | null;
   result?: string | null;
 }
 
-/** Pure predicate on a single intros_run row. */
+/** Pure predicate on a single intros_run row. Routes through canonical helper. */
 export function isCloseRun(run: RunRow): boolean {
-  if (!run) return false;
-  if ((run.result_canon || '').toUpperCase() === 'SALE') return true;
-  return isMembershipSale(run.result || '');
+  return isCloseResult(run);
 }
 
 /**

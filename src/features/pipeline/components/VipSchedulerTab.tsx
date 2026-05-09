@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isCloseResult } from '@/lib/intros/resultLabels';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -316,10 +317,10 @@ export function VipSchedulerTab() {
     let joins = 0;
     if (sessionBookings.length > 0) {
       const bIds = sessionBookings.map((b: any) => b.id);
-      const { data: runs } = await sb.from('intros_run').select('linked_intro_booked_id, result_canon').in('linked_intro_booked_id', bIds);
+      const { data: runs } = await sb.from('intros_run').select('linked_intro_booked_id, result, result_canon').in('linked_intro_booked_id', bIds);
       const saleBookings = new Set<string>();
       for (const r of (runs || [])) {
-        if (r.result_canon === 'SALE' && r.linked_intro_booked_id) saleBookings.add(r.linked_intro_booked_id);
+        if (isCloseResult(r as any) && r.linked_intro_booked_id) saleBookings.add(r.linked_intro_booked_id);
       }
       joins = saleBookings.size;
     }

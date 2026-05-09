@@ -10,6 +10,7 @@ import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from './CoachAttributionDrillDown';
+import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
@@ -25,16 +26,7 @@ interface CoachRow {
 type SortColumn = 'coachName' | 'introsCoached' | 'closes' | 'closeRate';
 type SortDirection = 'asc' | 'desc';
 
-function labelFor(r: any): string {
-  const rc = (r?.result_canon || '').toUpperCase();
-  if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
-  if (rc === 'NO_SHOW') return 'No Show';
-  if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
-  if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
-  if (rc === 'UNRESOLVED') return 'Unresolved';
-  if (rc === 'FOLLOW_UP') return 'Follow-Up';
-  return '—';
-}
+// Result label is centralized in @/lib/intros/resultLabels (labelForRun)
 
 export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { introsRun, introsBooked } = useData();
@@ -112,7 +104,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
         member: linkedBooking?.member_name || (r as any).member_name || 'Unknown',
         classDate: linkedBooking?.class_date || (r as any).run_date || null,
         source: linkedBooking?.lead_source || null,
-        resultLabel: labelFor(r),
+        resultLabel: labelForRun(r as any),
       };
 
       // Excluded from Coached & Closes math: VIP Class Intros, No-shows, Unresolved
@@ -125,23 +117,30 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       const ex = coachMap.get(name) || { coached: 0, closes: 0 };
       ex.coached++;
       const a = ensureAttrib(name);
-      a.coached.push(intro);
 
-      if ((r as any).result_canon === 'SALE' || isMembershipSale(r.result)) {
-        ex.closes++;
-        a.closes.push({ ...intro, via: 'direct', resultLabel: 'SALE' });
-      } else if (r.linked_intro_booked_id) {
-        const secondSale = introsRun.some(r2 => {
+      // Direct sale on this run?
+      const directSale = isCloseResult(r as any);
+      // Total Journey: did a chained 2nd intro end in sale?
+      let secondSale = false;
+      if (!directSale && r.linked_intro_booked_id) {
+        secondSale = introsRun.some(r2 => {
           if (r2.id === r.id) return false;
           const booking = introsBooked.find((b: any) => b.id === r2.linked_intro_booked_id);
           if (!booking) return false;
           if ((booking as any).originating_booking_id !== r.linked_intro_booked_id) return false;
-          return (r2 as any).result_canon === 'SALE' || isMembershipSale(r2.result);
+          return isCloseResult(r2 as any);
         });
-        if (secondSale) {
-          ex.closes++;
-          a.closes.push({ ...intro, via: '2nd_intro', resultLabel: 'SALE' });
-        }
+      }
+
+      // Push the coached row, flagging it if a 2nd-intro sale exists so the drill shows the link
+      a.coached.push({ ...intro, via2ndIntroSale: secondSale });
+
+      if (directSale) {
+        ex.closes++;
+        a.closes.push({ ...intro, via: 'direct', resultLabel: 'SALE' });
+      } else if (secondSale) {
+        ex.closes++;
+        a.closes.push({ ...intro, via: '2nd_intro', resultLabel: 'SALE' });
       }
       coachMap.set(name, ex);
     });
