@@ -320,3 +320,41 @@ function TrendChart({
     </ResponsiveContainer>
   );
 }
+
+function LoadingState() {
+  return (
+    <div className="space-y-4">
+      <Card className="p-3 border-border/60">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-[220px] w-full" />
+      </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <Skeleton className="h-[110px]" />
+        <Skeleton className="h-[110px]" />
+        <Skeleton className="h-[110px]" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-40 mb-2" />
+        {[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ onScoreFirst }: { onScoreFirst: () => void }) {
+  return (
+    <Card className="p-8 border-2 border-dashed border-primary/30 bg-primary/5 text-center space-y-3">
+      <ClipboardCheck className="w-12 h-12 text-primary mx-auto" />
+      <div>
+        <p className="text-base font-bold">This is where elite gets measured.</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+          First Visit Experience is the standard. The first scorecard starts the trend for every coach in this studio.
+        </p>
+      </div>
+      <Button onClick={onScoreFirst} className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white min-h-[44px]">
+        Score Your First Intro
+      </Button>
+    </Card>
+  );
+}
+
