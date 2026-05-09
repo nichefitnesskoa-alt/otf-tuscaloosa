@@ -20,6 +20,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
