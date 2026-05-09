@@ -90,3 +90,67 @@ describe('computeFunnelBothRows — Alexa orphan-chain regression', () => {
     expect(second.sold).toBe(0);
   });
 });
+
+/**
+ * Once a person's 2nd intro has occurred, they should drop out of the 1st
+ * Intro row (otherwise the same human is counted in both rows).
+ */
+describe('computeFunnelBothRows — person collapses to 2nd row after 2nd intro', () => {
+  it('excludes the 1st booking from the 1st row when the 2nd has passed', () => {
+    const introsBooked: any[] = [
+      {
+        id: 'first-may1',
+        member_name: 'Test Person',
+        class_date: '2026-05-01',
+        intro_time: '07:30:00',
+        booking_status: 'Showed',
+        booking_status_canon: 'SHOWED',
+        originating_booking_id: null,
+      },
+      {
+        id: 'second-may5',
+        member_name: 'Test Person',
+        class_date: '2026-05-05',
+        intro_time: '06:15:00',
+        booking_status: 'Showed',
+        booking_status_canon: 'SHOWED',
+        originating_booking_id: 'first-may1',
+      },
+    ];
+
+    const introsRun: any[] = [
+      {
+        id: 'run-first',
+        member_name: 'Test Person',
+        run_date: '2026-05-01',
+        result: 'Booked 2nd intro',
+        result_canon: 'SECOND_INTRO_SCHEDULED',
+        linked_intro_booked_id: 'first-may1',
+        created_at: '2026-05-01T13:41:20Z',
+      },
+      {
+        id: 'run-second',
+        member_name: 'Test Person',
+        run_date: '2026-05-05',
+        result: 'Follow-up needed',
+        result_canon: 'FOLLOW_UP',
+        linked_intro_booked_id: 'second-may5',
+        created_at: '2026-05-05T13:41:20Z',
+      },
+    ];
+
+    const dateRange = {
+      start: new Date(2026, 3, 27, 0, 0, 0),
+      end: new Date(2026, 4, 10, 23, 59, 59),
+    } as any;
+
+    const { first, second } = computeFunnelBothRows(introsBooked, introsRun, dateRange);
+
+    expect(first.booked).toBe(0);
+    expect(first.showed).toBe(0);
+    expect(first.sold).toBe(0);
+    expect(second.booked).toBe(1);
+    expect(second.showed).toBe(1);
+    expect(second.sold).toBe(0);
+  });
+});
