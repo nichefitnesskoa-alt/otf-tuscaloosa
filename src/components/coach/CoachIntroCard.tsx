@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
-import { BookingScorecards } from '@/components/scorecard/BookingScorecards';
+import { useScorecards } from '@/hooks/useScorecards';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CoachBooking {
   id: string;
@@ -88,6 +89,20 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
   const [debriefSubmittedBy, setDebriefSubmittedBy] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [scorecardEvalType, setScorecardEvalType] = useState<'self_eval' | 'formal_eval'>('self_eval');
+
+  // Pull all scorecards for this booking; pick the right one to rehydrate
+  // into the form so submitted scores stay visible on the card.
+  const queryClient = useQueryClient();
+  const { data: bookingCards = [] } = useScorecards({ firstTimerId: booking.id });
+  const resolvedScorecardId = (() => {
+    const sameType = bookingCards.filter(c => c.eval_type === scorecardEvalType);
+    const submitted = sameType.filter(c => !!c.submitted_at);
+    const mine = submitted.find(c => c.evaluator_name === user?.name);
+    if (mine) return mine.id;
+    if (submitted[0]) return submitted[0].id;
+    const myDraft = sameType.find(c => c.evaluator_name === user?.name);
+    return myDraft?.id ?? null;
+  })();
 
   const isSecondIntro = !!booking.originating_booking_id
     && !!originatingBookingStatus
@@ -272,10 +287,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* First Visit Experience Scorecard — inline */}
           <div className="border-t pt-4 mt-2">
             <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
-            <div className="mb-3">
-              <BookingScorecards bookingId={booking.id} />
-            </div>
             <ScorecardFormBody
+              key={`${scorecardEvalType}:${resolvedScorecardId ?? 'new'}`}
               firstTimerId={booking.id}
               defaultMemberName={booking.member_name}
               defaultClassDate={booking.class_date}
@@ -283,7 +296,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               defaultEvaluator={user?.name || ''}
               evalType={scorecardEvalType}
               onEvalTypeChange={setScorecardEvalType}
+              existingId={resolvedScorecardId}
               showEvalToggle
+              onSubmitted={() => {
+                queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+              }}
             />
           </div>
 

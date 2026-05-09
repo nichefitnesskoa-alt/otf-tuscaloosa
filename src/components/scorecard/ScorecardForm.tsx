@@ -45,11 +45,13 @@ export function ScorecardFormBody(props: BodyProps) {
   const [handbackNotes, setHandbackNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [revealLevel, setRevealLevel] = useState<1 | 2 | 3 | null>(null);
+  const [loadedSubmittedAt, setLoadedSubmittedAt] = useState<string | null>(null);
+  const [loadedEvaluator, setLoadedEvaluator] = useState<string | null>(null);
 
   const coachOptions = ['TBD', ...COACHES];
 
   useEffect(() => {
-    if (!existingId) { setScorecardId(null); return; }
+    if (!existingId) { setScorecardId(null); setLoadedSubmittedAt(null); setLoadedEvaluator(null); return; }
     (async () => {
       const { data: sc } = await supabase.from('fv_scorecards' as any).select('*').eq('id', existingId).maybeSingle();
       const { data: bs } = await supabase.from('fv_scorecard_bullets' as any).select('*').eq('scorecard_id', existingId);
@@ -66,6 +68,8 @@ export function ScorecardFormBody(props: BodyProps) {
         setInteractionsNotes(c.interactions_notes || '');
         setOtbeatNotes(c.otbeat_notes || '');
         setHandbackNotes(c.handback_notes || '');
+        setLoadedSubmittedAt(c.submitted_at ?? null);
+        setLoadedEvaluator(c.evaluator_name ?? null);
       }
       const map: Record<string, 0 | 1 | 2> = {};
       (bs || []).forEach((b: any) => { map[b.bullet_key] = b.score; });
@@ -178,6 +182,21 @@ export function ScorecardFormBody(props: BodyProps) {
 
   return (
     <div className="space-y-4">
+      {loadedSubmittedAt && (
+        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 bg-muted/40">
+          <span className="text-xs text-muted-foreground">
+            Submitted by <span className="font-semibold text-foreground">{loadedEvaluator}</span>
+            {' · '}
+            {(() => { try { return new Date(loadedSubmittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } })()}
+          </span>
+          <span
+            className="text-[11px] font-bold px-2 py-1 rounded-full text-white"
+            style={{ backgroundColor: '#E8540A' }}
+          >
+            L{level} · {total}/30
+          </span>
+        </div>
+      )}
       {showEvalToggle && (
         <div className="flex gap-2">
           <button
