@@ -19,8 +19,10 @@ import {
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { DateRange } from '@/lib/pay-period';
+import { resolveClosedFirstIntroIds } from '@/lib/intros/close-detection';
 
-const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'VIP_CLASS_INTRO', 'PLANNING_RESCHEDULE']);
+// Match WIG header: only NO_SHOW / UNRESOLVED / VIP_CLASS_INTRO are dropped from "ran" denominator.
+const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'VIP_CLASS_INTRO']);
 
 interface RanFirstIntro {
   bookingId: string;
