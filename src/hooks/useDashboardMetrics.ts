@@ -8,6 +8,7 @@ import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
 import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
 import { getTodayYMD } from '@/lib/dateUtils';
+import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
 
 interface StudioMetrics {
   introsRun: number;
