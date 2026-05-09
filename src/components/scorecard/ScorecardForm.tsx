@@ -51,7 +51,7 @@ export function ScorecardFormBody(props: BodyProps) {
   const coachOptions = ['TBD', ...COACHES];
 
   useEffect(() => {
-    if (!existingId) { setScorecardId(null); return; }
+    if (!existingId) { setScorecardId(null); setLoadedSubmittedAt(null); setLoadedEvaluator(null); return; }
     (async () => {
       const { data: sc } = await supabase.from('fv_scorecards' as any).select('*').eq('id', existingId).maybeSingle();
       const { data: bs } = await supabase.from('fv_scorecard_bullets' as any).select('*').eq('scorecard_id', existingId);
@@ -68,6 +68,8 @@ export function ScorecardFormBody(props: BodyProps) {
         setInteractionsNotes(c.interactions_notes || '');
         setOtbeatNotes(c.otbeat_notes || '');
         setHandbackNotes(c.handback_notes || '');
+        setLoadedSubmittedAt(c.submitted_at ?? null);
+        setLoadedEvaluator(c.evaluator_name ?? null);
       }
       const map: Record<string, 0 | 1 | 2> = {};
       (bs || []).forEach((b: any) => { map[b.bullet_key] = b.score; });
