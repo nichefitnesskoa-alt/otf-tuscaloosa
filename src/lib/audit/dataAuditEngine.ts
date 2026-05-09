@@ -4,6 +4,7 @@
  * References canonical functions only — never invents its own logic.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { isSaleCanon } from '@/lib/sales-detection';
 
 export interface AuditCheckResult {
   checkName: string;
