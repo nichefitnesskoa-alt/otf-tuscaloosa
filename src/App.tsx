@@ -183,6 +183,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/coaches/:coachName"
+        element={
+          <ProtectedRoute>
+            <CoachDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/vips"
         element={
           <ProtectedRoute>
