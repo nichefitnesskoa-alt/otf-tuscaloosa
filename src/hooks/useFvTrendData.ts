@@ -119,7 +119,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
           .in('linked_intro_booked_id', batch);
         (runs || []).forEach((r: any) => {
           if (!r.linked_intro_booked_id) return;
-          if (RAN_EXCLUDED.has((r.result_canon || '').toUpperCase())) return;
+          if (NON_RAN_RESULT_CANONS.has((r.result_canon || '').toUpperCase())) return;
           const b = valid.find((x: any) => x.id === r.linked_intro_booked_id);
           // Fall back to booking.coach_name when run.coach_name is blank OR 'TBD'
           // (run rows are often left at TBD when the SA who logged the run didn't update the coach).
