@@ -273,6 +273,8 @@ export default function Wig() {
 
   // SA Lead Measures
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
+  const [saPeople, setSaPeople] = useState<Map<string, { referralAsks: PersonRow[]; packs: PersonRow[] }>>(new Map());
+  const [saDrill, setSaDrill] = useState<{ sa: string; metric: 'referralAsks' | 'packs' } | null>(null);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
   const [coachAttribution, setCoachAttribution] = useState<Map<string, CoachAttribution>>(new Map());
