@@ -1,45 +1,53 @@
-## What's wrong
+# Fix Alexa's duplicate + add Delete Run + duplicate-runs alert
 
-The Studio Scoreboard shows **9 Intros Run / 7 Sales** while the WIG tab and the Per-Coach Performance table both show **10 ran / 7 sales** (Koa 5 + James 4 + Nathan 1 = 10). The Conversion Funnel under Studio also shows the lower number (1st intro Showed = 9, Sold = 6).
+## Ground truth
+9 intros ran, 7 sold. Scoreboard and Per-SA already show this correctly — Alexa is counted once (as a 1st intro at her May 4 sale). The Conversion Funnel is the wrong one; it shows 10 because a phantom duplicate booking is being counted as a separate 2nd-intro showing.
 
-This is the same Alexa Brodsky orphan case from the previous fix — just in two surfaces we missed.
+## What's actually duplicated (verified in DB)
 
-### Root cause
+| Run | Date | Result | Linked booking | Booking status |
+|---|---|---|---|---|
+| `dfb8b13a…` | May 1 | Booked 2nd intro (Nora) | `467a…` | Soft-deleted (real original) |
+| `f59655d5…` | May 1 | Follow-up needed (Koa) | `0b19…` | Active, child of `467a…` ← **phantom** |
+| `2375d2ca…` | May 4 | Premier sale | `b647…` | Closed – Bought, child of `467a…` |
 
-In the previous round we centralized the "orphaned 2nd-intro promotion" logic into `src/lib/intros/orphanedFirstIntros.ts` and wired it into:
-- `src/pages/Wig.tsx` (WIG tab)
-- `src/components/dashboard/PerCoachTable.tsx` (Per-Coach table)
+`0b1929d1…` is a duplicate booking auto-created when Nora marked the original's outcome. Its May 1 follow-up run describes the same class as Nora's original run. Deleting both drops the Funnel from 10 → 9 and Alexa is left with: original May 1 run (counted via orphan promotion at the May 4 sale child) + the May 4 sale run.
 
-But two other surfaces still use the old `!originating_booking_id || referred_by_member_name` rule and never see promoted orphans:
+## Plan
 
-1. **`src/hooks/useDashboardMetrics.ts`** (line 165) — its `firstIntroBookings` set feeds:
-   - `pipelineShowed` → Studio Scoreboard "Intros Run" (9 instead of 10)
-   - `studioIntroSales` / `effectiveStudioRan` → Scoreboard sales + close rate
-   - `perSAData` → Sales tab Runner Stats
-2. **`src/components/dashboard/ConversionFunnel.tsx`** (lines 56, 105) — its own first-intro filter drives the 1ST INTRO Booked/Showed/Sold tiles.
+### 1. One-time data cleanup (Supabase update)
+- `intros_run` `f59655d5-0b6f-4656-937d-f04521331647` → `result_canon='DELETED'`, `result='Deleted'`, `commission_amount=0` (matches `DeleteSaleDialog` soft-delete pattern).
+- `intros_booked` `0b1929d1-64b1-4b80-9c24-4e3729fc5b2f` → `deleted_at=now()`, `booking_status='Deleted (soft)'`, `booking_status_canon='DELETED_SOFT'`.
 
-Because both still ignore the promoted orphan child (Alexa's May 4 sale child of a deleted original), Alexa is excluded from both denominators and the sale numerator.
+Result: Scoreboard 9, Per-SA 9, Funnel 9, all sales 7. Drift alert clears.
 
-## Fix
+### 2. Admin "Delete Intro Run" dialog
+New `src/components/admin/DeleteIntroRunDialog.tsx` modeled on `DeleteSaleDialog`. Soft-deletes by setting `result_canon='DELETED'`, `result='Deleted'`, `commission_amount=0`. Confirmation shows member name, run date, current result, owner.
 
-Bring the same `resolvePromotedOrphanBookingIds` / `isFirstIntroForMetrics` helpers into both surfaces so every Studio number matches WIG.
+Mounted in admin-only spots:
+- `MembershipPurchasesPanel.tsx` — extend the existing trash icon to non-sale runs too.
+- `ClientJourneyPanel.tsx` — per-run trash icon.
+- `features/pipeline/components/PipelineRowCard.tsx` — admin-only "Delete Run" in the row's actions.
 
-### 1. `src/hooks/useDashboardMetrics.ts`
-- Compute `promotedOrphanIds = resolvePromotedOrphanBookingIds(activeBookings, activeRuns)` once, after `activeBookings` / `activeRuns` are built.
-- Replace the `firstIntroBookings` filter (line 165) with `isFirstIntroForMetrics(b, promotedOrphanIds)` plus the existing date-range check.
-- All downstream sets (`firstIntroBookingIds`, `pastAndTodayBookings`, `firstIntroBookingsNoSelfBooked`, per-SA loops, pipeline counts) automatically pick up the promoted booking, so Scoreboard "Intros Run" goes 9 → 10 and Per-SA Runner Stats stays consistent with Per-Coach.
+Gated on `isAdmin`. SAs and Coaches never see it.
 
-### 2. `src/components/dashboard/ConversionFunnel.tsx`
-- Same pattern: build `promotedOrphanIds` from the same booking + run inputs the funnel already loads, and update both first-intro checks (lines 56 and 105) to treat promoted IDs as 1st intros. 2nd-intro logic (`hasOrig`) gets the inverse so Alexa isn't double-counted on the 2nd-intro row.
+### 3. Duplicate Runs audit + on-screen alert
+New `src/components/dashboard/DuplicateRunsAlert.tsx` (mirrors `MetricsConsistencyAlert` styling — red card, AlertTriangle, table). Mounted on `Recaps.tsx` admin view above `MetricsConsistencyAlert`.
 
-### 3. Regression coverage
-- Extend `src/lib/intros/__tests__/orphanedFirstIntros.test.ts` with one test asserting that for the Alexa shape (deleted original + follow-up child + sale child), `isFirstIntroForMetrics` returns true for exactly one booking — the sale child — so Studio Scoreboard, Per-Coach, Per-SA, Funnel, and WIG all converge on the same count.
-- Run the full vitest suite; expect previous 121 + new test to pass.
+Detection (pure client-side over `useData()`):
+> Group active `intros_run` rows (exclude `result_canon` in DELETED, VIP_CLASS_INTRO) by lowercased `member_name + run_date`. Flag any group with >1 row.
 
-### Out of scope
-- No data migration. This is purely a metric-attribution fix.
-- Booker stats, lead-source, milestones, etc. continue to use their existing rules; they don't drive the numbers in question.
-- Cases where the original 1st intro is NOT excluded remain unchanged.
+Each flagged row shows: member, date, count, list of result + owner per run, and a per-run "Delete" button that opens `DeleteIntroRunDialog`. Hidden when zero duplicates.
 
-### Expected result after fix
-Studio Scoreboard: **10 Intros Run / 7 Sales / 70% Close Rate**, Conversion Funnel 1st Intro: **Showed 10 / Sold 7**, Per-Coach unchanged at 10/7, WIG unchanged at 10/7. All four surfaces match.
+Helper extracted to `src/lib/intros/duplicateRuns.ts` + Vitest covering: same-day same-member flagged, deleted runs ignored, VIP runs ignored, different dates not flagged.
+
+## Files
+**Created:** `DeleteIntroRunDialog.tsx`, `DuplicateRunsAlert.tsx`, `lib/intros/duplicateRuns.ts` + test.
+**Modified:** `MembershipPurchasesPanel.tsx`, `ClientJourneyPanel.tsx`, `PipelineRowCard.tsx`, `pages/Recaps.tsx`. One Supabase data update for the Alexa cleanup.
+
+## Expected result
+- Pipeline shows Alexa with 1 May 1 run + the May 4 sale (no duplicate).
+- Scoreboard / Per-SA / Conversion Funnel all read **9 ran / 7 sold / 78%**.
+- Metrics-disagree alert clears.
+- Duplicate-runs alert hidden (zero duplicates).
+- Admin can soft-delete any future duplicate run with one click from Recaps, Pipeline, or Client Journey.
