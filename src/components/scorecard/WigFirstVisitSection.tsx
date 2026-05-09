@@ -85,10 +85,109 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               { value: 'self', label: 'Self primary' },
             ]}
           />
-          <Badge variant="outline" className="ml-auto text-[10px]">
-            {data.unscoredCount} {data.unscoredCount === 1 ? 'intro' : 'intros'} still waiting on a scorecard
-          </Badge>
+          {hasAnyRan && (
+            <Badge variant="outline" className="ml-auto text-[10px]">
+              {data.unscoredCount} {data.unscoredCount === 1 ? 'intro' : 'intros'} still waiting on a scorecard
+            </Badge>
+          )}
         </div>
+
+        {isLoading ? (
+          <LoadingState />
+        ) : isEmptyRange ? (
+          <EmptyState onScoreFirst={() => navigate('/scorecards/me')} />
+        ) : (
+          <>
+            {/* Studio overall trend */}
+            <Card className="p-3 border-border/60">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold">Studio overall</h3>
+                <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
+              </div>
+              {data.studioPoints.length === 0 ? (
+                <div className="py-8 text-center space-y-1">
+                  <ClipboardCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+                  <p className="text-sm font-semibold">No scorecards in this range yet.</p>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    First Visit Experience is how this studio measures elite. The first scorecard starts the trend.
+                  </p>
+                </div>
+              ) : (
+                <TrendChart
+                  points={data.studioPoints}
+                  onPointTap={(p) => setDrilldown({ label: `Studio · ${p.bucket}`, cards: p.scorecards })}
+                  primaryColor="hsl(20 90% 47%)"
+                  secondaryColor="hsl(38 92% 60%)"
+                />
+              )}
+            </Card>
+
+            {/* Closing-score tiles */}
+            <ClosingTiles tiles={data.closingTiles} />
+
+            {/* Coach leaderboard */}
+            <div>
+              <h3 className="text-sm font-bold mb-2">Coach leaderboard</h3>
+              {data.ranByCoach.size === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 text-center">
+                  No first intros ran in this range yet.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {[...data.ranByCoach.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([coach, ran]) => {
+                      const formal = data.formalByCoach.get(coach);
+                      const self = data.selfByCoach.get(coach);
+                      const gap = formal?.avg !== undefined && formal?.avg !== null && self?.avg !== undefined && self?.avg !== null
+                        ? formal.avg - self.avg : null;
+                      const dot = cadenceDotStatus(coach, data.scorecards);
+                      const unscored = data.unscoredByCoach.get(coach) || 0;
+                      const expanded = expandedCoach === coach;
+                      const coachPoints = data.perCoachPoints.get(coach) || [];
+                      return (
+                        <div key={coach} className="rounded-md border border-border bg-card overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCoach(expanded ? null : coach)}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] hover:bg-muted/50 text-left"
+                          >
+                            <CadenceDot status={dot} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold truncate">{coach}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {ran} ran · Formal {formal?.avg !== null && formal?.avg !== undefined ? formal.avg.toFixed(1) : '—'} ({formal?.count || 0})
+                                · Self {self?.avg !== null && self?.avg !== undefined ? self.avg.toFixed(1) : '—'} ({self?.count || 0})
+                                {gap !== null && (
+                                  <> · Gap <span className={gap > 2 ? 'text-destructive' : gap < -2 ? 'text-success' : 'text-warning'}>{gap > 0 ? '+' : ''}{gap.toFixed(1)}</span></>
+                                )}
+                              </p>
+                            </div>
+                            {unscored > 0 && (
+                              <Badge variant="outline" className="text-[10px]">{unscored} unscored</Badge>
+                            )}
+                            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                          </button>
+                          {expanded && (
+                            <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/20">
+                              <p className="text-[10px] text-muted-foreground mb-1">{coach} vs studio (faded)</p>
+                              <TrendChart
+                                points={coachPoints}
+                                studioOverlay={data.studioPoints}
+                                onPointTap={(p) => setDrilldown({ label: `${coach} · ${p.bucket}`, cards: p.scorecards })}
+                                primaryColor="hsl(20 90% 47%)"
+                                secondaryColor="hsl(38 92% 60%)"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Studio overall trend */}
         <Card className="p-3 border-border/60">
