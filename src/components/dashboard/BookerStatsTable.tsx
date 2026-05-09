@@ -5,6 +5,7 @@ import { CalendarPlus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import type { DateRange } from '@/lib/pay-period';
