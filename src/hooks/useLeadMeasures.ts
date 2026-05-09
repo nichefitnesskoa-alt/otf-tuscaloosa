@@ -145,7 +145,16 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!sa) return;
         ensure(sa);
         const entry = saMap.get(sa);
-        if (entry) entry.touches++;
+        if (entry) {
+          entry.touches++;
+          const lead = t.lead_id ? leadById.get(t.lead_id) : null;
+          const name = lead ? `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Lead' : 'Touch';
+          entry.followUpPeople.push({
+            id: t.id,
+            name,
+            subtitle: `${t.contact_method || 'touch'} · ${new Date(t.created_at).toLocaleDateString()}`,
+          });
+        }
       });
 
       // DMs sent
@@ -154,7 +163,15 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         if (!sa || !r.dms_sent) return;
         ensure(sa);
         const entry = saMap.get(sa);
-        if (entry) entry.dms += r.dms_sent;
+        if (entry) {
+          entry.dms += r.dms_sent;
+          entry.dmPeople.push({
+            id: `${sa}-${r.shift_date}`,
+            name: `Shift ${r.shift_date}`,
+            subtitle: `${r.dms_sent} DM${r.dms_sent === 1 ? '' : 's'} logged`,
+            rightLabel: String(r.dms_sent),
+          });
+        }
       });
 
       // Speed to lead + leads reached out
@@ -179,17 +196,24 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Compute speed per SA
       leadFirstContact.forEach((contact, leadId) => {
-        const lead = (leads || []).find((l: any) => l.id === leadId);
+        const lead = leadById.get(leadId);
         if (!lead || !contact.performer) return;
         ensure(contact.performer);
         const s = saMap.get(contact.performer);
         if (!s) return;
         s.leadsReached++;
         const diffMin = (new Date(contact.contactTime).getTime() - new Date(lead.created_at).getTime()) / 60000;
-        if (diffMin > 0 && diffMin < 2880) { // < 48h
+        if (diffMin > 0 && diffMin < 2880) {
           s.speedSumMin += diffMin;
           s.speedCount++;
         }
+        const name = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Lead';
+        s.leadsReachedPeople.push({
+          id: leadId,
+          name,
+          subtitle: `${lead.source || 'Unknown source'}`,
+          rightLabel: diffMin > 0 && diffMin < 2880 ? (diffMin < 60 ? `${Math.round(diffMin)}m` : `${Math.round(diffMin / 60)}h`) : undefined,
+        });
       });
 
       const result: SALeadMeasure[] = Array.from(saMap.entries())
@@ -203,6 +227,9 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           dmsSent: s.dms,
           leadsReachedOut: s.leadsReached,
           introsRan: s.introsRan,
+          followUpPeople: s.followUpPeople,
+          dmPeople: s.dmPeople,
+          leadsReachedPeople: s.leadsReachedPeople,
         }))
         .filter(s => (s.qCompletionPct !== null || s.prepRatePct !== null || s.introsRan > 0 || s.followUpTouches > 0 || s.dmsSent > 0 || s.leadsReachedOut > 0))
         .sort((a, b) => (b.introsRan - a.introsRan) || ((b.prepRatePct ?? 0) - (a.prepRatePct ?? 0)));
