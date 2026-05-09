@@ -130,7 +130,9 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       <Card className="p-4">
         <h3 className="font-bold text-sm mb-3">90-day trend (avg score)</h3>
         {trendData.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic text-center py-8">No scorecards yet — first eval will start the trend.</p>
+          <p className="text-sm text-muted-foreground italic text-center py-8">
+            Your trend line starts with your first scorecard. The studio is watching for what's possible.
+          </p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={trendData}>
@@ -146,10 +148,10 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
       {/* Recent */}
       <Card className="p-4">
         <h3 className="font-bold text-sm mb-3">Recent scorecards</h3>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : submitted.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">Nothing yet this month.</p>
+        {submitted.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">
+            Nothing yet. Open the chip in My Day or score your next intro from Coach View.
+          </p>
         ) : (
           <div className="space-y-2">
             {submitted.slice(0, 10).map(s => (
