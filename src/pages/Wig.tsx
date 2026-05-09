@@ -454,9 +454,8 @@ export default function Wig() {
         }
 
       // Hoisted so we can backfill via2ndIntroSale on coached rows after the if-block.
+      // Set of first-intro booking IDs whose 2nd intro ran a sale.
       const secondRunSaleSet = new Set<string>();
-      if (showedFirstIntroBookingIds.length > 0) {
-        // (note: closeBatches/secondIntroBookingMap defined above are still in scope)
         // Fetch runs for 2nd intro bookings to check for sales
         const allSecondIds = Array.from(secondIntroBookingMap.values()).flat();
         if (allSecondIds.length > 0) {
