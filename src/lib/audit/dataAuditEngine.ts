@@ -761,7 +761,7 @@ async function check2ndIntroPhoneInheritance(): Promise<AuditCheckResult> {
 async function checkCloseRateConsistency(): Promise<AuditCheckResult> {
   const { data: runs } = await supabase.from('intros_run').select('id, result_canon').eq('ignore_from_metrics', false).limit(1000);
   const total = (runs || []).length;
-  const sales = (runs || []).filter(r => r.result_canon === 'PURCHASED').length;
+  const sales = (runs || []).filter(r => isSaleCanon(r.result_canon)).length;
   const calculatedRate = total > 0 ? Math.round((sales / total) * 100) : 0;
   return {
     checkName: 'Close Rate Consistency',
