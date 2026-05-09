@@ -403,16 +403,7 @@ export default function Wig() {
         if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMap.set(n, a); }
         return a;
       };
-      const labelFromRun = (r: any): string => {
-        const rc = (r?.result_canon || '').toUpperCase();
-        if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
-        if (rc === 'NO_SHOW') return 'No Show';
-        if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
-        if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
-        if (rc === 'UNRESOLVED') return 'Unresolved';
-        if (rc === 'FOLLOW_UP') return 'Follow-Up';
-        return '—';
-      };
+      const labelFromRun = (r: any) => labelForRun(r);
 
       showedFirstIntroBookings.forEach(b => {
         const linkedRunForCoach = runsByBookingId.get(b.id);
