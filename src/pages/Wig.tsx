@@ -273,6 +273,8 @@ export default function Wig() {
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
+  const [coachAttribution, setCoachAttribution] = useState<Map<string, CoachAttribution>>(new Map());
+  const [drill, setDrill] = useState<{ coach: string; metric: 'coached' | 'closes' } | null>(null);
   const [measuresLoading, setMeasuresLoading] = useState(true);
 
   // Close rate reconciles with the Coach — Coached & Closes table directly below it.
