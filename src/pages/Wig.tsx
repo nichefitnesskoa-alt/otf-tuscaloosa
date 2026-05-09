@@ -517,8 +517,19 @@ export default function Wig() {
         }
       }
 
+      // Backfill via2ndIntroSale flag on coached rows so the drill explains
+      // why an originator with no direct sale is being counted as a close.
+      // secondRunSaleSet holds first-intro booking IDs whose 2nd intro ran a sale.
+      attribMap.forEach(a => {
+        a.coached = a.coached.map(it =>
+          // secondRunSaleSet may be undefined if no first intros existed
+          (typeof secondRunSaleSet !== 'undefined' && secondRunSaleSet.has(it.bookingId))
+            ? { ...it, via2ndIntroSale: true }
+            : it
+        );
+      });
 
-      const allCoachNames = new Set([...coachMap.keys(), ...coachCloseMap.keys()]);
+
       const coachData = Array.from(allCoachNames).map(name => {
         const wk = coachMap.get(name) || { coached: 0 };
         const cl = coachCloseMap.get(name) || { total: 0, closed: 0 };
