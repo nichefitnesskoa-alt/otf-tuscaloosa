@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from './CoachAttributionDrillDown';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
