@@ -131,6 +131,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       if (!directSale && r.linked_intro_booked_id) {
         secondSale = introsRun.some(r2 => {
           if (r2.id === r.id) return false;
+          if (r2.linked_intro_booked_id && excludedBookingIds.has(r2.linked_intro_booked_id)) return false;
           const booking = introsBooked.find((b: any) => b.id === r2.linked_intro_booked_id);
           if (!booking) return false;
           if ((booking as any).originating_booking_id !== r.linked_intro_booked_id) return false;
