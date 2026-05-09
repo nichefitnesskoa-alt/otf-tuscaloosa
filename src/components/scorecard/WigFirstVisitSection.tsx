@@ -289,36 +289,66 @@ function CadenceDot({ status }: { status: 'met' | 'pending' | 'missed' }) {
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${cls}`} aria-label={`Cadence: ${status}`} />;
 }
 
-function ClosingTiles({ tiles }: { tiles: ReturnType<typeof useFvTrendData>['data']['closingTiles'] }) {
+function ClosingTiles({
+  tiles,
+  onTapClosed,
+  onTapNotClosed,
+  onTapCoverage,
+}: {
+  tiles: ReturnType<typeof useFvTrendData>['data']['closingTiles'];
+  onTapClosed: () => void;
+  onTapNotClosed: () => void;
+  onTapCoverage: (bucket: 'formal' | 'selfOnly' | 'unscored') => void;
+}) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <Card className="p-3 border-2 border-primary/40 bg-primary/5">
-        <p className="text-[10px] uppercase font-semibold text-primary tracking-wide">Avg score · closed</p>
-        <p className="text-3xl font-black tabular-nums text-primary mt-1">{tiles.avgClosed !== null ? tiles.avgClosed.toFixed(1) : '—'}<span className="text-sm text-muted-foreground">/30</span></p>
-        <p className="text-[10px] text-muted-foreground mt-1">{tiles.closedCount} {tiles.closedCount === 1 ? 'intro' : 'intros'} closed</p>
-      </Card>
-      <Card className="p-3 border border-border bg-muted/30">
-        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide">Avg score · didn't close</p>
-        <p className="text-3xl font-black tabular-nums text-muted-foreground mt-1">{tiles.avgNotClosed !== null ? tiles.avgNotClosed.toFixed(1) : '—'}<span className="text-sm">/30</span></p>
-        <p className="text-[10px] text-muted-foreground mt-1">{tiles.notClosedCount} {tiles.notClosedCount === 1 ? 'intro' : 'intros'} didn't close</p>
-      </Card>
+      <button
+        type="button"
+        onClick={onTapClosed}
+        disabled={tiles.closedCount === 0}
+        className="text-left disabled:cursor-default cursor-pointer"
+      >
+        <Card className="p-3 border-2 border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors h-full">
+          <p className="text-[10px] uppercase font-semibold text-primary tracking-wide">Avg score · closed</p>
+          <p className="text-3xl font-black tabular-nums text-primary mt-1">{tiles.avgClosed !== null ? tiles.avgClosed.toFixed(1) : '—'}<span className="text-sm text-muted-foreground">/30</span></p>
+          <p className="text-[10px] text-muted-foreground mt-1">{tiles.closedCount} {tiles.closedCount === 1 ? 'intro' : 'intros'} closed</p>
+        </Card>
+      </button>
+      <button
+        type="button"
+        onClick={onTapNotClosed}
+        disabled={tiles.notClosedCount === 0}
+        className="text-left disabled:cursor-default cursor-pointer"
+      >
+        <Card className="p-3 border border-border bg-muted/30 hover:bg-muted/50 transition-colors h-full">
+          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide">Avg score · didn't close</p>
+          <p className="text-3xl font-black tabular-nums text-muted-foreground mt-1">{tiles.avgNotClosed !== null ? tiles.avgNotClosed.toFixed(1) : '—'}<span className="text-sm">/30</span></p>
+          <p className="text-[10px] text-muted-foreground mt-1">{tiles.notClosedCount} {tiles.notClosedCount === 1 ? 'intro' : 'intros'} didn't close</p>
+        </Card>
+      </button>
       <Card className="p-3">
         <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide mb-1.5">Closing % by coverage</p>
-        <CovRow label="Formal eval" v={tiles.coverage.formal} />
-        <CovRow label="Self eval only" v={tiles.coverage.selfOnly} />
-        <CovRow label="Unscored" v={tiles.coverage.unscored} muted />
+        <CovRow label="Formal eval" v={tiles.coverage.formal} onTap={() => onTapCoverage('formal')} />
+        <CovRow label="Self eval only" v={tiles.coverage.selfOnly} onTap={() => onTapCoverage('selfOnly')} />
+        <CovRow label="Unscored" v={tiles.coverage.unscored} muted onTap={() => onTapCoverage('unscored')} />
       </Card>
     </div>
   );
 }
 
-function CovRow({ label, v, muted }: { label: string; v: { closed: number; total: number }; muted?: boolean }) {
+function CovRow({ label, v, muted, onTap }: { label: string; v: { closed: number; total: number }; muted?: boolean; onTap?: () => void }) {
   const pct = v.total > 0 ? Math.round((v.closed / v.total) * 100) : null;
-  return (
+  const inner = (
     <div className="flex items-baseline justify-between text-[11px] py-0.5">
       <span className={muted ? 'text-muted-foreground' : 'font-medium'}>{label}</span>
       <span className="tabular-nums">{pct !== null ? `${pct}%` : '—'} <span className="text-muted-foreground">({v.closed}/{v.total})</span></span>
     </div>
+  );
+  if (!onTap || v.total === 0) return inner;
+  return (
+    <button type="button" onClick={onTap} className="w-full text-left rounded hover:bg-muted/40 px-1 -mx-1 cursor-pointer">
+      {inner}
+    </button>
   );
 }
 
