@@ -26,16 +26,7 @@ interface CoachRow {
 type SortColumn = 'coachName' | 'introsCoached' | 'closes' | 'closeRate';
 type SortDirection = 'asc' | 'desc';
 
-function labelFor(r: any): string {
-  const rc = (r?.result_canon || '').toUpperCase();
-  if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
-  if (rc === 'NO_SHOW') return 'No Show';
-  if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
-  if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
-  if (rc === 'UNRESOLVED') return 'Unresolved';
-  if (rc === 'FOLLOW_UP') return 'Follow-Up';
-  return '—';
-}
+// Result label is centralized in @/lib/intros/resultLabels (labelForRun)
 
 export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { introsRun, introsBooked } = useData();
