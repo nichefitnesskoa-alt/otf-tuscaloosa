@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { supabase } from '@/integrations/supabase/client';
 import { DateRange } from '@/lib/pay-period';
-import { isWithinInterval } from 'date-fns';
+import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { isMembershipSale, isSaleInRange } from '@/lib/sales-detection';
+import { isMembershipSale } from '@/lib/sales-detection';
+import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from './CoachAttributionDrillDown';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
@@ -24,11 +25,23 @@ interface CoachRow {
 type SortColumn = 'coachName' | 'introsCoached' | 'closes' | 'closeRate';
 type SortDirection = 'asc' | 'desc';
 
+function labelFor(r: any): string {
+  const rc = (r?.result_canon || '').toUpperCase();
+  if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
+  if (rc === 'NO_SHOW') return 'No Show';
+  if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
+  if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
+  if (rc === 'UNRESOLVED') return 'Unresolved';
+  if (rc === 'FOLLOW_UP') return 'Follow-Up';
+  return '—';
+}
+
 export function PerCoachTable({ dateRange }: PerCoachTableProps) {
   const { introsRun, introsBooked } = useData();
   const [sortColumn, setSortColumn] = useState<SortColumn>('introsCoached');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [vipCoachByVipSession, setVipCoachByVipSession] = useState<Map<string, string>>(new Map());
+  const [drill, setDrill] = useState<{ coach: string; metric: 'coached' | 'closes' } | null>(null);
 
   // Pre-fetch vip_sessions.coach_name for VIP Class attribution
   useEffect(() => {
@@ -51,8 +64,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
     })();
   }, [introsBooked]);
 
-  const data = useMemo(() => {
-    // Build originating + booking lookup map
+  const { rows, attribution } = useMemo(() => {
     const originatingMap = new Map<string, boolean>();
     const bookingById = new Map<string, any>();
     introsBooked.forEach((b: any) => {
@@ -74,7 +86,6 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       return !originatingMap.get(r.linked_intro_booked_id);
     });
 
-    // Filter by date range
     const filtered = firstIntroRuns.filter(r => {
       const rd = (r as any).run_date || (r.created_at || '').split('T')[0];
       if (!rd || !dateRange) return !dateRange;
@@ -83,22 +94,42 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       } catch { return false; }
     });
 
-    // Group by coach
     const coachMap = new Map<string, { coached: number; closes: number }>();
+    const attribMap = new Map<string, CoachAttribution>();
+    const ensureAttrib = (n: string) => {
+      let a = attribMap.get(n);
+      if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMap.set(n, a); }
+      return a;
+    };
+
     filtered.forEach(r => {
-      // Exclude VIP Class Intro outcomes from close-rate math entirely
-      if ((r as any).result_canon === 'VIP_CLASS_INTRO') return;
       const linkedBooking = r.linked_intro_booked_id ? bookingById.get(r.linked_intro_booked_id) : null;
       const name = resolveCoach(linkedBooking, (r as any).coach_name);
       if (!name) return;
+
+      const intro: AttribIntro = {
+        bookingId: r.linked_intro_booked_id || r.id,
+        member: linkedBooking?.member_name || (r as any).member_name || 'Unknown',
+        classDate: linkedBooking?.class_date || (r as any).run_date || null,
+        source: linkedBooking?.lead_source || null,
+        resultLabel: labelFor(r),
+      };
+
+      // VIP Class Intro is excluded from Coached & Closes math
+      if ((r as any).result_canon === 'VIP_CLASS_INTRO') {
+        ensureAttrib(name).excluded.push(intro);
+        return;
+      }
+
       const ex = coachMap.get(name) || { coached: 0, closes: 0 };
       ex.coached++;
+      const a = ensureAttrib(name);
+      a.coached.push(intro);
 
-      // Total journey: check if any run in this booking chain has a sale
       if ((r as any).result_canon === 'SALE' || isMembershipSale(r.result)) {
         ex.closes++;
+        a.closes.push({ ...intro, via: 'direct', resultLabel: 'SALE' });
       } else if (r.linked_intro_booked_id) {
-        // Check if a 2nd intro sale exists for same person
         const secondSale = introsRun.some(r2 => {
           if (r2.id === r.id) return false;
           const booking = introsBooked.find((b: any) => b.id === r2.linked_intro_booked_id);
@@ -106,17 +137,21 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
           if ((booking as any).originating_booking_id !== r.linked_intro_booked_id) return false;
           return (r2 as any).result_canon === 'SALE' || isMembershipSale(r2.result);
         });
-        if (secondSale) ex.closes++;
+        if (secondSale) {
+          ex.closes++;
+          a.closes.push({ ...intro, via: '2nd_intro', resultLabel: 'SALE' });
+        }
       }
       coachMap.set(name, ex);
     });
 
-    return Array.from(coachMap.entries()).map(([name, d]) => ({
+    const rows = Array.from(coachMap.entries()).map(([name, d]) => ({
       coachName: name,
       introsCoached: d.coached,
       closes: d.closes,
       closeRate: d.coached > 0 ? (d.closes / d.coached) * 100 : 0,
     }));
+    return { rows, attribution: attribMap };
   }, [introsRun, introsBooked, dateRange, vipCoachByVipSession]);
 
   const handleSort = (column: SortColumn) => {
@@ -128,7 +163,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
     }
   };
 
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = [...rows].sort((a, b) => {
     const aValue = a[sortColumn];
     const bValue = b[sortColumn];
     if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -154,6 +189,12 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
     </TableHead>
   );
 
+  const rangeLabel = dateRange
+    ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
+    : 'All time';
+
+  const drillAttribution = drill ? attribution.get(drill.coach) || null : null;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -161,7 +202,7 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
           <Users className="w-4 h-4 text-primary" />
           Per-Coach Performance
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Total Journey · 1st coached → any sale</p>
+        <p className="text-xs text-muted-foreground">Total Journey · 1st coached → any sale · tap a number to see who</p>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
@@ -183,8 +224,26 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
                 sortedData.map(row => (
                   <TableRow key={row.coachName}>
                     <TableCell className="font-medium text-sm whitespace-nowrap">{row.coachName}</TableCell>
-                    <TableCell className="text-center text-sm">{row.introsCoached}</TableCell>
-                    <TableCell className="text-center text-sm font-medium text-success">{row.closes}</TableCell>
+                    <TableCell className="text-center text-sm p-0">
+                      <button
+                        type="button"
+                        disabled={row.introsCoached === 0}
+                        onClick={() => setDrill({ coach: row.coachName, metric: 'coached' })}
+                        className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                      >
+                        {row.introsCoached}
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-center text-sm font-medium text-success p-0">
+                      <button
+                        type="button"
+                        disabled={row.closes === 0}
+                        onClick={() => setDrill({ coach: row.coachName, metric: 'closes' })}
+                        className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                      >
+                        {row.closes}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-center text-sm">
                       <span className={row.closeRate >= 50 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                         {row.closeRate.toFixed(0)}%
@@ -197,6 +256,16 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
           </Table>
         </div>
       </CardContent>
+
+      <CoachAttributionDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        coach={drill?.coach || null}
+        metric={drill?.metric || 'coached'}
+        source="studio"
+        rangeLabel={rangeLabel}
+        attribution={drillAttribution}
+      />
     </Card>
   );
 }

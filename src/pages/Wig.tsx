@@ -19,6 +19,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, s
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
+import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
 export default function Wig() {
@@ -272,6 +273,8 @@ export default function Wig() {
   const [saLeadMeasures, setSaLeadMeasures] = useState<any[]>([]);
   const [coachLeadMeasures, setCoachLeadMeasures] = useState<any[]>([]);
   const [coachTableTotals, setCoachTableTotals] = useState<{ coached: number; closes: number }>({ coached: 0, closes: 0 });
+  const [coachAttribution, setCoachAttribution] = useState<Map<string, CoachAttribution>>(new Map());
+  const [drill, setDrill] = useState<{ coach: string; metric: 'coached' | 'closes' } | null>(null);
   const [measuresLoading, setMeasuresLoading] = useState(true);
 
   // Close rate reconciles with the Coach — Coached & Closes table directly below it.
@@ -322,7 +325,7 @@ export default function Wig() {
       // Fetch showed first-intro bookings for the date range
       const coachBookingsRes = await supabase
         .from('intros_booked')
-        .select('id, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id')
+        .select('id, member_name, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id')
         .gte('class_date', rangeStart)
         .lte('class_date', rangeEnd)
         .not('coach_name', 'is', null);
@@ -392,6 +395,24 @@ export default function Wig() {
       const isMissingCoach = (v: any) =>
         !v || (typeof v === 'string' && (v.trim() === '' || /^tbd$/i.test(v.trim())));
 
+      // Per-coach attribution map for tappable drill-downs
+      const attribMap = new Map<string, CoachAttribution>();
+      const ensureAttrib = (n: string): CoachAttribution => {
+        let a = attribMap.get(n);
+        if (!a) { a = { coached: [], closes: [], excluded: [] }; attribMap.set(n, a); }
+        return a;
+      };
+      const labelFromRun = (r: any): string => {
+        const rc = (r?.result_canon || '').toUpperCase();
+        if (rc === 'SALE' || isMembershipSale(r?.result)) return 'SALE';
+        if (rc === 'NO_SHOW') return 'No Show';
+        if (rc === 'PLANNING_2ND' || rc === 'PLANNING_2ND_INTRO') return 'Planning 2nd';
+        if (rc === 'VIP_CLASS_INTRO') return 'VIP Intro';
+        if (rc === 'UNRESOLVED') return 'Unresolved';
+        if (rc === 'FOLLOW_UP') return 'Follow-Up';
+        return '—';
+      };
+
       showedFirstIntroBookings.forEach(b => {
         const linkedRunForCoach = runsByBookingId.get(b.id);
         const runCoachRaw = isMissingCoach(b.coach_name)
@@ -404,6 +425,14 @@ export default function Wig() {
         const ex = ensureCoach(coachedCoach);
         ex.coached++;
         coachMap.set(coachedCoach, ex);
+
+        ensureAttrib(coachedCoach).coached.push({
+          bookingId: b.id,
+          member: b.member_name || 'Unknown',
+          classDate: b.class_date,
+          source: b.lead_source,
+          resultLabel: labelFromRun(linkedRunForCoach),
+        });
       });
 
       // Close rate from intros_run (period runs for first intros, excluding no-shows)
@@ -463,21 +492,33 @@ export default function Wig() {
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
           (runs || []).forEach((r: any) => {
-            // Exclude VIP Class Intro outcomes from close-rate math entirely
-            if (r.result_canon === 'VIP_CLASS_INTRO') return;
             const linkedBooking = r.linked_intro_booked_id ? bookingByIdMap.get(r.linked_intro_booked_id) : null;
             // For VIP Class intros, credit the VIP class coach instead of the follow-up coach
             const cName = linkedBooking
               ? (resolveCloseCoach(linkedBooking, r.coach_name) || r.coach_name)
               : r.coach_name;
             if (!cName) return;
+            const introBase: AttribIntro = {
+              bookingId: r.linked_intro_booked_id || cName,
+              member: linkedBooking?.member_name || 'Unknown',
+              classDate: linkedBooking?.class_date || null,
+              source: linkedBooking?.lead_source || null,
+              resultLabel: labelFromRun(r),
+            };
+            // Exclude VIP Class Intro outcomes from close-rate math entirely
+            if (r.result_canon === 'VIP_CLASS_INTRO') {
+              ensureAttrib(cName).excluded.push(introBase);
+              return;
+            }
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
             if (isCloseRun(r)) {
               ex.closed++;
+              ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE' });
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach
               ex.closed++;
+              ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE' });
             }
             coachCloseMap.set(cName, ex);
           });
@@ -501,6 +542,7 @@ export default function Wig() {
       const totalsCoached = coachData.reduce((sum, c) => sum + (c.coached || 0), 0);
       const totalsClosed = coachData.reduce((sum, c) => sum + (c.closes || 0), 0);
       setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
+      setCoachAttribution(attribMap);
 
       if (user?.role === 'Coach') {
         setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
@@ -655,6 +697,7 @@ export default function Wig() {
               <UserCheck className="w-4 h-4 text-primary" />
               Coach — Coached & Closes
             </CardTitle>
+            <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
           </CardHeader>
           <CardContent className="p-0">
             {measuresLoading ? (
@@ -679,8 +722,26 @@ export default function Wig() {
                     {coachLeadMeasures.map(row => (
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center">{row.coached}</TableCell>
-                        <TableCell className="text-sm text-center font-medium text-success">{row.closes}</TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.coached === 0}
+                            onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.coached}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center font-medium text-success p-0">
+                          <button
+                            type="button"
+                            disabled={row.closes === 0}
+                            onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.closes}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-sm text-center">
                           <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
                             {row.closeRate.toFixed(0)}%
@@ -749,6 +810,16 @@ export default function Wig() {
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
       <MilestonesDeploySection dateRange={dateRange} />
+
+      <CoachAttributionDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        coach={drill?.coach || null}
+        metric={drill?.metric || 'coached'}
+        source="wig"
+        rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
+        attribution={drill ? coachAttribution.get(drill.coach) || null : null}
+      />
     </div>
   );
 }
