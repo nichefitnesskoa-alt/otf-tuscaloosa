@@ -29,6 +29,7 @@ import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPane
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import { VipClassPerformanceTable } from '@/components/admin/VipClassPerformanceTable';
 import { MetricsConsistencyAlert } from '@/components/dashboard/MetricsConsistencyAlert';
+import { DuplicateRunsAlert } from '@/components/dashboard/DuplicateRunsAlert';
 
 
 export default function Recaps() {
