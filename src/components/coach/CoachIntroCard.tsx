@@ -287,10 +287,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* First Visit Experience Scorecard — inline */}
           <div className="border-t pt-4 mt-2">
             <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
-            <div className="mb-3">
-              <BookingScorecards bookingId={booking.id} />
-            </div>
             <ScorecardFormBody
+              key={`${scorecardEvalType}:${resolvedScorecardId ?? 'new'}`}
               firstTimerId={booking.id}
               defaultMemberName={booking.member_name}
               defaultClassDate={booking.class_date}
@@ -298,7 +296,11 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               defaultEvaluator={user?.name || ''}
               evalType={scorecardEvalType}
               onEvalTypeChange={setScorecardEvalType}
+              existingId={resolvedScorecardId}
               showEvalToggle
+              onSubmitted={() => {
+                queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+              }}
             />
           </div>
 
