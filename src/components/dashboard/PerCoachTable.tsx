@@ -115,8 +115,9 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
         resultLabel: labelFor(r),
       };
 
-      // VIP Class Intro is excluded from Coached & Closes math
-      if ((r as any).result_canon === 'VIP_CLASS_INTRO') {
+      // Excluded from Coached & Closes math: VIP Class Intros, No-shows, Unresolved
+      const rc = (r as any).result_canon;
+      if (rc === 'VIP_CLASS_INTRO' || rc === 'NO_SHOW' || rc === 'UNRESOLVED') {
         ensureAttrib(name).excluded.push(intro);
         return;
       }
