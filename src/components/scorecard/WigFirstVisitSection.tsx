@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trophy, ChevronDown, ChevronUp, ClipboardCheck } from 'lucide-react';
+import { Trophy, ChevronDown, ChevronUp, ClipboardCheck, ExternalLink } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -14,7 +14,7 @@ import {
 import { format } from 'date-fns';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
-import { useFvTrendData } from '@/hooks/useFvTrendData';
+import { useFvTrendData, type UnscoredIntro } from '@/hooks/useFvTrendData';
 import {
   type DatePreset,
   type DateRange,
@@ -27,6 +27,8 @@ import {
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { FvScorecard } from '@/hooks/useScorecards';
+import { CoachStreakBadges } from './CoachStreakBadges';
+import { UnscoredDrillDown } from './UnscoredDrillDown';
 
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
@@ -38,6 +40,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [unscoredFor, setUnscoredFor] = useState<{ coach: string; intros: UnscoredIntro[] } | null>(null);
   const navigate = useNavigate();
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
