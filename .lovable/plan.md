@@ -1,107 +1,70 @@
-# Plan — Tappable person-tied metrics + canon regression tests
+## Root cause
 
-## 1. Regression tests for label + close detection
+Jaden Cerreta and Ethan Forman both have `intros_booked` rows with `booking_status_canon = 'DELETED_SOFT'` and `deleted_at` set (soft-deleted on May 9). Their `intros_run` rows still exist with `result_canon = 'NOT_INTERESTED'`, coach James.
 
-Add `src/lib/intros/__tests__/resultLabels.test.ts` covering every real DB canon value so future schema drift fails CI instead of silently mislabeling members like Alexa.
+- **WIG tab (`src/pages/Wig.tsx`)** filters bookings up-front and excludes `DELETED_SOFT`, duplicates, deleted/dead, `is_vip`, and `ignore_from_metrics`. So James's "Coached" drilldown shows 3 — correct.
+- **Studio tab (`src/components/dashboard/PerCoachTable.tsx`)** iterates over `introsRun` and only filters by `result_canon` (VIP_CLASS_INTRO/NO_SHOW/UNRESOLVED). It never checks the linked booking's status, so soft-deleted bookings still feed Coached and Closes — James shows 6.
 
-Cases (each asserts both `labelForRun` output and `isCloseResult`):
+`PerSATable` and `BookerStatsTable` already check `deleted_at` + `is_vip`, so the bug is isolated to `PerCoachTable`. The deeper issue is that this filter is duplicated as ad-hoc inline checks in 4+ files, which is exactly how Studio drifted from WIG.
 
-| result_canon | result string | label | close? |
-|---|---|---|---|
-| SALE | "Premier" | SALE | true |
-| PREMIER | "Premier" | SALE | true |
-| PREMIER_OTBEAT | "Premier + OTbeat" | SALE | true |
-| ELITE | "Elite" | SALE | true |
-| BASIC | "Basic" | SALE | true |
-| SECOND_INTRO_SCHEDULED | "" | Booked 2nd | false |
-| PLANNING_2ND_INTRO | "" | Booked 2nd | false |
-| FOLLOW_UP_NEEDED | "" | Follow-Up | false |
-| FOLLOW_UP | "" | Follow-Up | false |
-| PLANNING_TO_BUY | "" | Planning to Buy | false |
-| ON_5_CLASS_PACK | "5 class pack" | 5 Class Pack | false |
-| NOT_INTERESTED | "" | Not Interested | false |
-| NO_SHOW | "" | No Show | false |
-| VIP_CLASS_INTRO | "" | VIP Intro | false |
-| UNRESOLVED | "" | Unresolved | false |
-| (null) | "Premier + OTbeat" | SALE | true (fallback path) |
-| (null) | "" | — | false |
+## Fix
 
-Also extend `close-detection.test.ts` with the new canon values so `isCloseRun` stays in lockstep.
+### 1. Add a single source of truth for "is this booking excluded from metrics?"
 
-## 2. Mobile-first shared drilldown
+New file `src/lib/intros/excludedBookings.ts`:
 
-Refactor `CoachAttributionDrillDown.tsx` → `PersonListDrillDown.tsx` (keep existing as a thin wrapper to avoid touching `Wig.tsx` / `PerCoachTable.tsx` callers).
+```ts
+export function isBookingExcludedFromMetrics(b: any): boolean {
+  if (!b) return true;
+  if (b.is_vip) return true;
+  if (b.ignore_from_metrics) return true;
+  if (b.deleted_at) return true;
+  const status = (b.booking_status_canon || '').toUpperCase();
+  if (status === 'DELETED_SOFT') return true;
+  if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return true;
+  return false;
+}
+```
 
-Changes:
-- Use `Sheet` from `bottom` on mobile (`useIsMobile`), `Dialog` centered on desktop. Bottom sheet snaps to 90vh, drag handle, no input focus required.
-- Trigger affordance: every tappable number gets `min-h-[44px] min-w-[44px]`, underlined OTF Orange numerals on hover/focus, `cursor-pointer`, `aria-label="View N people"`. Disabled (no underline, default cursor) when count is 0.
-- Title accepts `{ scope, metric, count }` so non-coach contexts read naturally ("Premier members · 7", "Friends showed up · 3", "Booked from Instagram · 12").
-- Rows accept generic `PersonRow { id; name; subtitle?; rightLabel?; rightTone?; href? }`. Tapping a row with `href` navigates (e.g. lead detail, pipeline row).
-- Reuse existing reconciliation footer only when caller passes `attribution` (coach context).
+Add a unit test in `src/lib/intros/__tests__/excludedBookings.test.ts` covering each branch (DELETED_SOFT, deleted_at present, is_vip, ignore_from_metrics, duplicate-status, clean booking, null) so future schema drift fails CI.
 
-## 3. Wire shared drilldown into the four remaining tables
+### 2. Wire the helper into `PerCoachTable.tsx` (the bug fix)
 
-Each table builds a `PersonRow[]` for each numeric cell from data already in scope (no new queries unless noted).
+In the `useMemo`:
+- Build `excludedBookingIds = new Set(introsBooked.filter(isBookingExcludedFromMetrics).map(b => b.id))`.
+- In the `firstIntroRuns` filter, also drop any run whose `linked_intro_booked_id ∈ excludedBookingIds`.
+- In the Total-Journey 2nd-intro check, also drop chained 2nd-intro bookings that are excluded.
 
-### PerSATable
-- `Ran`: first-intro bookings attributed to that SA where the run is "ran" (excludes NO_SHOW, UNRESOLVED, VIP_CLASS_INTRO via `didIntroActuallyRun`).
-- `Sales`: same set filtered by `isCloseResult` on direct or 2nd-intro Total Journey run.
-- `Close%`: opens the same Sales list with reconciliation footer ("X of Y ran").
-- Wire by lifting source rows from `Recaps.tsx` (where PerSAMetrics is built) into a `peopleByMetric` map and passing it into the table.
+After this fix, James's Studio Coached drops from 6 → 3, matching WIG. Jaden, Ethan, and Alexa's pre-deletion duplicate booking disappear from the drilldown.
 
-### BookerStatsTable
-- `Booked`: bookings where `booked_by === sa`. Subtitle = class date.
-- `Showed`: same, filtered to `booking_status_canon === 'SHOWED'`.
-- `Show%`: opens the Showed list.
-- Build map alongside `BookerMetrics` in `Recaps.tsx`.
+### 3. Replace the inline filters in WIG, PerSATable, and BookerStatsTable with the helper
 
-### OutreachTable
-- `FU`: rows from `followup_touches` for that SA in range — name = lead/member, subtitle = touch type + date.
-- `DMs`: from `shift_task_completions.count_logged` rows; subtitle = shift date. (No name → show "DM batch · {n}" rows.)
-- `Leads`: unique leads first-contacted; subtitle = lead source.
-- `Speed`: opens the same Leads list ordered by minutes-to-first-contact, with the minutes value as `rightLabel`.
-- Source data comes from `useLeadMeasures`; expand the hook to return `peopleByMetric` per SA.
+Same logic, just unified — so the next time someone adds a new "excluded" condition (e.g. a new canon status), every screen picks it up automatically.
 
-### ReferralAskTracker
-- `{pendingCount} to do`: tap → list of pending `Row`s.
-- `{completedCount} asked`: tap → completed rows. Each row tappable → opens the lead/member in `/pipeline?leadId=…` (already wired via `navigateToLead` for milestones; mirror that for the booking).
+- `src/pages/Wig.tsx` — replace the inline `filteredBookings`/`allCoachBookings` filter blocks (≈3 spots) with `isBookingExcludedFromMetrics`.
+- `src/components/dashboard/PerSATable.tsx` — replace the `deleted_at + is_vip` block.
+- `src/components/dashboard/BookerStatsTable.tsx` — same.
 
-## 4. Wire shared drilldown into MilestonesDeploySection, VipClassPerformanceTable, LeadSourceChart
+Behavior is unchanged for these three; this is just a refactor preventing future drift.
 
-### MilestonesDeploySection
-Each summary card becomes a button. Person rows derived from `milestones` + `friendTracking` already in state:
-- `Celebrated (X / Y)`: two stacked lists — celebrated rows (green tone) and not-yet-celebrated (amber). Subtitle = milestone type + created_at.
-- `Packs gifted`: rows where `five_class_pack_gifted`. Subtitle = friend name if any.
-- `Friends showed up`: rows in `friendTracking` where `friendShowedUp`. Tap row → navigate to friend's intro/lead.
-- `Converted to member`: rows where `convertedToMember`. Tap → lead/booking detail.
-- `Friends in pipeline`: rows with `converted_to_lead_id`. Tap → `/pipeline?leadId=…`.
+### 4. Verify with the same query the user saw
 
-### VipClassPerformanceTable
-For each session row, the `Booked / Ran / Joins` numbers become tappable. Need a small extension to the existing query — keep the per-session intro rows in state instead of just counts. Person rows show member_name + result label (`labelForRun`).
+After the fix, James's Studio drilldown should match WIG: April Boera (Booked 2nd), Mehmet Kamci (SALE), Sarah Riggins (SALE) — and nothing else.
 
-### LeadSourceChart
-`SourceRow` already calls `onBoxClick(category)` which today opens `FunnelDrillSheet`. Replace that sheet with `PersonListDrillDown` for visual consistency, fed by the existing `bookedPeople / showedPeople / soldPeople` arrays. Map `LeadSourcePerson` → `PersonRow` (name, class date subtitle, status badge). Keep `FunnelDrillSheet` only if other callers depend on it; otherwise delete.
-
-## 5. Files
+## Files
 
 **New**
-- `src/lib/intros/__tests__/resultLabels.test.ts`
-- `src/components/dashboard/PersonListDrillDown.tsx` (the new shared component)
+- `src/lib/intros/excludedBookings.ts`
+- `src/lib/intros/__tests__/excludedBookings.test.ts`
 
 **Edited**
-- `src/lib/intros/__tests__/close-detection.test.ts` (add canon cases)
-- `src/components/dashboard/CoachAttributionDrillDown.tsx` (becomes thin wrapper)
-- `src/components/dashboard/PerSATable.tsx`
-- `src/components/dashboard/BookerStatsTable.tsx`
-- `src/components/dashboard/OutreachTable.tsx`
-- `src/components/dashboard/ReferralAskTracker.tsx`
-- `src/components/dashboard/MilestonesDeploySection.tsx`
-- `src/components/admin/VipClassPerformanceTable.tsx`
-- `src/components/dashboard/LeadSourceChart.tsx`
-- `src/pages/Recaps.tsx` (lift per-row people maps for the four Studio tables)
-- `src/hooks/useLeadMeasures.ts` (expose per-metric people for Outreach)
+- `src/components/dashboard/PerCoachTable.tsx` (the actual fix)
+- `src/pages/Wig.tsx` (refactor to shared helper)
+- `src/components/dashboard/PerSATable.tsx` (refactor)
+- `src/components/dashboard/BookerStatsTable.tsx` (refactor)
 
 ## Out of scope
-- Reconciling WIG vs Studio totals (separate audit).
-- Commission/attribution rule changes.
-- New DB columns or migrations.
+
+- Changing what counts as "excluded" — keeping the exact same rule WIG already uses.
+- Touching VIP-coach attribution or close-detection logic.
+- Recovering or hard-deleting the soft-deleted bookings (they stay archived for audit).
