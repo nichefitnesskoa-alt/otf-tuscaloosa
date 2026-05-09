@@ -21,6 +21,7 @@ import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detec
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
@@ -354,36 +355,54 @@ export default function Wig() {
       // Resolve "orphaned" 2nd intros: when a 2nd-intro booking's originating
       // 1st intro is excluded (e.g. DELETED_SOFT — wasn't a true intro), the
       // 2nd intro becomes the member's actual first real intro. Credit the
-      // coach who ran it (which, per Total Journey, is the first coach who
-      // actually coached the person).
+      // coach who ran it. When MULTIPLE children chain back to the same
+      // excluded original (e.g. Alexa: a follow-up child + a sale child),
+      // we promote exactly ONE — preferring the child that ended in a sale.
+      const candidateChildren = allCoachBookings.filter(b => !!b.originating_booking_id && !b.referred_by_member_name);
       const originatingIds = Array.from(new Set(
-        allCoachBookings
+        candidateChildren
           .map(b => b.originating_booking_id)
           .filter((id): id is string => !!id)
       ));
-      const excludedOriginatingIds = new Set<string>();
+      const originatingRowsById = new Map<string, any>();
       if (originatingIds.length > 0) {
         const origBatches: string[][] = [];
         for (let i = 0; i < originatingIds.length; i += 500) origBatches.push(originatingIds.slice(i, i + 500));
-        const foundIds = new Set<string>();
         for (const batch of origBatches) {
           const { data: origRows } = await supabase
             .from('intros_booked')
-            .select('id, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
+            .select('id, booking_status_canon, is_vip, ignore_from_metrics, deleted_at, originating_booking_id, class_date, referred_by_member_name')
             .in('id', batch);
-          (origRows || []).forEach((o: any) => {
-            foundIds.add(o.id);
-            if (isBookingExcludedFromMetrics(o)) excludedOriginatingIds.add(o.id);
-          });
+          (origRows || []).forEach((o: any) => originatingRowsById.set(o.id, o));
         }
-        // Truly orphaned (originating row missing) → also promote the 2nd intro
-        originatingIds.forEach(id => { if (!foundIds.has(id)) excludedOriginatingIds.add(id); });
       }
+
+      // Fetch runs for candidate children so the resolver can detect which
+      // child ended in a sale.
+      const candidateChildIds = candidateChildren.map(b => b.id);
+      const candidateRuns: any[] = [];
+      if (candidateChildIds.length > 0) {
+        const childBatches: string[][] = [];
+        for (let i = 0; i < candidateChildIds.length; i += 500) childBatches.push(candidateChildIds.slice(i, i + 500));
+        for (const batch of childBatches) {
+          const { data: rows } = await supabase
+            .from('intros_run')
+            .select('linked_intro_booked_id, result, result_canon')
+            .in('linked_intro_booked_id', batch);
+          (rows || []).forEach(r => candidateRuns.push(r));
+        }
+      }
+
+      const resolverPool = [
+        ...allCoachBookings,
+        ...Array.from(originatingRowsById.values()).filter(o => !allCoachBookings.some(b => b.id === o.id)),
+      ];
+      const promotedOrphanIds = resolvePromotedOrphanBookingIds(resolverPool, candidateRuns);
 
       const firstIntroBookings = allCoachBookings.filter(b =>
         !b.originating_booking_id
         || !!b.referred_by_member_name
-        || excludedOriginatingIds.has(b.originating_booking_id)
+        || promotedOrphanIds.has(b.id)
       );
 
       // ── VIP Class attribution map ──
