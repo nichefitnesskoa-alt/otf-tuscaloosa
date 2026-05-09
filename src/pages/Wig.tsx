@@ -810,6 +810,16 @@ export default function Wig() {
 
       {/* SECTION 3 — MILESTONES & DEPLOY */}
       <MilestonesDeploySection dateRange={dateRange} />
+
+      <CoachAttributionDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        coach={drill?.coach || null}
+        metric={drill?.metric || 'coached'}
+        source="wig"
+        rangeLabel={dateRange ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}` : 'All time'}
+        attribution={drill ? coachAttribution.get(drill.coach) || null : null}
+      />
     </div>
   );
 }
