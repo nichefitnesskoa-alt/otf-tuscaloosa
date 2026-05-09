@@ -29,6 +29,7 @@ import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPane
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import { VipClassPerformanceTable } from '@/components/admin/VipClassPerformanceTable';
 import { MetricsConsistencyAlert } from '@/components/dashboard/MetricsConsistencyAlert';
+import { DuplicateRunsAlert } from '@/components/dashboard/DuplicateRunsAlert';
 
 
 export default function Recaps() {
@@ -226,6 +227,7 @@ export default function Recaps() {
         </TabsContent>
 
         <TabsContent value="studio" className="space-y-4 mt-4">
+          {isAdmin && <DuplicateRunsAlert />}
           {isAdmin && <MetricsConsistencyAlert dateRange={dateRange} />}
           <StudioScoreboard
             introsRun={scoreboardIntrosRun}
