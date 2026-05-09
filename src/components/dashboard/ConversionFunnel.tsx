@@ -107,7 +107,9 @@ function computeFunnelBothRows(
   });
 
   const isFirstBooking = (b: IntroBooked): boolean => {
-    if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
+    if ((b as any).originating_booking_id
+        && !(b as any).referred_by_member_name
+        && !promotedOrphanIds.has(b.id)) return false;
     const key = bookingPersonKey.get(b.id)!;
     const dates = personBookingDates.get(key) || [];
     return dates[0] === b.class_date;
