@@ -90,9 +90,16 @@ export function CoachAttributionDrillDown({
                       {i.via === '2nd_intro' && <> · <span className="text-primary font-semibold">via 2nd intro</span></>}
                     </p>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
-                    {i.resultLabel}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
+                      {i.resultLabel}
+                    </span>
+                    {i.via2ndIntroSale && metric === 'coached' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap bg-success/15 text-success border-success/40">
+                        → SALE via 2nd
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
