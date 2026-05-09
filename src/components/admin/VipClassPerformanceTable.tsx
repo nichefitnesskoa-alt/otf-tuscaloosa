@@ -75,7 +75,7 @@ export function VipClassPerformanceTable() {
 
       const [{ data: regs }, { data: bookings }] = await Promise.all([
         sb.from('vip_registrations')
-          .select('id, vip_session_id, member_name, attended')
+          .select('id, vip_session_id, first_name, last_name, outcome')
           .in('vip_session_id', ids)
           .eq('is_group_contact', false),
         sb.from('intros_booked')
