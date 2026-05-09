@@ -19,6 +19,7 @@ import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, s
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
+import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
