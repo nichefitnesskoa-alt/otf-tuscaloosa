@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, startOfQuarter, endOfQuarter } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
+import { isCloseRun } from '@/lib/intros/close-detection';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 
 export default function Wig() {
@@ -442,8 +443,7 @@ export default function Wig() {
               .select('linked_intro_booked_id, result, result_canon')
               .in('linked_intro_booked_id', batch2);
             (secondRuns || []).forEach((r2: any) => {
-              if (r2.result_canon === 'SALE' || isMembershipSale(r2.result)) {
-                // Find which first-intro this belongs to
+              if (isCloseRun(r2)) {
                 for (const [firstId, secondIds] of secondIntroBookingMap.entries()) {
                   if (secondIds.includes(r2.linked_intro_booked_id)) {
                     secondRunSaleSet.add(firstId);
@@ -473,7 +473,7 @@ export default function Wig() {
             if (!cName) return;
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
-            if (r.result_canon === 'SALE' || isMembershipSale(r.result)) {
+            if (isCloseRun(r)) {
               ex.closed++;
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach

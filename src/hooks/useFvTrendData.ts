@@ -19,8 +19,10 @@ import {
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { DateRange } from '@/lib/pay-period';
+import { resolveClosedFirstIntroIds } from '@/lib/intros/close-detection';
 
-const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'VIP_CLASS_INTRO', 'PLANNING_RESCHEDULE']);
+// Match WIG header: only NO_SHOW / UNRESOLVED / VIP_CLASS_INTRO are dropped from "ran" denominator.
+const RAN_EXCLUDED = new Set(['NO_SHOW', 'UNRESOLVED', 'VIP_CLASS_INTRO']);
 
 interface RanFirstIntro {
   bookingId: string;
@@ -92,8 +94,8 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       const ids = valid.map((b: any) => b.id);
       if (ids.length === 0) return [] as RanFirstIntro[];
 
-      // Pull runs for these bookings to filter to actually-ran intros.
-      const ran = new Map<string, { coach: string; sale: boolean }>();
+      // Determine which bookings actually ran + their coach (we still need run rows for coach attribution).
+      const ran = new Map<string, { coach: string }>();
       for (let i = 0; i < ids.length; i += 500) {
         const batch = ids.slice(i, i + 500);
         const { data: runs } = await supabase
@@ -102,52 +104,20 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
           .in('linked_intro_booked_id', batch);
         (runs || []).forEach((r: any) => {
           if (!r.linked_intro_booked_id) return;
-          if (RAN_EXCLUDED.has(r.result_canon)) return;
+          if (RAN_EXCLUDED.has((r.result_canon || '').toUpperCase())) return;
           const b = valid.find((x: any) => x.id === r.linked_intro_booked_id);
           const coach = (r.coach_name || b?.coach_name || '').trim();
           if (!coach || /^tbd$/i.test(coach)) return;
-          const existing = ran.get(r.linked_intro_booked_id);
-          const sale = r.result_canon === 'SALE';
-          if (!existing) ran.set(r.linked_intro_booked_id, { coach, sale });
-          else if (sale && !existing.sale) ran.set(r.linked_intro_booked_id, { coach, sale: true });
+          if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach });
         });
       }
 
-      // Total Journey close: also flag close if a downstream 2nd intro chained from this booking ended in SALE.
-      // Pull bookings where originating_booking_id is in our id set OR converted_to_booking_id matches.
-      const { data: chained } = await supabase
-        .from('intros_booked')
-        .select('id, originating_booking_id')
-        .in('originating_booking_id', ids);
-      const childrenByOrigin = new Map<string, string[]>();
-      (chained || []).forEach((c: any) => {
-        if (!c.originating_booking_id) return;
-        const arr = childrenByOrigin.get(c.originating_booking_id) || [];
-        arr.push(c.id);
-        childrenByOrigin.set(c.originating_booking_id, arr);
-      });
-      const allChildIds = (chained || []).map((c: any) => c.id);
-      const childSales = new Set<string>();
-      for (let i = 0; i < allChildIds.length; i += 500) {
-        const batch = allChildIds.slice(i, i + 500);
-        if (batch.length === 0) continue;
-        const { data: childRuns } = await supabase
-          .from('intros_run')
-          .select('linked_intro_booked_id, result_canon')
-          .in('linked_intro_booked_id', batch);
-        (childRuns || []).forEach((r: any) => {
-          if (r.result_canon === 'SALE' && r.linked_intro_booked_id) childSales.add(r.linked_intro_booked_id);
-        });
-      }
+      // Canonical close detection (direct sale + Total Journey via 2nd intro).
+      const closedIds = await resolveClosedFirstIntroIds(Array.from(ran.keys()));
 
       const result: RanFirstIntro[] = [];
       ran.forEach((v, bookingId) => {
-        let closed = v.sale;
-        if (!closed) {
-          const kids = childrenByOrigin.get(bookingId) || [];
-          if (kids.some(k => childSales.has(k))) closed = true;
-        }
-        result.push({ bookingId, coach: v.coach, closed });
+        result.push({ bookingId, coach: v.coach, closed: closedIds.has(bookingId) });
       });
       return result;
     },
