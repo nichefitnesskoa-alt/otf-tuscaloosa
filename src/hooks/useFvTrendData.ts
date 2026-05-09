@@ -28,6 +28,17 @@ interface RanFirstIntro {
   bookingId: string;
   coach: string;
   closed: boolean;
+  memberName: string;
+  classDate: string;
+  introTime: string | null;
+}
+
+export interface UnscoredIntro {
+  bookingId: string;
+  coach: string;
+  memberName: string;
+  classDate: string;
+  introTime: string | null;
 }
 
 export interface ClosingTile {
@@ -48,10 +59,17 @@ export interface FvTrendData {
   closingTiles: ClosingTile;
   unscoredCount: number;
   unscoredByCoach: Map<string, number>;
+  unscoredIntros: UnscoredIntro[];
   scorecards: FvScorecard[];
   ranByCoach: Map<string, number>;
   formalByCoach: Map<string, { avg: number | null; count: number }>;
   selfByCoach: Map<string, { avg: number | null; count: number }>;
+  closedCards: FvScorecard[];
+  notClosedCards: FvScorecard[];
+  coverageCards: {
+    formal: FvScorecard[];
+    selfOnly: FvScorecard[];
+  };
 }
 
 export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed: boolean) {
