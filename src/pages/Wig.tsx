@@ -819,8 +819,26 @@ export default function Wig() {
                     {saLeadMeasures.map(row => (
                       <TableRow key={row.name}>
                         <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center">{row.referralAsks}</TableCell>
-                        <TableCell className="text-sm text-center">{row.packs}</TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.referralAsks === 0}
+                            onClick={() => setSaDrill({ sa: row.name, metric: 'referralAsks' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.referralAsks}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-sm text-center p-0">
+                          <button
+                            type="button"
+                            disabled={row.packs === 0}
+                            onClick={() => setSaDrill({ sa: row.name, metric: 'packs' })}
+                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                          >
+                            {row.packs}
+                          </button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
