@@ -57,8 +57,7 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
     };
     // First-intro bookings owned by this SA
     const firstByOwner = (introsBooked || []).filter((b: any) => {
-      if ((b as any).deleted_at) return false;
-      if (b.is_vip) return false;
+      if (isBookingExcludedFromMetrics(b)) return false;
       if ((b as any).originating_booking_id && !(b as any).referred_by_member_name) return false;
       const owner = (b as any).intro_owner || (b as any).booked_by || b.sa_working_shift;
       return owner === sa;
