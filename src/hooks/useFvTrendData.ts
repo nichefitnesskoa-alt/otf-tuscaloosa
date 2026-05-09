@@ -28,6 +28,17 @@ interface RanFirstIntro {
   bookingId: string;
   coach: string;
   closed: boolean;
+  memberName: string;
+  classDate: string;
+  introTime: string | null;
+}
+
+export interface UnscoredIntro {
+  bookingId: string;
+  coach: string;
+  memberName: string;
+  classDate: string;
+  introTime: string | null;
 }
 
 export interface ClosingTile {
@@ -48,10 +59,17 @@ export interface FvTrendData {
   closingTiles: ClosingTile;
   unscoredCount: number;
   unscoredByCoach: Map<string, number>;
+  unscoredIntros: UnscoredIntro[];
   scorecards: FvScorecard[];
   ranByCoach: Map<string, number>;
   formalByCoach: Map<string, { avg: number | null; count: number }>;
   selfByCoach: Map<string, { avg: number | null; count: number }>;
+  closedCards: FvScorecard[];
+  notClosedCards: FvScorecard[];
+  coverageCards: {
+    formal: FvScorecard[];
+    selfOnly: FvScorecard[];
+  };
 }
 
 export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed: boolean) {
@@ -79,7 +97,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     queryFn: async () => {
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, coach_name, originating_booking_id, is_vip, ignore_from_metrics, booking_status_canon, referred_by_member_name, member_name, paired_booking_id, converted_to_booking_id')
+        .select('id, coach_name, originating_booking_id, is_vip, ignore_from_metrics, booking_status_canon, referred_by_member_name, member_name, class_date, intro_time, paired_booking_id, converted_to_booking_id')
         .gte('class_date', from)
         .lte('class_date', to)
         .is('deleted_at', null);
@@ -94,8 +112,7 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       const ids = valid.map((b: any) => b.id);
       if (ids.length === 0) return [] as RanFirstIntro[];
 
-      // Determine which bookings actually ran + their coach (we still need run rows for coach attribution).
-      const ran = new Map<string, { coach: string }>();
+      const ran = new Map<string, { coach: string; booking: any }>();
       for (let i = 0; i < ids.length; i += 500) {
         const batch = ids.slice(i, i + 500);
         const { data: runs } = await supabase
@@ -106,18 +123,30 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
           if (!r.linked_intro_booked_id) return;
           if (RAN_EXCLUDED.has((r.result_canon || '').toUpperCase())) return;
           const b = valid.find((x: any) => x.id === r.linked_intro_booked_id);
-          const coach = (r.coach_name || b?.coach_name || '').trim();
-          if (!coach || /^tbd$/i.test(coach)) return;
-          if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach });
+          // Fall back to booking.coach_name when run.coach_name is blank OR 'TBD'
+          // (run rows are often left at TBD when the SA who logged the run didn't update the coach).
+          const rawRun = (r.coach_name || '').trim();
+          const coachFromRun = rawRun && !/^tbd$/i.test(rawRun) ? rawRun : '';
+          const rawBooking = (b?.coach_name || '').trim();
+          const coachFromBooking = rawBooking && !/^tbd$/i.test(rawBooking) ? rawBooking : '';
+          const coach = coachFromRun || coachFromBooking;
+          if (!coach) return;
+          if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach, booking: b });
         });
       }
 
-      // Canonical close detection (direct sale + Total Journey via 2nd intro).
       const closedIds = await resolveClosedFirstIntroIds(Array.from(ran.keys()));
 
       const result: RanFirstIntro[] = [];
       ran.forEach((v, bookingId) => {
-        result.push({ bookingId, coach: v.coach, closed: closedIds.has(bookingId) });
+        result.push({
+          bookingId,
+          coach: v.coach,
+          closed: closedIds.has(bookingId),
+          memberName: v.booking?.member_name || 'Unknown',
+          classDate: v.booking?.class_date || '',
+          introTime: v.booking?.intro_time || null,
+        });
       });
       return result;
     },
@@ -167,9 +196,16 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     };
     let unscoredCount = 0;
     const unscoredByCoach = new Map<string, number>();
+    const unscoredIntros: UnscoredIntro[] = [];
     const ranByCoach = new Map<string, number>();
     const formalByCoach = new Map<string, { sum: number; n: number }>();
     const selfByCoach = new Map<string, { sum: number; n: number }>();
+    const closedCards: FvScorecard[] = [];
+    const notClosedCards: FvScorecard[] = [];
+    const coverageCards = {
+      formal: [] as FvScorecard[],
+      selfOnly: [] as FvScorecard[],
+    };
 
     ran.forEach(r => {
       ranByCoach.set(r.coach, (ranByCoach.get(r.coach) || 0) + 1);
@@ -182,20 +218,29 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       if (hasFormal) {
         cov.formal.total++;
         if (r.closed) cov.formal.closed++;
+        if (primaryCard) coverageCards.formal.push(primaryCard);
       } else if (hasSelf) {
         cov.selfOnly.total++;
         if (r.closed) cov.selfOnly.closed++;
+        if (primaryCard) coverageCards.selfOnly.push(primaryCard);
       } else {
         cov.unscored.total++;
         if (r.closed) cov.unscored.closed++;
         unscoredCount++;
         unscoredByCoach.set(r.coach, (unscoredByCoach.get(r.coach) || 0) + 1);
+        unscoredIntros.push({
+          bookingId: r.bookingId,
+          coach: r.coach,
+          memberName: r.memberName,
+          classDate: r.classDate,
+          introTime: r.introTime,
+        });
       }
 
       // Avg-closed / avg-not-closed (only when we have a primary score)
       if (primaryCard) {
-        if (r.closed) { closedSum += primaryCard.total_score; closedN++; }
-        else { notSum += primaryCard.total_score; notN++; }
+        if (r.closed) { closedSum += primaryCard.total_score; closedN++; closedCards.push(primaryCard); }
+        else { notSum += primaryCard.total_score; notN++; notClosedCards.push(primaryCard); }
       }
 
       // Per-coach formal/self averages
@@ -231,10 +276,14 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       closingTiles,
       unscoredCount,
       unscoredByCoach,
+      unscoredIntros,
       scorecards: cards,
       ranByCoach,
       formalByCoach: formalAvg,
       selfByCoach: selfAvg,
+      closedCards,
+      notClosedCards,
+      coverageCards,
     };
   }, [cards, ran, range, primary, smoothed]);
 

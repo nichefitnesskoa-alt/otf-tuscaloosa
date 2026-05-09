@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trophy, ChevronDown, ChevronUp, ClipboardCheck } from 'lucide-react';
+import { Trophy, ChevronDown, ChevronUp, ClipboardCheck, ExternalLink } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -14,7 +14,7 @@ import {
 import { format } from 'date-fns';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
-import { useFvTrendData } from '@/hooks/useFvTrendData';
+import { useFvTrendData, type UnscoredIntro } from '@/hooks/useFvTrendData';
 import {
   type DatePreset,
   type DateRange,
@@ -27,6 +27,8 @@ import {
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { FvScorecard } from '@/hooks/useScorecards';
+import { CoachStreakBadges } from './CoachStreakBadges';
+import { UnscoredDrillDown } from './UnscoredDrillDown';
 
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
@@ -38,6 +40,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [unscoredFor, setUnscoredFor] = useState<{ coach: string; intros: UnscoredIntro[] } | null>(null);
   const navigate = useNavigate();
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
@@ -123,7 +126,16 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
             </Card>
 
             {/* Closing-score tiles */}
-            <ClosingTiles tiles={data.closingTiles} />
+            <ClosingTiles
+              tiles={data.closingTiles}
+              onTapClosed={() => setDrilldown({ label: `Closed · avg score`, cards: data.closedCards })}
+              onTapNotClosed={() => setDrilldown({ label: `Didn't close · avg score`, cards: data.notClosedCards })}
+              onTapCoverage={(bucket) => {
+                if (bucket === 'formal') setDrilldown({ label: 'Coverage · formal eval', cards: data.coverageCards.formal });
+                else if (bucket === 'selfOnly') setDrilldown({ label: 'Coverage · self eval only', cards: data.coverageCards.selfOnly });
+                else setUnscoredFor({ coach: 'Studio', intros: data.unscoredIntros });
+              }}
+            />
 
             {/* Coach leaderboard */}
             <div>
@@ -147,14 +159,20 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                       const coachPoints = data.perCoachPoints.get(coach) || [];
                       return (
                         <div key={coach} className="rounded-md border border-border bg-card overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCoach(expanded ? null : coach)}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] hover:bg-muted/50 text-left"
-                          >
+                          <div className="flex items-center gap-1 px-2 py-1.5 min-h-[44px]">
                             <CadenceDot status={dot} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold truncate">{coach}</p>
+                            {/* Coach name → routes to detail page */}
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/coaches/${encodeURIComponent(coach)}`)}
+                              className="flex-1 min-w-0 text-left px-2 py-1 rounded hover:bg-muted/50 cursor-pointer group"
+                              title={`Open ${coach}'s coach page`}
+                            >
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-semibold truncate text-primary group-hover:underline">{coach}</span>
+                                <ExternalLink className="w-3 h-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
+                                <CoachStreakBadges coach={coach} cards={data.scorecards} />
+                              </div>
                               <p className="text-[10px] text-muted-foreground">
                                 {ran} ran · Formal {formal?.avg !== null && formal?.avg !== undefined ? formal.avg.toFixed(1) : '—'} ({formal?.count || 0})
                                 · Self {self?.avg !== null && self?.avg !== undefined ? self.avg.toFixed(1) : '—'} ({self?.count || 0})
@@ -162,12 +180,30 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                   <> · Gap <span className={gap > 2 ? 'text-destructive' : gap < -2 ? 'text-success' : 'text-warning'}>{gap > 0 ? '+' : ''}{gap.toFixed(1)}</span></>
                                 )}
                               </p>
-                            </div>
+                            </button>
                             {unscored > 0 && (
-                              <Badge variant="outline" className="text-[10px]">{unscored} unscored</Badge>
+                              <button
+                                type="button"
+                                onClick={() => setUnscoredFor({
+                                  coach,
+                                  intros: data.unscoredIntros.filter(i => i.coach === coach),
+                                })}
+                                className="px-2.5 min-h-[36px] rounded-md border border-primary/40 bg-primary/5 text-primary text-[11px] font-semibold hover:bg-primary/10 cursor-pointer whitespace-nowrap"
+                                title={`Score ${unscored} unscored ${unscored === 1 ? 'intro' : 'intros'}`}
+                              >
+                                {unscored} unscored →
+                              </button>
                             )}
-                            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedCoach(expanded ? null : coach)}
+                              className="p-2 min-h-[36px] min-w-[36px] rounded-md hover:bg-muted/50 cursor-pointer flex items-center justify-center"
+                              title={expanded ? 'Collapse trend' : 'Expand trend'}
+                              aria-label={expanded ? 'Collapse trend' : 'Expand trend'}
+                            >
+                              {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                            </button>
+                          </div>
                           {expanded && (
                             <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/20">
                               <p className="text-[10px] text-muted-foreground mb-1">{coach} vs studio (faded)</p>
@@ -190,7 +226,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
         )}
       </CardContent>
 
-      {/* Drill-down modal */}
+      {/* Drill-down modal (scorecard list) */}
       <Dialog open={!!drilldown} onOpenChange={o => !o && setDrilldown(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle className="text-sm">{drilldown?.label}</DialogTitle></DialogHeader>
@@ -213,6 +249,16 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Unscored drill-down (per coach or studio) */}
+      {unscoredFor && (
+        <UnscoredDrillDown
+          open={!!unscoredFor}
+          onOpenChange={(o) => { if (!o) setUnscoredFor(null); }}
+          coach={unscoredFor.coach}
+          intros={unscoredFor.intros}
+        />
+      )}
 
       <ComparisonView scorecardId={openCardId} open={!!openCardId} onOpenChange={(o) => { if (!o) setOpenCardId(null); }} />
     </Card>
@@ -243,36 +289,66 @@ function CadenceDot({ status }: { status: 'met' | 'pending' | 'missed' }) {
   return <span className={`inline-block w-2.5 h-2.5 rounded-full ${cls}`} aria-label={`Cadence: ${status}`} />;
 }
 
-function ClosingTiles({ tiles }: { tiles: ReturnType<typeof useFvTrendData>['data']['closingTiles'] }) {
+function ClosingTiles({
+  tiles,
+  onTapClosed,
+  onTapNotClosed,
+  onTapCoverage,
+}: {
+  tiles: ReturnType<typeof useFvTrendData>['data']['closingTiles'];
+  onTapClosed: () => void;
+  onTapNotClosed: () => void;
+  onTapCoverage: (bucket: 'formal' | 'selfOnly' | 'unscored') => void;
+}) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <Card className="p-3 border-2 border-primary/40 bg-primary/5">
-        <p className="text-[10px] uppercase font-semibold text-primary tracking-wide">Avg score · closed</p>
-        <p className="text-3xl font-black tabular-nums text-primary mt-1">{tiles.avgClosed !== null ? tiles.avgClosed.toFixed(1) : '—'}<span className="text-sm text-muted-foreground">/30</span></p>
-        <p className="text-[10px] text-muted-foreground mt-1">{tiles.closedCount} {tiles.closedCount === 1 ? 'intro' : 'intros'} closed</p>
-      </Card>
-      <Card className="p-3 border border-border bg-muted/30">
-        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide">Avg score · didn't close</p>
-        <p className="text-3xl font-black tabular-nums text-muted-foreground mt-1">{tiles.avgNotClosed !== null ? tiles.avgNotClosed.toFixed(1) : '—'}<span className="text-sm">/30</span></p>
-        <p className="text-[10px] text-muted-foreground mt-1">{tiles.notClosedCount} {tiles.notClosedCount === 1 ? 'intro' : 'intros'} didn't close</p>
-      </Card>
+      <button
+        type="button"
+        onClick={onTapClosed}
+        disabled={tiles.closedCount === 0}
+        className="text-left disabled:cursor-default cursor-pointer"
+      >
+        <Card className="p-3 border-2 border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors h-full">
+          <p className="text-[10px] uppercase font-semibold text-primary tracking-wide">Avg score · closed</p>
+          <p className="text-3xl font-black tabular-nums text-primary mt-1">{tiles.avgClosed !== null ? tiles.avgClosed.toFixed(1) : '—'}<span className="text-sm text-muted-foreground">/30</span></p>
+          <p className="text-[10px] text-muted-foreground mt-1">{tiles.closedCount} {tiles.closedCount === 1 ? 'intro' : 'intros'} closed</p>
+        </Card>
+      </button>
+      <button
+        type="button"
+        onClick={onTapNotClosed}
+        disabled={tiles.notClosedCount === 0}
+        className="text-left disabled:cursor-default cursor-pointer"
+      >
+        <Card className="p-3 border border-border bg-muted/30 hover:bg-muted/50 transition-colors h-full">
+          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide">Avg score · didn't close</p>
+          <p className="text-3xl font-black tabular-nums text-muted-foreground mt-1">{tiles.avgNotClosed !== null ? tiles.avgNotClosed.toFixed(1) : '—'}<span className="text-sm">/30</span></p>
+          <p className="text-[10px] text-muted-foreground mt-1">{tiles.notClosedCount} {tiles.notClosedCount === 1 ? 'intro' : 'intros'} didn't close</p>
+        </Card>
+      </button>
       <Card className="p-3">
         <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wide mb-1.5">Closing % by coverage</p>
-        <CovRow label="Formal eval" v={tiles.coverage.formal} />
-        <CovRow label="Self eval only" v={tiles.coverage.selfOnly} />
-        <CovRow label="Unscored" v={tiles.coverage.unscored} muted />
+        <CovRow label="Formal eval" v={tiles.coverage.formal} onTap={() => onTapCoverage('formal')} />
+        <CovRow label="Self eval only" v={tiles.coverage.selfOnly} onTap={() => onTapCoverage('selfOnly')} />
+        <CovRow label="Unscored" v={tiles.coverage.unscored} muted onTap={() => onTapCoverage('unscored')} />
       </Card>
     </div>
   );
 }
 
-function CovRow({ label, v, muted }: { label: string; v: { closed: number; total: number }; muted?: boolean }) {
+function CovRow({ label, v, muted, onTap }: { label: string; v: { closed: number; total: number }; muted?: boolean; onTap?: () => void }) {
   const pct = v.total > 0 ? Math.round((v.closed / v.total) * 100) : null;
-  return (
+  const inner = (
     <div className="flex items-baseline justify-between text-[11px] py-0.5">
       <span className={muted ? 'text-muted-foreground' : 'font-medium'}>{label}</span>
       <span className="tabular-nums">{pct !== null ? `${pct}%` : '—'} <span className="text-muted-foreground">({v.closed}/{v.total})</span></span>
     </div>
+  );
+  if (!onTap || v.total === 0) return inner;
+  return (
+    <button type="button" onClick={onTap} className="w-full text-left rounded hover:bg-muted/40 px-1 -mx-1 cursor-pointer">
+      {inner}
+    </button>
   );
 }
 

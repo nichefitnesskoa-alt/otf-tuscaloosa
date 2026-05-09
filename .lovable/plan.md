@@ -1,132 +1,127 @@
-&nbsp;
+## Investigation findings
 
-Edit 1: Lint guardrail.
+**Bug 1 + Bug 2 share one root cause.** Koa has 4 self-evals this month (Sophia, Madison, Mike, Joyce). Madison/Mike/Joyce closed; Sophia is `PLANNING_TO_BUY` (didn't close — a real ran intro).
 
-After the canonical helper exists, add a custom ESLint rule (or codeowners check) that flags any file containing result_canon === 'SALE' outside of src/lib/intros/close-detection.ts and src/lib/sales-detection.ts. The rule’s error message points to the canonical helper. Costs maybe 10 minutes to add. Saves the next regression entirely.
-
-If a custom rule is too heavy, an alternative: a CI grep check that fails the build when the pattern appears outside the allowed files. Same effect, simpler.
-
-Edit 2: Verification numbers in writing.
-
-Their verification step says “FV tiles must read 3 closed.” Lock the exact expected numbers into the test or the deploy checklist before merging:
-
-	•	This month, Koa: 3 closed, avg score closed = (Madison’s self-eval + Mike’s self-eval + Joyce’s self-eval) / 3
-
-	•	This month, James: whatever the WIG header shows (Lovable to look up before deploy)
-
-	•	This month, studio total: matches WIG header studio total exactly
-
-If any number doesn’t match the WIG header to the integer after the fix ships, the bug isn’t fully resolved. Document the expected numbers in the PR description so the verification is binary, not subjective.
-
-## Root cause (confirmed against live data)
-
-The WIG header and the new First Visit Experience section run two different "is this intro a sale?" checks. They disagree on Koa's month.
-
-**Koa's 5 ran first intros this month (live DB):**
-
-
-| Member             | result_canon      | Membership? |
-| ------------------ | ----------------- | ----------- |
-| Elizabeth Williams | `ON_5_CLASS_PACK` | no          |
-| Madison Sullivan   | `BASIC`           | yes (close) |
-| Sophia Tabor       | `PLANNING_TO_BUY` | no          |
-| Mike Shelton       | `PREMIER`         | yes (close) |
-| Joyce Busch        | `PREMIER`         | yes (close) |
-
-
-**WIG header (`src/pages/Wig.tsx` line 476)** counts a close when:
-
-```
-r.result_canon === 'SALE' || isMembershipSale(r.result)
-```
-
-`isMembershipSale` matches `premier | elite | basic` in the result string. → 3 closes. ✅
-
-**FV section (`src/hooks/useFvTrendData.ts` line ~95)** counts a close when:
-
-```
-const sale = r.result_canon === 'SALE';
-```
-
-None of Koa's runs have `result_canon = 'SALE'` (they're `PREMIER`/`BASIC`), so → 0 closes. ❌
-
-That single line is the entire bug. The screenshot ("0 closed / 3 didn't close / Self eval only 0/3 / Unscored 0/9") is the exact output of that broken check.
-
-## Other diffs found between the two implementations
-
-
-| Concern                                                                      | WIG header                                        | FV hook                                                           | Action                                                                                   |
-| ---------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| First-intro filter (`!originating_booking_id || referred_by_member_name`)    | same                                              | same                                                              | keep                                                                                     |
-| Date scope                                                                   | `class_date` in range                             | `class_date` in range                                             | keep — match                                                                             |
-| VIP / ignore_from_metrics / DELETED_SOFT exclusion                           | yes                                               | yes                                                               | keep                                                                                     |
-| Excluded run results                                                         | `NO_SHOW`, `UNRESOLVED`, `VIP_CLASS_INTRO`        | `NO_SHOW`, `UNRESOLVED`, `VIP_CLASS_INTRO`, `PLANNING_RESCHEDULE` | match WIG (drop `PLANNING_RESCHEDULE` from exclusion — Wig counts it as a ran non-close) |
-| Sale detection                                                               | `result_canon='SALE' || isMembershipSale(result)` | `result_canon='SALE'` only                                        | **fix — use canonical helper**                                                           |
-| Total Journey (2nd intro chain via `originating_booking_id`)                 | yes, same sale check                              | yes, but only `result_canon='SALE'`                               | **fix — use canonical helper**                                                           |
-| Coach attribution (VIP session coach override via `vip_sessions.coach_name`) | yes                                               | no — uses run/booking coach only                                  | leave as-is for FV section (per-coach trend, not commission); document                   |
-
-
-## What to build
-
-### 1. New canonical helper — `src/lib/intros/close-detection.ts`
-
-Source of truth. Two small pure functions plus a batch resolver. One-line comment at top: *"Source of truth for 'did this intro close.' Every consumer uses this. No second implementation anywhere."*
+In `useFvTrendData.ts` the run-loop does:
 
 ```ts
-// Pure predicate on a single intros_run row
-export function isCloseRun(run: { result_canon?: string|null; result?: string|null }): boolean
-
-// Given a set of first-intro booking IDs, returns Set<bookingId> that closed
-// (handles direct sale on the booking's runs + Total Journey via 2nd intro chain).
-export async function resolveClosedFirstIntroIds(
-  firstIntroBookingIds: string[]
-): Promise<Set<string>>
+const coach = (r.coach_name || b?.coach_name || '').trim();
+if (!coach || /^tbd$/i.test(coach)) return;
 ```
 
-`isCloseRun` body: `result_canon === 'SALE' || isMembershipSale(result || '')`.
+Sophia's `intros_run.coach_name = 'TBD'`. Because `'TBD'` is truthy, the `||` short-circuits before reaching the booking fallback (`Koa`), so the regex drops the row. Sophia never lands in `ran`, never lands in `selfOnly`, never lands in `notClosed`. Both tiles silently lose her.
 
-`resolveClosedFirstIntroIds` consolidates the batched intros_run + chained 2nd-intro lookup that exists today in both places.
+**Bug 3.** `WigFirstVisitSection.tsx` lines 166–170: `unscored` is rendered as a static `<Badge>` inside the row's `<button>` whose only handler is `setExpandedCoach`. Whole row toggles the trend chart; the chip is decoration.
 
-### 2. Refactor `src/hooks/useFvTrendData.ts`
+Close-detection (`closedCount`) already routes through canonical `resolveClosedFirstIntroIds`. `notClosedCount` is the inverse computed in the same loop, so once the TBD-fallback bug is fixed both tiles + coverage will be correct.
 
-- Remove the inline `ran` / `childSales` / `secondRunSaleSet` blocks.
-- After loading the valid first-intro bookings, call `resolveClosedFirstIntroIds(ids)` once and use the returned Set to build the per-coach `RanFirstIntro[]`.
-- Use `isCloseRun` to gate which runs count as "ran" (we still need the run row to know the coach).
-- Drop `PLANNING_RESCHEDULE` from the `RAN_EXCLUDED` set so the FV "ran" denominator matches WIG.
+---
 
-### 3. Refactor `src/pages/Wig.tsx` (Closing Coach section)
+## Plan
 
-Replace the inline batched-fetch block (lines ~408–485) with a call to `resolveClosedFirstIntroIds`. Keep the VIP coach override there (it's WIG-specific commission attribution).
+### Phase 1 — Bug fix (single file)
 
-### 4. Audit other consumers
+**`src/hooks/useFvTrendData.ts`** — replace the coach resolution inside the `intros_run` loop with a real fallback:
 
-Grep for `isMembershipSale`, `result_canon === 'SALE'`, `result_canon = 'SALE'`. Touch every file that re-derives "closed" for first-intro Total Journey reporting and route it through the helper. Files I expect to update or verify:
+```ts
+const rawRun = (r.coach_name || '').trim();
+const coachFromRun = rawRun && !/^tbd$/i.test(rawRun) ? rawRun : '';
+const coachFromBooking = (b?.coach_name || '').trim();
+const coach = coachFromRun || (coachFromBooking && !/^tbd$/i.test(coachFromBooking) ? coachFromBooking : '');
+if (!coach) return;
+```
 
-- `src/components/scorecard/WigFirstVisitSection.tsx` (reads from the hook — no change needed)
-- `src/components/admin/CoachingView.tsx` (verify; only swap if it's doing Total Journey close detection)
-- `src/components/meeting/ObjectionSection.tsx` (verify)
-- `src/hooks/useDashboardMetrics.ts`, `useLeadMeasures.ts` (verify)
+That alone restores Sophia → Koa, which makes:
+- `closingTiles.notClosedCount` = 1, `avgNotClosed` = 23.0
+- coverage `selfOnly` = 3/4 (75%)
+- `ranByCoach.Koa` = 5
+- `unscoredByCoach.Koa` unchanged
 
-`src/lib/sales-detection.ts` stays — it remains the lowest-level membership-name predicate that the new helper composes.
+No other math touched.
 
-### 5. Tests
+### Phase 2 — Unscored chip drill-down
 
-- New `src/lib/intros/__tests__/close-detection.test.ts` covering: direct `SALE`, `PREMIER`/`BASIC`/`ELITE` via `result`, no-show excluded, 2nd-intro Total Journey close, mixed runs (sale wins).
-- Update any existing tests that mocked the old inline logic.
+**New `src/lib/intros/unscoredList.ts`** — small hook `useUnscoredIntrosByCoach(coach, range)` that returns `{ id, member_name, class_date, intro_time }[]` by intersecting `ranByCoach` bookings (already in scope) with the absence of any submitted scorecard for that `first_timer_id`. Single React Query keyed `['fv_unscored', coach, from, to]`.
 
-### 6. Verification before shipping
+**`WigFirstVisitSection.tsx`** — wrap the unscored badge in a real `<button>` with 44 px tap target, OTF Orange outline. On tap open `<UnscoredDrillDown>` modal (new local component):
 
-Run three date ranges (this month, last month, current pay period) and assert FV `closingTiles.closedCount` per coach equals WIG header `coachData[coach].closes`. For Koa this month the FV tiles must read **3 closed**, avg score · closed = average of his 3 self-eval scores for Madison/Mike/Joyce.
+- Title: `{coach} · {n} unscored`
+- Each row: member name, `MMM d · h:mm a`, tap target 44 px
+- Tap row → close drill-down, open `ScorecardForm` in a `Dialog` pre-filled with `evaluatee_name=coach`, `first_timer_id=bookingId`, `eval_type` = `self_eval` if `currentUser.name === coach` else `formal_eval`
+- After submit, modal stays open (manage `formOpen` state separately); React Query invalidation removes the row automatically
 
-## Files touched (expected)
+`ScorecardForm` already accepts those props — confirm and reuse, do not fork.
 
-- new: `src/lib/intros/close-detection.ts`
-- new: `src/lib/intros/__tests__/close-detection.test.ts`
-- edited: `src/hooks/useFvTrendData.ts`
-- edited: `src/pages/Wig.tsx`
-- possibly edited (after audit): `src/components/admin/CoachingView.tsx`, `src/hooks/useDashboardMetrics.ts`, `src/hooks/useLeadMeasures.ts`
+### Phase 3 — Coach detail page
 
-## Confirmed values
+**New route** `/coaches/:coachName` (no conflict with `/coach-view`, `/coach`, etc).
 
-- **Canonical close check today**: `r.result_canon === 'SALE' || isMembershipSale(r.result)` in `src/pages/Wig.tsx` (Closing Coach section). Not currently exported — will be extracted.
-- **Date scope**: `class_date` in range. Both WIG header and FV hook already agree on this; we keep it.
+**New `src/pages/CoachDetail.tsx`**:
+
+- Header: coach name (h1), cadence streak badge, self-every-week badge
+- `DateRangeFilter` (default `this_month`) — same component as WIG
+- Tile row: ran intros, formal avg / count, self avg / count, gap, closing % (reuse `useFvTrendData` filtered to that coach)
+- Full-width `TrendChart` (lift to `src/components/scorecard/TrendChart.tsx` so both WIG and detail share it)
+- Unscored intros panel — reuses Phase 2 modal contents inline
+- Recent scorecards list — reuses `BookingScorecards`-style row
+- Cadence panel — current week obligation, streak count
+
+Register in `src/App.tsx` next to `/scorecards/me`. Allowed roles: Admin always; Coach if `coachName === user.name`.
+
+**`WigFirstVisitSection.tsx` leaderboard row split** — separate the row into two adjacent buttons sharing the visual surface:
+
+```text
+[ name + badges + metric line ] [ unscored chip ] [ chevron ]
+        link → /coaches/X            modal           expand
+```
+
+Coach name styled as link (orange on hover, underline). Chevron stays the expand handle. Each remains 44 px.
+
+**`CoachDashboard.tsx`** — add a "View full coach page" link routing to `/coaches/{coachName}`.
+
+### Phase 4 — Streak + self-every-week badges
+
+`cadenceStreakWeeks` and `isSelfEvalEveryWeekThisMonth` already exist in `trends.ts`. In leaderboard row:
+
+- If `cadenceStreakWeeks(coach, scorecards) >= 2` → render `<Badge variant="outline" className="text-[10px] gap-1">🔥 {n} wk streak</Badge>`
+- If `isSelfEvalEveryWeekThisMonth(coach, scorecards)` → render `<Badge variant="outline" className="text-[10px]">Self every week</Badge>`
+
+Subtle outline pill, OTF Orange text on neutral surface (no aggressive fill). Both also render in `CoachDetail.tsx` header.
+
+### Phase 5 — Closing-tile drill-down
+
+In `WigFirstVisitSection.tsx` make each `ClosingTiles` card a button:
+
+- Avg · closed → modal listing every primary scorecard whose `first_timer_id` is in the closed set, tap row → `ComparisonView` (already wired)
+- Avg · didn't close → same, inverse set
+- Each `CovRow` inside "Closing % by coverage" → button opening modal listing intros in that coverage bucket (formal / selfOnly / unscored)
+
+To wire this without re-querying, expand `useFvTrendData`'s return to include three flat arrays: `closedCards`, `notClosedCards`, `coverageBuckets: { formal, selfOnly, unscored }` — populated in the same `ran.forEach` loop already there. Pure additions, no logic changes.
+
+### Downstream cleanup
+
+- Confirm every metric on the page sources closes from `resolveClosedFirstIntroIds` (already true after Phase 1)
+- No second close-detection implementation introduced
+- Verify chevron expand still works after row split (Phase 3)
+- Streak badge hidden when `< 2` (already enforced in Phase 4 condition)
+- Flag for separate task: audit other static count chips (My Day "X follow-ups", Pipeline "X new leads") — drill-down candidates, no code here
+
+### Files touched
+
+- `src/hooks/useFvTrendData.ts` (bug fix + tile/coverage card arrays)
+- `src/components/scorecard/WigFirstVisitSection.tsx` (chip → button, row split, badges, tile drill-down)
+- `src/components/scorecard/TrendChart.tsx` *(new — extracted)*
+- `src/components/scorecard/UnscoredDrillDown.tsx` *(new)*
+- `src/components/scorecard/CoachStreakBadges.tsx` *(new)*
+- `src/lib/intros/unscoredList.ts` *(new — hook)*
+- `src/pages/CoachDetail.tsx` *(new)*
+- `src/App.tsx` (register `/coaches/:coachName`)
+- `src/components/scorecard/CoachDashboard.tsx` (link to detail page)
+
+### Acceptance checks before close
+
+1. Koa, this month: `closedCount=3, avgClosed=22.7, notClosedCount=1, avgNotClosed=23.0`, selfOnly coverage `75% (3/4)`, unscored unchanged
+2. Tap "1 unscored" on Koa row → modal lists Sophia (or whichever pre-system intro), tap → form opens in self-eval mode
+3. Tap "Koa" name → routes to `/coaches/Koa`, chevron still expands inline
+4. Streak badge appears only when ≥ 2 weeks
+5. `/coaches/:coachName` does not collide with existing routes (verified — only `/coach-view` exists)

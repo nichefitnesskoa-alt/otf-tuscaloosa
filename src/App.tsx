@@ -27,6 +27,7 @@ import CoachView from "./pages/CoachView";
 import Recaps from "./pages/Recaps";
 import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
+import CoachDetail from "./pages/CoachDetail";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -178,6 +179,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CoachScorecards />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coaches/:coachName"
+        element={
+          <ProtectedRoute>
+            <CoachDetail />
           </ProtectedRoute>
         }
       />

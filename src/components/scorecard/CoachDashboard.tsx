@@ -73,12 +73,22 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
   return (
     <div className="space-y-4">
       {allowPicker && coaches && (
-        <Select value={selected} onValueChange={setSelected}>
-          <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {coaches.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {coaches.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {typeof window !== 'undefined' && !window.location.pathname.startsWith('/coaches/') && (
+            <a
+              href={`/coaches/${encodeURIComponent(selected)}`}
+              className="text-xs text-primary hover:underline whitespace-nowrap px-2 min-h-[44px] flex items-center"
+            >
+              Open coach page →
+            </a>
+          )}
+        </div>
       )}
 
       {/* Cadence panel — replaces 6/month + 2-formal-floor */}
