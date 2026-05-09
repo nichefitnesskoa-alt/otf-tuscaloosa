@@ -161,12 +161,15 @@ export function useDashboardMetrics(
       return !isIgnored && !isVipRun;
     });
     
+    // Promote orphaned 2nd-intro bookings whose original is excluded (deleted/dup/etc.)
+    // so Studio Scoreboard, Per-SA, Per-Coach, Funnel, and WIG all use the same first-intro set.
+    const promotedOrphanIds = resolvePromotedOrphanBookingIds(activeBookings, activeRuns);
+
     // FIRST INTRO BOOKINGS ONLY (for leaderboards - show rate)
-    // Friends (referred_by_member_name set) count as 1st intros even if originating_booking_id is set
+    // Friends (referred_by_member_name set) count as 1st intros even if originating_booking_id is set.
+    // Promoted orphans (single child of an excluded original) also count as 1st intros.
     const firstIntroBookings = activeBookings.filter(b => {
-      const originatingId = (b as any).originating_booking_id;
-      const referredBy = (b as any).referred_by_member_name;
-      const isFirstIntro = !originatingId || !!referredBy;
+      const isFirstIntro = isFirstIntroForMetrics(b as any, promotedOrphanIds);
       const isInDateRange = isDateInRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
     });
