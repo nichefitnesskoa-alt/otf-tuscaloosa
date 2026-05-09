@@ -38,8 +38,12 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
+  const hasAnyScorecards = data.scorecards.length > 0;
+  const hasAnyRan = data.ranByCoach.size > 0;
+  const isEmptyRange = !isLoading && !hasAnyScorecards && !hasAnyRan;
 
   return (
     <Card>
