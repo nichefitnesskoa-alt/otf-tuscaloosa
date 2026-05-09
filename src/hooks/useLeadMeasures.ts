@@ -61,13 +61,13 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
           .select('id, sa_name, intro_owner, run_date, result, result_canon, linked_intro_booked_id')
           .gte('run_date', start).lte('run_date', end),
         supabase.from('followup_touches')
-          .select('id, created_by, created_at')
+          .select('id, created_by, created_at, lead_id, booking_id, contact_method')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('shift_recaps')
-          .select('staff_name, dms_sent')
+          .select('staff_name, dms_sent, shift_date')
           .gte('shift_date', start).lte('shift_date', end),
         supabase.from('leads')
-          .select('id, created_at, stage, updated_at')
+          .select('id, first_name, last_name, source, created_at, stage, updated_at')
           .gte('created_at', localDateToStartISO(start)).lte('created_at', localDateToEndISO(end)),
         supabase.from('lead_activities')
           .select('id, lead_id, activity_type, performed_by, created_at')
@@ -90,12 +90,19 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
         prepTotal: number; prepDone: number;
         touches: number; dms: number; leadsReached: number;
         speedSumMin: number; speedCount: number; introsRan: number;
+        followUpPeople: OutreachPerson[];
+        dmPeople: OutreachPerson[];
+        leadsReachedPeople: OutreachPerson[];
       }>();
 
       const ensure = (name: string) => {
         if (!name || !ALL_STAFF.includes(name)) return;
-        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0 });
+        if (!saMap.has(name)) saMap.set(name, { qTotal: 0, qCompleted: 0, prepTotal: 0, prepDone: 0, touches: 0, dms: 0, leadsReached: 0, speedSumMin: 0, speedCount: 0, introsRan: 0, followUpPeople: [], dmPeople: [], leadsReachedPeople: [] });
       };
+
+      // Lead lookup map for names
+      const leadById = new Map<string, any>();
+      (leads || []).forEach((l: any) => leadById.set(l.id, l));
 
       // Prep rate by SA (booking-side, only for showed intros)
       allBookings.forEach((b: any) => {
