@@ -27,4 +27,19 @@ describe('isCloseRun', () => {
     expect(isCloseRun({ result_canon: null, result: null })).toBe(false);
     expect(isCloseRun({} as any)).toBe(false);
   });
+  it('treats PREMIER_OTBEAT canon as close', () => {
+    expect(isCloseRun({ result_canon: 'PREMIER_OTBEAT', result: '' })).toBe(true);
+  });
+  it('does not treat SECOND_INTRO_SCHEDULED as close', () => {
+    expect(isCloseRun({ result_canon: 'SECOND_INTRO_SCHEDULED', result: '' })).toBe(false);
+  });
+  it('does not treat FOLLOW_UP_NEEDED as close', () => {
+    expect(isCloseRun({ result_canon: 'FOLLOW_UP_NEEDED', result: '' })).toBe(false);
+  });
+  it('does not treat NOT_INTERESTED as close', () => {
+    expect(isCloseRun({ result_canon: 'NOT_INTERESTED', result: '' })).toBe(false);
+  });
+  it('falls back to result string when canon missing', () => {
+    expect(isCloseRun({ result_canon: null, result: 'Premier + OTbeat' })).toBe(true);
+  });
 });
