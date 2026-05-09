@@ -28,6 +28,7 @@ import { isMembershipSale } from '@/lib/sales-detection';
 import MembershipPurchasesPanel from '@/components/admin/MembershipPurchasesPanel';
 import PayPeriodCommission from '@/components/PayPeriodCommission';
 import { VipClassPerformanceTable } from '@/components/admin/VipClassPerformanceTable';
+import { MetricsConsistencyAlert } from '@/components/dashboard/MetricsConsistencyAlert';
 
 
 export default function Recaps() {
