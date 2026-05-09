@@ -8,8 +8,9 @@ export interface AttribIntro {
   member: string;
   classDate: string | null;
   source: string | null;
-  resultLabel: string;       // 'SALE' | 'Follow-Up' | 'No Show' | 'Planning 2nd' | 'VIP Intro' | 'Unresolved' | '—'
+  resultLabel: string;       // see labelForRun()
   via?: 'direct' | '2nd_intro';
+  via2ndIntroSale?: boolean; // true on a Coached row whose Total Journey ended in a sale via 2nd intro
 }
 
 export interface CoachAttribution {
