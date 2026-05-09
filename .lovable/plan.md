@@ -1,70 +1,59 @@
+The intro credit always goes to the first coach who coached the person not the coach for the second class.  James did coach both times though 
+
+&nbsp;
+
 ## Root cause
 
-Jaden Cerreta and Ethan Forman both have `intros_booked` rows with `booking_status_canon = 'DELETED_SOFT'` and `deleted_at` set (soft-deleted on May 9). Their `intros_run` rows still exist with `result_canon = 'NOT_INTERESTED'`, coach James.
+Studio Scoreboard shows **7 sales / 78%**. WIG shows **6 closes / 67%**. The difference is one real sale: **Alexa Brodsky — Premier, James, May 4** (run id `2375d2ca…`).
 
-- **WIG tab (`src/pages/Wig.tsx`)** filters bookings up-front and excludes `DELETED_SOFT`, duplicates, deleted/dead, `is_vip`, and `ignore_from_metrics`. So James's "Coached" drilldown shows 3 — correct.
-- **Studio tab (`src/components/dashboard/PerCoachTable.tsx`)** iterates over `introsRun` and only filters by `result_canon` (VIP_CLASS_INTRO/NO_SHOW/UNRESOLVED). It never checks the linked booking's status, so soft-deleted bookings still feed Coached and Closes — James shows 6.
+Why the gap:
 
-`PerSATable` and `BookerStatsTable` already check `deleted_at` + `is_vip`, so the bug is isolated to `PerCoachTable`. The deeper issue is that this filter is duplicated as ad-hoc inline checks in 4+ files, which is exactly how Studio drifted from WIG.
+- **Studio** counts a sale if its `intros_run` row has `isMembershipSale` and `buy_date` in range. It does not care about the booking chain. → Alexa counted.
+- **WIG** counts only **first-intro bookings** in the date range (`!originating_booking_id || referred_by_member_name`), then attributes Coached/Closes off those. Alexa's run is on a **2nd-intro booking** (`b647bc02…`). Its originating 1st intro (`467a6805…`) is `booking_status_canon = DELETED_SOFT`, so `isBookingExcludedFromMetrics` drops it from `firstIntroBookings`. The 2nd intro itself is filtered out because it has an `originating_booking_id`. → Alexa never enters WIG's coach map.
+
+So when a 1st intro gets soft-deleted (e.g., it wasn't a true intro), but its 2nd intro actually ran and sold, WIG silently loses that close. Studio still counts the sale. The two views drift.
+
+This is a real category of orphan: the 2nd intro is a legitimate intro that ran with a real coach and produced a real sale. James coached it. He should get the close.
 
 ## Fix
 
-### 1. Add a single source of truth for "is this booking excluded from metrics?"
+Promote orphaned 2nd intros to "standalone first intros" inside WIG's coach attribution loop, so they get a Coached row and a Close row attributed to whoever coached the 2nd intro.
 
-New file `src/lib/intros/excludedBookings.ts`:
+### Files to edit
 
-```ts
-export function isBookingExcludedFromMetrics(b: any): boolean {
-  if (!b) return true;
-  if (b.is_vip) return true;
-  if (b.ignore_from_metrics) return true;
-  if (b.deleted_at) return true;
-  const status = (b.booking_status_canon || '').toUpperCase();
-  if (status === 'DELETED_SOFT') return true;
-  if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return true;
-  return false;
-}
-```
+`**src/pages/Wig.tsx**` — `loadCoachData` / `firstIntroBookings` build (around lines 343–402):
 
-Add a unit test in `src/lib/intros/__tests__/excludedBookings.test.ts` covering each branch (DELETED_SOFT, deleted_at present, is_vip, ignore_from_metrics, duplicate-status, clean booking, null) so future schema drift fails CI.
+1. After fetching `coachBookingsRes` and computing `allCoachBookings`, also fetch the **originating bookings** referenced by any 2nd-intro in `allCoachBookings` (one batched `.in('id', originatingIds)` query, no class_date filter).
+2. Build `excludedOriginatingIds = Set` of those originating bookings where `isBookingExcludedFromMetrics(orig) === true` OR the originating booking does not exist (404 / orphan).
+3. Change the `firstIntroBookings` filter from
+  ```
+   !b.originating_booking_id || !!b.referred_by_member_name
+  ```
+   to
+   That way Alexa's 2nd-intro booking is treated as a first intro for Coached/Closes.
+4. Leave the rest of the pipeline alone — `showedFirstIntroBookings`, `coachCloseMap`, Total-Journey 2nd-intro lookup, and the drilldown row construction all already work off `firstIntroBookings`.
 
-### 2. Wire the helper into `PerCoachTable.tsx` (the bug fix)
+### Why this is the right fix (not a symptom patch)
 
-In the `useMemo`:
-- Build `excludedBookingIds = new Set(introsBooked.filter(isBookingExcludedFromMetrics).map(b => b.id))`.
-- In the `firstIntroRuns` filter, also drop any run whose `linked_intro_booked_id ∈ excludedBookingIds`.
-- In the Total-Journey 2nd-intro check, also drop chained 2nd-intro bookings that are excluded.
+- It mirrors how a human reads the data: a 2nd intro whose 1st intro was thrown away is, operationally, the member's actual first real intro. Crediting the coach who ran it is correct.
+- It keeps Studio's logic untouched (Studio is already correct at 7).
+- It does **not** double-count: the original 1st intro is excluded from Coached, so the 2nd intro takes its slot exactly once.
+- It does **not** affect chains where the 1st intro is healthy — those still resolve via the existing Total-Journey path.
+- It composes cleanly with `isBookingExcludedFromMetrics`, the canonical exclusion helper.
 
-After this fix, James's Studio Coached drops from 6 → 3, matching WIG. Jaden, Ethan, and Alexa's pre-deletion duplicate booking disappear from the drilldown.
+### Downstream effects to verify after build
 
-### 3. Replace the inline filters in WIG, PerSATable, and BookerStatsTable with the helper
+- WIG Coach — Coached & Closes table totals will move from 6 → 7 closes (James +1).
+- WIG Close-rate tile recomputes from the table totals → ~70% (7 / 10) for May 2026, matching what Studio reports.
+- `PerCoachTable` (Studio) already filters via `isBookingExcludedFromMetrics`; behavior unchanged there.
+- Drilldown for James → Closes will gain one row labeled SALE for Alexa Brodsky, via `direct` (since the run is on her booking, not a chained child).
 
-Same logic, just unified — so the next time someone adds a new "excluded" condition (e.g. a new canon status), every screen picks it up automatically.
+### Out of scope
 
-- `src/pages/Wig.tsx` — replace the inline `filteredBookings`/`allCoachBookings` filter blocks (≈3 spots) with `isBookingExcludedFromMetrics`.
-- `src/components/dashboard/PerSATable.tsx` — replace the `deleted_at + is_vip` block.
-- `src/components/dashboard/BookerStatsTable.tsx` — same.
+- No DB changes, no migrations, no edits to `close-detection.ts`, `excludedBookings.ts`, or Studio metrics.
+- Not changing how soft-deleted 1st intros are treated elsewhere (they remain excluded, as designed).
+- Not touching the rebooking flow that creates these 2nd intros.
 
-Behavior is unchanged for these three; this is just a refactor preventing future drift.
+### Test
 
-### 4. Verify with the same query the user saw
-
-After the fix, James's Studio drilldown should match WIG: April Boera (Booked 2nd), Mehmet Kamci (SALE), Sarah Riggins (SALE) — and nothing else.
-
-## Files
-
-**New**
-- `src/lib/intros/excludedBookings.ts`
-- `src/lib/intros/__tests__/excludedBookings.test.ts`
-
-**Edited**
-- `src/components/dashboard/PerCoachTable.tsx` (the actual fix)
-- `src/pages/Wig.tsx` (refactor to shared helper)
-- `src/components/dashboard/PerSATable.tsx` (refactor)
-- `src/components/dashboard/BookerStatsTable.tsx` (refactor)
-
-## Out of scope
-
-- Changing what counts as "excluded" — keeping the exact same rule WIG already uses.
-- Touching VIP-coach attribution or close-detection logic.
-- Recovering or hard-deleting the soft-deleted bookings (they stay archived for audit).
+After the edit, re-run the existing test suite (`bunx vitest run`) — no test changes expected. Spot-check May 2026 in the preview: WIG should show 7 closes total and James should jump from 2 → 3.
