@@ -45,6 +45,8 @@ export function ScorecardFormBody(props: BodyProps) {
   const [handbackNotes, setHandbackNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [revealLevel, setRevealLevel] = useState<1 | 2 | 3 | null>(null);
+  const [loadedSubmittedAt, setLoadedSubmittedAt] = useState<string | null>(null);
+  const [loadedEvaluator, setLoadedEvaluator] = useState<string | null>(null);
 
   const coachOptions = ['TBD', ...COACHES];
 
