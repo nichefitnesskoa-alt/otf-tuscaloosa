@@ -196,9 +196,16 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     };
     let unscoredCount = 0;
     const unscoredByCoach = new Map<string, number>();
+    const unscoredIntros: UnscoredIntro[] = [];
     const ranByCoach = new Map<string, number>();
     const formalByCoach = new Map<string, { sum: number; n: number }>();
     const selfByCoach = new Map<string, { sum: number; n: number }>();
+    const closedCards: FvScorecard[] = [];
+    const notClosedCards: FvScorecard[] = [];
+    const coverageCards = {
+      formal: [] as FvScorecard[],
+      selfOnly: [] as FvScorecard[],
+    };
 
     ran.forEach(r => {
       ranByCoach.set(r.coach, (ranByCoach.get(r.coach) || 0) + 1);
@@ -211,20 +218,29 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       if (hasFormal) {
         cov.formal.total++;
         if (r.closed) cov.formal.closed++;
+        if (primaryCard) coverageCards.formal.push(primaryCard);
       } else if (hasSelf) {
         cov.selfOnly.total++;
         if (r.closed) cov.selfOnly.closed++;
+        if (primaryCard) coverageCards.selfOnly.push(primaryCard);
       } else {
         cov.unscored.total++;
         if (r.closed) cov.unscored.closed++;
         unscoredCount++;
         unscoredByCoach.set(r.coach, (unscoredByCoach.get(r.coach) || 0) + 1);
+        unscoredIntros.push({
+          bookingId: r.bookingId,
+          coach: r.coach,
+          memberName: r.memberName,
+          classDate: r.classDate,
+          introTime: r.introTime,
+        });
       }
 
       // Avg-closed / avg-not-closed (only when we have a primary score)
       if (primaryCard) {
-        if (r.closed) { closedSum += primaryCard.total_score; closedN++; }
-        else { notSum += primaryCard.total_score; notN++; }
+        if (r.closed) { closedSum += primaryCard.total_score; closedN++; closedCards.push(primaryCard); }
+        else { notSum += primaryCard.total_score; notN++; notClosedCards.push(primaryCard); }
       }
 
       // Per-coach formal/self averages
@@ -260,10 +276,14 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
       closingTiles,
       unscoredCount,
       unscoredByCoach,
+      unscoredIntros,
       scorecards: cards,
       ranByCoach,
       formalByCoach: formalAvg,
       selfByCoach: selfAvg,
+      closedCards,
+      notClosedCards,
+      coverageCards,
     };
   }, [cards, ran, range, primary, smoothed]);
 
