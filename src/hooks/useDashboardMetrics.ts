@@ -100,9 +100,11 @@ export interface DashboardMetrics {
 }
 
 /**
- * Check if a date string falls within a date range (or always true if range is null)
+ * Check if a date string falls within a DateRange (or always true if range is null).
+ * Renamed from `isDateInRange` to disambiguate from the string-based
+ * `isDateInRange(dateStr, startStr, endStr)` exported by sales-detection.ts.
  */
-function isDateInRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
+function isDateInDateRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
   if (!range) return true; // All time - no filtering
   if (!dateStr) return false;
   try {
