@@ -351,8 +351,39 @@ export default function Wig() {
 
       const allCoachBookings = ((coachBookingsRes.data || []) as any[]).filter(b => !isBookingExcludedFromMetrics(b));
 
+      // Resolve "orphaned" 2nd intros: when a 2nd-intro booking's originating
+      // 1st intro is excluded (e.g. DELETED_SOFT — wasn't a true intro), the
+      // 2nd intro becomes the member's actual first real intro. Credit the
+      // coach who ran it (which, per Total Journey, is the first coach who
+      // actually coached the person).
+      const originatingIds = Array.from(new Set(
+        allCoachBookings
+          .map(b => b.originating_booking_id)
+          .filter((id): id is string => !!id)
+      ));
+      const excludedOriginatingIds = new Set<string>();
+      if (originatingIds.length > 0) {
+        const origBatches: string[][] = [];
+        for (let i = 0; i < originatingIds.length; i += 500) origBatches.push(originatingIds.slice(i, i + 500));
+        const foundIds = new Set<string>();
+        for (const batch of origBatches) {
+          const { data: origRows } = await supabase
+            .from('intros_booked')
+            .select('id, booking_status_canon, is_vip, ignore_from_metrics, deleted_at')
+            .in('id', batch);
+          (origRows || []).forEach((o: any) => {
+            foundIds.add(o.id);
+            if (isBookingExcludedFromMetrics(o)) excludedOriginatingIds.add(o.id);
+          });
+        }
+        // Truly orphaned (originating row missing) → also promote the 2nd intro
+        originatingIds.forEach(id => { if (!foundIds.has(id)) excludedOriginatingIds.add(id); });
+      }
+
       const firstIntroBookings = allCoachBookings.filter(b =>
-        !b.originating_booking_id || !!b.referred_by_member_name
+        !b.originating_booking_id
+        || !!b.referred_by_member_name
+        || excludedOriginatingIds.has(b.originating_booking_id)
       );
 
       // ── VIP Class attribution map ──
