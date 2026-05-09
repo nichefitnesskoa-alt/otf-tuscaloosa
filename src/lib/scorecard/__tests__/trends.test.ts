@@ -29,13 +29,29 @@ function card(over: Partial<FvScorecard>): FvScorecard {
 }
 
 describe('getCadenceForDate — ISO week boundaries', () => {
-  it('alternates self/formal across week 52 → week 1 boundary', () => {
-    // Dec 28, 2026 → ISO week 53 (2026 is a long year)
-    const dec28 = new Date(2026, 11, 28); // Mon
-    const jan04 = new Date(2027, 0, 4);   // Mon, ISO week 1 of 2027
-    const c1 = getCadenceForDate(dec28);
-    const c2 = getCadenceForDate(jan04);
+  it('alternates self/formal across week 52 → week 1 boundary (standard year)', () => {
+    // 2025 is a standard ISO year (no week 53). wk52 even=formal, wk1 odd=self.
+    const dec22_2025 = new Date(2025, 11, 22); // Mon, ISO week 52 of 2025
+    const dec29_2025 = new Date(2025, 11, 29); // Mon, ISO week 1 of 2026
+    const c1 = getCadenceForDate(dec22_2025);
+    const c2 = getCadenceForDate(dec29_2025);
+    expect(c1.isoWeek).toBe(52);
+    expect(c2.isoWeek).toBe(1);
     expect(c1.type).not.toBe(c2.type);
+  });
+
+  it('long-year boundary (week 53 → week 1) keeps parity rule deterministic', () => {
+    // 2026 has ISO week 53. Both 53 and 1 are odd → both 'self'. This is the
+    // documented behavior of the studio-wide odd/even rule. If this changes,
+    // notifications, dot status, and chip language all need to update together.
+    const dec28_2026 = new Date(2026, 11, 28); // Mon, ISO week 53 of 2026
+    const jan04_2027 = new Date(2027, 0, 4);   // Mon, ISO week 1 of 2027
+    const c1 = getCadenceForDate(dec28_2026);
+    const c2 = getCadenceForDate(jan04_2027);
+    expect(c1.isoWeek).toBe(53);
+    expect(c2.isoWeek).toBe(1);
+    expect(c1.type).toBe('self');
+    expect(c2.type).toBe('self');
   });
 
   it('handles ISO week 53 in long years (2026)', () => {
