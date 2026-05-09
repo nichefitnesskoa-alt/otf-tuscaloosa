@@ -106,8 +106,14 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
           if (!r.linked_intro_booked_id) return;
           if (RAN_EXCLUDED.has((r.result_canon || '').toUpperCase())) return;
           const b = valid.find((x: any) => x.id === r.linked_intro_booked_id);
-          const coach = (r.coach_name || b?.coach_name || '').trim();
-          if (!coach || /^tbd$/i.test(coach)) return;
+          // Fall back to booking.coach_name when run.coach_name is blank OR 'TBD'
+          // (run rows are often left at TBD when the SA who logged the run didn't update the coach).
+          const rawRun = (r.coach_name || '').trim();
+          const coachFromRun = rawRun && !/^tbd$/i.test(rawRun) ? rawRun : '';
+          const rawBooking = (b?.coach_name || '').trim();
+          const coachFromBooking = rawBooking && !/^tbd$/i.test(rawBooking) ? rawBooking : '';
+          const coach = coachFromRun || coachFromBooking;
+          if (!coach) return;
           if (!ran.has(r.linked_intro_booked_id)) ran.set(r.linked_intro_booked_id, { coach });
         });
       }
