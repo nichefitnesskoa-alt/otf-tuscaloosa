@@ -492,21 +492,33 @@ export default function Wig() {
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
           (runs || []).forEach((r: any) => {
-            // Exclude VIP Class Intro outcomes from close-rate math entirely
-            if (r.result_canon === 'VIP_CLASS_INTRO') return;
             const linkedBooking = r.linked_intro_booked_id ? bookingByIdMap.get(r.linked_intro_booked_id) : null;
             // For VIP Class intros, credit the VIP class coach instead of the follow-up coach
             const cName = linkedBooking
               ? (resolveCloseCoach(linkedBooking, r.coach_name) || r.coach_name)
               : r.coach_name;
             if (!cName) return;
+            const introBase: AttribIntro = {
+              bookingId: r.linked_intro_booked_id || cName,
+              member: linkedBooking?.member_name || 'Unknown',
+              classDate: linkedBooking?.class_date || null,
+              source: linkedBooking?.lead_source || null,
+              resultLabel: labelFromRun(r),
+            };
+            // Exclude VIP Class Intro outcomes from close-rate math entirely
+            if (r.result_canon === 'VIP_CLASS_INTRO') {
+              ensureAttrib(cName).excluded.push(introBase);
+              return;
+            }
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
             if (isCloseRun(r)) {
               ex.closed++;
+              ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE' });
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach
               ex.closed++;
+              ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE' });
             }
             coachCloseMap.set(cName, ex);
           });
@@ -530,6 +542,7 @@ export default function Wig() {
       const totalsCoached = coachData.reduce((sum, c) => sum + (c.coached || 0), 0);
       const totalsClosed = coachData.reduce((sum, c) => sum + (c.closes || 0), 0);
       setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
+      setCoachAttribution(attribMap);
 
       if (user?.role === 'Coach') {
         setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
