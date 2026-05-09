@@ -21,6 +21,7 @@ import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detec
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
