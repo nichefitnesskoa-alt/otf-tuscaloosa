@@ -126,7 +126,16 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
             </Card>
 
             {/* Closing-score tiles */}
-            <ClosingTiles tiles={data.closingTiles} />
+            <ClosingTiles
+              tiles={data.closingTiles}
+              onTapClosed={() => setDrilldown({ label: `Closed · avg score`, cards: data.closedCards })}
+              onTapNotClosed={() => setDrilldown({ label: `Didn't close · avg score`, cards: data.notClosedCards })}
+              onTapCoverage={(bucket) => {
+                if (bucket === 'formal') setDrilldown({ label: 'Coverage · formal eval', cards: data.coverageCards.formal });
+                else if (bucket === 'selfOnly') setDrilldown({ label: 'Coverage · self eval only', cards: data.coverageCards.selfOnly });
+                else setUnscoredFor({ coach: 'Studio', intros: data.unscoredIntros });
+              }}
+            />
 
             {/* Coach leaderboard */}
             <div>
@@ -150,14 +159,20 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                       const coachPoints = data.perCoachPoints.get(coach) || [];
                       return (
                         <div key={coach} className="rounded-md border border-border bg-card overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCoach(expanded ? null : coach)}
-                            className="w-full flex items-center gap-2 px-3 py-2.5 min-h-[44px] hover:bg-muted/50 text-left"
-                          >
+                          <div className="flex items-center gap-1 px-2 py-1.5 min-h-[44px]">
                             <CadenceDot status={dot} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold truncate">{coach}</p>
+                            {/* Coach name → routes to detail page */}
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/coaches/${encodeURIComponent(coach)}`)}
+                              className="flex-1 min-w-0 text-left px-2 py-1 rounded hover:bg-muted/50 cursor-pointer group"
+                              title={`Open ${coach}'s coach page`}
+                            >
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-semibold truncate text-primary group-hover:underline">{coach}</span>
+                                <ExternalLink className="w-3 h-3 text-muted-foreground opacity-50 group-hover:opacity-100" />
+                                <CoachStreakBadges coach={coach} cards={data.scorecards} />
+                              </div>
                               <p className="text-[10px] text-muted-foreground">
                                 {ran} ran · Formal {formal?.avg !== null && formal?.avg !== undefined ? formal.avg.toFixed(1) : '—'} ({formal?.count || 0})
                                 · Self {self?.avg !== null && self?.avg !== undefined ? self.avg.toFixed(1) : '—'} ({self?.count || 0})
@@ -165,12 +180,30 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                   <> · Gap <span className={gap > 2 ? 'text-destructive' : gap < -2 ? 'text-success' : 'text-warning'}>{gap > 0 ? '+' : ''}{gap.toFixed(1)}</span></>
                                 )}
                               </p>
-                            </div>
+                            </button>
                             {unscored > 0 && (
-                              <Badge variant="outline" className="text-[10px]">{unscored} unscored</Badge>
+                              <button
+                                type="button"
+                                onClick={() => setUnscoredFor({
+                                  coach,
+                                  intros: data.unscoredIntros.filter(i => i.coach === coach),
+                                })}
+                                className="px-2.5 min-h-[36px] rounded-md border border-primary/40 bg-primary/5 text-primary text-[11px] font-semibold hover:bg-primary/10 cursor-pointer whitespace-nowrap"
+                                title={`Score ${unscored} unscored ${unscored === 1 ? 'intro' : 'intros'}`}
+                              >
+                                {unscored} unscored →
+                              </button>
                             )}
-                            {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedCoach(expanded ? null : coach)}
+                              className="p-2 min-h-[36px] min-w-[36px] rounded-md hover:bg-muted/50 cursor-pointer flex items-center justify-center"
+                              title={expanded ? 'Collapse trend' : 'Expand trend'}
+                              aria-label={expanded ? 'Collapse trend' : 'Expand trend'}
+                            >
+                              {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                            </button>
+                          </div>
                           {expanded && (
                             <div className="px-3 pb-3 pt-1 border-t border-border bg-muted/20">
                               <p className="text-[10px] text-muted-foreground mb-1">{coach} vs studio (faded)</p>
@@ -193,7 +226,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
         )}
       </CardContent>
 
-      {/* Drill-down modal */}
+      {/* Drill-down modal (scorecard list) */}
       <Dialog open={!!drilldown} onOpenChange={o => !o && setDrilldown(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle className="text-sm">{drilldown?.label}</DialogTitle></DialogHeader>
@@ -216,6 +249,16 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Unscored drill-down (per coach or studio) */}
+      {unscoredFor && (
+        <UnscoredDrillDown
+          open={!!unscoredFor}
+          onOpenChange={(o) => { if (!o) setUnscoredFor(null); }}
+          coach={unscoredFor.coach}
+          intros={unscoredFor.intros}
+        />
+      )}
 
       <ComparisonView scorecardId={openCardId} open={!!openCardId} onOpenChange={(o) => { if (!o) setOpenCardId(null); }} />
     </Card>
