@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useData, IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
 import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
+import { isCloseRun } from '@/lib/intros/close-detection';
 import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
