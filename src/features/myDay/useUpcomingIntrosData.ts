@@ -106,20 +106,20 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
         .order('intro_time', { ascending: true })
         .limit(200);
 
-      const { data: bookings, error: bErr } = await query;
+      const { data: bookingsRaw, error: bErr } = await query;
 
       if (bErr) throw bErr;
-      if (!bookings || bookings.length === 0) {
-        setItems([]);
-        setCapped(false);
-        setLastSyncAt(new Date().toISOString());
-        return;
-      }
+      const bookings = bookingsRaw || [];
       setCapped(bookings.length >= 200);
 
       const bookingIds = bookings.map(b => b.id);
 
-      const [qRes, runRes, confirmRes, qFullRes] = await Promise.all([
+      // Skip booking-derived joins entirely when there are no bookings —
+      // but DO NOT return early, because VIP group sessions still need to render
+      // on weeks that have zero standard intros.
+      const [qRes, runRes, confirmRes, qFullRes] = bookingIds.length === 0
+        ? [{ data: [] as any[] }, { data: [] as any[] }, { data: [] as any[] }, { data: [] as any[] }]
+        : await Promise.all([
         supabase
           .from('intro_questionnaires')
           .select('booking_id, status, submitted_at, created_at')
