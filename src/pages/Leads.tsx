@@ -96,12 +96,12 @@ export default function Leads() {
           // Check if already purchased (booking closed as bought)
           const isBought = (nameMatch as any).booking_status === 'Closed – Bought';
           
-          // Also check intros_run for a sale result
+          // Canon-side sale check (mirror of SALE_CANONS in @/lib/sales-detection).
           const { data: saleRun } = await supabase
             .from('intros_run')
             .select('id')
             .ilike('member_name', fullName)
-            .or('result.ilike.%premier%,result.ilike.%elite%,result.ilike.%basic%')
+            .in('result_canon', ['SALE', 'PREMIER', 'PREMIER_OTBEAT', 'ELITE', 'BASIC'])
             .limit(1)
             .maybeSingle();
 
