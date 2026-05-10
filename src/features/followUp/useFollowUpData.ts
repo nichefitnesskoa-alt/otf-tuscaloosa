@@ -14,6 +14,17 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type FollowUpType = 'noshow_1st' | 'noshow_2nd' | 'reschedule' | 'didnt_buy_1st' | 'didnt_buy_2nd' | 'planning_to_buy';
 
+/**
+ * follow_up_queue.person_type values that must NEVER be auto-archived
+ * by any cleanup script — these have specific future dates tied to them
+ * (e.g. Planning-to-Buy people with a chosen purchase date months out).
+ *
+ * Any future bulk-archive / cleanup logic MUST exclude these. The pre-May
+ * cleanup was a one-time SQL run; if another agent writes a similar script,
+ * import this constant and filter `person_type NOT IN (...)` on it.
+ */
+export const NEVER_ARCHIVE_PERSON_TYPES = ['planning_to_buy'] as const;
+
 export interface FollowUpItem {
   bookingId: string;
   runId: string | null;
