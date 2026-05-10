@@ -105,7 +105,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           First Visit Experience
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Every coach's first visits, scored. Tap a coach to see their trend. Tap a point on any chart to open the scorecards behind it.
+          Every coach's first visits, scored. Tap a coach in the legend to isolate. Tap a point to open the scorecards behind it.
         </p>
         <div className="pt-2">
           <DateRangeFilter
@@ -133,8 +133,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
             value={primary}
             onChange={v => setPrimary(v as EvalPrimary)}
             options={[
-              { value: 'formal', label: 'Formal primary' },
-              { value: 'self', label: 'Self primary' },
+              { value: 'self', label: 'Self Evals' },
+              { value: 'formal', label: 'Formal Evals' },
             ]}
           />
           {hasAnyRan && (
@@ -151,26 +151,46 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           <EmptyState onScoreFirst={() => navigate('/scorecards/me')} />
         ) : (
           <>
-            {/* Studio overall trend */}
+            {/* Multi-coach trend chart with mode tabs */}
             <Card className="p-3 border-border/60">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold">Studio overall</h3>
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <ToggleGroup
+                  value={chartMode}
+                  onChange={v => setChartMode(v as ChartMode)}
+                  options={[
+                    { value: 'avg', label: 'Avg Score' },
+                    { value: 'closed', label: 'Avg Score · Closed' },
+                  ]}
+                />
                 <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
               </div>
-              {data.studioPoints.length === 0 ? (
+              {primaryTypeCount === 0 ? (
                 <div className="py-8 text-center space-y-1">
                   <ClipboardCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
-                  <p className="text-sm font-semibold">No scorecards in this range yet.</p>
+                  <p className="text-sm font-semibold">
+                    No {primary === 'self' ? 'self' : 'formal'} evals in this range yet.
+                  </p>
                   <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    First Visit Experience is how this studio measures elite. The first scorecard starts the trend.
+                    The first scorecard starts the trend.
                   </p>
                 </div>
               ) : (
-                <TrendChart
-                  points={data.studioPoints}
-                  onPointTap={(p) => setDrilldown({ label: `Studio · ${p.bucket}`, cards: p.scorecards })}
-                  primaryColor="hsl(20 90% 47%)"
-                  secondaryColor="hsl(38 92% 60%)"
+                <MultiCoachTrendChart
+                  primary={primary}
+                  studioPoints={chartMode === 'avg' ? data.studioPoints : data.closedPoints}
+                  perCoachPoints={chartMode === 'avg' ? data.perCoachPoints : perCoachClosedPoints}
+                  hidden={hiddenSeries}
+                  onToggleSeries={toggleSeries}
+                  onPointTap={(seriesKey, seriesLabel, point) => {
+                    let cards = point.scorecards;
+                    if (seriesKey !== STUDIO_KEY) {
+                      cards = cards.filter(c => c.evaluatee_name === seriesKey);
+                    }
+                    setDrilldown({
+                      label: `${seriesLabel} · ${point.bucket}${chartMode === 'closed' ? ' · closed' : ''}`,
+                      cards,
+                    });
+                  }}
                 />
               )}
             </Card>
