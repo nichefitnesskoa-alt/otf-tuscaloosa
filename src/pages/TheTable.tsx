@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Flag, Plus, ChevronLeft, ChevronRight, Settings, History, Trophy, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  useCurrentMeeting, useActiveOwners, useOwnerEntries, useResponses, useActionItems,
+  useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
   type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
@@ -21,7 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const HEALTH_DOT: Record<string, string> = {
   green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500',
@@ -43,9 +43,11 @@ export default function TheTable() {
   const isAdmin = user?.role === 'Admin';
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();
 
-  const { data: meeting, isLoading } = useCurrentMeeting();
+  const { data: meeting, isLoading } = useCurrentMeeting(paramMeetingId);
   const { data: owners = [] } = useActiveOwners();
+  const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
   const { data: responses = [] } = useResponses(meeting?.id);
   const { data: actions = [] } = useActionItems(meeting?.id);
@@ -63,14 +65,22 @@ export default function TheTable() {
   const [responseText, setResponseText] = useState('');
   const [actionDialog, setActionDialog] = useState<{ responseId: string; defaultDesc: string } | null>(null);
 
-  // Self owner record, if any
+  // Self owner record, if any (architect doesn't appear here, so Koa never has one)
   const myOwner = owners.find(o => o.display_name === user?.name);
   const myEntry = myOwner && entries.find(e => e.owner_id === myOwner.id);
+  const isArchitectViewer = !!architect && architect.display_name === user?.name;
+  const architectEntry = architect && entries.find(e => e.owner_id === architect.id);
 
   // Refresh helper
   const refresh = (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] });
 
-  if (isLoading || !meeting) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
+  if (!meeting) return (
+    <div className="p-8 text-center text-muted-foreground">
+      Meeting not found.{' '}
+      <button className="text-[#E8540A] underline" onClick={() => navigate('/the-table')}>Back to Own It</button>
+    </div>
+  );
 
   // ---------- Header ----------
   const header = (
