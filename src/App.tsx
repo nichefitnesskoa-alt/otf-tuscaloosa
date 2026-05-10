@@ -29,6 +29,8 @@ import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
 import CoachDetail from "./pages/CoachDetail";
 import SaDetail from "./pages/SaDetail";
+import TheTable from "./pages/TheTable";
+import TheTableHistory from "./pages/TheTableHistory";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -207,7 +209,9 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to={defaultRoute} replace />} />
+      <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
+      <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
+      <Route path="/" element={<Navigate to={defaultRoute} replace />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
