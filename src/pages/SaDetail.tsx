@@ -160,7 +160,7 @@ export default function SaDetail() {
       />
 
       {/* Tile row */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <button
@@ -185,6 +185,19 @@ export default function SaDetail() {
               <p className="text-2xl font-bold text-primary">{myRow?.milestones ?? 0}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Milestones marked</p>
             </button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <div
+              className="w-full min-h-[44px] rounded -m-1 p-1"
+              title={`${myCoverage.celebrated} celebrated / ${myCoverage.missed} missed across ${myCoverage.reportedShifts} reported shift${myCoverage.reportedShifts === 1 ? '' : 's'}`}
+            >
+              <p className="text-2xl font-bold text-primary">{formatCoveragePct(myCoverage.pct)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Coverage · {myCoverage.reportedShifts} report{myCoverage.reportedShifts === 1 ? '' : 's'}
+              </p>
+            </div>
           </CardContent>
         </Card>
         <Card>
