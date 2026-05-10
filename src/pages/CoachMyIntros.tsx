@@ -646,7 +646,7 @@ export default function CoachMyIntros() {
     <div className="p-4 space-y-4 pb-24">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-bold">My Intros</h1>
+        <h1 className="text-lg font-bold">Text My Intros</h1>
         <p className="text-xs text-muted-foreground">Everyone you've coached. Stay connected within 48 hours.</p>
       </div>
 
