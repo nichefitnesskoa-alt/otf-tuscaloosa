@@ -1,47 +1,61 @@
-I don't want military time anywhere. And I want that people in The Table sorted alphabetically. as well.  I want "The Table" Changed to "Own it"  
+7 days feels right  
   
-Fixes for The Table + Bottom Nav
+Fix: VIP group cards missing from My Day
 
-### 1. "Duplicate key" when re-adding an owner
+## What's happening
 
-**Cause:** `ManageOwnersDialog.removeOwner()` soft-removes by setting `is_active = false`, but `availableStaff` only filters out owners that exist *at all* — so soft-removed staff drop off the "Add" dropdown, AND the add path always does `INSERT`, which collides with the unique constraint on `staff_id`.
+Hemline Tuscaloosa's VIP class is on **Mon May 11 at 8:45 AM** with `status='reserved'`. The data is correct — the card is being filtered out by the date range.
 
-**Fix:**
+My Day's "Upcoming Intros" card uses `timeRange='weekFull'`, which is defined as:
 
-- `availableStaff` filter changes to exclude only **active** owners (`o.is_active && o.staff_id === s.id`), so Georgia reappears in the picker.
-- `addOwner()` becomes upsert-style: if a `table_owners` row already exists for that `staff_id`, `UPDATE` it back to `is_active = true` (and clear lane/category if user wants a fresh start — see Q below). Otherwise `INSERT` as today.
-- `useActiveOwners` already filters by `is_active = true`, so the list stays clean.
+```
+start = today
+end   = endOfWeek(today, { weekStartsOn: Monday })  // → Sunday
+```
 
-### 2. Auto-assign category from Ownership Role
+Today is **Sunday May 10**, so the range collapses to `May 10 → May 10`. Tomorrow's VIP (May 11) is technically next week, so it's excluded — for both regular intros and VIP sessions. Every Sunday, My Day goes blind to anything Mon–Sat of the upcoming week.
 
-- Remove the standalone Category dropdown from the per-owner editor.
-- When the user picks/types an Ownership Role, look it up in `LANE_SUGGESTIONS` and auto-set `category` on save.
-- If the role is custom (not in suggestions), category is left blank (or set to `Operations and Culture` as a default — see Q below).
-- Category still stored in DB (used elsewhere); it's just no longer hand-picked.
+## Fix (scoped, additive)
 
-### 3. Rename "Lane name" → "Ownership Role"
+Two coordinated changes in `src/features/myDay/useUpcomingIntrosData.ts`:
 
-- Label in `ManageOwnersDialog`.
-- Any user-facing copy in `TheTable.tsx` / `TheTableHistory.tsx` that says "Lane" gets updated to "Ownership Role" (DB columns stay `lane_name` / `category` — internal only).
+### 1. Extend `weekFull` to never return less than 7 days ahead
 
-### 4. Bottom nav spans full width on desktop
+Change `getDateRange` for `'weekFull'`:
 
-Current `BottomNav.tsx` uses `min-w-max` + `overflow-x-auto`, so 8 tabs hug the left on a 1267px viewport.
+```text
+start = today
+end   = max( endOfWeek(today, Mon), today + 6 days )
+```
 
-**Fix:**
+This keeps Mon–Sat behavior identical (still ends on the upcoming Sunday) but on Sunday rolls forward through next Saturday. Same fix benefits regular intros and VIP groups simultaneously — single source of truth, no new branch.
 
-- On `md+`: tabs distribute across full width (`flex-1` per button, no `min-w-max`, no horizontal scroll).
-- On mobile: keep current scrollable behavior (8 tabs won't fit at 375px).
-- Implementation: `md:min-w-0 md:w-full` on inner container, `flex-1 md:flex-1` on buttons, `md:overflow-visible` on `<nav>`.
+### 2. VIP sessions: always lookahead at least 7 days
 
-### Files touched
+Independent of timeRange, VIP groups are sparse and operationally critical (they drive prep). In the VIP fetch block (lines ~431–439), compute `vipEnd = max(rangeEnd, today + 6 days)` so a VIP group within the next week always shows on My Day even if the user is on the "Today" tab.
 
-- `src/components/table/ManageOwnersDialog.tsx` — upsert add, remove category select, rename label
-- `src/components/BottomNav.tsx` — responsive width
-- `src/pages/TheTable.tsx`, `src/pages/TheTableHistory.tsx` — copy: "Lane" → "Ownership Role"
-- `src/hooks/useTheTable.ts` — only if mutation helper needs upsert support (likely not; dialog handles it)
+Regular intros stay scoped to the chosen range (no behavior change for SAs filtering by Today).
 
-### Confirm before I build
+## Coherence check
 
-1. When re-adding a previously removed owner (e.g. Georgia), should I **preserve her old Ownership Role + category**, or **reset to blank** so it's a clean re-add?
-2. For a custom Ownership Role the user types (not in the suggestion list), should category fall back to **blank**, **"Operations and Culture"**, or **prompt the user to pick one that one time only**?
+Surfaces touched / verified:
+
+- `useUpcomingIntrosData` → `UpcomingIntrosCard` (My Day) — Hemline VIP appears tomorrow ✓
+- `MyDayPage` passes `fixedTimeRange='weekFull'` — unaffected for Mon–Sat, fixed for Sun
+- `useWinTheDayItems` — separate query (today only), not affected, intentionally
+- VIP day grouping in `IntroDayGroup` — already supports VIP-only days ("+N VIP groups" badge)
+
+## Verification
+
+- On Sun May 10, My Day shows Hemline Tuscaloosa VIP card under "Tomorrow / Mon May 11 · 8:45 AM"
+- On Mon–Sat, weekFull range is unchanged (regression check: same start/end as before)
+- VIP groups within next 7 days appear even when user toggles to "Today" tab
+- `needsOutcome`, `restOfWeek`, `today` time ranges unchanged
+
+## Files to edit
+
+- `src/features/myDay/useUpcomingIntrosData.ts` (only)
+
+## Open question
+
+**Confirm the lookahead window**: 7 days feels right (full week visibility from any day). Want it longer (e.g. 14 days) so you can prep further out, or strict 7?
