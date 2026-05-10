@@ -103,7 +103,7 @@ export function BottomNav() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full px-1 transition-colors relative min-w-[44px]',
+                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px]',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
