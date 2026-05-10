@@ -14,12 +14,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Determine role based on staff table, falling back to hardcoded lists
+// Determine role based on staff table, falling back to hardcoded lists.
+// NOTE: 'Both' staff get the UNION of Coach + SA features (not Admin).
+// Admin access is gated by IDENTITY (Koa) below — never by role string.
 function getRoleForName(name: string, staffRole?: string): UserRole {
   if (staffRole) {
     if (staffRole === 'Admin') return 'Admin';
     if (staffRole === 'Coach') return 'Coach';
-    if (staffRole === 'Both') return 'Admin'; // Both gets full access
+    if (staffRole === 'Both') return 'Both';
     return 'SA';
   }
   // Fallback for legacy
