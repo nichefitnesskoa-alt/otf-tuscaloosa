@@ -83,7 +83,8 @@ export default function CoachView() {
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [coachFilter, setCoachFilter] = useState<string>('all');
+  // Default to "mine" — user sees only their own intros. Toggle flips to "all".
+  const [coachScope, setCoachScope] = useState<'mine' | 'all'>('mine');
 
   // Week navigation
   const [weekOffset, setWeekOffset] = useState(0);
@@ -165,11 +166,11 @@ export default function CoachView() {
   const filteredBookings = useMemo(() => {
     const EXCLUDED_STATUSES = ['DELETED_SOFT', 'CANCELLED', 'PLANNING_RESCHEDULE'];
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at && !EXCLUDED_STATUSES.includes(b.booking_status_canon));
-    if (coachFilter !== 'all') {
-      result = result.filter(b => b.coach_name === coachFilter);
+    if (coachScope === 'mine' && coachName) {
+      result = result.filter(b => b.coach_name === coachName);
     }
     return result;
-  }, [bookings, coachFilter]);
+  }, [bookings, coachScope, coachName]);
 
   // Day counts for tab badges
   const dayCounts = useMemo(() => {
@@ -285,19 +286,29 @@ export default function CoachView() {
             dayCounts={dayCounts}
           />
 
-          {/* Coach filter */}
+          {/* Scope toggle — defaults to "My Intros" */}
           {allCoachNames.length > 0 && (
-            <Select value={coachFilter} onValueChange={setCoachFilter}>
-              <SelectTrigger className="w-full max-w-xs">
-                <SelectValue placeholder="Filter by coach" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Coaches</SelectItem>
-                {allCoachNames.map(name => (
-                  <SelectItem key={name} value={name}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex rounded-md border border-primary/40 p-1 gap-1 bg-transparent">
+              {(['mine', 'all'] as const).map(opt => {
+                const active = coachScope === opt;
+                const label = opt === 'mine' ? 'My Intros' : 'All Intros';
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setCoachScope(opt)}
+                    className={cn(
+                      'px-4 min-h-[44px] rounded-md text-sm font-semibold border transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-primary/15 text-primary border-primary/30 hover:bg-primary/25'
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           )}
 
           {/* Selected day content */}
