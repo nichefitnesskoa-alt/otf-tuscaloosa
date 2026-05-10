@@ -2915,6 +2915,7 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          is_architect: boolean
           lane_name: string | null
           staff_id: string
           updated_at: string
@@ -2926,6 +2927,7 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          is_architect?: boolean
           lane_name?: string | null
           staff_id: string
           updated_at?: string
@@ -2937,6 +2939,7 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          is_architect?: boolean
           lane_name?: string | null
           staff_id?: string
           updated_at?: string
