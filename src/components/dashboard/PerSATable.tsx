@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { format } from 'date-fns';
@@ -81,10 +82,8 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
     firstByOwner.forEach((b: any) => {
       const runs = runsByBooking.get(b.id) || [];
       const ranInRange = runs.some(r => {
+        if (!didIntroActuallyRun(r)) return false;
         const rd = r.run_date || b.class_date;
-        const res = (r.result || '').toLowerCase();
-        if (res === 'no-show' || res === 'no show') return false;
-        if (r.result_canon === 'VIP_CLASS_INTRO') return false;
         return inRange(rd);
       });
       const directSale = runs.find(r => isCloseResult(r) && (isSaleInRange(r, dateRange ?? null) || inRange(r.run_date)));
