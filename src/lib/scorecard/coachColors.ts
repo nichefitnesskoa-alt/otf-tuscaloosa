@@ -4,7 +4,7 @@
  * for any coach not on the canonical list.
  */
 const STABLE: Record<string, string> = {
-  Koa: 'hsl(20 90% 47%)',       // OTF orange
+  Koa: 'hsl(265 75% 60%)',      // violet (orange reserved for Studio)
   Alex: 'hsl(210 80% 55%)',     // blue
   Bri: 'hsl(285 70% 60%)',      // purple
   James: 'hsl(150 60% 45%)',    // green
