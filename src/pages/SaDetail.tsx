@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import { isEligibleThreshold } from '@/lib/sa/saStreaks';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 
@@ -19,6 +20,9 @@ interface ShiftSummary {
   type: string;
   milestones: number;
   referrals: number;
+  celebrated: number | null;
+  missed: number | null;
+  notes: string | null;
 }
 
 export default function SaDetail() {
