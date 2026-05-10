@@ -83,7 +83,8 @@ export default function CoachView() {
   const [questionnaires, setQuestionnaires] = useState<QuestionnaireMap>({});
   const [originatingStatuses, setOriginatingStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [coachFilter, setCoachFilter] = useState<string>('all');
+  // Default to "mine" — user sees only their own intros. Toggle flips to "all".
+  const [coachScope, setCoachScope] = useState<'mine' | 'all'>('mine');
 
   // Week navigation
   const [weekOffset, setWeekOffset] = useState(0);
