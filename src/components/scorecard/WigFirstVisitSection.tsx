@@ -30,6 +30,8 @@ import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
 
+type ChartView = 'studio' | 'by_coach' | 'closed_compare';
+
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
@@ -94,6 +96,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
             </Badge>
           )}
         </div>
+
 
         {isLoading ? (
           <LoadingState />

@@ -49,8 +49,10 @@ export function pickPrimaryScorecards(cards: FvScorecard[], mode: EvalPrimary): 
 export type BucketSize = 'day' | 'week' | 'month';
 export function pickBucketSize(range: DateRangeLike): BucketSize {
   const days = Math.max(1, differenceInDays(range.end, range.start));
-  if (days <= 14) return 'day';
-  if (days <= 90) return 'week';
+  // Default to per-day points for anything up to ~3 months so trends show
+  // every score on its actual class date instead of collapsing into weeks.
+  if (days <= 95) return 'day';
+  if (days <= 365) return 'week';
   return 'month';
 }
 

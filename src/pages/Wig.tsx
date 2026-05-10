@@ -846,7 +846,7 @@ export default function Wig() {
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-primary" />
-                Coach — Coached & Closes
+                Coach Stats
               </CardTitle>
               <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
             </CardHeader>
