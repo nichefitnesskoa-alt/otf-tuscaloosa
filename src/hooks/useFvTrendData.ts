@@ -54,6 +54,8 @@ export interface ClosingTile {
 export interface FvTrendData {
   studioPoints: TrendPoint[];
   perCoachPoints: Map<string, TrendPoint[]>;
+  closedPoints: TrendPoint[];
+  notClosedPoints: TrendPoint[];
   closingTiles: ClosingTile;
   unscoredCount: number;
   unscoredByCoach: Map<string, number>;
