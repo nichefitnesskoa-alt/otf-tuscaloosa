@@ -137,7 +137,7 @@ export default function Recaps() {
       const inRange = dateRange ? (() => { try { const d = new Date(b.class_date); return d >= dateRange.start && d <= dateRange.end; } catch { return false; } })() : true;
       return introOwner === selectedEmployee && isFirst && inRange;
     });
-    const MEMBERSHIP_RESULTS = ['premier', 'elite', 'basic'];
+    // Membership detection routes through canonical isMembershipSale.
     const sourceMap = new Map<string, { source: string; booked: number; showed: number; sold: number; revenue: number; bookedPeople: { name: string; date: string; detail?: string }[]; showedPeople: { name: string; date: string; detail?: string }[]; soldPeople: { name: string; date: string; detail?: string }[] }>();
     saBookings.forEach(b => {
       const source = b.lead_source || 'Unknown';
