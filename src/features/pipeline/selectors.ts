@@ -146,7 +146,7 @@ export function buildJourneys(
       b => b.booking_status_canon === 'ACTIVE' || b.booking_status === 'Active' || !b.booking_status
     );
     const hasNoShow = data.runs.some(
-      r => r.result_canon === 'NO_SHOW' || r.result === 'No-show'
+      r => ((r as any).result_canon || '').toUpperCase() === 'NO_SHOW'
     );
 
     if (hasSale || hasClosed) status = 'purchased';
