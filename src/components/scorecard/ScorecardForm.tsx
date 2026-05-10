@@ -157,6 +157,20 @@ export function ScorecardFormBody(props: BodyProps) {
   };
 
 
+  const finalizeSubmission = async (id: string, lvl: 1 | 2 | 3) => {
+    const { error } = await supabase.from('fv_scorecards' as any).update({ submitted_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    if (firstTimerId && evalType === 'self_eval') {
+      await supabase.from('intros_booked').update({
+        coach_debrief_submitted: true,
+        coach_debrief_submitted_at: new Date().toISOString(),
+        coach_debrief_submitted_by: evaluator,
+      }).eq('id', firstTimerId);
+    }
+    setRevealLevel(lvl);
+    onSubmitted?.(id, lvl);
+  };
+
   const handleSubmit = async () => {
     if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
     if (!evaluator) { toast.error('Pick who is evaluating'); return; }
@@ -165,17 +179,31 @@ export function ScorecardFormBody(props: BodyProps) {
     setSubmitting(true);
     try {
       const id = await ensureScorecard();
-      const { error } = await supabase.from('fv_scorecards' as any).update({ submitted_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
-      if (firstTimerId && evalType === 'self_eval') {
-        await supabase.from('intros_booked').update({
-          coach_debrief_submitted: true,
-          coach_debrief_submitted_at: new Date().toISOString(),
-          coach_debrief_submitted_by: evaluator,
-        }).eq('id', firstTimerId);
+      // Level 1 self-eval → ask for a one-line reflection before the score reveal
+      if (evalType === 'self_eval' && level === 1) {
+        setPendingReveal({ id, level });
+        setReflectionPromptOpen(true);
+        return;
       }
-      setRevealLevel(level);
-      onSubmitted?.(id, level);
+      await finalizeSubmission(id, level);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReflectionSubmit = async () => {
+    if (!pendingReveal) return;
+    if (!reflectionDraft.trim()) { toast.error('Add a reflection to continue'); return; }
+    setSubmitting(true);
+    try {
+      await supabase.from('fv_scorecards' as any)
+        .update({ reflection_text: reflectionDraft.trim() })
+        .eq('id', pendingReveal.id);
+      setReflectionPromptOpen(false);
+      await finalizeSubmission(pendingReveal.id, pendingReveal.level);
+      setPendingReveal(null);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
