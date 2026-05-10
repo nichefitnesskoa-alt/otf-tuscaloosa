@@ -2,6 +2,7 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
 import { CoachStreakBadges } from '@/components/scorecard/CoachStreakBadges';
+import { PeerEvaluations } from '@/components/scorecard/PeerEvaluations';
 import { useScorecards } from '@/hooks/useScorecards';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
@@ -50,6 +51,7 @@ export default function CoachDetail() {
         allowPicker={user?.role === 'Admin'}
         coaches={[...COACHES]}
       />
+      <PeerEvaluations coachName={coachName} />
     </div>
   );
 }
