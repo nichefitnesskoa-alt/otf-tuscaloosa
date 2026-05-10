@@ -39,6 +39,70 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
 
   const [smoothed, setSmoothed] = useState(false);
   const [primary, setPrimary] = useState<EvalPrimary>('formal');
+  const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
+  const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [unscoredFor, setUnscoredFor] = useState<{ coach: string; intros: UnscoredIntro[] } | null>(null);
+  const navigate = useNavigate();
+
+  const { data, isLoading } = useFvTrendData(range, primary, smoothed);
+  const hasAnyScorecards = data.scorecards.length > 0;
+  const hasAnyRan = data.ranByCoach.size > 0;
+  const isEmptyRange = !isLoading && !hasAnyScorecards && !hasAnyRan;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-primary" />
+          First Visit Experience
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Every coach's first visits, scored. Tap a coach to see their trend. Tap a point on any chart to open the scorecards behind it.
+        </p>
+        <div className="pt-2">
+          <DateRangeFilter
+            preset={preset}
+            customRange={customRange}
+            onPresetChange={setPreset}
+            onCustomRangeChange={setCustomRange}
+            dateRange={range}
+          />
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Chart toggle row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            value={smoothed ? 'avg' : 'raw'}
+            onChange={v => setSmoothed(v === 'avg')}
+            options={[
+              { value: 'raw', label: 'Raw' },
+              { value: 'avg', label: '4-week avg' },
+            ]}
+          />
+          <ToggleGroup
+            value={primary}
+            onChange={v => setPrimary(v as EvalPrimary)}
+            options={[
+              { value: 'formal', label: 'Formal primary' },
+              { value: 'self', label: 'Self primary' },
+            ]}
+          />
+          {hasAnyRan && (
+            <Badge variant="outline" className="ml-auto text-[10px]">
+              {data.unscoredCount} {data.unscoredCount === 1 ? 'intro' : 'intros'} still waiting on a scorecard
+            </Badge>
+          )}
+        </div>
+
+  const [preset, setPreset] = useState<DatePreset>('this_month');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
+  const range = useMemo(() => getDateRangeForPreset(preset, customRange) || getCurrentPayPeriod(), [preset, customRange]);
+
+  const [smoothed, setSmoothed] = useState(false);
+  const [primary, setPrimary] = useState<EvalPrimary>('formal');
   const [chartView, setChartView] = useState<ChartView>('studio');
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
