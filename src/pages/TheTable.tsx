@@ -465,6 +465,89 @@ export default function TheTable() {
 
 // ---------- Sub-components ----------
 
+function MyRolePicker({ myOwner, onChanged }: { myOwner?: TableOwner; onChanged: () => void }) {
+  const { user } = useAuth();
+  const { staff } = useActiveStaff();
+  const [saving, setSaving] = useState(false);
+
+  const me = staff.find(s => s.name === user?.name);
+  const currentLane = myOwner?.lane_name ?? '';
+
+  // Lane options = canonical suggestions + any custom lane the user already has
+  const options = useMemo(() => {
+    const list = LANE_SUGGESTIONS.map(s => ({ lane: s.lane, category: s.category, description: s.description }));
+    if (currentLane && !list.some(o => o.lane.toLowerCase() === currentLane.toLowerCase())) {
+      list.unshift({ lane: currentLane, category: myOwner?.category ?? '', description: 'Your current role' });
+    }
+    return list;
+  }, [currentLane, myOwner?.category]);
+
+  const pickLane = async (lane: string) => {
+    if (!me) { toast.error('Your staff record is not active. Ask Koa to enable it.'); return; }
+    const match = LANE_SUGGESTIONS.find(s => s.lane === lane);
+    const category = match?.category ?? null;
+    setSaving(true);
+
+    if (myOwner) {
+      const { error } = await supabase
+        .from('table_owners')
+        .update({ lane_name: lane, ...(category ? { category } : {}) })
+        .eq('id', myOwner.id);
+      if (error) toast.error(error.message); else toast.success('Role updated');
+    } else {
+      // Upsert against soft-removed rows for this staff_id
+      const { data: existing } = await supabase
+        .from('table_owners').select('id').eq('staff_id', me.id).maybeSingle();
+      if (existing) {
+        const { error } = await supabase.from('table_owners').update({
+          is_active: true, display_name: me.name, lane_name: lane, ...(category ? { category } : {}),
+        }).eq('id', existing.id);
+        if (error) toast.error(error.message); else toast.success(`You're in — role set to ${lane}`);
+      } else {
+        const { error } = await supabase.from('table_owners').insert({
+          staff_id: me.id, display_name: me.name, is_active: true,
+          lane_name: lane, ...(category ? { category } : {}),
+          created_by: me.name,
+        });
+        if (error) toast.error(error.message); else toast.success(`You're in — role set to ${lane}`);
+      }
+    }
+    setSaving(false);
+    onChanged();
+  };
+
+  return (
+    <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
+      <div className="font-semibold mb-1">
+        {myOwner ? 'Your Ownership Role' : 'Pick your Ownership Role'}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {myOwner
+          ? 'You can change your role any time. Category is set automatically.'
+          : 'Claim a lane to join Own It. You can change it later.'}
+      </p>
+      <Select value={currentLane || undefined} onValueChange={pickLane} disabled={saving}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Choose a role…" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[60vh]">
+          {options.map(o => (
+            <SelectItem key={o.lane} value={o.lane}>
+              <div className="flex flex-col">
+                <span className="font-medium">{o.lane}</span>
+                <span className="text-[11px] text-muted-foreground">{o.category}{o.description ? ` · ${o.description}` : ''}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {myOwner?.category && (
+        <div className="text-[11px] text-muted-foreground mt-2">Category: {myOwner.category}</div>
+      )}
+    </Card>
+  );
+}
+
 function EntryField({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="border rounded-md p-2">
