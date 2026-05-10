@@ -584,20 +584,6 @@ export default function Admin() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Team Meeting Card */}
-          <Card className="cursor-pointer hover:bg-muted/50 transition" onClick={() => navigate('/meeting')}>
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CalendarDays className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="font-semibold">Team Meeting</p>
-                  <p className="text-sm text-muted-foreground">Next: {format(getCurrentMeetingMonday(), 'EEEE, MMM d')}</p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline">Open Meeting Prep</Button>
-            </CardContent>
-          </Card>
-
           {/* Global Date Filter */}
           <DateRangeFilter
             preset={datePreset}
@@ -609,7 +595,6 @@ export default function Admin() {
 
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
-          <FollowUpOwnershipPanel />
 
         </TabsContent>
 
