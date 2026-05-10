@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -248,8 +248,8 @@ export default function SaDetail() {
                       ? computeCoverage([{ id: 'x', sa_name: '', shift_date: '', shift_type: '', milestones_celebrated: s.celebrated, milestones_missed: s.missed, notes: null }])
                       : null;
                     return (
-                      <>
-                        <TableRow key={`${s.date}-${s.type}`}>
+                      <Fragment key={`${s.date}-${s.type}`}>
+                        <TableRow>
                           <TableCell className="text-sm">{format(parseLocalDate(s.date), 'EEE MMM d')}</TableCell>
                           <TableCell className="text-sm">{s.type}</TableCell>
                           <TableCell className="text-sm text-center">{s.milestones}</TableCell>
@@ -263,13 +263,13 @@ export default function SaDetail() {
                           </TableCell>
                         </TableRow>
                         {s.notes && (s.missed ?? 0) > 0 && (
-                          <TableRow key={`${s.date}-${s.type}-notes`} className="bg-muted/20">
+                          <TableRow className="bg-muted/20">
                             <TableCell colSpan={5} className="text-[11px] italic text-muted-foreground py-1.5 px-3">
                               Note: {s.notes}
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
