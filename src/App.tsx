@@ -211,6 +211,7 @@ function AppRoutes() {
       />
       <Route path="/the-table" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
+      <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

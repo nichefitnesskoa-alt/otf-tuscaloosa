@@ -1,4 +1,4 @@
-// Canonical Lane Health computation for The Table.
+// Canonical Lane Health computation for Own It.
 // Three binary inputs per Owner per meeting:
 //   1. submitted_at not null and set before Sunday 23:59 CT
 //   2. at least one TableResponse references one of their entries this meeting
