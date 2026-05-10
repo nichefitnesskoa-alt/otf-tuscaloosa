@@ -930,6 +930,7 @@ export type Database = {
           otbeat_notes: string | null
           otbeat_score: number
           practice_name: string | null
+          reflection_text: string | null
           rower_score: number
           submitted_at: string | null
           total_score: number | null
@@ -956,6 +957,7 @@ export type Database = {
           otbeat_notes?: string | null
           otbeat_score?: number
           practice_name?: string | null
+          reflection_text?: string | null
           rower_score?: number
           submitted_at?: string | null
           total_score?: number | null
@@ -982,6 +984,7 @@ export type Database = {
           otbeat_notes?: string | null
           otbeat_score?: number
           practice_name?: string | null
+          reflection_text?: string | null
           rower_score?: number
           submitted_at?: string | null
           total_score?: number | null
