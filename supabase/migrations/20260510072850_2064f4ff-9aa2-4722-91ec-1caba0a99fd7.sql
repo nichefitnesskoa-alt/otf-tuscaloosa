@@ -1,0 +1,2 @@
+ALTER TABLE public.table_owners ADD COLUMN IF NOT EXISTS is_architect boolean NOT NULL DEFAULT false;
+UPDATE public.table_owners SET is_architect = true WHERE staff_id = 'aad6097b-881d-462b-be56-8337e8b2e74b';

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { ComparisonView } from '@/components/scorecard/ComparisonView';
+import { useNavigate } from 'react-router-dom';
 
 interface Notif {
   id: string;
@@ -19,6 +20,7 @@ interface Notif {
 
 export function NotificationsBell() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Notif[]>([]);
   const [openCard, setOpenCard] = useState<string | null>(null);
 
@@ -69,7 +71,11 @@ export function NotificationsBell() {
             {items.map(n => (
               <button
                 key={n.id}
-                onClick={() => { if (n.meta?.scorecard_id) setOpenCard(n.meta.scorecard_id); }}
+                onClick={() => {
+                  if (n.meta?.scorecard_id) { setOpenCard(n.meta.scorecard_id); return; }
+                  // Generic deep-link handler — Sunday Own It reminder etc.
+                  if (typeof n.meta?.link === 'string') navigate(n.meta.link);
+                }}
                 className={`w-full text-left p-3 border-b hover:bg-muted ${!n.read_at ? 'bg-primary/5' : ''}`}
               >
                 <p className="text-sm font-semibold">{n.title}</p>

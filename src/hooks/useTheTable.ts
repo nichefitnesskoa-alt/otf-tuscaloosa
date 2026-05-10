@@ -25,6 +25,7 @@ export function nextMondayCT(now: Date = new Date()): string {
 export interface TableOwner {
   id: string; staff_id: string; display_name: string;
   lane_name: string | null; category: string | null; is_active: boolean;
+  is_architect?: boolean;
 }
 export interface TableMeeting {
   id: string; meeting_date: string; meeting_time: string;
@@ -50,15 +51,21 @@ export interface TableWin {
   content: string; meeting_week: string; included_in_close: boolean; created_at: string;
 }
 
-export function useCurrentMeeting() {
+// If meetingId is provided, load that specific meeting (deep-link). Otherwise
+// auto-resolve to the current week's Monday meeting (auto-create if missing).
+export function useCurrentMeeting(meetingId?: string) {
   const targetDate = nextMondayCT();
   return useQuery({
-    queryKey: ['table-meeting', targetDate],
+    queryKey: ['table-meeting', meetingId ?? targetDate],
     queryFn: async () => {
+      if (meetingId) {
+        const { data } = await supabase
+          .from('table_meetings').select('*').eq('id', meetingId).maybeSingle();
+        return (data ?? null) as TableMeeting | null;
+      }
       const { data } = await supabase
         .from('table_meetings').select('*').eq('meeting_date', targetDate).maybeSingle();
       if (data) return data as TableMeeting;
-      // Auto-create upcoming meeting
       const { data: created } = await supabase
         .from('table_meetings')
         .insert({ meeting_date: targetDate, meeting_time: '13:30', status: 'upcoming', created_by: 'system' })
@@ -68,11 +75,42 @@ export function useCurrentMeeting() {
   });
 }
 
+// Returns ONLY non-architect owners (for grids, carousel, submission status).
 export function useActiveOwners() {
   return useQuery({
     queryKey: ['table-owners'],
     queryFn: async () => {
-      const { data } = await supabase.from('table_owners').select('*').eq('is_active', true).order('display_name');
+      const { data } = await supabase
+        .from('table_owners').select('*')
+        .eq('is_active', true).eq('is_architect', false)
+        .order('display_name');
+      return (data || []) as TableOwner[];
+    },
+  });
+}
+
+// Returns the single architect (Studio Leader) record, or null.
+export function useArchitect() {
+  return useQuery({
+    queryKey: ['table-architect'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('table_owners').select('*')
+        .eq('is_active', true).eq('is_architect', true)
+        .maybeSingle();
+      return (data ?? null) as TableOwner | null;
+    },
+  });
+}
+
+// All active owners INCLUDING the architect — for action-item ownership pickers
+// where Koa can still own work, even though he's not an Owner in the round.
+export function useAllOwnersIncludingArchitect() {
+  return useQuery({
+    queryKey: ['table-owners-all'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('table_owners').select('*').eq('is_active', true).order('display_name');
       return (data || []) as TableOwner[];
     },
   });

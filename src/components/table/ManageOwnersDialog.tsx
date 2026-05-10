@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
-import { useActiveOwners } from '@/hooks/useTheTable';
+import { useAllOwnersIncludingArchitect } from '@/hooks/useTheTable';
 import { supabase } from '@/integrations/supabase/client';
 import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,7 +20,7 @@ function categoryForLane(lane: string | null | undefined): string | null {
 
 export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { staff } = useActiveStaff();
-  const { data: owners = [] } = useActiveOwners();
+  const { data: owners = [] } = useAllOwnersIncludingArchitect();
   const qc = useQueryClient();
   const [addingId, setAddingId] = useState('');
 
@@ -43,6 +43,7 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
       const { error } = await supabase
         .from('table_owners')
         .update({ is_active: true, display_name: s.name })
+        // Never auto-set is_architect on re-activation.
         .eq('id', existing.id);
       if (error) { toast.error(error.message); return; }
       toast.success(`${s.name} is back at the table.`);
@@ -99,31 +100,44 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
           </div>
 
           <div className="space-y-2">
-            {owners.map(o => (
-              <div key={o.id} className="border rounded-md p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold">{o.display_name}</div>
-                  <Button variant="ghost" size="sm" onClick={() => removeOwner(o.id)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+            {owners.map(o => {
+              if (o.is_architect) {
+                return (
+                  <div key={o.id} className="border-2 border-[#E8540A]/50 bg-[#E8540A]/5 rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold">{o.display_name}</div>
+                      <span className="text-[11px] uppercase tracking-wider bg-[#E8540A] text-white px-2 py-0.5 rounded">Architect</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Studio Leader — opens and closes the room. Not an Owner.</div>
+                  </div>
+                );
+              }
+              return (
+                <div key={o.id} className="border rounded-md p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{o.display_name}</div>
+                    <Button variant="ghost" size="sm" onClick={() => removeOwner(o.id)}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Ownership Role</label>
+                    <Input
+                      defaultValue={o.lane_name ?? ''}
+                      onBlur={(e) => updateLane(o.id, e.target.value)}
+                      placeholder="e.g. IG Owner"
+                      list={`lanes-${o.id}`}
+                    />
+                    <datalist id={`lanes-${o.id}`}>
+                      {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+                    </datalist>
+                    {o.category && (
+                      <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Ownership Role</label>
-                  <Input
-                    defaultValue={o.lane_name ?? ''}
-                    onBlur={(e) => updateLane(o.id, e.target.value)}
-                    placeholder="e.g. IG Owner"
-                    list={`lanes-${o.id}`}
-                  />
-                  <datalist id={`lanes-${o.id}`}>
-                    {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
-                  </datalist>
-                  {o.category && (
-                    <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {owners.length === 0 && (
               <div className="text-sm text-muted-foreground text-center py-4">No owners yet. Add one above.</div>
             )}

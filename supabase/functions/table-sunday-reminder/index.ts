@@ -61,10 +61,10 @@ Deno.serve(async (req) => {
 
     await supabase.from("notifications").insert({
       notification_type: "the_table_reminder",
-      title: "Own It meeting is tomorrow.",
-      body: "Your lane update is still open.",
+      title: "Own It is tomorrow.",
+      body: "Your Ownership Role update is still open.",
       target_user: o.display_name,
-      meta: { meeting_id: meeting.id, link: "/the-table" },
+      meta: { meeting_id: meeting.id, link: `/the-table/${meeting.id}` },
     });
     inserted++;
   }
