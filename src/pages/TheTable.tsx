@@ -192,6 +192,11 @@ export default function TheTable() {
         </Card>
       )}
 
+      {/* Self-serve role picker — any staff member can claim/change their own Ownership Role */}
+      {!isArchitectViewer && (
+        <MyRolePicker myOwner={myOwner} onChanged={() => qc.invalidateQueries({ queryKey: ['table-owners'] })} />
+      )}
+
       {/* Owner self-entry */}
       {myOwner && (
         <Card className="p-4 mb-4 border-[#E8540A]/40">
