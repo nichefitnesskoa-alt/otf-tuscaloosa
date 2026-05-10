@@ -10,6 +10,7 @@ import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/Pers
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import type { DateRange } from '@/lib/pay-period';
 import { isEligibleThreshold } from '@/lib/sa/saStreaks';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -32,6 +33,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     const shifts = data.rows.reduce((s, r) => s + r.shifts, 0);
     return { milestones, referrals, shifts };
   }, [data.rows]);
+
+  // Per-SA coverage map (canonical helper — same numbers as detail page)
+  const coverageBySa = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeCoverage>>();
+    const grouped = new Map<string, typeof data.coverageReports>();
+    for (const r of data.coverageReports) {
+      const arr = grouped.get(r.sa_name) || [];
+      arr.push(r);
+      grouped.set(r.sa_name, arr);
+    }
+    for (const [name, reports] of grouped) map.set(name, computeCoverage(reports));
+    return map;
+  }, [data.coverageReports]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
