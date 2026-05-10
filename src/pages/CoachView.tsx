@@ -263,7 +263,7 @@ export default function CoachView() {
 
       {isAdmin && <TheSystemSection />}
 
-      {(isAdmin || user?.role === 'Coach') && (
+      {(isAdmin || isCoachLike) && (
         <CollapsibleSection
           id="coaching-scripts"
           title="Coaching Scripts"
