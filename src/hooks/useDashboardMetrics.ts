@@ -528,9 +528,9 @@ export function useDashboardMetrics(
       const name = run.intro_owner || run.sa_name;
       if (name && !EXCLUDED_NAMES.includes(name)) {
         const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
-        if (run.result !== 'No-show') {
+        if (didIntroActuallyRun(run)) {
           existing.introsRun++;
-          if (isMembershipSale(run.result)) {
+          if (isCloseRun(run)) {
             existing.sales++;
           }
         }
@@ -559,7 +559,7 @@ export function useDashboardMetrics(
     activeRuns.forEach(run => {
       const owner = run.intro_owner;
       const isUnattributed = !owner || EXCLUDED_NAMES.includes(owner) || !attributedSANames.has(owner);
-      if (isUnattributed && run.result !== 'No-show' && isSaleInRange(run, dateRange)) {
+      if (isUnattributed && didIntroActuallyRun(run) && isSaleInRange(run, dateRange)) {
         unattributedSales++;
       }
     });
