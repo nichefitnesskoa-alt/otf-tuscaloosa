@@ -8,6 +8,7 @@ import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { walkJourneyChain } from '@/lib/intros/journey';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
@@ -71,12 +72,7 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
       const arr = runsByBooking.get(r.linked_intro_booked_id) || [];
       arr.push(r); runsByBooking.set(r.linked_intro_booked_id, arr);
     });
-    // 2nd-intro children: originating → child id
-    const childrenByOrigin = new Map<string, string[]>();
-    (introsBooked || []).forEach((b: any) => {
-      const o = (b as any).originating_booking_id;
-      if (o) { const arr = childrenByOrigin.get(o) || []; arr.push(b.id); childrenByOrigin.set(o, arr); }
-    });
+
 
     const rows: PersonRow[] = [];
     firstByOwner.forEach((b: any) => {
@@ -87,9 +83,15 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
         return inRange(rd);
       });
       const directSale = runs.find(r => isCloseResult(r) && (isSaleInRange(r, dateRange ?? null) || inRange(r.run_date)));
-      const childIds = childrenByOrigin.get(b.id) || [];
-      const journeySale = childIds.flatMap(id => runsByBooking.get(id) || [])
-        .find(r => isCloseResult(r) && (isSaleInRange(r, dateRange ?? null) || inRange(r.run_date)));
+      // Use canonical chain walker for 2nd-intro sale lookup.
+      const chain = walkJourneyChain(b.id, introsBooked as any[], introsRun as any[]);
+      const journeySale = !directSale
+        ? chain.runs.find(r =>
+            r.linked_intro_booked_id !== b.id &&
+            isCloseResult(r) &&
+            (isSaleInRange(r as any, dateRange ?? null) || inRange((r as any).run_date)),
+          )
+        : undefined;
       const sale = directSale || journeySale;
       const include = drill.metric === 'sales' ? !!sale : (ranInRange || !!sale);
       if (!include) return;

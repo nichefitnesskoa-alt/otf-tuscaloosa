@@ -13,6 +13,7 @@ import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } fr
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { walkJourneyChain } from '@/lib/intros/journey';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
@@ -133,20 +134,12 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       ex.coached++;
       const a = ensureAttrib(name);
 
-      // Direct sale on this run?
+      // Total Journey via canonical chain walker.
+      const chain = r.linked_intro_booked_id
+        ? walkJourneyChain(r.linked_intro_booked_id, introsBooked as any[], introsRun as any[])
+        : null;
       const directSale = isCloseResult(r as any);
-      // Total Journey: did a chained 2nd intro end in sale?
-      let secondSale = false;
-      if (!directSale && r.linked_intro_booked_id) {
-        secondSale = introsRun.some(r2 => {
-          if (r2.id === r.id) return false;
-          if (r2.linked_intro_booked_id && excludedBookingIds.has(r2.linked_intro_booked_id)) return false;
-          const booking = introsBooked.find((b: any) => b.id === r2.linked_intro_booked_id);
-          if (!booking) return false;
-          if ((booking as any).originating_booking_id !== r.linked_intro_booked_id) return false;
-          return isCloseResult(r2 as any);
-        });
-      }
+      const secondSale = !directSale && !!chain && chain.isJourneyClose;
 
       // Push the coached row, flagging it if a 2nd-intro sale exists so the drill shows the link
       a.coached.push({ ...intro, via2ndIntroSale: secondSale });
