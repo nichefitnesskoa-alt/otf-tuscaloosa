@@ -76,31 +76,31 @@ export function BottomNav() {
 
   const visibleItems = isAdmin ? [
     { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/the-table', label: 'Own It', icon: Flag },
-    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
-    { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/my-intros', label: 'Text My Intros', icon: UserCheck },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/admin', label: 'Admin', icon: Settings },
   ] : isBoth ? [
     // "Both" role staff get the union of SA + Coach features (no Admin).
     { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/the-table', label: 'Own It', icon: Flag },
-    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
-    { path: '/coach-view', label: 'Coach View', icon: Eye },
     { path: '/my-intros', label: 'Text My Intros', icon: UserCheck },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
     { path: '/the-table', label: 'Own It', icon: Flag },
-    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
   ];
 
   return (
