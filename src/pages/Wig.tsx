@@ -10,6 +10,8 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
+import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
+import { COACHES } from '@/types';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -615,11 +617,8 @@ export default function Wig() {
       setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
       setCoachAttribution(attribMap);
 
-      if (user?.role === 'Coach') {
-        setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
-      } else {
-        setCoachLeadMeasures(coachData);
-      }
+      // Everyone (SA, Coach, Admin) sees the full Coach Stats table on WIG.
+      setCoachLeadMeasures(coachData);
     } catch (err) {
       console.error('Error loading lead measures:', err);
       setSaLeadMeasures([]);
@@ -900,6 +899,24 @@ export default function Wig() {
                           </TableCell>
                         </TableRow>
                       ))}
+                      {/* Totals row — weighted close% (sum closes / sum coached) */}
+                      {(() => {
+                        const totalCoached = coachLeadMeasures.reduce((s, r) => s + (r.coached || 0), 0);
+                        const totalCloses = coachLeadMeasures.reduce((s, r) => s + (r.closes || 0), 0);
+                        const weightedRate = totalCoached > 0 ? (totalCloses / totalCoached) * 100 : 0;
+                        return (
+                          <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                            <TableCell className="text-sm font-bold whitespace-nowrap">Total</TableCell>
+                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalCoached}</TableCell>
+                            <TableCell className="text-sm text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
+                            <TableCell className="text-sm text-center font-bold">
+                              <span className={weightedRate >= 40 ? 'text-success' : weightedRate >= 30 ? 'text-warning' : 'text-destructive'}>
+                                {weightedRate.toFixed(0)}%
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
@@ -909,6 +926,28 @@ export default function Wig() {
 
           {/* First Visit Experience scorecard system */}
           <WigFirstVisitSection dateRange={dateRange} />
+
+          {/* My Scorecards — visible to logged-in coach (own only). Admin gets a coach picker. */}
+          {(user?.role === 'Coach' || user?.role === 'Admin') && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  {user?.role === 'Admin' ? 'Scorecards' : 'My Scorecards'}
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground">
+                  {user?.role === 'Admin' ? 'Pick any coach to view their scorecards.' : 'Only you see this section.'}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <CoachDashboard
+                  coachName={user?.role === 'Admin' ? (COACHES[0] || '') : (user?.name || '')}
+                  allowPicker={user?.role === 'Admin'}
+                  coaches={[...COACHES]}
+                />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
