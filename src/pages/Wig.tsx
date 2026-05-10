@@ -10,6 +10,8 @@ import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
 import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
+import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
+import { COACHES } from '@/types';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
