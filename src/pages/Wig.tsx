@@ -12,6 +12,8 @@ import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
