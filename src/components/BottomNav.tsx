@@ -35,7 +35,7 @@ export function BottomNav() {
     const coachItems = [
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
-      { path: '/the-table', label: 'The Table', icon: Flag },
+      { path: '/the-table', label: 'Own It', icon: Flag },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
       { path: '/vips', label: 'VIPs', icon: Star },
       { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
