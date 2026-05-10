@@ -7,8 +7,11 @@ export default function CoachScorecards() {
   const { user } = useAuth();
   const { who } = useParams();
   const coaches = [...COACHES];
-  const allowPicker = user?.role === 'Admin' && who !== 'me';
-  const target = who === 'me' || user?.role === 'Coach' ? (user?.name || '') : (coaches[0] || '');
+  const isKoa = user?.name === 'Koa';
+  const isBoth = user?.role === 'Both';
+  const isCoach = user?.role === 'Coach';
+  const allowPicker = (isKoa || isBoth) && who !== 'me';
+  const target = who === 'me' || (isCoach && !isKoa && !isBoth) ? (user?.name || '') : (coaches[0] || '');
   if (!target) return <div className="p-4">Loading…</div>;
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-4">
