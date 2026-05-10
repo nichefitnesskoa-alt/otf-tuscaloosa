@@ -19,7 +19,7 @@ import ReferralTree from '@/components/admin/ReferralTree';
 
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
-import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
+
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
