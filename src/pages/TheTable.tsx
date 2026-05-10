@@ -17,6 +17,7 @@ import {
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
+import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
