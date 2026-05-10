@@ -356,6 +356,36 @@ export function ScorecardFormBody(props: BodyProps) {
       {revealLevel && (
         <ScoreReveal level={revealLevel} total={total} onClose={() => setRevealLevel(null)} />
       )}
+
+      {/* Reflection prompt — only Level 1 self-evals, required, blocks reveal */}
+      {reflectionPromptOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-lg border-2 border-primary/40 bg-card p-5 shadow-xl space-y-4">
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-wide text-primary">Quick reflection</p>
+              <h3 className="text-lg font-black mt-1">What's one thing you'd do differently next time?</h3>
+              <p className="text-xs text-muted-foreground mt-2">
+                One sentence is plenty. This stays with the scorecard so future-you can see what present-you noticed.
+              </p>
+            </div>
+            <Textarea
+              autoFocus
+              value={reflectionDraft}
+              onChange={(e) => setReflectionDraft(e.target.value)}
+              placeholder="Next time I will…"
+              className="min-h-[100px] text-sm"
+            />
+            <Button
+              onClick={handleReflectionSubmit}
+              disabled={submitting || !reflectionDraft.trim()}
+              className="w-full text-white font-bold"
+              style={{ minHeight: '44px', backgroundColor: '#E8540A' }}
+            >
+              {submitting ? 'Saving…' : 'Save and see score'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
