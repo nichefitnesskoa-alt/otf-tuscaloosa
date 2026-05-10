@@ -899,6 +899,24 @@ export default function Wig() {
                           </TableCell>
                         </TableRow>
                       ))}
+                      {/* Totals row — weighted close% (sum closes / sum coached) */}
+                      {(() => {
+                        const totalCoached = coachLeadMeasures.reduce((s, r) => s + (r.coached || 0), 0);
+                        const totalCloses = coachLeadMeasures.reduce((s, r) => s + (r.closes || 0), 0);
+                        const weightedRate = totalCoached > 0 ? (totalCloses / totalCoached) * 100 : 0;
+                        return (
+                          <TableRow className="border-t-2 border-border bg-muted/30 font-bold">
+                            <TableCell className="text-sm font-bold whitespace-nowrap">Total</TableCell>
+                            <TableCell className="text-sm text-center font-bold tabular-nums">{totalCoached}</TableCell>
+                            <TableCell className="text-sm text-center font-bold text-success tabular-nums">{totalCloses}</TableCell>
+                            <TableCell className="text-sm text-center font-bold">
+                              <span className={weightedRate >= 40 ? 'text-success' : weightedRate >= 30 ? 'text-warning' : 'text-destructive'}>
+                                {weightedRate.toFixed(0)}%
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
