@@ -40,8 +40,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
-import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
-import { format, addDays } from 'date-fns';
 
 // Staff names now loaded from database via useActiveStaff hook where needed
 
