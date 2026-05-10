@@ -270,9 +270,20 @@ export function useFvTrendData(range: DateRange, primary: EvalPrimary, smoothed:
     const selfAvg = new Map<string, { avg: number | null; count: number }>();
     selfByCoach.forEach((v, k) => selfAvg.set(k, { avg: v.n ? v.sum / v.n : null, count: v.n }));
 
+    // Closed vs not-closed trend lines (only scorecards whose ran intro
+    // resolved to closed/not-closed; pending intros excluded).
+    let closedPoints = buildTrendPoints(closedCards, range, size);
+    let notClosedPoints = buildTrendPoints(notClosedCards, range, size);
+    if (smoothed) {
+      closedPoints = applyMovingAverage(closedPoints, 4);
+      notClosedPoints = applyMovingAverage(notClosedPoints, 4);
+    }
+
     return {
       studioPoints,
       perCoachPoints,
+      closedPoints,
+      notClosedPoints,
       closingTiles,
       unscoredCount,
       unscoredByCoach,
