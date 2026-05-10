@@ -264,16 +264,14 @@ export function useDashboardMetrics(
       const saFirstRuns = activeRuns.filter(run => {
         if (run.intro_owner !== saName) return false;
         if (!run.linked_intro_booked_id || !firstIntroBookingIds.has(run.linked_intro_booked_id)) return false;
-        const res = (run.result || '').toLowerCase();
-        if (res === 'no-show' || res === 'no show') return false;
-        if ((run as any).result_canon === 'VIP_CLASS_INTRO') return false;
+        if (!didIntroActuallyRun(run)) return false;
         return isRunInRange(run, dateRange);
       });
       let introsRanCount = saFirstRuns.length;
 
       // Get ALL runs by this SA (for sales counting)
       const saAllRuns = activeRuns.filter(run => {
-        return run.intro_owner === saName && run.result !== 'No-show';
+        return run.intro_owner === saName && didIntroActuallyRun(run);
       });
 
       // Dual-date filtering: include runs where EITHER run_date OR buy_date is in range
