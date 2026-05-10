@@ -2293,6 +2293,45 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_coverage_reports: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          milestones_celebrated: number
+          milestones_missed: number
+          notes: string | null
+          sa_name: string
+          shift_date: string
+          shift_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          milestones_celebrated?: number
+          milestones_missed?: number
+          notes?: string | null
+          sa_name: string
+          shift_date: string
+          shift_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          milestones_celebrated?: number
+          milestones_missed?: number
+          notes?: string | null
+          sa_name?: string
+          shift_date?: string
+          shift_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shift_recaps: {
         Row: {
           calls_made: number | null

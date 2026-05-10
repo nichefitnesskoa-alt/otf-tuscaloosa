@@ -10,6 +10,7 @@ import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/Pers
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import type { DateRange } from '@/lib/pay-period';
 import { isEligibleThreshold } from '@/lib/sa/saStreaks';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -32,6 +33,19 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     const shifts = data.rows.reduce((s, r) => s + r.shifts, 0);
     return { milestones, referrals, shifts };
   }, [data.rows]);
+
+  // Per-SA coverage map (canonical helper — same numbers as detail page)
+  const coverageBySa = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeCoverage>>();
+    const grouped = new Map<string, typeof data.coverageReports>();
+    for (const r of data.coverageReports) {
+      const arr = grouped.get(r.sa_name) || [];
+      arr.push(r);
+      grouped.set(r.sa_name, arr);
+    }
+    for (const [name, reports] of grouped) map.set(name, computeCoverage(reports));
+    return map;
+  }, [data.coverageReports]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
@@ -156,12 +170,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">Shifts</TableHead>
                     <TableHead className="text-xs text-center">Milestones</TableHead>
+                    <TableHead className="text-xs text-center" title="Honor-system coverage: celebrated / (celebrated + missed)">Coverage</TableHead>
                     <TableHead className="text-xs text-center">Refs (rate)</TableHead>
                     <TableHead className="text-xs text-center w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.rows.map(row => (
+                  {data.rows.map(row => {
+                    const cov = coverageBySa.get(row.name);
+                    return (
                     <TableRow
                       key={row.name}
                       className="cursor-pointer hover:bg-muted/40"
@@ -198,6 +215,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           {row.milestones}
                         </button>
                       </TableCell>
+                      <TableCell className="text-sm text-center tabular-nums">
+                        {cov ? (
+                          <span title={`${cov.celebrated} celebrated / ${cov.missed} missed · ${cov.reportedShifts} report${cov.reportedShifts === 1 ? '' : 's'}`}>
+                            {formatCoveragePct(cov.pct)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-center p-0">
                         <button
                           type="button"
@@ -217,7 +243,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                         <ChevronRight className="w-4 h-4 text-muted-foreground inline" />
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>

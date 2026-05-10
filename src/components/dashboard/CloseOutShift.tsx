@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ClipboardCheck, ArrowLeft, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +14,7 @@ import { getTodayStartISO, getTomorrowStartISO } from '@/lib/dateUtils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -67,6 +70,13 @@ export function CloseOutShift({
   const [visible, setVisible] = useState(false);
   const [summary, setSummary] = useState<ShiftSummaryData | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+
+  // Honor-system milestone coverage entry (per shift)
+  const [coverageId, setCoverageId] = useState<string | null>(null);
+  const [celebrated, setCelebrated] = useState<string>('');
+  const [missed, setMissed] = useState<string>('');
+  const [coverageNotes, setCoverageNotes] = useState<string>('');
+  const [coverageSavedAt, setCoverageSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -188,10 +198,63 @@ export function CloseOutShift({
         followUpTouches: fuTouchesRes.count ?? 0,
         introsPrepped: preppedRes.count ?? 0,
       });
+
+      // Load (or prepare) the coverage report for this SA + shift + today
+      const shiftTypeForCov = shiftData?.shift_type || shiftType;
+      const { data: covRow } = await (supabase as any)
+        .from('shift_coverage_reports')
+        .select('id, milestones_celebrated, milestones_missed, notes')
+        .eq('sa_name', user.name)
+        .eq('shift_date', today)
+        .eq('shift_type', shiftTypeForCov)
+        .maybeSingle();
+      if (covRow) {
+        setCoverageId(covRow.id);
+        setCelebrated(String(covRow.milestones_celebrated ?? ''));
+        setMissed(String(covRow.milestones_missed ?? ''));
+        setCoverageNotes(covRow.notes ?? '');
+      } else {
+        setCoverageId(null);
+        setCelebrated('');
+        setMissed('');
+        setCoverageNotes('');
+      }
     } catch (err) {
       console.error('End shift summary fetch error:', err);
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const saveCoverage = async () => {
+    if (!user?.name || !summary) return;
+    const today = getLocalDateString();
+    const c = parseInt(celebrated, 10);
+    const m = parseInt(missed, 10);
+    const payload: any = {
+      sa_name: user.name,
+      shift_date: today,
+      shift_type: summary.shiftType,
+      milestones_celebrated: Number.isFinite(c) ? Math.max(0, c) : 0,
+      milestones_missed: Number.isFinite(m) ? Math.max(0, m) : 0,
+      notes: coverageNotes.trim() || null,
+      created_by: user.name,
+    };
+    try {
+      if (coverageId) {
+        await (supabase as any).from('shift_coverage_reports')
+          .update(payload).eq('id', coverageId);
+      } else {
+        const { data } = await (supabase as any).from('shift_coverage_reports')
+          .upsert(payload, { onConflict: 'sa_name,shift_date,shift_type' })
+          .select('id').single();
+        if (data?.id) setCoverageId(data.id);
+      }
+      setCoverageSavedAt(Date.now());
+      setTimeout(() => setCoverageSavedAt(prev => (prev && Date.now() - prev >= 1900 ? null : prev)), 2000);
+    } catch (err) {
+      console.error('Save coverage error:', err);
+      toast.error('Could not save coverage. Try again.');
     }
   };
 
@@ -373,6 +436,68 @@ export function CloseOutShift({
                   <SummaryRow label="Texts" value={summary.texts} />
                   <SummaryRow label="IG DMs" value={summary.dms} />
                   <SummaryRow label="Follow-Up Touches" value={summary.followUpTouches} />
+                </div>
+              </div>
+
+              {/* Milestone Coverage — honor system */}
+              <div className="rounded-lg border border-border/60 overflow-hidden">
+                <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">🎉 Milestone Coverage (honor system)</span>
+                  {coverageSavedAt && (
+                    <span className="text-[10px] text-green-500">Saved</span>
+                  )}
+                </div>
+                <div className="px-3 py-2 space-y-2">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Be honest. This is how we get better — not a gotcha. Count members whose total class count crossed a celebration threshold today (25 / 50 / 100 / +50).
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="text-[11px] text-muted-foreground">Celebrated</span>
+                      <Input
+                        type="number" min={0} inputMode="numeric"
+                        value={celebrated}
+                        onChange={e => setCelebrated(e.target.value)}
+                        onBlur={saveCoverage}
+                        placeholder="0"
+                        className="h-11 text-base text-center"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-[11px] text-muted-foreground">Missed</span>
+                      <Input
+                        type="number" min={0} inputMode="numeric"
+                        value={missed}
+                        onChange={e => setMissed(e.target.value)}
+                        onBlur={saveCoverage}
+                        placeholder="0"
+                        className="h-11 text-base text-center"
+                      />
+                    </label>
+                  </div>
+                  {(() => {
+                    const c = parseInt(celebrated, 10) || 0;
+                    const m = parseInt(missed, 10) || 0;
+                    const pct = computeCoverage([{
+                      id: 'tmp', sa_name: '', shift_date: '', shift_type: '',
+                      milestones_celebrated: c, milestones_missed: m, notes: null,
+                    }]).pct;
+                    return (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Coverage</span>
+                        <span className="font-semibold text-primary tabular-nums">{formatCoveragePct(pct)}</span>
+                      </div>
+                    );
+                  })()}
+                  {(parseInt(missed, 10) || 0) > 0 && (
+                    <Textarea
+                      value={coverageNotes}
+                      onChange={e => setCoverageNotes(e.target.value)}
+                      onBlur={saveCoverage}
+                      placeholder="Who got missed and why? (optional but helpful)"
+                      className="text-xs min-h-[60px]"
+                    />
+                  )}
                 </div>
               </div>
 

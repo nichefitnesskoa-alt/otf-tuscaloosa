@@ -8,12 +8,14 @@ import {
   type ReferralAskRow,
   type SaLeaderboardRow,
 } from '@/lib/sa/saStreaks';
+import type { ShiftCoverageReport } from '@/lib/sa/coverage';
 
 export interface SaLeaderboardData {
   rows: SaLeaderboardRow[];
   shifts: ShiftRow[];
   milestones: MilestoneRow[];
   referrals: ReferralAskRow[];
+  coverageReports: ShiftCoverageReport[];
   loading: boolean;
 }
 
@@ -36,6 +38,7 @@ export function useSaLeaderboard(
     shifts: [],
     milestones: [],
     referrals: [],
+    coverageReports: [],
     loading: true,
   });
 
@@ -48,7 +51,7 @@ export function useSaLeaderboard(
         new Date(new Date(rangeStart).getTime() - streakLookbackDays * 86400_000),
         'yyyy-MM-dd',
       );
-      const [shiftsRes, milestonesRes, referralsRes] = await Promise.all([
+      const [shiftsRes, milestonesRes, referralsRes, coverageRes] = await Promise.all([
         supabase
           .from('shift_task_completions')
           .select('sa_name, shift_date, shift_type')
@@ -66,6 +69,11 @@ export function useSaLeaderboard(
           .eq('coach_referral_asked', true)
           .gte('class_date', rangeStart)
           .lte('class_date', rangeEnd),
+        (supabase as any)
+          .from('shift_coverage_reports')
+          .select('id, sa_name, shift_date, shift_type, milestones_celebrated, milestones_missed, notes')
+          .gte('shift_date', rangeStart)
+          .lte('shift_date', rangeEnd),
       ]);
 
       if (cancelled) return;
@@ -73,6 +81,7 @@ export function useSaLeaderboard(
       const allShifts = (shiftsRes.data || []) as ShiftRow[];
       const allMilestones = (milestonesRes.data || []) as MilestoneRow[];
       const referrals = (referralsRes.data || []) as ReferralAskRow[];
+      const coverageReports = (coverageRes.data || []) as ShiftCoverageReport[];
 
       // Filter to in-range for displayed counts; streaks use full window.
       const inRangeShifts = allShifts.filter(s => s.shift_date >= rangeStart);
@@ -89,6 +98,7 @@ export function useSaLeaderboard(
         shifts: inRangeShifts,
         milestones: inRangeMilestones,
         referrals,
+        coverageReports,
         loading: false,
       });
     })();

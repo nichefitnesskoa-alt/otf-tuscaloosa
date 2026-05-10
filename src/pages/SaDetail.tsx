@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import { isEligibleThreshold } from '@/lib/sa/saStreaks';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 
@@ -19,6 +20,9 @@ interface ShiftSummary {
   type: string;
   milestones: number;
   referrals: number;
+  celebrated: number | null;
+  missed: number | null;
+  notes: string | null;
 }
 
 export default function SaDetail() {
@@ -55,7 +59,7 @@ export default function SaDetail() {
       if (s.sa_name !== saName) continue;
       const key = `${s.shift_date}|${s.shift_type}`;
       if (!map.has(key)) {
-        map.set(key, { date: s.shift_date, type: s.shift_type, milestones: 0, referrals: 0 });
+        map.set(key, { date: s.shift_date, type: s.shift_type, milestones: 0, referrals: 0, celebrated: null, missed: null, notes: null });
       }
     }
     // Attribute milestones to SA's shift on the same Central-time date
@@ -63,7 +67,6 @@ export default function SaDetail() {
       if ((m.created_by || '') !== saName) continue;
       if (!isEligibleThreshold(m.milestone_type)) continue;
       const dateKey = format(new Date(m.created_at), 'yyyy-MM-dd');
-      // Find any shift on that date for this SA
       for (const [k, v] of map.entries()) {
         if (v.date === dateKey) { v.milestones++; break; }
       }
@@ -74,8 +77,29 @@ export default function SaDetail() {
         if (v.date === r.class_date) { v.referrals++; break; }
       }
     }
+    // Merge coverage reports for this SA
+    for (const cr of data.coverageReports) {
+      if (cr.sa_name !== saName) continue;
+      const key = `${cr.shift_date}|${cr.shift_type}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.celebrated = cr.milestones_celebrated;
+        existing.missed = cr.milestones_missed;
+        existing.notes = cr.notes;
+      } else {
+        map.set(key, {
+          date: cr.shift_date, type: cr.shift_type, milestones: 0, referrals: 0,
+          celebrated: cr.milestones_celebrated, missed: cr.milestones_missed, notes: cr.notes,
+        });
+      }
+    }
     return Array.from(map.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [data, saName]);
+
+  const myCoverage = useMemo(
+    () => computeCoverage(data.coverageReports.filter(r => r.sa_name === saName)),
+    [data.coverageReports, saName],
+  );
 
   const [drill, setDrill] = useState<'milestones' | 'referrals' | 'shifts' | null>(null);
 
@@ -136,7 +160,7 @@ export default function SaDetail() {
       />
 
       {/* Tile row */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <button
@@ -161,6 +185,19 @@ export default function SaDetail() {
               <p className="text-2xl font-bold text-primary">{myRow?.milestones ?? 0}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Milestones marked</p>
             </button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <div
+              className="w-full min-h-[44px] rounded -m-1 p-1"
+              title={`${myCoverage.celebrated} celebrated / ${myCoverage.missed} missed across ${myCoverage.reportedShifts} reported shift${myCoverage.reportedShifts === 1 ? '' : 's'}`}
+            >
+              <p className="text-2xl font-bold text-primary">{formatCoveragePct(myCoverage.pct)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Coverage · {myCoverage.reportedShifts} report{myCoverage.reportedShifts === 1 ? '' : 's'}
+              </p>
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -202,17 +239,39 @@ export default function SaDetail() {
                     <TableHead className="text-xs">Shift</TableHead>
                     <TableHead className="text-xs text-center">Milestones</TableHead>
                     <TableHead className="text-xs text-center">Refs</TableHead>
+                    <TableHead className="text-xs text-center" title="Honor-system: celebrated / (celebrated + missed)">Coverage</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shiftSummaries.map(s => (
-                    <TableRow key={`${s.date}-${s.type}`}>
-                      <TableCell className="text-sm">{format(parseLocalDate(s.date), 'EEE MMM d')}</TableCell>
-                      <TableCell className="text-sm">{s.type}</TableCell>
-                      <TableCell className="text-sm text-center">{s.milestones}</TableCell>
-                      <TableCell className="text-sm text-center">{s.referrals}</TableCell>
-                    </TableRow>
-                  ))}
+                  {shiftSummaries.map(s => {
+                    const cov = s.celebrated != null && s.missed != null
+                      ? computeCoverage([{ id: 'x', sa_name: '', shift_date: '', shift_type: '', milestones_celebrated: s.celebrated, milestones_missed: s.missed, notes: null }])
+                      : null;
+                    return (
+                      <Fragment key={`${s.date}-${s.type}`}>
+                        <TableRow>
+                          <TableCell className="text-sm">{format(parseLocalDate(s.date), 'EEE MMM d')}</TableCell>
+                          <TableCell className="text-sm">{s.type}</TableCell>
+                          <TableCell className="text-sm text-center">{s.milestones}</TableCell>
+                          <TableCell className="text-sm text-center">{s.referrals}</TableCell>
+                          <TableCell className="text-sm text-center tabular-nums">
+                            {cov ? (
+                              <span title={`${s.celebrated} celebrated / ${s.missed} missed`}>{formatCoveragePct(cov.pct)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {s.notes && (s.missed ?? 0) > 0 && (
+                          <TableRow className="bg-muted/20">
+                            <TableCell colSpan={5} className="text-[11px] italic text-muted-foreground py-1.5 px-3">
+                              Note: {s.notes}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
