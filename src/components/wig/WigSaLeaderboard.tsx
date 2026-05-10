@@ -170,12 +170,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">Shifts</TableHead>
                     <TableHead className="text-xs text-center">Milestones</TableHead>
+                    <TableHead className="text-xs text-center" title="Honor-system coverage: celebrated / (celebrated + missed)">Coverage</TableHead>
                     <TableHead className="text-xs text-center">Refs (rate)</TableHead>
                     <TableHead className="text-xs text-center w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.rows.map(row => (
+                  {data.rows.map(row => {
+                    const cov = coverageBySa.get(row.name);
+                    return (
                     <TableRow
                       key={row.name}
                       className="cursor-pointer hover:bg-muted/40"
