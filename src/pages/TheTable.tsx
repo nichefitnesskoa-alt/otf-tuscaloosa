@@ -77,17 +77,17 @@ export default function TheTable() {
     <div className="flex items-center justify-between mb-4">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Flag className="w-6 h-6 text-[#E8540A]" /> The Table
+          <Flag className="w-6 h-6 text-[#E8540A]" /> Own It
         </h1>
         <p className="text-sm text-muted-foreground">
-          {format(new Date(meeting.meeting_date + 'T12:00:00'), 'EEEE, MMM d')} · {meeting.meeting_time.slice(0, 5)}
+          {format(new Date(meeting.meeting_date + 'T12:00:00'), 'EEEE, MMM d')} · {formatMeetingTime(meeting.meeting_time)}
           {' · '}
           <Badge variant={meeting.status === 'live' ? 'default' : 'secondary'} className="ml-1">{meeting.status}</Badge>
         </p>
       </div>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
-          <History className="w-4 h-4 mr-1" /> Past Tables
+          <History className="w-4 h-4 mr-1" /> Past Meetings
         </Button>
         {isAdmin && (
           <>
