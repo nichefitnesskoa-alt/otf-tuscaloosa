@@ -239,17 +239,39 @@ export default function SaDetail() {
                     <TableHead className="text-xs">Shift</TableHead>
                     <TableHead className="text-xs text-center">Milestones</TableHead>
                     <TableHead className="text-xs text-center">Refs</TableHead>
+                    <TableHead className="text-xs text-center" title="Honor-system: celebrated / (celebrated + missed)">Coverage</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {shiftSummaries.map(s => (
-                    <TableRow key={`${s.date}-${s.type}`}>
-                      <TableCell className="text-sm">{format(parseLocalDate(s.date), 'EEE MMM d')}</TableCell>
-                      <TableCell className="text-sm">{s.type}</TableCell>
-                      <TableCell className="text-sm text-center">{s.milestones}</TableCell>
-                      <TableCell className="text-sm text-center">{s.referrals}</TableCell>
-                    </TableRow>
-                  ))}
+                  {shiftSummaries.map(s => {
+                    const cov = s.celebrated != null && s.missed != null
+                      ? computeCoverage([{ id: 'x', sa_name: '', shift_date: '', shift_type: '', milestones_celebrated: s.celebrated, milestones_missed: s.missed, notes: null }])
+                      : null;
+                    return (
+                      <>
+                        <TableRow key={`${s.date}-${s.type}`}>
+                          <TableCell className="text-sm">{format(parseLocalDate(s.date), 'EEE MMM d')}</TableCell>
+                          <TableCell className="text-sm">{s.type}</TableCell>
+                          <TableCell className="text-sm text-center">{s.milestones}</TableCell>
+                          <TableCell className="text-sm text-center">{s.referrals}</TableCell>
+                          <TableCell className="text-sm text-center tabular-nums">
+                            {cov ? (
+                              <span title={`${s.celebrated} celebrated / ${s.missed} missed`}>{formatCoveragePct(cov.pct)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {s.notes && (s.missed ?? 0) > 0 && (
+                          <TableRow key={`${s.date}-${s.type}-notes`} className="bg-muted/20">
+                            <TableCell colSpan={5} className="text-[11px] italic text-muted-foreground py-1.5 px-3">
+                              Note: {s.notes}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
