@@ -6,6 +6,8 @@ import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
 import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { isCloseRun } from '@/lib/intros/close-detection';
 import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
 import { getTodayYMD } from '@/lib/dateUtils';
 import { resolvePromotedOrphanBookingIds, isFirstIntroForMetrics } from '@/lib/intros/orphanedFirstIntros';
@@ -262,16 +264,14 @@ export function useDashboardMetrics(
       const saFirstRuns = activeRuns.filter(run => {
         if (run.intro_owner !== saName) return false;
         if (!run.linked_intro_booked_id || !firstIntroBookingIds.has(run.linked_intro_booked_id)) return false;
-        const res = (run.result || '').toLowerCase();
-        if (res === 'no-show' || res === 'no show') return false;
-        if ((run as any).result_canon === 'VIP_CLASS_INTRO') return false;
+        if (!didIntroActuallyRun(run)) return false;
         return isRunInRange(run, dateRange);
       });
       let introsRanCount = saFirstRuns.length;
 
       // Get ALL runs by this SA (for sales counting)
       const saAllRuns = activeRuns.filter(run => {
-        return run.intro_owner === saName && run.result !== 'No-show';
+        return run.intro_owner === saName && didIntroActuallyRun(run);
       });
 
       // Dual-date filtering: include runs where EITHER run_date OR buy_date is in range
@@ -355,7 +355,7 @@ export function useDashboardMetrics(
           }
           
           const runs = bookingToRuns.get(b.id) || [];
-          if (runs.some(run => run.result !== 'No-show')) {
+          if (runs.some(run => didIntroActuallyRun(run))) {
             existing.showed++;
           }
           
@@ -392,10 +392,10 @@ export function useDashboardMetrics(
       existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: (b as any).coach_name || undefined });
 
       const runs = bookingToRuns.get(b.id) || [];
-      const showedRun = runs.find(r => r.result !== 'No-show');
+      const showedRun = runs.find(r => didIntroActuallyRun(r));
       if (showedRun) {
         existing.showed++;
-        const showDetail = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
+        const showDetail = isCloseRun(showedRun) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
         existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showDetail });
       }
 
@@ -487,10 +487,7 @@ export function useDashboardMetrics(
 
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      const nonNoShowRun = runs.find(r => {
-        const res = (r.result || '').toLowerCase();
-        return res !== 'no-show' && res !== 'no show' && isRunInRange(r, dateRange);
-      });
+      const nonNoShowRun = runs.find(r => didIntroActuallyRun(r) && isRunInRange(r, dateRange));
       if (nonNoShowRun) {
         pipelineShowed++;
         const saleRun = runs.find(r => isSaleInRange(r, dateRange));
@@ -501,14 +498,14 @@ export function useDashboardMetrics(
       }
     });
 
-    // Explicit no-show count: only bookings with a confirmed No-show result
+    // Explicit no-show count: only bookings whose runs are ALL canon NO_SHOW.
+    // (Kept canon-explicit on purpose — `!didIntroActuallyRun` would also
+    // include UNRESOLVED / PLANNING_RESCHEDULE / VIP_CLASS_INTRO, which is
+    // not what "no-show" means on this surface.)
     let pipelineNoShows = 0;
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      if (runs.length > 0 && runs.every(r => {
-        const res = (r.result || '').toLowerCase();
-        return res === 'no-show' || res === 'no show';
-      })) {
+      if (runs.length > 0 && runs.every(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW')) {
         pipelineNoShows++;
       }
     });
@@ -531,9 +528,9 @@ export function useDashboardMetrics(
       const name = run.intro_owner || run.sa_name;
       if (name && !EXCLUDED_NAMES.includes(name)) {
         const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
-        if (run.result !== 'No-show') {
+        if (didIntroActuallyRun(run)) {
           existing.introsRun++;
-          if (isMembershipSale(run.result)) {
+          if (isCloseRun(run)) {
             existing.sales++;
           }
         }
@@ -562,7 +559,7 @@ export function useDashboardMetrics(
     activeRuns.forEach(run => {
       const owner = run.intro_owner;
       const isUnattributed = !owner || EXCLUDED_NAMES.includes(owner) || !attributedSANames.has(owner);
-      if (isUnattributed && run.result !== 'No-show' && isSaleInRange(run, dateRange)) {
+      if (isUnattributed && didIntroActuallyRun(run) && isSaleInRange(run, dateRange)) {
         unattributedSales++;
       }
     });

@@ -7,6 +7,7 @@ import {
   isPurchased, isNoShow,
 } from '@/lib/studio-metrics';
 import { isMembershipSale, getRunSaleDate } from '@/lib/sales-detection';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -406,19 +407,17 @@ export function useGenerateAgenda() {
 
       // Q completion — only count bookings where member actually showed
       const showedBookingIds = new Set(
-        runs.filter((r: any) => {
-          const res = (r.result || '').toLowerCase();
-          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
-        }).map((r: any) => r.linked_intro_booked_id)
+        runs.filter((r: any) =>
+          didIntroActuallyRun(r) && r.linked_intro_booked_id
+        ).map((r: any) => r.linked_intro_booked_id)
       );
       const qEligible = questionnaires.filter((q: any) => showedBookingIds.has(q.booking_id));
       const qSubmitted = qEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;
       const qCompletion = qEligible.length > 0 ? (qSubmitted / qEligible.length) * 100 : 0;
       const prevShowedBookingIds = new Set(
-        prevRuns.filter((r: any) => {
-          const res = (r.result || '').toLowerCase();
-          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
-        }).map((r: any) => r.linked_intro_booked_id)
+        prevRuns.filter((r: any) =>
+          didIntroActuallyRun(r) && r.linked_intro_booked_id
+        ).map((r: any) => r.linked_intro_booked_id)
       );
       const prevQEligible = prevQuestionnaires.filter((q: any) => prevShowedBookingIds.has(q.booking_id));
       const prevQSubmitted = prevQEligible.filter((q: any) => q.status === 'submitted' || q.status === 'completed').length;

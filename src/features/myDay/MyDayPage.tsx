@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { getTodayStartISO, getTodayYMD } from '@/lib/dateUtils';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 import { Tables } from '@/integrations/supabase/types';
 import { ShiftChecklist } from './ShiftChecklist';
@@ -145,7 +146,7 @@ export default function MyDayPage() {
     introsRun.filter(r => r.run_date === todayStr),
     [introsRun, todayStr],
   );
-  const completedTodayCount = todayRuns.filter(r => r.result !== 'No-show' && r.result?.toLowerCase() !== 'no show').length;
+  const completedTodayCount = todayRuns.filter(r => didIntroActuallyRun(r)).length;
   const purchaseTodayCount = useMemo(() =>
     todayRuns.filter(r => {
       const result = r.result || '';

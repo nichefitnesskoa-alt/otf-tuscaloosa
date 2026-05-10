@@ -1,3 +1,4 @@
+import { isMembershipSale } from '@/lib/sales-detection';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -242,7 +243,7 @@ export default function ShiftRecapDetails({
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge 
-                      variant={run.result.toLowerCase().includes('premier') || run.result.toLowerCase().includes('elite') || run.result.toLowerCase().includes('basic') ? 'default' : 'secondary'}
+                      variant={isMembershipSale(run.result) ? 'default' : 'secondary'}
                       className="text-xs"
                     >
                       {run.result}

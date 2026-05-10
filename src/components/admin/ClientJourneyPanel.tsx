@@ -414,8 +414,8 @@ export default function ClientJourneyPanel() {
         const hasActive = data.bookings.some(b => 
           (b as any).booking_status_canon === 'ACTIVE' || b.booking_status === 'Active' || !b.booking_status
         );
-        const hasNoShow = data.runs.some(r => 
-          (r as any).result_canon === 'NO_SHOW' || r.result === 'No-show'
+        const hasNoShow = data.runs.some(r =>
+          ((r as any).result_canon || '').toUpperCase() === 'NO_SHOW'
         );
 
         if (hasSale || hasClosed) {

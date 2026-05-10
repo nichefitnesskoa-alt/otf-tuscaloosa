@@ -10,6 +10,8 @@ import { format } from 'date-fns';
 import { getLocalDateString } from '@/lib/utils';
 import { getTodayStartISO, getTomorrowStartISO } from '@/lib/dateUtils';
 import { isMembershipSale } from '@/lib/sales-detection';
+import { isCloseRun } from '@/lib/intros/close-detection';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -116,13 +118,15 @@ export function CloseOutShift({
 
       const sameDaySales = (ran || []).filter(r => {
         const effectiveDate = r.buy_date || r.run_date || '';
-        return effectiveDate === today && isMembershipSale(r.result);
+        return effectiveDate === today && isCloseRun(r);
       });
       const soldNames = sameDaySales.map(r => `${r.member_name}: ${r.result}`);
 
-      const noShowCnt = (ran || []).filter(r => r.result_canon === 'NO_SHOW' || r.result === 'No-show').length;
+      // Canon-explicit no-show count (semantic: "confirmed no-show",
+      // not "didn't run" — those have their own categories).
+      const noShowCnt = (ran || []).filter(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW').length;
       const followUpNeeded = (ran || []).filter(r =>
-        ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && r.result !== 'No-show'
+        ['FOLLOW_UP_NEEDED', 'UNRESOLVED'].includes(r.result_canon || '') && (r.result_canon || '').toUpperCase() !== 'NO_SHOW'
       ).length;
 
       // Follow-up purchases (buy_date = today, run_date != today)
@@ -167,7 +171,7 @@ export function CloseOutShift({
 
       setSummary({
         booked: allBookedIds.size,
-        ran: (ran || []).filter(r => r.result_canon !== 'NO_SHOW' && r.result !== 'No-show').length,
+        ran: (ran || []).filter(r => didIntroActuallyRun(r)).length,
         sold: sameDaySales.length,
         soldNames,
         noShow: noShowCnt,

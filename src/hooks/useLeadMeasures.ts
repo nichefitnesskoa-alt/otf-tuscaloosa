@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
 import { ALL_STAFF } from '@/types';
+import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 export interface OutreachPerson {
   id: string;
@@ -78,10 +79,9 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Build set of booking IDs where member actually showed (for Q completion denominator)
       const showedBookingIds = new Set(
-        (runs || []).filter((r: any) => {
-          const res = (r.result || '').toLowerCase();
-          return res !== 'no-show' && res !== 'no show' && r.linked_intro_booked_id;
-        }).map((r: any) => r.linked_intro_booked_id)
+        (runs || []).filter((r: any) =>
+          didIntroActuallyRun(r) && r.linked_intro_booked_id
+        ).map((r: any) => r.linked_intro_booked_id)
       );
 
       // Per-SA aggregation
@@ -123,8 +123,7 @@ export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
 
       // Intros ran per SA + Q completion (run-side attribution)
       (runs || []).forEach((r: any) => {
-        const result = (r.result || '').toLowerCase();
-        if (result === 'no-show' || result === 'no show') return;
+        if (!didIntroActuallyRun(r)) return;
         const sa = r.intro_owner || r.sa_name || '';
         if (!sa) return;
         ensure(sa);

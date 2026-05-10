@@ -1,4 +1,7 @@
-// Source of truth for "did this intro close." Every consumer uses this. No second implementation anywhere.
+// Source of truth for close detection. Do not reimplement.
+// If you find inline `isMembershipSale(r.result)` in a close-detection
+// context, replace with `isCloseRun`. For canon-only checks use
+// `isSaleCanon` / `SALE_CANONS` from '@/lib/sales-detection'.
 import { supabase } from '@/integrations/supabase/client';
 import { isCloseResult } from '@/lib/intros/resultLabels';
 
