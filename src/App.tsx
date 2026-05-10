@@ -28,6 +28,7 @@ import Recaps from "./pages/Recaps";
 import CoachMyIntros from "./pages/CoachMyIntros";
 import CoachScorecards from "./pages/CoachScorecards";
 import CoachDetail from "./pages/CoachDetail";
+import SaDetail from "./pages/SaDetail";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import { useParams } from "react-router-dom";
@@ -187,6 +188,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CoachDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sas/:saName"
+        element={
+          <ProtectedRoute>
+            <SaDetail />
           </ProtectedRoute>
         }
       />

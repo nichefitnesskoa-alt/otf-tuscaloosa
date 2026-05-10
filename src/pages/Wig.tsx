@@ -12,6 +12,8 @@ import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WigSaLeaderboard } from '@/components/wig/WigSaLeaderboard';
 
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -645,10 +647,58 @@ export default function Wig() {
     );
   }
 
-  const scoreCards = [
-    { label: 'Leads this period', current: totalLeads, target: leadTarget, isPercent: false },
-    { label: 'Close rate', current: closeRate, target: 40, isPercent: true },
-  ];
+  const leadCard = { label: 'Leads this period', current: totalLeads, target: leadTarget, isPercent: false };
+  const closeRateCard = { label: 'Close rate', current: closeRate, target: 40, isPercent: true };
+  const renderMetricCard = (card: typeof leadCard, isLeadCard: boolean) => {
+    const progressValue = Math.min((card.current / card.target) * 100, 100);
+    return (
+      <Card key={card.label}>
+        <CardContent className="p-3 text-center space-y-1">
+          <p className={cn('text-2xl font-bold', getStatusColor(card.current, card.target))}>
+            {card.isPercent ? `${card.current.toFixed(0)}%` : card.current}
+          </p>
+          {isLeadCard && editingTarget ? (
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-[10px] text-muted-foreground">Target:</span>
+              <Input
+                type="number"
+                min={0}
+                value={targetInput}
+                onChange={e => setTargetInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveTarget(); if (e.key === 'Escape') { setEditingTarget(false); setTargetInput(String(leadTarget)); } }}
+                className="w-16 h-5 text-[10px] px-1 text-center"
+                autoFocus
+              />
+              <Button size="sm" variant="ghost" className="h-5 px-1" onClick={handleSaveTarget}>
+                <Check className="w-3 h-3" />
+              </Button>
+            </div>
+          ) : (
+            <p
+              className={cn('text-[10px] text-muted-foreground', isLeadCard && 'cursor-pointer hover:text-foreground hover:underline')}
+              onClick={isLeadCard ? () => { setTargetInput(String(leadTarget)); setEditingTarget(true); } : undefined}
+              title={isLeadCard ? 'Tap to edit target' : undefined}
+            >
+              Target: {card.isPercent ? `${card.target}%` : card.target}
+              {isLeadCard && targetSaved && <span className="ml-1 text-success">Saved</span>}
+            </p>
+          )}
+          <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+            <div
+              className={cn('h-full rounded-full transition-all', getBarColor(card.current, card.target))}
+              style={{ width: `${progressValue}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">{card.label}</p>
+          {isLeadCard && pacingInfo && (
+            <p className={cn('text-[10px] font-medium', pacingInfo.color)}>
+              On pace for ~{pacingInfo.projected} {pacingInfo.projected >= leadTarget ? '✓' : ''}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -679,224 +729,188 @@ export default function Wig() {
         </div>
       </div>
 
-      {/* SECTION 1 — SCOREBOARD */}
-      <div className="space-y-4">
-        {/* Monthly lead input */}
-        <Card>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground whitespace-nowrap">
-                Total leads for {selectedMonthLabel} (from OTF report)
-              </label>
-              <Input
-                type="number"
-                min={0}
-                value={leadCount}
-                onChange={e => setLeadCount(e.target.value)}
-                className="w-24 h-8 text-sm"
-                placeholder="0"
-              />
-              <Button size="sm" className="h-8 text-xs" onClick={handleSaveLead} disabled={leadSaving}>
-                {leadSaved ? <Check className="w-3.5 h-3.5" /> : 'Update'}
-              </Button>
-              {leadSaved && <span className="text-xs text-success">Saved</span>}
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="sa" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-3">
+          <TabsTrigger value="sa">SA</TabsTrigger>
+          <TabsTrigger value="coach">Coach</TabsTrigger>
+        </TabsList>
 
-        {/* Metric cards */}
-        <div className="grid grid-cols-2 gap-2">
-          {scoreCards.map(card => {
-            const progressValue = Math.min((card.current / card.target) * 100, 100);
-            const isLeadCard = card.label === 'Leads this period';
-            return (
-              <Card key={card.label}>
-                <CardContent className="p-3 text-center space-y-1">
-                  <p className={cn('text-2xl font-bold', getStatusColor(card.current, card.target))}>
-                    {card.isPercent ? `${card.current.toFixed(0)}%` : card.current}
-                  </p>
-                  {isLeadCard && editingTarget ? (
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-[10px] text-muted-foreground">Target:</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={targetInput}
-                        onChange={e => setTargetInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleSaveTarget(); if (e.key === 'Escape') { setEditingTarget(false); setTargetInput(String(leadTarget)); } }}
-                        className="w-16 h-5 text-[10px] px-1 text-center"
-                        autoFocus
-                      />
-                      <Button size="sm" variant="ghost" className="h-5 px-1" onClick={handleSaveTarget}>
-                        <Check className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <p
-                      className={cn('text-[10px] text-muted-foreground', isLeadCard && 'cursor-pointer hover:text-foreground hover:underline')}
-                      onClick={isLeadCard ? () => { setTargetInput(String(leadTarget)); setEditingTarget(true); } : undefined}
-                      title={isLeadCard ? 'Tap to edit target' : undefined}
-                    >
-                      Target: {card.isPercent ? `${card.target}%` : card.target}
-                      {isLeadCard && targetSaved && <span className="ml-1 text-success">Saved</span>}
-                    </p>
-                  )}
-                  <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-                    <div
-                      className={cn('h-full rounded-full transition-all', getBarColor(card.current, card.target))}
-                      style={{ width: `${progressValue}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{card.label}</p>
-                  {isLeadCard && pacingInfo && (
-                    <p className={cn('text-[10px] font-medium', pacingInfo.color)}>
-                      On pace for ~{pacingInfo.projected} {pacingInfo.projected >= leadTarget ? '✓' : ''}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Coach Lead Measures table removed — replaced by First Visit Experience scorecard system (coming next) */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-primary" />
-              Coach — Coached & Closes
-            </CardTitle>
-            <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
-          </CardHeader>
-          <CardContent className="p-0">
-            {measuresLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-                <span className="text-xs text-muted-foreground">Loading…</span>
+        {/* ===== SA TAB ===== */}
+        <TabsContent value="sa" className="space-y-4">
+          {/* Monthly lead input */}
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">
+                  Total leads for {selectedMonthLabel} (from OTF report)
+                </label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={leadCount}
+                  onChange={e => setLeadCount(e.target.value)}
+                  className="w-24 h-8 text-sm"
+                  placeholder="0"
+                />
+                <Button size="sm" className="h-8 text-xs" onClick={handleSaveLead} disabled={leadSaving}>
+                  {leadSaved ? <Check className="w-3.5 h-3.5" /> : 'Update'}
+                </Button>
+                {leadSaved && <span className="text-xs text-success">Saved</span>}
               </div>
-            ) : coachLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Coach</TableHead>
-                      <TableHead className="text-xs text-center">Coached</TableHead>
-                      <TableHead className="text-xs text-center">Closes</TableHead>
-                      <TableHead className="text-xs text-center">Close %</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {coachLeadMeasures.map(row => (
-                      <TableRow key={row.name}>
-                        <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center p-0">
-                          <button
-                            type="button"
-                            disabled={row.coached === 0}
-                            onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                          >
-                            {row.coached}
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-center font-medium text-success p-0">
-                          <button
-                            type="button"
-                            disabled={row.closes === 0}
-                            onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                          >
-                            {row.closes}
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-center">
-                          <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
-                            {row.closeRate.toFixed(0)}%
-                          </span>
-                        </TableCell>
+            </CardContent>
+          </Card>
+
+          {/* Leads scoreboard tile */}
+          <div className="grid grid-cols-1 gap-2">
+            {renderMetricCard(leadCard, true)}
+          </div>
+
+          {/* SA Leaderboard with shifts/streaks/milestones/refs (NEW) */}
+          <WigSaLeaderboard dateRange={dateRange} />
+
+          {/* Existing SA Lead Measures (POS Referral Ask + Packs Gifted) */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                SA Lead Measures
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {measuresLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-xs text-muted-foreground">Loading…</span>
+                </div>
+              ) : saLeadMeasures.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">SA</TableHead>
+                        <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
+                        <TableHead className="text-xs text-center">Packs Gifted</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {saLeadMeasures.map(row => (
+                        <TableRow key={row.name}>
+                          <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                          <TableCell className="text-sm text-center p-0">
+                            <button
+                              type="button"
+                              disabled={row.referralAsks === 0}
+                              onClick={() => setSaDrill({ sa: row.name, metric: 'referralAsks' })}
+                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                            >
+                              {row.referralAsks}
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-sm text-center p-0">
+                            <button
+                              type="button"
+                              disabled={row.packs === 0}
+                              onClick={() => setSaDrill({ sa: row.name, metric: 'packs' })}
+                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                            >
+                              {row.packs}
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* SECTION — FIRST VISIT EXPERIENCE (auto-counts intros & scorecards per coach) */}
-        <WigFirstVisitSection dateRange={dateRange} />
-      </div>
+          {/* Referral Ask Tracker */}
+          <ReferralAskTracker dateRange={dateRange} />
 
-      {/* SECTION 2 — SA LEAD MEASURES */}
-      <div className="space-y-4">
-        {/* SA Lead Measures */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary" />
-              SA Lead Measures
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {measuresLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-                <span className="text-xs text-muted-foreground">Loading…</span>
-              </div>
-            ) : saLeadMeasures.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">SA</TableHead>
-                      <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
-                      <TableHead className="text-xs text-center">Packs Gifted</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {saLeadMeasures.map(row => (
-                      <TableRow key={row.name}>
-                        <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                        <TableCell className="text-sm text-center p-0">
-                          <button
-                            type="button"
-                            disabled={row.referralAsks === 0}
-                            onClick={() => setSaDrill({ sa: row.name, metric: 'referralAsks' })}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                          >
-                            {row.referralAsks}
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-sm text-center p-0">
-                          <button
-                            type="button"
-                            disabled={row.packs === 0}
-                            onClick={() => setSaDrill({ sa: row.name, metric: 'packs' })}
-                            className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                          >
-                            {row.packs}
-                          </button>
-                        </TableCell>
+          {/* Milestones & Deploy */}
+          <MilestonesDeploySection dateRange={dateRange} />
+        </TabsContent>
+
+        {/* ===== COACH TAB ===== */}
+        <TabsContent value="coach" className="space-y-4">
+          {/* Close rate scoreboard tile */}
+          <div className="grid grid-cols-1 gap-2">
+            {renderMetricCard(closeRateCard, false)}
+          </div>
+
+          {/* Coach — Coached & Closes table */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-primary" />
+                Coach — Coached & Closes
+              </CardTitle>
+              <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {measuresLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-xs text-muted-foreground">Loading…</span>
+                </div>
+              ) : coachLeadMeasures.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No data for this period.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Coach</TableHead>
+                        <TableHead className="text-xs text-center">Coached</TableHead>
+                        <TableHead className="text-xs text-center">Closes</TableHead>
+                        <TableHead className="text-xs text-center">Close %</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {coachLeadMeasures.map(row => (
+                        <TableRow key={row.name}>
+                          <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                          <TableCell className="text-sm text-center p-0">
+                            <button
+                              type="button"
+                              disabled={row.coached === 0}
+                              onClick={() => setDrill({ coach: row.name, metric: 'coached' })}
+                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                            >
+                              {row.coached}
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-sm text-center font-medium text-success p-0">
+                            <button
+                              type="button"
+                              disabled={row.closes === 0}
+                              onClick={() => setDrill({ coach: row.name, metric: 'closes' })}
+                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                            >
+                              {row.closes}
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-sm text-center">
+                            <span className={row.closeRate >= 40 ? 'text-success' : row.closeRate >= 30 ? 'text-warning' : 'text-destructive'}>
+                              {row.closeRate.toFixed(0)}%
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Referral Ask Tracker — closed memberships needing a referral ask */}
-        <ReferralAskTracker dateRange={dateRange} />
-
-      </div>
-
-      {/* SECTION 3 — MILESTONES & DEPLOY */}
-      <MilestonesDeploySection dateRange={dateRange} />
+          {/* First Visit Experience scorecard system */}
+          <WigFirstVisitSection dateRange={dateRange} />
+        </TabsContent>
+      </Tabs>
 
       <CoachAttributionDrillDown
         open={!!drill}
