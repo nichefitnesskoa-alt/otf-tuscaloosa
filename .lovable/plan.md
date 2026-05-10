@@ -1,90 +1,94 @@
-## Investigation proof
+**GAPS LOVABLE MISSED**
 
-- Hemline Tuscaloosa exists in `vip_sessions`:
-  - `id`: `5b10840e-d4aa-41fe-8d36-9b243e876ccf`
-  - `reserved_by_group`: `Hemline Tuscaloosa`
-  - `session_date`: `2026-05-11`
-  - `session_time`: `08:45:00`
-  - `status`: `reserved`
-- Hemline has `2` rows in `vip_registrations`.
-- For the selected visible week of May 11-17:
-  - Standard intros count: `0`
-  - Reserved VIP groups count: `1`
+**1. Pre-May follow-up cleanup needs an audit trail, not a delete.** Plan says set status=resolved and resolved_by='System (Pre-May cleanup)'. Good. Add: write a migration log row per record so you can reverse it if you find one you didn't mean to archive. Never lose data you can't get back.
 
-## Root cause
+**2. The chart's "tap a point to open scorecards behind it" feature needs to survive the rebuild.** Plan doesn't mention preserving the drill-down. If per-day points now show per-coach lines, tapping a point on Koa's line should open only Koa's scorecards for that day. Specify it or it breaks.
 
-The hook now fetches the VIP group correctly, but the UI still hides it because the selected day is filtered like this:
+**3. Legend color logic for per-coach lines.** Recharts will auto-assign colors. They'll change order if a coach gets added or removed. Lock a color map: each active coach gets a stable hex assigned in a constants file. Otherwise James is orange one week and red the next.
 
-```text
-selectedDayItems = items.filter(i => i.classDate === selectedDate)
-```
+**4. Coach Stats totals row math.** Weighted close% (totalCloses / totalCoached) is correct. Make sure it's not a simple average of the column. Plan says weighted. Verify the implementation matches the plan.
 
-The session replay shows the user moved My Day to the next week. On week navigation, the page first renders a loading state with the VIP count, then the selected date state and fetched item state fall out of sync and the Monday panel renders `No intros scheduled for Monday.`
+**5. Role gating audit.** Flipping WIG to "everyone sees everything" for SAs and Coaches means every other place that filters by current_user needs review. Plan covers WIG aggregate sections. Add: search the codebase for every `.eq('owner_id', user.id)` or equivalent across the entire app and confirm none of them are silently filtering WIG-adjacent components. Same root cause rule.  
+  
+**RECOMMENDED WAVE ORDER FOR LOVABLE**
 
-There is also a second UX blocker: VIP cards are nested inside a time accordion that defaults closed. Even when the item is present, staff may only see an `8:45 AM — 1 VIP group` row, not the actual VIP group intro card.
+Tell Lovable to ship in this order, not all at once:
 
-## Map the reach
+1. Pre-May follow-up cleanup migration (with audit log)
+2. Chart math fixes: left-to-right sort, exclude unscored, fix Formal/Self toggle, fix This Month default
+3. Coach Stats rename + totals row
+4. Per-coach lines + Closed/Didn't close tabs (with locked color map and drill-down preserved)
+5. Move My Scorecards into WIG + Koa coach picker
+6. Rename My Intros to Text My Intros
+7. Role gating flip: SA + Coach see all of WIG, Coaches get Studio tab
 
-This change touches the My Day upcoming intros system only:
+Steps 1-4 are data correctness. Steps 5-7 are visibility and labels. Correctness first.
 
-- Reads changed data:
-  - `useUpcomingIntrosData.ts` reads `vip_sessions` and `vip_registrations`.
-  - `UpcomingIntrosCard.tsx` reads hook items and filters by selected day.
-  - `IntroDayGroup.tsx` renders time groups and passes VIP session items to cards.
-  - `IntroRowCard.tsx` renders the actual VIP group card and opens `VipRegistrationsSheet`.
-- Writes changed data:
-  - No write behavior changes.
-  - Existing VIP outcome/coach writes in `VipRegistrationsSheet.tsx` stay unchanged.
-- Calculates metrics from changed data:
-  - Day tab badges use `dayCounts`.
-  - Day group counts separate true intros vs VIP groups.
-  - Q summary should not count VIP groups as questionnaires-needed.
-- Displays derived state:
-  - Empty state copy.
-  - Day tab badge count.
-  - Time accordion labels.
-  - VIP group card.
-- Shared rules:
-  - VIP group items use `isVipSession` and must not be treated as normal intros.
-  - VIP group visibility must agree between day tabs, selected day body, and time group card list.
+## 1. Coach Stats section (WIG → Coach tab)
 
-## Implementation plan
+File: `src/components/dashboard/PerCoachTable.tsx` (or its WIG wrapper)
 
-1. Keep the VIP data fetch as-is, because the real Hemline row proves the query shape is correct.
+- Rename header "Coach — Coached & Closes" → **"Coach Stats"**
+- Add a totals row at the bottom: sum of Coached, sum of Closes, weighted Close% (totalCloses / totalCoached).
+- Style row with top border + bold so it reads as a totals row.
 
-2. Make selected-day filtering resilient in `UpcomingIntrosCard.tsx`:
-   - Use a canonical selected-day item helper inside the component.
-   - If the selected date has no items but the current week has VIP sessions, keep the date selection and body in sync so the VIP group is visible instead of rendering an empty state.
-   - Ensure day counts include VIP session items so the Monday tab badge shows `1`.
+## 2. First Visit Experience graph (Studio overall)
 
-3. Fix the summary/Q counts in `UpcomingIntrosCard.tsx`:
-   - Exclude `isVipSession` from questionnaire-needed math.
-   - Show wording that includes VIP groups when the day contains only VIP groups.
+File: `src/components/scorecard/CoachDashboard.tsx` and chart child(ren) under `src/components/scorecard/`.
 
-4. Make VIP groups immediately visible in `IntroDayGroup.tsx`:
-   - Auto-open time sections that contain any VIP group.
-   - Keep regular intro time sections behavior unchanged.
+Fixes:
 
-5. Add one small canonical helper if needed for My Day filtering/counting:
-   - `isVipSessionItem(item)` or local helper if only used in this surface.
-   - Use it consistently for day counts, Q summary, active/completed split, and labels.
+- **Left-to-right ordering**: sort points by date ascending before passing to recharts (current data appears unsorted on "This Month").
+- **Default date range bug**: investigate why "This Month" only plots one date — likely a grouping/dedupe step that collapses by week or filters out points with the same date key. Switch to per-day points sorted ASC with no week-bucketing.
+- **Exclude unscored from line**: filter out scorecards where score is null/0/unscored before charting; do not coerce to 0 or 100. Keep them in the "X intros still waiting on a scorecard" callout only.
+- **Formal vs Self primary toggle actually works**: today both toggles render same dataset. Wire `primary` state to actually swap which series is the bold/primary line and which is dimmed. Confirm dataset filter changes when toggled.
+- **Per-coach lines**: in addition to "Studio overall", render one line per coach (color per coach, legend with toggles). Add a tab/segmented control above the chart:
+  - `Studio` (overall avg line)
+  - `By coach` (one line per coach, click legend to isolate)
+- **Closed vs Didn't close lines**: add another tab/segment:
+  - `All`
+  - `Closed only`
+  - `Didn't close only`
+  - `Compare` (two lines: avg of closed vs avg of didn't close per date)
+- All chart toggles share the same date range selector.
 
-## Verification plan
+## 3. Role visibility on WIG
 
-After implementation, verify with real data:
+- **SA + Coach** logins: WIG tab shows everything (all coaches, all SAs, all studio metrics) — not just their own row. Remove any `filter by current user` on WIG aggregate sections.
+- **Coaches** also get access to the **Studio tab** in bottom nav (currently Admin-only). Update `src/components/BottomNav.tsx` role gating.
 
-- Database check:
-  - Hemline Tuscaloosa VIP session still returns `1` reserved row for `2026-05-11 08:45`.
-  - Registration count returns `2`.
-- UI data check:
-  - My Day week of May 11-17 has Monday badge count `1`.
-  - Monday selected body renders Hemline Tuscaloosa, not `No intros scheduled for Monday.`
-  - The `8:45 AM` section is open enough for staff to see the VIP group card without guessing.
-- Metric consistency:
-  - Standard intro count remains `0`.
-  - VIP group count remains `1`.
-  - Q needed count remains `0` for VIP-only day.
-- Regression checks:
-  - Regular intro cards still render under their day/time.
-  - VIP groups do not appear in needs-outcome mode.
-  - Opening the VIP group still shows the registration sheet and its `2` registrants.
+## 4. My Scorecards lives inside WIG (not its own page)
+
+- Move `My Scorecards` content into a sub-section/tab inside the WIG → Coach view, visible only to the logged-in person and showing only their own scorecards.
+- **Koa (Admin)** gets a coach picker in that WIG sub-section to toggle between any coach's scorecards.
+- Remove/redirect the standalone `/coach-scorecards` route from primary nav for non-admins (keep route for deep-links but surface entry point inside WIG).
+- Files: `src/pages/CoachScorecards.tsx`, `src/components/scorecard/CoachDashboard.tsx`, WIG page (`src/pages/Wig.tsx`), `src/components/BottomNav.tsx`.
+
+## 5. Rename "My Intros" → "Text My Intros"
+
+- `src/components/BottomNav.tsx` (label)
+- Page title in `src/pages/CoachMyIntros.tsx`
+- Any other references (ripgrep `My Intros`)
+
+## 6. Follow-up clean slate (pre-May 2026)
+
+- Migration: mark all `follow_up_queue` rows where created_at < 2026-05-01 (America/Chicago) as resolved/archived so they drop off active queues.
+  - Likely set `status = 'resolved'` (or whatever canonical "done" status this table uses) + `resolved_at = now()` + `resolved_by = 'System (Pre-May cleanup)'`.
+  - Will confirm exact column names by reading the table schema before writing the migration.
+- Verify all four follow-up tabs (Follow Up Needed, No Show, Plans to Reschedule, 2nd Intro) read empty for pre-May items afterward.
+
+## CONFIRM THESE VALUES before implementing
+
+1. Follow-up "clean slate" cutoff: **everything created before May 1, 2026 (CST)** — correct?
+2. For the chart "Closed vs Didn't close" — should "didn't close" mean any first intro whose journey did not end in a sale (excluding still-pending)? Or strictly `result_canon != SALE` even if pending?
+3. For per-coach lines on the chart — show all coaches by default, or default to studio overall and reveal per-coach via tab? (Plan assumes tab toggle.)
+
+## Files to touch
+
+- `src/components/dashboard/PerCoachTable.tsx`
+- `src/components/scorecard/CoachDashboard.tsx` (+ chart children)
+- `src/pages/Wig.tsx`
+- `src/pages/CoachScorecards.tsx`
+- `src/pages/CoachMyIntros.tsx`
+- `src/components/BottomNav.tsx`
+- New migration under `supabase/migrations/` for follow-up cleanup
