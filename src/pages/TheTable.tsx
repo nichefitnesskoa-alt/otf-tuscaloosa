@@ -27,6 +27,17 @@ const HEALTH_DOT: Record<string, string> = {
   green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500',
 };
 
+// Convert "13:30" / "13:30:00" → "1:30 PM" (no military time anywhere).
+function formatMeetingTime(t: string): string {
+  const [hStr, mStr] = t.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${period}`;
+}
+
 export default function TheTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
@@ -66,17 +77,17 @@ export default function TheTable() {
     <div className="flex items-center justify-between mb-4">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Flag className="w-6 h-6 text-[#E8540A]" /> The Table
+          <Flag className="w-6 h-6 text-[#E8540A]" /> Own It
         </h1>
         <p className="text-sm text-muted-foreground">
-          {format(new Date(meeting.meeting_date + 'T12:00:00'), 'EEEE, MMM d')} · {meeting.meeting_time.slice(0, 5)}
+          {format(new Date(meeting.meeting_date + 'T12:00:00'), 'EEEE, MMM d')} · {formatMeetingTime(meeting.meeting_time)}
           {' · '}
           <Badge variant={meeting.status === 'live' ? 'default' : 'secondary'} className="ml-1">{meeting.status}</Badge>
         </p>
       </div>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
-          <History className="w-4 h-4 mr-1" /> Past Tables
+          <History className="w-4 h-4 mr-1" /> Past Meetings
         </Button>
         {isAdmin && (
           <>
@@ -151,7 +162,7 @@ export default function TheTable() {
           {isAdmin ? (
             <Textarea
               defaultValue={meeting.koa_open_note ?? ''}
-              placeholder="How are you opening The Table this week?"
+              placeholder="How are you opening this meeting?"
               onBlur={async (e) => {
                 await supabase.from('table_meetings').update({ koa_open_note: e.target.value }).eq('id', meeting.id);
                 qc.invalidateQueries({ queryKey: ['table-meeting'] });
@@ -168,7 +179,7 @@ export default function TheTable() {
       {myOwner && (
         <Card className="p-4 mb-4 border-[#E8540A]/40">
           <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold">Your update — {myOwner.lane_name || 'Lane unassigned'}</div>
+            <div className="font-semibold">Your update — {myOwner.lane_name || 'Ownership role unassigned'}</div>
             {myEntry?.submitted_at && <Badge className="bg-emerald-600">Locked in</Badge>}
           </div>
           <OwnerEntryForm
@@ -204,7 +215,7 @@ export default function TheTable() {
                 </Tooltip>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{o.display_name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{o.lane_name || 'Lane unassigned'}</div>
+                  <div className="text-xs text-muted-foreground truncate">{o.lane_name || 'Ownership role unassigned'}</div>
                 </div>
                 <Badge variant={submitted ? 'default' : 'outline'} className={submitted ? 'bg-emerald-600' : 'text-amber-600 border-amber-600'}>
                   {submitted ? 'Locked in' : 'Not yet'}
@@ -268,7 +279,7 @@ export default function TheTable() {
           )}
           <div className="flex-1 text-center">
             <div className="text-2xl font-bold">{activeOwner.display_name}</div>
-            <div className="text-sm text-muted-foreground">{activeOwner.lane_name || 'Lane unassigned'}</div>
+            <div className="text-sm text-muted-foreground">{activeOwner.lane_name || 'Ownership role unassigned'}</div>
             <div className="text-xs text-muted-foreground mt-1">{activeOwnerIdx + 1} of {submittedOwners.length}</div>
           </div>
           {isAdmin && (
@@ -584,7 +595,7 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
       <Textarea
         value={note} onChange={(e) => setNote(e.target.value)}
         onBlur={() => upsert({ koa_close_note: note })}
-        placeholder="How are you closing The Table?" className="min-h-[80px] mb-3"
+        placeholder="How are you closing this meeting?" className="min-h-[80px] mb-3"
       />
       <Input
         value={word} onChange={(e) => setWord(e.target.value)}

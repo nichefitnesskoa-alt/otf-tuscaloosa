@@ -35,14 +35,14 @@ export function BottomNav() {
     const coachItems = [
       { path: '/coach-view', label: 'Coach View', icon: Eye },
       { path: '/wig', label: 'WIG', icon: Trophy },
-      { path: '/the-table', label: 'The Table', icon: Flag },
+      { path: '/the-table', label: 'Own It', icon: Flag },
       { path: '/my-intros', label: 'My Intros', icon: UserCheck },
       { path: '/vips', label: 'VIPs', icon: Star },
       { path: '/scorecards/me', label: 'Scorecards', icon: ClipboardList },
     ];
     return (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto">
-        <div className="flex items-center h-16 min-w-max">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto md:overflow-visible">
+        <div className="flex items-center h-16 min-w-max md:min-w-0 md:w-full">
           {coachItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -51,7 +51,7 @@ export function BottomNav() {
                 key={item.path}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px]',
+                  'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px] md:min-w-0 md:flex-1',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
@@ -77,7 +77,7 @@ export function BottomNav() {
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
-    { path: '/the-table', label: 'The Table', icon: Flag },
+    { path: '/the-table', label: 'Own It', icon: Flag },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
@@ -86,14 +86,14 @@ export function BottomNav() {
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
-    { path: '/the-table', label: 'The Table', icon: Flag },
+    { path: '/the-table', label: 'Own It', icon: Flag },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto">
-      <div className="flex items-center h-16 min-w-max">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto md:overflow-visible">
+      <div className="flex items-center h-16 min-w-max md:min-w-0 md:w-full">
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
@@ -103,7 +103,7 @@ export function BottomNav() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px]',
+                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px] md:min-w-0 md:flex-1',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'

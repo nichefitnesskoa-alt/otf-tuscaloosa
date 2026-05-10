@@ -6,10 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useActiveOwners } from '@/hooks/useTheTable';
 import { supabase } from '@/integrations/supabase/client';
-import { LANE_SUGGESTIONS, LANE_CATEGORIES } from '@/lib/table/laneSuggestions';
+import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Auto-resolve category from a chosen Ownership Role.
+function categoryForLane(lane: string | null | undefined): string | null {
+  if (!lane) return null;
+  const match = LANE_SUGGESTIONS.find(s => s.lane.toLowerCase() === lane.trim().toLowerCase());
+  return match?.category ?? null;
+}
 
 export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { staff } = useActiveStaff();
@@ -23,16 +30,41 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     if (!addingId) return;
     const s = staff.find(x => x.id === addingId);
     if (!s) return;
-    const { error } = await supabase.from('table_owners').insert({
-      staff_id: s.id, display_name: s.name, is_active: true, created_by: 'admin',
-    });
-    if (error) { toast.error(error.message); return; }
+
+    // Check for an existing (possibly soft-removed) row for this staff_id.
+    const { data: existing } = await supabase
+      .from('table_owners')
+      .select('id')
+      .eq('staff_id', s.id)
+      .maybeSingle();
+
+    if (existing) {
+      // Re-activate prior row, preserving their old Ownership Role + category.
+      const { error } = await supabase
+        .from('table_owners')
+        .update({ is_active: true, display_name: s.name })
+        .eq('id', existing.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success(`${s.name} is back at the table.`);
+    } else {
+      const { error } = await supabase.from('table_owners').insert({
+        staff_id: s.id, display_name: s.name, is_active: true, created_by: 'admin',
+      });
+      if (error) { toast.error(error.message); return; }
+    }
     setAddingId('');
     refresh();
   };
 
-  const updateOwner = async (id: string, patch: Partial<{ lane_name: string; category: string; is_active: boolean }>) => {
-    await supabase.from('table_owners').update(patch).eq('id', id);
+  const updateLane = async (id: string, lane: string) => {
+    const trimmed = lane.trim();
+    const category = categoryForLane(trimmed);
+    await supabase.from('table_owners').update({
+      lane_name: trimmed || null,
+      // Only auto-overwrite category when the lane matches a known suggestion.
+      // Custom roles leave category alone.
+      ...(category ? { category } : {}),
+    }).eq('id', id);
     refresh();
   };
 
@@ -41,7 +73,9 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     refresh();
   };
 
-  const availableStaff = staff.filter(s => !owners.some(o => o.staff_id === s.id));
+  // Exclude only currently-active owners from the picker.
+  const activeStaffIds = new Set(owners.filter(o => o.is_active).map(o => o.staff_id));
+  const availableStaff = staff.filter(s => !activeStaffIds.has(s.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,28 +107,20 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Lane name</label>
-                    <Input
-                      defaultValue={o.lane_name ?? ''}
-                      onBlur={(e) => updateOwner(o.id, { lane_name: e.target.value })}
-                      placeholder="e.g. IG Owner"
-                      list={`lanes-${o.id}`}
-                    />
-                    <datalist id={`lanes-${o.id}`}>
-                      {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
-                    </datalist>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Category</label>
-                    <Select defaultValue={o.category ?? ''} onValueChange={(v) => updateOwner(o.id, { category: v })}>
-                      <SelectTrigger><SelectValue placeholder="Pick category" /></SelectTrigger>
-                      <SelectContent>
-                        {LANE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Ownership Role</label>
+                  <Input
+                    defaultValue={o.lane_name ?? ''}
+                    onBlur={(e) => updateLane(o.id, e.target.value)}
+                    placeholder="e.g. IG Owner"
+                    list={`lanes-${o.id}`}
+                  />
+                  <datalist id={`lanes-${o.id}`}>
+                    {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+                  </datalist>
+                  {o.category && (
+                    <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>
+                  )}
                 </div>
               </div>
             ))}
