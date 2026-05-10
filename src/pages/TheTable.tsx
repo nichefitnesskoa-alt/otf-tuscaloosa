@@ -606,8 +606,9 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
   };
 
   return (
-    <Card className="p-4 mb-4 border-[#E8540A]/40">
-      <div className="font-semibold mb-3">Koa's Close</div>
+    <Card className="p-4 mb-4 border-2 border-[#E8540A]/60 bg-[#E8540A]/5">
+      <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold mb-1">Studio Leader Close</div>
+      <div className="font-semibold mb-3">Architect's wrap</div>
       <Textarea
         value={note} onChange={(e) => setNote(e.target.value)}
         onBlur={() => upsert({ koa_close_note: note })}
