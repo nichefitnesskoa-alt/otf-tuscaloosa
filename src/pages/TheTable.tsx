@@ -27,6 +27,17 @@ const HEALTH_DOT: Record<string, string> = {
   green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500',
 };
 
+// Convert "13:30" / "13:30:00" → "1:30 PM" (no military time anywhere).
+function formatMeetingTime(t: string): string {
+  const [hStr, mStr] = t.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${period}`;
+}
+
 export default function TheTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
