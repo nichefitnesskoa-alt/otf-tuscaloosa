@@ -50,8 +50,7 @@ export default function ObjectionReport() {
       // Must have an objection
       if (!r.primary_objection) return false;
       // Must not be a sale (sales don't have meaningful objections)
-      const result = (r.result || '').toLowerCase();
-      if (result.includes('premier') || result.includes('elite') || result.includes('basic')) return false;
+      if (isMembershipSale(r.result)) return false;
       // Date range filter
       if (dateRange && r.run_date) {
         try {

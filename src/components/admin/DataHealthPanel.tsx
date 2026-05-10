@@ -256,9 +256,7 @@ export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealth
         // Check if it's a known valid outcome
         const isValid = VALID_OUTCOMES.some(vo => vo.toLowerCase() === normalized) ||
                        Object.keys(OUTCOME_NORMALIZATION).includes(normalized) ||
-                       r.result.toLowerCase().includes('premier') ||
-                       r.result.toLowerCase().includes('elite') ||
-                       r.result.toLowerCase().includes('basic');
+                       isMembershipSale(r.result);
         return !isValid;
       });
       runsWithInvalidOutcome.forEach(r => {

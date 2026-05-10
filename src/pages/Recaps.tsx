@@ -148,9 +148,9 @@ export default function Recaps() {
       if (runs.length > 0) {
         existing.showed++;
         existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: runs[0].result || undefined });
-        if (runs.some(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)))) {
+        if (runs.some(r => isMembershipSale(r.result))) {
           existing.sold++;
-          const saleRun = runs.find(r => MEMBERSHIP_RESULTS.some(m => (r.result || '').toLowerCase().includes(m)));
+          const saleRun = runs.find(r => isMembershipSale(r.result));
           existing.soldPeople.push({ name: b.member_name, date: saleRun?.buy_date || b.class_date, detail: saleRun?.result || undefined });
         }
       }

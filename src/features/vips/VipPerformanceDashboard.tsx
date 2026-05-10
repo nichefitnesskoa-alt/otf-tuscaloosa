@@ -86,11 +86,9 @@ async function fetchMetrics() {
       .select('linked_intro_booked_id, member_name, result, result_canon')
       .in('linked_intro_booked_id', ids);
     const bookingMap = new Map(bookings.map(b => [b.id, b]));
-    const SALE_CANONS = new Set(['SALE', 'BASIC', 'PREMIER', 'ELITE', 'PREMIUM', 'PREMIER_PLUS']);
     (runs || []).forEach((r: any) => {
-      const isSale = SALE_CANONS.has(r.result_canon) ||
-        (r.result && ['premier', 'elite', 'basic'].some(m => r.result.toLowerCase().includes(m)));
-      if (!isSale) return;
+      // Canon-aware sale detection (single source: isCloseRun → isSaleCanon + isMembershipSale).
+      if (!isCloseRun(r)) return;
       const b = bookingMap.get(r.linked_intro_booked_id);
       const name = norm(r.member_name || b?.member_name);
       if (name) joinKeys.add(name);
