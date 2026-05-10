@@ -10,8 +10,9 @@ export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.name === 'Koa';
   const isCoach = user?.role === 'Coach';
+  const isBoth = user?.role === 'Both';
   const { failCount } = useDataAudit(isAdmin);
   const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
 
