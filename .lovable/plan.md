@@ -1,61 +1,90 @@
-7 days feels right  
-  
-Fix: VIP group cards missing from My Day
+## Investigation proof
 
-## What's happening
+- Hemline Tuscaloosa exists in `vip_sessions`:
+  - `id`: `5b10840e-d4aa-41fe-8d36-9b243e876ccf`
+  - `reserved_by_group`: `Hemline Tuscaloosa`
+  - `session_date`: `2026-05-11`
+  - `session_time`: `08:45:00`
+  - `status`: `reserved`
+- Hemline has `2` rows in `vip_registrations`.
+- For the selected visible week of May 11-17:
+  - Standard intros count: `0`
+  - Reserved VIP groups count: `1`
 
-Hemline Tuscaloosa's VIP class is on **Mon May 11 at 8:45 AM** with `status='reserved'`. The data is correct — the card is being filtered out by the date range.
+## Root cause
 
-My Day's "Upcoming Intros" card uses `timeRange='weekFull'`, which is defined as:
-
-```
-start = today
-end   = endOfWeek(today, { weekStartsOn: Monday })  // → Sunday
-```
-
-Today is **Sunday May 10**, so the range collapses to `May 10 → May 10`. Tomorrow's VIP (May 11) is technically next week, so it's excluded — for both regular intros and VIP sessions. Every Sunday, My Day goes blind to anything Mon–Sat of the upcoming week.
-
-## Fix (scoped, additive)
-
-Two coordinated changes in `src/features/myDay/useUpcomingIntrosData.ts`:
-
-### 1. Extend `weekFull` to never return less than 7 days ahead
-
-Change `getDateRange` for `'weekFull'`:
+The hook now fetches the VIP group correctly, but the UI still hides it because the selected day is filtered like this:
 
 ```text
-start = today
-end   = max( endOfWeek(today, Mon), today + 6 days )
+selectedDayItems = items.filter(i => i.classDate === selectedDate)
 ```
 
-This keeps Mon–Sat behavior identical (still ends on the upcoming Sunday) but on Sunday rolls forward through next Saturday. Same fix benefits regular intros and VIP groups simultaneously — single source of truth, no new branch.
+The session replay shows the user moved My Day to the next week. On week navigation, the page first renders a loading state with the VIP count, then the selected date state and fetched item state fall out of sync and the Monday panel renders `No intros scheduled for Monday.`
 
-### 2. VIP sessions: always lookahead at least 7 days
+There is also a second UX blocker: VIP cards are nested inside a time accordion that defaults closed. Even when the item is present, staff may only see an `8:45 AM — 1 VIP group` row, not the actual VIP group intro card.
 
-Independent of timeRange, VIP groups are sparse and operationally critical (they drive prep). In the VIP fetch block (lines ~431–439), compute `vipEnd = max(rangeEnd, today + 6 days)` so a VIP group within the next week always shows on My Day even if the user is on the "Today" tab.
+## Map the reach
 
-Regular intros stay scoped to the chosen range (no behavior change for SAs filtering by Today).
+This change touches the My Day upcoming intros system only:
 
-## Coherence check
+- Reads changed data:
+  - `useUpcomingIntrosData.ts` reads `vip_sessions` and `vip_registrations`.
+  - `UpcomingIntrosCard.tsx` reads hook items and filters by selected day.
+  - `IntroDayGroup.tsx` renders time groups and passes VIP session items to cards.
+  - `IntroRowCard.tsx` renders the actual VIP group card and opens `VipRegistrationsSheet`.
+- Writes changed data:
+  - No write behavior changes.
+  - Existing VIP outcome/coach writes in `VipRegistrationsSheet.tsx` stay unchanged.
+- Calculates metrics from changed data:
+  - Day tab badges use `dayCounts`.
+  - Day group counts separate true intros vs VIP groups.
+  - Q summary should not count VIP groups as questionnaires-needed.
+- Displays derived state:
+  - Empty state copy.
+  - Day tab badge count.
+  - Time accordion labels.
+  - VIP group card.
+- Shared rules:
+  - VIP group items use `isVipSession` and must not be treated as normal intros.
+  - VIP group visibility must agree between day tabs, selected day body, and time group card list.
 
-Surfaces touched / verified:
+## Implementation plan
 
-- `useUpcomingIntrosData` → `UpcomingIntrosCard` (My Day) — Hemline VIP appears tomorrow ✓
-- `MyDayPage` passes `fixedTimeRange='weekFull'` — unaffected for Mon–Sat, fixed for Sun
-- `useWinTheDayItems` — separate query (today only), not affected, intentionally
-- VIP day grouping in `IntroDayGroup` — already supports VIP-only days ("+N VIP groups" badge)
+1. Keep the VIP data fetch as-is, because the real Hemline row proves the query shape is correct.
 
-## Verification
+2. Make selected-day filtering resilient in `UpcomingIntrosCard.tsx`:
+   - Use a canonical selected-day item helper inside the component.
+   - If the selected date has no items but the current week has VIP sessions, keep the date selection and body in sync so the VIP group is visible instead of rendering an empty state.
+   - Ensure day counts include VIP session items so the Monday tab badge shows `1`.
 
-- On Sun May 10, My Day shows Hemline Tuscaloosa VIP card under "Tomorrow / Mon May 11 · 8:45 AM"
-- On Mon–Sat, weekFull range is unchanged (regression check: same start/end as before)
-- VIP groups within next 7 days appear even when user toggles to "Today" tab
-- `needsOutcome`, `restOfWeek`, `today` time ranges unchanged
+3. Fix the summary/Q counts in `UpcomingIntrosCard.tsx`:
+   - Exclude `isVipSession` from questionnaire-needed math.
+   - Show wording that includes VIP groups when the day contains only VIP groups.
 
-## Files to edit
+4. Make VIP groups immediately visible in `IntroDayGroup.tsx`:
+   - Auto-open time sections that contain any VIP group.
+   - Keep regular intro time sections behavior unchanged.
 
-- `src/features/myDay/useUpcomingIntrosData.ts` (only)
+5. Add one small canonical helper if needed for My Day filtering/counting:
+   - `isVipSessionItem(item)` or local helper if only used in this surface.
+   - Use it consistently for day counts, Q summary, active/completed split, and labels.
 
-## Open question
+## Verification plan
 
-**Confirm the lookahead window**: 7 days feels right (full week visibility from any day). Want it longer (e.g. 14 days) so you can prep further out, or strict 7?
+After implementation, verify with real data:
+
+- Database check:
+  - Hemline Tuscaloosa VIP session still returns `1` reserved row for `2026-05-11 08:45`.
+  - Registration count returns `2`.
+- UI data check:
+  - My Day week of May 11-17 has Monday badge count `1`.
+  - Monday selected body renders Hemline Tuscaloosa, not `No intros scheduled for Monday.`
+  - The `8:45 AM` section is open enough for staff to see the VIP group card without guessing.
+- Metric consistency:
+  - Standard intro count remains `0`.
+  - VIP group count remains `1`.
+  - Q needed count remains `0` for VIP-only day.
+- Regression checks:
+  - Regular intro cards still render under their day/time.
+  - VIP groups do not appear in needs-outcome mode.
+  - Opening the VIP group still shows the registration sheet and its `2` registrants.
