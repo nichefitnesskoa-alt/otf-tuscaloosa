@@ -80,8 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('currentUser');
   }, []);
 
-  const canAccessAdmin = user?.role === 'Admin';
-  const canAccessDataTools = user?.role === 'Admin';
+  // Admin is gated by identity (Koa), not by role string.
+  const canAccessAdmin = user?.name === 'Koa';
+  const canAccessDataTools = user?.name === 'Koa';
 
   return (
     <AuthContext.Provider value={{ 
