@@ -433,7 +433,11 @@ export function useUpcomingIntrosData(options: UseUpcomingIntrosOptions): UseUpc
       // ── Fetch reserved VIP sessions for this date range ──
       let vipSessionItems: UpcomingIntroItem[] = [];
       if (!isNeedsOutcome) {
-        const { start: vipStart, end: vipEnd } = options.dateOverrides || getDateRange(options);
+        const { start: vipStart, end: rangeEnd } = options.dateOverrides || getDateRange(options);
+        // VIP groups are sparse and high-signal. Always show at least 7 days
+        // ahead so a "Today" filter doesn't hide tomorrow's VIP class.
+        const sevenAhead = format(addDays(new Date(), 6), 'yyyy-MM-dd');
+        const vipEnd = rangeEnd > sevenAhead ? rangeEnd : sevenAhead;
         const vipSb = supabase as any;
         const { data: vipSessions } = await vipSb
           .from('vip_sessions')
