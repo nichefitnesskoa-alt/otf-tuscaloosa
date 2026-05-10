@@ -166,11 +166,11 @@ export default function CoachView() {
   const filteredBookings = useMemo(() => {
     const EXCLUDED_STATUSES = ['DELETED_SOFT', 'CANCELLED', 'PLANNING_RESCHEDULE'];
     let result = bookings.filter(b => !b.is_vip && !b.deleted_at && !EXCLUDED_STATUSES.includes(b.booking_status_canon));
-    if (coachFilter !== 'all') {
-      result = result.filter(b => b.coach_name === coachFilter);
+    if (coachScope === 'mine' && coachName) {
+      result = result.filter(b => b.coach_name === coachName);
     }
     return result;
-  }, [bookings, coachFilter]);
+  }, [bookings, coachScope, coachName]);
 
   // Day counts for tab badges
   const dayCounts = useMemo(() => {
