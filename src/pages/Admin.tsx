@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, RefreshCw, FileSpreadsheet, Database, Users, BarChart3, Megaphone, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -17,9 +17,6 @@ import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
 
-import CoachingView from '@/components/admin/CoachingView';
-import RecapsPage from '@/pages/Recaps';
-import ReportsPage from '@/pages/Reports';
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
@@ -29,8 +26,6 @@ import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
 import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import ScriptsPage from '@/pages/Scripts';
-import PipelinePage from '@/features/pipeline/PipelinePage';
-import TenXExercise from '@/components/admin/TenXExercise';
 import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
@@ -499,18 +494,14 @@ export default function Admin() {
   
   const adminSections = useMemo(() => [
     { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
-    { value: 'analytics', label: 'Analytics', icon: <Brain className="w-4 h-4" /> },
     { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
     { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
-    { value: 'coaching', label: 'Coaching', icon: <BarChart3 className="w-4 h-4" /> },
     { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
     { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
-    { value: 'bookings', label: 'Bookings', icon: <CalendarDays className="w-4 h-4" /> },
     { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
-    { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -579,35 +570,11 @@ export default function Admin() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Analytics Tab — combines Intelligence + Recaps + Reports */}
-        <TabsContent value="analytics" className="space-y-4">
-          <Tabs defaultValue="intelligence" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
-              <TabsTrigger value="recaps">Studio Recaps</TabsTrigger>
-              <TabsTrigger value="reports">Scorecard Reports</TabsTrigger>
-            </TabsList>
-            <TabsContent value="intelligence" className="space-y-4 mt-4">
-              <IntelligenceTab />
-            </TabsContent>
-            <TabsContent value="recaps" className="mt-4">
-              <RecapsPage />
-            </TabsContent>
-            <TabsContent value="reports" className="mt-4">
-              <ReportsPage />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
         {/* Objections Tab */}
         <TabsContent value="objections" className="space-y-4">
           <ObjectionReport />
         </TabsContent>
 
-        {/* Coaching Tab */}
-        <TabsContent value="coaching" className="space-y-4">
-          <CoachingView />
-        </TabsContent>
 
         {/* Referrals Tab */}
         <TabsContent value="referrals" className="space-y-4">
@@ -671,11 +638,6 @@ export default function Admin() {
           <ScriptsPage />
         </TabsContent>
 
-        {/* All Bookings Tab */}
-        <TabsContent value="bookings" className="space-y-4">
-          <PipelinePage />
-        </TabsContent>
-
         {/* Hiring Tab */}
         <TabsContent value="hiring" className="space-y-4">
           <HiringPipeline />
@@ -689,11 +651,6 @@ export default function Admin() {
         {/* Shifts Tab */}
         <TabsContent value="shifts" className="space-y-4">
           <ShiftTasksAdmin />
-        </TabsContent>
-
-        {/* 10x Exercise Tab */}
-        <TabsContent value="10x" className="space-y-4">
-          <TenXExercise />
         </TabsContent>
 
       </Tabs>
