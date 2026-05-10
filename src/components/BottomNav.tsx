@@ -77,7 +77,7 @@ export function BottomNav() {
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
-    { path: '/the-table', label: 'The Table', icon: Flag },
+    { path: '/the-table', label: 'Own It', icon: Flag },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
@@ -86,7 +86,7 @@ export function BottomNav() {
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
     { path: '/wig', label: 'WIG', icon: Trophy },
-    { path: '/the-table', label: 'The Table', icon: Flag },
+    { path: '/the-table', label: 'Own It', icon: Flag },
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
   ];
