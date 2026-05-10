@@ -37,15 +37,15 @@ export default function TheTableHistory() {
   return (
     <div className="p-4 max-w-3xl mx-auto pb-24">
       <Button variant="ghost" size="sm" onClick={() => navigate('/the-table')} className="mb-3">
-        <ChevronLeft className="w-4 h-4 mr-1" /> The Table
+        <ChevronLeft className="w-4 h-4 mr-1" /> Own It
       </Button>
-      <h1 className="text-2xl font-bold mb-4">Past Tables</h1>
+      <h1 className="text-2xl font-bold mb-4">Past Meetings</h1>
 
       {!selected && (
         <div className="space-y-2">
           {meetings.map((m: any) => (
             <Card key={m.id} className="p-3 cursor-pointer hover:border-[#E8540A]" onClick={() => setSelected(m.id)}>
-              <div className="font-semibold">The Table — {format(new Date(m.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</div>
+              <div className="font-semibold">Own It — {format(new Date(m.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</div>
             </Card>
           ))}
           {meetings.length === 0 && <div className="text-muted-foreground text-center py-8">No completed meetings yet.</div>}
@@ -55,7 +55,7 @@ export default function TheTableHistory() {
       {selected && detail?.meeting && (
         <>
           <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className="mb-3">← All meetings</Button>
-          <h2 className="text-xl font-bold mb-3">The Table — {format(new Date(detail.meeting.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</h2>
+          <h2 className="text-xl font-bold mb-3">Own It — {format(new Date(detail.meeting.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</h2>
           {detail.meeting.koa_open_note && <Card className="p-3 mb-3"><div className="text-xs font-semibold uppercase mb-1">Koa's Open</div>{detail.meeting.koa_open_note}</Card>}
           <div className="space-y-3">
             {detail.entries.map((e: any) => (

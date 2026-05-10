@@ -1,4 +1,4 @@
-// Sunday 8pm CT reminder for The Table.
+// Sunday 8pm CT reminder for the Own It meeting.
 // Inserts a notification row for every active Owner who hasn't submitted
 // their entry for the upcoming meeting. Idempotent per Owner per meeting.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     await supabase.from("notifications").insert({
       notification_type: "the_table_reminder",
-      title: "The Table is tomorrow.",
+      title: "Own It meeting is tomorrow.",
       body: "Your lane update is still open.",
       target_user: o.display_name,
       meta: { meeting_id: meeting.id, link: "/the-table" },
