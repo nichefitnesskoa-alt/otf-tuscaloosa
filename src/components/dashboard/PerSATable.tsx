@@ -8,6 +8,7 @@ import { isSaleInRange, isMembershipSale } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
+import { walkJourneyChain } from '@/lib/intros/journey';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
