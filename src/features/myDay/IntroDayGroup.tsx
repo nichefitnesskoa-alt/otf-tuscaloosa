@@ -83,8 +83,9 @@ export default function IntroDayGroup({
             ? `${trueIntrosInBlock.length} intro${trueIntrosInBlock.length !== 1 ? 's' : ''}${vipInBlock > 0 ? ` + ${vipInBlock} VIP` : ''}`
             : `${vipInBlock} VIP group${vipInBlock !== 1 ? 's' : ''}`;
 
+          const hasVipGroup = items.some(i => i.isVipSession);
           return (
-            <Collapsible key={time} defaultOpen={false}>
+            <Collapsible key={time} defaultOpen={hasVipGroup}>
               <CollapsibleTrigger className={cn(
                 "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors",
                 "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
