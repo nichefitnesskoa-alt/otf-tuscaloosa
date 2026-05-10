@@ -1,90 +1,67 @@
-**EDITS**
+## Coach View — default to "My Intros" with orange toggle
 
-**1. Fix the AuthContext "Both" role mapping. This is the big one.** Lovable's plan says Both → Admin-level access. You just said no. Update:
+In `src/pages/CoachView.tsx`, replace the current `Select` (All Coaches / per-coach) with a 2-option segmented toggle:
 
-```
-'Both' role in staff table → user sees UNION of Coach + SA tabs and pages.
-Specifically: My Day, Studio, WIG (full visibility per prior wave), 
-Coach View, Text My Intros, Pipeline, VIPs.
-NOT visible: Admin tab, Admin sub-pages, Staff Management.
-Admin tab is gated to user.email = Koa's email only, not by role.
-```
+- **My Intros** (default for any user with a name in `coach_name`)
+- **All Intros**
 
-This means change the AuthContext mapping, not just Georgia's row. Any future Both-role staff inherits the same correct behavior.
+Behavior:
+- Default `coachFilter` = `user?.name` when that name appears in `allCoachNames`; otherwise `"all"`.
+- Toggle state persists via local state (no URL change).
+- Visual: pill-style segmented control. Selected segment = solid OTF Orange (`bg-primary text-primary-foreground`). Unselected = light orange tint (`bg-primary/15 text-primary hover:bg-primary/25`). Border around the whole control in `border-primary/40`. Min-height 44px.
+- Admins/Both still see the toggle (My Intros = their own name's intros if they coach, else only "All Intros" shows). For SAs viewing CoachView this is moot — they don't access it.
 
-**2. Verify Koa stays the only Admin.** After the role change, search for every `role === 'Admin'` check in the codebase. Confirm none of them get satisfied by 'Both'. Admin gating should be by specific user identity (email or hardcoded id), not by role string. Otherwise Georgia accidentally inherits Admin powers six months from now when someone forgets.
+The standalone "Open coach page →" link is already removed (prior build) — no change needed.
 
-**3. The Planning-to-Buy fix needs one addition.** Plan covers the constraint, the un-archive (no-op), and the comment. Add a guard in the application code: in `useFollowUpData.ts` or wherever the cleanup function lives, hardcode an exclusion list of person_types that can never be auto-archived. Right now it's just `planning_to_buy`. Future-proofs against another agent writing a cleanup script that doesn't read your comment.
+## Universal "tab/toggle" orange treatment
 
-```
-const NEVER_ARCHIVE_PERSON_TYPES = ['planning_to_buy'];
-```
+Create a small shared component `src/components/ui/SegmentedToggle.tsx` (thin wrapper around buttons, not shadcn Tabs) so future toggles share styling. Then update existing tab/segment surfaces to use the orange-on / light-orange-off scheme:
 
-Reference that constant in any cleanup logic. Comment alone isn't a guard.  
-  
-Five small fixes
+Confirmed surfaces to update (all existing `Tabs`/segmented controls):
+- `src/features/followUp/FollowUpTabs.tsx` (5 follow-up category tabs)
+- `src/features/myDay/MyDayPage.tsx` tab bar (Intros / Follow-Up / Scripts / New Leads)
+- `src/components/scorecard/WigFirstVisitSection.tsx` graph toggle (Self Evals / Formal Evals)
+- `src/features/pipeline/PipelinePage.tsx` Standard / VIP tabs
+- `src/features/vips/VipsPage.tsx` internal tabs
+- `src/pages/Wig.tsx` any segmented controls
 
-### 1. Remove "Open coach page →" link
+Style rule applied uniformly via a Tailwind variant on shadcn `TabsTrigger`:
+- `data-[state=active]`: `bg-primary text-primary-foreground border-primary`
+- default (inactive): `bg-primary/15 text-primary hover:bg-primary/25 border-primary/30`
+- container: `bg-transparent gap-1`
 
-File: `src/components/scorecard/CoachDashboard.tsx` (lines 83–90). Delete the `<a>` next to the picker. The picker stays.
+Done by extending `tabs.tsx` variant classes (or wrapping with a `className` constant `ORANGE_TABS_TRIGGER` exported from a shared util) so we don't fork shadcn. Page-level tab headers remain visually distinct from their content sections (which keep the current card/border styling — no orange tint on content panels).
 
-### 2. Koa sees "Text My Intros" tab
+**CONFIRM THIS VALUE:** Apply the orange treatment to ALL `TabsTrigger` instances project-wide via a single shadcn override, OR only to the explicit list above? Default plan = override globally so every tab in the app reads consistently. Say "scoped only" if you'd rather restrict.
 
-File: `src/components/BottomNav.tsx`. Koa logs in as `Admin` (per `AuthContext`), but the admin nav array (lines 76–84) doesn't include `/my-intros`. Add `{ path: '/my-intros', label: 'Text My Intros', icon: UserCheck }` to the admin items list (between Coach View and Admin feels natural).
+## Bottom-nav reordering
 
-### 3. Georgia in COACHES + SAS lists
+Update `src/components/BottomNav.tsx` ordering. Same set of items, new sequence:
 
-File: `src/types/index.ts` (lines 12–13).
+**Admin (Koa):**
+`My Day → Coach View → Studio → WIG → Own It → VIPs → Text My Intros → Pipeline → Admin`
 
-- Add `'Georgia'` to `COACHES` (so she appears in the WIG Coach Stats dropdown, scorecard pickers, intro coach pickers, etc.).
-- Add `'Georgia'` to `SALES_ASSOCIATES` (so she shows in SA pickers / leaderboards).
-- DB already has her as `staff.role = 'Both'` and `is_active = true` — no DB change needed. `AuthContext` maps `Both` → Admin-level access, which means she'll log in with full access (matches Koa pattern). Flag this so user can confirm: **CONFIRM: Georgia logs in with Admin-level access (same as Koa) — say so if you'd rather she sign in as a regular Coach.**
+**Both (e.g. Georgia):**
+`My Day → Coach View → Studio → WIG → Own It → VIPs → Text My Intros → Pipeline`
 
-### 4. Delete Team Meeting card + Follow-up Ownership panel from Admin
+**SA:**
+`My Day → Studio → WIG → Own It → VIPs → Pipeline`
+(VIPs moves next to Own It; Pipeline goes to the end.)
 
-File: `src/pages/Admin.tsx`.
+**Coach (mobile-first single nav):** unchanged set, but reorder to keep consistency:
+`Coach View → Studio → WIG → Own It → VIPs → Text My Intros`
 
-- Remove the Team Meeting `<Card>` block (lines 587–599) on the Overview tab.
-- Remove `<FollowUpOwnershipPanel />` (line 612).
-- Remove now-unused imports: `FollowUpOwnershipPanel`, `useMeetingAgenda`, `getCurrentMeetingMonday`, `CalendarDays` (if not used elsewhere on the page — verify), and the `format` import only if no other call site remains.
+## Files touched
 
-Out of scope: leave `/meeting` route, `Meeting.tsx`, `useMeetingAgenda.ts`, and the `meeting/` components in place (they're feature code that may be reused). Just removing the Admin entry-point card per the user's ask. If the user wants the meeting feature fully removed too, they can say so and I'll do a follow-up sweep.
+- `src/pages/CoachView.tsx` — replace Select with orange segmented toggle, default to user's name.
+- `src/components/BottomNav.tsx` — reorder per role.
+- `src/components/ui/tabs.tsx` — extend `TabsTrigger` variants with orange on/off states (or add an exported class constant).
+- (no logic changes elsewhere — purely presentational sweep across existing Tabs usages)
 
-### 5. Keep Planning-to-Buy follow-ups active forever
+## Verification
 
-Audit result: the prior pre-May cleanup archived **517 rows** across `no_show`, `didnt_buy`, `planning_reschedule`, `book_2nd_intro_day2/day7`. **Zero `planning_to_buy` rows exist** in `follow_up_queue` today, so nothing to restore. The database `CHECK` constraint on `person_type` doesn't currently list `planning_to_buy` either — meaning today's code at `useFollowUpData.ts:123` queries for it but the DB cannot accept inserts of that type.
-
-Two-part fix:
-
-a. **Add `'planning_to_buy'` to the `person_type` check constraint** so future inserts succeed. Migration:
-
-```
-ALTER TABLE public.follow_up_queue DROP CONSTRAINT follow_up_queue_person_type_check;
-ALTER TABLE public.follow_up_queue ADD CONSTRAINT follow_up_queue_person_type_check
-  CHECK (person_type = ANY (ARRAY[
-    'no_show','didnt_buy','planning_reschedule',
-    'book_2nd_intro_day2','book_2nd_intro_day7','planning_to_buy'
-  ]));
-```
-
-b. **Defensive un-archive**: any `planning_to_buy` row in the Pre-May cleanup batch gets reactivated (no-op today since count is 0, but locks the rule in for future runs):
-
-```
-UPDATE public.follow_up_queue
-SET status = 'pending', closed_reason = NULL
-WHERE person_type = 'planning_to_buy'
-  AND closed_reason LIKE 'Pre-May%';
-```
-
-c. **Prevent any future bulk cleanup from touching them.** There is no scheduled cleanup job — the pre-May archive was a one-time SQL run by an agent. Procedurally: any future cleanup script must include `AND person_type <> 'planning_to_buy'`. I'll add a comment in `useFollowUpData.ts` near the planning_to_buy block stating this rule so the next agent sees it.
-
-### Files touched
-
-- `src/components/scorecard/CoachDashboard.tsx`
-- `src/components/BottomNav.tsx`
-- `src/types/index.ts`
-- `src/pages/Admin.tsx`
-- `src/features/followUp/useFollowUpData.ts` (one-line comment)
-- New migration: planning_to_buy constraint + un-archive
-
-No changes to: meeting feature itself, AuthContext role mapping, scorecard logic.
+- Log in as Georgia (Both) → CoachView defaults to her name; toggle flips to "All Intros" and back; both states orange-correct.
+- Log in as Koa → CoachView toggle works; nav order matches Admin spec; VIPs sits between Own It and Text My Intros; Pipeline sits before Admin.
+- Log in as a regular SA → no Coach View; VIPs next to Own It; Pipeline at end.
+- Open Follow-Up tabs, My Day tabs, WIG Self/Formal Eval toggle — active tab solid orange, others light-orange tinted.
+- Tap a tab → active state updates, no layout jump.
