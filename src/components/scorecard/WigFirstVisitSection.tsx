@@ -30,6 +30,8 @@ import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
 
+type ChartView = 'studio' | 'by_coach' | 'closed_compare';
+
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
@@ -37,6 +39,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
 
   const [smoothed, setSmoothed] = useState(false);
   const [primary, setPrimary] = useState<EvalPrimary>('formal');
+  const [chartView, setChartView] = useState<ChartView>('studio');
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -94,6 +97,17 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
             </Badge>
           )}
         </div>
+
+        {/* Chart-view tabs */}
+        <ToggleGroup
+          value={chartView}
+          onChange={v => setChartView(v as ChartView)}
+          options={[
+            { value: 'studio', label: 'Studio overall' },
+            { value: 'by_coach', label: 'By coach' },
+            { value: 'closed_compare', label: 'Closed vs didn\u2019t close' },
+          ]}
+        />
 
         {isLoading ? (
           <LoadingState />
