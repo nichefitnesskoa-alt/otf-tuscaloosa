@@ -165,11 +165,17 @@ export default function TheTable() {
   // ---------- Pre-meeting view ----------
   const preMeetingView = (
     <>
-      {/* Koa's Open */}
-      {(isAdmin || meeting.koa_open_note) && (
-        <Card className="p-4 mb-4">
-          <label className="text-sm font-semibold block mb-1">Koa's Open</label>
-          {isAdmin ? (
+      {/* Studio Leader — Architect (separate from Owner grid) */}
+      {architect && (
+        <Card className="p-4 mb-4 border-2 border-[#E8540A]/60 bg-[#E8540A]/5">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold">Studio Leader — Architect</div>
+              <div className="text-lg font-bold">{architect.display_name}</div>
+            </div>
+          </div>
+          <label className="text-xs font-semibold block mb-1 mt-2">Open note</label>
+          {isArchitectViewer ? (
             <Textarea
               defaultValue={meeting.koa_open_note ?? ''}
               placeholder="How are you opening this meeting?"
@@ -180,7 +186,7 @@ export default function TheTable() {
               className="min-h-[80px]"
             />
           ) : (
-            <p className="text-sm whitespace-pre-wrap">{meeting.koa_open_note}</p>
+            <p className="text-sm whitespace-pre-wrap">{meeting.koa_open_note || <span className="italic text-muted-foreground">Not yet shared.</span>}</p>
           )}
         </Card>
       )}
