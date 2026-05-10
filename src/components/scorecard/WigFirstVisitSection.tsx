@@ -577,7 +577,7 @@ function MultiCoachTrendChart({
   );
 }
 
-
+function LoadingState() {
   return (
     <div className="space-y-4">
       <Card className="p-3 border-border/60">
