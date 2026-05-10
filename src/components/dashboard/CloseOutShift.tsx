@@ -439,6 +439,68 @@ export function CloseOutShift({
                 </div>
               </div>
 
+              {/* Milestone Coverage — honor system */}
+              <div className="rounded-lg border border-border/60 overflow-hidden">
+                <div className="px-3 py-1.5 bg-muted/40 border-b border-border/40 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">🎉 Milestone Coverage (honor system)</span>
+                  {coverageSavedAt && (
+                    <span className="text-[10px] text-green-500">Saved</span>
+                  )}
+                </div>
+                <div className="px-3 py-2 space-y-2">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    Be honest. This is how we get better — not a gotcha. Count members whose total class count crossed a celebration threshold today (25 / 50 / 100 / +50).
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="text-[11px] text-muted-foreground">Celebrated</span>
+                      <Input
+                        type="number" min={0} inputMode="numeric"
+                        value={celebrated}
+                        onChange={e => setCelebrated(e.target.value)}
+                        onBlur={saveCoverage}
+                        placeholder="0"
+                        className="h-11 text-base text-center"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-[11px] text-muted-foreground">Missed</span>
+                      <Input
+                        type="number" min={0} inputMode="numeric"
+                        value={missed}
+                        onChange={e => setMissed(e.target.value)}
+                        onBlur={saveCoverage}
+                        placeholder="0"
+                        className="h-11 text-base text-center"
+                      />
+                    </label>
+                  </div>
+                  {(() => {
+                    const c = parseInt(celebrated, 10) || 0;
+                    const m = parseInt(missed, 10) || 0;
+                    const pct = computeCoverage([{
+                      id: 'tmp', sa_name: '', shift_date: '', shift_type: '',
+                      milestones_celebrated: c, milestones_missed: m, notes: null,
+                    }]).pct;
+                    return (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Coverage</span>
+                        <span className="font-semibold text-primary tabular-nums">{formatCoveragePct(pct)}</span>
+                      </div>
+                    );
+                  })()}
+                  {(parseInt(missed, 10) || 0) > 0 && (
+                    <Textarea
+                      value={coverageNotes}
+                      onChange={e => setCoverageNotes(e.target.value)}
+                      onBlur={saveCoverage}
+                      placeholder="Who got missed and why? (optional but helpful)"
+                      className="text-xs min-h-[60px]"
+                    />
+                  )}
+                </div>
+              </div>
+
               <p className="text-[10px] text-muted-foreground text-center">
                 Tapping "Submit + Post to GroupMe" will save this recap and post to the team chat.
               </p>
