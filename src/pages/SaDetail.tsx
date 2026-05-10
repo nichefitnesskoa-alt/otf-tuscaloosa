@@ -59,7 +59,7 @@ export default function SaDetail() {
       if (s.sa_name !== saName) continue;
       const key = `${s.shift_date}|${s.shift_type}`;
       if (!map.has(key)) {
-        map.set(key, { date: s.shift_date, type: s.shift_type, milestones: 0, referrals: 0 });
+        map.set(key, { date: s.shift_date, type: s.shift_type, milestones: 0, referrals: 0, celebrated: null, missed: null, notes: null });
       }
     }
     // Attribute milestones to SA's shift on the same Central-time date
@@ -67,7 +67,6 @@ export default function SaDetail() {
       if ((m.created_by || '') !== saName) continue;
       if (!isEligibleThreshold(m.milestone_type)) continue;
       const dateKey = format(new Date(m.created_at), 'yyyy-MM-dd');
-      // Find any shift on that date for this SA
       for (const [k, v] of map.entries()) {
         if (v.date === dateKey) { v.milestones++; break; }
       }
@@ -78,8 +77,29 @@ export default function SaDetail() {
         if (v.date === r.class_date) { v.referrals++; break; }
       }
     }
+    // Merge coverage reports for this SA
+    for (const cr of data.coverageReports) {
+      if (cr.sa_name !== saName) continue;
+      const key = `${cr.shift_date}|${cr.shift_type}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.celebrated = cr.milestones_celebrated;
+        existing.missed = cr.milestones_missed;
+        existing.notes = cr.notes;
+      } else {
+        map.set(key, {
+          date: cr.shift_date, type: cr.shift_type, milestones: 0, referrals: 0,
+          celebrated: cr.milestones_celebrated, missed: cr.milestones_missed, notes: cr.notes,
+        });
+      }
+    }
     return Array.from(map.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [data, saName]);
+
+  const myCoverage = useMemo(
+    () => computeCoverage(data.coverageReports.filter(r => r.sa_name === saName)),
+    [data.coverageReports, saName],
+  );
 
   const [drill, setDrill] = useState<'milestones' | 'referrals' | 'shifts' | null>(null);
 
