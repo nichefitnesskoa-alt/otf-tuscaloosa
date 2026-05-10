@@ -615,11 +615,8 @@ export default function Wig() {
       setCoachTableTotals({ coached: totalsCoached, closes: totalsClosed });
       setCoachAttribution(attribMap);
 
-      if (user?.role === 'Coach') {
-        setCoachLeadMeasures(coachData.filter(c => c.name === user.name));
-      } else {
-        setCoachLeadMeasures(coachData);
-      }
+      // Everyone (SA, Coach, Admin) sees the full Coach Stats table on WIG.
+      setCoachLeadMeasures(coachData);
     } catch (err) {
       console.error('Error loading lead measures:', err);
       setSaLeadMeasures([]);
