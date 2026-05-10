@@ -215,6 +215,15 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           {row.milestones}
                         </button>
                       </TableCell>
+                      <TableCell className="text-sm text-center tabular-nums">
+                        {cov ? (
+                          <span title={`${cov.celebrated} celebrated / ${cov.missed} missed · ${cov.reportedShifts} report${cov.reportedShifts === 1 ? '' : 's'}`}>
+                            {formatCoveragePct(cov.pct)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-center p-0">
                         <button
                           type="button"
@@ -234,7 +243,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                         <ChevronRight className="w-4 h-4 text-muted-foreground inline" />
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
