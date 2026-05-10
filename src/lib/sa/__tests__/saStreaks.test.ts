@@ -61,7 +61,7 @@ describe('computeMilestoneStreak', () => {
   });
   it('ignores non-eligible thresholds', () => {
     const milestones = [
-      { id: '1', member_name: 'X', milestone_type: '1150', created_by: 'Sophie', created_at: '2026-05-08T16:00:00Z' },
+      { id: '1', member_name: 'X', milestone_type: '75', created_by: 'Sophie', created_at: '2026-05-08T16:00:00Z' },
     ];
     expect(computeMilestoneStreak(shifts, milestones, 'Sophie')).toBe(0);
   });
