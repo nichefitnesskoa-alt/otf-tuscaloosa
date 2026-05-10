@@ -36,7 +36,7 @@ interface CoachPerformanceProps {
   dateRange: DateRange | null;
 }
 
-function isDateInRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
+function isDateInDateRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
   if (!range) return true;
   if (!dateStr) return false;
   try {
@@ -82,7 +82,7 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
     const firstIntroBookings = activeBookings.filter(b => {
       const originatingId = (b as any).originating_booking_id;
       const isFirstIntro = originatingId === null || originatingId === undefined;
-      const isInDateRange = isDateInRange(b.class_date, dateRange);
+      const isInDateRange = isDateInDateRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
     });
 

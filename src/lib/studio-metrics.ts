@@ -21,7 +21,7 @@ export const EXCLUDED_SA_NAMES = [
 ];
 
 import { isMembershipSale } from '@/lib/sales-detection';
-export { isMembershipSale };
+// `isMembershipSale` lives in '@/lib/sales-detection' — import it from there directly.
 
 export function isPurchased(result: string): boolean {
   const lower = (result || '').toLowerCase();

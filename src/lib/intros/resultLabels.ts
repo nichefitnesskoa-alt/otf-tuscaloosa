@@ -7,16 +7,13 @@
  *   NOT_INTERESTED, ON_5_CLASS_PACK, PREMIER, PREMIER_OTBEAT, ELITE, BASIC,
  *   NO_SHOW, VIP_CLASS_INTRO, UNRESOLVED
  */
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, SALE_CANONS, isSaleCanon } from '@/lib/sales-detection';
 
-export const SALE_CANONS = new Set(['SALE', 'PREMIER', 'PREMIER_OTBEAT', 'ELITE', 'BASIC']);
+// Re-export so existing imports from this module keep working.
+export { SALE_CANONS, isSaleCanon };
+
 export const FOLLOWUP_CANONS = new Set(['FOLLOW_UP', 'FOLLOW_UP_NEEDED']);
 export const PLANNING_2ND_CANONS = new Set(['PLANNING_2ND', 'PLANNING_2ND_INTRO', 'SECOND_INTRO_SCHEDULED']);
-
-export const isSaleCanon = (rc?: string | null): boolean => {
-  if (!rc) return false;
-  return SALE_CANONS.has(rc.toUpperCase());
-};
 export const isFollowUpCanon = (rc?: string | null): boolean => {
   if (!rc) return false;
   return FOLLOWUP_CANONS.has(rc.toUpperCase());

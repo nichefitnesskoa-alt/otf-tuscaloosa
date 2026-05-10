@@ -13,7 +13,26 @@ import { parseLocalDate } from '@/lib/utils';
 import { isWithinInterval } from 'date-fns';
 
 /**
- * Check if a result string indicates a membership sale
+ * Canonical set of `result_canon` values that represent a membership sale.
+ * Single source of truth — referenced by resultLabels.ts and dataAuditEngine.ts.
+ */
+export const SALE_CANONS = new Set([
+  'SALE',
+  'PREMIER',
+  'PREMIER_OTBEAT',
+  'ELITE',
+  'BASIC',
+]);
+
+/** True if the canon value represents a membership sale. */
+export const isSaleCanon = (rc?: string | null): boolean => {
+  if (!rc) return false;
+  return SALE_CANONS.has(rc.toUpperCase().trim());
+};
+
+/**
+ * Check if a legacy `result` display string indicates a membership sale.
+ * Prefer `isSaleCanon` when `result_canon` is available.
  */
 export const isMembershipSale = (result: string): boolean => {
   const lower = (result || '').toLowerCase();

@@ -100,9 +100,11 @@ export interface DashboardMetrics {
 }
 
 /**
- * Check if a date string falls within a date range (or always true if range is null)
+ * Check if a date string falls within a DateRange (or always true if range is null).
+ * Renamed from `isDateInRange` to disambiguate from the string-based
+ * `isDateInDateRange(dateStr, startStr, endStr)` exported by sales-detection.ts.
  */
-function isDateInRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
+function isDateInDateRange(dateStr: string | null | undefined, range: DateRange | null): boolean {
   if (!range) return true; // All time - no filtering
   if (!dateStr) return false;
   try {
@@ -170,7 +172,7 @@ export function useDashboardMetrics(
     // Promoted orphans (single child of an excluded original) also count as 1st intros.
     const firstIntroBookings = activeBookings.filter(b => {
       const isFirstIntro = isFirstIntroForMetrics(b as any, promotedOrphanIds);
-      const isInDateRange = isDateInRange(b.class_date, dateRange);
+      const isInDateRange = isDateInDateRange(b.class_date, dateRange);
       return isFirstIntro && isInDateRange;
     });
 
@@ -574,7 +576,7 @@ export function useDashboardMetrics(
     // =========================================
     // INDIVIDUAL ACTIVITY TABLE
     // =========================================
-    const filteredShifts = shiftRecaps.filter(s => isDateInRange(s.shift_date, dateRange));
+    const filteredShifts = shiftRecaps.filter(s => isDateInDateRange(s.shift_date, dateRange));
     
     const individualActivity: IndividualActivityMetrics[] = Array.from(allSAs).map(saName => {
       const saShifts = filteredShifts.filter(s => s.staff_name === saName);

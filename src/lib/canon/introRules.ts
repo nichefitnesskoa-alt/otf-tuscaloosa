@@ -5,20 +5,11 @@
 import { format, addDays, endOfWeek } from 'date-fns';
 import { getNowCentral } from '@/lib/dateUtils';
 
-/**
- * Returns true if the booking is a VIP event booking (not a normal intro).
- */
-export function isVipBooking(booking: any): boolean {
-  if (booking.is_vip === true) return true;
-  if (booking.booking_type_canon === 'VIP') return true;
-  if (booking.vip_session_id) return true;
-  if (
-    typeof booking.lead_source === 'string' &&
-    booking.lead_source.toLowerCase().includes('vip')
-  )
-    return true;
-  return false;
-}
+// Canonical isVipBooking lives in vipRules. Re-export here so legacy imports
+// from '@/lib/canon/introRules' continue to work and there is a single
+// source of truth that includes COMP bookings.
+export { isVipBooking } from '@/lib/vip/vipRules';
+import { isVipBooking } from '@/lib/vip/vipRules';
 
 function getLocalTodayYMD(): string {
   return format(getNowCentral(), 'yyyy-MM-dd');
