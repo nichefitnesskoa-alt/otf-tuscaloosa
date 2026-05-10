@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ClipboardCheck, ArrowLeft, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +14,7 @@ import { getTodayStartISO, getTomorrowStartISO } from '@/lib/dateUtils';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
+import { computeCoverage, formatCoveragePct } from '@/lib/sa/coverage';
 
 interface CloseOutShiftProps {
   completedIntros: number;
@@ -67,6 +70,13 @@ export function CloseOutShift({
   const [visible, setVisible] = useState(false);
   const [summary, setSummary] = useState<ShiftSummaryData | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+
+  // Honor-system milestone coverage entry (per shift)
+  const [coverageId, setCoverageId] = useState<string | null>(null);
+  const [celebrated, setCelebrated] = useState<string>('');
+  const [missed, setMissed] = useState<string>('');
+  const [coverageNotes, setCoverageNotes] = useState<string>('');
+  const [coverageSavedAt, setCoverageSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     const hour = new Date().getHours();
