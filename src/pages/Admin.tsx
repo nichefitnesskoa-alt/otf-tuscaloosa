@@ -570,35 +570,11 @@ export default function Admin() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Analytics Tab — combines Intelligence + Recaps + Reports */}
-        <TabsContent value="analytics" className="space-y-4">
-          <Tabs defaultValue="intelligence" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
-              <TabsTrigger value="recaps">Studio Recaps</TabsTrigger>
-              <TabsTrigger value="reports">Scorecard Reports</TabsTrigger>
-            </TabsList>
-            <TabsContent value="intelligence" className="space-y-4 mt-4">
-              <IntelligenceTab />
-            </TabsContent>
-            <TabsContent value="recaps" className="mt-4">
-              <RecapsPage />
-            </TabsContent>
-            <TabsContent value="reports" className="mt-4">
-              <ReportsPage />
-            </TabsContent>
-          </Tabs>
-        </TabsContent>
-
         {/* Objections Tab */}
         <TabsContent value="objections" className="space-y-4">
           <ObjectionReport />
         </TabsContent>
 
-        {/* Coaching Tab */}
-        <TabsContent value="coaching" className="space-y-4">
-          <CoachingView />
-        </TabsContent>
 
         {/* Referrals Tab */}
         <TabsContent value="referrals" className="space-y-4">
@@ -662,11 +638,6 @@ export default function Admin() {
           <ScriptsPage />
         </TabsContent>
 
-        {/* All Bookings Tab */}
-        <TabsContent value="bookings" className="space-y-4">
-          <PipelinePage />
-        </TabsContent>
-
         {/* Hiring Tab */}
         <TabsContent value="hiring" className="space-y-4">
           <HiringPipeline />
@@ -680,11 +651,6 @@ export default function Admin() {
         {/* Shifts Tab */}
         <TabsContent value="shifts" className="space-y-4">
           <ShiftTasksAdmin />
-        </TabsContent>
-
-        {/* 10x Exercise Tab */}
-        <TabsContent value="10x" className="space-y-4">
-          <TenXExercise />
         </TabsContent>
 
       </Tabs>
