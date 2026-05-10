@@ -92,8 +92,8 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto">
-      <div className="flex items-center h-16 min-w-max">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb overflow-x-auto md:overflow-visible">
+      <div className="flex items-center h-16 min-w-max md:min-w-0 md:w-full">
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
@@ -103,7 +103,7 @@ export function BottomNav() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px]',
+                'flex flex-col items-center justify-center px-3 h-full transition-colors relative min-w-[72px] md:min-w-0 md:flex-1',
                 isActive
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
