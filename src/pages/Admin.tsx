@@ -17,9 +17,6 @@ import ShiftRecapsEditor from '@/components/admin/ShiftRecapsEditor';
 import ReferralTracker from '@/components/admin/ReferralTracker';
 import ReferralTree from '@/components/admin/ReferralTree';
 
-import CoachingView from '@/components/admin/CoachingView';
-import RecapsPage from '@/pages/Recaps';
-import ReportsPage from '@/pages/Reports';
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
 import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
@@ -29,8 +26,6 @@ import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
 import ArchiveOldDmLeads from '@/components/admin/ArchiveOldDmLeads';
 import { LeadSheetImport } from '@/components/admin/LeadSheetImport';
 import ScriptsPage from '@/pages/Scripts';
-import PipelinePage from '@/features/pipeline/PipelinePage';
-import TenXExercise from '@/components/admin/TenXExercise';
 import HiringPipeline from '@/components/admin/HiringPipeline';
 import { StudioIntelligenceCard } from '@/components/admin/StudioIntelligenceCard';
 import ObjectionReport from '@/components/admin/ObjectionReport';
@@ -499,18 +494,14 @@ export default function Admin() {
   
   const adminSections = useMemo(() => [
     { value: 'overview', label: 'Overview', icon: <FileSpreadsheet className="w-4 h-4" /> },
-    { value: 'analytics', label: 'Analytics', icon: <Brain className="w-4 h-4" /> },
     { value: 'objections', label: 'Objections', icon: <AlertTriangle className="w-4 h-4" /> },
     { value: 'data', label: 'Data', icon: <Database className="w-4 h-4" /> },
-    { value: 'coaching', label: 'Coaching', icon: <BarChart3 className="w-4 h-4" /> },
     { value: 'referrals', label: 'Referrals', icon: <Users className="w-4 h-4" /> },
     { value: 'stories', label: 'Stories', icon: <BookOpen className="w-4 h-4" /> },
     { value: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4" /> },
-    { value: 'bookings', label: 'Bookings', icon: <CalendarDays className="w-4 h-4" /> },
     { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
-    { value: '10x', label: '10x', icon: <Zap className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
