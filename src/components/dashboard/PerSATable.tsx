@@ -72,12 +72,7 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
       const arr = runsByBooking.get(r.linked_intro_booked_id) || [];
       arr.push(r); runsByBooking.set(r.linked_intro_booked_id, arr);
     });
-    // 2nd-intro children: originating → child id
-    const childrenByOrigin = new Map<string, string[]>();
-    (introsBooked || []).forEach((b: any) => {
-      const o = (b as any).originating_booking_id;
-      if (o) { const arr = childrenByOrigin.get(o) || []; arr.push(b.id); childrenByOrigin.set(o, arr); }
-    });
+
 
     const rows: PersonRow[] = [];
     firstByOwner.forEach((b: any) => {
