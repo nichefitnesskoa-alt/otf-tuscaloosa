@@ -75,7 +75,8 @@ interface QuestionnaireMap {
 export default function CoachView() {
   const { user, logout } = useAuth();
   const { isDark, toggle: toggleDark } = useDarkMode();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.name === 'Koa';
+  const isCoachLike = user?.role === 'Coach' || user?.role === 'Both';
   const coachName = user?.name || '';
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
