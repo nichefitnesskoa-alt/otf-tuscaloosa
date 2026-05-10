@@ -174,6 +174,9 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
                   <p className="text-sm font-medium">{s.practice_name || 'First-timer'}</p>
                   <p className="text-xs text-muted-foreground">
                     {format(new Date(s.class_date), 'MMM d')} · by {s.evaluator_name} · <Badge variant="outline" className="text-[10px]">{s.eval_type === 'self_eval' ? 'Self' : 'Formal'}</Badge>
+                    {s.reflection_text && s.eval_type === 'self_eval' && s.level === 1 && (
+                      <span className="ml-1.5 text-[10px] text-primary font-semibold">· Reflection saved</span>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">

@@ -23,6 +23,7 @@ export interface FvScorecard {
   interactions_notes: string | null;
   otbeat_notes: string | null;
   handback_notes: string | null;
+  reflection_text: string | null;
   submitted_at: string | null;
   created_by: string;
   created_at: string;

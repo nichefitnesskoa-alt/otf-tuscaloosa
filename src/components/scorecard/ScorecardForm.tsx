@@ -45,6 +45,9 @@ export function ScorecardFormBody(props: BodyProps) {
   const [handbackNotes, setHandbackNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [revealLevel, setRevealLevel] = useState<1 | 2 | 3 | null>(null);
+  const [reflectionPromptOpen, setReflectionPromptOpen] = useState(false);
+  const [reflectionDraft, setReflectionDraft] = useState('');
+  const [pendingReveal, setPendingReveal] = useState<{ id: string; level: 1 | 2 | 3 } | null>(null);
   const [loadedSubmittedAt, setLoadedSubmittedAt] = useState<string | null>(null);
   const [loadedEvaluator, setLoadedEvaluator] = useState<string | null>(null);
 
@@ -154,6 +157,20 @@ export function ScorecardFormBody(props: BodyProps) {
   };
 
 
+  const finalizeSubmission = async (id: string, lvl: 1 | 2 | 3) => {
+    const { error } = await supabase.from('fv_scorecards' as any).update({ submitted_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    if (firstTimerId && evalType === 'self_eval') {
+      await supabase.from('intros_booked').update({
+        coach_debrief_submitted: true,
+        coach_debrief_submitted_at: new Date().toISOString(),
+        coach_debrief_submitted_by: evaluator,
+      }).eq('id', firstTimerId);
+    }
+    setRevealLevel(lvl);
+    onSubmitted?.(id, lvl);
+  };
+
   const handleSubmit = async () => {
     if (!evaluatee || evaluatee === 'TBD') { toast.error('Pick a coach to evaluate'); return; }
     if (!evaluator) { toast.error('Pick who is evaluating'); return; }
@@ -162,17 +179,31 @@ export function ScorecardFormBody(props: BodyProps) {
     setSubmitting(true);
     try {
       const id = await ensureScorecard();
-      const { error } = await supabase.from('fv_scorecards' as any).update({ submitted_at: new Date().toISOString() }).eq('id', id);
-      if (error) throw error;
-      if (firstTimerId && evalType === 'self_eval') {
-        await supabase.from('intros_booked').update({
-          coach_debrief_submitted: true,
-          coach_debrief_submitted_at: new Date().toISOString(),
-          coach_debrief_submitted_by: evaluator,
-        }).eq('id', firstTimerId);
+      // Level 1 self-eval → ask for a one-line reflection before the score reveal
+      if (evalType === 'self_eval' && level === 1) {
+        setPendingReveal({ id, level });
+        setReflectionPromptOpen(true);
+        return;
       }
-      setRevealLevel(level);
-      onSubmitted?.(id, level);
+      await finalizeSubmission(id, level);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReflectionSubmit = async () => {
+    if (!pendingReveal) return;
+    if (!reflectionDraft.trim()) { toast.error('Add a reflection to continue'); return; }
+    setSubmitting(true);
+    try {
+      await supabase.from('fv_scorecards' as any)
+        .update({ reflection_text: reflectionDraft.trim() })
+        .eq('id', pendingReveal.id);
+      setReflectionPromptOpen(false);
+      await finalizeSubmission(pendingReveal.id, pendingReveal.level);
+      setPendingReveal(null);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -324,6 +355,36 @@ export function ScorecardFormBody(props: BodyProps) {
 
       {revealLevel && (
         <ScoreReveal level={revealLevel} total={total} onClose={() => setRevealLevel(null)} />
+      )}
+
+      {/* Reflection prompt — only Level 1 self-evals, required, blocks reveal */}
+      {reflectionPromptOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-lg border-2 border-primary/40 bg-card p-5 shadow-xl space-y-4">
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-wide text-primary">Quick reflection</p>
+              <h3 className="text-lg font-black mt-1">What's one thing you'd do differently next time?</h3>
+              <p className="text-xs text-muted-foreground mt-2">
+                One sentence is plenty. This stays with the scorecard so future-you can see what present-you noticed.
+              </p>
+            </div>
+            <Textarea
+              autoFocus
+              value={reflectionDraft}
+              onChange={(e) => setReflectionDraft(e.target.value)}
+              placeholder="Next time I will…"
+              className="min-h-[100px] text-sm"
+            />
+            <Button
+              onClick={handleReflectionSubmit}
+              disabled={submitting || !reflectionDraft.trim()}
+              className="w-full text-white font-bold"
+              style={{ minHeight: '44px', backgroundColor: '#E8540A' }}
+            >
+              {submitting ? 'Saving…' : 'Save and see score'}
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

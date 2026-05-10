@@ -98,6 +98,19 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
             </Card>
           )}
 
+          {/* Coach reflection (Level 1 self-eval prompt) */}
+          {sc.reflection_text && (
+            <Card className="p-4 border-2 border-primary/40 bg-primary/5">
+              <p className="text-[10px] uppercase font-bold tracking-wide text-primary">
+                Coach reflection
+              </p>
+              <p className="text-sm mt-1 italic">"{sc.reflection_text}"</p>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Saved by {sc.evaluatee_name} after this self-evaluation.
+              </p>
+            </Card>
+          )}
+
           {/* Comments */}
           <Card className="p-4 space-y-3">
             <h3 className="font-bold text-sm">Comments</h3>
