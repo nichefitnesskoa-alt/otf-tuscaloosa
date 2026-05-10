@@ -128,6 +128,11 @@ export function BottomNav() {
                     {failCount > 9 ? '9+' : failCount}
                   </span>
                 )}
+                {item.path === '/my-intros' && isBoth && coachFollowUpBadge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                    {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
+                  </span>
+                )}
               </div>
               <span className={cn(
                 'text-[11px] font-medium',
