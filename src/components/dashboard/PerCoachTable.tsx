@@ -13,6 +13,7 @@ import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } fr
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
+import { walkJourneyChain } from '@/lib/intros/journey';
 
 interface PerCoachTableProps {
   dateRange?: DateRange | null;
