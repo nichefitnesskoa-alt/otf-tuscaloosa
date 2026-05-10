@@ -48,13 +48,13 @@ export interface SaLeaderboardRow {
   streak: number; // consecutive shifts (worked) with ≥1 milestone marked
 }
 
-/** Eligible thresholds: 25, 50, 75, 100, then +50 forever. */
+/** Eligible thresholds: 25, 50, 100, and every +50 after (150, 200, ..., 1150, ...). */
 export function isEligibleThreshold(milestoneType: string | number | null | undefined): boolean {
   if (milestoneType == null) return false;
   const n = typeof milestoneType === 'number' ? milestoneType : parseInt(String(milestoneType), 10);
   if (!Number.isFinite(n) || n < 25) return false;
-  if (n === 25 || n === 50 || n === 75 || n === 100) return true;
-  // every 50 after 100: 150, 200, 250, ...
+  if (n === 25 || n === 50 || n === 100) return true;
+  // every +50 after 100: 150, 200, 250, ..., 1150, ...
   return n > 100 && n % 50 === 0;
 }
 

@@ -7,15 +7,15 @@ import {
 } from '../saStreaks';
 
 describe('isEligibleThreshold', () => {
-  it('accepts 25/50/75/100 and every +50 after', () => {
+  it('accepts 25/50/100 and every +50 after', () => {
     expect(isEligibleThreshold('25')).toBe(true);
     expect(isEligibleThreshold('50')).toBe(true);
-    expect(isEligibleThreshold('75')).toBe(true);
     expect(isEligibleThreshold('100')).toBe(true);
     expect(isEligibleThreshold('150')).toBe(true);
     expect(isEligibleThreshold('500')).toBe(true);
-    expect(isEligibleThreshold(1150)).toBe(false); // not a +50 step
-    expect(isEligibleThreshold('1150')).toBe(false);
+    expect(isEligibleThreshold(1150)).toBe(true);
+    expect(isEligibleThreshold('75')).toBe(false);
+    expect(isEligibleThreshold('1175')).toBe(false);
   });
   it('rejects below 25 and non-numeric', () => {
     expect(isEligibleThreshold('10')).toBe(false);
