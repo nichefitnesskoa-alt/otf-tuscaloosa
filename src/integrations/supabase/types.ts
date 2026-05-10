@@ -2712,6 +2712,344 @@ export type Database = {
         }
         Relationships: []
       }
+      table_action_items: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string
+          id: string
+          meeting_id: string
+          owner_name: string
+          owner_staff_id: string
+          source_response_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          description: string
+          due_date: string
+          id?: string
+          meeting_id: string
+          owner_name: string
+          owner_staff_id: string
+          source_response_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string
+          id?: string
+          meeting_id?: string
+          owner_name?: string
+          owner_staff_id?: string
+          source_response_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_action_items_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "table_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_action_items_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_action_items_source_response_id_fkey"
+            columns: ["source_response_id"]
+            isOneToOne: false
+            referencedRelation: "table_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_closes: {
+        Row: {
+          created_at: string
+          created_by: string
+          energy_word: string | null
+          id: string
+          koa_close_note: string | null
+          meeting_id: string
+          updated_at: string
+          wins_selected: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          energy_word?: string | null
+          id?: string
+          koa_close_note?: string | null
+          meeting_id: string
+          updated_at?: string
+          wins_selected?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          energy_word?: string | null
+          id?: string
+          koa_close_note?: string | null
+          meeting_id?: string
+          updated_at?: string
+          wins_selected?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_closes_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: true
+            referencedRelation: "table_meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_meetings: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          koa_open_note: string | null
+          meeting_date: string
+          meeting_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          koa_open_note?: string | null
+          meeting_date: string
+          meeting_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          koa_open_note?: string | null
+          meeting_date?: string
+          meeting_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      table_owner_entries: {
+        Row: {
+          ask: string | null
+          created_at: string
+          created_by: string
+          id: string
+          ideas: string | null
+          last_week_update: string | null
+          meeting_id: string
+          owner_id: string
+          submitted_at: string | null
+          this_week_focus: string | null
+          updated_at: string
+        }
+        Insert: {
+          ask?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          ideas?: string | null
+          last_week_update?: string | null
+          meeting_id: string
+          owner_id: string
+          submitted_at?: string | null
+          this_week_focus?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ask?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          ideas?: string | null
+          last_week_update?: string | null
+          meeting_id?: string
+          owner_id?: string
+          submitted_at?: string | null
+          this_week_focus?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_owner_entries_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "table_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_owner_entries_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "table_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_owners: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string
+          display_name: string
+          id: string
+          is_active: boolean
+          lane_name: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          lane_name?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          lane_name?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_owners_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_responses: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          meeting_id: string
+          mode: string
+          owner_entry_id: string
+          responder_name: string
+          responder_staff_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          meeting_id: string
+          mode: string
+          owner_entry_id: string
+          responder_name: string
+          responder_staff_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          meeting_id?: string
+          mode?: string
+          owner_entry_id?: string
+          responder_name?: string
+          responder_staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_responses_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "table_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_responses_owner_entry_id_fkey"
+            columns: ["owner_entry_id"]
+            isOneToOne: false
+            referencedRelation: "table_owner_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_responses_responder_staff_id_fkey"
+            columns: ["responder_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_wins: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          included_in_close: boolean
+          meeting_week: string
+          owner_id: string | null
+          owner_name: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          included_in_close?: boolean
+          meeting_week: string
+          owner_id?: string | null
+          owner_name: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          included_in_close?: boolean
+          meeting_week?: string
+          owner_id?: string | null
+          owner_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_wins_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "table_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ten_x_ideas: {
         Row: {
           created_at: string
