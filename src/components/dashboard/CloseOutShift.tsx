@@ -198,10 +198,63 @@ export function CloseOutShift({
         followUpTouches: fuTouchesRes.count ?? 0,
         introsPrepped: preppedRes.count ?? 0,
       });
+
+      // Load (or prepare) the coverage report for this SA + shift + today
+      const shiftTypeForCov = shiftData?.shift_type || shiftType;
+      const { data: covRow } = await (supabase as any)
+        .from('shift_coverage_reports')
+        .select('id, milestones_celebrated, milestones_missed, notes')
+        .eq('sa_name', user.name)
+        .eq('shift_date', today)
+        .eq('shift_type', shiftTypeForCov)
+        .maybeSingle();
+      if (covRow) {
+        setCoverageId(covRow.id);
+        setCelebrated(String(covRow.milestones_celebrated ?? ''));
+        setMissed(String(covRow.milestones_missed ?? ''));
+        setCoverageNotes(covRow.notes ?? '');
+      } else {
+        setCoverageId(null);
+        setCelebrated('');
+        setMissed('');
+        setCoverageNotes('');
+      }
     } catch (err) {
       console.error('End shift summary fetch error:', err);
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const saveCoverage = async () => {
+    if (!user?.name || !summary) return;
+    const today = getLocalDateString();
+    const c = parseInt(celebrated, 10);
+    const m = parseInt(missed, 10);
+    const payload: any = {
+      sa_name: user.name,
+      shift_date: today,
+      shift_type: summary.shiftType,
+      milestones_celebrated: Number.isFinite(c) ? Math.max(0, c) : 0,
+      milestones_missed: Number.isFinite(m) ? Math.max(0, m) : 0,
+      notes: coverageNotes.trim() || null,
+      created_by: user.name,
+    };
+    try {
+      if (coverageId) {
+        await (supabase as any).from('shift_coverage_reports')
+          .update(payload).eq('id', coverageId);
+      } else {
+        const { data } = await (supabase as any).from('shift_coverage_reports')
+          .upsert(payload, { onConflict: 'sa_name,shift_date,shift_type' })
+          .select('id').single();
+        if (data?.id) setCoverageId(data.id);
+      }
+      setCoverageSavedAt(Date.now());
+      setTimeout(() => setCoverageSavedAt(prev => (prev && Date.now() - prev >= 1900 ? null : prev)), 2000);
+    } catch (err) {
+      console.error('Save coverage error:', err);
+      toast.error('Could not save coverage. Try again.');
     }
   };
 
