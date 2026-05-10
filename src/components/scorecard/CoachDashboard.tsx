@@ -80,14 +80,6 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
               {coaches.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          {typeof window !== 'undefined' && !window.location.pathname.startsWith('/coaches/') && (
-            <a
-              href={`/coaches/${encodeURIComponent(selected)}`}
-              className="text-xs text-primary hover:underline whitespace-nowrap px-2 min-h-[44px] flex items-center"
-            >
-              Open coach page →
-            </a>
-          )}
         </div>
       )}
 
