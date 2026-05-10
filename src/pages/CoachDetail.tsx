@@ -49,7 +49,7 @@ export default function CoachDetail() {
       </div>
       <CoachDashboard
         coachName={coachName}
-        allowPicker={user?.role === 'Admin'}
+        allowPicker={isAdmin}
         coaches={[...COACHES]}
       />
       <PeerEvaluations coachName={coachName} />
