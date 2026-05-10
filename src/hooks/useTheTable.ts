@@ -1,0 +1,193 @@
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { computeLaneHealth, sundayCutoffISO, type LaneHealthStatus } from '@/lib/table/laneHealth';
+
+// Returns the Monday (America/Chicago) of the current week, as YYYY-MM-DD.
+export function nextMondayCT(now: Date = new Date()): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+  });
+  const parts = fmt.formatToParts(now);
+  const day = parts.find(p => p.type === 'weekday')!.value;
+  const y = +parts.find(p => p.type === 'year')!.value;
+  const m = +parts.find(p => p.type === 'month')!.value;
+  const d = +parts.find(p => p.type === 'day')!.value;
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dow = dayMap[day];
+  // Days until next Monday (or today if Monday)
+  const add = dow === 1 ? 0 : (8 - dow) % 7;
+  const dt = new Date(Date.UTC(y, m - 1, d + add));
+  return dt.toISOString().slice(0, 10);
+}
+
+export interface TableOwner {
+  id: string; staff_id: string; display_name: string;
+  lane_name: string | null; category: string | null; is_active: boolean;
+}
+export interface TableMeeting {
+  id: string; meeting_date: string; meeting_time: string;
+  status: 'upcoming' | 'live' | 'complete'; koa_open_note: string | null;
+}
+export interface OwnerEntry {
+  id: string; meeting_id: string; owner_id: string;
+  last_week_update: string | null; this_week_focus: string | null;
+  ideas: string | null; ask: string | null; submitted_at: string | null;
+}
+export interface TableResponse {
+  id: string; meeting_id: string; owner_entry_id: string;
+  responder_name: string; mode: 'build' | 'flag' | 'offer'; content: string; created_at: string;
+}
+export interface TableActionItem {
+  id: string; meeting_id: string; source_response_id: string | null;
+  owner_staff_id: string; owner_name: string; description: string;
+  due_date: string; status: 'open' | 'in_progress' | 'done';
+  created_at: string; updated_at: string;
+}
+export interface TableWin {
+  id: string; owner_id: string | null; owner_name: string;
+  content: string; meeting_week: string; included_in_close: boolean; created_at: string;
+}
+
+export function useCurrentMeeting() {
+  const targetDate = nextMondayCT();
+  return useQuery({
+    queryKey: ['table-meeting', targetDate],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('table_meetings').select('*').eq('meeting_date', targetDate).maybeSingle();
+      if (data) return data as TableMeeting;
+      // Auto-create upcoming meeting
+      const { data: created } = await supabase
+        .from('table_meetings')
+        .insert({ meeting_date: targetDate, meeting_time: '13:30', status: 'upcoming', created_by: 'system' })
+        .select().single();
+      return created as TableMeeting;
+    },
+  });
+}
+
+export function useActiveOwners() {
+  return useQuery({
+    queryKey: ['table-owners'],
+    queryFn: async () => {
+      const { data } = await supabase.from('table_owners').select('*').eq('is_active', true).order('display_name');
+      return (data || []) as TableOwner[];
+    },
+  });
+}
+
+export function useOwnerEntries(meetingId?: string) {
+  return useQuery({
+    queryKey: ['table-entries', meetingId],
+    enabled: !!meetingId,
+    queryFn: async () => {
+      const { data } = await supabase.from('table_owner_entries').select('*').eq('meeting_id', meetingId);
+      return (data || []) as OwnerEntry[];
+    },
+  });
+}
+
+export function useResponses(meetingId?: string) {
+  return useQuery({
+    queryKey: ['table-responses', meetingId],
+    enabled: !!meetingId,
+    queryFn: async () => {
+      const { data } = await supabase.from('table_responses').select('*').eq('meeting_id', meetingId).order('created_at');
+      return (data || []) as TableResponse[];
+    },
+  });
+}
+
+export function useActionItems(meetingId?: string) {
+  return useQuery({
+    queryKey: ['table-actions', meetingId ?? 'all'],
+    queryFn: async () => {
+      let q = supabase.from('table_action_items').select('*').order('due_date');
+      if (meetingId) q = q.eq('meeting_id', meetingId);
+      const { data } = await q;
+      return (data || []) as TableActionItem[];
+    },
+  });
+}
+
+export function useOpenCarryForward(currentMeetingId?: string) {
+  return useQuery({
+    queryKey: ['table-actions-open', currentMeetingId],
+    queryFn: async () => {
+      let q = supabase.from('table_action_items').select('*').in('status', ['open', 'in_progress']).order('due_date');
+      if (currentMeetingId) q = q.neq('meeting_id', currentMeetingId);
+      const { data } = await q;
+      return (data || []) as TableActionItem[];
+    },
+  });
+}
+
+export function useCurrentWeekWins(weekDate?: string) {
+  return useQuery({
+    queryKey: ['table-wins', weekDate],
+    enabled: !!weekDate,
+    queryFn: async () => {
+      const { data } = await supabase.from('table_wins').select('*').eq('meeting_week', weekDate).order('created_at');
+      return (data || []) as TableWin[];
+    },
+  });
+}
+
+export function useTableClose(meetingId?: string) {
+  return useQuery({
+    queryKey: ['table-close', meetingId],
+    enabled: !!meetingId,
+    queryFn: async () => {
+      const { data } = await supabase.from('table_closes').select('*').eq('meeting_id', meetingId).maybeSingle();
+      return data;
+    },
+  });
+}
+
+// Compute Lane Health for each owner against the current meeting + previous meeting.
+export function useLaneHealth(meetingId?: string, meetingDate?: string) {
+  const { data: owners = [] } = useActiveOwners();
+  const { data: entries = [] } = useOwnerEntries(meetingId);
+  const { data: responses = [] } = useResponses(meetingId);
+  const { data: allActions = [] } = useActionItems();
+
+  const cutoff = useMemo(() => meetingDate ? sundayCutoffISO(meetingDate) : null, [meetingDate]);
+
+  return useMemo(() => {
+    const map: Record<string, { status: LaneHealthStatus; submittedOnTime: boolean; receivedResponse: boolean; actionItemProgressed: boolean }> = {};
+    for (const o of owners) {
+      const entry = entries.find(e => e.owner_id === o.id);
+      const submittedOnTime = !!entry?.submitted_at && (!cutoff || entry.submitted_at <= cutoff);
+      const myEntryIds = entries.filter(e => e.owner_id === o.id).map(e => e.id);
+      const receivedResponse = responses.some(r => myEntryIds.includes(r.owner_entry_id));
+      // action item progressed since prior meeting: any action owned by this staff_id with status != open updated since their last completed meeting
+      const actionItemProgressed = allActions.some(a =>
+        a.owner_staff_id === o.staff_id && a.status !== 'open'
+      );
+      const inputs = { submittedOnTime, receivedResponse, actionItemProgressed };
+      map[o.id] = { ...inputs, status: computeLaneHealth(inputs) };
+    }
+    return map;
+  }, [owners, entries, responses, allActions, cutoff]);
+}
+
+// Realtime subscriptions for live meeting feed
+export function useTableRealtime(meetingId?: string) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!meetingId) return;
+    const ch = supabase.channel(`table-${meetingId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_responses', filter: `meeting_id=eq.${meetingId}` },
+        () => qc.invalidateQueries({ queryKey: ['table-responses', meetingId] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_owner_entries', filter: `meeting_id=eq.${meetingId}` },
+        () => qc.invalidateQueries({ queryKey: ['table-entries', meetingId] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_meetings', filter: `id=eq.${meetingId}` },
+        () => qc.invalidateQueries({ queryKey: ['table-meeting'] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_action_items', filter: `meeting_id=eq.${meetingId}` },
+        () => qc.invalidateQueries({ queryKey: ['table-actions'] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [meetingId, qc]);
+}
