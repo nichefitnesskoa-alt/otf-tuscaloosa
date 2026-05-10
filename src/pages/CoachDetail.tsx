@@ -51,6 +51,7 @@ export default function CoachDetail() {
         allowPicker={user?.role === 'Admin'}
         coaches={[...COACHES]}
       />
+      <PeerEvaluations coachName={coachName} />
     </div>
   );
 }
