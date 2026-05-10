@@ -355,7 +355,7 @@ export function useDashboardMetrics(
           }
           
           const runs = bookingToRuns.get(b.id) || [];
-          if (runs.some(run => run.result !== 'No-show')) {
+          if (runs.some(run => didIntroActuallyRun(run))) {
             existing.showed++;
           }
           
@@ -392,10 +392,10 @@ export function useDashboardMetrics(
       existing.bookedPeople.push({ name: b.member_name, date: b.class_date, detail: (b as any).coach_name || undefined });
 
       const runs = bookingToRuns.get(b.id) || [];
-      const showedRun = runs.find(r => r.result !== 'No-show');
+      const showedRun = runs.find(r => didIntroActuallyRun(r));
       if (showedRun) {
         existing.showed++;
-        const showDetail = isMembershipSale(showedRun.result) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
+        const showDetail = isCloseRun(showedRun) ? showedRun.result : ((showedRun as any).primary_objection || showedRun.result || undefined);
         existing.showedPeople.push({ name: b.member_name, date: b.class_date, detail: showDetail });
       }
 
@@ -487,10 +487,7 @@ export function useDashboardMetrics(
 
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      const nonNoShowRun = runs.find(r => {
-        const res = (r.result || '').toLowerCase();
-        return res !== 'no-show' && res !== 'no show' && isRunInRange(r, dateRange);
-      });
+      const nonNoShowRun = runs.find(r => didIntroActuallyRun(r) && isRunInRange(r, dateRange));
       if (nonNoShowRun) {
         pipelineShowed++;
         const saleRun = runs.find(r => isSaleInRange(r, dateRange));
@@ -501,14 +498,14 @@ export function useDashboardMetrics(
       }
     });
 
-    // Explicit no-show count: only bookings with a confirmed No-show result
+    // Explicit no-show count: only bookings whose runs are ALL canon NO_SHOW.
+    // (Kept canon-explicit on purpose — `!didIntroActuallyRun` would also
+    // include UNRESOLVED / PLANNING_RESCHEDULE / VIP_CLASS_INTRO, which is
+    // not what "no-show" means on this surface.)
     let pipelineNoShows = 0;
     pastAndTodayBookings.forEach(b => {
       const runs = bookingToRuns.get(b.id) || [];
-      if (runs.length > 0 && runs.every(r => {
-        const res = (r.result || '').toLowerCase();
-        return res === 'no-show' || res === 'no show';
-      })) {
+      if (runs.length > 0 && runs.every(r => (r.result_canon || '').toUpperCase() === 'NO_SHOW')) {
         pipelineNoShows++;
       }
     });
