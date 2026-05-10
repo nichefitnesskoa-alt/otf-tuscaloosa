@@ -45,7 +45,11 @@ function getDateRange(options: UseUpcomingIntrosOptions): { start: string; end: 
     }
     case 'weekFull': {
       const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      return { start: today, end: sunday };
+      const sevenAhead = format(addDays(new Date(), 6), 'yyyy-MM-dd');
+      // On Sundays endOfWeek collapses to today, hiding all of next week's intros.
+      // Guarantee at least a 7-day forward window so VIPs and intros stay visible.
+      const end = sunday > sevenAhead ? sunday : sevenAhead;
+      return { start: today, end };
     }
     case 'needsOutcome': {
       const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
