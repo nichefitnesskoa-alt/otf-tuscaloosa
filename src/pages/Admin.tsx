@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, CalendarDays, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +19,7 @@ import ReferralTree from '@/components/admin/ReferralTree';
 
 
 import AdminOverviewHealth from '@/components/admin/AdminOverviewHealth';
-import { FollowUpOwnershipPanel } from '@/components/admin/FollowUpOwnershipPanel';
+
 import { IntegrityDashboard } from '@/components/admin/IntegrityDashboard';
 import SuccessStoriesPanel from '@/components/admin/SuccessStoriesPanel';
 import DataAuditDashboard from '@/components/admin/DataAuditDashboard';
@@ -40,8 +40,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { getDateRangeForPreset, DatePreset, DateRange } from '@/lib/pay-period';
-import { useMeetingAgenda, getCurrentMeetingMonday } from '@/hooks/useMeetingAgenda';
-import { format, addDays } from 'date-fns';
 
 // Staff names now loaded from database via useActiveStaff hook where needed
 
@@ -584,20 +582,6 @@ export default function Admin() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
-          {/* Team Meeting Card */}
-          <Card className="cursor-pointer hover:bg-muted/50 transition" onClick={() => navigate('/meeting')}>
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CalendarDays className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="font-semibold">Team Meeting</p>
-                  <p className="text-sm text-muted-foreground">Next: {format(getCurrentMeetingMonday(), 'EEEE, MMM d')}</p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline">Open Meeting Prep</Button>
-            </CardContent>
-          </Card>
-
           {/* Global Date Filter */}
           <DateRangeFilter
             preset={datePreset}
@@ -609,7 +593,6 @@ export default function Admin() {
 
           {/* Business Health Dashboard */}
           <AdminOverviewHealth dateRange={dateRange} />
-          <FollowUpOwnershipPanel />
 
         </TabsContent>
 

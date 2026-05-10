@@ -927,27 +927,34 @@ export default function Wig() {
           {/* First Visit Experience scorecard system */}
           <WigFirstVisitSection dateRange={dateRange} />
 
-          {/* My Scorecards — visible to logged-in coach (own only). Admin gets a coach picker. */}
-          {(user?.role === 'Coach' || user?.role === 'Admin') && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-primary" />
-                  {user?.role === 'Admin' ? 'Scorecards' : 'My Scorecards'}
-                </CardTitle>
-                <p className="text-[11px] text-muted-foreground">
-                  {user?.role === 'Admin' ? 'Pick any coach to view their scorecards.' : 'Only you see this section.'}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <CoachDashboard
-                  coachName={user?.role === 'Admin' ? (COACHES[0] || '') : (user?.name || '')}
-                  allowPicker={user?.role === 'Admin'}
-                  coaches={[...COACHES]}
-                />
-              </CardContent>
-            </Card>
-          )}
+          {/* My Scorecards — visible to logged-in coach (own only). Koa gets a coach picker. "Both" role staff also get the picker. */}
+          {(() => {
+            const isKoa = user?.name === 'Koa';
+            const isCoach = user?.role === 'Coach';
+            const isBoth = user?.role === 'Both';
+            if (!isKoa && !isCoach && !isBoth) return null;
+            const allowPicker = isKoa || isBoth;
+            return (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-primary" />
+                    {allowPicker ? 'Scorecards' : 'My Scorecards'}
+                  </CardTitle>
+                  <p className="text-[11px] text-muted-foreground">
+                    {allowPicker ? 'Pick any coach to view their scorecards.' : 'Only you see this section.'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <CoachDashboard
+                    coachName={allowPicker ? (COACHES[0] || '') : (user?.name || '')}
+                    allowPicker={allowPicker}
+                    coaches={[...COACHES]}
+                  />
+                </CardContent>
+              </Card>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 

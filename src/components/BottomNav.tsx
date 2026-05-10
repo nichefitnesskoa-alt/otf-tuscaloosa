@@ -10,14 +10,15 @@ export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.name === 'Koa';
   const isCoach = user?.role === 'Coach';
+  const isBoth = user?.role === 'Both';
   const { failCount } = useDataAudit(isAdmin);
   const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
 
-  // Coach badge count
+  // Coach (and Both) badge count
   useEffect(() => {
-    if (!isCoach || !user?.name) return;
+    if (!(isCoach || isBoth) || !user?.name) return;
     (async () => {
       const { count } = await (supabase
         .from('follow_up_queue')
@@ -28,7 +29,7 @@ export function BottomNav() {
         .is('transferred_to_sa_at', null);
       setCoachFollowUpBadge(count || 0);
     })();
-  }, [isCoach, user?.name]);
+  }, [isCoach, isBoth, user?.name]);
 
   // Coach sees Coach View (single nav)
   if (isCoach) {
@@ -81,7 +82,18 @@ export function BottomNav() {
     { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
     { path: '/vips', label: 'VIPs', icon: Star },
     { path: '/coach-view', label: 'Coach View', icon: Eye },
+    { path: '/my-intros', label: 'Text My Intros', icon: UserCheck },
     { path: '/admin', label: 'Admin', icon: Settings },
+  ] : isBoth ? [
+    // "Both" role staff get the union of SA + Coach features (no Admin).
+    { path: '/my-day', label: 'My Day', icon: Home },
+    { path: '/recaps', label: 'Studio', icon: BarChart3 },
+    { path: '/wig', label: 'WIG', icon: Trophy },
+    { path: '/the-table', label: 'Own It', icon: Flag },
+    { path: '/pipeline', label: 'Pipeline', icon: GitBranch },
+    { path: '/vips', label: 'VIPs', icon: Star },
+    { path: '/coach-view', label: 'Coach View', icon: Eye },
+    { path: '/my-intros', label: 'Text My Intros', icon: UserCheck },
   ] : [
     { path: '/my-day', label: 'My Day', icon: Home },
     { path: '/recaps', label: 'Studio', icon: BarChart3 },
@@ -114,6 +126,11 @@ export function BottomNav() {
                 {item.path === '/admin' && failCount > 0 && (
                   <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5">
                     {failCount > 9 ? '9+' : failCount}
+                  </span>
+                )}
+                {item.path === '/my-intros' && isBoth && coachFollowUpBadge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[#E8540A] text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                    {coachFollowUpBadge > 9 ? '9+' : coachFollowUpBadge}
                   </span>
                 )}
               </div>

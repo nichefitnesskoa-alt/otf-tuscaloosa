@@ -31,12 +31,12 @@ export default function SaDetail() {
   const { user } = useAuth();
   const saName = decodeURIComponent(raw || '');
 
-  // SA can only view own page; Admin sees anyone; Coach blocked.
+  // SA (and Both) can only view their own page; Koa sees anyone; pure Coach blocked.
   if (user?.role === 'Coach') {
     return <Navigate to="/coach-view" replace />;
   }
-  if (user?.role === 'SA' && user?.name !== saName) {
-    return <Navigate to={`/sas/${encodeURIComponent(user.name)}`} replace />;
+  if ((user?.role === 'SA' || user?.role === 'Both') && user?.name !== 'Koa' && user?.name !== saName) {
+    return <Navigate to={`/sas/${encodeURIComponent(user!.name)}`} replace />;
   }
 
   const [datePreset, setDatePreset] = useState<DatePreset>('this_month');

@@ -15,8 +15,9 @@ export default function CoachDetail() {
   const { user } = useAuth();
   const coachName = decodeURIComponent(raw || '');
 
-  // Coaches can only view their own page; Admins see anyone.
-  if (user?.role === 'Coach' && user?.name !== coachName) {
+  // Coaches (and Both) can only view their own page; Koa sees anyone.
+  const isAdmin = user?.name === 'Koa';
+  if (!isAdmin && (user?.role === 'Coach' || user?.role === 'Both') && user?.name !== coachName) {
     return <Navigate to="/scorecards/me" replace />;
   }
 
@@ -48,7 +49,7 @@ export default function CoachDetail() {
       </div>
       <CoachDashboard
         coachName={coachName}
-        allowPicker={user?.role === 'Admin'}
+        allowPicker={isAdmin}
         coaches={[...COACHES]}
       />
       <PeerEvaluations coachName={coachName} />

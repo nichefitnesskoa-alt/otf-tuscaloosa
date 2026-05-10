@@ -75,7 +75,8 @@ interface QuestionnaireMap {
 export default function CoachView() {
   const { user, logout } = useAuth();
   const { isDark, toggle: toggleDark } = useDarkMode();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = user?.name === 'Koa';
+  const isCoachLike = user?.role === 'Coach' || user?.role === 'Both';
   const coachName = user?.name || '';
 
   const [bookings, setBookings] = useState<CoachBooking[]>([]);
@@ -233,7 +234,7 @@ export default function CoachView() {
   return (
     <div className="p-4 space-y-4" style={{ fontSize: '16px' }}>
       {/* ═══ HEADER — greeting + user + logout (Coach only; Admins use global Header) ═══ */}
-      {user?.role === 'Coach' && (
+      {isCoachLike && (
         <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 shadow-sm -mx-4 -mt-4 mb-4">
           <div className="flex items-center justify-between">
             <div>
@@ -262,7 +263,7 @@ export default function CoachView() {
 
       {isAdmin && <TheSystemSection />}
 
-      {(isAdmin || user?.role === 'Coach') && (
+      {(isAdmin || isCoachLike) && (
         <CollapsibleSection
           id="coaching-scripts"
           title="Coaching Scripts"
