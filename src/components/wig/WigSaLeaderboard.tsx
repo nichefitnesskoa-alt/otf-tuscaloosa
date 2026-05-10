@@ -9,7 +9,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import type { DateRange } from '@/lib/pay-period';
-import { isEligibleThreshold, isoToCentralDate } from '@/lib/sa/saStreaks';
+import { isEligibleThreshold } from '@/lib/sa/saStreaks';
 import { cn } from '@/lib/utils';
 
 interface Props {
