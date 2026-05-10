@@ -16,9 +16,9 @@ export function BottomNav() {
   const { failCount } = useDataAudit(isAdmin);
   const [coachFollowUpBadge, setCoachFollowUpBadge] = useState(0);
 
-  // Coach badge count
+  // Coach (and Both) badge count
   useEffect(() => {
-    if (!isCoach || !user?.name) return;
+    if (!(isCoach || isBoth) || !user?.name) return;
     (async () => {
       const { count } = await (supabase
         .from('follow_up_queue')
@@ -29,7 +29,7 @@ export function BottomNav() {
         .is('transferred_to_sa_at', null);
       setCoachFollowUpBadge(count || 0);
     })();
-  }, [isCoach, user?.name]);
+  }, [isCoach, isBoth, user?.name]);
 
   // Coach sees Coach View (single nav)
   if (isCoach) {
