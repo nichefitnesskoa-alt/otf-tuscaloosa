@@ -1,13 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, Sun, Clock, Sunset, Calendar, ArrowRight, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import {
+  STANDARDS,
+  standardForTask,
+  REFERRAL_ASK_TASK_NAME,
+  type StandardKey,
+} from '@/features/shiftView/standards';
+import { ReferralAskRow } from '@/features/shiftView/ReferralAskRow';
+import { EndOfShiftSubmission } from '@/features/shiftView/EndOfShiftSubmission';
+import { useShiftSubmission } from '@/features/shiftView/useShiftSubmission';
+import { useAllReferralAsks } from '@/features/shiftView/useReferralAsks';
+import type { ShiftType as ShiftViewType } from '@/features/shiftView/ShiftSelector';
 
 /** Map task names to script category slugs for the Send Script button */
 function getScriptCategoryForTask(taskName: string): string[] | null {
@@ -32,7 +44,6 @@ interface TaskRow {
   name: string;
   hasCount: boolean;
   countLabel: string | null;
-  countTarget: number | null;
   templateId: string | null;
   overrideId: string | null;
   isOverride: boolean;
@@ -40,6 +51,62 @@ interface TaskRow {
   countLogged: number | null;
   completionId: string | null;
   isFollowUpTask: boolean;
+  standard: StandardKey;
+}
+
+const HEADER_QUESTIONS: {
+  key: 'lead_forward_answer' | 'member_experience_answer' | 'ownership_lane_answer';
+  q: string;
+}[] = [
+  { key: 'lead_forward_answer', q: 'How did you move a new lead forward today?' },
+  { key: 'member_experience_answer', q: "How did you impact a member's experience?" },
+  { key: 'ownership_lane_answer', q: 'What did you do in your ownership lane?' },
+];
+
+function ShiftReflectionHeader({ shiftType }: { shiftType: ShiftType }) {
+  const { user } = useAuth();
+  const { data } = useShiftSubmission(user?.name, shiftType as ShiftViewType);
+
+  const scrollToCloseOut = () => {
+    document.getElementById('end-of-shift')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <Card className="border-primary/30 p-3 space-y-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Three questions you'll answer at end of shift
+      </p>
+      <div className="space-y-1.5">
+        {HEADER_QUESTIONS.map(({ key, q }) => {
+          const ans = (data[key] || '').trim();
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={scrollToCloseOut}
+              className="w-full text-left flex items-start gap-2 py-1 px-1 rounded hover:bg-muted/30 transition-colors cursor-pointer"
+            >
+              <span className="text-[11px] font-medium text-foreground/80 shrink-0 mt-0.5">·</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[11px] text-muted-foreground">{q}</span>
+                <span
+                  className={cn(
+                    'block text-xs mt-0.5 truncate',
+                    ans ? 'text-foreground' : 'text-muted-foreground/60 italic',
+                  )}
+                >
+                  {ans || '—'}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/50">
+        Log the real number. We can work with honest. We can't work with hidden.
+      </p>
+    </Card>
+  );
 }
 
 export function ShiftChecklist() {
@@ -51,6 +118,7 @@ export function ShiftChecklist() {
   const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
   const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const { asks: allAsks } = useAllReferralAsks();
 
   // Fetch today's follow-up touches count
   const fetchFollowUpCount = useCallback(async () => {
@@ -66,7 +134,6 @@ export function ShiftChecklist() {
 
   useEffect(() => { fetchFollowUpCount(); }, [fetchFollowUpCount]);
 
-  // Listen for follow-up touch events to auto-update count
   useEffect(() => {
     const handler = () => fetchFollowUpCount();
     window.addEventListener('followup:touch-logged', handler);
@@ -80,7 +147,7 @@ export function ShiftChecklist() {
     const [templatesRes, overridesRes, completionsRes] = await Promise.all([
       supabase
         .from('shift_task_templates')
-        .select('id, task_name, has_count, count_label, count_target, task_order')
+        .select('id, task_name, has_count, count_label, task_order')
         .eq('shift_type', shift)
         .eq('is_active', true)
         .order('task_order'),
@@ -113,10 +180,11 @@ export function ShiftChecklist() {
       const comp = completionMap.get(`override-${o.id}`);
       rows.push({
         key: `override-${o.id}`, name: o.task_name, hasCount: o.has_count,
-        countLabel: o.count_label, countTarget: null, templateId: null, overrideId: o.id,
+        countLabel: o.count_label, templateId: null, overrideId: o.id,
         isOverride: true, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
         isFollowUpTask: false,
+        standard: standardForTask(o.task_name),
       });
     });
 
@@ -125,11 +193,12 @@ export function ShiftChecklist() {
       const isFollowUp = (t.count_label || '').toLowerCase().trim() === 'follow-ups done';
       rows.push({
         key: `template-${t.id}`, name: t.task_name, hasCount: t.has_count,
-        countLabel: t.count_label, countTarget: t.count_target ?? null,
+        countLabel: t.count_label,
         templateId: t.id, overrideId: null,
         isOverride: false, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
         isFollowUpTask: isFollowUp,
+        standard: standardForTask(t.task_name),
       });
     });
 
@@ -141,7 +210,6 @@ export function ShiftChecklist() {
     if (selectedShift) loadTasks(selectedShift);
   }, [selectedShift, loadTasks]);
 
-  // Listen for shift reset event from End Shift button
   useEffect(() => {
     const handleReset = () => {
       setSelectedShift(null);
@@ -177,6 +245,19 @@ export function ShiftChecklist() {
       }
     }
   };
+
+  const findReferralTask = useCallback(
+    () => tasks.find(t => t.name === REFERRAL_ASK_TASK_NAME),
+    [tasks],
+  );
+
+  // When a referral ask is logged, mark the linked template task as complete.
+  const onReferralLogged = useCallback(async () => {
+    const t = findReferralTask();
+    if (!t || t.completed) return;
+    await toggleTask(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findReferralTask]);
 
   const syncOutreachCounter = async (countLabel: string | null, value: number) => {
     if (!user?.name || !countLabel) return;
@@ -243,16 +324,129 @@ export function ShiftChecklist() {
     setScriptDrawerOpen(true);
   };
 
-  const completedCount = tasks.filter(t => t.completed).length;
-  const totalCount = tasks.length;
-  const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  // Did this SA log any referral ask today?
+  const askedTodayCount = useMemo(() => {
+    if (!user?.name) return 0;
+    return allAsks.filter(
+      a => a.sa_name === user.name && a.shift_date === todayStr,
+    ).length;
+  }, [allAsks, user?.name, todayStr]);
+
+  // Standards completion: every task in standard checked. For s4, also requires
+  // at least one referral ask logged today (the referral row drives that side).
+  const grouped = useMemo(() => {
+    return STANDARDS.map(s => ({
+      standard: s,
+      rows: tasks.filter(t => t.standard === s.key),
+    }));
+  }, [tasks]);
+
+  const standardsComplete = useMemo(() => {
+    let done = 0;
+    for (const s of STANDARDS) {
+      if (s.key === 'other') continue;
+      const rows = grouped.find(g => g.standard.key === s.key)?.rows ?? [];
+      // Skip empty standards (treat as not-complete to avoid silent 5/5)
+      if (rows.length === 0 && s.key !== 's4') continue;
+      const allChecked = rows.every(r => r.completed);
+      const s4OK = s.key === 's4' ? askedTodayCount > 0 : true;
+      if (allChecked && s4OK) done += 1;
+    }
+    return done;
+  }, [grouped, askedTodayCount]);
+
+  const renderTaskRow = (task: TaskRow) => {
+    if (task.name === REFERRAL_ASK_TASK_NAME) {
+      return (
+        <div key={task.key} className="py-2">
+          <ReferralAskRow shiftType={selectedShift as ShiftViewType} onLogged={onReferralLogged} />
+          {task.completed && (
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+              <Check className="w-3 h-3" /> Marked complete for today
+            </p>
+          )}
+        </div>
+      );
+    }
+    const displayCount = task.isFollowUpTask ? todayFollowUpCount : task.countLogged;
+    const cats = getScriptCategoryForTask(task.name);
+    return (
+      <div key={task.key} className="flex items-start gap-3 py-2.5">
+        <button
+          onClick={() => toggleTask(task)}
+          className={cn(
+            'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer',
+            task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary',
+          )}
+        >
+          {task.completed && <Check className="w-3 h-3 text-primary-foreground" />}
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>
+              {task.name}
+            </span>
+            {task.isOverride && (
+              <Badge className="text-[9px] h-4 bg-warning/20 text-warning border-warning/30 hover:bg-warning/20">
+                Today only
+              </Badge>
+            )}
+          </div>
+          {task.hasCount && (
+            <div className="flex items-center gap-2 mt-1.5">
+              {task.isFollowUpTask ? (
+                <>
+                  <span className="text-sm font-medium text-foreground">{displayCount ?? 0}</span>
+                  <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2 ml-1 cursor-pointer"
+                    onClick={navigateToFollowUp}
+                  >
+                    Open Follow-Up Queue <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={task.countLogged ?? ''}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                      if (!isNaN(val)) updateCount(task, val);
+                    }}
+                    className="h-7 w-16 text-xs px-2"
+                  />
+                  <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {cats && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-[11px] px-2 shrink-0 mt-0.5 cursor-pointer gap-1 min-h-[44px]"
+            onClick={() => openScriptDrawer(cats)}
+          >
+            <Send className="w-3.5 h-3.5" />
+            Send Script
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
-      {/* Shift selector */}
       {!selectedShift ? (
         <div className="bg-[#E8540A] rounded-xl p-4">
-          <p className="text-[13px] font-bold text-white uppercase tracking-wider mb-3">SELECT YOUR SHIFT — LOADS YOUR RESPONSIBILITIES</p>
+          <p className="text-[13px] font-bold text-white uppercase tracking-wider mb-3">
+            SELECT YOUR SHIFT — LOADS YOUR RESPONSIBILITIES
+          </p>
           <div className="grid grid-cols-4 gap-2">
             {SHIFTS.map(s => (
               <Button
@@ -285,128 +479,53 @@ export function ShiftChecklist() {
             </Button>
           </div>
 
-          {/* Inner dark card for tasks */}
+          {/* Inner dark zone */}
           <div className="bg-card rounded-lg p-3 space-y-3">
-            {/* Progress bar */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="font-medium">{completedCount} of {totalCount} complete</span>
-                <span className="text-muted-foreground">{pct}%</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-              </div>
+            {/* Zone 1 — sticky reflection header */}
+            <div className="sticky top-2 z-10">
+              <ShiftReflectionHeader shiftType={selectedShift} />
             </div>
 
-            {/* Task list */}
+            {/* Standards-complete indicator */}
+            <p className="text-[11px] text-muted-foreground">
+              {standardsComplete} of 5 standards complete
+            </p>
+
             {loading ? (
               <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
             ) : (
-              <div className="divide-y divide-border">
-                {tasks.map(task => {
-                  const displayCount = task.isFollowUpTask ? todayFollowUpCount : task.countLogged;
-                  const targetHit = task.countTarget != null && displayCount != null && displayCount >= task.countTarget;
-
-                  return (
-                    <div
-                      key={task.key}
-                      className={cn(
-                        'flex items-start gap-3 py-2.5',
-                        targetHit && 'border-l-2 border-l-green-500 pl-2'
-                      )}
-                    >
-                      <button
-                        onClick={() => toggleTask(task)}
-                        className={cn(
-                          'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer',
-                          task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary'
-                        )}
-                      >
-                        {task.completed && <Check className="w-3 h-3 text-primary-foreground" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>
-                            {task.name}
-                          </span>
-                          {task.isOverride && (
-                            <Badge className="text-[9px] h-4 bg-warning/20 text-warning border-warning/30 hover:bg-warning/20">Today only</Badge>
+              <>
+                {/* Zone 2 — five standard cards */}
+                <div className="space-y-3">
+                  {grouped.map(({ standard, rows }) => {
+                    if (standard.key === 'other' && rows.length === 0) return null;
+                    return (
+                      <Card key={standard.key} className="p-3">
+                        <p className="text-sm font-bold mb-2">{standard.title}</p>
+                        <div className="divide-y divide-border">
+                          {rows.map(renderTaskRow)}
+                          {rows.length === 0 && standard.key === 's4' && (
+                            <div className="py-2">
+                              <ReferralAskRow
+                                shiftType={selectedShift as ShiftViewType}
+                                onLogged={onReferralLogged}
+                              />
+                            </div>
+                          )}
+                          {rows.length === 0 && standard.key !== 's4' && (
+                            <p className="text-[11px] text-muted-foreground italic py-2">
+                              No tasks loaded for this standard.
+                            </p>
                           )}
                         </div>
-                        {task.hasCount && (
-                          <div className="flex items-center gap-2 mt-1">
-                            {task.isFollowUpTask ? (
-                              /* Follow-up task: auto-counted + deep link */
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  'text-sm font-medium',
-                                  targetHit ? 'text-green-500' : 'text-foreground'
-                                )}>
-                                  {todayFollowUpCount}
-                                  {task.countTarget != null && (
-                                    <span className="text-muted-foreground font-normal"> / {task.countTarget}</span>
-                                  )}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-[11px] px-2 ml-1 cursor-pointer"
-                                  onClick={navigateToFollowUp}
-                                >
-                                  Open Follow-Up Queue <ArrowRight className="w-3 h-3 ml-1" />
-                                </Button>
-                              </div>
-                            ) : (
-                              /* Regular count task */
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={task.countLogged ?? ''}
-                                  onChange={e => {
-                                    const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                                    if (!isNaN(val)) updateCount(task, val);
-                                  }}
-                                  className="h-6 w-16 text-xs px-2"
-                                />
-                                {task.countTarget != null && (
-                                  <span className={cn(
-                                    'text-[10px] font-medium',
-                                    targetHit ? 'text-green-500' : 'text-muted-foreground'
-                                  )}>
-                                    / {task.countTarget}
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {/* Send Script button for outreach tasks */}
-                      {(() => {
-                        const cats = getScriptCategoryForTask(task.name);
-                        if (!cats) return null;
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-[11px] px-2 shrink-0 mt-0.5 cursor-pointer gap-1 min-h-[44px]"
-                            onClick={() => openScriptDrawer(cats)}
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            Send Script
-                          </Button>
-                        );
-                      })()}
-                    </div>
-                  );
-                })}
-                {tasks.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-3">No tasks for this shift.</p>
-                )}
-              </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+
+                {/* Zone 3 — close out card */}
+                <EndOfShiftSubmission shiftType={selectedShift as ShiftViewType} />
+              </>
             )}
           </div>
         </div>
