@@ -67,11 +67,16 @@ export default function TheTable() {
   const [responseText, setResponseText] = useState('');
   const [actionDialog, setActionDialog] = useState<{ responseId: string; defaultDesc: string } | null>(null);
 
-  // Self owner record, if any (architect doesn't appear here, so Koa never has one)
-  const myOwner = owners.find(o => o.display_name === user?.name);
-  const myEntry = myOwner && entries.find(e => e.owner_id === myOwner.id);
+  // Self owner records (one row per lane). Architect doesn't appear here, so Koa never has any.
+  const myOwners = owners.filter(o => o.display_name === user?.name);
+  const myEntries = entries.filter(e => myOwners.some(o => o.id === e.owner_id));
+  const allMySubmitted = myOwners.length > 0 && myOwners.every(o => myEntries.find(e => e.owner_id === o.id)?.submitted_at);
   const isArchitectViewer = !!architect && architect.display_name === user?.name;
   const architectEntry = architect && entries.find(e => e.owner_id === architect.id);
+
+  // Default owner_id for "Log a win" composer when user holds 2+ lanes
+  const [winOwnerId, setWinOwnerId] = useState<string | null>(null);
+  const effectiveWinOwnerId = winOwnerId ?? myOwners[0]?.id ?? null;
 
   // Refresh helper
   const refresh = (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] });
