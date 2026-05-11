@@ -44,13 +44,13 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
     const [templatesRes, overridesRes, completionsRes] = await Promise.all([
       supabase
         .from('shift_task_templates')
-        .select('id, task_name, has_count, count_label, task_order')
+        .select('id, task_name, has_count, count_label, task_order, standard_key')
         .eq('shift_type', shiftType)
         .eq('is_active', true)
         .order('task_order'),
       supabase
         .from('shift_task_overrides')
-        .select('id, task_name, has_count, count_label')
+        .select('id, task_name, has_count, count_label, standard_key')
         .eq('shift_type', shiftType)
         .eq('active_date', todayStr),
       supabase
@@ -80,7 +80,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
         countLabel: o.count_label, templateId: null, overrideId: o.id,
         isOverride: true, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
-        standard: standardForTask(o.task_name),
+        standard: standardKeyOrOther(o.standard_key),
       });
     });
 
@@ -91,7 +91,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
         countLabel: t.count_label, templateId: t.id, overrideId: null,
         isOverride: false, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
-        standard: standardForTask(t.task_name),
+        standard: standardKeyOrOther(t.standard_key),
       });
     });
 
