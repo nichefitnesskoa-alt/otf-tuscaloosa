@@ -266,8 +266,8 @@ export default function CoachView() {
 
       {(isAdmin || isCoachLike) && (
         <CollapsibleSection
-          id="coaching-scripts"
-          title="Coaching Scripts"
+          id="workout-templates"
+          title="Workout Templates With Class Times (Every Effort)"
           icon={<span>📋</span>}
           defaultOpen={false}
         >
