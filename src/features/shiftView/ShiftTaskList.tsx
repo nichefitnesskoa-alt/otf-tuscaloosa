@@ -224,6 +224,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
 
       {/* Section label */}
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Shift duties</p>
+      <p className="text-xs text-muted-foreground italic">Log the real number. We can work with honest. We can't work with hidden.</p>
 
       {/* Task card */}
       <Card className="divide-y divide-border">
