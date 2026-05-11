@@ -445,8 +445,9 @@ export function ShiftChecklist() {
 
       <ScriptSendDrawer
         open={scriptDrawerOpen}
-        onClose={() => setScriptDrawerOpen(false)}
-        categories={scriptDrawerCategories ?? undefined}
+        onOpenChange={setScriptDrawerOpen}
+        saName={user?.name ?? ''}
+        categoryFilter={scriptDrawerCategories}
       />
     </div>
   );
