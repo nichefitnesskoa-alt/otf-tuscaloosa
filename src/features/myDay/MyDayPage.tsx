@@ -413,11 +413,6 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-      {/* Today's class milestone checks (bottom) */}
-      <div className="mb-24">
-        <ClassMilestoneChecks />
-      </div>
-
 
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}
