@@ -212,7 +212,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
   }
 
   // Group by standard
-  const grouped = STANDARDS.map(s => ({
+  const grouped = activeStandards.map(s => ({
     standard: s,
     rows: tasks.filter(t => t.standard === s.key),
   })).filter(g => g.rows.length > 0 || g.standard.key === 's4');
