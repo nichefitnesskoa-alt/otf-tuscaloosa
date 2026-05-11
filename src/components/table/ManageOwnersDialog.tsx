@@ -23,6 +23,7 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
   const { data: owners = [] } = useAllOwnersIncludingArchitect();
   const qc = useQueryClient();
   const [addingId, setAddingId] = useState('');
+  const [addingLane, setAddingLane] = useState('');
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['table-owners'] });
 
@@ -30,30 +31,42 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     if (!addingId) return;
     const s = staff.find(x => x.id === addingId);
     if (!s) return;
+    const lane = addingLane.trim() || null;
+    const category = categoryForLane(lane);
 
-    // Check for an existing (possibly soft-removed) row for this staff_id.
-    const { data: existing } = await supabase
+    // If a (staff_id, lane_name) row already exists (active or soft-removed), revive it.
+    let existingQ = supabase
       .from('table_owners')
       .select('id')
-      .eq('staff_id', s.id)
-      .maybeSingle();
+      .eq('staff_id', s.id);
+    existingQ = lane ? existingQ.eq('lane_name', lane) : existingQ.is('lane_name', null);
+    const { data: existing } = await existingQ.maybeSingle();
 
     if (existing) {
-      // Re-activate prior row, preserving their old Ownership Role + category.
       const { error } = await supabase
         .from('table_owners')
-        .update({ is_active: true, display_name: s.name })
-        // Never auto-set is_architect on re-activation.
+        .update({
+          is_active: true,
+          display_name: s.name,
+          ...(category ? { category } : {}),
+        })
         .eq('id', existing.id);
       if (error) { toast.error(error.message); return; }
       toast.success(`${s.name} is back at the table.`);
     } else {
       const { error } = await supabase.from('table_owners').insert({
-        staff_id: s.id, display_name: s.name, is_active: true, created_by: 'admin',
+        staff_id: s.id,
+        display_name: s.name,
+        is_active: true,
+        lane_name: lane,
+        ...(category ? { category } : {}),
+        created_by: 'admin',
       });
       if (error) { toast.error(error.message); return; }
+      toast.success(`${s.name} added${lane ? ` — ${lane}` : ''}.`);
     }
     setAddingId('');
+    setAddingLane('');
     refresh();
   };
 
@@ -74,9 +87,13 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     refresh();
   };
 
-  // Exclude only currently-active owners from the picker.
-  const activeStaffIds = new Set(owners.filter(o => o.is_active).map(o => o.staff_id));
-  const availableStaff = staff.filter(s => !activeStaffIds.has(s.id));
+  // A staff member can hold multiple lanes — the picker no longer excludes the
+  // whole person, only specific (staff_id, lane_name) pairs that are already
+  // active. Since we can't pre-pick the lane, we keep the picker open to all
+  // staff and rely on the lane field to differentiate. If the chosen
+  // (staff_id, lane_name) pair already exists active, the unique constraint
+  // catches it and we surface a helpful error.
+  const availableStaff = staff;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,8 +101,8 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
         <DialogHeader><DialogTitle>Manage Owners</DialogTitle></DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
+          <div className="flex gap-2 items-end flex-wrap">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs font-medium mb-1 block">Add an Owner</label>
               <Select value={addingId} onValueChange={setAddingId}>
                 <SelectTrigger><SelectValue placeholder="Pick a staff member" /></SelectTrigger>
@@ -94,10 +111,24 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-xs font-medium mb-1 block">Ownership Role (lane)</label>
+              <Input
+                value={addingLane}
+                onChange={(e) => setAddingLane(e.target.value)}
+                placeholder="e.g. IG Owner"
+                list="manage-owners-add-lanes"
+              />
+              <datalist id="manage-owners-add-lanes">
+                {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+              </datalist>
+            </div>
             <Button onClick={addOwner} disabled={!addingId} className="bg-[#E8540A] hover:bg-[#E8540A]/90">
               <Plus className="w-4 h-4 mr-1" /> Add
             </Button>
           </div>
+          <p className="text-[11px] text-muted-foreground -mt-2">Same person can be added more than once with different lanes.</p>
+
 
           <div className="space-y-2">
             {owners.map(o => {

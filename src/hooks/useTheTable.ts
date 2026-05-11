@@ -83,7 +83,7 @@ export function useActiveOwners() {
       const { data } = await supabase
         .from('table_owners').select('*')
         .eq('is_active', true).eq('is_architect', false)
-        .order('display_name');
+        .order('display_name').order('lane_name');
       return (data || []) as TableOwner[];
     },
   });
