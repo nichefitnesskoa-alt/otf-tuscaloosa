@@ -59,6 +59,7 @@ import { NewLeadsAlert } from './NewLeadsAlert';
 import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
 import { TodaysActions } from './TodaysActions';
+import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -406,6 +407,12 @@ export default function MyDayPage() {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* Today's class milestone checks (bottom) */}
+      <div className="mb-24">
+        <ClassMilestoneChecks />
+      </div>
+
 
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}

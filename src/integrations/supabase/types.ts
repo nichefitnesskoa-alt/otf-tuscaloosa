@@ -422,6 +422,39 @@ export type Database = {
         }
         Relationships: []
       }
+      class_milestone_checks: {
+        Row: {
+          checked_at: string
+          checked_by: string
+          class_date: string
+          class_time: string
+          created_at: string
+          id: string
+          unchecked_at: string | null
+          unchecked_by: string | null
+        }
+        Insert: {
+          checked_at?: string
+          checked_by: string
+          class_date: string
+          class_time: string
+          created_at?: string
+          id?: string
+          unchecked_at?: string | null
+          unchecked_by?: string | null
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string
+          class_date?: string
+          class_time?: string
+          created_at?: string
+          id?: string
+          unchecked_at?: string | null
+          unchecked_by?: string | null
+        }
+        Relationships: []
+      }
       coaching_scripts: {
         Row: {
           created_at: string
