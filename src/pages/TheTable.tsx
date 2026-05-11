@@ -244,6 +244,7 @@ export default function TheTable() {
                       <div>{health?.submittedOnTime ? '✓' : '✗'} Submitted on time</div>
                       <div>{health?.receivedResponse ? '✓' : '✗'} Got a response</div>
                       <div>{health?.actionItemProgressed ? '✓' : '✗'} Action moved forward</div>
+                      <div className="pt-1 mt-1 border-t border-border/50 italic text-muted-foreground">Yellow is not failure. Yellow is honest.</div>
                     </div>
                   </TooltipContent>
                 </Tooltip>
