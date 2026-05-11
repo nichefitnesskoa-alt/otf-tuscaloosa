@@ -2494,6 +2494,36 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_standards: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number
+          is_active: boolean
+          key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          is_active?: boolean
+          key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          is_active?: boolean
+          key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shift_submissions: {
         Row: {
           created_at: string
@@ -2589,6 +2619,7 @@ export type Database = {
           has_count: boolean
           id: string
           shift_type: string
+          standard_key: string
           task_name: string
         }
         Insert: {
@@ -2599,6 +2630,7 @@ export type Database = {
           has_count?: boolean
           id?: string
           shift_type: string
+          standard_key?: string
           task_name: string
         }
         Update: {
@@ -2609,6 +2641,7 @@ export type Database = {
           has_count?: boolean
           id?: string
           shift_type?: string
+          standard_key?: string
           task_name?: string
         }
         Relationships: []
@@ -2622,6 +2655,7 @@ export type Database = {
           id: string
           is_active: boolean
           shift_type: string
+          standard_key: string
           task_name: string
           task_order: number
         }
@@ -2633,6 +2667,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           shift_type: string
+          standard_key?: string
           task_name: string
           task_order: number
         }
@@ -2644,6 +2679,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           shift_type?: string
+          standard_key?: string
           task_name?: string
           task_order?: number
         }

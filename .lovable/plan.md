@@ -1,78 +1,74 @@
-**GroupMe recap wording.** The spec notes that recap text will start saying "Standard" instead of "AM Shift / Mid Shift / PM Shift" and calls it acceptable. It isn't. That surfaces to members and staff in GroupMe and looks broken. Add one line to the migration: map display label `'standard'` → `"Today's Shift"` in `lib/groupme.ts` wherever shift_type is written into recap text.  
-  
-Goal
+## Goal
 
-Kill the morning / mid / last / weekend selector on the shift view. When an SA logs in, drop them straight into one unified daily checklist using the morning shift's wording. One shift per SA per day. Leave historic data alone.
+Tighten the "Today's Shift" card on My Day, fix the task → standard groupings, rename a standard, and make every part of this section (standards + tasks + groupings) editable from Admin.
 
-## What changes (UI)
+## UI changes — `src/features/myDay/ShiftChecklist.tsx`
 
-`**src/features/myDay/ShiftChecklist.tsx**`
+1. **Delete the 3-question reflection header** at the top (`ShiftReflectionHeader` component + its render). The same three questions still live at the bottom in `EndOfShiftSubmission`, so nothing is lost.
+2. **Make the entire orange "Today's Shift" card collapsible**, default **collapsed**.
+   - Header bar (orange `Today's Shift — Mon May 11`) becomes a clickable toggle with a chevron.
+   - Right side of header shows compact summary: `X of 5 standards complete`.
+   - Body (5 standard cards + end-of-shift submission) is hidden until expanded. State persists in `sessionStorage` under key `myday_shift_card_open` so it doesn't auto-collapse on every re-render.
 
-- Delete the `SHIFTS` array and the 4-button shift picker.
-- Delete the `shiftType` state and the "Switch shift" button. No more selector screen, no more switching.
-- On mount, set the working shift to a single canonical value: `'standard'`.
-- Header now reads simply: "Today's Shift — [date]" (no AM/PM/Weekend label, no time-range chip).
-- Everything else (5 standard cards, referral row, end-of-shift submission, "X of 5 standards complete" indicator) stays exactly as it is.
+## Data / mapping fixes
 
-`**src/features/myDay/MyDayShiftSummary.tsx**` (the compact activity strip)
+3. **Standard s2 rename**: "Every lead interaction is real. Not a script sent. A conversation started." → **"Every lead interaction feels real and genuine."**
+4. **Task → standard fixes**, so the three tasks Koa called out land in the right card:
+   - `Name on whiteboard before intros arrive` → s1
+   - `Booking confirmation and questionnaire sent for today` → s1
+   - `Comment genuinely on posts on feed or people we follow today` → s2
+   
+   These currently fall into "Other" because `TASK_STANDARD_MAP` keys don't match the seeded `task_name` strings (the seed and the map drifted apart in the last build).
 
-- Remove the `Select` for AM/Mid/PM. Always read/write the same `'standard'` shift_type for today.
-- Same calls/texts/DMs inputs, same autosave behavior.
+## Admin editability — make standards + groupings DB-driven
 
-`**src/features/shiftView/ShiftSelector.tsx**` and `**src/features/shiftView/ShiftViewPage.tsx**`
+Right now `STANDARDS` and `TASK_STANDARD_MAP` are hardcoded in `src/features/shiftView/standards.ts`. To let Koa edit "every part of this section" from Admin, move them to the database.
 
-- Already orphaned (not in the router). Leave untouched — separate cleanup pass if ever needed.
+### Migration
 
-## What changes (data)
+- New table **`shift_standards`**:
+  - `key` (text, primary key) — e.g. `s1`, `s2`, `s3`, `s4`, `s5`, `other`
+  - `title` (text)
+  - `display_order` (int)
+  - `is_active` (bool, default true)
+  - `created_by`, `created_at`, `updated_at`
+  - RLS: same public-read / staff-write pattern as `shift_task_templates`
+- Seed the 6 current standards (with the s2 rename applied).
+- Add column **`standard_key`** (text, nullable, default `'other'`) on `shift_task_templates`. Backfill every existing `'standard'` template by matching `task_name` against the corrected mapping above. Anything unmatched stays `'other'`.
+- Add same `standard_key` column on `shift_task_overrides` so today-only tasks can also be slotted into a standard.
 
-**Templates** (`shift_task_templates`): seed a single `shift_type = 'standard'` set of 12 tasks using the current morning wording (which Koa already edited):
+### `src/features/shiftView/standards.ts`
 
-```
-10  Name on whiteboard before intros arrive
-11  Booking confirmation and questionnaire sent for today
-12  Read their questionnaire before they walk in — know one thing about them
-20  Comment genuinely on posts on feed or people we follow today  (count: Comments Made)
-21  IG DMs sent this shift  (count: DMs sent)
-22  Lead texts sent this shift — new or cold  (count: Texts sent)
-30  Follow-up queue worked this shift
-31  At least one person got a real next step — a booking, a date, a real answer
-40  Create a connection with a member. Learn something new about them.
-41  Ask a member if they have a friend who wants a free class
-50  Milestones checked after every check-in wave — bag prepped before they finish class
-51  Rowers checked and charging if needed — nothing left for the next SA to discover
-```
+- Keep `StandardKey` type and `REFERRAL_ASK_TASK_NAME` constant (the referral row is still a special-case render, not generic).
+- Replace hardcoded `STANDARDS` and `TASK_STANDARD_MAP` with a small React Query hook `useShiftStandards()` that fetches from `shift_standards` (cached, realtime-friendly). Provide a synchronous fallback list used only while the query is loading so first paint isn't blank.
+- `standardForTask` becomes `standardForTask(template)` — reads `template.standard_key` directly. No more name-string lookup, so renaming a task no longer breaks its grouping.
 
-- Deactivate (set `is_active = false`) all current `shift_type IN ('morning','mid','last','weekend')` template rows. They stay in the table for audit; they just stop rendering.
-- Insert the 12 `'standard'` rows above with `is_active = true`.
-- `TASK_STANDARD_MAP` in `src/features/shiftView/standards.ts` already keys by exact task_name, so the standard grouping continues to work without code changes there.
+### `ShiftChecklist.tsx` and `ShiftTaskList.tsx`
 
-**Completions and recaps**: no schema changes, no migrations of historic rows. New writes from `ShiftChecklist` and `MyDayShiftSummary` go to `shift_type = 'standard'`. Historic rows keep `morning/mid/last/weekend` labels.
+- Pull `STANDARDS` from the hook.
+- Read `standard_key` from each template / override row when building `TaskRow` instead of doing a name lookup.
 
-## Downstream surfaces — what each will see
+### Admin — `src/components/admin/ShiftTasksAdmin.tsx`
 
-These all read shift_type but don't enumerate hardcoded values, so they keep working — they'll just show `standard` going forward instead of `AM/Mid/PM`:
+- Add a **third tab "Standards"** alongside Shift Tasks / Today-Only Tasks. Inside: list of the 5 standards (+ Other) with inline edit of `title`, drag-free up/down reorder buttons (matching the existing task UX), active toggle, and "Add standard" form. `key` is set automatically (`s6`, `s7`…) when adding new ones.
+- In the existing Shift Tasks editor, add a **Standard** dropdown (populated from `shift_standards`) on each task row and on the Add-task form. Saving updates `standard_key` on the template.
+- Same standard dropdown added to the Today-Only override form.
+- Drop the old morning/mid/last/weekend tabs in this admin (they're orphaned now that everything runs on `shift_type = 'standard'`); show a single flat list of `'standard'` templates instead. Old historic templates stay untouched in the DB.
 
-- `useSaLeaderboard.ts`, `lib/sa/saStreaks.ts`, `lib/sa/coverage.ts` — aggregate by sa_name across all shift_types. Unaffected.
-- `WigSaLeaderboard.tsx`, `useWinTheDayItems.ts` — read `count_logged` totals per SA per day. Unaffected.
-- `lib/groupme.ts` / `post-groupme/index.ts` — recap text that currently says "AM Shift / Mid Shift / PM Shift" will start saying "Standard". Acceptable per "leave history alone."
-- `SaDetail.tsx`, `ShiftRecapDetails.tsx`, `ShiftRecapsEditor.tsx`, `ShiftTasksAdmin.tsx` (admin views) — historic rows still display their original shift_type; new rows display "Standard." No code change required.
-- `ShiftRecap.tsx` (the legacy /shift-recap page, if still routed) — unchanged. Its own selector continues to work for backfilling historic shifts. If you want it gone too, say so and I'll fold that in.
+## Coherence checks
 
-## Coherence checks before declaring done
-
-- Log in as a test SA: shift checklist renders immediately (no picker), shows the 12 morning-wording tasks grouped under the 5 standards, plus the referral row in S4 and the end-of-shift card.
-- Check a task → verify a row in `shift_task_completions` with `shift_type = 'standard'`.
-- Type into a count field → verify `count_logged` increments on the same `'standard'` row.
-- WIG SA leaderboard total for that SA reflects the new count.
-- Submit end-of-shift → verify a `shift_submissions` row with `shift_type = 'standard'`.
-- Open admin `ShiftTasksAdmin` → confirm only the 12 `standard` tasks render as active; old morning/mid/last/weekend rows show as inactive.
+- Open My Day as an SA: the orange Today's Shift card is collapsed by default and shows "0 of 5 standards complete." Expanding it reveals the 5 cards (no 3-question header). The three renamed/re-grouped tasks render under s1 and s2 respectively. s2 title reads the new wording. End-of-shift submission still works.
+- Open Admin → Shift Tasks → Standards: rename s3, save, return to My Day → the standard renders with the new name without a code change. Reassign a task to a different standard from the dropdown → it moves cards on next load. Mark a standard inactive → its card disappears from My Day.
+- Existing `shift_task_completions` rows continue to load (we only add columns, never remove or rename).
 
 ## Files touched
 
-- `src/features/myDay/ShiftChecklist.tsx` — strip selector, lock to `'standard'`.
-- `src/features/myDay/MyDayShiftSummary.tsx` — strip Select, lock to `'standard'`.
-- One migration: insert 12 `standard` template rows; deactivate old shift_type templates.
+- `supabase/migrations/<new>.sql` — `shift_standards` table + seed, `standard_key` column on `shift_task_templates` and `shift_task_overrides`, backfill, RLS.
+- `src/features/shiftView/standards.ts` — replace constants with `useShiftStandards` hook + simpler `standardForTask`.
+- `src/features/myDay/ShiftChecklist.tsx` — delete reflection header, wrap card in collapsible (default closed), use hook.
+- `src/features/shiftView/ShiftTaskList.tsx` — use hook + `standard_key`.
+- `src/components/admin/ShiftTasksAdmin.tsx` — add Standards tab, standard dropdown on each task row and Add form, collapse to single `'standard'` list.
 
-## Open questions
+## Open question
 
-None — answers from the previous round were enough. If you want the legacy `/shift-recap` page or the orphaned `ShiftViewPage.tsx` removed in the same pass, say the word and I'll add it.
+None — I have what I need. If you'd rather keep the orange card always-expanded and only collapse the 5 standard cards individually, say the word and I'll swap that piece.
