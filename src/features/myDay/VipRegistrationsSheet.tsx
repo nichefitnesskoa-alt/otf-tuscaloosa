@@ -353,67 +353,129 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 toast.success('Phone copied!');
                 setTimeout(() => setCopiedPhoneId(curr => (curr === r.id ? null : curr)), 2000);
               };
+              const showMembershipPicker = r.outcome === 'purchased' && (pendingMembership[r.id] !== undefined || !r.membership_type);
               return (
-                <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
-                  <div className="flex-1 min-w-[140px]">
-                    <div className="text-sm font-medium truncate">{fullName}</div>
-                    {r.email && (
-                      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                        ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
-                      </div>
-                    )}
-                    {(r.birthday || r.weight_lbs) && (
-                      <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
-                        {r.birthday && (
-                          <span>🎂 {(() => {
-                            try {
-                              // birthday is a date string like '1995-03-14' — show MM/DD/YYYY for HRM setup
-                              const [y, m, d] = r.birthday.split('-').map(Number);
-                              if (y && m && d) {
-                                return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;
-                              }
-                              return r.birthday;
-                            } catch { return r.birthday; }
-                          })()}</span>
-                        )}
-                        {r.weight_lbs && <span>⚖ {r.weight_lbs} lb</span>}
-                      </div>
-                    )}
+                <div key={r.id} className="p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex-1 min-w-[140px]">
+                      <div className="text-sm font-medium truncate">{fullName}</div>
+                      {r.email && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                          ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
+                        </div>
+                      )}
+                      {(r.birthday || r.weight_lbs) && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
+                          {r.birthday && (
+                            <span>🎂 {(() => {
+                              try {
+                                const [y, m, d] = r.birthday.split('-').map(Number);
+                                if (y && m && d) {
+                                  return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;
+                                }
+                                return r.birthday;
+                              } catch { return r.birthday; }
+                            })()}</span>
+                          )}
+                          {r.weight_lbs && <span>⚖ {r.weight_lbs} lb</span>}
+                        </div>
+                      )}
+                      {r.outcome === 'purchased' && r.membership_type && !showMembershipPicker && (
+                        <div className="text-[11px] mt-1 flex items-center gap-2">
+                          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                            Purchased — {r.membership_type} — ${(r.commission_amount ?? 0).toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPendingMembership(curr => ({ ...curr, [r.id]: r.membership_type! }))}
+                            className="text-primary underline cursor-pointer"
+                          >
+                            edit
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
+                      onClick={copyPhone}
+                      disabled={!r.phone}
+                    >
+                      {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Script
+                    </Button>
+                    <Select
+                      value={r.outcome || ''}
+                      onValueChange={(v) => saveOutcome(r.id, v)}
+                      disabled={savingId === r.id}
+                    >
+                      <SelectTrigger className="h-9 w-36 text-xs">
+                        <SelectValue placeholder="Log outcome…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OUTCOME_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
-                    onClick={copyPhone}
-                    disabled={!r.phone}
-                  >
-                    {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Script
-                  </Button>
-                  <Select
-                    value={r.outcome || ''}
-                    onValueChange={(v) => saveOutcome(r.id, v)}
-                    disabled={savingId === r.id}
-                  >
-                    <SelectTrigger className="h-9 w-36 text-xs">
-                      <SelectValue placeholder="Log outcome…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OUTCOME_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {showMembershipPicker && (
+                    <div className="ml-1 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
+                      <div className="text-[11px] font-semibold">Which membership did they buy?</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={pendingMembership[r.id] || r.membership_type || VIP_MEMBERSHIP_OPTIONS[0].label}
+                          onValueChange={(v) => setPendingMembership(curr => ({ ...curr, [r.id]: v }))}
+                          disabled={savingId === r.id}
+                        >
+                          <SelectTrigger className="h-9 flex-1 min-w-[180px] text-xs bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VIP_MEMBERSHIP_OPTIONS.map(m => (
+                              <SelectItem key={m.label} value={m.label} className="text-xs">
+                                {m.label} (${m.commission.toFixed(2)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          className="h-9 text-[11px] cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                          onClick={() => savePurchase(r.id)}
+                          disabled={savingId === r.id || !vipCoach}
+                        >
+                          {savingId === r.id ? 'Saving…' : 'Save purchase'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 text-[11px] cursor-pointer"
+                          onClick={() => cancelPurchaseEdit(r.id)}
+                          disabled={savingId === r.id}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      {!vipCoach && (
+                        <div className="text-[10px] text-destructive">Select the class coach at the top of the sheet first — they receive the sale credit.</div>
+                      )}
+                      <div className="text-[10px] text-muted-foreground">
+                        Saving creates a SHOWED + SALE intro for {vipCoach || 'the class coach'} so the coach can run a First Visit Scorecard on the coach side.
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
