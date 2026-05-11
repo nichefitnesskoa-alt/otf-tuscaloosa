@@ -97,7 +97,8 @@ export default function TheTable() {
           <Badge variant={meeting.status === 'live' ? 'default' : 'secondary'} className="ml-1">{meeting.status}</Badge>
         </p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-center flex-wrap justify-end">
+        <ExportTeamMeetingButton meetingId={meeting.id} meetingDate={meeting.meeting_date} />
         <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
           <History className="w-4 h-4 mr-1" /> Past Meetings
         </Button>
