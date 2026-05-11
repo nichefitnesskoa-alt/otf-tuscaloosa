@@ -101,8 +101,8 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
         <DialogHeader><DialogTitle>Manage Owners</DialogTitle></DialogHeader>
 
         <div className="space-y-4">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
+          <div className="flex gap-2 items-end flex-wrap">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs font-medium mb-1 block">Add an Owner</label>
               <Select value={addingId} onValueChange={setAddingId}>
                 <SelectTrigger><SelectValue placeholder="Pick a staff member" /></SelectTrigger>
@@ -111,10 +111,24 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="text-xs font-medium mb-1 block">Ownership Role (lane)</label>
+              <Input
+                value={addingLane}
+                onChange={(e) => setAddingLane(e.target.value)}
+                placeholder="e.g. IG Owner"
+                list="manage-owners-add-lanes"
+              />
+              <datalist id="manage-owners-add-lanes">
+                {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+              </datalist>
+            </div>
             <Button onClick={addOwner} disabled={!addingId} className="bg-[#E8540A] hover:bg-[#E8540A]/90">
               <Plus className="w-4 h-4 mr-1" /> Add
             </Button>
           </div>
+          <p className="text-[11px] text-muted-foreground -mt-2">Same person can be added more than once with different lanes.</p>
+
 
           <div className="space-y-2">
             {owners.map(o => {
