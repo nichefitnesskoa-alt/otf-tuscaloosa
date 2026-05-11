@@ -17,6 +17,11 @@ import { toast } from 'sonner';
 import { COACHES } from '@/types';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import {
+  VIP_MEMBERSHIP_OPTIONS,
+  saveVipPurchase,
+  softCancelVipPurchase,
+} from '@/lib/vip/convertVipPurchaseToIntro';
 
 interface RegRow {
   id: string;
@@ -28,6 +33,8 @@ interface RegRow {
   created_at: string;
   birthday: string | null;
   weight_lbs: number | null;
+  membership_type: string | null;
+  commission_amount: number | null;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
@@ -61,6 +68,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
   const [scriptDrawer, setScriptDrawer] = useState<{ open: boolean; name: string; phone: string }>({ open: false, name: '', phone: '' });
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
+  const [pendingMembership, setPendingMembership] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
@@ -70,7 +78,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs')
+          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs, membership_type, commission_amount')
           .eq('vip_session_id', vipSessionId)
           .eq('is_group_contact', false)
           .order('created_at', { ascending: true }),
@@ -115,9 +123,31 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
 
   const saveOutcome = async (regId: string, outcome: string) => {
     const prev = regs;
-    setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome } : r));
+    const reg = regs.find(r => r.id === regId);
+    const wasPurchased = reg?.outcome === 'purchased';
+
+    // Selecting Purchased: open the membership picker. Don't write the
+    // outcome until the SA confirms a tier (savePurchase handles all writes).
+    if (outcome === 'purchased') {
+      setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome: 'purchased' } : r));
+      setPendingMembership(curr => ({
+        ...curr,
+        [regId]: reg?.membership_type || VIP_MEMBERSHIP_OPTIONS[0].label,
+      }));
+      return;
+    }
+
+    setRegs(curr => curr.map(r => r.id === regId ? {
+      ...r, outcome, membership_type: outcome === 'purchased' ? r.membership_type : null,
+      commission_amount: outcome === 'purchased' ? r.commission_amount : null,
+    } : r));
+    setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
     setSavingId(regId);
     try {
+      // If reverting away from a previously saved purchase, soft-cancel the auto-created intro pair first
+      if (wasPurchased) {
+        await softCancelVipPurchase(regId, userName || 'Unknown');
+      }
       const { error } = await supabase
         .from('vip_registrations' as any)
         .update({
@@ -130,10 +160,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
 
       // VIP no-shows → SA reschedule task. Coaches don't chase no-shows.
       if (outcome === 'no_show') {
-        const reg = regs.find(r => r.id === regId);
         const fullName = [reg?.first_name, reg?.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
         const today = new Date().toISOString().slice(0, 10);
-        // Idempotency: skip if a same-day pending vip_no_show row already exists for this person
         const { data: existing } = await supabase
           .from('follow_up_queue')
           .select('id')
@@ -166,9 +194,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       setSavingId(null);
     }
 
-    // If user picked Booked intro, open the standard Book Intro sheet pre-filled
     if (outcome === 'booked_intro') {
-      const reg = regs.find(r => r.id === regId);
       setBookIntroPrefill({
         firstName: reg?.first_name || '',
         lastName: reg?.last_name || '',
@@ -178,19 +204,70 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     }
   };
 
+  const savePurchase = async (regId: string) => {
+    const reg = regs.find(r => r.id === regId);
+    if (!reg) return;
+    const membership = pendingMembership[regId];
+    if (!membership) { toast.error('Select a membership tier'); return; }
+    if (!vipCoach) { toast.error('Select a class coach first (top of sheet)'); return; }
+
+    setSavingId(regId);
+    try {
+      await saveVipPurchase({
+        registrationId: regId,
+        firstName: reg.first_name,
+        lastName: reg.last_name,
+        phone: reg.phone,
+        email: reg.email,
+        vipSessionId,
+        vipSessionDate,
+        vipSessionTime,
+        vipCoach,
+        membership,
+        saName: userName || 'Unknown',
+      });
+      const commission = VIP_MEMBERSHIP_OPTIONS.find(m => m.label === membership)?.commission ?? 0;
+      setRegs(curr => curr.map(r => r.id === regId ? {
+        ...r, outcome: 'purchased', membership_type: membership, commission_amount: commission,
+      } : r));
+      setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
+      toast.success(`Purchase saved — $${commission.toFixed(2)} to ${vipCoach}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Failed to save purchase');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const cancelPurchaseEdit = (regId: string) => {
+    const reg = regs.find(r => r.id === regId);
+    setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
+    // If they hadn't actually saved a purchase yet, revert outcome to whatever DB still says (refetch-light: use commission_amount as proxy)
+    if (!reg?.membership_type) {
+      setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome: null } : r));
+    }
+  };
+
   const totalRegistered = regs.length;
   const summary = useMemo(() => {
     let noShow = 0;
     let attended = 0;
     let bookedIntro = 0;
+    let purchased = 0;
+    let purchaseNeedsTier = 0;
     let unlogged = 0;
     for (const r of regs) {
       if (!r.outcome) { unlogged++; continue; }
       if (r.outcome === 'no_show') noShow++;
       if (r.outcome === 'showed' || r.outcome === 'booked_intro' || r.outcome === 'purchased') attended++;
       if (r.outcome === 'booked_intro' || r.outcome === 'purchased') bookedIntro++;
+      if (r.outcome === 'purchased') {
+        purchased++;
+        if (!r.membership_type) purchaseNeedsTier++;
+      }
     }
-    return { noShow, attended, bookedIntro, unlogged, anyLogged: noShow + attended > 0 };
+    return { noShow, attended, bookedIntro, purchased, purchaseNeedsTier, unlogged, anyLogged: noShow + attended > 0 };
   }, [regs]);
 
   return (
@@ -249,6 +326,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                   {summary.attended > 0 && (
                     <div>
                       Of those {summary.attended} who showed → <span className="font-medium text-foreground">{summary.bookedIntro} booked an intro</span>
+                      {summary.purchased > 0 && (
+                        <> · <span className="font-medium text-foreground">{summary.purchased} purchased</span></>
+                      )}
+                    </div>
+                  )}
+                  {summary.purchaseNeedsTier > 0 && (
+                    <div className="text-amber-600 dark:text-amber-400">
+                      ⚠ {summary.purchaseNeedsTier} purchase{summary.purchaseNeedsTier !== 1 ? 's' : ''} need membership tier selected
                     </div>
                   )}
                 </div>
@@ -268,67 +353,129 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 toast.success('Phone copied!');
                 setTimeout(() => setCopiedPhoneId(curr => (curr === r.id ? null : curr)), 2000);
               };
+              const showMembershipPicker = r.outcome === 'purchased' && (pendingMembership[r.id] !== undefined || !r.membership_type);
               return (
-                <div key={r.id} className="flex flex-wrap items-center gap-2 p-3">
-                  <div className="flex-1 min-w-[140px]">
-                    <div className="text-sm font-medium truncate">{fullName}</div>
-                    {r.email && (
-                      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                        ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
-                      </div>
-                    )}
-                    {(r.birthday || r.weight_lbs) && (
-                      <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
-                        {r.birthday && (
-                          <span>🎂 {(() => {
-                            try {
-                              // birthday is a date string like '1995-03-14' — show MM/DD/YYYY for HRM setup
-                              const [y, m, d] = r.birthday.split('-').map(Number);
-                              if (y && m && d) {
-                                return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;
-                              }
-                              return r.birthday;
-                            } catch { return r.birthday; }
-                          })()}</span>
-                        )}
-                        {r.weight_lbs && <span>⚖ {r.weight_lbs} lb</span>}
-                      </div>
-                    )}
+                <div key={r.id} className="p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex-1 min-w-[140px]">
+                      <div className="text-sm font-medium truncate">{fullName}</div>
+                      {r.email && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                          ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
+                        </div>
+                      )}
+                      {(r.birthday || r.weight_lbs) && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
+                          {r.birthday && (
+                            <span>🎂 {(() => {
+                              try {
+                                const [y, m, d] = r.birthday.split('-').map(Number);
+                                if (y && m && d) {
+                                  return `${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}/${y}`;
+                                }
+                                return r.birthday;
+                              } catch { return r.birthday; }
+                            })()}</span>
+                          )}
+                          {r.weight_lbs && <span>⚖ {r.weight_lbs} lb</span>}
+                        </div>
+                      )}
+                      {r.outcome === 'purchased' && r.membership_type && !showMembershipPicker && (
+                        <div className="text-[11px] mt-1 flex items-center gap-2">
+                          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                            Purchased — {r.membership_type} — ${(r.commission_amount ?? 0).toFixed(2)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPendingMembership(curr => ({ ...curr, [r.id]: r.membership_type! }))}
+                            className="text-primary underline cursor-pointer"
+                          >
+                            edit
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
+                      onClick={copyPhone}
+                      disabled={!r.phone}
+                    >
+                      {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Script
+                    </Button>
+                    <Select
+                      value={r.outcome || ''}
+                      onValueChange={(v) => saveOutcome(r.id, v)}
+                      disabled={savingId === r.id}
+                    >
+                      <SelectTrigger className="h-9 w-36 text-xs">
+                        <SelectValue placeholder="Log outcome…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OUTCOME_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
-                    onClick={copyPhone}
-                    disabled={!r.phone}
-                  >
-                    {copiedPhoneId === r.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedPhoneId === r.id ? 'Copied!' : 'Copy'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={() => setScriptDrawer({ open: true, name: fullName, phone: r.phone || '' })}
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Script
-                  </Button>
-                  <Select
-                    value={r.outcome || ''}
-                    onValueChange={(v) => saveOutcome(r.id, v)}
-                    disabled={savingId === r.id}
-                  >
-                    <SelectTrigger className="h-9 w-36 text-xs">
-                      <SelectValue placeholder="Log outcome…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OUTCOME_OPTIONS.map(o => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {showMembershipPicker && (
+                    <div className="ml-1 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
+                      <div className="text-[11px] font-semibold">Which membership did they buy?</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={pendingMembership[r.id] || r.membership_type || VIP_MEMBERSHIP_OPTIONS[0].label}
+                          onValueChange={(v) => setPendingMembership(curr => ({ ...curr, [r.id]: v }))}
+                          disabled={savingId === r.id}
+                        >
+                          <SelectTrigger className="h-9 flex-1 min-w-[180px] text-xs bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VIP_MEMBERSHIP_OPTIONS.map(m => (
+                              <SelectItem key={m.label} value={m.label} className="text-xs">
+                                {m.label} (${m.commission.toFixed(2)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          className="h-9 text-[11px] cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                          onClick={() => savePurchase(r.id)}
+                          disabled={savingId === r.id || !vipCoach}
+                        >
+                          {savingId === r.id ? 'Saving…' : 'Save purchase'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 text-[11px] cursor-pointer"
+                          onClick={() => cancelPurchaseEdit(r.id)}
+                          disabled={savingId === r.id}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      {!vipCoach && (
+                        <div className="text-[10px] text-destructive">Select the class coach at the top of the sheet first — they receive the sale credit.</div>
+                      )}
+                      <div className="text-[10px] text-muted-foreground">
+                        Saving creates a SHOWED + SALE intro for {vipCoach || 'the class coach'} so the coach can run a First Visit Scorecard on the coach side.
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

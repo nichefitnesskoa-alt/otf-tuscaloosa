@@ -3284,6 +3284,9 @@ export type Database = {
         Row: {
           birthday: string | null
           booking_id: string | null
+          commission_amount: number | null
+          converted_to_booking_id: string | null
+          converted_to_run_id: string | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -3292,11 +3295,13 @@ export type Database = {
           injuries: string | null
           is_group_contact: boolean
           last_name: string | null
+          membership_type: string | null
           outcome: string | null
           outcome_logged_at: string | null
           outcome_logged_by: string | null
           outcome_notes: string | null
           phone: string | null
+          purchased_at: string | null
           vip_class_name: string | null
           vip_member_id: string | null
           vip_session_id: string | null
@@ -3305,6 +3310,9 @@ export type Database = {
         Insert: {
           birthday?: string | null
           booking_id?: string | null
+          commission_amount?: number | null
+          converted_to_booking_id?: string | null
+          converted_to_run_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -3313,11 +3321,13 @@ export type Database = {
           injuries?: string | null
           is_group_contact?: boolean
           last_name?: string | null
+          membership_type?: string | null
           outcome?: string | null
           outcome_logged_at?: string | null
           outcome_logged_by?: string | null
           outcome_notes?: string | null
           phone?: string | null
+          purchased_at?: string | null
           vip_class_name?: string | null
           vip_member_id?: string | null
           vip_session_id?: string | null
@@ -3326,6 +3336,9 @@ export type Database = {
         Update: {
           birthday?: string | null
           booking_id?: string | null
+          commission_amount?: number | null
+          converted_to_booking_id?: string | null
+          converted_to_run_id?: string | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -3334,11 +3347,13 @@ export type Database = {
           injuries?: string | null
           is_group_contact?: boolean
           last_name?: string | null
+          membership_type?: string | null
           outcome?: string | null
           outcome_logged_at?: string | null
           outcome_logged_by?: string | null
           outcome_notes?: string | null
           phone?: string | null
+          purchased_at?: string | null
           vip_class_name?: string | null
           vip_member_id?: string | null
           vip_session_id?: string | null
