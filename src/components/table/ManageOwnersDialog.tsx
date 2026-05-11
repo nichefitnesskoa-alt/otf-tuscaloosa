@@ -23,6 +23,7 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
   const { data: owners = [] } = useAllOwnersIncludingArchitect();
   const qc = useQueryClient();
   const [addingId, setAddingId] = useState('');
+  const [addingLane, setAddingLane] = useState('');
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['table-owners'] });
 
@@ -30,30 +31,42 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     if (!addingId) return;
     const s = staff.find(x => x.id === addingId);
     if (!s) return;
+    const lane = addingLane.trim() || null;
+    const category = categoryForLane(lane);
 
-    // Check for an existing (possibly soft-removed) row for this staff_id.
-    const { data: existing } = await supabase
+    // If a (staff_id, lane_name) row already exists (active or soft-removed), revive it.
+    let existingQ = supabase
       .from('table_owners')
       .select('id')
-      .eq('staff_id', s.id)
-      .maybeSingle();
+      .eq('staff_id', s.id);
+    existingQ = lane ? existingQ.eq('lane_name', lane) : existingQ.is('lane_name', null);
+    const { data: existing } = await existingQ.maybeSingle();
 
     if (existing) {
-      // Re-activate prior row, preserving their old Ownership Role + category.
       const { error } = await supabase
         .from('table_owners')
-        .update({ is_active: true, display_name: s.name })
-        // Never auto-set is_architect on re-activation.
+        .update({
+          is_active: true,
+          display_name: s.name,
+          ...(category ? { category } : {}),
+        })
         .eq('id', existing.id);
       if (error) { toast.error(error.message); return; }
       toast.success(`${s.name} is back at the table.`);
     } else {
       const { error } = await supabase.from('table_owners').insert({
-        staff_id: s.id, display_name: s.name, is_active: true, created_by: 'admin',
+        staff_id: s.id,
+        display_name: s.name,
+        is_active: true,
+        lane_name: lane,
+        ...(category ? { category } : {}),
+        created_by: 'admin',
       });
       if (error) { toast.error(error.message); return; }
+      toast.success(`${s.name} added${lane ? ` — ${lane}` : ''}.`);
     }
     setAddingId('');
+    setAddingLane('');
     refresh();
   };
 
@@ -74,9 +87,13 @@ export function ManageOwnersDialog({ open, onOpenChange }: { open: boolean; onOp
     refresh();
   };
 
-  // Exclude only currently-active owners from the picker.
-  const activeStaffIds = new Set(owners.filter(o => o.is_active).map(o => o.staff_id));
-  const availableStaff = staff.filter(s => !activeStaffIds.has(s.id));
+  // A staff member can hold multiple lanes — the picker no longer excludes the
+  // whole person, only specific (staff_id, lane_name) pairs that are already
+  // active. Since we can't pre-pick the lane, we keep the picker open to all
+  // staff and rely on the lane field to differentiate. If the chosen
+  // (staff_id, lane_name) pair already exists active, the unique constraint
+  // catches it and we surface a helpful error.
+  const availableStaff = staff;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
