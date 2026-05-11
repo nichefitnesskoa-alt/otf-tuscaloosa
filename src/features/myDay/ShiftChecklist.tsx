@@ -30,14 +30,12 @@ function getScriptCategoryForTask(taskName: string): string[] | null {
   return null;
 }
 
-type ShiftType = 'morning' | 'mid' | 'last' | 'weekend';
-
-const SHIFTS: { type: ShiftType; label: string; time: string; icon: React.ReactNode }[] = [
-  { type: 'morning', label: 'Morning', time: '4:30a–9:30a', icon: <Sun className="w-4 h-4" /> },
-  { type: 'mid', label: 'Mid', time: '8:30a–2:30p', icon: <Clock className="w-4 h-4" /> },
-  { type: 'last', label: 'Last', time: '1:30p–6:30p', icon: <Sunset className="w-4 h-4" /> },
-  { type: 'weekend', label: 'Weekend', time: 'All day', icon: <Calendar className="w-4 h-4" /> },
-];
+const STANDARD_SHIFT: ShiftViewType = 'morning' as ShiftViewType;
+// Single canonical shift_type used for all new completions/submissions.
+// We pass 'morning' to ShiftViewType-typed children for compatibility, but
+// reads/writes against shift_task_templates use 'standard'.
+const STANDARD_SHIFT_TYPE = 'standard' as const;
+type ShiftType = typeof STANDARD_SHIFT_TYPE;
 
 interface TaskRow {
   key: string;
