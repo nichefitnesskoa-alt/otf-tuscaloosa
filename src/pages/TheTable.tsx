@@ -484,86 +484,192 @@ export default function TheTable() {
 
 // ---------- Sub-components ----------
 
-function MyRolePicker({ myOwner, onChanged }: { myOwner?: TableOwner; onChanged: () => void }) {
+function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onChanged: () => void }) {
   const { user } = useAuth();
   const { staff } = useActiveStaff();
   const [saving, setSaving] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [pickerLane, setPickerLane] = useState('');
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [pendingThirdConfirm, setPendingThirdConfirm] = useState(false);
 
   const me = staff.find(s => s.name === user?.name);
-  const currentLane = myOwner?.lane_name ?? '';
+  const { data: completeness } = useRecentLaneCompleteness(me?.id);
+  const blocked = !!completeness?.blocked;
+  const hasNoLane = myOwners.length === 0;
 
-  // Lane options = canonical suggestions + any custom lane the user already has
-  const options = useMemo(() => {
-    const list = LANE_SUGGESTIONS.map(s => ({ lane: s.lane, category: s.category, description: s.description }));
-    if (currentLane && !list.some(o => o.lane.toLowerCase() === currentLane.toLowerCase())) {
-      list.unshift({ lane: currentLane, category: myOwner?.category ?? '', description: 'Your current role' });
-    }
-    return list;
-  }, [currentLane, myOwner?.category]);
-
-  const pickLane = async (lane: string) => {
-    if (!me) { toast.error('Your staff record is not active. Ask Koa to enable it.'); return; }
-    const match = LANE_SUGGESTIONS.find(s => s.lane === lane);
+  const updateLane = async (ownerId: string, lane: string) => {
+    const trimmed = lane.trim();
+    const match = LANE_SUGGESTIONS.find(s => s.lane.toLowerCase() === trimmed.toLowerCase());
     const category = match?.category ?? null;
     setSaving(true);
+    const { error } = await supabase
+      .from('table_owners')
+      .update({ lane_name: trimmed || null, ...(category ? { category } : {}) })
+      .eq('id', ownerId);
+    setSaving(false);
+    if (error) toast.error(error.message); else { toast.success('Lane updated'); onChanged(); }
+  };
 
-    if (myOwner) {
-      const { error } = await supabase
-        .from('table_owners')
-        .update({ lane_name: lane, ...(category ? { category } : {}) })
-        .eq('id', myOwner.id);
-      if (error) toast.error(error.message); else toast.success('Role updated');
+  const removeLane = async (ownerId: string) => {
+    const { error } = await supabase.from('table_owners').update({ is_active: false }).eq('id', ownerId);
+    if (error) toast.error(error.message); else { toast.success('Lane removed'); onChanged(); }
+  };
+
+  const startAddFlow = () => {
+    if (blocked) return;
+    if (myOwners.length >= 2) {
+      setPendingThirdConfirm(true);
     } else {
-      // Upsert against soft-removed rows for this staff_id
-      const { data: existing } = await supabase
-        .from('table_owners').select('id').eq('staff_id', me.id).maybeSingle();
-      if (existing) {
-        const { error } = await supabase.from('table_owners').update({
-          is_active: true, display_name: me.name, lane_name: lane, ...(category ? { category } : {}),
-        }).eq('id', existing.id);
-        if (error) toast.error(error.message); else toast.success(`You're in — role set to ${lane}`);
-      } else {
-        const { error } = await supabase.from('table_owners').insert({
-          staff_id: me.id, display_name: me.name, is_active: true,
-          lane_name: lane, ...(category ? { category } : {}),
-          created_by: me.name,
-        });
-        if (error) toast.error(error.message); else toast.success(`You're in — role set to ${lane}`);
-      }
+      setCommitOpen(true);
+    }
+  };
+
+  const confirmAddLane = async () => {
+    const lane = pickerLane.trim();
+    if (!lane) { toast.error('Pick a lane first.'); return; }
+    if (!me) { toast.error('Your staff record is not active. Ask Koa to enable it.'); return; }
+    const match = LANE_SUGGESTIONS.find(s => s.lane.toLowerCase() === lane.toLowerCase());
+    const category = match?.category ?? null;
+    setSaving(true);
+    // Revive prior soft-removed (staff_id, lane_name) row if present.
+    const { data: existing } = await supabase
+      .from('table_owners').select('id').eq('staff_id', me.id).eq('lane_name', lane).maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from('table_owners').update({
+        is_active: true, display_name: me.name, ...(category ? { category } : {}),
+      }).eq('id', existing.id);
+      if (error) toast.error(error.message); else toast.success(`Added — ${lane}`);
+    } else {
+      const { error } = await supabase.from('table_owners').insert({
+        staff_id: me.id, display_name: me.name, is_active: true,
+        lane_name: lane, ...(category ? { category } : {}),
+        created_by: me.name,
+      });
+      if (error) toast.error(error.message); else toast.success(`Added — ${lane}`);
     }
     setSaving(false);
+    setPickerLane('');
+    setPicking(false);
+    setCommitOpen(false);
     onChanged();
   };
 
   return (
-    <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
-      <div className="font-semibold mb-1">
-        {myOwner ? 'Your Ownership Role' : 'Pick your Ownership Role'}
-      </div>
-      <p className="text-xs text-muted-foreground mb-3">
-        {myOwner
-          ? 'You can change your role any time. Category is set automatically.'
-          : 'Claim a lane to join Own It. You can change it later.'}
-      </p>
-      <Select value={currentLane || undefined} onValueChange={pickLane} disabled={saving}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Choose a role…" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[60vh]">
-          {options.map(o => (
-            <SelectItem key={o.lane} value={o.lane}>
-              <div className="flex flex-col">
-                <span className="font-medium">{o.lane}</span>
-                <span className="text-[11px] text-muted-foreground">{o.category}{o.description ? ` · ${o.description}` : ''}</span>
+    <>
+      <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
+        <div className="font-semibold mb-1">{hasNoLane ? 'Pick your Ownership Role' : 'Your Ownership Lanes'}</div>
+        <p className="text-xs text-muted-foreground mb-3">
+          {hasNoLane ? 'Claim a lane to join Own It. You can change or add lanes later.' : 'You can hold multiple lanes. Each lane gets its own update.'}
+        </p>
+
+        {/* Existing lanes — editable */}
+        <div className="space-y-2">
+          {myOwners.map(o => (
+            <div key={o.id} className="flex items-center gap-2 border rounded-md p-2">
+              <div className="flex-1">
+                <Input
+                  defaultValue={o.lane_name ?? ''}
+                  onBlur={(e) => e.target.value !== (o.lane_name ?? '') && updateLane(o.id, e.target.value)}
+                  placeholder="e.g. IG Owner"
+                  list={`my-lanes-${o.id}`}
+                  disabled={saving}
+                />
+                <datalist id={`my-lanes-${o.id}`}>
+                  {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+                </datalist>
+                {o.category && <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>}
               </div>
-            </SelectItem>
+              <Button variant="ghost" size="sm" onClick={() => removeLane(o.id)} title="Remove this lane">
+                <X className="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
           ))}
-        </SelectContent>
-      </Select>
-      {myOwner?.category && (
-        <div className="text-[11px] text-muted-foreground mt-2">Category: {myOwner.category}</div>
-      )}
-    </Card>
+        </div>
+
+        {/* Initial-claim picker (no lanes yet) */}
+        {hasNoLane && (
+          <div className="mt-3">
+            <Input
+              value={pickerLane}
+              onChange={(e) => setPickerLane(e.target.value)}
+              placeholder="Choose a role…"
+              list="my-lanes-initial"
+              disabled={saving}
+            />
+            <datalist id="my-lanes-initial">
+              {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+            </datalist>
+            <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+              Claim this lane
+            </Button>
+          </div>
+        )}
+
+        {/* Add another lane */}
+        {!hasNoLane && (
+          <div className="mt-3">
+            <Button variant="outline" onClick={startAddFlow} disabled={blocked || saving}>
+              <Plus className="w-4 h-4 mr-1" /> Add another lane
+            </Button>
+            {blocked && (
+              <p className="text-xs text-muted-foreground mt-1">Complete your current lanes for two weeks first.</p>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* 3rd-lane heads-up confirm */}
+      <Dialog open={pendingThirdConfirm} onOpenChange={setPendingThirdConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>That's a third lane</DialogTitle></DialogHeader>
+          <p className="text-sm">Most people max out at 2 lanes — sure you can carry a third?</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setPendingThirdConfirm(false)}>Not yet</Button>
+            <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => { setPendingThirdConfirm(false); setCommitOpen(true); }}>
+              Keep going
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Commitment modal + lane picker */}
+      <Dialog open={commitOpen} onOpenChange={(v) => { setCommitOpen(v); if (!v) { setPicking(false); setPickerLane(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>One more lane is a real commitment.</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>The room notices when a lane goes quiet. Two cards with half answers is harder to recover from than one card done well. The people who carry multiple lanes successfully aren't doing more — they're just clearer on what moves the needle in each one.</p>
+            <p>Ask yourself one question before adding this: is your current lane moving every week without being reminded?</p>
+            <p>If yes, you're probably ready.</p>
+            <p className="italic text-muted-foreground">"Most people max out at two lanes. That's not a ceiling — that's just what the data shows."</p>
+          </div>
+          {!picking ? (
+            <div className="flex gap-2 justify-end mt-2">
+              <Button variant="ghost" onClick={() => setCommitOpen(false)}>Not yet</Button>
+              <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setPicking(true)}>Add the lane</Button>
+            </div>
+          ) : (
+            <div className="space-y-2 mt-2">
+              <Input
+                autoFocus
+                value={pickerLane}
+                onChange={(e) => setPickerLane(e.target.value)}
+                placeholder="Choose a lane…"
+                list="my-lanes-add"
+              />
+              <datalist id="my-lanes-add">
+                {LANE_SUGGESTIONS
+                  .filter(s => !myOwners.some(o => (o.lane_name ?? '').toLowerCase() === s.lane.toLowerCase()))
+                  .map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+              </datalist>
+              <Button className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+                Add this lane
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
