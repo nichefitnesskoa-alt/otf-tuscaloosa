@@ -31,11 +31,10 @@ interface ShiftTaskListProps {
 
 export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
   const { user } = useAuth();
+  const { activeStandards } = useShiftStandards();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState<Record<StandardKey, boolean>>({
-    s1: false, s2: false, s3: false, s4: false, s5: false, other: false,
-  });
+  const [collapsed, setCollapsed] = useState<Record<StandardKey, boolean>>({});
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const loadTasks = useCallback(async () => {
