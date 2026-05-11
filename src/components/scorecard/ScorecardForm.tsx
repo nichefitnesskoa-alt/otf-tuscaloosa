@@ -213,6 +213,7 @@ export function ScorecardFormBody(props: BodyProps) {
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground italic">Wrong and honest beats right and hidden.</p>
       {loadedSubmittedAt && (
         <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 bg-muted/40">
           <span className="text-xs text-muted-foreground">

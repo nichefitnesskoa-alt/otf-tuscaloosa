@@ -139,6 +139,7 @@ export function ClassMilestoneChecks() {
             {counts.missed > 0 && <> · <span className="text-destructive">{counts.missed} missed</span></>}
           </span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground italic mt-1">If it didn't happen, mark it. We can only fix what's real.</p>
       </CardHeader>
       <CardContent className="space-y-2">
         {classTimes.map((hhmm, idx) => {

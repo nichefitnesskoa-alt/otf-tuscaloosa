@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Flag, Plus, ChevronLeft, ChevronRight, Settings, History, Trophy, Check } from 'lucide-react';
+import { Flag, Plus, ChevronLeft, ChevronRight, Settings, History, Trophy, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
@@ -19,6 +19,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
 import { ExportTeamMeetingButton } from '@/components/table/ExportTeamMeetingButton';
 import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
+import { useRecentLaneCompleteness } from '@/lib/table/laneCompletion';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -243,6 +244,7 @@ export default function TheTable() {
                       <div>{health?.submittedOnTime ? '✓' : '✗'} Submitted on time</div>
                       <div>{health?.receivedResponse ? '✓' : '✗'} Got a response</div>
                       <div>{health?.actionItemProgressed ? '✓' : '✗'} Action moved forward</div>
+                      <div className="pt-1 mt-1 border-t border-border/50 italic text-muted-foreground">Yellow is not failure. Yellow is honest.</div>
                     </div>
                   </TooltipContent>
                 </Tooltip>
