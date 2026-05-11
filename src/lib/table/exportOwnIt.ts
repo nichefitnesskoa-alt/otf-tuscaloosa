@@ -1,6 +1,7 @@
 // Build the Own It weekly export text block. Pure function — no IO.
 import type { TableOwner, OwnerEntry } from '@/hooks/useTheTable';
 import { LANE_CATEGORIES } from './laneSuggestions';
+import { renderReferralsBlock, type ReferralsExportData } from './exportReferrals';
 
 const DOMAIN_ORDER: readonly string[] = LANE_CATEGORIES;
 const UNCATEGORIZED = 'Uncategorized';
@@ -35,8 +36,9 @@ export function buildOwnItExport(args: {
   meetingDate: string;
   owners: TableOwner[];
   entries: OwnerEntry[];
+  referrals?: ReferralsExportData;
 }): string {
-  const { meetingDate, owners, entries } = args;
+  const { meetingDate, owners, entries, referrals } = args;
 
   // Index entries by owner_id; only include submitted ones.
   const byOwner = new Map<string, OwnerEntry>();
@@ -96,6 +98,11 @@ export function buildOwnItExport(args: {
       out.push(ANSWER(entry.ask));
       out.push('');
     }
+  }
+
+  if (referrals) {
+    out.push('');
+    out.push(renderReferralsBlock(referrals));
   }
 
   return out.join('\n').trimEnd() + '\n';

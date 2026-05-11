@@ -2015,6 +2015,39 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_asks: {
+        Row: {
+          asked_at: string
+          created_at: string
+          friend_name: string | null
+          id: string
+          member_name: string
+          sa_name: string
+          shift_date: string | null
+          shift_type: string | null
+        }
+        Insert: {
+          asked_at?: string
+          created_at?: string
+          friend_name?: string | null
+          id?: string
+          member_name: string
+          sa_name: string
+          shift_date?: string | null
+          shift_type?: string | null
+        }
+        Update: {
+          asked_at?: string
+          created_at?: string
+          friend_name?: string | null
+          id?: string
+          member_name?: string
+          sa_name?: string
+          shift_date?: string | null
+          shift_type?: string | null
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string
@@ -2458,6 +2491,45 @@ export type Database = {
           texts_sent?: number | null
           upgrade_details?: string | null
           upgrades?: number | null
+        }
+        Relationships: []
+      }
+      shift_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          lead_forward_answer: string | null
+          member_experience_answer: string | null
+          ownership_lane_answer: string | null
+          sa_name: string
+          shift_date: string
+          shift_type: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_forward_answer?: string | null
+          member_experience_answer?: string | null
+          ownership_lane_answer?: string | null
+          sa_name: string
+          shift_date?: string
+          shift_type: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_forward_answer?: string | null
+          member_experience_answer?: string | null
+          ownership_lane_answer?: string | null
+          sa_name?: string
+          shift_date?: string
+          shift_type?: string
+          submitted_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
