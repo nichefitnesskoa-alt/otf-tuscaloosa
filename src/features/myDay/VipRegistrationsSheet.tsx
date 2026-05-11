@@ -17,6 +17,11 @@ import { toast } from 'sonner';
 import { COACHES } from '@/types';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import {
+  VIP_MEMBERSHIP_OPTIONS,
+  saveVipPurchase,
+  softCancelVipPurchase,
+} from '@/lib/vip/convertVipPurchaseToIntro';
 
 interface RegRow {
   id: string;
@@ -28,6 +33,8 @@ interface RegRow {
   created_at: string;
   birthday: string | null;
   weight_lbs: number | null;
+  membership_type: string | null;
+  commission_amount: number | null;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
