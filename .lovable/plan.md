@@ -1,122 +1,104 @@
-**Confirm option 1 for the roster.** Sales-based is right. "Members never asked" should mean actual members, not just people who appear in past ask history.
+Leave ShiftViewPage.tsx and any sibling orphan files untouched. Do not delete them in this patch. We will clean them up in a separate pass once the MyDay version is confirmed working.
 
-**Standard 4 label.** The spec calls it "Standard 4" internally but the standard sentence on screen should read: "Every member interaction counts." Make sure that's the displayed header, not a generic label.
+Build the visual fix exactly as specced above. When done, confirm these six coherence checks passed:
 
-**End-of-shift submit gate.** The spec says disabled until all three answers are non-empty. Loosen this — disabled until at least one answer is non-empty. The questions are optional fields. The act of submitting is what closes the shift. Don't block someone from closing because they didn't write in all three boxes.
+Five standard sentences in ShiftChecklist imported from STANDARDS in standards.ts — not retyped
 
-Everything else — the two-table separation, the shift-type lanes staying independent, the referral guard rail, the realtime subscriptions, the export additions — is clean. Lock it and build.  
+Referral task matched via REFERRAL_ASK_TASK_NAME constant only
+
+Task to standard mapping comes only from standardForTask() — no parallel logic anywhere
+
+Sticky header and EndOfShiftSubmission read and write the same row via useShiftSubmission — header preview reflects what the user typed in real time
+
+Outreach counter sync to daily_outreach_log still fires for DMs and Texts inside the new card layout
+
+No / N target rendering and no green targetHit border anywhere in the new cards
+
+Report each check explicitly as passed or failed before calling the build done.  
   
-Shift View Restructure — Standards, Reflection, Referrals
+Why the previous build looked unchanged
 
-## CONFIRM THIS VALUE — answered
+The grouping, sticky header, and end-of-shift card were built into `src/features/shiftView/ShiftViewPage.tsx`, but that page is **not registered in `App.tsx` and not linked from any nav**. The component the user actually sees on `/` is `src/features/myDay/ShiftChecklist.tsx` (rendered by `MyDayPage.tsx` line 338) — a flat checklist that was renamed but never restructured. That's why it looks identical to the old one.
 
-Shift completions today live in **two tables**:
+This patch leaves the schema, completion logic, and helpers (`standards.ts`, `useShiftSubmission`, `useReferralAsks`, `ReferralAskRow`, `ReferralAskHistorySheet`, `EndOfShiftSubmission`) untouched and rebuilds the visual structure of `ShiftChecklist` to match the spec.
 
-- `shift_task_completions` — per-task rows keyed `(sa_name, shift_date, shift_type, task_template_id|override_id)` with `completed`, `count_logged`. This stays — it's the right shape for the 5-standards checkboxes and counters.
-- `shift_recaps` — per-shift recap (`staff_name, shift_date, shift_type` unique) with `calls_made / texts_sent / dms_sent / submitted_at` plus a bunch of legacy free-text fields. Constrained to `'AM Shift' | 'Mid Shift' | 'PM Shift'`. ShiftView uses lowercase `'morning' | 'mid' | 'last' | 'weekend'` — the two surfaces never meet today, which is part of the cleanup.
+## Visual structure
 
-Decision: extend `shift_task_completions` for the per-task data (already correct). Add a **new** `shift_submissions` table for the three end-of-shift answers. Use a **new** `referral_asks` table — `referrals` is for booking-linked friend referrals (different concept), don't conflate.
+Inside the existing orange shift wrapper (after a shift is selected), replace the current single dark card containing the flat list with three stacked zones:
 
-## Schema
+```text
+[ orange shift header — keep existing "Change" button ]
+┌─────────────────────────────────────────────┐
+│ Zone 1 — sticky reflection header (Card)    │
+│   3 muted-label questions w/ draft preview  │
+│   "Log the real number…" disclaimer         │
+├─────────────────────────────────────────────┤
+│ Zone 2 — five standard cards                │
+│   Card 1: "Every intro feels expected…"     │
+│     · task · task · task                    │
+│   Card 2: "Every lead interaction is real…" │
+│     · task · counter · counter              │
+│   Card 3: "Every follow-up moves…"          │
+│   Card 4: "Every member interaction counts" │
+│     · task · ReferralAskRow                 │
+│   Card 5: "Every piece of equipment…"       │
+│   (Other) only if unmatched tasks exist     │
+├─────────────────────────────────────────────┤
+│ Zone 3 — Close out your shift (existing     │
+│   EndOfShiftSubmission)                     │
+└─────────────────────────────────────────────┘
+```
 
-**New table `shift_submissions**` — one row per (sa_name, shift_date, shift_type)
+## Zone 1 — sticky reflection header
 
-- `id`, `sa_name`, `shift_date` (default today CST), `shift_type` (lowercase canon)
-- `lead_forward_answer` text, `member_experience_answer` text, `ownership_lane_answer` text
-- `submitted_at` timestamptz (null until close)
-- `created_at`, `updated_at`
-- UNIQUE (sa_name, shift_date, shift_type)
-- RLS: same permissive pattern as siblings
+- New `ShiftReflectionHeader` block inside `ShiftChecklist`, rendered inside the orange wrapper, above the standard cards.
+- Sticky positioned (`sticky top-[Npx]`) so it pins below the MyDay top bar while the standards scroll. Height kept compact.
+- Pulls draft answers via `useShiftSubmission(user.name, selectedShift)` and shows, per question:
+  - muted label (the question)
+  - one-line truncated preview of the current draft, italic muted if empty
+  - clicking scrolls to `#end-of-shift`
+- Inline disclaimer at the bottom of the card: "Log the real number. We can work with honest. We can't work with hidden."
 
-**New table `referral_asks**`
+## Zone 2 — five standard cards
 
-- `id`, `sa_name`, `member_name` text not null, `friend_name` text, `asked_at` timestamptz default now(), `shift_date` date, `shift_type` text, `created_at`
-- INDEX on `lower(member_name)` for the autocomplete guard rail
-- RLS: same permissive pattern
+- Replace the single flat `<div className="divide-y …">{tasks.map(...)}</div>` with a grouped render driven by `STANDARDS` from `src/features/shiftView/standards.ts`.
+- For each standard:
+  - One `<Card>` with a bold visible title header showing the full standard sentence.
+  - Tasks for that standard render inside the card body.
+  - The "Ask a member if they have a friend…" row (matched by `REFERRAL_ASK_TASK_NAME`) renders the existing `ReferralAskRow` instead of a generic checkbox; saving a referral marks the underlying task complete (same pattern already in `ShiftTaskList.tsx`).
+  - Card 4 always renders the `ReferralAskRow` even if no template task is matched, mirroring `ShiftTaskList`'s s4 fallback.
+- Tasks unmatched by `TASK_STANDARD_MAP` (`standardForTask` returns `'other'`) collect into a final "Other shift duties" card at the bottom, only rendered if non-empty. **No flat list anywhere.**
+- Counter inputs keep their current behavior (auto-save + `syncOutreachCounter` for DMs/Texts, follow-ups counter still auto-counted from `todayFollowUpCount`) but the `/ N target` rendering and the green `border-l-2 border-l-green-500` "targetHit" treatment are removed. Counters show value + label only.
+- Per-task "Send Script" button via `getScriptCategoryForTask` is preserved — it is presentation glue specific to ShiftChecklist and still useful inside the new cards.
 
-`**shift_task_templates` cleanup (data, not schema)**
+## Zone 3 — close out card
 
-- Reseed templates so all four shifts (`morning`/`mid`/`last`/`weekend`) share the **same 5 standards** with the exact embedded checkboxes from the prompt. Soft-disable any tasks not in the new spec by setting `is_active = false`.
-- Set `count_target = NULL` on every remaining template (no targets displayed). The DB column stays; the UI just won't render the `/ N`.
+- Render the existing `<EndOfShiftSubmission shiftType={selectedShift} />` as the last child inside the orange wrapper. It already has `id="end-of-shift"`, the three textareas, the disabled-until-non-empty Submit, and the "Edit & resubmit" state.
 
-## UI rebuild — `src/features/shiftView/`
+## Progress indicator change
 
-### `ShiftViewPage.tsx`
-
-Add a **sticky header card** below the existing top bar containing:
-
-1. The three questions, each with a one-line muted label and a read-only preview of the current draft answer (or "—" if blank). Tap opens the inline editor (or scrolls to the End-of-Shift card).
-2. Inline disclaimer: *"Log the real number. We can work with honest. We can't work with hidden."*
-
-The header stays in the document flow but uses `sticky top-[56px]` so it pins under the existing route header.
-
-### `ShiftTaskList.tsx` — restructure
-
-- Group tasks by **standard**. Render 5 collapsible standard cards (default expanded), each titled with the standard sentence, containing its embedded checkboxes/counters.
-- A standard's task rows render exactly as today (checkbox + name + optional counter), so existing `shift_task_completions` reads/writes are untouched.
-- Standard 4's "Ask a member if they have a friend…" task is a custom row (not a plain template task) — see Referral row below.
-- **Drop** the `/ N` target rendering and `targetHit` green border. Counters show only the number + label.
-- Group definition lives in a small constant array in `src/features/shiftView/standards.ts` mapping `task_name → standardKey`. Templates are matched by name; anything unmatched falls into a "Other" group (so admin-added tasks still show).
-
-### Referral row (inside Standard 4)
-
-A custom component `ReferralAskRow.tsx`:
-
-- Member-name input with autocomplete from `referral_asks.member_name` (case-insensitive distinct).
-- As they type, query `referral_asks` for matches in the last 30 days for that member; if any, show muted warning: *"You already asked {name} on {date}."* (does not block).
-- Friend-name input.
-- "Save ask" button → insert into `referral_asks` with `sa_name`, `shift_date`, `shift_type`, `asked_at = now()`.
-- Small list-icon button beside the inputs → opens a `Sheet` (`ReferralAskHistorySheet.tsx`) listing this week's + all-time asks, searchable by member name, sortable by date. Reads from the same `referral_asks` table — no other source.
-- Each save also flips the standard 4 "ask a member" template task to `completed = true` for today (so the checkbox visibly catches up).
-
-### `EndOfShiftSubmission.tsx` (new, rendered last in `ShiftViewPage`)
-
-- Card titled **"Close out your shift"** with a single checkbox row: *"Answer the three questions to submit."*
-- Three labeled `Textarea`s (one per header question), autosave-on-blur into `shift_submissions` (upsert by unique key).
-- "Submit shift" button — disabled until all three answers are non-empty. On click sets `submitted_at = now()`.
-- After submit, header preview shows the answers + a "Submitted at h:mm a" stamp, button becomes "Edit & resubmit" (clears `submitted_at` on save).
-
-### Honesty disclaimer cleanup
-
-The existing inline disclaimer above "Shift duties" in `ShiftTaskList.tsx` moves up into the new header card (single source). Remove the duplicate from `ShiftTaskList.tsx`.
-
-## Downstream cleanup audit
-
-- **Hardcoded targets**: `count_target` is rendered in `ShiftTaskList.tsx` (lines 232, 283–289). Drop both. Grep also covers `WigSaLeaderboard.tsx`, `useSaLeaderboard.ts`, `useLeadMeasures.ts`, `MyDayShiftSummary.tsx` — confirm none display literal "20 DMs / 20 texts / 10 follow-ups" strings; remove any found.
-- **Counter sync**: `syncOutreachCounter` (writes to `daily_outreach_log` when label is "DMs sent" / "Texts sent") stays — that's the WIG feed. Verify the new template seed uses those exact `count_label` values so the sync keeps firing.
-- **Shift-type label standardization**: ShiftView uses `morning|mid|last|weekend`; `shift_recaps` uses `AM|Mid|PM Shift` and has no Weekend. Don't change `shift_recaps` constraint in this build (it's referenced by `intros_booked`, `intros_run`, `sales_outside_intro`, `daily_recaps`); instead document that **ShiftView writes only to `shift_task_completions` + `shift_submissions` + `referral_asks**`, never to `shift_recaps`. `MyDayShiftSummary` continues to own `shift_recaps`. The two surfaces stay in their lanes.
-- `**SHIFT_LABELS**`: keep `Morning / Mid / Last / Weekend` as the canonical display names in `ShiftViewPage.tsx` and `ShiftSelector.tsx` (already correct). Grep for stray "Last Shift" / "Evening" / "PM Shift" labels in shift-view code paths and normalize.
-- **Referral list source**: `ReferralAskHistorySheet`, the autocomplete, the guard-rail warning, and the weekly export all read `referral_asks`. No second source.
-- **Realtime**: subscribe to `referral_asks` and `shift_submissions` in the shift view so concurrent SAs see updates live (matches the `useRealtimeMyDay` pattern).
-
-## Weekly Own It export additions
-
-In `src/lib/table/exportOwnIt.ts` add a Referrals block per-week:
-
-- Total referral asks this week (count of `referral_asks` where `shift_date` in week range).
-- Members asked more than once in the trailing 30 days — flag list.
-- Members in `referral_asks` historically who have **not** been asked in the trailing 90 days — surfaced as "never asked recently" list. (Spec says "members never asked"; without a member roster table we can only surface from people who appear in past asks; document this limitation in the export footer.)
+- Remove the existing 12-task progress bar (`completedCount / totalCount` + percentage bar).
+- Replace with a small standard-level indicator: `X of 5 standards complete`, where a standard counts complete only when **every** task inside it is checked (and, for s4, at least one referral ask has been logged today via `useReferralAsks`). Render as a single muted line above the first standard card. No bar.
 
 ## Files touched
 
-- New migration: create `shift_submissions`, create `referral_asks` (+ indexes + RLS), reseed `shift_task_templates`, set `count_target = NULL`.
-- New: `src/features/shiftView/standards.ts`, `EndOfShiftSubmission.tsx`, `ReferralAskRow.tsx`, `ReferralAskHistorySheet.tsx`, `useShiftSubmission.ts`, `useReferralAsks.ts`.
-- Edited: `ShiftViewPage.tsx` (sticky header + end-of-shift card + realtime), `ShiftTaskList.tsx` (group by standard, drop targets, drop duplicate disclaimer, hand off the referral row).
-- Edited: `src/lib/table/exportOwnIt.ts` (Referrals block).
-- Edited: `useRealtimeMyDay.ts`-equivalent or local channel in shift view for `referral_asks` + `shift_submissions`.
+- `src/features/myDay/ShiftChecklist.tsx` — rebuild render block (the post-shift-selected branch). All data fetching, completion writes, override handling, follow-up counter, script drawer, and shift-reset event listener stay intact.
+- No new files. No schema changes. No edits to `ShiftViewPage`, `ShiftTaskList`, `EndOfShiftSubmission`, `ReferralAskRow`, `ReferralAskHistorySheet`, `standards.ts`, hooks, or migrations.
 
-## Out of scope
+## Coherence checks before reporting done
 
-- No changes to `shift_recaps` schema or to `MyDayShiftSummary`.
-- No member roster table — referral history reads only from `referral_asks`.
-- No goal/target UI re-introduction; numbers log silently.
-- No password auth, no role changes.
+1. Five standard sentences in `ShiftChecklist` exactly match `STANDARDS` titles in `standards.ts` (single source of truth — import, do not retype).
+2. Referral-ask task name compared via `REFERRAL_ASK_TASK_NAME` constant, not a string literal.
+3. Task → standard mapping comes only from `standardForTask(task.name)` — no parallel logic.
+4. `EndOfShiftSubmission` and the sticky header read/write the same row via `useShiftSubmission` and stay in sync (header preview reflects what user typed in the close-out card).
+5. Outreach counter sync (`daily_outreach_log`) for DMs/Texts still fires from inside the new card layout.
+6. ShiftViewPage is left as-is (still unused) — no behavior change. Mention to user that it remains an orphan and can be deleted in a follow-up if not wanted.
 
-## Open question before I build
+## Open question — confirm before building
 
-The spec says "members never asked surfaced as a separate list." There is no canonical member roster in the DB — only people who appear in `intros_run` (sales) or `referrals` (booking-linked friend referrals). Two options:
+The orphaned `ShiftViewPage.tsx` (and its sibling `ShiftSelector.tsx`, `ShiftIntroCards.tsx` if also unused) duplicates the layout we're now building inside `ShiftChecklist`. Two options:
 
-1. **Sales-based**: roster = distinct member names from sold intros (`intros_run.result_canon = 'SALE'`). "Never asked" = in roster, not in `referral_asks` in last 90 days.
-2. **Asks-based only**: only flag people who appear in `referral_asks` historically and haven't been asked in 90 days.
+1. **Leave orphan untouched** — fastest, no risk; we delete it in a separate cleanup pass once you confirm the MyDay version is what you want.
+2. **Delete orphan files in this patch** — removes the dead code now but is an extra change beyond the visual fix.
 
-Recommend option 1 (sales-based roster) — it's the closest thing to "current members" the DB has. **Confirm before I build the export block.**
+Recommend option 1 so this patch stays scoped to the visual fix you asked for. **Confirm which you prefer.**
