@@ -259,12 +259,12 @@ export default function TheTable() {
         </div>
       </Card>
 
-      {/* Peer entries (visible after I've submitted) */}
-      {myEntry?.submitted_at && (
+      {/* Peer entries (visible after I've submitted at least one lane) */}
+      {myEntries.some(e => e.submitted_at) && (
         <Card className="p-4 mb-4">
           <div className="font-semibold mb-3">What other Owners brought</div>
           <div className="space-y-3">
-            {owners.filter(o => o.id !== myOwner?.id).map(o => {
+            {owners.filter(o => !myOwners.some(m => m.id === o.id)).map(o => {
               const e = entries.find(en => en.owner_id === o.id);
               return (
                 <div key={o.id} className="border rounded-md p-3">
