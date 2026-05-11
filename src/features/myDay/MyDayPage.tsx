@@ -338,6 +338,11 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
+      {/* ═══ CLASS MILESTONE CHECKS ═══ */}
+      <div className="px-4 pt-3">
+        <ClassMilestoneChecks />
+      </div>
+
       {/* End Shift floating bar rendered below */}
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
@@ -407,11 +412,6 @@ export default function MyDayPage() {
           </TabsContent>
         </div>
       </Tabs>
-
-      {/* Today's class milestone checks (bottom) */}
-      <div className="mb-24">
-        <ClassMilestoneChecks />
-      </div>
 
 
 
