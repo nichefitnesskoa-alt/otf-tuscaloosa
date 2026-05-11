@@ -2,7 +2,7 @@ import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { Sun, Clock, Sunset, Calendar } from 'lucide-react';
 
-export type ShiftType = 'morning' | 'mid' | 'last' | 'weekend';
+export type ShiftType = 'morning' | 'mid' | 'last' | 'weekend' | 'standard';
 
 interface ShiftOption {
   type: ShiftType;
