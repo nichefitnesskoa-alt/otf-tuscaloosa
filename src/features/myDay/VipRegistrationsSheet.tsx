@@ -68,6 +68,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
   const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
   const [scriptDrawer, setScriptDrawer] = useState<{ open: boolean; name: string; phone: string }>({ open: false, name: '', phone: '' });
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
+  const [pendingMembership, setPendingMembership] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open || !vipSessionId) return;
