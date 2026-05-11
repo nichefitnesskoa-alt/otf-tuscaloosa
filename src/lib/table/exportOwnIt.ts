@@ -100,6 +100,11 @@ export function buildOwnItExport(args: {
     }
   }
 
+  if (referrals) {
+    out.push('');
+    out.push(renderReferralsBlock(referrals));
+  }
+
   return out.join('\n').trimEnd() + '\n';
 }
 
