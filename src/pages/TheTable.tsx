@@ -199,26 +199,30 @@ export default function TheTable() {
         </Card>
       )}
 
-      {/* Self-serve role picker — any staff member can claim/change their own Ownership Role */}
+      {/* Self-serve lanes manager — any staff member can claim/change/add their lanes */}
       {!isArchitectViewer && (
-        <MyRolePicker myOwner={myOwner} onChanged={() => qc.invalidateQueries({ queryKey: ['table-owners'] })} />
+        <MyLanesManager myOwners={myOwners} onChanged={() => qc.invalidateQueries({ queryKey: ['table-owners'] })} />
       )}
 
-      {/* Owner self-entry */}
-      {myOwner && (
-        <Card className="p-4 mb-4 border-[#E8540A]/40">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold">Your update — {myOwner.lane_name || 'Ownership role unassigned'}</div>
-            {myEntry?.submitted_at && <Badge className="bg-emerald-600">Locked in</Badge>}
-          </div>
-          <OwnerEntryForm
-            meetingId={meeting.id}
-            ownerId={myOwner.id}
-            entry={myEntry}
-            onChange={() => refresh('table-entries')}
-          />
-        </Card>
-      )}
+      {/* Owner self-entry — one card per lane the user owns */}
+      {myOwners.map(mine => {
+        const myEntry = entries.find(e => e.owner_id === mine.id);
+        return (
+          <Card key={mine.id} className="p-4 mb-4 border-[#E8540A]/40">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-semibold">Your update — {mine.lane_name || 'Ownership role unassigned'}</div>
+              {myEntry?.submitted_at && <Badge className="bg-emerald-600">Locked in</Badge>}
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Say the thing you'd normally soften.</p>
+            <OwnerEntryForm
+              meetingId={meeting.id}
+              ownerId={mine.id}
+              entry={myEntry}
+              onChange={() => refresh('table-entries')}
+            />
+          </Card>
+        );
+      })}
 
       {/* Owner dashboard */}
       <Card className="p-4 mb-4">
