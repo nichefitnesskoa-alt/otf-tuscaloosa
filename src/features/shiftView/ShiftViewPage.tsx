@@ -15,6 +15,7 @@ const SHIFT_LABELS: Record<ShiftType, { label: string; time: string }> = {
   mid: { label: 'Mid', time: '8:30am – 2:30pm' },
   last: { label: 'Last', time: '1:30pm – 6:30pm' },
   weekend: { label: 'Weekend', time: 'All day' },
+  standard: { label: 'Today', time: 'All day' },
 };
 
 const HEADER_QUESTIONS: { key: 'lead_forward_answer' | 'member_experience_answer' | 'ownership_lane_answer'; q: string }[] = [
