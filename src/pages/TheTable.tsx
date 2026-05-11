@@ -449,11 +449,19 @@ export default function TheTable() {
       <Dialog open={winOpen} onOpenChange={setWinOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>What happened worth celebrating?</DialogTitle></DialogHeader>
+          {myOwners.length > 1 && (
+            <Select value={effectiveWinOwnerId ?? undefined} onValueChange={setWinOwnerId}>
+              <SelectTrigger><SelectValue placeholder="Which lane?" /></SelectTrigger>
+              <SelectContent>
+                {myOwners.map(o => <SelectItem key={o.id} value={o.id}>{o.lane_name || 'Unassigned'}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
           <Textarea value={winText} onChange={(e) => setWinText(e.target.value)} placeholder="Big or small — log it." className="min-h-[100px]" />
           <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={async () => {
             if (!winText.trim() || !user?.name) return;
             await supabase.from('table_wins').insert({
-              owner_id: myOwner?.id ?? null, owner_name: user.name,
+              owner_id: effectiveWinOwnerId, owner_name: user.name,
               content: winText.trim(), meeting_week: meeting.meeting_date, created_by: user.name,
             });
             setWinText(''); setWinOpen(false); refresh('table-wins'); toast.success('Win logged');
