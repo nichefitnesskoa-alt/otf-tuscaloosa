@@ -109,7 +109,6 @@ function ShiftReflectionHeader({ shiftType }: { shiftType: ShiftType }) {
 
 export function ShiftChecklist() {
   const { user } = useAuth();
-  const [selectedShift, setSelectedShift] = useState<ShiftType | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [todayFollowUpCount, setTodayFollowUpCount] = useState(0);
@@ -138,7 +137,7 @@ export function ShiftChecklist() {
     return () => window.removeEventListener('followup:touch-logged', handler);
   }, [fetchFollowUpCount]);
 
-  const loadTasks = useCallback(async (shift: ShiftType) => {
+  const loadTasks = useCallback(async () => {
     if (!user?.name) return;
     setLoading(true);
 
@@ -146,20 +145,20 @@ export function ShiftChecklist() {
       supabase
         .from('shift_task_templates')
         .select('id, task_name, has_count, count_label, task_order')
-        .eq('shift_type', shift)
+        .eq('shift_type', STANDARD_SHIFT_TYPE)
         .eq('is_active', true)
         .order('task_order'),
       supabase
         .from('shift_task_overrides')
         .select('id, task_name, has_count, count_label')
-        .eq('shift_type', shift)
+        .eq('shift_type', STANDARD_SHIFT_TYPE)
         .eq('active_date', todayStr),
       supabase
         .from('shift_task_completions')
         .select('id, task_template_id, override_id, completed, count_logged')
         .eq('sa_name', user.name)
         .eq('shift_date', todayStr)
-        .eq('shift_type', shift),
+        .eq('shift_type', STANDARD_SHIFT_TYPE),
     ]);
 
     const templates = (templatesRes.data || []) as any[];
@@ -204,21 +203,10 @@ export function ShiftChecklist() {
     setLoading(false);
   }, [user?.name, todayStr]);
 
-  useEffect(() => {
-    if (selectedShift) loadTasks(selectedShift);
-  }, [selectedShift, loadTasks]);
-
-  useEffect(() => {
-    const handleReset = () => {
-      setSelectedShift(null);
-      setTasks([]);
-    };
-    window.addEventListener('shift:reset', handleReset);
-    return () => window.removeEventListener('shift:reset', handleReset);
-  }, []);
+  useEffect(() => { loadTasks(); }, [loadTasks]);
 
   const toggleTask = async (task: TaskRow) => {
-    if (!user?.name || !selectedShift) return;
+    if (!user?.name) return;
     const newCompleted = !task.completed;
 
     setTasks(prev => prev.map(t => t.key === task.key ? { ...t, completed: newCompleted } : t));
@@ -232,7 +220,7 @@ export function ShiftChecklist() {
       const { data } = await supabase
         .from('shift_task_completions')
         .insert({
-          sa_name: user.name, shift_date: todayStr, shift_type: selectedShift,
+          sa_name: user.name, shift_date: todayStr, shift_type: STANDARD_SHIFT_TYPE,
           task_template_id: task.templateId, override_id: task.overrideId,
           completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null,
         } as any)
@@ -249,7 +237,6 @@ export function ShiftChecklist() {
     [tasks],
   );
 
-  // When a referral ask is logged, mark the linked template task as complete.
   const onReferralLogged = useCallback(async () => {
     const t = findReferralTask();
     if (!t || t.completed) return;
@@ -286,7 +273,7 @@ export function ShiftChecklist() {
   };
 
   const updateCount = async (task: TaskRow, value: number) => {
-    if (!user?.name || !selectedShift) return;
+    if (!user?.name) return;
 
     setTasks(prev => prev.map(t => t.key === task.key ? { ...t, countLogged: value } : t));
 
@@ -299,7 +286,7 @@ export function ShiftChecklist() {
       const { data } = await supabase
         .from('shift_task_completions')
         .insert({
-          sa_name: user.name, shift_date: todayStr, shift_type: selectedShift,
+          sa_name: user.name, shift_date: todayStr, shift_type: STANDARD_SHIFT_TYPE,
           task_template_id: task.templateId, override_id: task.overrideId,
           completed: false, count_logged: value,
         } as any)
@@ -322,7 +309,6 @@ export function ShiftChecklist() {
     setScriptDrawerOpen(true);
   };
 
-  // Did this SA log any referral ask today?
   const askedTodayCount = useMemo(() => {
     if (!user?.name) return 0;
     return allAsks.filter(
@@ -330,8 +316,6 @@ export function ShiftChecklist() {
     ).length;
   }, [allAsks, user?.name, todayStr]);
 
-  // Standards completion: every task in standard checked. For s4, also requires
-  // at least one referral ask logged today (the referral row drives that side).
   const grouped = useMemo(() => {
     return STANDARDS.map(s => ({
       standard: s,
@@ -344,7 +328,6 @@ export function ShiftChecklist() {
     for (const s of STANDARDS) {
       if (s.key === 'other') continue;
       const rows = grouped.find(g => g.standard.key === s.key)?.rows ?? [];
-      // Skip empty standards (treat as not-complete to avoid silent 5/5)
       if (rows.length === 0 && s.key !== 's4') continue;
       const allChecked = rows.every(r => r.completed);
       const s4OK = s.key === 's4' ? askedTodayCount > 0 : true;
@@ -357,7 +340,7 @@ export function ShiftChecklist() {
     if (task.name === REFERRAL_ASK_TASK_NAME) {
       return (
         <div key={task.key} className="py-2">
-          <ReferralAskRow shiftType={selectedShift as ShiftViewType} onLogged={onReferralLogged} />
+          <ReferralAskRow shiftType={STANDARD_SHIFT} onLogged={onReferralLogged} />
           {task.completed && (
             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
               <Check className="w-3 h-3" /> Marked complete for today
@@ -440,96 +423,59 @@ export function ShiftChecklist() {
 
   return (
     <div className="space-y-3">
-      {!selectedShift ? (
-        <div className="bg-[#E8540A] rounded-xl p-4">
-          <p className="text-[13px] font-bold text-white uppercase tracking-wider mb-3">
-            SELECT YOUR SHIFT — LOADS YOUR RESPONSIBILITIES
+      <div className="bg-[#E8540A] rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[13px] font-bold text-white uppercase tracking-wider">
+            Today's Shift — {format(new Date(), 'EEE MMM d')}
           </p>
-          <div className="grid grid-cols-4 gap-2">
-            {SHIFTS.map(s => (
-              <Button
-                key={s.type}
-                variant="outline"
-                className="flex flex-col items-center gap-1 h-auto py-3 text-xs bg-card border-white/20 hover:bg-card/80 hover:border-white/40"
-                onClick={() => setSelectedShift(s.type)}
-              >
-                <span className="text-primary">{s.icon}</span>
-                <span className="font-semibold">{s.label}</span>
-                <span className="text-[9px] text-muted-foreground">{s.time}</span>
-              </Button>
-            ))}
-          </div>
         </div>
-      ) : (
-        <div className="bg-[#E8540A] rounded-xl p-4 space-y-3">
-          {/* Shift header on orange */}
-          <div className="flex items-center justify-between">
-            <p className="text-[13px] font-bold text-white uppercase tracking-wider">
-              {SHIFTS.find(s => s.type === selectedShift)?.label} Shift — Your responsibilities are loaded
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-[11px] px-3 border-white text-white bg-transparent hover:bg-white/10"
-              onClick={() => setSelectedShift(null)}
-            >
-              Change
-            </Button>
+
+        <div className="bg-card rounded-lg p-3 space-y-3">
+          <div className="sticky top-2 z-10">
+            <ShiftReflectionHeader shiftType={STANDARD_SHIFT_TYPE} />
           </div>
 
-          {/* Inner dark zone */}
-          <div className="bg-card rounded-lg p-3 space-y-3">
-            {/* Zone 1 — sticky reflection header */}
-            <div className="sticky top-2 z-10">
-              <ShiftReflectionHeader shiftType={selectedShift} />
-            </div>
+          <p className="text-[11px] text-muted-foreground">
+            {standardsComplete} of 5 standards complete
+          </p>
 
-            {/* Standards-complete indicator */}
-            <p className="text-[11px] text-muted-foreground">
-              {standardsComplete} of 5 standards complete
-            </p>
+          {loading ? (
+            <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {grouped.map(({ standard, rows }) => {
+                  if (standard.key === 'other' && rows.length === 0) return null;
+                  return (
+                    <Card key={standard.key} className="p-3">
+                      <p className="text-sm font-bold mb-2">{standard.title}</p>
+                      <div className="divide-y divide-border">
+                        {rows.map(renderTaskRow)}
+                        {rows.length === 0 && standard.key === 's4' && (
+                          <div className="py-2">
+                            <ReferralAskRow
+                              shiftType={STANDARD_SHIFT}
+                              onLogged={onReferralLogged}
+                            />
+                          </div>
+                        )}
+                        {rows.length === 0 && standard.key !== 's4' && (
+                          <p className="text-[11px] text-muted-foreground italic py-2">
+                            No tasks loaded for this standard.
+                          </p>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
 
-            {loading ? (
-              <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
-            ) : (
-              <>
-                {/* Zone 2 — five standard cards */}
-                <div className="space-y-3">
-                  {grouped.map(({ standard, rows }) => {
-                    if (standard.key === 'other' && rows.length === 0) return null;
-                    return (
-                      <Card key={standard.key} className="p-3">
-                        <p className="text-sm font-bold mb-2">{standard.title}</p>
-                        <div className="divide-y divide-border">
-                          {rows.map(renderTaskRow)}
-                          {rows.length === 0 && standard.key === 's4' && (
-                            <div className="py-2">
-                              <ReferralAskRow
-                                shiftType={selectedShift as ShiftViewType}
-                                onLogged={onReferralLogged}
-                              />
-                            </div>
-                          )}
-                          {rows.length === 0 && standard.key !== 's4' && (
-                            <p className="text-[11px] text-muted-foreground italic py-2">
-                              No tasks loaded for this standard.
-                            </p>
-                          )}
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                {/* Zone 3 — close out card */}
-                <EndOfShiftSubmission shiftType={selectedShift as ShiftViewType} />
-              </>
-            )}
-          </div>
+              <EndOfShiftSubmission shiftType={STANDARD_SHIFT} />
+            </>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Script Send Drawer for shift tasks */}
       <ScriptSendDrawer
         open={scriptDrawerOpen}
         onOpenChange={setScriptDrawerOpen}
