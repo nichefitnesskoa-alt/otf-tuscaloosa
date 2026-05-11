@@ -71,9 +71,11 @@ export function buildOwnItExport(args: {
   }
 
   for (const domain of orderedDomains) {
-    const rows = groups.get(domain)!.sort((a, b) =>
-      a.owner.display_name.localeCompare(b.owner.display_name)
-    );
+    const rows = groups.get(domain)!.sort((a, b) => {
+      const byName = a.owner.display_name.localeCompare(b.owner.display_name);
+      if (byName !== 0) return byName;
+      return (a.owner.lane_name ?? '').localeCompare(b.owner.lane_name ?? '');
+    });
     out.push(`════════ ${domain.toUpperCase()} ════════`);
     out.push('');
     for (const { owner, entry } of rows) {
