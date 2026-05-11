@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Copy, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useActiveOwners, useOwnerEntries } from '@/hooks/useTheTable';
 import { buildOwnItExport, ownItExportFilename } from '@/lib/table/exportOwnIt';
+import { fetchReferralsExportData, type ReferralsExportData } from '@/lib/table/exportReferrals';
 
 interface Props {
   meetingId: string;
@@ -14,6 +15,15 @@ export function ExportTeamMeetingButton({ meetingId, meetingDate }: Props) {
   const { data: owners = [] } = useActiveOwners();
   const { data: entries = [] } = useOwnerEntries(meetingId);
   const [open, setOpen] = useState(false);
+  const [referrals, setReferrals] = useState<ReferralsExportData | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReferralsExportData(meetingDate)
+      .then(d => { if (!cancelled) setReferrals(d); })
+      .catch(() => { /* non-fatal */ });
+    return () => { cancelled = true; };
+  }, [meetingDate]);
 
   const submittedCount = useMemo(() => {
     const ownerIds = new Set(owners.filter(o => !o.is_architect).map(o => o.id));
@@ -21,8 +31,8 @@ export function ExportTeamMeetingButton({ meetingId, meetingDate }: Props) {
   }, [owners, entries]);
 
   const text = useMemo(
-    () => buildOwnItExport({ meetingDate, owners, entries }),
-    [meetingDate, owners, entries]
+    () => buildOwnItExport({ meetingDate, owners, entries, referrals }),
+    [meetingDate, owners, entries, referrals]
   );
 
   const disabled = submittedCount === 0;
