@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ShiftType } from './ShiftSelector';
-import { STANDARDS, standardForTask, REFERRAL_ASK_TASK_NAME, type StandardKey } from './standards';
+import { useShiftStandards, standardKeyOrOther, REFERRAL_ASK_TASK_NAME, type StandardKey } from './standards';
 import { ReferralAskRow } from './ReferralAskRow';
 
 interface TaskRow {
