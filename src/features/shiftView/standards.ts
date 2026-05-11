@@ -1,46 +1,75 @@
-// Five-standard grouping for the Shift View. Maps task_name → standard key.
-// Templates not matched here fall into the 'other' bucket so admin-added rows still render.
+// Standards now live in the shift_standards DB table so admins can edit them.
+// This file keeps the type, the referral-row constant, and a query hook.
 
-export type StandardKey = 's1' | 's2' | 's3' | 's4' | 's5' | 'other';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+export type StandardKey = string;
 
 export interface Standard {
   key: StandardKey;
   title: string;
+  display_order: number;
+  is_active: boolean;
 }
 
-export const STANDARDS: Standard[] = [
-  { key: 's1', title: 'Every intro feels expected, prepared for, and personally welcomed before they walk in.' },
-  { key: 's2', title: 'Every lead interaction is real. Not a script sent. A conversation started.' },
-  { key: 's3', title: 'Every follow-up moves someone forward. Not just touched. Moved.' },
-  { key: 's4', title: 'Every member interaction counts.' },
-  { key: 's5', title: 'Every piece of equipment is ready before the next person needs it.' },
-  { key: 'other', title: 'Other shift duties' },
+// Fallback list used only on first paint while the query is loading.
+export const FALLBACK_STANDARDS: Standard[] = [
+  { key: 's1', title: 'Every intro feels expected, prepared for, and personally welcomed before they walk in.', display_order: 1, is_active: true },
+  { key: 's2', title: 'Every lead interaction feels real and genuine.', display_order: 2, is_active: true },
+  { key: 's3', title: 'Every follow-up moves someone forward. Not just touched. Moved.', display_order: 3, is_active: true },
+  { key: 's4', title: 'Every member interaction counts.', display_order: 4, is_active: true },
+  { key: 's5', title: 'Every piece of equipment is ready before the next person needs it.', display_order: 5, is_active: true },
+  { key: 'other', title: 'Other shift duties', display_order: 99, is_active: true },
 ];
-
-// Exact task_name → standard. Keep in sync with the migration seed.
-export const TASK_STANDARD_MAP: Record<string, StandardKey> = {
-  'Name on whiteboard before they arrive': 's1',
-  'Booking confirmation and questionnaire sent': 's1',
-  'Read their questionnaire before they walk in — know one thing about them': 's1',
-
-  'Comment genuinely on a post from someone we follow today': 's2',
-  'IG DMs sent this shift': 's2',
-  'Lead texts sent this shift — new or cold': 's2',
-
-  'Follow-up queue worked this shift': 's3',
-  'At least one person got a real next step — a booking, a date, a real answer': 's3',
-
-  'Create a connection with a member. Learn something new about them.': 's4',
-  'Ask a member if they have a friend who wants a free class': 's4',
-
-  'Milestones checked after every check-in wave — bag prepped before they finish class': 's5',
-  'Rowers checked and charging if needed — nothing left for the next SA to discover': 's5',
-};
 
 // The "ask a member" template task is rendered as a custom referral row,
 // not a generic checkbox. ShiftTaskList skips it; ReferralAskRow owns it.
 export const REFERRAL_ASK_TASK_NAME = 'Ask a member if they have a friend who wants a free class';
 
-export function standardForTask(taskName: string): StandardKey {
-  return TASK_STANDARD_MAP[taskName] ?? 'other';
+let cache: Standard[] | null = null;
+const subscribers = new Set<(s: Standard[]) => void>();
+
+async function fetchStandards(): Promise<Standard[]> {
+  const { data } = await supabase
+    .from('shift_standards' as any)
+    .select('key, title, display_order, is_active')
+    .order('display_order');
+  const list = ((data as any[]) || []) as Standard[];
+  return list.length ? list : FALLBACK_STANDARDS;
+}
+
+async function refresh() {
+  cache = await fetchStandards();
+  subscribers.forEach(cb => cb(cache!));
+}
+
+export function useShiftStandards(): { standards: Standard[]; activeStandards: Standard[]; refresh: () => Promise<void> } {
+  const [standards, setStandards] = useState<Standard[]>(cache ?? FALLBACK_STANDARDS);
+
+  useEffect(() => {
+    subscribers.add(setStandards);
+    if (!cache) refresh();
+    else setStandards(cache);
+
+    const channel = supabase
+      .channel('shift_standards_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shift_standards' }, () => refresh())
+      .subscribe();
+
+    return () => {
+      subscribers.delete(setStandards);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return {
+    standards,
+    activeStandards: standards.filter(s => s.is_active),
+    refresh,
+  };
+}
+
+export function standardKeyOrOther(key: string | null | undefined): StandardKey {
+  return key && key.trim() ? key : 'other';
 }

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ShiftType } from './ShiftSelector';
-import { STANDARDS, standardForTask, REFERRAL_ASK_TASK_NAME, type StandardKey } from './standards';
+import { useShiftStandards, standardKeyOrOther, REFERRAL_ASK_TASK_NAME, type StandardKey } from './standards';
 import { ReferralAskRow } from './ReferralAskRow';
 
 interface TaskRow {
@@ -31,11 +31,10 @@ interface ShiftTaskListProps {
 
 export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
   const { user } = useAuth();
+  const { activeStandards } = useShiftStandards();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState<Record<StandardKey, boolean>>({
-    s1: false, s2: false, s3: false, s4: false, s5: false, other: false,
-  });
+  const [collapsed, setCollapsed] = useState<Record<StandardKey, boolean>>({});
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const loadTasks = useCallback(async () => {
@@ -45,13 +44,13 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
     const [templatesRes, overridesRes, completionsRes] = await Promise.all([
       supabase
         .from('shift_task_templates')
-        .select('id, task_name, has_count, count_label, task_order')
+        .select('id, task_name, has_count, count_label, task_order, standard_key')
         .eq('shift_type', shiftType)
         .eq('is_active', true)
         .order('task_order'),
       supabase
         .from('shift_task_overrides')
-        .select('id, task_name, has_count, count_label')
+        .select('id, task_name, has_count, count_label, standard_key')
         .eq('shift_type', shiftType)
         .eq('active_date', todayStr),
       supabase
@@ -81,7 +80,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
         countLabel: o.count_label, templateId: null, overrideId: o.id,
         isOverride: true, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
-        standard: standardForTask(o.task_name),
+        standard: standardKeyOrOther(o.standard_key),
       });
     });
 
@@ -92,7 +91,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
         countLabel: t.count_label, templateId: t.id, overrideId: null,
         isOverride: false, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
-        standard: standardForTask(t.task_name),
+        standard: standardKeyOrOther(t.standard_key),
       });
     });
 
@@ -213,7 +212,7 @@ export function ShiftTaskList({ shiftType }: ShiftTaskListProps) {
   }
 
   // Group by standard
-  const grouped = STANDARDS.map(s => ({
+  const grouped = activeStandards.map(s => ({
     standard: s,
     rows: tasks.filter(t => t.standard === s.key),
   })).filter(g => g.rows.length > 0 || g.standard.key === 's4');
