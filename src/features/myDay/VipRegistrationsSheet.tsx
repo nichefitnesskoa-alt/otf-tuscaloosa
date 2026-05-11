@@ -122,9 +122,31 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
 
   const saveOutcome = async (regId: string, outcome: string) => {
     const prev = regs;
-    setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome } : r));
+    const reg = regs.find(r => r.id === regId);
+    const wasPurchased = reg?.outcome === 'purchased';
+
+    // Selecting Purchased: open the membership picker. Don't write the
+    // outcome until the SA confirms a tier (savePurchase handles all writes).
+    if (outcome === 'purchased') {
+      setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome: 'purchased' } : r));
+      setPendingMembership(curr => ({
+        ...curr,
+        [regId]: reg?.membership_type || VIP_MEMBERSHIP_OPTIONS[0].label,
+      }));
+      return;
+    }
+
+    setRegs(curr => curr.map(r => r.id === regId ? {
+      ...r, outcome, membership_type: outcome === 'purchased' ? r.membership_type : null,
+      commission_amount: outcome === 'purchased' ? r.commission_amount : null,
+    } : r));
+    setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
     setSavingId(regId);
     try {
+      // If reverting away from a previously saved purchase, soft-cancel the auto-created intro pair first
+      if (wasPurchased) {
+        await softCancelVipPurchase(regId, userName || 'Unknown');
+      }
       const { error } = await supabase
         .from('vip_registrations' as any)
         .update({
@@ -137,10 +159,8 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
 
       // VIP no-shows → SA reschedule task. Coaches don't chase no-shows.
       if (outcome === 'no_show') {
-        const reg = regs.find(r => r.id === regId);
         const fullName = [reg?.first_name, reg?.last_name].filter(Boolean).join(' ').trim() || 'Unnamed';
         const today = new Date().toISOString().slice(0, 10);
-        // Idempotency: skip if a same-day pending vip_no_show row already exists for this person
         const { data: existing } = await supabase
           .from('follow_up_queue')
           .select('id')
@@ -173,9 +193,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       setSavingId(null);
     }
 
-    // If user picked Booked intro, open the standard Book Intro sheet pre-filled
     if (outcome === 'booked_intro') {
-      const reg = regs.find(r => r.id === regId);
       setBookIntroPrefill({
         firstName: reg?.first_name || '',
         lastName: reg?.last_name || '',
@@ -185,19 +203,70 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
     }
   };
 
+  const savePurchase = async (regId: string) => {
+    const reg = regs.find(r => r.id === regId);
+    if (!reg) return;
+    const membership = pendingMembership[regId];
+    if (!membership) { toast.error('Select a membership tier'); return; }
+    if (!vipCoach) { toast.error('Select a class coach first (top of sheet)'); return; }
+
+    setSavingId(regId);
+    try {
+      await saveVipPurchase({
+        registrationId: regId,
+        firstName: reg.first_name,
+        lastName: reg.last_name,
+        phone: reg.phone,
+        email: reg.email,
+        vipSessionId,
+        vipSessionDate,
+        vipSessionTime,
+        vipCoach,
+        membership,
+        saName: userName || 'Unknown',
+      });
+      const commission = VIP_MEMBERSHIP_OPTIONS.find(m => m.label === membership)?.commission ?? 0;
+      setRegs(curr => curr.map(r => r.id === regId ? {
+        ...r, outcome: 'purchased', membership_type: membership, commission_amount: commission,
+      } : r));
+      setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
+      toast.success(`Purchase saved — $${commission.toFixed(2)} to ${vipCoach}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Failed to save purchase');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const cancelPurchaseEdit = (regId: string) => {
+    const reg = regs.find(r => r.id === regId);
+    setPendingMembership(curr => { const n = { ...curr }; delete n[regId]; return n; });
+    // If they hadn't actually saved a purchase yet, revert outcome to whatever DB still says (refetch-light: use commission_amount as proxy)
+    if (!reg?.membership_type) {
+      setRegs(curr => curr.map(r => r.id === regId ? { ...r, outcome: null } : r));
+    }
+  };
+
   const totalRegistered = regs.length;
   const summary = useMemo(() => {
     let noShow = 0;
     let attended = 0;
     let bookedIntro = 0;
+    let purchased = 0;
+    let purchaseNeedsTier = 0;
     let unlogged = 0;
     for (const r of regs) {
       if (!r.outcome) { unlogged++; continue; }
       if (r.outcome === 'no_show') noShow++;
       if (r.outcome === 'showed' || r.outcome === 'booked_intro' || r.outcome === 'purchased') attended++;
       if (r.outcome === 'booked_intro' || r.outcome === 'purchased') bookedIntro++;
+      if (r.outcome === 'purchased') {
+        purchased++;
+        if (!r.membership_type) purchaseNeedsTier++;
+      }
     }
-    return { noShow, attended, bookedIntro, unlogged, anyLogged: noShow + attended > 0 };
+    return { noShow, attended, bookedIntro, purchased, purchaseNeedsTier, unlogged, anyLogged: noShow + attended > 0 };
   }, [regs]);
 
   return (
