@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, Sun, Clock, Sunset, Calendar, ArrowRight, Send } from 'lucide-react';
+import { Check, ArrowRight, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import {
