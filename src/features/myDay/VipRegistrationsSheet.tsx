@@ -326,6 +326,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                   {summary.attended > 0 && (
                     <div>
                       Of those {summary.attended} who showed → <span className="font-medium text-foreground">{summary.bookedIntro} booked an intro</span>
+                      {summary.purchased > 0 && (
+                        <> · <span className="font-medium text-foreground">{summary.purchased} purchased</span></>
+                      )}
+                    </div>
+                  )}
+                  {summary.purchaseNeedsTier > 0 && (
+                    <div className="text-amber-600 dark:text-amber-400">
+                      ⚠ {summary.purchaseNeedsTier} purchase{summary.purchaseNeedsTier !== 1 ? 's' : ''} need membership tier selected
                     </div>
                   )}
                 </div>
