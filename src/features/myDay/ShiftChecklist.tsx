@@ -6,22 +6,20 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, ArrowRight, Send } from 'lucide-react';
+import { Check, ArrowRight, Send, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import {
-  STANDARDS,
-  standardForTask,
   REFERRAL_ASK_TASK_NAME,
+  useShiftStandards,
+  standardKeyOrOther,
   type StandardKey,
 } from '@/features/shiftView/standards';
 import { ReferralAskRow } from '@/features/shiftView/ReferralAskRow';
 import { EndOfShiftSubmission } from '@/features/shiftView/EndOfShiftSubmission';
-import { useShiftSubmission } from '@/features/shiftView/useShiftSubmission';
 import { useAllReferralAsks } from '@/features/shiftView/useReferralAsks';
 import type { ShiftType as ShiftViewType } from '@/features/shiftView/ShiftSelector';
 
-/** Map task names to script category slugs for the Send Script button */
 function getScriptCategoryForTask(taskName: string): string[] | null {
   const lower = taskName.toLowerCase();
   if (lower.includes('send ig dm') || lower.includes('send dms')) return ['ig_dm'];
@@ -31,9 +29,6 @@ function getScriptCategoryForTask(taskName: string): string[] | null {
 }
 
 const STANDARD_SHIFT: ShiftViewType = 'morning' as ShiftViewType;
-// Single canonical shift_type used for all new completions/submissions.
-// We pass 'morning' to ShiftViewType-typed children for compatibility, but
-// reads/writes against shift_task_templates use 'standard'.
 const STANDARD_SHIFT_TYPE = 'standard' as const;
 type ShiftType = typeof STANDARD_SHIFT_TYPE;
 
@@ -52,72 +47,30 @@ interface TaskRow {
   standard: StandardKey;
 }
 
-const HEADER_QUESTIONS: {
-  key: 'lead_forward_answer' | 'member_experience_answer' | 'ownership_lane_answer';
-  q: string;
-}[] = [
-  { key: 'lead_forward_answer', q: 'How did you move a new lead forward today?' },
-  { key: 'member_experience_answer', q: "How did you impact a member's experience?" },
-  { key: 'ownership_lane_answer', q: 'What did you do in your ownership lane?' },
-];
-
-function ShiftReflectionHeader({ shiftType }: { shiftType: ShiftType }) {
-  const { user } = useAuth();
-  const { data } = useShiftSubmission(user?.name, shiftType as ShiftViewType);
-
-  const scrollToCloseOut = () => {
-    document.getElementById('end-of-shift')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  return (
-    <Card className="border-primary/30 p-3 space-y-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Three questions you'll answer at end of shift
-      </p>
-      <div className="space-y-1.5">
-        {HEADER_QUESTIONS.map(({ key, q }) => {
-          const ans = (data[key] || '').trim();
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={scrollToCloseOut}
-              className="w-full text-left flex items-start gap-2 py-1 px-1 rounded hover:bg-muted/30 transition-colors cursor-pointer"
-            >
-              <span className="text-[11px] font-medium text-foreground/80 shrink-0 mt-0.5">·</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[11px] text-muted-foreground">{q}</span>
-                <span
-                  className={cn(
-                    'block text-xs mt-0.5 truncate',
-                    ans ? 'text-foreground' : 'text-muted-foreground/60 italic',
-                  )}
-                >
-                  {ans || '—'}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/50">
-        Log the real number. We can work with honest. We can't work with hidden.
-      </p>
-    </Card>
-  );
-}
+const CARD_OPEN_KEY = 'myday_shift_card_open';
 
 export function ShiftChecklist() {
   const { user } = useAuth();
+  const { activeStandards } = useShiftStandards();
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [todayFollowUpCount, setTodayFollowUpCount] = useState(0);
   const [scriptDrawerOpen, setScriptDrawerOpen] = useState(false);
   const [scriptDrawerCategories, setScriptDrawerCategories] = useState<string[] | null>(null);
+  const [cardOpen, setCardOpen] = useState<boolean>(() => {
+    try { return sessionStorage.getItem(CARD_OPEN_KEY) === '1'; } catch { return false; }
+  });
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { asks: allAsks } = useAllReferralAsks();
 
-  // Fetch today's follow-up touches count
+  const toggleCard = () => {
+    setCardOpen(prev => {
+      const next = !prev;
+      try { sessionStorage.setItem(CARD_OPEN_KEY, next ? '1' : '0'); } catch {}
+      return next;
+    });
+  };
+
   const fetchFollowUpCount = useCallback(async () => {
     if (!user?.name) return;
     const todayStart = `${todayStr}T00:00:00`;
@@ -144,13 +97,13 @@ export function ShiftChecklist() {
     const [templatesRes, overridesRes, completionsRes] = await Promise.all([
       supabase
         .from('shift_task_templates')
-        .select('id, task_name, has_count, count_label, task_order')
+        .select('id, task_name, has_count, count_label, task_order, standard_key')
         .eq('shift_type', STANDARD_SHIFT_TYPE)
         .eq('is_active', true)
         .order('task_order'),
       supabase
         .from('shift_task_overrides')
-        .select('id, task_name, has_count, count_label')
+        .select('id, task_name, has_count, count_label, standard_key')
         .eq('shift_type', STANDARD_SHIFT_TYPE)
         .eq('active_date', todayStr),
       supabase
@@ -181,7 +134,7 @@ export function ShiftChecklist() {
         isOverride: true, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
         isFollowUpTask: false,
-        standard: standardForTask(o.task_name),
+        standard: standardKeyOrOther(o.standard_key),
       });
     });
 
@@ -195,7 +148,7 @@ export function ShiftChecklist() {
         isOverride: false, completed: comp?.completed ?? false,
         countLogged: comp?.count_logged ?? null, completionId: comp?.id ?? null,
         isFollowUpTask: isFollowUp,
-        standard: standardForTask(t.task_name),
+        standard: standardKeyOrOther(t.standard_key),
       });
     });
 
@@ -317,15 +270,20 @@ export function ShiftChecklist() {
   }, [allAsks, user?.name, todayStr]);
 
   const grouped = useMemo(() => {
-    return STANDARDS.map(s => ({
+    return activeStandards.map(s => ({
       standard: s,
       rows: tasks.filter(t => t.standard === s.key),
     }));
-  }, [tasks]);
+  }, [tasks, activeStandards]);
+
+  const totalStandards = useMemo(
+    () => activeStandards.filter(s => s.key !== 'other').length,
+    [activeStandards],
+  );
 
   const standardsComplete = useMemo(() => {
     let done = 0;
-    for (const s of STANDARDS) {
+    for (const s of activeStandards) {
       if (s.key === 'other') continue;
       const rows = grouped.find(g => g.standard.key === s.key)?.rows ?? [];
       if (rows.length === 0 && s.key !== 's4') continue;
@@ -334,7 +292,7 @@ export function ShiftChecklist() {
       if (allChecked && s4OK) done += 1;
     }
     return done;
-  }, [grouped, askedTodayCount]);
+  }, [grouped, askedTodayCount, activeStandards]);
 
   const renderTaskRow = (task: TaskRow) => {
     if (task.name === REFERRAL_ASK_TASK_NAME) {
@@ -424,63 +382,71 @@ export function ShiftChecklist() {
   return (
     <div className="space-y-3">
       <div className="bg-[#E8540A] rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={toggleCard}
+          className="w-full flex items-center justify-between gap-3 text-left cursor-pointer min-h-[44px]"
+          aria-expanded={cardOpen}
+        >
           <p className="text-[13px] font-bold text-white uppercase tracking-wider">
             Today's Shift — {format(new Date(), 'EEE MMM d')}
           </p>
-        </div>
-
-        <div className="bg-card rounded-lg p-3 space-y-3">
-          <div className="sticky top-2 z-10">
-            <ShiftReflectionHeader shiftType={STANDARD_SHIFT_TYPE} />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-semibold text-white/90">
+              {standardsComplete} of {totalStandards} standards
+            </span>
+            <ChevronDown className={cn('w-5 h-5 text-white transition-transform', !cardOpen && '-rotate-90')} />
           </div>
+        </button>
 
-          <p className="text-[11px] text-muted-foreground">
-            {standardsComplete} of 5 standards complete
-          </p>
+        {cardOpen && (
+          <div className="bg-card rounded-lg p-3 space-y-3">
+            <p className="text-[11px] text-muted-foreground">
+              {standardsComplete} of {totalStandards} standards complete
+            </p>
 
-          {loading ? (
-            <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
-          ) : (
-            <>
-              <div className="space-y-3">
-                {grouped.map(({ standard, rows }) => {
-                  if (standard.key === 'other' && rows.length === 0) return null;
-                  return (
-                    <Card key={standard.key} className="p-3">
-                      <p className="text-sm font-bold mb-2">{standard.title}</p>
-                      <div className="divide-y divide-border">
-                        {rows.map(renderTaskRow)}
-                        {rows.length === 0 && standard.key === 's4' && (
-                          <div className="py-2">
-                            <ReferralAskRow
-                              shiftType={STANDARD_SHIFT}
-                              onLogged={onReferralLogged}
-                            />
-                          </div>
-                        )}
-                        {rows.length === 0 && standard.key !== 's4' && (
-                          <p className="text-[11px] text-muted-foreground italic py-2">
-                            No tasks loaded for this standard.
-                          </p>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
+            {loading ? (
+              <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {grouped.map(({ standard, rows }) => {
+                    if (standard.key === 'other' && rows.length === 0) return null;
+                    return (
+                      <Card key={standard.key} className="p-3">
+                        <p className="text-sm font-bold mb-2">{standard.title}</p>
+                        <div className="divide-y divide-border">
+                          {rows.map(renderTaskRow)}
+                          {rows.length === 0 && standard.key === 's4' && (
+                            <div className="py-2">
+                              <ReferralAskRow
+                                shiftType={STANDARD_SHIFT}
+                                onLogged={onReferralLogged}
+                              />
+                            </div>
+                          )}
+                          {rows.length === 0 && standard.key !== 's4' && (
+                            <p className="text-[11px] text-muted-foreground italic py-2">
+                              No tasks yet for this standard.
+                            </p>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
 
-              <EndOfShiftSubmission shiftType={STANDARD_SHIFT} />
-            </>
-          )}
-        </div>
+                <EndOfShiftSubmission shiftType={STANDARD_SHIFT} />
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <ScriptSendDrawer
         open={scriptDrawerOpen}
-        onOpenChange={setScriptDrawerOpen}
-        categoryFilter={scriptDrawerCategories}
-        saName={user?.name || 'Unknown'}
+        onClose={() => setScriptDrawerOpen(false)}
+        categories={scriptDrawerCategories ?? undefined}
       />
     </div>
   );
