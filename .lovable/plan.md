@@ -1,48 +1,55 @@
-## Goal
+## WIG SA Leaderboard + Milestones cleanup
 
-Make "Ask for a referral" something SAs actually act on inside their daily workflow (MyDay), and leave WIG with the at-a-glance accountability stats only.
+Three trims to the WIG → SA tab so the page shows just what matters and stops repeating itself.
 
-## What changes
+### 1. SA Leaderboard table — drop everything except Milestones + Refs
 
-### 1. New card on MyDay — `ReferralAskActions`
-- Lives in `src/features/myDay/ReferralAskActions.tsx`, rendered inside MyDay (under `TodaysActions`, above `ClassMilestoneChecks`).
-- Pulls the same data the WIG tracker uses today: every `intros_run` SALE in the last ~14 days whose linked `intros_booked` is non-VIP, non-deleted, and `coach_referral_asked = false`.
-- Sort: oldest sale first (so 24-hr SLA is obvious). Hide rows that have been asked. Optional "Show completed" toggle (off by default).
-- Each row shows: member name, sold-by, sale date, urgency dot (red >24h, amber pending, gray fresh), plus four buttons (44px, full labels):
-  1. **Send script** — opens `ScriptSendDrawer` with member context (name, phone, intro_owner) and the referral-ask category preselected. Auto-logs script send via existing logger (same pattern as `NewLeadsAlert`).
-  2. **Copy phone** — copies the booking's `phone_number` (10-digit normalized) and toasts "Copied 205-555-1212". Disabled with tooltip if no phone on file.
-  3. **Asked at POS** — sets `coach_referral_asked = true`, clears `referral_ask_followup_pending`. Reason: "POS referral ask logged on MyDay".
-  4. **Reached out after** — same write, reason: "Referral asked after the fact from MyDay". If row is in `followupPending` state, collapses to a single **Done — asked them** button (mirrors current WIG behavior).
-- Optimistic update + revert on error (lift the existing `updateBooking` helper into a shared hook — see refactor below).
-- Realtime: relies on existing `useRealtimeMyDay` subscription to `intros_booked` so coach edits flow in live.
+`src/components/wig/WigSaLeaderboard.tsx`
 
-### 2. WIG `ReferralAskTracker` becomes stats-only
-- Strip the per-row action buttons (Asked at POS / Reached out after / Done) from `src/components/dashboard/ReferralAskTracker.tsx`.
-- Keep:
-  - Header + goal copy
-  - "X to do · Y asked" pills with drill-downs
-  - Per-SA completion rate (already in `Wig.tsx` SA Lead Measures table — unchanged)
-  - Show-completed toggle + the read-only list of members with status badges (Asked / Pending / To do)
-- Remove the now-unused `handleAskedAtPos`, `handleAskLater`, `handleDoneLater`, `updateBooking`, `savingId`, `overrides` from this component (they move to the shared hook).
-- Add a small "Log asks in MyDay → Today's actions" hint line under the header so SAs know where to act.
+- Remove columns: **Shifts**, **Coverage**, and the trailing chevron column.
+- Keep columns: **SA**, **Milestones**, **Refs** (drop the `(0.00/sh)` rate suffix since shifts are gone).
+- Remove the top "Shifts worked" tile from the 3-tile header row → 2-tile row (Milestones marked, POS referral asks).
+- Remove the `shifts` drill bucket entirely (`DrillBucket`, drill rows for shifts, totals.shifts).
+- Remove the streak `Flame` badge next to the SA name (streak is shift-derived; with shifts gone it's noise).
+- Sort the table by `milestones desc, referralAsks desc` instead of refs/shift.
+- Update header copy: "Tap a number to drill into the members. Tap an SA name to open their full page."
+- Both number cells stay tappable buttons → open `PersonListDrillDown` already wired to member rows.
 
-### 3. Shared hook — single source of truth
-- Extract the data + mutation logic into `src/features/referralAsk/useReferralAskQueue.ts`:
-  - Returns `{ rows, pendingCount, completedCount, isLoading, markAsked, markFollowupPending }`.
-  - Both MyDay's new card and WIG's stats card consume it. Guarantees the numbers on both pages always match.
-- Pulls phone from `intros_booked.phone_number` (already on the row) so MyDay's copy button doesn't need an extra fetch.
+### 2. Kill the duplicate referral surfaces
 
-### 4. Coherence checks before "done"
-- Pending count shown on MyDay = pending count shown on WIG (same hook).
-- Marking "Asked at POS" on MyDay → WIG row flips to Asked instantly via realtime.
-- Per-SA WIG leaderboard `referralAsks` still increments (writes to the same `coach_referral_asked` column the leaderboard already counts).
-- VIP sales remain excluded everywhere (single filter inside the hook).
+`src/pages/Wig.tsx` (SA tab section)
 
-## Files touched
-- New: `src/features/referralAsk/useReferralAskQueue.ts`
-- New: `src/features/myDay/ReferralAskActions.tsx`
-- Edit: `src/features/myDay/MyDayPage.tsx` (mount the new card)
-- Edit: `src/components/dashboard/ReferralAskTracker.tsx` (strip actions, use shared hook)
+- Delete the entire **"SA Lead Measures"** card (lines ~770-827) — POS Referral Ask is already in the leaderboard, Packs Gifted lives in the Milestones drill.
+- Delete the **`<ReferralAskTracker dateRange={dateRange} />`** mount (line ~830) — actions live in MyDay, and the leaderboard already shows per-SA POS counts.
+- Remove now-unused imports (`ReferralAskTracker`, anything only used by the deleted SA Lead Measures table such as `saLeadMeasures`, `measuresLoading`, `saDrill`, related drill dialog, `useLeadMeasures` if no other consumer).
 
-## Open question (1)
-Phone field on `intros_booked` — confirm the column name is `phone_number`. If the booking row doesn't carry phone, I'll join `leads` by `lead_id` inside the hook. Either way the Copy phone button only appears when a phone exists.
+### 3. Milestones section — collapse the always-on member list, keep add/edit
+
+`src/components/dashboard/MilestonesDeploySection.tsx`
+
+- Keep the summary tile row (Celebrated, Packs, Friends, Showed, Converted, In pipeline, etc.) — these already drill down to members.
+- Keep the **Add Celebration** button + dialog exactly as is.
+- Keep the **Edit Celebration** dialog + `openEdit` flow.
+- Replace the always-rendered `Card` of every milestone row with a **search-only reveal**:
+  - Search input stays at the top next to the Add button.
+  - When `celSearch` is empty → render nothing (no list, no "No celebrations this week" message — the tiles already convey volume).
+  - When `celSearch` has text → render the same filtered list rows with their existing Edit pencil + "They Came In" button + status badges.
+- Result: drill-down from the tiles surfaces all members read-only; admin can still find any member by typing a name and edit them inline; nothing is removed functionally.
+
+### Drill-down edit affordance (small add)
+
+`PersonListDrillDown` rows currently support `href` but not an inline edit callback. To preserve "edit from drill-down" without a bigger refactor, the Milestones tile drill-downs already use `PersonListDrillDown`; users who want to edit can either (a) close the drill and search by name in the Celebrations search, or (b) we can add an optional `onRowClick` to `PersonRow`. **Recommendation: skip the new affordance for now** — the search-and-edit path already covers the "edit any member" requirement and matches "like we can now". If you'd rather have edit directly from the milestone drill, say so and I'll add an `onRowClick` to `PersonListDrillDown` and wire it to `openEdit` for milestone rows only.
+
+### Files touched
+
+- `src/components/wig/WigSaLeaderboard.tsx` — strip columns/tiles/sort
+- `src/pages/Wig.tsx` — remove SA Lead Measures card + ReferralAskTracker mount + dead state
+- `src/components/dashboard/MilestonesDeploySection.tsx` — gate member list behind search
+
+### Coherence checks before done
+
+- WIG SA tab: only one place shows POS referral asks per SA → the leaderboard.
+- Milestone counts in summary tiles match drill-down member counts.
+- Add Celebration → row appears (via search) → Edit pencil opens dialog → save updates without page reload.
+- MyDay `ReferralAskActions` still functions (untouched).
+- SA Detail page (`/sas/:name`) still shows shifts/coverage (we only removed them from WIG, not from the SA's own page).
