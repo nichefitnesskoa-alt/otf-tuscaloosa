@@ -403,7 +403,6 @@ export default function MyDayPage() {
           <TabsContent value="intros" className="mt-0 space-y-3">
             <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
           </TabsContent>
 
           <TabsContent value="scripts" className="mt-0 space-y-3">
