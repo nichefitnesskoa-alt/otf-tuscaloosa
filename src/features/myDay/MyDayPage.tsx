@@ -339,23 +339,6 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
-      {/* ═══ UPCOMING INTROS (top-of-page priority) ═══ */}
-      <div className="px-4 pt-3">
-        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
-      </div>
-
-      {/* ═══ CLASS MILESTONE CHECKS ═══ */}
-      <div className="px-4 pt-3">
-        <ClassMilestoneChecks />
-      </div>
-
-      {/* ═══ ASK FOR A REFERRAL ═══ */}
-      <div className="px-4 pt-3">
-        <ReferralAskActions />
-      </div>
-
-      {/* End Shift floating bar rendered below */}
-
       {/* ═══ ACTIVITY TRACKER ═══ */}
       <div className="px-4 pt-3">
         <MyDayShiftSummary compact />
@@ -423,6 +406,20 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
+      {/* ═══ UPCOMING INTROS ═══ */}
+      <div className="px-4 pt-3">
+        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+      </div>
+
+      {/* ═══ CLASS MILESTONE CHECKS ═══ */}
+      <div className="px-4 pt-3">
+        <ClassMilestoneChecks />
+      </div>
+
+      {/* ═══ ASK FOR A REFERRAL ═══ */}
+      <div className="px-4 pt-3">
+        <ReferralAskActions />
+      </div>
 
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}
