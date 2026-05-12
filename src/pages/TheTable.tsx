@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
+  nextMondayCT,
   type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
@@ -41,6 +42,13 @@ function formatMeetingTime(t: string): string {
   return `${h}:${m} ${period}`;
 }
 
+// Shift a YYYY-MM-DD date by N days (UTC math, output safe for Monday-anchored CT keys).
+function shiftDate(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
 export default function TheTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
@@ -48,7 +56,10 @@ export default function TheTable() {
   const qc = useQueryClient();
   const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();
 
-  const { data: meeting, isLoading } = useCurrentMeeting(paramMeetingId);
+  const currentMonday = nextMondayCT();
+  const [weekDate, setWeekDate] = useState<string>(currentMonday);
+
+  const { data: meeting, isLoading } = useCurrentMeeting({ meetingId: paramMeetingId, weekDate });
   const { data: owners = [] } = useActiveOwners();
   const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
@@ -82,54 +93,77 @@ export default function TheTable() {
   // Refresh helper
   const refresh = (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] });
 
-  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
-  if (!meeting) return (
-    <div className="p-8 text-center text-muted-foreground">
-      Meeting not found.{' '}
-      <button className="text-[#E8540A] underline" onClick={() => navigate('/the-table')}>Back to Own It</button>
-    </div>
-  );
+  // Effective week being viewed (deep-linked meetings override the stepper).
+  const effectiveWeek = meeting?.meeting_date ?? weekDate;
+  const phase: 'past' | 'current' | 'future' =
+    effectiveWeek < currentMonday ? 'past' : effectiveWeek > currentMonday ? 'future' : 'current';
+  const phaseLabel = phase === 'past' ? 'Past' : phase === 'future' ? 'Upcoming' : 'This week';
+
+  const stepWeek = (delta: number) => {
+    if (paramMeetingId) navigate('/the-table');
+    setWeekDate(w => shiftDate(w, delta));
+  };
+  const goToToday = () => {
+    if (paramMeetingId) navigate('/the-table');
+    setWeekDate(currentMonday);
+  };
 
   // ---------- Header ----------
   const header = (
-    <div className="flex items-center justify-between mb-4">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Flag className="w-6 h-6 text-[#E8540A]" /> Own It
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {format(new Date(meeting.meeting_date + 'T12:00:00'), 'EEEE, MMM d')} · {formatMeetingTime(meeting.meeting_time)}
-          {' · '}
-          <Badge variant={meeting.status === 'live' ? 'default' : 'secondary'} className="ml-1">{meeting.status}</Badge>
-        </p>
-      </div>
-      <div className="flex gap-2 items-center flex-wrap justify-end">
-        <ExportTeamMeetingButton meetingId={meeting.id} meetingDate={meeting.meeting_date} />
-        <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
-          <History className="w-4 h-4 mr-1" /> Past Meetings
-        </Button>
-        {isAdmin && (
-          <>
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Flag className="w-6 h-6 text-[#E8540A]" /> Own It
+          </h1>
+        </div>
+        <div className="flex gap-2 items-center flex-wrap justify-end">
+          {meeting && <ExportTeamMeetingButton meetingId={meeting.id} meetingDate={meeting.meeting_date} />}
+          <Button variant="outline" size="sm" onClick={() => navigate('/the-table/history')}>
+            <History className="w-4 h-4 mr-1" /> Past Meetings
+          </Button>
+          {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setManageOpen(true)}>
               <Settings className="w-4 h-4 mr-1" /> Manage Owners
             </Button>
-            <Select value={meeting.status} onValueChange={async (v) => {
-              await supabase.from('table_meetings').update({ status: v }).eq('id', meeting.id);
-              qc.invalidateQueries({ queryKey: ['table-meeting'] });
-              toast.success(`Marked ${v}`);
-            }}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="live">Live</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-              </SelectContent>
-            </Select>
-          </>
-        )}
+          )}
+        </div>
+      </div>
+      {/* Week stepper — everyone can move */}
+      <div className="flex items-center justify-between gap-2 border rounded-md px-2 py-2 bg-muted/30">
+        <Button variant="ghost" size="sm" onClick={() => stepWeek(-7)} aria-label="Previous week">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Prev week
+        </Button>
+        <div className="text-center">
+          <div className="font-semibold text-sm">
+            Week of {format(new Date(effectiveWeek + 'T12:00:00'), 'EEE, MMM d')}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {meeting ? `${formatMeetingTime(meeting.meeting_time)} · ` : ''}
+            <Badge variant="secondary" className="ml-1">{phaseLabel}</Badge>
+            {effectiveWeek !== currentMonday && (
+              <button onClick={goToToday} className="ml-2 text-[#E8540A] underline text-xs">Today</button>
+            )}
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => stepWeek(7)} aria-label="Next week">
+          Next week <ChevronRight className="w-4 h-4 ml-1" />
+        </Button>
       </div>
     </div>
   );
+
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
+  if (!meeting) {
+    return (
+      <div className="p-4 max-w-4xl mx-auto pb-24">
+        {header}
+        <Card className="p-8 text-center text-muted-foreground">
+          No Own It record for the week of {format(new Date(effectiveWeek + 'T12:00:00'), 'MMM d, yyyy')}.
+        </Card>
+      </div>
+    );
+  }
 
   // ---------- Carry-forward ----------
   const carryBlock = carryForward.length > 0 && (
@@ -441,9 +475,25 @@ export default function TheTable() {
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
       </div>
 
-      {meeting.status === 'upcoming' && preMeetingView}
-      {meeting.status === 'live' && liveView}
-      {meeting.status === 'complete' && completeView}
+      {phase === 'past' && completeView}
+      {phase === 'current' && (
+        <>
+          {preMeetingView}
+          {submittedOwners.length > 0 && (
+            <div className="mt-6">
+              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
+              {liveView}
+            </div>
+          )}
+          {(actions.length > 0 || isAdmin) && (
+            <div className="mt-6">
+              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
+              {completeView}
+            </div>
+          )}
+        </>
+      )}
+      {phase === 'future' && preMeetingView}
 
       <ManageOwnersDialog open={manageOpen} onOpenChange={setManageOpen} />
 

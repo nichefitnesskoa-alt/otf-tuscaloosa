@@ -52,25 +52,41 @@ export interface TableWin {
 }
 
 // If meetingId is provided, load that specific meeting (deep-link). Otherwise
-// auto-resolve to the current week's Monday meeting (auto-create if missing).
-export function useCurrentMeeting(meetingId?: string) {
-  const targetDate = nextMondayCT();
+// resolve by weekDate (Monday in CT). Auto-creates the row for current/future
+// weeks; returns null for past weeks with no record.
+// Auto-flips past meetings to 'complete' so nothing gets lost.
+export function useCurrentMeeting(opts?: { meetingId?: string; weekDate?: string }) {
+  const meetingId = opts?.meetingId;
+  const currentMonday = nextMondayCT();
+  const targetDate = opts?.weekDate ?? currentMonday;
   return useQuery({
     queryKey: ['table-meeting', meetingId ?? targetDate],
     queryFn: async () => {
+      let row: TableMeeting | null = null;
       if (meetingId) {
         const { data } = await supabase
           .from('table_meetings').select('*').eq('id', meetingId).maybeSingle();
-        return (data ?? null) as TableMeeting | null;
+        row = (data ?? null) as TableMeeting | null;
+      } else {
+        const { data } = await supabase
+          .from('table_meetings').select('*').eq('meeting_date', targetDate).maybeSingle();
+        row = (data ?? null) as TableMeeting | null;
+        if (!row && targetDate >= currentMonday) {
+          const { data: created } = await supabase
+            .from('table_meetings')
+            .insert({ meeting_date: targetDate, meeting_time: '13:30', status: 'upcoming', created_by: 'system' })
+            .select().single();
+          row = created as TableMeeting;
+        }
       }
-      const { data } = await supabase
-        .from('table_meetings').select('*').eq('meeting_date', targetDate).maybeSingle();
-      if (data) return data as TableMeeting;
-      const { data: created } = await supabase
-        .from('table_meetings')
-        .insert({ meeting_date: targetDate, meeting_time: '13:30', status: 'upcoming', created_by: 'system' })
-        .select().single();
-      return created as TableMeeting;
+      // Auto-complete: if the meeting's week has already passed and it was
+      // never closed out, flip it now so wins/actions surface in history.
+      if (row && row.meeting_date < currentMonday && row.status !== 'complete') {
+        const { data: updated } = await supabase
+          .from('table_meetings').update({ status: 'complete' }).eq('id', row.id).select().single();
+        if (updated) row = updated as TableMeeting;
+      }
+      return row;
     },
   });
 }
