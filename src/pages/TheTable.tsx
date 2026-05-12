@@ -499,65 +499,91 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
     onChanged();
   };
 
+  // Collapse once the user has at least one lane; expand to edit.
+  const [expanded, setExpanded] = useState(hasNoLane);
+  useEffect(() => { if (hasNoLane) setExpanded(true); }, [hasNoLane]);
+
   return (
     <>
       <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
-        <div className="font-semibold mb-1">{hasNoLane ? 'Pick your Ownership Role' : 'Your Ownership Lanes'}</div>
-        <p className="text-xs text-muted-foreground mb-3">
-          {hasNoLane ? 'Claim a lane to join Own It. You can change or add lanes later.' : 'You can hold multiple lanes. Each lane gets its own update.'}
-        </p>
+        <button
+          type="button"
+          onClick={() => !hasNoLane && setExpanded(v => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold">{hasNoLane ? 'Pick your Ownership Role' : 'Your Ownership Lanes'}</div>
+            {!expanded && !hasNoLane && (
+              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                {myOwners.map(o => o.lane_name || 'Unassigned').join(' · ')}
+              </div>
+            )}
+            {expanded && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {hasNoLane ? 'Claim a lane to join Own It. You can change or add lanes later.' : 'You can hold multiple lanes. Each lane gets its own update.'}
+              </p>
+            )}
+          </div>
+          {!hasNoLane && (
+            <ChevronDown className={cn('w-4 h-4 transition-transform shrink-0', expanded && 'rotate-180')} />
+          )}
+        </button>
 
-        {/* Existing lanes — editable */}
-        <div className="space-y-2">
-          {myOwners.map(o => (
-            <div key={o.id} className="flex items-center gap-2 border rounded-md p-2">
-              <div className="flex-1">
+        {expanded && (
+          <div className="mt-3">
+            {/* Existing lanes — editable */}
+            <div className="space-y-2">
+              {myOwners.map(o => (
+                <div key={o.id} className="flex items-center gap-2 border rounded-md p-2">
+                  <div className="flex-1">
+                    <Input
+                      defaultValue={o.lane_name ?? ''}
+                      onBlur={(e) => e.target.value !== (o.lane_name ?? '') && updateLane(o.id, e.target.value)}
+                      placeholder="e.g. IG Owner"
+                      list={`my-lanes-${o.id}`}
+                      disabled={saving}
+                    />
+                    <datalist id={`my-lanes-${o.id}`}>
+                      {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+                    </datalist>
+                    {o.category && <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>}
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removeLane(o.id)} title="Remove this lane">
+                    <X className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Initial-claim picker (no lanes yet) */}
+            {hasNoLane && (
+              <div className="mt-3">
                 <Input
-                  defaultValue={o.lane_name ?? ''}
-                  onBlur={(e) => e.target.value !== (o.lane_name ?? '') && updateLane(o.id, e.target.value)}
-                  placeholder="e.g. IG Owner"
-                  list={`my-lanes-${o.id}`}
+                  value={pickerLane}
+                  onChange={(e) => setPickerLane(e.target.value)}
+                  placeholder="Choose a role…"
+                  list="my-lanes-initial"
                   disabled={saving}
                 />
-                <datalist id={`my-lanes-${o.id}`}>
+                <datalist id="my-lanes-initial">
                   {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
                 </datalist>
-                {o.category && <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>}
+                <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+                  Claim this lane
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => removeLane(o.id)} title="Remove this lane">
-                <X className="w-4 h-4 text-destructive" />
-              </Button>
-            </div>
-          ))}
-        </div>
+            )}
 
-        {/* Initial-claim picker (no lanes yet) */}
-        {hasNoLane && (
-          <div className="mt-3">
-            <Input
-              value={pickerLane}
-              onChange={(e) => setPickerLane(e.target.value)}
-              placeholder="Choose a role…"
-              list="my-lanes-initial"
-              disabled={saving}
-            />
-            <datalist id="my-lanes-initial">
-              {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
-            </datalist>
-            <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
-              Claim this lane
-            </Button>
-          </div>
-        )}
-
-        {/* Add another lane */}
-        {!hasNoLane && (
-          <div className="mt-3">
-            <Button variant="outline" onClick={startAddFlow} disabled={blocked || saving}>
-              <Plus className="w-4 h-4 mr-1" /> Add another lane
-            </Button>
-            {blocked && (
-              <p className="text-xs text-muted-foreground mt-1">Complete your current lanes for two weeks first.</p>
+            {/* Add another lane */}
+            {!hasNoLane && (
+              <div className="mt-3">
+                <Button variant="outline" onClick={startAddFlow} disabled={blocked || saving}>
+                  <Plus className="w-4 h-4 mr-1" /> Add another lane
+                </Button>
+                {blocked && (
+                  <p className="text-xs text-muted-foreground mt-1">Complete your current lanes for two weeks first.</p>
+                )}
+              </div>
             )}
           </div>
         )}
