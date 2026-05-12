@@ -8,13 +8,13 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Flag, Plus, ChevronLeft, ChevronRight, Settings, History, Trophy, Check, X } from 'lucide-react';
+import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
   nextMondayCT,
-  type OwnerEntry, type TableOwner,
+  type OwnerEntry, type TableOwner, type TableResponse, type TableActionItem,
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
@@ -74,9 +74,6 @@ export default function TheTable() {
   const [manageOpen, setManageOpen] = useState(false);
   const [winOpen, setWinOpen] = useState(false);
   const [winText, setWinText] = useState('');
-  const [activeOwnerIdx, setActiveOwnerIdx] = useState(0);
-  const [responseMode, setResponseMode] = useState<'build' | 'flag' | 'offer' | null>(null);
-  const [responseText, setResponseText] = useState('');
   const [actionDialog, setActionDialog] = useState<{ responseId: string; defaultDesc: string } | null>(null);
 
   // Self owner records (one row per lane). Architect doesn't appear here, so Koa never has any.
@@ -239,15 +236,15 @@ export default function TheTable() {
         <MyLanesManager myOwners={myOwners} onChanged={() => qc.invalidateQueries({ queryKey: ['table-owners'] })} />
       )}
 
-      {/* Owner self-entry — one card per lane the user owns */}
+      {/* Owner self-entry — one collapsible card per lane the user owns */}
       {myOwners.map(mine => {
         const myEntry = entries.find(e => e.owner_id === mine.id);
         return (
-          <Card key={mine.id} className="p-4 mb-4 border-[#E8540A]/40">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold">Your update — {mine.lane_name || 'Ownership role unassigned'}</div>
-              {myEntry?.submitted_at && <Badge className="bg-emerald-600">Locked in</Badge>}
-            </div>
+          <CollapsibleUpdateCard
+            key={mine.id}
+            laneName={mine.lane_name}
+            locked={!!myEntry?.submitted_at}
+          >
             <p className="text-xs text-muted-foreground mb-3">Say the thing you'd normally soften.</p>
             <OwnerEntryForm
               meetingId={meeting.id}
@@ -255,176 +252,76 @@ export default function TheTable() {
               entry={myEntry}
               onChange={() => refresh('table-entries')}
             />
-          </Card>
+          </CollapsibleUpdateCard>
         );
       })}
 
-      {/* Owner dashboard */}
+      {/* What the Owners brought — single roster of every owner (self + peers) */}
       <Card className="p-4 mb-4">
-        <div className="font-semibold mb-3">Owners ({owners.length})</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="font-semibold mb-3">What the Owners brought</div>
+        <div className="space-y-3">
           {owners.map(o => {
             const e = entries.find(en => en.owner_id === o.id);
-            const submitted = !!e?.submitted_at;
-            const health = laneHealth[o.id];
             return (
-              <div key={o.id} className="flex items-center gap-3 border rounded-md p-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn('w-3 h-3 rounded-full shrink-0', HEALTH_DOT[health?.status ?? 'red'])} />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-xs space-y-1">
-                      <div>{health?.submittedOnTime ? '✓' : '✗'} Submitted on time</div>
-                      <div>{health?.receivedResponse ? '✓' : '✗'} Got a response</div>
-                      <div>{health?.actionItemProgressed ? '✓' : '✗'} Action moved forward</div>
-                      <div className="pt-1 mt-1 border-t border-border/50 italic text-muted-foreground">Yellow is not failure. Yellow is honest.</div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{o.display_name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{o.lane_name || 'Ownership role unassigned'}</div>
+              <div key={o.id} className="border rounded-md p-3">
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  <div className="font-medium text-sm">{o.display_name} · {o.lane_name || '—'}</div>
+                  <Badge
+                    variant={e?.submitted_at ? 'default' : 'outline'}
+                    className={e?.submitted_at ? 'bg-emerald-600 text-[10px]' : 'text-amber-600 border-amber-600 text-[10px]'}
+                  >
+                    {e?.submitted_at ? 'Locked in' : 'Not yet'}
+                  </Badge>
                 </div>
-                <Badge variant={submitted ? 'default' : 'outline'} className={submitted ? 'bg-emerald-600' : 'text-amber-600 border-amber-600'}>
-                  {submitted ? 'Locked in' : 'Not yet'}
-                </Badge>
+                {e?.submitted_at ? (
+                  <PeerEntry entry={e} />
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">Not locked in yet</div>
+                )}
               </div>
             );
           })}
         </div>
       </Card>
-
-      {/* Peer entries — always visible to everyone */}
-      {owners.some(o => !myOwners.some(m => m.id === o.id)) && (
-        <Card className="p-4 mb-4">
-          <div className="font-semibold mb-3">What other Owners brought</div>
-          <div className="space-y-3">
-            {owners.filter(o => !myOwners.some(m => m.id === o.id)).map(o => {
-              const e = entries.find(en => en.owner_id === o.id);
-              return (
-                <div key={o.id} className="border rounded-md p-3">
-                  <div className="font-medium text-sm mb-1">{o.display_name} · {o.lane_name || '—'}</div>
-                  {e?.submitted_at ? (
-                    <PeerEntry entry={e} />
-                  ) : (
-                    <div className="text-xs text-muted-foreground italic">Not locked in yet</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
     </>
   );
 
-  // ---------- Live meeting view ----------
+  // ---------- Live meeting view (stacked, everyone visible) ----------
   const submittedOwners = owners.filter(o => entries.some(e => e.owner_id === o.id && e.submitted_at));
-  const activeOwner = submittedOwners[activeOwnerIdx];
-  const activeEntry = activeOwner ? entries.find(e => e.owner_id === activeOwner.id) : null;
-  const activeResponses = activeEntry ? responses.filter(r => r.owner_entry_id === activeEntry.id) : [];
 
-  const submitResponse = async () => {
-    if (!responseMode || !responseText.trim() || !activeEntry || !user?.name) return;
-    const me = owners.find(o => o.display_name === user.name);
-    const { error } = await supabase.from('table_responses').insert({
-      meeting_id: meeting.id, owner_entry_id: activeEntry.id,
-      responder_staff_id: me?.staff_id ?? null, responder_name: user.name,
-      mode: responseMode, content: responseText.trim(), created_by: user.name,
-    });
-    if (error) { toast.error(error.message); return; }
-    setResponseText(''); setResponseMode(null);
-  };
-
-  const liveView = activeOwner && activeEntry ? (
-    <>
-      <Card className="p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          {isAdmin && (
-            <Button size="sm" variant="outline" onClick={() => setActiveOwnerIdx(i => Math.max(0, i - 1))} disabled={activeOwnerIdx === 0}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-          )}
-          <div className="flex-1 text-center">
-            <div className="text-2xl font-bold">{activeOwner.display_name}</div>
-            <div className="text-sm text-muted-foreground">{activeOwner.lane_name || 'Ownership role unassigned'}</div>
-            <div className="text-xs text-muted-foreground mt-1">{activeOwnerIdx + 1} of {submittedOwners.length}</div>
-          </div>
-          {isAdmin && (
-            <Button size="sm" variant="outline" onClick={() => setActiveOwnerIdx(i => Math.min(submittedOwners.length - 1, i + 1))} disabled={activeOwnerIdx >= submittedOwners.length - 1}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <EntryField label="Last week" value={activeEntry.last_week_update} />
-          <EntryField label="This week" value={activeEntry.this_week_focus} />
-          <EntryField label="Ideas" value={activeEntry.ideas} />
-          <EntryField label="Ask of the room" value={activeEntry.ask} />
-        </div>
-      </Card>
-
-      {/* Response feed */}
-      <Card className="p-4 mb-4">
-        <div className="flex gap-2 mb-3">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setResponseMode('build')}>
-            Build
-          </Button>
-          <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setResponseMode('flag')}>
-            Flag
-          </Button>
-          <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setResponseMode('offer')}>
-            Offer
-          </Button>
-        </div>
-        {responseMode && (
-          <div className="mb-3 flex gap-2">
-            <Input
-              autoFocus
-              value={responseText}
-              onChange={(e) => setResponseText(e.target.value)}
-              placeholder={`Add a ${responseMode}…`}
-              onKeyDown={(e) => e.key === 'Enter' && submitResponse()}
-            />
-            <Button onClick={submitResponse}>Add</Button>
-            <Button variant="ghost" onClick={() => { setResponseMode(null); setResponseText(''); }}>Cancel</Button>
-          </div>
-        )}
-        <div className="space-y-2">
-          {activeResponses.map(r => {
-            const linkedAction = actions.find(a => a.source_response_id === r.id);
-            return (
-              <div key={r.id} className="border rounded-md p-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge className={cn(
-                    r.mode === 'build' && 'bg-emerald-600',
-                    r.mode === 'flag' && 'bg-red-600',
-                    r.mode === 'offer' && 'bg-[#E8540A]',
-                  )}>{r.mode}</Badge>
-                  <span className="font-medium">{r.responder_name}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
-                </div>
-                <div className="text-sm mt-1">{r.content}</div>
-                {r.mode === 'offer' && !linkedAction && isAdmin && (
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setActionDialog({ responseId: r.id, defaultDesc: r.content })}>
-                    <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
-                  </Button>
-                )}
-                {linkedAction && (
-                  <div className="mt-2 text-xs bg-muted p-2 rounded">
-                    Action: {linkedAction.owner_name} · due {format(new Date(linkedAction.due_date + 'T12:00:00'), 'MMM d')} · {linkedAction.status}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {activeResponses.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No responses yet. Build, Flag, or Offer.</div>}
-        </div>
-      </Card>
-    </>
-  ) : (
+  const liveView = submittedOwners.length === 0 ? (
     <Card className="p-8 text-center text-muted-foreground">No Owners have locked in updates yet.</Card>
+  ) : (
+    <>
+      <Card className="p-3 mb-4 bg-muted/40">
+        <div className="text-xs font-semibold mb-2">How to respond:</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div><Badge className="bg-emerald-600 mr-1">Build</Badge> Add to the idea, push it forward.</div>
+          <div><Badge className="bg-red-600 mr-1">Flag</Badge> Name a risk or concern.</div>
+          <div><Badge className="bg-[#E8540A] mr-1">Offer</Badge> Commit to do something about it.</div>
+        </div>
+      </Card>
+
+      {submittedOwners.map(o => {
+        const entry = entries.find(e => e.owner_id === o.id);
+        if (!entry) return null;
+        const ownerResponses = responses.filter(r => r.owner_entry_id === entry.id);
+        return (
+          <OwnerLiveCard
+            key={o.id}
+            owner={o}
+            entry={entry}
+            ownerResponses={ownerResponses}
+            actions={actions}
+            isAdmin={isAdmin}
+            currentUserName={user?.name ?? null}
+            allOwners={owners}
+            meetingId={meeting.id}
+            onOpenAction={(rid, desc) => setActionDialog({ responseId: rid, defaultDesc: desc })}
+          />
+        );
+      })}
+    </>
   );
 
   // ---------- Complete view ----------
@@ -602,65 +499,91 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
     onChanged();
   };
 
+  // Collapse once the user has at least one lane; expand to edit.
+  const [expanded, setExpanded] = useState(hasNoLane);
+  useEffect(() => { if (hasNoLane) setExpanded(true); }, [hasNoLane]);
+
   return (
     <>
       <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
-        <div className="font-semibold mb-1">{hasNoLane ? 'Pick your Ownership Role' : 'Your Ownership Lanes'}</div>
-        <p className="text-xs text-muted-foreground mb-3">
-          {hasNoLane ? 'Claim a lane to join Own It. You can change or add lanes later.' : 'You can hold multiple lanes. Each lane gets its own update.'}
-        </p>
+        <button
+          type="button"
+          onClick={() => !hasNoLane && setExpanded(v => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold">{hasNoLane ? 'Pick your Ownership Role' : 'Your Ownership Lanes'}</div>
+            {!expanded && !hasNoLane && (
+              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                {myOwners.map(o => o.lane_name || 'Unassigned').join(' · ')}
+              </div>
+            )}
+            {expanded && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {hasNoLane ? 'Claim a lane to join Own It. You can change or add lanes later.' : 'You can hold multiple lanes. Each lane gets its own update.'}
+              </p>
+            )}
+          </div>
+          {!hasNoLane && (
+            <ChevronDown className={cn('w-4 h-4 transition-transform shrink-0', expanded && 'rotate-180')} />
+          )}
+        </button>
 
-        {/* Existing lanes — editable */}
-        <div className="space-y-2">
-          {myOwners.map(o => (
-            <div key={o.id} className="flex items-center gap-2 border rounded-md p-2">
-              <div className="flex-1">
+        {expanded && (
+          <div className="mt-3">
+            {/* Existing lanes — editable */}
+            <div className="space-y-2">
+              {myOwners.map(o => (
+                <div key={o.id} className="flex items-center gap-2 border rounded-md p-2">
+                  <div className="flex-1">
+                    <Input
+                      defaultValue={o.lane_name ?? ''}
+                      onBlur={(e) => e.target.value !== (o.lane_name ?? '') && updateLane(o.id, e.target.value)}
+                      placeholder="e.g. IG Owner"
+                      list={`my-lanes-${o.id}`}
+                      disabled={saving}
+                    />
+                    <datalist id={`my-lanes-${o.id}`}>
+                      {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
+                    </datalist>
+                    {o.category && <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>}
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => removeLane(o.id)} title="Remove this lane">
+                    <X className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Initial-claim picker (no lanes yet) */}
+            {hasNoLane && (
+              <div className="mt-3">
                 <Input
-                  defaultValue={o.lane_name ?? ''}
-                  onBlur={(e) => e.target.value !== (o.lane_name ?? '') && updateLane(o.id, e.target.value)}
-                  placeholder="e.g. IG Owner"
-                  list={`my-lanes-${o.id}`}
+                  value={pickerLane}
+                  onChange={(e) => setPickerLane(e.target.value)}
+                  placeholder="Choose a role…"
+                  list="my-lanes-initial"
                   disabled={saving}
                 />
-                <datalist id={`my-lanes-${o.id}`}>
+                <datalist id="my-lanes-initial">
                   {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
                 </datalist>
-                {o.category && <div className="text-[11px] text-muted-foreground mt-1">Category: {o.category}</div>}
+                <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+                  Claim this lane
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => removeLane(o.id)} title="Remove this lane">
-                <X className="w-4 h-4 text-destructive" />
-              </Button>
-            </div>
-          ))}
-        </div>
+            )}
 
-        {/* Initial-claim picker (no lanes yet) */}
-        {hasNoLane && (
-          <div className="mt-3">
-            <Input
-              value={pickerLane}
-              onChange={(e) => setPickerLane(e.target.value)}
-              placeholder="Choose a role…"
-              list="my-lanes-initial"
-              disabled={saving}
-            />
-            <datalist id="my-lanes-initial">
-              {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
-            </datalist>
-            <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
-              Claim this lane
-            </Button>
-          </div>
-        )}
-
-        {/* Add another lane */}
-        {!hasNoLane && (
-          <div className="mt-3">
-            <Button variant="outline" onClick={startAddFlow} disabled={blocked || saving}>
-              <Plus className="w-4 h-4 mr-1" /> Add another lane
-            </Button>
-            {blocked && (
-              <p className="text-xs text-muted-foreground mt-1">Complete your current lanes for two weeks first.</p>
+            {/* Add another lane */}
+            {!hasNoLane && (
+              <div className="mt-3">
+                <Button variant="outline" onClick={startAddFlow} disabled={blocked || saving}>
+                  <Plus className="w-4 h-4 mr-1" /> Add another lane
+                </Button>
+                {blocked && (
+                  <p className="text-xs text-muted-foreground mt-1">Complete your current lanes for two weeks first.</p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -893,6 +816,137 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
           );
         })}
         {wins.length === 0 && <div className="text-sm text-muted-foreground italic">No wins logged this week.</div>}
+      </div>
+    </Card>
+  );
+}
+
+// Collapsible "Your update — {lane}" card. Auto-collapses once locked in;
+// chevron expands so the user can edit. Unlocked entries stay open.
+function CollapsibleUpdateCard({ laneName, locked, children }: {
+  laneName: string | null; locked: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(!locked);
+  // Re-collapse if it transitions to locked (e.g. just hit "Lock in").
+  useEffect(() => { setOpen(!locked); }, [locked]);
+
+  return (
+    <Card className="p-4 mb-4 border-[#E8540A]/40">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-2 text-left"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="font-semibold truncate">Your update — {laneName || 'Ownership role unassigned'}</div>
+          {locked && <Badge className="bg-emerald-600 text-[10px]">Locked in</Badge>}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {locked && !open && <Pencil className="w-3.5 h-3.5 text-muted-foreground" />}
+          <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} />
+        </div>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </Card>
+  );
+}
+
+// One stacked card per submitted owner during live discussion. Anyone can
+// post a Build / Flag / Offer to any owner's feed — no carousel.
+function OwnerLiveCard({
+  owner, entry, ownerResponses, actions, isAdmin, currentUserName, allOwners, meetingId, onOpenAction,
+}: {
+  owner: TableOwner;
+  entry: OwnerEntry;
+  ownerResponses: TableResponse[];
+  actions: TableActionItem[];
+  isAdmin: boolean;
+  currentUserName: string | null;
+  allOwners: TableOwner[];
+  meetingId: string;
+  onOpenAction: (responseId: string, defaultDesc: string) => void;
+}) {
+  const [mode, setMode] = useState<'build' | 'flag' | 'offer' | null>(null);
+  const [text, setText] = useState('');
+
+  const submit = async () => {
+    if (!mode || !text.trim() || !currentUserName) return;
+    const me = allOwners.find(o => o.display_name === currentUserName);
+    const { error } = await supabase.from('table_responses').insert({
+      meeting_id: meetingId,
+      owner_entry_id: entry.id,
+      responder_staff_id: me?.staff_id ?? null,
+      responder_name: currentUserName,
+      mode,
+      content: text.trim(),
+      created_by: currentUserName,
+    });
+    if (error) { toast.error(error.message); return; }
+    setText(''); setMode(null);
+  };
+
+  return (
+    <Card className="p-4 mb-4">
+      <div className="mb-3">
+        <div className="text-xl font-bold">{owner.display_name}</div>
+        <div className="text-sm text-muted-foreground">{owner.lane_name || 'Ownership role unassigned'}</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
+        <EntryField label="Last week" value={entry.last_week_update} />
+        <EntryField label="This week" value={entry.this_week_focus} />
+        <EntryField label="Ideas" value={entry.ideas} />
+        <EntryField label="Ask of the room" value={entry.ask} />
+      </div>
+
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setMode('build')}>Build</Button>
+        <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setMode('flag')}>Flag</Button>
+        <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('offer')}>Offer</Button>
+      </div>
+      {mode && (
+        <div className="mb-3 flex gap-2">
+          <Input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`Add a ${mode}…`}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          <Button onClick={submit}>Add</Button>
+          <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
+        </div>
+      )}
+      <div className="space-y-2">
+        {ownerResponses.map(r => {
+          const linkedAction = actions.find(a => a.source_response_id === r.id);
+          return (
+            <div key={r.id} className="border rounded-md p-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Badge className={cn(
+                  r.mode === 'build' && 'bg-emerald-600',
+                  r.mode === 'flag' && 'bg-red-600',
+                  r.mode === 'offer' && 'bg-[#E8540A]',
+                )}>{r.mode}</Badge>
+                <span className="font-medium">{r.responder_name}</span>
+                <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
+              </div>
+              <div className="text-sm mt-1">{r.content}</div>
+              {r.mode === 'offer' && !linkedAction && isAdmin && (
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
+                  <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
+                </Button>
+              )}
+              {linkedAction && (
+                <div className="mt-2 text-xs bg-muted p-2 rounded">
+                  Action: {linkedAction.owner_name} · due {format(new Date(linkedAction.due_date + 'T12:00:00'), 'MMM d')} · {linkedAction.status}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {ownerResponses.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-3">No responses yet. Build, Flag, or Offer.</div>
+        )}
       </div>
     </Card>
   );

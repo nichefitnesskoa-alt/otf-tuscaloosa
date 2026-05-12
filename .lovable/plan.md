@@ -1,47 +1,40 @@
-## Plan
+## Own It page — simplify and open up the live discussion
 
-I’ll fix the Own It page so the page itself always shows everyone’s answers at a glance, export never replaces that on-screen view, and next week uses the same layout as this week.
+### 1. Delete the standalone "Owners" status grid
+Remove the "Owners (N)" card with the colored health dots and Locked-in / Not yet badges. The "What the Owners brought" card already shows every owner, their lane, and whether they locked in (or "Not locked in yet"). One source of truth, less visual noise.
 
-## What I found
+### 2. Collapse the Ownership Lane card once a lane is picked
+- If the user already holds at least one lane, the "Your Ownership Lanes" card renders collapsed by default with a header showing each lane name.
+- A chevron on the header expands it to edit / add / remove lanes.
+- Empty state (no lane yet) stays expanded so they're prompted to pick one.
 
-- The May 11 data is in the database: 4 submitted owner entries, including Kaiya’s Space Owner and VIP Owner answers.
-- The page is currently treating May 11 as `Past` because the current-week helper is actually returning the next Monday after Sunday. Today is Tuesday, May 12, so it defaults to May 18 instead of staying on May 11.
-- The May 11 answers only show in the special past-week block. Current and future weeks use a different layout, so next week looks different.
-- The export button expands into copy/download controls in the header, which can feel like it replaces the at-a-glance screen view instead of being separate from it.
+### 3. Collapse the "Your update" card once locked in
+- Each `OwnerEntryForm` card auto-collapses after the user hits Lock in my update (or when the entry is already submitted on load).
+- Collapsed header shows lane name + green "Locked in" badge + chevron.
+- Tapping the chevron expands so they can edit; saving stays inline (no re-collapse on every blur).
+- Unsubmitted cards stay expanded.
 
-## Changes to make
+### 4. Rename + broaden "What the Owners brought"
+- Rename "What other Owners brought" → "What the Owners brought".
+- Include the viewer's own locked-in entries in the list so it's the single at-a-glance roster for everyone.
+- Stays in its current position (just above Live discussion).
 
-1. **Fix the default Own It week**
-   - Replace the misleading `nextMondayCT()` behavior with a true current-week Monday helper anchored to America/Chicago.
-   - Monday through Sunday will stay on that same week.
-   - The page will not roll to next week until the following Monday.
+### 5. Live discussion: explanation + everyone sees everything
+- Replace the single-owner carousel with a stacked layout: one card per submitted owner, each showing their four answers and the full Build / Flag / Offer feed underneath.
+- Anyone can add a Build / Flag / Offer to any owner's card (not just Admin / not gated to a single active owner).
+- Add a small legend at the top of the Live discussion section:
+  - **Build** — add to the idea, push it forward.
+  - **Flag** — name a risk or concern.
+  - **Offer** — commit to do something about it.
+- Remove `activeOwnerIdx` carousel state and the Admin-only Prev / Next chevrons (no longer needed).
 
-2. **Make owner answers visible directly on the page**
-   - Add a single “Owner answers at a glance” section that appears for past, current, and future weeks.
-   - Show every active owner/lane in that section.
-   - If they entered answers, show the answer text even if the week moved forward.
-   - If they haven’t entered anything, show a clear “No answer yet” state.
-   - Do not require Export Team Meeting or Past Meetings to see answers.
+### Files to change
+- `src/pages/TheTable.tsx` — delete owner grid, collapse states for lane card and OwnerEntryForm card, rename + broaden peer entries, rebuild liveView as stacked-per-owner with legend, drop carousel state.
 
-3. **Make next week look like this week**
-   - Use the same visible sections for future weeks as current week.
-   - Keep action items, wins, owner answers, and the studio leader close area in consistent positions.
-   - Future weeks can still be edited/planned, but the page structure will not change just because it’s next week.
-
-4. **Keep export separate from on-screen answers**
-   - Leave Export Team Meeting as an action button only.
-   - Prevent its expanded copy/download state from visually taking over the header.
-   - The answers-at-a-glance section remains on the page whether export is opened or not.
-
-## Files expected to change
-
-- `src/hooks/useTheTable.ts`
-- `src/pages/TheTable.tsx`
-- `src/components/table/ExportTeamMeetingButton.tsx`
-
-## Verification after implementation
-
-- Confirm May 12 defaults to week of May 11, not May 18.
-- Confirm May 11 shows Kaiya’s submitted answers directly on `/the-table`.
-- Confirm moving to next week keeps the same page structure.
-- Confirm Export Team Meeting no longer hides or replaces the on-page answers.
+### Verification
+- Owner status grid is gone; "What the Owners brought" lists every active owner with locked / not locked state.
+- Picking a lane collapses the lane card; chevron re-opens it.
+- Locking in an update collapses that lane's update card; chevron re-opens it.
+- Live discussion shows every submitted owner stacked with their own response feed; any signed-in staff can post Build / Flag / Offer on any owner.
+- Legend renders above the live discussion explaining Build, Flag, Offer.
+- Past, current, and future weeks all use the same layout.
