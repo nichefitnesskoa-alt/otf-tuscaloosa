@@ -566,10 +566,11 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   } : {};
 
   const newLeads = leads.filter(l => l.stage === 'new');
-  const flaggedLeads = leads.filter(l => l.stage === 'flagged');
-  const contactedLeads = leads.filter(l => l.stage === 'contacted');
   const bookedLeads = leads.filter(l => l.stage === 'booked' || l.stage === 'won');
-  const alreadyInSystem = leads.filter(l => l.stage === 'already_in_system');
+  // Contacted = anyone past New (includes booked/won). New leads live in NewLeadsAlert.
+  const contactedLeads = leads.filter(l =>
+    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
+  );
 
   const renderList = (list: Lead[], emptyLabel: string) => {
     if (loading) return <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>;
@@ -588,15 +589,6 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
       <SpeedToLeadBanner leads={leads} />
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="w-full flex h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg flex-wrap">
-          <TabsTrigger value="new" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            New
-            {newLeads.length > 0 && <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[16px]">{newLeads.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="flagged" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            <AlertTriangle className="w-3 h-3" />
-            Flagged
-            {flaggedLeads.length > 0 && <Badge className="h-3.5 px-1 text-[9px] min-w-[16px] bg-amber-500 text-white">{flaggedLeads.length}</Badge>}
-          </TabsTrigger>
           <TabsTrigger value="contacted" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             Contacted
             {contactedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{contactedLeads.length}</Badge>}
@@ -605,21 +597,12 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
             Booked
             {bookedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{bookedLeads.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            In System
-            {alreadyInSystem.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{alreadyInSystem.length}</Badge>}
-          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new" className="mt-2">
-          {renderList([...newLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'new')}
-        </TabsContent>
-        <TabsContent value="flagged" className="mt-2">{renderList(flaggedLeads, 'flagged')}</TabsContent>
         <TabsContent value="contacted" className="mt-2">
           {renderList([...contactedLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'contacted')}
         </TabsContent>
         <TabsContent value="booked" className="mt-2">{renderList(bookedLeads, 'booked')}</TabsContent>
-        <TabsContent value="system" className="mt-2">{renderList(alreadyInSystem, 'already-in-system')}</TabsContent>
       </Tabs>
 
       {bookLead && (
