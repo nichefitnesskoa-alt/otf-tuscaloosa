@@ -1,68 +1,47 @@
-## Own It — Week navigator + auto-complete
+## Plan
 
-### Problem
-- Past meetings only show in history if they were manually marked `complete`. Last week's meeting never got marked, so it disappeared from view.
-- The Upcoming / Live / Complete dropdown is friction. Status should be inferred from the date, not chosen.
-- There's no way to walk forward/back through weeks. Everyone needs to see prior results and plan ahead.
+I’ll fix the Own It page so the page itself always shows everyone’s answers at a glance, export never replaces that on-screen view, and next week uses the same layout as this week.
 
-### Changes
+## What I found
 
-**1. Auto-complete past meetings (`src/hooks/useTheTable.ts` — `useCurrentMeeting`)**
-On every load of a meeting, after fetching, compare `meeting_date` to today's Monday in America/Chicago:
-- If `meeting_date < currentMondayCT` AND `status !== 'complete'` → write `status = 'complete'` and refetch.
-- This recovers Kaiya's prior week silently the first time anyone opens the page.
+- The May 11 data is in the database: 4 submitted owner entries, including Kaiya’s Space Owner and VIP Owner answers.
+- The page is currently treating May 11 as `Past` because the current-week helper is actually returning the next Monday after Sunday. Today is Tuesday, May 12, so it defaults to May 18 instead of staying on May 11.
+- The May 11 answers only show in the special past-week block. Current and future weeks use a different layout, so next week looks different.
+- The export button expands into copy/download controls in the header, which can feel like it replaces the at-a-glance screen view instead of being separate from it.
 
-**2. Week navigator on `src/pages/TheTable.tsx`**
-Replace the status `<Select>` in the header with a week stepper, modeled on Upcoming Intros:
+## Changes to make
 
-```text
-[‹ Prev week]   Week of Mon, May 11   [Today]   [Next week ›]
-```
+1. **Fix the default Own It week**
+   - Replace the misleading `nextMondayCT()` behavior with a true current-week Monday helper anchored to America/Chicago.
+   - Monday through Sunday will stay on that same week.
+   - The page will not roll to next week until the following Monday.
 
-- State: `weekDate: string` (YYYY-MM-DD, always a Monday in CT). Default = `nextMondayCT()`.
-- `‹` / `›` buttons shift `weekDate` by ±7 days.
-- `Today` button resets to `nextMondayCT()`.
-- All staff see the controls (not just admin) — the user said "everyone should be able to move weeks".
+2. **Make owner answers visible directly on the page**
+   - Add a single “Owner answers at a glance” section that appears for past, current, and future weeks.
+   - Show every active owner/lane in that section.
+   - If they entered answers, show the answer text even if the week moved forward.
+   - If they haven’t entered anything, show a clear “No answer yet” state.
+   - Do not require Export Team Meeting or Past Meetings to see answers.
 
-**3. `useCurrentMeeting` accepts a target date**
-Change signature to `useCurrentMeeting({ meetingId?, weekDate? })`:
-- If `meetingId` → load that row by id (deep-link path stays intact).
-- Else → load by `meeting_date = weekDate`. If no row exists:
-  - For the **current** week → auto-create as today (existing behavior, status `upcoming`).
-  - For **past** weeks → return `null` and show an empty-state card ("No Own It record for week of …"). Don't auto-create historical rows.
-  - For **future** weeks → auto-create with status `upcoming` so users can plan ahead. (CONFIRM THIS VALUE — auto-create future weeks vs. require admin to seed them. Default plan: auto-create.)
+3. **Make next week look like this week**
+   - Use the same visible sections for future weeks as current week.
+   - Keep action items, wins, owner answers, and the studio leader close area in consistent positions.
+   - Future weeks can still be edited/planned, but the page structure will not change just because it’s next week.
 
-**4. Drop the status selector + status badge from the header**
-- Remove the `Upcoming / Live / Complete` `<Select>` entirely.
-- Replace the status `<Badge>` next to the meeting date with a derived label:
-  - `weekDate < currentMonday` → "Past"
-  - `weekDate === currentMonday` → "This week"
-  - `weekDate > currentMonday` → "Upcoming"
+4. **Keep export separate from on-screen answers**
+   - Leave Export Team Meeting as an action button only.
+   - Prevent its expanded copy/download state from visually taking over the header.
+   - The answers-at-a-glance section remains on the page whether export is opened or not.
 
-**5. Phase = derived, not stored**
-The page currently branches on `meeting.status` to show preMeetingView / liveView / completeView. Replace with:
-- `weekDate < currentMonday` → render `completeView` (read-only-friendly summary + action items + Koa close).
-- `weekDate === currentMonday` → render the existing pre-meeting view (lanes, owner cards, peer entries) AND show the live carousel inline below it, so the meeting flows naturally without a status flip. (CONFIRM THIS VALUE — combine into one view vs. keep separate live phase.)
-- `weekDate > currentMonday` → render `preMeetingView` only (planning ahead, owners draft entries early).
+## Files expected to change
 
-This eliminates the need to ever click "Live" or "Complete".
+- `src/hooks/useTheTable.ts`
+- `src/pages/TheTable.tsx`
+- `src/components/table/ExportTeamMeetingButton.tsx`
 
-**6. Keep `/the-table/history`**
-History page stays for the searchable archive view. Update its filter from `status = 'complete'` to `meeting_date < currentMonday` so it surfaces every prior week, including ones that were never manually closed.
+## Verification after implementation
 
-### Files touched
-- `src/hooks/useTheTable.ts` — `useCurrentMeeting` (date-aware, auto-complete past)
-- `src/pages/TheTable.tsx` — week stepper header, derived phase, drop status select
-- `src/pages/TheTableHistory.tsx` — broaden the history query
-
-### Coherence verification
-- Open Own It on a Monday morning → sees current week, status badge "This week", lanes editable.
-- Click `‹` once → loads last week, action items + wins visible read-only, history reachable.
-- Click `›` past today → empty future week, can pre-write lane entries.
-- Past unclosed meeting auto-flips to `complete` once anyone navigates to it; appears in `/the-table/history` afterward.
-- Deep-link `/the-table/:meetingId` still works (uses meetingId branch).
-- Carry-forward block still loads (it's keyed by `meeting?.id`, not status).
-
-### Open questions
-- Auto-create future weekly rows on navigate? (Default: yes, status `upcoming`.)
-- Combine pre-meeting + live into one screen for the current week? (Default: yes, removes the "Live" toggle entirely.)
+- Confirm May 12 defaults to week of May 11, not May 18.
+- Confirm May 11 shows Kaiya’s submitted answers directly on `/the-table`.
+- Confirm moving to next week keeps the same page structure.
+- Confirm Export Team Meeting no longer hides or replaces the on-page answers.
