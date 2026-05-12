@@ -47,14 +47,19 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
   const exceedsStandard = isSelfEvalEveryWeekThisMonth(selected, cadenceCards);
 
   const trendData = useMemo(() => {
-    const byWeek: Record<string, { total: number; count: number }> = {};
+    const byWeek: Record<string, { total: number; count: number; sortKey: string }> = {};
     trend.filter(s => !!s.submitted_at).forEach(s => {
-      const wk = format(new Date(s.class_date), 'MMM d');
-      if (!byWeek[wk]) byWeek[wk] = { total: 0, count: 0 };
+      const d = new Date(s.class_date);
+      const wk = format(d, 'MMM d');
+      const sortKey = format(d, 'yyyy-MM-dd');
+      if (!byWeek[wk]) byWeek[wk] = { total: 0, count: 0, sortKey };
       byWeek[wk].total += s.total_score;
       byWeek[wk].count += 1;
     });
-    return Object.entries(byWeek).map(([week, v]) => ({ week, avg: +(v.total / v.count).toFixed(1) }));
+    return Object.entries(byWeek)
+      .map(([week, v]) => ({ week, avg: +(v.total / v.count).toFixed(1), sortKey: v.sortKey }))
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(({ week, avg }) => ({ week, avg }));
   }, [trend]);
 
   if (isLoading) {
