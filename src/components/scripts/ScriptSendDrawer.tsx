@@ -137,6 +137,11 @@ export function ScriptSendDrawer({
     resolved = resolved.replace(/\{sa-name\}/gi, saName || '[SA Name]');
     resolved = resolved.replace(/\{sa-first-name\}/gi, saName?.split(' ')[0] || '[SA Name]');
 
+    // {sold-by-*} — SA who sold the membership / owns the intro. Falls back to logged-in SA.
+    const soldBy = soldByName || saName || '';
+    resolved = resolved.replace(/\{sold-by-name\}/gi, soldBy || '[SA Name]');
+    resolved = resolved.replace(/\{sold-by-first-name\}/gi, soldBy?.split(' ')[0] || '[SA Name]');
+
     // {first-intro-coach-name} — resolved from booking chain (intros_run.coach_name on first intro).
     // Falls back to coachContextFallback (logged-in coach on coach surfaces) and finally to placeholder.
     const firstIntroCoachFull = firstIntroCoach || (coachContextFallback ? normalizeCoachName(coachContextFallback) : null);
