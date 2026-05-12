@@ -115,7 +115,7 @@ export function cleanCoachFallbackPhrasing(text: string): string {
 export async function buildScriptContext(opts: BuildContextOpts): Promise<FullScriptContext> {
   const {
     bookingId, memberName, classDate, classTime, coachName,
-    leadSource, isSecondIntro, phone, email, saName, primaryObjection,
+    leadSource, isSecondIntro, phone, email, saName, soldByName, primaryObjection,
   } = opts;
 
   const nameParts = memberName.trim().split(/\s+/);
