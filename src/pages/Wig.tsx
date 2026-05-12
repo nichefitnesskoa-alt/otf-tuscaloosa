@@ -767,68 +767,6 @@ export default function Wig() {
           {/* SA Leaderboard with shifts/streaks/milestones/refs (NEW) */}
           <WigSaLeaderboard dateRange={dateRange} />
 
-          {/* Existing SA Lead Measures (POS Referral Ask + Packs Gifted) */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                SA Lead Measures
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {measuresLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-xs text-muted-foreground">Loading…</span>
-                </div>
-              ) : saLeadMeasures.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-4">No data for this period — all values are 0.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">SA</TableHead>
-                        <TableHead className="text-xs text-center">POS Referral Ask</TableHead>
-                        <TableHead className="text-xs text-center">Packs Gifted</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {saLeadMeasures.map(row => (
-                        <TableRow key={row.name}>
-                          <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
-                          <TableCell className="text-sm text-center p-0">
-                            <button
-                              type="button"
-                              disabled={row.referralAsks === 0}
-                              onClick={() => setSaDrill({ sa: row.name, metric: 'referralAsks' })}
-                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                            >
-                              {row.referralAsks}
-                            </button>
-                          </TableCell>
-                          <TableCell className="text-sm text-center p-0">
-                            <button
-                              type="button"
-                              disabled={row.packs === 0}
-                              onClick={() => setSaDrill({ sa: row.name, metric: 'packs' })}
-                              className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                            >
-                              {row.packs}
-                            </button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Referral Ask Tracker */}
-          <ReferralAskTracker dateRange={dateRange} />
-
           {/* Milestones & Deploy */}
           <MilestonesDeploySection dateRange={dateRange} />
         </TabsContent>
