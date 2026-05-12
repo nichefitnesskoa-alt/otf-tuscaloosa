@@ -33,8 +33,9 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 
 export default function Wig() {
   const { user } = useAuth();
-  const { introsBooked, introsRun, isLoading, lastUpdated, refreshData } = useData();
+  const { introsBooked, introsRun, isLoading, lastUpdated, refreshData, silentRefreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  useRealtimeMyDay(useCallback(() => { silentRefreshData().catch(() => {}); }, [silentRefreshData]));
 
   // Date filter — default this_month, persist in sessionStorage
   const [datePreset, setDatePreset] = useState<DatePreset>(() => {
