@@ -41,7 +41,10 @@ function formatDuration(minutes: number) {
 
 function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
   const newLeads = leads.filter(l => l.stage === 'new');
-  const contactedLeads = leads.filter(l => l.stage === 'contacted');
+  // Treat any lead that has progressed past New as "contacted" for speed-to-lead
+  const contactedLeads = leads.filter(l =>
+    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
+  );
 
   const overdue = newLeads.filter(l => differenceInMinutes(new Date(), parseISO(l.created_at)) >= 240).length;
   const warning = newLeads.filter(l => {
@@ -49,7 +52,9 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
     return m >= 60 && m < 240;
   }).length;
 
-  // Fetch first-contact time from lead_activities for accurate speed-to-lead
+  // Fetch first-contact time from lead_activities + script_send_log for accurate speed-to-lead.
+  // Bug fix: handleAction('contacted') writes activity_type='stage_change' (not 'contacted'),
+  // so the previous filter never matched. We now union multiple signals and take the earliest.
   const [responseTimes, setResponseTimes] = useState<number[]>([]);
   const [activityLoaded, setActivityLoaded] = useState(false);
 
@@ -60,32 +65,47 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
       return;
     }
     const contactedIds = contactedLeads.map(l => l.id);
-    supabase
-      .from('lead_activities')
-      .select('lead_id, created_at')
-      .in('lead_id', contactedIds)
-      .eq('activity_type', 'contacted')
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        // Build map: lead_id → earliest contact timestamp
-        const firstContactMap = new Map<string, string>();
-        for (const row of data || []) {
-          if (!firstContactMap.has(row.lead_id)) {
-            firstContactMap.set(row.lead_id, row.created_at);
-          }
+    Promise.all([
+      supabase
+        .from('lead_activities')
+        .select('lead_id, created_at, activity_type, notes')
+        .in('lead_id', contactedIds)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('script_send_log')
+        .select('lead_id, created_at')
+        .in('lead_id', contactedIds)
+        .order('created_at', { ascending: true }),
+    ]).then(([activitiesRes, sendLogRes]) => {
+      const firstContactMap = new Map<string, string>();
+      const consider = (leadId: string | null | undefined, ts: string | null | undefined) => {
+        if (!leadId || !ts) return;
+        const existing = firstContactMap.get(leadId);
+        if (!existing || ts < existing) firstContactMap.set(leadId, ts);
+      };
+      for (const row of (activitiesRes.data as any[]) || []) {
+        const isContact =
+          row.activity_type === 'contacted' ||
+          row.activity_type === 'script_sent' ||
+          (row.activity_type === 'stage_change' &&
+            typeof row.notes === 'string' &&
+            /contacted|booked/i.test(row.notes));
+        if (isContact) consider(row.lead_id, row.created_at);
+      }
+      for (const row of (sendLogRes.data as any[]) || []) {
+        consider(row.lead_id, row.created_at);
+      }
+      const times: number[] = [];
+      for (const lead of contactedLeads) {
+        const contactTime = firstContactMap.get(lead.id);
+        if (contactTime) {
+          const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
+          if (mins >= 0) times.push(mins);
         }
-        // Compute per-lead response time
-        const times: number[] = [];
-        for (const lead of contactedLeads) {
-          const contactTime = firstContactMap.get(lead.id);
-          if (contactTime) {
-            const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
-            if (mins >= 0) times.push(mins);
-          }
-        }
-        setResponseTimes(times);
-        setActivityLoaded(true);
-      });
+      }
+      setResponseTimes(times);
+      setActivityLoaded(true);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactedLeads.length, contactedLeads.map(l => l.id).join(',')]);
 
