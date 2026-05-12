@@ -215,6 +215,7 @@ export function ReferralAskActions({ dateRange }: Props) {
         leadPhone={scriptRow?.phone || null}
         categoryFilter="post_class_joined"
         saName={user?.name || 'Unknown'}
+        soldByName={scriptRow?.introOwner || null}
       />
     </>
   );
