@@ -339,6 +339,11 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
+      {/* ═══ UPCOMING INTROS (top-of-page priority) ═══ */}
+      <div className="px-4 pt-3">
+        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+      </div>
+
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-4 pt-3">
         <ClassMilestoneChecks />
