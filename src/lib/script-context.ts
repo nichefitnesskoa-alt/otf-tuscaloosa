@@ -133,6 +133,8 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
     'first-name': firstName,
     'last-name': lastName,
     'sa-name': saName,
+    'sold-by-name': soldByName || saName,
+    'sold-by-first-name': (soldByName || saName)?.split(/\s+/)[0],
     'location-name': 'Tuscaloosa',
     coach: resolvedCoach || undefined,
     'coach-name': resolvedCoach || 'your coach',
