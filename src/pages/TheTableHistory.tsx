@@ -14,7 +14,12 @@ export default function TheTableHistory() {
   const { data: meetings = [] } = useQuery({
     queryKey: ['table-history'],
     queryFn: async () => {
-      const { data } = await supabase.from('table_meetings').select('*').eq('status', 'complete').order('meeting_date', { ascending: false });
+      // Show every prior week, not just ones manually marked complete.
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from('table_meetings').select('*')
+        .lt('meeting_date', today)
+        .order('meeting_date', { ascending: false });
       return data || [];
     },
   });
