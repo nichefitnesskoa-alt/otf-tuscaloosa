@@ -101,8 +101,11 @@ export function useReferralAskQueue({ dateRange = null }: Options = {}) {
         delete copy[bookingId];
         return copy;
       });
+    } else {
+      // Refresh shared data so WIG tab and other consumers see the change.
+      silentRefreshData().catch(() => {});
     }
-  }, [user?.name]);
+  }, [user?.name, silentRefreshData]);
 
   const markAsked = useCallback((bookingId: string, reason: string) =>
     updateBooking(bookingId, { coach_referral_asked: true, referral_ask_followup_pending: false }, reason),
