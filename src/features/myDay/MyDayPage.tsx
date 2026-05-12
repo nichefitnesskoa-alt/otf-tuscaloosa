@@ -344,6 +344,11 @@ export default function MyDayPage() {
         <ClassMilestoneChecks />
       </div>
 
+      {/* ═══ ASK FOR A REFERRAL ═══ */}
+      <div className="px-4 pt-3">
+        <ReferralAskActions />
+      </div>
+
       {/* End Shift floating bar rendered below */}
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
