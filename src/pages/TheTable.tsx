@@ -820,3 +820,134 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
     </Card>
   );
 }
+
+// Collapsible "Your update — {lane}" card. Auto-collapses once locked in;
+// chevron expands so the user can edit. Unlocked entries stay open.
+function CollapsibleUpdateCard({ laneName, locked, children }: {
+  laneName: string | null; locked: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(!locked);
+  // Re-collapse if it transitions to locked (e.g. just hit "Lock in").
+  useEffect(() => { setOpen(!locked); }, [locked]);
+
+  return (
+    <Card className="p-4 mb-4 border-[#E8540A]/40">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-2 text-left"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="font-semibold truncate">Your update — {laneName || 'Ownership role unassigned'}</div>
+          {locked && <Badge className="bg-emerald-600 text-[10px]">Locked in</Badge>}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {locked && !open && <Pencil className="w-3.5 h-3.5 text-muted-foreground" />}
+          <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} />
+        </div>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </Card>
+  );
+}
+
+// One stacked card per submitted owner during live discussion. Anyone can
+// post a Build / Flag / Offer to any owner's feed — no carousel.
+function OwnerLiveCard({
+  owner, entry, ownerResponses, actions, isAdmin, currentUserName, allOwners, meetingId, onOpenAction,
+}: {
+  owner: TableOwner;
+  entry: OwnerEntry;
+  ownerResponses: TableResponse[];
+  actions: TableActionItem[];
+  isAdmin: boolean;
+  currentUserName: string | null;
+  allOwners: TableOwner[];
+  meetingId: string;
+  onOpenAction: (responseId: string, defaultDesc: string) => void;
+}) {
+  const [mode, setMode] = useState<'build' | 'flag' | 'offer' | null>(null);
+  const [text, setText] = useState('');
+
+  const submit = async () => {
+    if (!mode || !text.trim() || !currentUserName) return;
+    const me = allOwners.find(o => o.display_name === currentUserName);
+    const { error } = await supabase.from('table_responses').insert({
+      meeting_id: meetingId,
+      owner_entry_id: entry.id,
+      responder_staff_id: me?.staff_id ?? null,
+      responder_name: currentUserName,
+      mode,
+      content: text.trim(),
+      created_by: currentUserName,
+    });
+    if (error) { toast.error(error.message); return; }
+    setText(''); setMode(null);
+  };
+
+  return (
+    <Card className="p-4 mb-4">
+      <div className="mb-3">
+        <div className="text-xl font-bold">{owner.display_name}</div>
+        <div className="text-sm text-muted-foreground">{owner.lane_name || 'Ownership role unassigned'}</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
+        <EntryField label="Last week" value={entry.last_week_update} />
+        <EntryField label="This week" value={entry.this_week_focus} />
+        <EntryField label="Ideas" value={entry.ideas} />
+        <EntryField label="Ask of the room" value={entry.ask} />
+      </div>
+
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setMode('build')}>Build</Button>
+        <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setMode('flag')}>Flag</Button>
+        <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('offer')}>Offer</Button>
+      </div>
+      {mode && (
+        <div className="mb-3 flex gap-2">
+          <Input
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`Add a ${mode}…`}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          <Button onClick={submit}>Add</Button>
+          <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
+        </div>
+      )}
+      <div className="space-y-2">
+        {ownerResponses.map(r => {
+          const linkedAction = actions.find(a => a.source_response_id === r.id);
+          return (
+            <div key={r.id} className="border rounded-md p-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Badge className={cn(
+                  r.mode === 'build' && 'bg-emerald-600',
+                  r.mode === 'flag' && 'bg-red-600',
+                  r.mode === 'offer' && 'bg-[#E8540A]',
+                )}>{r.mode}</Badge>
+                <span className="font-medium">{r.responder_name}</span>
+                <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
+              </div>
+              <div className="text-sm mt-1">{r.content}</div>
+              {r.mode === 'offer' && !linkedAction && isAdmin && (
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
+                  <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
+                </Button>
+              )}
+              {linkedAction && (
+                <div className="mt-2 text-xs bg-muted p-2 rounded">
+                  Action: {linkedAction.owner_name} · due {format(new Date(linkedAction.due_date + 'T12:00:00'), 'MMM d')} · {linkedAction.status}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {ownerResponses.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-3">No responses yet. Build, Flag, or Offer.</div>
+        )}
+      </div>
+    </Card>
+  );
+}
