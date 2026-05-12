@@ -24,6 +24,8 @@ interface BuildContextOpts {
   phone?: string | null;
   email?: string | null;
   saName?: string;
+  /** SA who sold the membership / owns the intro. Resolves {sold-by-*}. */
+  soldByName?: string | null;
   primaryObjection?: string | null;
 }
 
@@ -113,7 +115,7 @@ export function cleanCoachFallbackPhrasing(text: string): string {
 export async function buildScriptContext(opts: BuildContextOpts): Promise<FullScriptContext> {
   const {
     bookingId, memberName, classDate, classTime, coachName,
-    leadSource, isSecondIntro, phone, email, saName, primaryObjection,
+    leadSource, isSecondIntro, phone, email, saName, soldByName, primaryObjection,
   } = opts;
 
   const nameParts = memberName.trim().split(/\s+/);
@@ -131,6 +133,8 @@ export async function buildScriptContext(opts: BuildContextOpts): Promise<FullSc
     'first-name': firstName,
     'last-name': lastName,
     'sa-name': saName,
+    'sold-by-name': soldByName || saName,
+    'sold-by-first-name': (soldByName || saName)?.split(/\s+/)[0],
     'location-name': 'Tuscaloosa',
     coach: resolvedCoach || undefined,
     'coach-name': resolvedCoach || 'your coach',

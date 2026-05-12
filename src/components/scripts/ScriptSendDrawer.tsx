@@ -39,6 +39,11 @@ interface ScriptSendDrawerProps {
   defaultCategory?: string | null;
   saName: string;
   /**
+   * Name of the SA who sold the membership / owns the intro. Used to resolve
+   * {sold-by-name} and {sold-by-first-name}. Falls back to saName when not provided.
+   */
+  soldByName?: string | null;
+  /**
    * Fallback for {first-intro-coach-name} when the booking lookup yields nothing.
    * Pass the logged-in coach's name on coach-only surfaces (My Intros, Coach Follow-Up).
    */
@@ -59,6 +64,7 @@ export function ScriptSendDrawer({
   categoryFilter = null,
   defaultCategory = null,
   saName,
+  soldByName = null,
   coachContextFallback = null,
   classDate = null,
   classTime = null,
@@ -130,6 +136,11 @@ export function ScriptSendDrawer({
     }
     resolved = resolved.replace(/\{sa-name\}/gi, saName || '[SA Name]');
     resolved = resolved.replace(/\{sa-first-name\}/gi, saName?.split(' ')[0] || '[SA Name]');
+
+    // {sold-by-*} — SA who sold the membership / owns the intro. Falls back to logged-in SA.
+    const soldBy = soldByName || saName || '';
+    resolved = resolved.replace(/\{sold-by-name\}/gi, soldBy || '[SA Name]');
+    resolved = resolved.replace(/\{sold-by-first-name\}/gi, soldBy?.split(' ')[0] || '[SA Name]');
 
     // {first-intro-coach-name} — resolved from booking chain (intros_run.coach_name on first intro).
     // Falls back to coachContextFallback (logged-in coach on coach surfaces) and finally to placeholder.
