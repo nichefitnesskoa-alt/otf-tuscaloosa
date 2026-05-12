@@ -64,6 +64,7 @@ export function ScriptSendDrawer({
   categoryFilter = null,
   defaultCategory = null,
   saName,
+  soldByName = null,
   coachContextFallback = null,
   classDate = null,
   classTime = null,
