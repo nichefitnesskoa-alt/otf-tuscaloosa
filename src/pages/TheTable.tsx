@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
+  nextMondayCT,
   type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
