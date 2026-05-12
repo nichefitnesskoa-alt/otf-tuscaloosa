@@ -29,6 +29,7 @@ import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntro
 import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } from '@/components/dashboard/CoachAttributionDrillDown';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
+import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 
 export default function Wig() {
   const { user } = useAuth();
