@@ -24,6 +24,8 @@ interface BuildContextOpts {
   phone?: string | null;
   email?: string | null;
   saName?: string;
+  /** SA who sold the membership / owns the intro. Resolves {sold-by-*}. */
+  soldByName?: string | null;
   primaryObjection?: string | null;
 }
 
