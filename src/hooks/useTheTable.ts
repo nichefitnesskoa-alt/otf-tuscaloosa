@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { computeLaneHealth, sundayCutoffISO, type LaneHealthStatus } from '@/lib/table/laneHealth';
 
-// Returns the Monday (America/Chicago) of the current week, as YYYY-MM-DD.
+// Returns the Monday (America/Chicago) of the CURRENT week, as YYYY-MM-DD.
+// Mon-Sun all resolve to that week's Monday. Only flips on the next Monday.
 export function nextMondayCT(now: Date = new Date()): string {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Chicago',
@@ -16,9 +17,9 @@ export function nextMondayCT(now: Date = new Date()): string {
   const d = +parts.find(p => p.type === 'day')!.value;
   const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
   const dow = dayMap[day];
-  // Days until next Monday (or today if Monday)
-  const add = dow === 1 ? 0 : (8 - dow) % 7;
-  const dt = new Date(Date.UTC(y, m - 1, d + add));
+  // Days back to this week's Monday (Sun=-6 so Sunday still belongs to the week that just ended).
+  const back = dow === 0 ? -6 : 1 - dow;
+  const dt = new Date(Date.UTC(y, m - 1, d + back));
   return dt.toISOString().slice(0, 10);
 }
 
