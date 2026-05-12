@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
-  AlertTriangle, Ban, RotateCcw, Info, ExternalLink, Search, Loader2,
+  Ban, RotateCcw, Info, ExternalLink, Search, Loader2,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
@@ -41,7 +41,10 @@ function formatDuration(minutes: number) {
 
 function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
   const newLeads = leads.filter(l => l.stage === 'new');
-  const contactedLeads = leads.filter(l => l.stage === 'contacted');
+  // Treat any lead that has progressed past New as "contacted" for speed-to-lead
+  const contactedLeads = leads.filter(l =>
+    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
+  );
 
   const overdue = newLeads.filter(l => differenceInMinutes(new Date(), parseISO(l.created_at)) >= 240).length;
   const warning = newLeads.filter(l => {
@@ -49,7 +52,9 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
     return m >= 60 && m < 240;
   }).length;
 
-  // Fetch first-contact time from lead_activities for accurate speed-to-lead
+  // Fetch first-contact time from lead_activities + script_send_log for accurate speed-to-lead.
+  // Bug fix: handleAction('contacted') writes activity_type='stage_change' (not 'contacted'),
+  // so the previous filter never matched. We now union multiple signals and take the earliest.
   const [responseTimes, setResponseTimes] = useState<number[]>([]);
   const [activityLoaded, setActivityLoaded] = useState(false);
 
@@ -60,32 +65,47 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
       return;
     }
     const contactedIds = contactedLeads.map(l => l.id);
-    supabase
-      .from('lead_activities')
-      .select('lead_id, created_at')
-      .in('lead_id', contactedIds)
-      .eq('activity_type', 'contacted')
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        // Build map: lead_id → earliest contact timestamp
-        const firstContactMap = new Map<string, string>();
-        for (const row of data || []) {
-          if (!firstContactMap.has(row.lead_id)) {
-            firstContactMap.set(row.lead_id, row.created_at);
-          }
+    Promise.all([
+      supabase
+        .from('lead_activities')
+        .select('lead_id, created_at, activity_type, notes')
+        .in('lead_id', contactedIds)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('script_send_log')
+        .select('lead_id, created_at')
+        .in('lead_id', contactedIds)
+        .order('created_at', { ascending: true }),
+    ]).then(([activitiesRes, sendLogRes]) => {
+      const firstContactMap = new Map<string, string>();
+      const consider = (leadId: string | null | undefined, ts: string | null | undefined) => {
+        if (!leadId || !ts) return;
+        const existing = firstContactMap.get(leadId);
+        if (!existing || ts < existing) firstContactMap.set(leadId, ts);
+      };
+      for (const row of (activitiesRes.data as any[]) || []) {
+        const isContact =
+          row.activity_type === 'contacted' ||
+          row.activity_type === 'script_sent' ||
+          (row.activity_type === 'stage_change' &&
+            typeof row.notes === 'string' &&
+            /contacted|booked/i.test(row.notes));
+        if (isContact) consider(row.lead_id, row.created_at);
+      }
+      for (const row of (sendLogRes.data as any[]) || []) {
+        consider(row.lead_id, row.created_at);
+      }
+      const times: number[] = [];
+      for (const lead of contactedLeads) {
+        const contactTime = firstContactMap.get(lead.id);
+        if (contactTime) {
+          const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
+          if (mins >= 0) times.push(mins);
         }
-        // Compute per-lead response time
-        const times: number[] = [];
-        for (const lead of contactedLeads) {
-          const contactTime = firstContactMap.get(lead.id);
-          if (contactTime) {
-            const mins = differenceInMinutes(parseISO(contactTime), parseISO(lead.created_at));
-            if (mins >= 0) times.push(mins);
-          }
-        }
-        setResponseTimes(times);
-        setActivityLoaded(true);
-      });
+      }
+      setResponseTimes(times);
+      setActivityLoaded(true);
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactedLeads.length, contactedLeads.map(l => l.id).join(',')]);
 
@@ -380,7 +400,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [loading, setLoading] = useState(true);
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
-  const [subTab, setSubTab] = useState('new');
+  const [subTab, setSubTab] = useState('contacted');
   const dedupRunning = useRef(false);
   // Stable refs so backgroundDedupRecheck doesn't change identity each render (avoids React #300)
   const leadsRef = useRef<Lead[]>([]);
@@ -546,10 +566,11 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   } : {};
 
   const newLeads = leads.filter(l => l.stage === 'new');
-  const flaggedLeads = leads.filter(l => l.stage === 'flagged');
-  const contactedLeads = leads.filter(l => l.stage === 'contacted');
   const bookedLeads = leads.filter(l => l.stage === 'booked' || l.stage === 'won');
-  const alreadyInSystem = leads.filter(l => l.stage === 'already_in_system');
+  // Contacted = anyone past New (includes booked/won). New leads live in NewLeadsAlert.
+  const contactedLeads = leads.filter(l =>
+    l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
+  );
 
   const renderList = (list: Lead[], emptyLabel: string) => {
     if (loading) return <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>;
@@ -568,15 +589,6 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
       <SpeedToLeadBanner leads={leads} />
       <Tabs value={subTab} onValueChange={setSubTab}>
         <TabsList className="w-full flex h-auto gap-0.5 bg-muted/60 p-0.5 rounded-lg flex-wrap">
-          <TabsTrigger value="new" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            New
-            {newLeads.length > 0 && <Badge variant="destructive" className="h-3.5 px-1 text-[9px] min-w-[16px]">{newLeads.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="flagged" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            <AlertTriangle className="w-3 h-3" />
-            Flagged
-            {flaggedLeads.length > 0 && <Badge className="h-3.5 px-1 text-[9px] min-w-[16px] bg-amber-500 text-white">{flaggedLeads.length}</Badge>}
-          </TabsTrigger>
           <TabsTrigger value="contacted" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             Contacted
             {contactedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{contactedLeads.length}</Badge>}
@@ -585,21 +597,12 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
             Booked
             {bookedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{bookedLeads.length}</Badge>}
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex-1 text-[10px] py-1.5 flex items-center gap-1 justify-center rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
-            In System
-            {alreadyInSystem.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{alreadyInSystem.length}</Badge>}
-          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new" className="mt-2">
-          {renderList([...newLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'new')}
-        </TabsContent>
-        <TabsContent value="flagged" className="mt-2">{renderList(flaggedLeads, 'flagged')}</TabsContent>
         <TabsContent value="contacted" className="mt-2">
           {renderList([...contactedLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'contacted')}
         </TabsContent>
         <TabsContent value="booked" className="mt-2">{renderList(bookedLeads, 'booked')}</TabsContent>
-        <TabsContent value="system" className="mt-2">{renderList(alreadyInSystem, 'already-in-system')}</TabsContent>
       </Tabs>
 
       {bookLead && (
