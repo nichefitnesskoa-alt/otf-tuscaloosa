@@ -60,6 +60,7 @@ import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
 import { TodaysActions } from './TodaysActions';
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
+import { ReferralAskActions } from './ReferralAskActions';
 
 export default function MyDayPage() {
   const { user } = useAuth();
