@@ -1,27 +1,48 @@
-Two small changes.
+## Problem
 
-### 1. Show full script bodies in Send Script drawer
+When an SA marks a member as "Done — asked them" (or "Reach out after") on MyDay, the change saves to `intros_booked` but:
 
-`src/components/scripts/ScriptSendDrawer.tsx` — line 311 currently slices the preview at 100 chars and adds `...`. That's the only place script bodies get truncated.
+1. The WIG tab doesn't reflect the new counts/state until a hard refresh.
+2. On MyDay itself, the row sometimes lingers because the optimistic override only lives inside that one hook instance.
 
-Change:
-- Drop the `truncated` slice. Render the full resolved body in a `whitespace-pre-wrap` block so paragraph breaks and emoji stay readable.
-- Keep the existing card / Copy to Clipboard layout, just let height grow with content. The drawer already sits inside a `ScrollArea`, so longer cards just scroll.
+Root cause: `useReferralAskQueue` writes to Supabase, but `DataContext` (the source of `introsBooked`/`introsRun` for both surfaces) is never told to refetch. Each component's local `overrides` state is isolated, and there is no realtime subscription on `intros_booked` for the referral-ask fields.
 
-Result: every script in the list shows its complete text at a glance. No "expand" toggle needed because the drawer scrolls.
+The MyDay filter `!r.coachReferralAsked` is already correct — once the data layer reflects `coach_referral_asked = true`, the row drops automatically. The fix is making sure the data layer actually updates everywhere.
 
-### 2. Move Upcoming Intros up on My Day
+## Plan
 
-Today the order on `/my-day` is: floating header → reminder banner → Today's Actions → **Shift Checklist (Today's Shift)** → Class Milestone Checks → Ask for a Referral → Activity Tracker → Tabs (Intros / Leads / Follow-Up / Scripts), with `UpcomingIntrosCard` living inside the Intros tab.
+### 1. Trigger a shared refresh after every referral-ask mutation
 
-Change in `src/features/myDay/MyDayPage.tsx`:
-- Add `<UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />` directly under the Shift Checklist block, above Class Milestone Checks.
-- Remove the duplicate mount inside `<TabsContent value="intros">` so it doesn't render twice on the same page (Intros tab keeps `NewLeadsAlert` + `TodayActivityLog`; the upcoming list is now permanently visible above the tabs).
-- Intros tab badge count (`todayBookingsCount`) keeps working — it reads from the same data hook, not from the card mount.
+In `src/features/referralAsk/useReferralAskQueue.ts`:
+
+- Pull `refreshData` (and `silentRefreshData` if exposed) from `useData()`.
+- After the Supabase update succeeds in `updateBooking`, call `silentRefreshData()` (preferred — no flicker) so `DataContext.introsBooked` re-reads the new `coach_referral_asked` / `referral_ask_followup_pending` values.
+- Keep the optimistic `overrides` map for instant UI feedback; once the refetch lands with the real values the override and the source agree, so behavior stays smooth.
+
+This single change makes both surfaces converge:
+- MyDay: row drops out of `visibleRows` (filter already excludes `coachReferralAsked`).
+- WIG `ReferralAskTracker`: counts and the per-member list update because they read from the same `introsBooked` slice.
+
+### 2. Make sure WIG counts re-render even without a re-mount
+
+`ReferralAskTracker` already calls `useReferralAskQueue` with the same data source, so a `DataContext` refetch will re-derive its memoized `rows`, `pendingCount`, and `completedCount`. No extra wiring needed once step 1 lands — verify by:
+- MyDay: click "Done — asked them" on a pending row → row disappears from the list immediately, "to do" count drops by 1, "asked" count goes up by 1.
+- Switch to WIG → counts and member status reflect the same change without refresh.
+
+### 3. Belt-and-suspenders: realtime fallback
+
+`useRealtimeMyDay` already subscribes to `intros_booked` on MyDay. Add the same subscription path for the WIG page so a second SA marking someone "asked" on another device updates the open WIG tab too. Concretely: in `src/pages/Wig.tsx`, mount `useRealtimeMyDay(refreshData)` (or a slimmer hook scoped to `intros_booked`) so any external change repaints the tracker.
 
 ### Coherence check before done
 
-- `/my-day` renders Upcoming Intros once, directly under Shift Checklist.
-- Intros tab still loads (NewLeadsAlert + TodayActivityLog) and the tab badge still counts today's intros.
-- Send Script drawer (opened from Ask for a Referral, Today's Activity, Class Milestone Checks, Coach My Intros, etc.) shows full script bodies, scrolls when long.
-- No other consumer of `UpcomingIntrosCard` was relying on it being inside the Intros tab — quick rg confirms it's only mounted in `MyDayPage.tsx`.
+- MyDay → click Done: row disappears, counts shift, no flicker.
+- WIG tab open in a second window → counts and "Asked / Follow up pending / To do" badges update within ~1s.
+- "Reach out after" still leaves the row visible with the warning badge (followupPending=true, coachReferralAsked=false), and a subsequent Done removes it.
+- Verify `pendingCount` on WIG equals MyDay's "to do" count for the same date range.
+
+### Files to touch
+
+- `src/features/referralAsk/useReferralAskQueue.ts` — call `silentRefreshData()` after successful update; revert override only on error (already does).
+- `src/pages/Wig.tsx` — wire `useRealtimeMyDay(refreshData)` (or equivalent) so other-device updates land live.
+
+No DB migration, no UI restructuring, no new components.

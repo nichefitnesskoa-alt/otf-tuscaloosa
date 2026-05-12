@@ -35,7 +35,7 @@ type Override = { coach_referral_asked?: boolean; referral_ask_followup_pending?
 
 export function useReferralAskQueue({ dateRange = null }: Options = {}) {
   const { user } = useAuth();
-  const { introsRun, introsBooked, isLoading } = useData();
+  const { introsRun, introsBooked, isLoading, silentRefreshData } = useData();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
 
@@ -101,8 +101,11 @@ export function useReferralAskQueue({ dateRange = null }: Options = {}) {
         delete copy[bookingId];
         return copy;
       });
+    } else {
+      // Refresh shared data so WIG tab and other consumers see the change.
+      silentRefreshData().catch(() => {});
     }
-  }, [user?.name]);
+  }, [user?.name, silentRefreshData]);
 
   const markAsked = useCallback((bookingId: string, reason: string) =>
     updateBooking(bookingId, { coach_referral_asked: true, referral_ask_followup_pending: false }, reason),
