@@ -74,9 +74,6 @@ export default function TheTable() {
   const [manageOpen, setManageOpen] = useState(false);
   const [winOpen, setWinOpen] = useState(false);
   const [winText, setWinText] = useState('');
-  const [activeOwnerIdx, setActiveOwnerIdx] = useState(0);
-  const [responseMode, setResponseMode] = useState<'build' | 'flag' | 'offer' | null>(null);
-  const [responseText, setResponseText] = useState('');
   const [actionDialog, setActionDialog] = useState<{ responseId: string; defaultDesc: string } | null>(null);
 
   // Self owner records (one row per lane). Architect doesn't appear here, so Koa never has any.
