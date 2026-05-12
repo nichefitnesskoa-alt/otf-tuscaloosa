@@ -39,6 +39,11 @@ interface ScriptSendDrawerProps {
   defaultCategory?: string | null;
   saName: string;
   /**
+   * Name of the SA who sold the membership / owns the intro. Used to resolve
+   * {sold-by-name} and {sold-by-first-name}. Falls back to saName when not provided.
+   */
+  soldByName?: string | null;
+  /**
    * Fallback for {first-intro-coach-name} when the booking lookup yields nothing.
    * Pass the logged-in coach's name on coach-only surfaces (My Intros, Coach Follow-Up).
    */
