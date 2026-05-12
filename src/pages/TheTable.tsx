@@ -236,15 +236,15 @@ export default function TheTable() {
         <MyLanesManager myOwners={myOwners} onChanged={() => qc.invalidateQueries({ queryKey: ['table-owners'] })} />
       )}
 
-      {/* Owner self-entry — one card per lane the user owns */}
+      {/* Owner self-entry — one collapsible card per lane the user owns */}
       {myOwners.map(mine => {
         const myEntry = entries.find(e => e.owner_id === mine.id);
         return (
-          <Card key={mine.id} className="p-4 mb-4 border-[#E8540A]/40">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold">Your update — {mine.lane_name || 'Ownership role unassigned'}</div>
-              {myEntry?.submitted_at && <Badge className="bg-emerald-600">Locked in</Badge>}
-            </div>
+          <CollapsibleUpdateCard
+            key={mine.id}
+            laneName={mine.lane_name}
+            locked={!!myEntry?.submitted_at}
+          >
             <p className="text-xs text-muted-foreground mb-3">Say the thing you'd normally soften.</p>
             <OwnerEntryForm
               meetingId={meeting.id}
@@ -252,67 +252,37 @@ export default function TheTable() {
               entry={myEntry}
               onChange={() => refresh('table-entries')}
             />
-          </Card>
+          </CollapsibleUpdateCard>
         );
       })}
 
-      {/* Owner dashboard */}
+      {/* What the Owners brought — single roster of every owner (self + peers) */}
       <Card className="p-4 mb-4">
-        <div className="font-semibold mb-3">Owners ({owners.length})</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="font-semibold mb-3">What the Owners brought</div>
+        <div className="space-y-3">
           {owners.map(o => {
             const e = entries.find(en => en.owner_id === o.id);
-            const submitted = !!e?.submitted_at;
-            const health = laneHealth[o.id];
             return (
-              <div key={o.id} className="flex items-center gap-3 border rounded-md p-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className={cn('w-3 h-3 rounded-full shrink-0', HEALTH_DOT[health?.status ?? 'red'])} />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="text-xs space-y-1">
-                      <div>{health?.submittedOnTime ? '✓' : '✗'} Submitted on time</div>
-                      <div>{health?.receivedResponse ? '✓' : '✗'} Got a response</div>
-                      <div>{health?.actionItemProgressed ? '✓' : '✗'} Action moved forward</div>
-                      <div className="pt-1 mt-1 border-t border-border/50 italic text-muted-foreground">Yellow is not failure. Yellow is honest.</div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{o.display_name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{o.lane_name || 'Ownership role unassigned'}</div>
+              <div key={o.id} className="border rounded-md p-3">
+                <div className="flex items-center justify-between mb-1 gap-2">
+                  <div className="font-medium text-sm">{o.display_name} · {o.lane_name || '—'}</div>
+                  <Badge
+                    variant={e?.submitted_at ? 'default' : 'outline'}
+                    className={e?.submitted_at ? 'bg-emerald-600 text-[10px]' : 'text-amber-600 border-amber-600 text-[10px]'}
+                  >
+                    {e?.submitted_at ? 'Locked in' : 'Not yet'}
+                  </Badge>
                 </div>
-                <Badge variant={submitted ? 'default' : 'outline'} className={submitted ? 'bg-emerald-600' : 'text-amber-600 border-amber-600'}>
-                  {submitted ? 'Locked in' : 'Not yet'}
-                </Badge>
+                {e?.submitted_at ? (
+                  <PeerEntry entry={e} />
+                ) : (
+                  <div className="text-xs text-muted-foreground italic">Not locked in yet</div>
+                )}
               </div>
             );
           })}
         </div>
       </Card>
-
-      {/* Peer entries — always visible to everyone */}
-      {owners.some(o => !myOwners.some(m => m.id === o.id)) && (
-        <Card className="p-4 mb-4">
-          <div className="font-semibold mb-3">What other Owners brought</div>
-          <div className="space-y-3">
-            {owners.filter(o => !myOwners.some(m => m.id === o.id)).map(o => {
-              const e = entries.find(en => en.owner_id === o.id);
-              return (
-                <div key={o.id} className="border rounded-md p-3">
-                  <div className="font-medium text-sm mb-1">{o.display_name} · {o.lane_name || '—'}</div>
-                  {e?.submitted_at ? (
-                    <PeerEntry entry={e} />
-                  ) : (
-                    <div className="text-xs text-muted-foreground italic">Not locked in yet</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
     </>
   );
 
