@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Flag, Plus, ChevronLeft, ChevronRight, Settings, History, Trophy, Check, X } from 'lucide-react';
+import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
