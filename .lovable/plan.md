@@ -1,87 +1,48 @@
-**EDITS**
+## Goal
 
-**1. Add the revert-then-re-purchase case explicitly.**
+Make "Ask for a referral" something SAs actually act on inside their daily workflow (MyDay), and leave WIG with the at-a-glance accountability stats only.
 
-Plan covers: first purchase, tier edit, revert to Showed. It does not cover: revert to Showed, then re-mark Purchased. Current logic would soft-delete the run, then create a second one on re-purchase.
+## What changes
 
-Add this rule to `convertVipPurchaseToIntro.ts`:
+### 1. New card on MyDay — `ReferralAskActions`
+- Lives in `src/features/myDay/ReferralAskActions.tsx`, rendered inside MyDay (under `TodaysActions`, above `ClassMilestoneChecks`).
+- Pulls the same data the WIG tracker uses today: every `intros_run` SALE in the last ~14 days whose linked `intros_booked` is non-VIP, non-deleted, and `coach_referral_asked = false`.
+- Sort: oldest sale first (so 24-hr SLA is obvious). Hide rows that have been asked. Optional "Show completed" toggle (off by default).
+- Each row shows: member name, sold-by, sale date, urgency dot (red >24h, amber pending, gray fresh), plus four buttons (44px, full labels):
+  1. **Send script** — opens `ScriptSendDrawer` with member context (name, phone, intro_owner) and the referral-ask category preselected. Auto-logs script send via existing logger (same pattern as `NewLeadsAlert`).
+  2. **Copy phone** — copies the booking's `phone_number` (10-digit normalized) and toasts "Copied 205-555-1212". Disabled with tooltip if no phone on file.
+  3. **Asked at POS** — sets `coach_referral_asked = true`, clears `referral_ask_followup_pending`. Reason: "POS referral ask logged on MyDay".
+  4. **Reached out after** — same write, reason: "Referral asked after the fact from MyDay". If row is in `followupPending` state, collapses to a single **Done — asked them** button (mirrors current WIG behavior).
+- Optimistic update + revert on error (lift the existing `updateBooking` helper into a shared hook — see refactor below).
+- Realtime: relies on existing `useRealtimeMyDay` subscription to `intros_booked` so coach edits flow in live.
 
-Before creating any new booking/run pair, check `vip_registrations.converted_to_booking_id`. If a soft-deleted booking already exists for this registration, **reactivate it** instead of creating a new one. Set `booking_status_canon = 'SHOWED'`, `ignore_from_metrics = false`, update the run with the new membership and commission. No second row ever created for the same VIP registration.
+### 2. WIG `ReferralAskTracker` becomes stats-only
+- Strip the per-row action buttons (Asked at POS / Reached out after / Done) from `src/components/dashboard/ReferralAskTracker.tsx`.
+- Keep:
+  - Header + goal copy
+  - "X to do · Y asked" pills with drill-downs
+  - Per-SA completion rate (already in `Wig.tsx` SA Lead Measures table — unchanged)
+  - Show-completed toggle + the read-only list of members with status badges (Asked / Pending / To do)
+- Remove the now-unused `handleAskedAtPos`, `handleAskLater`, `handleDoneLater`, `updateBooking`, `savingId`, `overrides` from this component (they move to the shared hook).
+- Add a small "Log asks in MyDay → Today's actions" hint line under the header so SAs know where to act.
 
-**2. Lock the coach assignment before save is possible.**
+### 3. Shared hook — single source of truth
+- Extract the data + mutation logic into `src/features/referralAsk/useReferralAskQueue.ts`:
+  - Returns `{ rows, pendingCount, completedCount, isLoading, markAsked, markFollowupPending }`.
+  - Both MyDay's new card and WIG's stats card consume it. Guarantees the numbers on both pages always match.
+- Pulls phone from `intros_booked.phone_number` (already on the row) so MyDay's copy button doesn't need an extra fetch.
 
-Plan says `coach_name = the VIP class coach saved at the top of the sheet.` If no coach is saved at the top of the sheet, the SA should not be able to save a purchase. Disable the Save Purchase button with the reason "Select a class coach first" if `coach_name` is null. Otherwise you get SALE rows with no coach and the commission goes nowhere.
-
-**3. Coherence check needs one more case.**
-
-Plan's coherence checklist is good. Add: verify the WIG `Sales` count excludes rows where `ignore_from_metrics = true`. If the soft-cancel sets that flag but the WIG query doesn't filter on it, a reverted VIP purchase still shows as a sale on the scoreboard.
-
-Search `useWigData` or equivalent for every query that counts SALE rows. Confirm all of them include `ignore_from_metrics = false` or `is null` as a filter condition. This is a root cause check, not a patch.  
-  
-Goal
-
-In the VIP Group sheet on My Day, when an attendee is marked **Purchased**, capture which membership they bought (drives commission and credits the VIP class coach), and make that attendee show up on the coach side as an evaluable intro so the coach can run a First Visit Scorecard on them just like a normal intro.
-
-## What changes (UI)
-
-`**src/features/myDay/VipRegistrationsSheet.tsx` — per-attendee row**
-
-When the SA selects `Purchased` from the outcome dropdown, inline below the row reveal:
-
-- A **Membership** select with the 6 canonical tiers (same list used in `OutcomeEditor`):
-  - Premier + OTBeat ($15.00)
-  - Premier w/o OTBeat ($7.50)
-  - Elite + OTBeat ($12.00)
-  - Elite w/o OTBeat ($6.00)
-  - Basic + OTBeat ($9.00)
-  - Basic w/o OTBeat ($3.00)
-- A **Save purchase** button (disabled until membership picked).
-
-Until membership is picked the outcome stays in a "needs membership" state — visible amber dot on the row, summary roll-up still counts them as attended but flags `1 purchase needs membership selected`.
-
-After save: row shows `Purchased — Premier + OTBeat — $15.00` with an inline edit pencil to change the tier later.
-
-## What happens on save (data)
-
-When SA confirms the membership for a VIP attendee:
-
-1. Update the existing `vip_registrations` row with `outcome = 'purchased'`, plus three new columns (added by migration): `membership_type`, `commission_amount`, `purchased_at`.
-2. **Auto-create a paired intros_booked + intros_run pair** so the purchase flows into all standard reporting (WIG, commission, coach close-rate) and so the coach can scorecard it. Mirror what `ConvertVipToIntroDialog` already does, but in one shot:
-  - `intros_booked`: `member_name`, `phone`, `email` from the registration. `class_date` = vip session date. `intro_time` = vip session time. `coach_name` = the VIP class coach saved at the top of the sheet. `lead_source = 'VIP Class'`. `is_vip = false`. `booking_type_canon = 'STANDARD'`. `booking_status_canon = 'SHOWED'`. `vip_session_id` set so the link is preserved. `intro_owner` = VIP class coach (per existing rule: VIP class coach gets sale credit).
-  - `intros_run`: `linked_intro_booked_id` = new booking id, `member_name`, `class_date`, `class_time`, `coach_name` = VIP coach, `result = membership label`, `result_canon = 'SALE'`, `commission_amount` = tier commission, `buy_date = today`, `is_vip = false`, `vip_session_id` preserved, `lead_source = 'VIP Class'`.
-  - On the original VIP registration row store `converted_to_booking_id` / `converted_to_run_id` to prevent duplicate creation if the SA re-saves.
-3. If the SA later changes the membership tier on the same row, **update** the existing `intros_run` (result + commission) instead of creating a new one. If they change the outcome away from Purchased, soft-cancel the auto-created booking/run (`booking_status_canon = 'DELETED_SOFT'`, `ignore_from_metrics = true`, edit reason `VIP purchase undone`).
-
-## Coach side
-
-Because the auto-created `intros_booked` row now exists with the VIP coach as `coach_name`, the VIP purchaser:
-
-- Appears on **Coach View** and **My Intros** for that coach on the VIP session date, flagged with the existing `VIP Class Intro` badge (already supported via `vip_session_id`).
-- The coach can open the card and run the **First Visit Scorecard** through the existing `useScorecards({ firstTimerId: booking.id })` flow in `CoachIntroCard.tsx` — no changes needed there because it keys on `intros_booked.id`.
-
-## Database migration
-
-Add to `vip_registrations`:
-
-- `membership_type text null`
-- `commission_amount numeric null`
-- `purchased_at timestamptz null`
-- `converted_to_booking_id uuid null`
-- `converted_to_run_id uuid null`
-
-No RLS changes (table already public-policy per existing pattern). No backfill — existing `purchased` rows simply won't have membership/commission until a SA edits them.
-
-## Coherence checks before reporting done
-
-- VIP purchase commission shows on the coach's commission view = sum of new `intros_run.commission_amount` rows where `vip_session_id` is set.
-- WIG `Sales` count for the day matches: standard SALE rows + VIP-converted SALE rows, no double counting.
-- Coach View on the VIP date shows the purchaser as an intro card with `VIP Class Intro` badge, scorecard button works, scorecard saves keyed on the new booking id.
-- Editing membership tier updates the same `intros_run`, doesn't create a second SALE row.
-- Reverting outcome from Purchased → Showed soft-deletes the auto-booking and removes the SALE from reports.
+### 4. Coherence checks before "done"
+- Pending count shown on MyDay = pending count shown on WIG (same hook).
+- Marking "Asked at POS" on MyDay → WIG row flips to Asked instantly via realtime.
+- Per-SA WIG leaderboard `referralAsks` still increments (writes to the same `coach_referral_asked` column the leaderboard already counts).
+- VIP sales remain excluded everywhere (single filter inside the hook).
 
 ## Files touched
+- New: `src/features/referralAsk/useReferralAskQueue.ts`
+- New: `src/features/myDay/ReferralAskActions.tsx`
+- Edit: `src/features/myDay/MyDayPage.tsx` (mount the new card)
+- Edit: `src/components/dashboard/ReferralAskTracker.tsx` (strip actions, use shared hook)
 
-- new migration: add 5 columns to `vip_registrations`
-- `src/features/myDay/VipRegistrationsSheet.tsx` — membership picker + save handler + create/update intros_booked & intros_run + edit affordance
-- new helper `src/lib/vip/convertVipPurchaseToIntro.ts` — single source of truth for the booking/run create/update/soft-cancel logic
-- `src/integrations/supabase/types.ts` — auto-regenerated after migration
+## Open question (1)
+Phone field on `intros_booked` — confirm the column name is `phone_number`. If the booking row doesn't carry phone, I'll join `leads` by `lead_id` inside the hook. Either way the Copy phone button only appears when a phone exists.
