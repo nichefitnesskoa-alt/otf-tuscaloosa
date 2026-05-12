@@ -295,8 +295,8 @@ export default function TheTable() {
         </div>
       </Card>
 
-      {/* Peer entries (visible after I've submitted at least one lane) */}
-      {myEntries.some(e => e.submitted_at) && (
+      {/* Peer entries — always visible to everyone */}
+      {owners.some(o => !myOwners.some(m => m.id === o.id)) && (
         <Card className="p-4 mb-4">
           <div className="font-semibold mb-3">What other Owners brought</div>
           <div className="space-y-3">
