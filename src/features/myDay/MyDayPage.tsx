@@ -406,6 +406,20 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
+      {/* ═══ UPCOMING INTROS ═══ */}
+      <div className="px-4 pt-3">
+        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+      </div>
+
+      {/* ═══ CLASS MILESTONE CHECKS ═══ */}
+      <div className="px-4 pt-3">
+        <ClassMilestoneChecks />
+      </div>
+
+      {/* ═══ ASK FOR A REFERRAL ═══ */}
+      <div className="px-4 pt-3">
+        <ReferralAskActions />
+      </div>
 
 
       {/* ═══ FLOATING END SHIFT BAR ═══ */}
