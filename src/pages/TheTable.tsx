@@ -41,6 +41,13 @@ function formatMeetingTime(t: string): string {
   return `${h}:${m} ${period}`;
 }
 
+// Shift a YYYY-MM-DD date by N days (UTC math, output safe for Monday-anchored CT keys).
+function shiftDate(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
 export default function TheTable() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'Admin';
@@ -48,7 +55,10 @@ export default function TheTable() {
   const qc = useQueryClient();
   const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();
 
-  const { data: meeting, isLoading } = useCurrentMeeting(paramMeetingId);
+  const currentMonday = nextMondayCT();
+  const [weekDate, setWeekDate] = useState<string>(currentMonday);
+
+  const { data: meeting, isLoading } = useCurrentMeeting({ meetingId: paramMeetingId, weekDate });
   const { data: owners = [] } = useActiveOwners();
   const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
