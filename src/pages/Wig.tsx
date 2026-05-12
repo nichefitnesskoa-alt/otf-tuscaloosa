@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploySection';
-import { ReferralAskTracker } from '@/components/dashboard/ReferralAskTracker';
+
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
 import { COACHES } from '@/types';
