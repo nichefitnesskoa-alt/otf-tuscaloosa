@@ -469,39 +469,31 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
-      {!meeting ? (
-        <Card className="p-8 text-center text-muted-foreground">
-          No Own It record for the week of {format(new Date(effectiveWeek + 'T12:00:00'), 'MMM d, yyyy')}.
-        </Card>
-      ) : (
-        <>
-          {carryBlock}
-          <div className="mb-3 flex justify-between items-center">
-            {winButton}
-            <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
-          </div>
+      {carryBlock}
+      <div className="mb-3 flex justify-between items-center">
+        {winButton}
+        <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
+      </div>
 
-          {phase === 'past' && completeView}
-          {phase === 'current' && (
-            <>
-              {preMeetingView}
-              {submittedOwners.length > 0 && (
-                <div className="mt-6">
-                  <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
-                  {liveView}
-                </div>
-              )}
-              {(actions.length > 0 || isAdmin) && (
-                <div className="mt-6">
-                  <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
-                  {completeView}
-                </div>
-              )}
-            </>
+      {phase === 'past' && completeView}
+      {phase === 'current' && (
+        <>
+          {preMeetingView}
+          {submittedOwners.length > 0 && (
+            <div className="mt-6">
+              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
+              {liveView}
+            </div>
           )}
-          {phase === 'future' && preMeetingView}
+          {(actions.length > 0 || isAdmin) && (
+            <div className="mt-6">
+              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
+              {completeView}
+            </div>
+          )}
         </>
       )}
+      {phase === 'future' && preMeetingView}
 
       <ManageOwnersDialog open={manageOpen} onOpenChange={setManageOpen} />
 
