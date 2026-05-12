@@ -154,6 +154,16 @@ export default function TheTable() {
   );
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading…</div>;
+  if (!meeting) {
+    return (
+      <div className="p-4 max-w-4xl mx-auto pb-24">
+        {header}
+        <Card className="p-8 text-center text-muted-foreground">
+          No Own It record for the week of {format(new Date(effectiveWeek + 'T12:00:00'), 'MMM d, yyyy')}.
+        </Card>
+      </div>
+    );
+  }
 
   // ---------- Carry-forward ----------
   const carryBlock = carryForward.length > 0 && (
