@@ -475,47 +475,20 @@ export default function TheTable() {
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
       </div>
 
-      {phase === 'past' && (
-        <>
-          <Card className="p-4 mb-4">
-            <div className="font-semibold mb-3">What Owners brought</div>
-            <div className="space-y-3">
-              {owners.map(o => {
-                const e = entries.find(en => en.owner_id === o.id);
-                return (
-                  <div key={o.id} className="border rounded-md p-3">
-                    <div className="font-medium text-sm mb-1">{o.display_name} · {o.lane_name || '—'}</div>
-                    {e?.submitted_at ? (
-                      <PeerEntry entry={e} />
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">Did not lock in</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+      {/* Same layout for past / current / future — answers always visible on the page. */}
+      {preMeetingView}
+      {submittedOwners.length > 0 && (
+        <div className="mt-6">
+          <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
+          {liveView}
+        </div>
+      )}
+      {(actions.length > 0 || isAdmin) && (
+        <div className="mt-6">
+          <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
           {completeView}
-        </>
+        </div>
       )}
-      {phase === 'current' && (
-        <>
-          {preMeetingView}
-          {submittedOwners.length > 0 && (
-            <div className="mt-6">
-              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
-              {liveView}
-            </div>
-          )}
-          {(actions.length > 0 || isAdmin) && (
-            <div className="mt-6">
-              <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
-              {completeView}
-            </div>
-          )}
-        </>
-      )}
-      {phase === 'future' && preMeetingView}
 
       <ManageOwnersDialog open={manageOpen} onOpenChange={setManageOpen} />
 
