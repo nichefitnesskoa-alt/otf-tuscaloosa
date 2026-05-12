@@ -339,6 +339,11 @@ export default function MyDayPage() {
         <ShiftChecklist />
       </div>
 
+      {/* ═══ UPCOMING INTROS (top-of-page priority) ═══ */}
+      <div className="px-4 pt-3">
+        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
+      </div>
+
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-4 pt-3">
         <ClassMilestoneChecks />
@@ -398,7 +403,6 @@ export default function MyDayPage() {
           <TabsContent value="intros" className="mt-0 space-y-3">
             <NewLeadsAlert />
             <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
-            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
           </TabsContent>
 
           <TabsContent value="scripts" className="mt-0 space-y-3">
