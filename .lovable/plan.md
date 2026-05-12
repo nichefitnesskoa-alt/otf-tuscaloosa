@@ -1,43 +1,68 @@
-## MyDay Leads — Tab Cleanup + Speed to Lead Fix
+## Own It — Week navigator + auto-complete
 
-### 1. Reduce sub-tabs from 5 → 2
-File: `src/features/myDay/MyDayNewLeadsTab.tsx`
+### Problem
+- Past meetings only show in history if they were manually marked `complete`. Last week's meeting never got marked, so it disappeared from view.
+- The Upcoming / Live / Complete dropdown is friction. Status should be inferred from the date, not chosen.
+- There's no way to walk forward/back through weeks. Everyone needs to see prior results and plan ahead.
 
-Remove the `New`, `Flagged`, and `In System` tabs entirely. Final tab list:
-- **Contacted** — every lead that has been reached at least once, **including** leads now in `booked`/`won`. Filter: `stage IN ('contacted','booked','won')`.
-- **Booked** — only `stage IN ('booked','won')` (unchanged behavior, just becomes the second tab).
+### Changes
 
-Default `subTab` becomes `'contacted'`.
+**1. Auto-complete past meetings (`src/hooks/useTheTable.ts` — `useCurrentMeeting`)**
+On every load of a meeting, after fetching, compare `meeting_date` to today's Monday in America/Chicago:
+- If `meeting_date < currentMondayCT` AND `status !== 'complete'` → write `status = 'complete'` and refetch.
+- This recovers Kaiya's prior week silently the first time anyone opens the page.
 
-Drop the related JSX: `<TabsTrigger value="new|flagged|system">`, the matching `<TabsContent>` blocks, and the unused derived arrays (`newLeads`, `flaggedLeads`, `alreadyInSystem`). Keep `newLeads` derivation only where still needed (Speed-to-Lead banner and `onCountChange` so the parent badge still reflects fresh-new count).
+**2. Week navigator on `src/pages/TheTable.tsx`**
+Replace the status `<Select>` in the header with a week stepper, modeled on Upcoming Intros:
 
-LeadCard branches for `isNew` / `isFlagged` stay (they may still appear inside Contacted view if a lead's stage is technically still `new` — but since we no longer surface them here, those branches are simply unreachable from this tab). No changes to LeadCard logic, just no entry point.
+```text
+[‹ Prev week]   Week of Mon, May 11   [Today]   [Next week ›]
+```
 
-### 2. Keep overdue New leads visible at-a-glance
-File: `src/features/myDay/NewLeadsAlert.tsx` — already renders all `stage='new'` leads from the last 48h that haven't been contacted/booked. No change needed; this becomes the only surface for New leads, exactly as requested ("stay in the at a glance section till they end up going in contacted or booked").
+- State: `weekDate: string` (YYYY-MM-DD, always a Monday in CT). Default = `nextMondayCT()`.
+- `‹` / `›` buttons shift `weekDate` by ±7 days.
+- `Today` button resets to `nextMondayCT()`.
+- All staff see the controls (not just admin) — the user said "everyone should be able to move weeks".
 
-The Speed-to-Lead banner inside `MyDayNewLeadsTab` is removed from the top of the tab block (it's redundant now that New leads aren't a tab) and **moved up into / next to** the NewLeadsAlert area, OR kept inline above the Contacted/Booked tabs. Recommended: keep it above the tabs since it still summarizes overdue/avg response across all leads loaded here. CONFIRM THIS VALUE — keep banner above tabs vs. remove it entirely.
+**3. `useCurrentMeeting` accepts a target date**
+Change signature to `useCurrentMeeting({ meetingId?, weekDate? })`:
+- If `meetingId` → load that row by id (deep-link path stays intact).
+- Else → load by `meeting_date = weekDate`. If no row exists:
+  - For the **current** week → auto-create as today (existing behavior, status `upcoming`).
+  - For **past** weeks → return `null` and show an empty-state card ("No Own It record for week of …"). Don't auto-create historical rows.
+  - For **future** weeks → auto-create with status `upcoming` so users can plan ahead. (CONFIRM THIS VALUE — auto-create future weeks vs. require admin to seed them. Default plan: auto-create.)
 
-### 3. Fix "Speed to Lead isn't working"
-File: `src/features/myDay/MyDayNewLeadsTab.tsx` (`SpeedToLeadBanner` + per-card `responseMinutes`).
+**4. Drop the status selector + status badge from the header**
+- Remove the `Upcoming / Live / Complete` `<Select>` entirely.
+- Replace the status `<Badge>` next to the meeting date with a derived label:
+  - `weekDate < currentMonday` → "Past"
+  - `weekDate === currentMonday` → "This week"
+  - `weekDate > currentMonday` → "Upcoming"
 
-Root cause: the banner queries `lead_activities` filtering `activity_type = 'contacted'`, but `handleAction('contacted')` writes `activity_type: 'stage_change'` with `notes: 'Marked as Contacted from MyDay'`. No rows ever match → always "No contacts yet" / `Avg: —`.
+**5. Phase = derived, not stored**
+The page currently branches on `meeting.status` to show preMeetingView / liveView / completeView. Replace with:
+- `weekDate < currentMonday` → render `completeView` (read-only-friendly summary + action items + Koa close).
+- `weekDate === currentMonday` → render the existing pre-meeting view (lanes, owner cards, peer entries) AND show the live carousel inline below it, so the meeting flows naturally without a status flip. (CONFIRM THIS VALUE — combine into one view vs. keep separate live phase.)
+- `weekDate > currentMonday` → render `preMeetingView` only (planning ahead, owners draft entries early).
 
-Fix:
-- Replace the filter with: `activity_type IN ('contacted','stage_change','script_sent')` and on the client take the earliest row per `lead_id` whose `activity_type='contacted'` OR (`activity_type='stage_change'` AND `notes ILIKE '%contacted%'`) OR `activity_type='script_sent'`.
-- Also union with `script_send_log` (earliest `created_at` per `lead_id`) so a script send counts as first touch even if no stage flip happened.
-- Use `Math.min(stageChangeFirst, scriptSendFirst)` per lead vs. `lead.created_at` for response minutes.
-- Apply the same union in the per-card `responseMinutes` computation (currently `parseISO(lead.updated_at) - parseISO(lead.created_at)` which is unreliable).
+This eliminates the need to ever click "Live" or "Complete".
 
-### 4. Coherence checks before done
-- Parent `onCountChange` still receives count of `stage='new'` leads → tab badge / FAB count unchanged.
-- `NewLeadsAlert` continues to show overdue news; verify a brand-new lead appears there and disappears once moved to Contacted (already handled by its realtime channel + 60s refetch).
-- Verify Contacted tab now lists booked leads too (a booked lead should appear in BOTH Contacted and Booked).
-- Verify Speed to Lead shows real Avg/Best after marking a lead Contacted, and per-card "Responded in Xm" appears.
-- Confirm no broken imports (`AlertTriangle` may become unused — clean up).
+**6. Keep `/the-table/history`**
+History page stays for the searchable archive view. Update its filter from `status = 'complete'` to `meeting_date < currentMonday` so it surfaces every prior week, including ones that were never manually closed.
 
 ### Files touched
-- `src/features/myDay/MyDayNewLeadsTab.tsx` (tab removal + speed-to-lead query fix)
+- `src/hooks/useTheTable.ts` — `useCurrentMeeting` (date-aware, auto-complete past)
+- `src/pages/TheTable.tsx` — week stepper header, derived phase, drop status select
+- `src/pages/TheTableHistory.tsx` — broaden the history query
 
-### Open question
-Keep the Speed-to-Lead banner visible above the Contacted/Booked tabs, or remove it now that New isn't a tab here? (Default plan: keep it.)
+### Coherence verification
+- Open Own It on a Monday morning → sees current week, status badge "This week", lanes editable.
+- Click `‹` once → loads last week, action items + wins visible read-only, history reachable.
+- Click `›` past today → empty future week, can pre-write lane entries.
+- Past unclosed meeting auto-flips to `complete` once anyone navigates to it; appears in `/the-table/history` afterward.
+- Deep-link `/the-table/:meetingId` still works (uses meetingId branch).
+- Carry-forward block still loads (it's keyed by `meeting?.id`, not status).
+
+### Open questions
+- Auto-create future weekly rows on navigate? (Default: yes, status `upcoming`.)
+- Combine pre-meeting + live into one screen for the current week? (Default: yes, removes the "Live" toggle entirely.)
