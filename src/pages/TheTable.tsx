@@ -14,7 +14,7 @@ import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
   nextMondayCT,
-  type OwnerEntry, type TableOwner,
+  type OwnerEntry, type TableOwner, type TableResponse, type TableActionItem,
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
