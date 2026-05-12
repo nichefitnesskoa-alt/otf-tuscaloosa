@@ -286,112 +286,42 @@ export default function TheTable() {
     </>
   );
 
-  // ---------- Live meeting view ----------
+  // ---------- Live meeting view (stacked, everyone visible) ----------
   const submittedOwners = owners.filter(o => entries.some(e => e.owner_id === o.id && e.submitted_at));
-  const activeOwner = submittedOwners[activeOwnerIdx];
-  const activeEntry = activeOwner ? entries.find(e => e.owner_id === activeOwner.id) : null;
-  const activeResponses = activeEntry ? responses.filter(r => r.owner_entry_id === activeEntry.id) : [];
 
-  const submitResponse = async () => {
-    if (!responseMode || !responseText.trim() || !activeEntry || !user?.name) return;
-    const me = owners.find(o => o.display_name === user.name);
-    const { error } = await supabase.from('table_responses').insert({
-      meeting_id: meeting.id, owner_entry_id: activeEntry.id,
-      responder_staff_id: me?.staff_id ?? null, responder_name: user.name,
-      mode: responseMode, content: responseText.trim(), created_by: user.name,
-    });
-    if (error) { toast.error(error.message); return; }
-    setResponseText(''); setResponseMode(null);
-  };
-
-  const liveView = activeOwner && activeEntry ? (
-    <>
-      <Card className="p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          {isAdmin && (
-            <Button size="sm" variant="outline" onClick={() => setActiveOwnerIdx(i => Math.max(0, i - 1))} disabled={activeOwnerIdx === 0}>
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-          )}
-          <div className="flex-1 text-center">
-            <div className="text-2xl font-bold">{activeOwner.display_name}</div>
-            <div className="text-sm text-muted-foreground">{activeOwner.lane_name || 'Ownership role unassigned'}</div>
-            <div className="text-xs text-muted-foreground mt-1">{activeOwnerIdx + 1} of {submittedOwners.length}</div>
-          </div>
-          {isAdmin && (
-            <Button size="sm" variant="outline" onClick={() => setActiveOwnerIdx(i => Math.min(submittedOwners.length - 1, i + 1))} disabled={activeOwnerIdx >= submittedOwners.length - 1}>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <EntryField label="Last week" value={activeEntry.last_week_update} />
-          <EntryField label="This week" value={activeEntry.this_week_focus} />
-          <EntryField label="Ideas" value={activeEntry.ideas} />
-          <EntryField label="Ask of the room" value={activeEntry.ask} />
-        </div>
-      </Card>
-
-      {/* Response feed */}
-      <Card className="p-4 mb-4">
-        <div className="flex gap-2 mb-3">
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setResponseMode('build')}>
-            Build
-          </Button>
-          <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setResponseMode('flag')}>
-            Flag
-          </Button>
-          <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setResponseMode('offer')}>
-            Offer
-          </Button>
-        </div>
-        {responseMode && (
-          <div className="mb-3 flex gap-2">
-            <Input
-              autoFocus
-              value={responseText}
-              onChange={(e) => setResponseText(e.target.value)}
-              placeholder={`Add a ${responseMode}…`}
-              onKeyDown={(e) => e.key === 'Enter' && submitResponse()}
-            />
-            <Button onClick={submitResponse}>Add</Button>
-            <Button variant="ghost" onClick={() => { setResponseMode(null); setResponseText(''); }}>Cancel</Button>
-          </div>
-        )}
-        <div className="space-y-2">
-          {activeResponses.map(r => {
-            const linkedAction = actions.find(a => a.source_response_id === r.id);
-            return (
-              <div key={r.id} className="border rounded-md p-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Badge className={cn(
-                    r.mode === 'build' && 'bg-emerald-600',
-                    r.mode === 'flag' && 'bg-red-600',
-                    r.mode === 'offer' && 'bg-[#E8540A]',
-                  )}>{r.mode}</Badge>
-                  <span className="font-medium">{r.responder_name}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
-                </div>
-                <div className="text-sm mt-1">{r.content}</div>
-                {r.mode === 'offer' && !linkedAction && isAdmin && (
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => setActionDialog({ responseId: r.id, defaultDesc: r.content })}>
-                    <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
-                  </Button>
-                )}
-                {linkedAction && (
-                  <div className="mt-2 text-xs bg-muted p-2 rounded">
-                    Action: {linkedAction.owner_name} · due {format(new Date(linkedAction.due_date + 'T12:00:00'), 'MMM d')} · {linkedAction.status}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {activeResponses.length === 0 && <div className="text-sm text-muted-foreground text-center py-4">No responses yet. Build, Flag, or Offer.</div>}
-        </div>
-      </Card>
-    </>
-  ) : (
+  const liveView = submittedOwners.length === 0 ? (
     <Card className="p-8 text-center text-muted-foreground">No Owners have locked in updates yet.</Card>
+  ) : (
+    <>
+      <Card className="p-3 mb-4 bg-muted/40">
+        <div className="text-xs font-semibold mb-2">How to respond:</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div><Badge className="bg-emerald-600 mr-1">Build</Badge> Add to the idea, push it forward.</div>
+          <div><Badge className="bg-red-600 mr-1">Flag</Badge> Name a risk or concern.</div>
+          <div><Badge className="bg-[#E8540A] mr-1">Offer</Badge> Commit to do something about it.</div>
+        </div>
+      </Card>
+
+      {submittedOwners.map(o => {
+        const entry = entries.find(e => e.owner_id === o.id);
+        if (!entry) return null;
+        const ownerResponses = responses.filter(r => r.owner_entry_id === entry.id);
+        return (
+          <OwnerLiveCard
+            key={o.id}
+            owner={o}
+            entry={entry}
+            ownerResponses={ownerResponses}
+            actions={actions}
+            isAdmin={isAdmin}
+            currentUserName={user?.name ?? null}
+            allOwners={owners}
+            meetingId={meeting.id}
+            onOpenAction={(rid, desc) => setActionDialog({ responseId: rid, defaultDesc: desc })}
+          />
+        );
+      })}
+    </>
   );
 
   // ---------- Complete view ----------
