@@ -492,17 +492,22 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
 
           {(() => {
             const searchTerm = celSearch.toLowerCase().trim();
-            const filtered = searchTerm
-              ? milestones.filter(m =>
-                  m.member_name.toLowerCase().includes(searchTerm) ||
-                  (m.friend_name || '').toLowerCase().includes(searchTerm)
-                )
-              : milestones;
+            if (!searchTerm) {
+              return (
+                <p className="text-[11px] text-muted-foreground text-center py-2">
+                  Tap a tile above to drill into members. Search by name to edit.
+                </p>
+              );
+            }
+            const filtered = milestones.filter(m =>
+              m.member_name.toLowerCase().includes(searchTerm) ||
+              (m.friend_name || '').toLowerCase().includes(searchTerm)
+            );
 
             return loading ? (
               <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
             ) : filtered.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">{searchTerm ? 'No matches found.' : 'No celebrations this week.'}</p>
+              <p className="text-xs text-muted-foreground text-center py-4">No matches found.</p>
             ) : (
               <Card className="divide-y divide-border">
                 {filtered.map(m => (
