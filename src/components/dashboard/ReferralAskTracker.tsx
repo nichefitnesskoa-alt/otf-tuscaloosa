@@ -1,116 +1,33 @@
+/**
+ * ReferralAskTracker — WIG accountability view (read-only stats).
+ *
+ * Actions live on MyDay (see ReferralAskActions). This card is purely for
+ * visibility on the WIG tab: counts, drill-downs, and the per-member status
+ * list. Both surfaces share useReferralAskQueue so the numbers always agree.
+ */
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Users, Check, Clock, Loader2 } from 'lucide-react';
-import { useData } from '@/context/DataContext';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { isSaleInRange, getRunSaleDate } from '@/lib/sales-detection';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { toast } from 'sonner';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { useReferralAskQueue } from '@/features/referralAsk/useReferralAskQueue';
 import type { DateRange } from '@/lib/pay-period';
 
 interface Props {
   dateRange: DateRange | null;
 }
 
-interface Row {
-  bookingId: string;
-  memberName: string;
-  introOwner: string;
-  saleDate: string;
-  coachReferralAsked: boolean;
-  followupPending: boolean;
-}
-
 export function ReferralAskTracker({ dateRange }: Props) {
-  const { user } = useAuth();
-  const { introsRun, introsBooked, isLoading } = useData();
+  const { rows, pendingCount, completedCount, isLoading } = useReferralAskQueue({ dateRange });
   const [showCompleted, setShowCompleted] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  // Local optimistic overrides for fields we mutate
-  const [overrides, setOverrides] = useState<Record<string, { coach_referral_asked?: boolean; referral_ask_followup_pending?: boolean }>>({});
-
-  const bookingMap = useMemo(() => {
-    const m = new Map<string, any>();
-    (introsBooked || []).forEach((b: any) => m.set(b.id, b));
-    return m;
-  }, [introsBooked]);
-
-  const rows: Row[] = useMemo(() => {
-    const sales = (introsRun || []).filter((r: any) => isSaleInRange(r, dateRange));
-    const result: Row[] = [];
-    for (const run of sales) {
-      const bookingId = (run as any).linked_intro_booked_id;
-      if (!bookingId) continue;
-      const b = bookingMap.get(bookingId);
-      if (!b) continue;
-      if (b.is_vip) continue;
-      const status = (b.booking_status_canon || '').toUpperCase();
-      if (status === 'DELETED_SOFT') continue;
-      const ov = overrides[bookingId] || {};
-      result.push({
-        bookingId,
-        memberName: b.member_name || 'Unknown',
-        introOwner: b.intro_owner || b.booked_by || 'Unknown',
-        saleDate: getRunSaleDate(run as any),
-        coachReferralAsked: ov.coach_referral_asked ?? !!b.coach_referral_asked,
-        followupPending: ov.referral_ask_followup_pending ?? !!(b as any).referral_ask_followup_pending,
-      });
-    }
-    // Sort: pending follow-ups first, then not-yet-asked, then completed; newest first
-    return result.sort((a, b) => {
-      const score = (r: Row) => r.coachReferralAsked ? 2 : (r.followupPending ? 1 : 0);
-      const sa = score(a), sb = score(b);
-      if (sa !== sb) return sa - sb;
-      return b.saleDate.localeCompare(a.saleDate);
-    });
-  }, [introsRun, bookingMap, dateRange, overrides]);
+  const [drill, setDrill] = useState<'pending' | 'completed' | null>(null);
 
   const visibleRows = showCompleted ? rows : rows.filter(r => !r.coachReferralAsked);
-  const completedCount = rows.filter(r => r.coachReferralAsked).length;
-  const pendingCount = rows.filter(r => !r.coachReferralAsked).length;
 
-  const updateBooking = async (bookingId: string, updates: { coach_referral_asked?: boolean; referral_ask_followup_pending?: boolean }, reason: string) => {
-    setSavingId(bookingId);
-    setOverrides(prev => ({ ...prev, [bookingId]: { ...(prev[bookingId] || {}), ...updates } }));
-    const { error } = await supabase
-      .from('intros_booked')
-      .update({
-        ...updates,
-        last_edited_by: user?.name || 'Unknown',
-        last_edited_at: new Date().toISOString(),
-        edit_reason: reason,
-      } as any)
-      .eq('id', bookingId);
-    setSavingId(null);
-    if (error) {
-      toast.error('Failed to save — try again');
-      // revert
-      setOverrides(prev => {
-        const copy = { ...prev };
-        delete copy[bookingId];
-        return copy;
-      });
-      return;
-    }
-  };
-
-  const handleAskedAtPos = (r: Row) =>
-    updateBooking(r.bookingId, { coach_referral_asked: true, referral_ask_followup_pending: false }, 'POS referral ask logged on WIG');
-
-  const handleAskLater = (r: Row) =>
-    updateBooking(r.bookingId, { referral_ask_followup_pending: true }, 'Referral ask deferred from WIG');
-
-  const handleDoneLater = (r: Row) =>
-    updateBooking(r.bookingId, { coach_referral_asked: true, referral_ask_followup_pending: false }, 'Referral asked after the fact from WIG');
-
-  const [drill, setDrill] = useState<'pending' | 'completed' | null>(null);
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
     const list = drill === 'pending' ? rows.filter(r => !r.coachReferralAsked) : rows.filter(r => r.coachReferralAsked);
@@ -125,55 +42,56 @@ export function ReferralAskTracker({ dateRange }: Props) {
 
   return (
     <>
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Users className="w-4 h-4 text-primary" />
-          Ask for a referral
-        </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">
-          Goal: every new member gets a referral ask within 24 hours of joining — at the POS desk if you can, or by text right after. Their warmest "yes" is the friend they'd bring next.
-        </p>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="px-4 py-2 border-b flex items-center justify-between">
-          <div className="flex items-center gap-1 text-xs">
-            <DrillNumber value={pendingCount} onClick={() => setDrill('pending')} ariaLabel={`View ${pendingCount} pending referral asks`} tone="destructive" className="text-xs" />
-            <span className="text-muted-foreground">to do</span>
-            <DrillNumber value={completedCount} onClick={() => setDrill('completed')} ariaLabel={`View ${completedCount} completed referral asks`} tone="success" className="text-xs ml-2" />
-            <span className="text-muted-foreground">asked</span>
-          </div>
-          {completedCount > 0 && (
-            <div className="flex items-center gap-2">
-              <Switch id="show-completed-ref" checked={showCompleted} onCheckedChange={setShowCompleted} />
-              <Label htmlFor="show-completed-ref" className="text-xs text-muted-foreground cursor-pointer">Show completed</Label>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            Ask for a referral
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Goal: every new member gets a referral ask within 24 hours of joining — at the POS desk if you can, or by text right after.
+          </p>
+          <p className="text-[11px] text-primary mt-1">
+            Log asks from <span className="font-semibold">My Day → Ask for a referral</span>.
+          </p>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="px-4 py-2 border-b flex items-center justify-between">
+            <div className="flex items-center gap-1 text-xs">
+              <DrillNumber value={pendingCount} onClick={() => setDrill('pending')} ariaLabel={`View ${pendingCount} pending referral asks`} tone="destructive" className="text-xs" />
+              <span className="text-muted-foreground">to do</span>
+              <DrillNumber value={completedCount} onClick={() => setDrill('completed')} ariaLabel={`View ${completedCount} completed referral asks`} tone="success" className="text-xs ml-2" />
+              <span className="text-muted-foreground">asked</span>
             </div>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
-            <span className="text-xs text-muted-foreground">Loading…</span>
+            {completedCount > 0 && (
+              <div className="flex items-center gap-2">
+                <Switch id="show-completed-ref" checked={showCompleted} onCheckedChange={setShowCompleted} />
+                <Label htmlFor="show-completed-ref" className="text-xs text-muted-foreground cursor-pointer">Show completed</Label>
+              </div>
+            )}
           </div>
-        ) : rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">
-            No membership sales in this period — nothing to ask about yet.
-          </p>
-        ) : visibleRows.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-6">
-            All caught up — every new member has been asked.
-          </p>
-        ) : (
-          <div className="divide-y divide-border">
-            {visibleRows.map(r => {
-              const saving = savingId === r.bookingId;
-              const dateLabel = (() => {
-                try { return format(parseLocalDate(r.saleDate), 'MMM d'); } catch { return r.saleDate; }
-              })();
-              return (
-                <div key={r.bookingId} className="p-3 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
+              <span className="text-xs text-muted-foreground">Loading…</span>
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              No membership sales in this period — nothing to ask about yet.
+            </p>
+          ) : visibleRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              All caught up — every new member has been asked.
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {visibleRows.map(r => {
+                const dateLabel = (() => {
+                  try { return format(parseLocalDate(r.saleDate), 'MMM d'); } catch { return r.saleDate; }
+                })();
+                return (
+                  <div key={r.bookingId} className="p-3 flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{r.memberName}</span>
                     <span className="text-[11px] text-muted-foreground">sold by {r.introOwner} · {dateLabel}</span>
                     {r.coachReferralAsked ? (
@@ -184,57 +102,26 @@ export function ReferralAskTracker({ dateRange }: Props) {
                       <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">
                         <Clock className="w-2.5 h-2.5 mr-0.5" /> Follow up pending
                       </Badge>
-                    ) : null}
+                    ) : (
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/15 text-[9px] h-4">
+                        To do
+                      </Badge>
+                    )}
                   </div>
-                  {!r.coachReferralAsked && (
-                    <div className="flex flex-wrap gap-2">
-                      {r.followupPending ? (
-                        <Button
-                          size="sm"
-                          className="h-9 text-xs"
-                          onClick={() => handleDoneLater(r)}
-                          disabled={saving}
-                        >
-                          <Check className="w-3.5 h-3.5 mr-1" /> Done — asked them
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            className="h-9 text-xs"
-                            onClick={() => handleAskedAtPos(r)}
-                            disabled={saving}
-                          >
-                            <Check className="w-3.5 h-3.5 mr-1" /> Asked at POS
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 text-xs"
-                            onClick={() => handleDoneLater(r)}
-                            disabled={saving}
-                          >
-                            <Check className="w-3.5 h-3.5 mr-1" /> Reached out after
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-    <PersonListDrillDown
-      open={!!drill}
-      onOpenChange={(o) => { if (!o) setDrill(null); }}
-      title={drill === 'pending' ? 'Referral asks to do' : 'Referral asks completed'}
-      scopeBadge="WIG tab"
-      rows={drillRows}
-      emptyText="Nothing here."
-    />
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <PersonListDrillDown
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        title={drill === 'pending' ? 'Referral asks to do' : 'Referral asks completed'}
+        scopeBadge="WIG tab"
+        rows={drillRows}
+        emptyText="Nothing here."
+      />
     </>
   );
 }
