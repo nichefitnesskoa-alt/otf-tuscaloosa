@@ -475,7 +475,29 @@ export default function TheTable() {
         <div className="text-xs text-muted-foreground">{wins.length} wins this week</div>
       </div>
 
-      {phase === 'past' && completeView}
+      {phase === 'past' && (
+        <>
+          <Card className="p-4 mb-4">
+            <div className="font-semibold mb-3">What Owners brought</div>
+            <div className="space-y-3">
+              {owners.map(o => {
+                const e = entries.find(en => en.owner_id === o.id);
+                return (
+                  <div key={o.id} className="border rounded-md p-3">
+                    <div className="font-medium text-sm mb-1">{o.display_name} · {o.lane_name || '—'}</div>
+                    {e?.submitted_at ? (
+                      <PeerEntry entry={e} />
+                    ) : (
+                      <div className="text-xs text-muted-foreground italic">Did not lock in</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+          {completeView}
+        </>
+      )}
       {phase === 'current' && (
         <>
           {preMeetingView}
