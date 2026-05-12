@@ -308,7 +308,6 @@ export function ScriptSendDrawer({
               filtered.map(t => {
                 const isCopied = copiedId === t.id;
                 const preview = resolveMergeFields(t.body);
-                const truncated = preview.length > 100 ? preview.slice(0, 100) + '...' : preview;
 
                 return (
                   <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
@@ -316,7 +315,7 @@ export function ScriptSendDrawer({
                       <span className="text-sm font-semibold">{t.name}</span>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{t.category}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{truncated}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{preview}</p>
                     <Button
                       className={cn(
                         'w-full min-h-[44px] text-[13px] font-medium gap-1.5 cursor-pointer',
