@@ -35,7 +35,7 @@ type Override = { coach_referral_asked?: boolean; referral_ask_followup_pending?
 
 export function useReferralAskQueue({ dateRange = null }: Options = {}) {
   const { user } = useAuth();
-  const { introsRun, introsBooked, isLoading } = useData();
+  const { introsRun, introsBooked, isLoading, silentRefreshData } = useData();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
 
