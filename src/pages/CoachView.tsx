@@ -234,6 +234,7 @@ export default function CoachView() {
 
   return (
     <div className="p-4 space-y-4" style={{ fontSize: '16px' }}>
+      <OwnItMentionsCard />
       {/* ═══ HEADER — greeting + user + logout (Coach only; Admins use global Header) ═══ */}
       {isCoachLike && (
         <div className="sticky top-0 z-20 bg-background border-b-2 border-primary px-4 py-3 shadow-sm -mx-4 -mt-4 mb-4">
