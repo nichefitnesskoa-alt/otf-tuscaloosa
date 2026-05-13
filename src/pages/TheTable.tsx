@@ -917,14 +917,22 @@ function OwnerLiveCard({
         <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('offer')}>Offer</Button>
       </div>
       {mode && (
-        <div className="mb-3 flex gap-2">
-          <Input
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={`Add a ${mode}…`}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-          />
+        <div className="mb-3 flex gap-2 items-start">
+          <div className="flex-1">
+            <MentionInput
+              variant="input"
+              autoFocus
+              value={text}
+              onChange={setText}
+              placeholder={`Add a ${mode}… (type @ to tag)`}
+              onKeyDown={(e: any) => e.key === 'Enter' && submit()}
+            />
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {mode === 'build' && 'Build — stack on the idea, add a missing angle.'}
+              {mode === 'flag' && 'Flag — name a risk or what could go wrong.'}
+              {mode === 'offer' && 'Offer — commit to a specific action you\'ll take.'}
+            </div>
+          </div>
           <Button onClick={submit}>Add</Button>
           <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
         </div>
