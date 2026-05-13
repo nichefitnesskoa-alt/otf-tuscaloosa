@@ -300,7 +300,7 @@ export default function TheTable() {
         <div className="text-sm font-semibold mb-3">How to respond</div>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <Badge className="bg-emerald-600 shrink-0">Build</Badge>
+            <Badge className="bg-emerald-600 shrink-0">Add</Badge>
             <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
           </div>
           <div className="flex gap-2">
@@ -308,7 +308,7 @@ export default function TheTable() {
             <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
           </div>
           <div className="flex gap-2">
-            <Badge className="bg-[#E8540A] shrink-0">Offer</Badge>
+            <Badge className="bg-[#E8540A] shrink-0">Own It</Badge>
             <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
           </div>
         </div>
