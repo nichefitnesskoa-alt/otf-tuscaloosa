@@ -875,7 +875,7 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
 }
 
 // One stacked card per submitted owner during live discussion. Anyone can
-// post a Build / Flag / Offer to any owner's feed — no carousel.
+// post an Add / Flag / Own It to any owner's feed — no carousel.
 function OwnerLiveCard({
   owner, entry, ownerResponses, actions, isAdmin, currentUserName, allOwners, meetingId, onOpenAction,
 }: {
@@ -889,7 +889,7 @@ function OwnerLiveCard({
   meetingId: string;
   onOpenAction: (responseId: string, defaultDesc: string) => void;
 }) {
-  const [mode, setMode] = useState<'build' | 'flag' | 'offer' | null>(null);
+  const [mode, setMode] = useState<'add' | 'flag' | 'own_it' | null>(null);
   const [text, setText] = useState('');
 
   const submit = async () => {
