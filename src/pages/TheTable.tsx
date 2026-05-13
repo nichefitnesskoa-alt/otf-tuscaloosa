@@ -905,10 +905,10 @@ function OwnerLiveCard({
         <div className="text-sm text-muted-foreground">{owner.lane_name || 'Ownership role unassigned'}</div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
-        <EntryField label="Last week" value={entry.last_week_update} />
-        <EntryField label="This week" value={entry.this_week_focus} />
-        <EntryField label="Ideas" value={entry.ideas} />
-        <EntryField label="Ask of the room" value={entry.ask} />
+        <EntryFieldMention label="Last week" value={entry.last_week_update} viewerName={currentUserName} />
+        <EntryFieldMention label="This week" value={entry.this_week_focus} viewerName={currentUserName} />
+        <EntryFieldMention label="Ideas" value={entry.ideas} viewerName={currentUserName} />
+        <EntryFieldMention label="Ask of the room" value={entry.ask} viewerName={currentUserName} />
       </div>
 
       <div className="flex gap-2 mb-3 flex-wrap">
