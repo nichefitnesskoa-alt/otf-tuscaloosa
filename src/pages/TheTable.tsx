@@ -414,7 +414,7 @@ export default function TheTable() {
               </SelectContent>
             </Select>
           )}
-          <Textarea value={winText} onChange={(e) => setWinText(e.target.value)} placeholder="Big or small — log it." className="min-h-[100px]" />
+          <MentionInput value={winText} onChange={setWinText} placeholder="Big or small — log it. Type @ to tag." className="min-h-[100px]" />
           <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={async () => {
             if (!winText.trim() || !user?.name) return;
             await supabase.from('table_wins').insert({
@@ -668,10 +668,20 @@ function EntryField({ label, value }: { label: string; value: string | null }) {
 function PeerEntry({ entry }: { entry: OwnerEntry }) {
   return (
     <div className="space-y-1 text-xs">
-      {entry.last_week_update && <div><b>Last week:</b> {entry.last_week_update}</div>}
-      {entry.this_week_focus && <div><b>This week:</b> {entry.this_week_focus}</div>}
-      {entry.ideas && <div><b>Ideas:</b> {entry.ideas}</div>}
-      {entry.ask && <div><b>Ask:</b> {entry.ask}</div>}
+      {entry.last_week_update && <div><b>Last week:</b> <MentionText text={entry.last_week_update} /></div>}
+      {entry.this_week_focus && <div><b>This week:</b> <MentionText text={entry.this_week_focus} /></div>}
+      {entry.ideas && <div><b>Ideas:</b> <MentionText text={entry.ideas} /></div>}
+      {entry.ask && <div><b>Ask:</b> <MentionText text={entry.ask} /></div>}
+    </div>
+  );
+}
+
+function EntryFieldMention({ label, value, viewerName }: { label: string; value: string | null; viewerName: string | null }) {
+  if (!value) return <div className="text-muted-foreground italic text-xs">{label}: —</div>;
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+      <div className="text-sm"><MentionText text={value} viewerName={viewerName} /></div>
     </div>
   );
 }
@@ -905,10 +915,10 @@ function OwnerLiveCard({
         <div className="text-sm text-muted-foreground">{owner.lane_name || 'Ownership role unassigned'}</div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
-        <EntryField label="Last week" value={entry.last_week_update} />
-        <EntryField label="This week" value={entry.this_week_focus} />
-        <EntryField label="Ideas" value={entry.ideas} />
-        <EntryField label="Ask of the room" value={entry.ask} />
+        <EntryFieldMention label="Last week" value={entry.last_week_update} viewerName={currentUserName} />
+        <EntryFieldMention label="This week" value={entry.this_week_focus} viewerName={currentUserName} />
+        <EntryFieldMention label="Ideas" value={entry.ideas} viewerName={currentUserName} />
+        <EntryFieldMention label="Ask of the room" value={entry.ask} viewerName={currentUserName} />
       </div>
 
       <div className="flex gap-2 mb-3 flex-wrap">
@@ -917,14 +927,22 @@ function OwnerLiveCard({
         <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('offer')}>Offer</Button>
       </div>
       {mode && (
-        <div className="mb-3 flex gap-2">
-          <Input
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={`Add a ${mode}…`}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-          />
+        <div className="mb-3 flex gap-2 items-start">
+          <div className="flex-1">
+            <MentionInput
+              variant="input"
+              autoFocus
+              value={text}
+              onChange={setText}
+              placeholder={`Add a ${mode}… (type @ to tag)`}
+              onKeyDown={(e: any) => e.key === 'Enter' && submit()}
+            />
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {mode === 'build' && 'Build — stack on the idea, add a missing angle.'}
+              {mode === 'flag' && 'Flag — name a risk or what could go wrong.'}
+              {mode === 'offer' && 'Offer — commit to a specific action you\'ll take.'}
+            </div>
+          </div>
           <Button onClick={submit}>Add</Button>
           <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
         </div>
@@ -943,7 +961,7 @@ function OwnerLiveCard({
                 <span className="font-medium">{r.responder_name}</span>
                 <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
               </div>
-              <div className="text-sm mt-1">{r.content}</div>
+              <div className="text-sm mt-1"><MentionText text={r.content} viewerName={currentUserName} /></div>
               {r.mode === 'offer' && !linkedAction && isAdmin && (
                 <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
                   <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
