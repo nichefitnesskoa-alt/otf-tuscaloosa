@@ -961,7 +961,7 @@ function OwnerLiveCard({
                 <span className="font-medium">{r.responder_name}</span>
                 <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
               </div>
-              <div className="text-sm mt-1">{r.content}</div>
+              <div className="text-sm mt-1"><MentionText text={r.content} viewerName={currentUserName} /></div>
               {r.mode === 'offer' && !linkedAction && isAdmin && (
                 <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
                   <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
