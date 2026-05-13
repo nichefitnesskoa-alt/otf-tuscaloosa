@@ -668,10 +668,20 @@ function EntryField({ label, value }: { label: string; value: string | null }) {
 function PeerEntry({ entry }: { entry: OwnerEntry }) {
   return (
     <div className="space-y-1 text-xs">
-      {entry.last_week_update && <div><b>Last week:</b> {entry.last_week_update}</div>}
-      {entry.this_week_focus && <div><b>This week:</b> {entry.this_week_focus}</div>}
-      {entry.ideas && <div><b>Ideas:</b> {entry.ideas}</div>}
-      {entry.ask && <div><b>Ask:</b> {entry.ask}</div>}
+      {entry.last_week_update && <div><b>Last week:</b> <MentionText text={entry.last_week_update} /></div>}
+      {entry.this_week_focus && <div><b>This week:</b> <MentionText text={entry.this_week_focus} /></div>}
+      {entry.ideas && <div><b>Ideas:</b> <MentionText text={entry.ideas} /></div>}
+      {entry.ask && <div><b>Ask:</b> <MentionText text={entry.ask} /></div>}
+    </div>
+  );
+}
+
+function EntryFieldMention({ label, value, viewerName }: { label: string; value: string | null; viewerName: string | null }) {
+  if (!value) return <div className="text-muted-foreground italic text-xs">{label}: —</div>;
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+      <div className="text-sm"><MentionText text={value} viewerName={viewerName} /></div>
     </div>
   );
 }
