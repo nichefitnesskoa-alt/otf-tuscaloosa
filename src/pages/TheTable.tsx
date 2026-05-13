@@ -296,12 +296,21 @@ export default function TheTable() {
     <Card className="p-8 text-center text-muted-foreground">No Owners have locked in updates yet.</Card>
   ) : (
     <>
-      <Card className="p-3 mb-4 bg-muted/40">
-        <div className="text-xs font-semibold mb-2">How to respond:</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <div><Badge className="bg-emerald-600 mr-1">Build</Badge> Add to the idea, push it forward.</div>
-          <div><Badge className="bg-red-600 mr-1">Flag</Badge> Name a risk or concern.</div>
-          <div><Badge className="bg-[#E8540A] mr-1">Offer</Badge> Commit to do something about it.</div>
+      <Card className="p-4 mb-4 bg-muted/40">
+        <div className="text-sm font-semibold mb-3">How to respond</div>
+        <div className="space-y-2 text-sm">
+          <div className="flex gap-2">
+            <Badge className="bg-emerald-600 shrink-0">Build</Badge>
+            <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
+          </div>
+          <div className="flex gap-2">
+            <Badge className="bg-red-600 shrink-0">Flag</Badge>
+            <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
+          </div>
+          <div className="flex gap-2">
+            <Badge className="bg-[#E8540A] shrink-0">Offer</Badge>
+            <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
+          </div>
         </div>
       </Card>
 
