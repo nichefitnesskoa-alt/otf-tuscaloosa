@@ -42,7 +42,7 @@ export function HowToDialog() {
             <Flag className="w-5 h-5 text-[#E8540A] shrink-0 mt-0.5" />
             <div>
               <div className="font-semibold">Own It</div>
-              <div className="text-muted-foreground">The weekly accountability table. Lock in your update, then Build / Flag / Offer on each other.</div>
+              <div className="text-muted-foreground">The weekly accountability table. Lock in your update, then Add / Flag / Own It on each other.</div>
             </div>
           </div>
           <div className="flex gap-3">
