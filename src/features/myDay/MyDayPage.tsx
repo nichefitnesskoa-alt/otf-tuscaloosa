@@ -327,6 +327,7 @@ export default function MyDayPage() {
       </div>
 
       <OfflineBanner />
+      <OwnItMentionsCard />
       <VipClaimBanner />
 
       {/* ═══ TODAY'S ACTIONS (role-based chips) ═══ */}
