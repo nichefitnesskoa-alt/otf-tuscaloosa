@@ -414,7 +414,7 @@ export default function TheTable() {
               </SelectContent>
             </Select>
           )}
-          <Textarea value={winText} onChange={(e) => setWinText(e.target.value)} placeholder="Big or small — log it." className="min-h-[100px]" />
+          <MentionInput value={winText} onChange={setWinText} placeholder="Big or small — log it. Type @ to tag." className="min-h-[100px]" />
           <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={async () => {
             if (!winText.trim() || !user?.name) return;
             await supabase.from('table_wins').insert({
