@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { ErrorBoundary } from './errors/ErrorBoundary';
+import { HowToDialog } from './HowToDialog';
 import { useAuth } from '@/context/AuthContext';
 
 interface AppLayoutProps {
