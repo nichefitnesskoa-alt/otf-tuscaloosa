@@ -300,7 +300,7 @@ export default function TheTable() {
         <div className="text-sm font-semibold mb-3">How to respond</div>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <Badge className="bg-emerald-600 shrink-0">Build</Badge>
+            <Badge className="bg-emerald-600 shrink-0">Add</Badge>
             <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
           </div>
           <div className="flex gap-2">
@@ -308,7 +308,7 @@ export default function TheTable() {
             <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
           </div>
           <div className="flex gap-2">
-            <Badge className="bg-[#E8540A] shrink-0">Offer</Badge>
+            <Badge className="bg-[#E8540A] shrink-0">Own It</Badge>
             <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
           </div>
         </div>
@@ -426,7 +426,7 @@ export default function TheTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Action item from offer */}
+      {/* Action item from Own It */}
       {actionDialog && (
         <ActionItemDialog
           meetingId={meeting.id}
@@ -875,7 +875,7 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
 }
 
 // One stacked card per submitted owner during live discussion. Anyone can
-// post a Build / Flag / Offer to any owner's feed — no carousel.
+// post an Add / Flag / Own It to any owner's feed — no carousel.
 function OwnerLiveCard({
   owner, entry, ownerResponses, actions, isAdmin, currentUserName, allOwners, meetingId, onOpenAction,
 }: {
@@ -889,7 +889,7 @@ function OwnerLiveCard({
   meetingId: string;
   onOpenAction: (responseId: string, defaultDesc: string) => void;
 }) {
-  const [mode, setMode] = useState<'build' | 'flag' | 'offer' | null>(null);
+  const [mode, setMode] = useState<'add' | 'flag' | 'own_it' | null>(null);
   const [text, setText] = useState('');
 
   const submit = async () => {
@@ -922,9 +922,9 @@ function OwnerLiveCard({
       </div>
 
       <div className="flex gap-2 mb-3 flex-wrap">
-        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setMode('build')}>Build</Button>
+        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setMode('add')}>Add</Button>
         <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setMode('flag')}>Flag</Button>
-        <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('offer')}>Offer</Button>
+        <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('own_it')}>Own It</Button>
       </div>
       {mode && (
         <div className="mb-3 flex gap-2 items-start">
@@ -934,35 +934,36 @@ function OwnerLiveCard({
               autoFocus
               value={text}
               onChange={setText}
-              placeholder={`Add a ${mode}… (type @ to tag)`}
+              placeholder={`Add a ${mode === 'own_it' ? 'commitment' : mode}… (type @ to tag)`}
               onKeyDown={(e: any) => e.key === 'Enter' && submit()}
             />
             <div className="text-[11px] text-muted-foreground mt-1">
-              {mode === 'build' && 'Build — stack on the idea, add a missing angle.'}
+              {mode === 'add' && 'Add — stack on the idea, add a missing angle.'}
               {mode === 'flag' && 'Flag — name a risk or what could go wrong.'}
-              {mode === 'offer' && 'Offer — commit to a specific action you\'ll take.'}
+              {mode === 'own_it' && "Own It — commit to a specific action you'll take."}
             </div>
           </div>
-          <Button onClick={submit}>Add</Button>
+          <Button onClick={submit}>Post</Button>
           <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
         </div>
       )}
       <div className="space-y-2">
         {ownerResponses.map(r => {
           const linkedAction = actions.find(a => a.source_response_id === r.id);
+          const modeLabel = r.mode === 'add' ? 'Add' : r.mode === 'flag' ? 'Flag' : 'Own It';
           return (
             <div key={r.id} className="border rounded-md p-2">
               <div className="flex items-center gap-2 text-sm">
                 <Badge className={cn(
-                  r.mode === 'build' && 'bg-emerald-600',
+                  r.mode === 'add' && 'bg-emerald-600',
                   r.mode === 'flag' && 'bg-red-600',
-                  r.mode === 'offer' && 'bg-[#E8540A]',
-                )}>{r.mode}</Badge>
+                  r.mode === 'own_it' && 'bg-[#E8540A]',
+                )}>{modeLabel}</Badge>
                 <span className="font-medium">{r.responder_name}</span>
                 <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
               </div>
               <div className="text-sm mt-1"><MentionText text={r.content} viewerName={currentUserName} /></div>
-              {r.mode === 'offer' && !linkedAction && isAdmin && (
+              {r.mode === 'own_it' && !linkedAction && isAdmin && (
                 <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
                   <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
                 </Button>
@@ -976,7 +977,7 @@ function OwnerLiveCard({
           );
         })}
         {ownerResponses.length === 0 && (
-          <div className="text-sm text-muted-foreground text-center py-3">No responses yet. Build, Flag, or Offer.</div>
+          <div className="text-sm text-muted-foreground text-center py-3">No responses yet. Add, Flag, or Own It.</div>
         )}
       </div>
     </Card>
