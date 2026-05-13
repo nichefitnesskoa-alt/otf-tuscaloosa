@@ -426,7 +426,7 @@ export default function TheTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Action item from offer */}
+      {/* Action item from Own It */}
       {actionDialog && (
         <ActionItemDialog
           meetingId={meeting.id}
