@@ -39,7 +39,7 @@ export interface OwnerEntry {
 }
 export interface TableResponse {
   id: string; meeting_id: string; owner_entry_id: string;
-  responder_name: string; mode: 'build' | 'flag' | 'offer'; content: string; created_at: string;
+  responder_name: string; mode: 'add' | 'flag' | 'own_it'; content: string; created_at: string;
 }
 export interface TableActionItem {
   id: string; meeting_id: string; source_response_id: string | null;
