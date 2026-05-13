@@ -29,6 +29,7 @@ import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
 // Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
 import { OfflineBanner } from '@/components/dashboard/OfflineBanner';
+import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
 
 import { QuickAddFAB } from '@/components/dashboard/QuickAddFAB';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
