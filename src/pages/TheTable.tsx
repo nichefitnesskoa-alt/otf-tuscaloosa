@@ -710,14 +710,14 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
         return (
           <div key={f.key}>
             <label className="text-xs font-medium block mb-1">{f.label}</label>
-            <Textarea
+            <MentionInput
               defaultValue={val}
               disabled={locked}
               className={cn(
                 'min-h-[70px] border-2',
                 filled ? 'border-emerald-500/40' : 'border-amber-500/40',
               )}
-              onBlur={(e) => e.target.value !== val && save(f.key, e.target.value)}
+              onBlur={(e: any) => e.target.value !== val && save(f.key, e.target.value)}
             />
             {savedField === f.key && <span className="text-xs text-emerald-600">Saved</span>}
           </div>
