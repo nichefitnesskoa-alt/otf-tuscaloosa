@@ -2991,6 +2991,65 @@ export type Database = {
         }
         Relationships: []
       }
+      table_mentions: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          created_by: string
+          excerpt: string | null
+          id: string
+          matched_lane: string | null
+          meeting_id: string | null
+          raw_token: string
+          responded_at: string | null
+          source_id: string
+          source_owner_id: string | null
+          source_type: string
+          tagged_user_name: string
+          tagger_user_name: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          created_by?: string
+          excerpt?: string | null
+          id?: string
+          matched_lane?: string | null
+          meeting_id?: string | null
+          raw_token: string
+          responded_at?: string | null
+          source_id: string
+          source_owner_id?: string | null
+          source_type: string
+          tagged_user_name: string
+          tagger_user_name: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          created_by?: string
+          excerpt?: string | null
+          id?: string
+          matched_lane?: string | null
+          meeting_id?: string | null
+          raw_token?: string
+          responded_at?: string | null
+          source_id?: string
+          source_owner_id?: string | null
+          source_type?: string
+          tagged_user_name?: string
+          tagger_user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_mentions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "table_meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_owner_entries: {
         Row: {
           ask: string | null
@@ -3568,6 +3627,17 @@ export type Database = {
         Returns: boolean
       }
       is_authenticated_staff: { Args: { _user_id: string }; Returns: boolean }
+      process_own_it_mentions: {
+        Args: {
+          p_meeting_id: string
+          p_source_id: string
+          p_source_owner_id: string
+          p_source_type: string
+          p_tagger: string
+          p_text: string
+        }
+        Returns: undefined
+      }
       reconcile_questionnaire_statuses: { Args: never; Returns: Json }
       to_intro_time_canonical: { Args: { p: string }; Returns: string }
     }

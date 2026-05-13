@@ -18,6 +18,9 @@ import {
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
+import { MentionInput } from '@/components/shared/MentionInput';
+import { MentionText } from '@/components/shared/MentionText';
+import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
 import { ExportTeamMeetingButton } from '@/components/table/ExportTeamMeetingButton';
 import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useRecentLaneCompleteness } from '@/lib/table/laneCompletion';
@@ -293,12 +296,21 @@ export default function TheTable() {
     <Card className="p-8 text-center text-muted-foreground">No Owners have locked in updates yet.</Card>
   ) : (
     <>
-      <Card className="p-3 mb-4 bg-muted/40">
-        <div className="text-xs font-semibold mb-2">How to respond:</div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <div><Badge className="bg-emerald-600 mr-1">Build</Badge> Add to the idea, push it forward.</div>
-          <div><Badge className="bg-red-600 mr-1">Flag</Badge> Name a risk or concern.</div>
-          <div><Badge className="bg-[#E8540A] mr-1">Offer</Badge> Commit to do something about it.</div>
+      <Card className="p-4 mb-4 bg-muted/40">
+        <div className="text-sm font-semibold mb-3">How to respond</div>
+        <div className="space-y-2 text-sm">
+          <div className="flex gap-2">
+            <Badge className="bg-emerald-600 shrink-0">Build</Badge>
+            <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
+          </div>
+          <div className="flex gap-2">
+            <Badge className="bg-red-600 shrink-0">Flag</Badge>
+            <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
+          </div>
+          <div className="flex gap-2">
+            <Badge className="bg-[#E8540A] shrink-0">Offer</Badge>
+            <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
+          </div>
         </div>
       </Card>
 
@@ -366,6 +378,7 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
+      <OwnItMentionsCard variant="banner" />
       {carryBlock}
       <div className="mb-3 flex justify-between items-center">
         {winButton}
@@ -697,14 +710,14 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
         return (
           <div key={f.key}>
             <label className="text-xs font-medium block mb-1">{f.label}</label>
-            <Textarea
+            <MentionInput
               defaultValue={val}
               disabled={locked}
               className={cn(
                 'min-h-[70px] border-2',
                 filled ? 'border-emerald-500/40' : 'border-amber-500/40',
               )}
-              onBlur={(e) => e.target.value !== val && save(f.key, e.target.value)}
+              onBlur={(e: any) => e.target.value !== val && save(f.key, e.target.value)}
             />
             {savedField === f.key && <span className="text-xs text-emerald-600">Saved</span>}
           </div>
