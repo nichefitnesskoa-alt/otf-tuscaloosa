@@ -381,7 +381,7 @@ Deno.serve(async (req) => {
           if (phone || email) {
             let rescheduleQuery = supabase
               .from('intros_booked')
-              .select('id, class_date, intro_time, member_name')
+              .select('id, class_date, intro_time, member_name, rebook_reason, rebooked_at, last_edited_by, last_edited_at')
               .is('deleted_at', null)
               .eq('booking_status_canon', 'ACTIVE')
               .neq('class_date', classDate)
@@ -398,6 +398,44 @@ Deno.serve(async (req) => {
             const { data: existingActive } = await rescheduleQuery.maybeSingle();
 
             if (existingActive) {
+              // ── Manual-reschedule protection ──
+              // If a staff member already rescheduled this booking from My Day /
+              // Pipeline, do NOT let a stale Mindbody sheet row drag it back to
+              // the original date. The drawer stamps rebook_reason / last_edited_by
+              // when it persists. Treat this row as a duplicate and move on.
+              const editor = (existingActive as any).last_edited_by || '';
+              const rebookReason = (existingActive as any).rebook_reason || '';
+              const wasManuallyRescheduled =
+                !!(existingActive as any).rebooked_at &&
+                !/sheet import/i.test(rebookReason) &&
+                !/^System/i.test(editor);
+              const recentlyEditedByHuman =
+                !!(existingActive as any).last_edited_at &&
+                !/^System/i.test(editor);
+
+              if (wasManuallyRescheduled || recentlyEditedByHuman) {
+                skippedDuplicate++;
+                details.push(`Row ${i + 1}: protected manual reschedule for ${memberName} (existing ${existingActive.class_date}, sheet ${classDate}, edited by ${editor || 'unknown'})`);
+                if (messageId) {
+                  await supabase.from('intake_events').insert({
+                    source: 'sheet_import',
+                    external_id: messageId,
+                    payload: {
+                      row_index: i,
+                      member_name: memberName,
+                      skipped_reason: 'manual_reschedule_protected',
+                      existing_date: existingActive.class_date,
+                      sheet_date: classDate,
+                      last_edited_by: editor,
+                      rebook_reason: rebookReason,
+                    },
+                    booking_id: existingActive.id,
+                  });
+                  existingMessageIds.add(messageId);
+                }
+                continue;
+              }
+
               // Update the existing booking in place
               const { error: updErr } = await supabase
                 .from('intros_booked')
