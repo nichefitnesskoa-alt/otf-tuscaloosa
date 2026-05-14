@@ -340,6 +340,10 @@ export function PipelineNewLeadsTab() {
   }, [backgroundDedupRecheck]);
 
   const handleAction = async (leadId: string, action: LeadAction) => {
+    if (action === 'mark_lost') {
+      setLostLeadId(leadId);
+      return;
+    }
     let update: Record<string, unknown> = { updated_at: new Date().toISOString() };
     switch (action) {
       case 'contacted': update.stage = 'contacted'; break;
