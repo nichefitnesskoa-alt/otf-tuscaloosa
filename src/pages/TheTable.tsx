@@ -765,8 +765,13 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
         <Button
           className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90"
           onClick={async () => {
-            if (!entry) { toast.error('Fill at least one field first.'); return; }
-            await supabase.from('table_owner_entries').update({ submitted_at: new Date().toISOString() }).eq('id', entry.id);
+            const id = entry?.id ?? entryId;
+            if (!id) { toast.error("Hang on — still opening your entry. Try again in a sec."); return; }
+            const { error } = await supabase
+              .from('table_owner_entries')
+              .update({ submitted_at: new Date().toISOString() })
+              .eq('id', id);
+            if (error) { toast.error(`Lock in failed: ${error.message}`); return; }
             onChange(); toast.success('Locked in.');
           }}
         >
