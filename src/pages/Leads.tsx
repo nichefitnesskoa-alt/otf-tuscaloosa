@@ -232,6 +232,7 @@ export default function Leads() {
           onStageChange={handleStageChange}
           onBookIntro={(lead) => setBookIntroLead(lead)}
           onMarkAlreadyBooked={handleMarkAlreadyBooked}
+          onMarkLost={(leadId) => setLostDialogLeadId(leadId)}
         />
       ) : (
         <LeadListView
@@ -241,6 +242,7 @@ export default function Leads() {
           onStageChange={handleStageChange}
           onBookIntro={(lead) => setBookIntroLead(lead)}
           onMarkAlreadyBooked={handleMarkAlreadyBooked}
+          onMarkLost={(leadId) => setLostDialogLeadId(leadId)}
         />
       )}
 
