@@ -262,6 +262,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                     onBookIntro={onBookIntro ? () => onBookIntro(lead) : () => onLeadClick(lead)}
                     onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
                     onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
+                    onMarkLost={onMarkLost ? () => onMarkLost(lead.id) : undefined}
                   />
                 </TableCell>
               </TableRow>
