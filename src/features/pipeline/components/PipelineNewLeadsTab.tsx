@@ -30,7 +30,7 @@ type Lead = Tables<'leads'> & {
   duplicate_override?: boolean | null;
 };
 
-type LeadAction = 'contacted' | 'move_to_new' | 'confirm_duplicate' | 'confirm_not_duplicate';
+type LeadAction = 'contacted' | 'move_to_new' | 'confirm_duplicate' | 'confirm_not_duplicate' | 'mark_lost';
 
 function getSpeedInfo(createdAt: string) {
   const minutesSince = differenceInMinutes(new Date(), parseISO(createdAt));
