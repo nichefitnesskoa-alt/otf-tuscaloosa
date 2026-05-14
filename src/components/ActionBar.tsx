@@ -458,6 +458,7 @@ interface LeadActionBarProps {
   onBookIntro: () => void;
   onMarkContacted?: () => void;
   onMarkAlreadyBooked?: () => void;
+  onMarkLost?: () => void;
 }
 
 export function LeadActionBar({
@@ -471,6 +472,7 @@ export function LeadActionBar({
   onBookIntro,
   onMarkContacted,
   onMarkAlreadyBooked,
+  onMarkLost,
 }: LeadActionBarProps) {
   const { user } = useAuth();
   const [scriptMode, setScriptMode] = useState<ScriptMode>('closed');
