@@ -692,7 +692,7 @@ export default function IntroRowCard({
           initialObjection={item.latestRunObjection || ''}
           initialNotes={item.latestRunNotes || ''}
           isVipClassIntro={!!item.isVipClassIntro}
-          onSaved={() => { onRefresh(); }}
+          onSaved={() => { setOutcomeOpen(false); onRefresh(); }}
           onCancel={() => setOutcomeOpen(false)}
         />
       )}
