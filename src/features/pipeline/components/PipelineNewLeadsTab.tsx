@@ -15,10 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
-  AlertTriangle, Ban, RotateCcw, Info, ExternalLink, Search, Loader2,
+  AlertTriangle, Ban, RotateCcw, Info, ExternalLink, Search, Loader2, XCircle,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
+import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
 
