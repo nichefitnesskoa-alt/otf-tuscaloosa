@@ -165,6 +165,7 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
         onBookIntro={onBookIntro || onClick}
         onMarkContacted={onMarkContacted}
         onMarkAlreadyBooked={onMarkAlreadyBooked}
+        onMarkLost={onMarkLost}
       />
     </div>
     </div>
