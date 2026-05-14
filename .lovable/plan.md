@@ -1,39 +1,44 @@
-## Problem
+## Goals
 
-On My Day → New Leads, contacted leads have **Script / Book / Copy # / Move to New** but no way to remove a lead who said they're not interested (or wrong number, already a member, etc.). Same gap exists on the **New** sub-state. The user also wants Book Intro reachable directly from the card (already present on New/Contacted, but missing on the "Already in System" state where a verified-real lead may still want to book).
+1. Add a search bar (name + phone) inside the MyDay → New Leads tab that filters both the Contacted and Booked sub-tabs.
+2. Auto-detect leads who already have a real intro booked in the system (e.g. Katie Davis, Jacqueline Othmer) and move them from "Contacted" into "Booked" automatically — no manual cleanup needed.
 
-## Fix
+## 1. Search bar in MyDay Leads tab
 
-Add a single canonical "Not Interested" action on the lead card across every active state, reusing the existing `MarkLostDialog` (already writes `stage='lost'` + `lost_reason` + activity log). Also add Book Intro to the Already-in-System state so a verified real lead can be booked without leaving the card.
+File: `src/features/myDay/MyDayNewLeadsTab.tsx`
 
-### Files
+- Add `search` state at the top of `MyDayNewLeadsTab`.
+- Render a search input directly under the `TabsList` (so it sits right below the "Contacted / Booked" tab row and filters whichever tab is active). Includes a Search icon, an `X` clear button, placeholder "Search leads by name or phone…", and a small "{N} match" count when a query is entered.
+- Filter is applied inside `renderList` callsites: case-insensitive name match (first + last) and digits-only phone match (so "2052706992", "(205) 270-6992", "205-270" all work).
+- Searching never changes the active sub-tab; it just narrows the visible list within whichever tab the user is on.
 
-1. **`src/features/myDay/MyDayNewLeadsTab.tsx`**
-   - Import `MarkLostDialog`. Add `lostLead` state.
-   - Add a new `LeadAction` value `'mark_lost'` that simply opens the dialog (handled in parent via `setLostLead(lead)`), so the card stays presentational.
-   - Add a small destructive-styled button **"Not Interested"** (XCircle icon) to the action rows for `isNew`, `isContacted`, and `isFlagged` states.
-   - Add **Book Intro** to the `isAlreadyInSystem` row (some "in system" matches are actually fine to rebook — staff currently has no path).
-   - Render `<MarkLostDialog>` at the bottom; on `onDone`, call `fetchLeads()` and invalidate `['leads']`. The dialog already moves stage to `lost`, which the existing query filter (`.not('stage', 'in', '("lost","archived")')`) will hide — lead disappears from the list.
+## 2. Auto-move "already booked" leads from Contacted → Booked
 
-2. **`src/features/pipeline/components/PipelineNewLeadsTab.tsx`**
-   - Mirror the same change (same card pattern lives there) so behavior is consistent between My Day and Pipeline.
+Today, `runDeduplicationForLead` (called every 5 min by `backgroundDedupRecheck`) only updates `stage` when the lead is currently `new`, `flagged`, or `already_in_system`. Leads already marked `contacted` are skipped, so people like Katie Davis and Jacqueline Othmer stay stuck in Contacted even after a real booking exists.
 
-3. **`src/components/ActionBar.tsx` (`LeadActionBar`)**
-   - Add an optional `onMarkLost?: () => void` prop.
-   - Render a "Not Interested" button (destructive styling, XCircle icon) when `stage` is `new` or `contacted` and the prop is provided.
-   - Wire through in `LeadCard.tsx`, `LeadListView.tsx`, `LeadKanbanBoard.tsx`, and `pages/Leads.tsx` (open the existing `MarkLostDialog` already imported there).
+Changes:
 
-### Behavior
+**A. `src/lib/leads/detectDuplicate.ts`**
+- In `runDeduplicationForLead`, when the existing lead stage is `contacted` (or `new` / `flagged`) AND `detectDuplicate` returns a `HIGH`-confidence phone/email match against `intros_booked`, set:
+  - `stage = 'booked'`
+  - `booked_intro_id = matchedRecord.id` (the `intros_booked.id`)
+  - Write a `lead_activities` row: `activity_type='stage_change'`, `notes='Auto-moved to Booked — matched existing intro <member_name> on <class_date>'`, `performed_by='System (auto-dedup)'`.
+- If the matched booking is `CLOSED_PURCHASED` (already a member), keep current behavior — leave it for the existing "Clean Duplicates" tool to delete (we don't want auto-deletes from a background task).
+- Name-only / `MEDIUM` matches keep current behavior (no stage change for `contacted`) to avoid false auto-moves.
 
-- Click **Not Interested** → `MarkLostDialog` opens with reason dropdown (Went cold / Not interested / Wrong number / Already a member / Other) → save sets `stage='lost'`, writes `lead_activities` row, lead drops off all active queues.
-- Click **Book Intro** on Already-in-System → opens existing BookIntroDialog flow (same handler `onBook(lead)` already wired).
+**B. `src/features/myDay/MyDayNewLeadsTab.tsx`**
+- `backgroundDedupRecheck` already iterates over `new` and `contacted` leads — no change needed beyond passing the current stage (already does). After it runs, the realtime UPDATE subscription will pull the new stage and the lead will jump to the Booked sub-tab automatically.
 
-### Verification
+**C. One-time backfill (no migration, runs in the same code path)**
+- The next background dedup pass after deploy will catch Katie Davis, Jacqueline Othmer, and any other contacted leads with matching `intros_booked` rows and move them to Booked. No manual action required.
 
-- My Day → New Leads → Contacted tab: card shows Script · Book · Copy # · Move to New · **Not Interested**. Click Not Interested → dialog → Save → card disappears, lead row in DB has `stage='lost'`, `lost_reason` set, `lead_activities` has stage_change row.
-- Same on New tab and Flagged state.
-- Pipeline → New Leads tab mirrors the same buttons/behavior.
-- `pages/Leads.tsx` Kanban + List views: each lead card shows Not Interested for new/contacted; same dialog flow.
-- Confirm a "lost" lead is excluded from `useFollowUpData` and from MyDay counts (existing filters already handle this).
+## Verification
 
-Single source of truth: all surfaces use `MarkLostDialog` → no duplicate "remove lead" logic.
+- Search: type "katie" on Contacted → only Katie shows; switch to Booked tab → search persists and filters Booked. Type "270" → matches by phone. Clear button empties the field.
+- Auto-move: with Katie Davis currently in Contacted and a matching `intros_booked` row in the DB, reload My Day → within ~2 seconds (initial 1.5s dedup timer) Katie disappears from Contacted and appears in Booked with a "✓ Booked" banner. `lead_activities` row recorded for the stage change.
+- Coherence: Leads page (`/leads`) reads from the same `leads` table, so the same auto-move applies there too. The existing "Clean Duplicates" button still handles purchased-member deletion (unchanged).
+
+## Out of scope
+
+- No DB migrations.
+- No changes to the Pipeline new-leads tab (mirror change can be added later if you want it there too — say the word).
