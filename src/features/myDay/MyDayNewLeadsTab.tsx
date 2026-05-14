@@ -649,6 +649,18 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           onLogged={() => setScriptLead(null)}
         />
       )}
+      {lostLeadId && (
+        <MarkLostDialog
+          open={!!lostLeadId}
+          onOpenChange={open => { if (!open) setLostLeadId(null); }}
+          leadId={lostLeadId}
+          onDone={() => {
+            setLostLeadId(null);
+            fetchLeads();
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+          }}
+        />
+      )}
     </div>
   );
 }
