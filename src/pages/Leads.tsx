@@ -56,7 +56,18 @@ export default function Leads() {
   });
 
   const sortedLeads = useMemo(() => {
-    const arr = [...leads];
+    let arr = [...leads];
+    const q = search.trim().toLowerCase();
+    if (q) {
+      const digits = q.replace(/\D/g, '');
+      arr = arr.filter(l => {
+        const name = `${l.first_name ?? ''} ${l.last_name ?? ''}`.toLowerCase();
+        const phoneDigits = (l.phone ?? '').replace(/\D/g, '');
+        if (name.includes(q)) return true;
+        if (digits && phoneDigits.includes(digits)) return true;
+        return false;
+      });
+    }
     switch (sortBy) {
       case 'oldest': arr.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
       case 'alpha_az': arr.sort((a, b) => a.last_name.localeCompare(b.last_name)); break;
@@ -64,7 +75,7 @@ export default function Leads() {
       default: arr.sort((a, b) => b.created_at.localeCompare(a.created_at)); break;
     }
     return arr;
-  }, [leads, sortBy]);
+  }, [leads, sortBy, search]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
