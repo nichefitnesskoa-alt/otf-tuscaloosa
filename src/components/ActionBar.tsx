@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User, Dumbbell } from 'lucide-react';
+import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User, Dumbbell, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, generateUniqueSlug } from '@/lib/utils';
 import { CoachPrepCard } from '@/components/dashboard/CoachPrepCard';
