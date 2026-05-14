@@ -245,6 +245,7 @@ export function PipelineNewLeadsTab() {
   const [subTab, setSubTab] = useState('new');
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
+  const [lostLeadId, setLostLeadId] = useState<string | null>(null);
   // Use refs so callbacks are stable (avoids React error #300 from changing deps)
   const dedupRunning = useRef(false);
   const leadsRef = useRef<Lead[]>([]);
