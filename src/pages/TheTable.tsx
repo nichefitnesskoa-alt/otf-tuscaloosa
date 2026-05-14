@@ -690,16 +690,44 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
   meetingId: string; ownerId: string; entry?: OwnerEntry; onChange: () => void;
 }) {
   const [savedField, setSavedField] = useState<string | null>(null);
+  const [entryId, setEntryId] = useState<string | undefined>(entry?.id);
   const locked = !!entry?.submitted_at;
 
+  // Keep local entryId in sync when parent refetches.
+  useEffect(() => { if (entry?.id) setEntryId(entry.id); }, [entry?.id]);
+
+  // Ensure exactly one row exists for this (meeting, owner) before any blur-save races.
+  useEffect(() => {
+    if (entryId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('table_owner_entries')
+        .upsert(
+          { meeting_id: meetingId, owner_id: ownerId, created_by: 'owner' },
+          { onConflict: 'meeting_id,owner_id', ignoreDuplicates: false },
+        )
+        .select('id')
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) { toast.error(`Couldn't open your entry: ${error.message}`); return; }
+      if (data?.id) { setEntryId(data.id); onChange(); }
+    })();
+    return () => { cancelled = true; };
+  }, [entryId, meetingId, ownerId, onChange]);
+
   const save = async (field: keyof OwnerEntry, value: string) => {
-    if (entry) {
-      await supabase.from('table_owner_entries').update({ [field]: value }).eq('id', entry.id);
-    } else {
-      await supabase.from('table_owner_entries').insert({
-        meeting_id: meetingId, owner_id: ownerId, [field]: value, created_by: 'owner',
-      });
-    }
+    // Always upsert by the unique key so racing blurs merge instead of failing.
+    const { data, error } = await supabase
+      .from('table_owner_entries')
+      .upsert(
+        { meeting_id: meetingId, owner_id: ownerId, [field]: value, created_by: 'owner' },
+        { onConflict: 'meeting_id,owner_id', ignoreDuplicates: false },
+      )
+      .select('id')
+      .maybeSingle();
+    if (error) { toast.error(`Save failed: ${error.message}`); return; }
+    if (data?.id && !entryId) setEntryId(data.id);
     setSavedField(field as string);
     setTimeout(() => setSavedField(null), 2000);
     onChange();
@@ -737,8 +765,13 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
         <Button
           className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90"
           onClick={async () => {
-            if (!entry) { toast.error('Fill at least one field first.'); return; }
-            await supabase.from('table_owner_entries').update({ submitted_at: new Date().toISOString() }).eq('id', entry.id);
+            const id = entry?.id ?? entryId;
+            if (!id) { toast.error("Hang on — still opening your entry. Try again in a sec."); return; }
+            const { error } = await supabase
+              .from('table_owner_entries')
+              .update({ submitted_at: new Date().toISOString() })
+              .eq('id', id);
+            if (error) { toast.error(`Lock in failed: ${error.message}`); return; }
             onChange(); toast.success('Locked in.');
           }}
         >
