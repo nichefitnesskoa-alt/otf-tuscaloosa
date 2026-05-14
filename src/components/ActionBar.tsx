@@ -548,6 +548,20 @@ export function LeadActionBar({
             Already Booked
           </Button>
         )}
+        {(stage === 'new' || stage === 'contacted') && onMarkLost && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0 border-destructive text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkLost();
+            }}
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Not Interested
+          </Button>
+        )}
       </div>
 
       {/* Smart Script → MessageGenerator */}
