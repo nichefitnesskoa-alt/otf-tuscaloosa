@@ -29,6 +29,7 @@ export default function Leads() {
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('most_recent');
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads'],
