@@ -227,27 +227,55 @@ export function OutcomeDrawer({
         const hour = parseInt(hStr, 10);
         const shift = hour < 11 ? 'AM Shift' : hour < 16 ? 'Mid Shift' : 'PM Shift';
 
-        // Update the existing booking record in-place — no new row created
-        const { error: updateError } = await supabase.from('intros_booked').update({
-          class_date: newDateStr,
-          intro_time: rescheduleTime,
-          class_start_at: `${newDateStr}T${rescheduleTime}:00`,
-          coach_name: rescheduleCoach,
-          booking_status_canon: 'ACTIVE',
-          sa_working_shift: shift,
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: editedBy,
-          edit_reason: 'Rescheduled via MyDay outcome drawer',
-        }).eq('id', bookingId);
+        // Update the existing booking record in-place — no new row created.
+        // Read back the row so we can prove the write actually committed before
+        // we tell the parent to refresh and close. This stops silent failures.
+        const { data: updated, error: updateError } = await supabase
+          .from('intros_booked')
+          .update({
+            class_date: newDateStr,
+            intro_time: rescheduleTime,
+            class_start_at: `${newDateStr}T${rescheduleTime}:00`,
+            coach_name: rescheduleCoach,
+            booking_status_canon: 'ACTIVE',
+            sa_working_shift: shift,
+            rebooked_at: new Date().toISOString(),
+            rebook_reason: 'Rescheduled via MyDay outcome drawer',
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: editedBy,
+            edit_reason: 'Rescheduled via MyDay outcome drawer',
+          })
+          .eq('id', bookingId)
+          .select('id, class_date, intro_time, coach_name')
+          .maybeSingle();
 
         if (updateError) throw updateError;
+        if (!updated) {
+          throw new Error('Update returned no row — booking may not exist or RLS blocked the write.');
+        }
+        if (updated.class_date !== newDateStr || (updated.intro_time || '').slice(0, 5) !== rescheduleTime) {
+          throw new Error(`Update did not persist (db still says ${updated.class_date} ${updated.intro_time}). Try again.`);
+        }
+
+        // Clear any pending follow-up queue rows tied to this booking — she's
+        // no longer attending the old class so we shouldn't text her about it.
+        const { error: fuError } = await supabase
+          .from('follow_up_queue')
+          .update({ status: 'dormant' })
+          .eq('booking_id', bookingId)
+          .eq('status', 'pending');
+        if (fuError) {
+          console.error('[reschedule] failed to clear pending follow-ups', fuError);
+          // non-fatal — the reschedule itself succeeded
+        }
 
         const newDateLabel = format(rescheduleDate, 'MMM d');
         const newTimeLabel = formatTime12h(rescheduleTime);
         toast.success(`${memberName} rescheduled to ${newDateLabel} at ${newTimeLabel} with ${rescheduleCoach}`);
         onSaved();
       } catch (err: any) {
-        toast.error(err?.message || 'Failed to reschedule');
+        console.error('[reschedule] save failed', err);
+        toast.error(err?.message || 'Failed to reschedule', { duration: 10000 });
       } finally {
         setSaving(false);
       }
