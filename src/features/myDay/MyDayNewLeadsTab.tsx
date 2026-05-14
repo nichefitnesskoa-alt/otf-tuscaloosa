@@ -161,7 +161,8 @@ type LeadAction =
   | 'contacted'
   | 'move_to_new'
   | 'confirm_duplicate'
-  | 'confirm_not_duplicate';
+  | 'confirm_not_duplicate'
+  | 'mark_lost';
 
 // ─── Lead Card ───────────────────────────────────────────────────────────────
 interface LeadCardProps {
