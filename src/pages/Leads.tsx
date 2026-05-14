@@ -5,7 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
-import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
+import { Plus, LayoutGrid, List, Sparkles, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -28,6 +29,7 @@ export default function Leads() {
   const [lostDialogLeadId, setLostDialogLeadId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string>('most_recent');
   const [bookIntroLead, setBookIntroLead] = useState<Tables<'leads'> | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: leads = [] } = useQuery({
     queryKey: ['leads'],
@@ -54,7 +56,18 @@ export default function Leads() {
   });
 
   const sortedLeads = useMemo(() => {
-    const arr = [...leads];
+    let arr = [...leads];
+    const q = search.trim().toLowerCase();
+    if (q) {
+      const digits = q.replace(/\D/g, '');
+      arr = arr.filter(l => {
+        const name = `${l.first_name ?? ''} ${l.last_name ?? ''}`.toLowerCase();
+        const phoneDigits = (l.phone ?? '').replace(/\D/g, '');
+        if (name.includes(q)) return true;
+        if (digits && phoneDigits.includes(digits)) return true;
+        return false;
+      });
+    }
     switch (sortBy) {
       case 'oldest': arr.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
       case 'alpha_az': arr.sort((a, b) => a.last_name.localeCompare(b.last_name)); break;
@@ -62,7 +75,7 @@ export default function Leads() {
       default: arr.sort((a, b) => b.created_at.localeCompare(a.created_at)); break;
     }
     return arr;
-  }, [leads, sortBy]);
+  }, [leads, sortBy, search]);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -204,11 +217,11 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Sort control */}
-      <div className="flex items-center gap-2">
+      {/* Sort + search controls */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">Sort:</span>
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="h-7 w-[160px] text-xs">
+          <SelectTrigger className="h-8 w-[160px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -218,6 +231,30 @@ export default function Leads() {
             <SelectItem value="alpha_za">Z → A</SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search leads by name or phone…"
+            className="h-8 pl-8 pr-8 text-xs"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {search && (
+          <span className="text-xs text-muted-foreground">
+            {sortedLeads.length} match{sortedLeads.length === 1 ? '' : 'es'}
+          </span>
+        )}
       </div>
 
       <FollowUpQueue />
