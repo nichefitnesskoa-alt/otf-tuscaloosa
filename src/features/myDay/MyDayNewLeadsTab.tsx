@@ -314,6 +314,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
               <Ban className="w-3.5 h-3.5" /> Mark in System
             </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
+            </Button>
           </div>
         )}
 
@@ -327,6 +330,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
               <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
@@ -346,6 +352,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             )}
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
               <RotateCcw className="w-3.5 h-3.5" /> Move to New
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
@@ -368,11 +377,14 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
 
         {isAlreadyInSystem && (
           <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
+              <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
+            </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
               <RotateCcw className="w-3.5 h-3.5" /> Move to New
             </Button>
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => {}}>
-              <ExternalLink className="w-3.5 h-3.5" /> View Record
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
