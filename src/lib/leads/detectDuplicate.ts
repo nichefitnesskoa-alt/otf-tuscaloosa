@@ -326,6 +326,32 @@ export async function runDeduplicationForLead(leadId: string, lead: {
     updated_at: new Date().toISOString(),
   };
 
+  // Auto-promote to 'booked' when there is a HIGH-confidence match against an active
+  // intros_booked row (phone or email). Covers leads stuck in 'contacted' (e.g. Katie
+  // Davis, Jacqueline Othmer) once the SA actually books them in this app.
+  const matched = result.matchedRecord;
+  const isHighBookingMatch =
+    result.confidence === 'HIGH' &&
+    (result.matchType === 'phone' || result.matchType === 'email') &&
+    matched?.table === 'intros_booked' &&
+    result.existingStatus !== 'purchased'; // purchased members handled by Clean Duplicates tool
+
+  if (
+    isHighBookingMatch &&
+    ['new', 'flagged', 'contacted', 'already_in_system'].includes(lead.stage)
+  ) {
+    updatePayload.stage = 'booked';
+    updatePayload.booked_intro_id = matched!.id;
+    await supabase.from('leads').update(updatePayload).eq('id', leadId);
+    await supabase.from('lead_activities').insert({
+      lead_id: leadId,
+      activity_type: 'stage_change',
+      performed_by: 'System (auto-dedup)',
+      notes: `Auto-moved to Booked — matched existing intro ${matched!.name}${matched!.date ? ` on ${matched!.date}` : ''}`,
+    });
+    return result;
+  }
+
   // Only update stage if it's currently new or flagged (don't overwrite 'contacted' etc.)
   if (['new', 'flagged', 'already_in_system'].includes(lead.stage) && newStage !== lead.stage) {
     updatePayload.stage = newStage;
