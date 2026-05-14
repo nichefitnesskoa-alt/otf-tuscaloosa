@@ -75,6 +75,7 @@ export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange,
                   onBookIntro={onBookIntro ? () => onBookIntro(lead) : undefined}
                   onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
                   onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
+                  onMarkLost={onMarkLost ? () => onMarkLost(lead.id) : undefined}
                 />
                 );
               })}
