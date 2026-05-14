@@ -31,12 +31,13 @@ interface LeadListViewProps {
   onStageChange: (leadId: string, newStage: string) => void;
   onBookIntro?: (lead: Tables<'leads'>) => void;
   onMarkAlreadyBooked?: (leadId: string) => void;
+  onMarkLost?: (leadId: string) => void;
   onRefresh?: () => void;
 }
 
 type SortKey = 'name' | 'phone' | 'email' | 'stage' | 'created_at' | 'last_action' | 'days_since' | 'attempts';
 
-export function LeadListView({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked, onRefresh }: LeadListViewProps) {
+export function LeadListView({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked, onMarkLost, onRefresh }: LeadListViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortAsc, setSortAsc] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -261,6 +262,7 @@ export function LeadListView({ leads, activities, onLeadClick, onStageChange, on
                     onBookIntro={onBookIntro ? () => onBookIntro(lead) : () => onLeadClick(lead)}
                     onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
                     onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
+                    onMarkLost={onMarkLost ? () => onMarkLost(lead.id) : undefined}
                   />
                 </TableCell>
               </TableRow>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User, Dumbbell } from 'lucide-react';
+import { ClipboardList, MessageSquare, Copy, CalendarPlus, CalendarCheck, CheckCircle, User, Dumbbell, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, generateUniqueSlug } from '@/lib/utils';
 import { CoachPrepCard } from '@/components/dashboard/CoachPrepCard';
@@ -458,6 +458,7 @@ interface LeadActionBarProps {
   onBookIntro: () => void;
   onMarkContacted?: () => void;
   onMarkAlreadyBooked?: () => void;
+  onMarkLost?: () => void;
 }
 
 export function LeadActionBar({
@@ -471,6 +472,7 @@ export function LeadActionBar({
   onBookIntro,
   onMarkContacted,
   onMarkAlreadyBooked,
+  onMarkLost,
 }: LeadActionBarProps) {
   const { user } = useAuth();
   const [scriptMode, setScriptMode] = useState<ScriptMode>('closed');
@@ -544,6 +546,20 @@ export function LeadActionBar({
           >
             <CalendarCheck className="w-3.5 h-3.5" />
             Already Booked
+          </Button>
+        )}
+        {(stage === 'new' || stage === 'contacted') && onMarkLost && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] gap-1 flex-shrink-0 min-w-0 border-destructive text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkLost();
+            }}
+          >
+            <XCircle className="w-3.5 h-3.5" />
+            Not Interested
           </Button>
         )}
       </div>

@@ -19,9 +19,10 @@ interface LeadCardProps {
   onBookIntro?: () => void;
   onMarkContacted?: () => void;
   onMarkAlreadyBooked?: () => void;
+  onMarkLost?: () => void;
 }
 
-export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDragStart, onBookIntro, onMarkContacted, onMarkAlreadyBooked }: LeadCardProps) {
+export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDragStart, onBookIntro, onMarkContacted, onMarkAlreadyBooked, onMarkLost }: LeadCardProps) {
   const now = new Date();
   const createdAt = parseISO(lead.created_at);
   const isNew = differenceInMinutes(now, createdAt) < 60;
@@ -164,6 +165,7 @@ export function LeadCard({ lead, activityCount, lastActivityDate, onClick, onDra
         onBookIntro={onBookIntro || onClick}
         onMarkContacted={onMarkContacted}
         onMarkAlreadyBooked={onMarkAlreadyBooked}
+        onMarkLost={onMarkLost}
       />
     </div>
     </div>

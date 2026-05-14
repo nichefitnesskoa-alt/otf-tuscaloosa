@@ -16,10 +16,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
-  Ban, RotateCcw, Info, ExternalLink, Search, Loader2,
+  Ban, RotateCcw, Info, ExternalLink, Search, Loader2, XCircle,
 } from 'lucide-react';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
+import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
 
@@ -160,7 +161,8 @@ type LeadAction =
   | 'contacted'
   | 'move_to_new'
   | 'confirm_duplicate'
-  | 'confirm_not_duplicate';
+  | 'confirm_not_duplicate'
+  | 'mark_lost';
 
 // ─── Lead Card ───────────────────────────────────────────────────────────────
 interface LeadCardProps {
@@ -312,6 +314,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'confirm_duplicate')}>
               <Ban className="w-3.5 h-3.5" /> Mark in System
             </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
+            </Button>
           </div>
         )}
 
@@ -325,6 +330,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
               <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
@@ -344,6 +352,9 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             )}
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
               <RotateCcw className="w-3.5 h-3.5" /> Move to New
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
@@ -366,11 +377,14 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
 
         {isAlreadyInSystem && (
           <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1" onClick={() => onBook(lead)}>
+              <CalendarPlus className="w-3.5 h-3.5" /> Book Intro
+            </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => onAction(lead.id, 'move_to_new')}>
               <RotateCcw className="w-3.5 h-3.5" /> Move to New
             </Button>
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-muted-foreground" onClick={() => {}}>
-              <ExternalLink className="w-3.5 h-3.5" /> View Record
+            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 border-destructive text-destructive hover:bg-destructive/10" onClick={() => onAction(lead.id, 'mark_lost')}>
+              <XCircle className="w-3.5 h-3.5" /> Not Interested
             </Button>
           </div>
         )}
@@ -400,6 +414,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [loading, setLoading] = useState(true);
   const [bookLead, setBookLead] = useState<Lead | null>(null);
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
+  const [lostLeadId, setLostLeadId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState('contacted');
   const dedupRunning = useRef(false);
   // Stable refs so backgroundDedupRecheck doesn't change identity each render (avoids React #300)
@@ -512,6 +527,11 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   }, [onCountChange, backgroundDedupRecheck]);
 
   const handleAction = async (leadId: string, action: LeadAction) => {
+    if (action === 'mark_lost') {
+      setLostLeadId(leadId);
+      return;
+    }
+
     let update: Record<string, unknown> = { updated_at: new Date().toISOString() };
     let activityNote = '';
 
@@ -627,6 +647,18 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
           mergeContext={scriptMergeContext}
           leadId={scriptLead.id}
           onLogged={() => setScriptLead(null)}
+        />
+      )}
+      {lostLeadId && (
+        <MarkLostDialog
+          open={!!lostLeadId}
+          onOpenChange={open => { if (!open) setLostLeadId(null); }}
+          leadId={lostLeadId}
+          onDone={() => {
+            setLostLeadId(null);
+            fetchLeads();
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+          }}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ interface LeadKanbanBoardProps {
   onStageChange: (leadId: string, newStage: string) => void;
   onBookIntro?: (lead: Tables<'leads'>) => void;
   onMarkAlreadyBooked?: (leadId: string) => void;
+  onMarkLost?: (leadId: string) => void;
 }
 
 const COLUMNS = [
@@ -19,7 +20,7 @@ const COLUMNS = [
   { stage: 'lost', label: 'Do Not Contact', color: 'bg-muted border-muted-foreground/20' },
 ];
 
-export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked }: LeadKanbanBoardProps) {
+export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked, onMarkLost }: LeadKanbanBoardProps) {
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   const getActivityCount = (leadId: string) =>
@@ -74,6 +75,7 @@ export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange,
                   onBookIntro={onBookIntro ? () => onBookIntro(lead) : undefined}
                   onMarkContacted={lead.stage === 'new' ? () => onStageChange(lead.id, 'contacted') : undefined}
                   onMarkAlreadyBooked={onMarkAlreadyBooked ? () => onMarkAlreadyBooked(lead.id) : undefined}
+                  onMarkLost={onMarkLost ? () => onMarkLost(lead.id) : undefined}
                 />
                 );
               })}
