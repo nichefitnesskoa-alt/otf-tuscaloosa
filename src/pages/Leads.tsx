@@ -217,11 +217,11 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Sort control */}
-      <div className="flex items-center gap-2">
+      {/* Sort + search controls */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">Sort:</span>
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="h-7 w-[160px] text-xs">
+          <SelectTrigger className="h-8 w-[160px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -231,6 +231,30 @@ export default function Leads() {
             <SelectItem value="alpha_za">Z → A</SelectItem>
           </SelectContent>
         </Select>
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search leads by name or phone…"
+            className="h-8 pl-8 pr-8 text-xs"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {search && (
+          <span className="text-xs text-muted-foreground">
+            {sortedLeads.length} match{sortedLeads.length === 1 ? '' : 'es'}
+          </span>
+        )}
       </div>
 
       <FollowUpQueue />
