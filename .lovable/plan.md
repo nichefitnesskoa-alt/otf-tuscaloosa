@@ -1,35 +1,39 @@
-## What I found
+## Problem
 
-Angelica did get updated by the My Day reschedule flow, but then the sheet import moved her back:
+On My Day → New Leads, contacted leads have **Script / Book / Copy # / Move to New** but no way to remove a lead who said they're not interested (or wrong number, already a member, etc.). Same gap exists on the **New** sub-state. The user also wants Book Intro reachable directly from the card (already present on New/Contacted, but missing on the "Already in System" state where a verified-real lead may still want to book).
 
-- Current booking: Angelica James, 2026-05-14 at 8:45 AM with Natalya.
-- The row has `rebook_reason = Rescheduled via MyDay outcome drawer`, so the drawer write happened.
-- Then `last_edited_by = System (Sheet Import)` and `edit_reason = Auto-rescheduled from 2026-05-19 via sheet import`, meaning the import saw the stale original Mindbody row and overwrote the manual reschedule.
+## Fix
 
-## Fix plan
+Add a single canonical "Not Interested" action on the lead card across every active state, reusing the existing `MarkLostDialog` (already writes `stage='lost'` + `lost_reason` + activity log). Also add Book Intro to the Already-in-System state so a verified real lead can be booked without leaving the card.
 
-1. **Protect manual reschedules from stale sheet rows**
-   - Update `supabase/functions/import-sheet-leads/index.ts` so the auto-import does not move a booking back when the existing booking has a manual reschedule stamp from My Day.
-   - Treat those stale sheet rows as skipped duplicates instead of reschedule commands.
-   - Record the skip in `intake_events` with a clear reason like `manual_reschedule_protected`.
+### Files
 
-2. **Only auto-reschedule when the incoming sheet row is actually newer**
-   - Add a guard before the import updates an existing active booking on a different date.
-   - If the existing booking was manually edited after the original intake event / stale row, do not let the sheet import overwrite it.
-   - This keeps true Mindbody reschedules working while blocking old rows from undoing staff work.
+1. **`src/features/myDay/MyDayNewLeadsTab.tsx`**
+   - Import `MarkLostDialog`. Add `lostLead` state.
+   - Add a new `LeadAction` value `'mark_lost'` that simply opens the dialog (handled in parent via `setLostLead(lead)`), so the card stays presentational.
+   - Add a small destructive-styled button **"Not Interested"** (XCircle icon) to the action rows for `isNew`, `isContacted`, and `isFlagged` states.
+   - Add **Book Intro** to the `isAlreadyInSystem` row (some "in system" matches are actually fine to rebook — staff currently has no path).
+   - Render `<MarkLostDialog>` at the bottom; on `onDone`, call `fetchLeads()` and invalidate `['leads']`. The dialog already moves stage to `lost`, which the existing query filter (`.not('stage', 'in', '("lost","archived")')`) will hide — lead disappears from the list.
 
-3. **Strengthen the My Day refresh after successful reschedule**
-   - In `UpcomingIntrosCard`, add a one-shot hidden booking id set for rows that just saved a reschedule.
-   - In `IntroRowCard`, close the outcome drawer after save and call the parent refresh with the booking id so the old-day card disappears immediately.
-   - Keep the DB read-back already added in `OutcomeDrawer` so the UI only hides after the write commits.
+2. **`src/features/pipeline/components/PipelineNewLeadsTab.tsx`**
+   - Mirror the same change (same card pattern lives there) so behavior is consistent between My Day and Pipeline.
 
-4. **Repair Angelica’s live row**
-   - Move Angelica James back to the newly selected date/time if it can be determined from recent state.
-   - If the target date/time is not recoverable from app/database state, I will need you to confirm the intended new date/time before changing live data.
+3. **`src/components/ActionBar.tsx` (`LeadActionBar`)**
+   - Add an optional `onMarkLost?: () => void` prop.
+   - Render a "Not Interested" button (destructive styling, XCircle icon) when `stage` is `new` or `contacted` and the prop is provided.
+   - Wire through in `LeadCard.tsx`, `LeadListView.tsx`, `LeadKanbanBoard.tsx`, and `pages/Leads.tsx` (open the existing `MarkLostDialog` already imported there).
 
-## Verification
+### Behavior
 
-- Query Angelica’s booking before and after.
-- Confirm `last_edited_by` no longer becomes `System (Sheet Import)` from a stale import after a manual reschedule.
-- Confirm My Day no longer shows the card on the old date immediately after save.
-- Confirm follow-up queue rows tied to that booking remain dormant/cleared.
+- Click **Not Interested** → `MarkLostDialog` opens with reason dropdown (Went cold / Not interested / Wrong number / Already a member / Other) → save sets `stage='lost'`, writes `lead_activities` row, lead drops off all active queues.
+- Click **Book Intro** on Already-in-System → opens existing BookIntroDialog flow (same handler `onBook(lead)` already wired).
+
+### Verification
+
+- My Day → New Leads → Contacted tab: card shows Script · Book · Copy # · Move to New · **Not Interested**. Click Not Interested → dialog → Save → card disappears, lead row in DB has `stage='lost'`, `lost_reason` set, `lead_activities` has stage_change row.
+- Same on New tab and Flagged state.
+- Pipeline → New Leads tab mirrors the same buttons/behavior.
+- `pages/Leads.tsx` Kanban + List views: each lead card shows Not Interested for new/contacted; same dialog flow.
+- Confirm a "lost" lead is excluded from `useFollowUpData` and from MyDay counts (existing filters already handle this).
+
+Single source of truth: all surfaces use `MarkLostDialog` → no duplicate "remove lead" logic.
