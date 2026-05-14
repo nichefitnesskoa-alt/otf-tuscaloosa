@@ -5,7 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
-import { Plus, LayoutGrid, List, Sparkles } from 'lucide-react';
+import { Plus, LayoutGrid, List, Sparkles, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
