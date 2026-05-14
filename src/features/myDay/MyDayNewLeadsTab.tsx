@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Copy, CalendarPlus, MessageSquare, CheckCircle,
@@ -416,6 +417,7 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
   const [scriptLead, setScriptLead] = useState<Lead | null>(null);
   const [lostLeadId, setLostLeadId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState('contacted');
+  const [search, setSearch] = useState('');
   const dedupRunning = useRef(false);
   // Stable refs so backgroundDedupRecheck doesn't change identity each render (avoids React #300)
   const leadsRef = useRef<Lead[]>([]);
@@ -592,17 +594,40 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
     l.stage === 'contacted' || l.stage === 'booked' || l.stage === 'won'
   );
 
+  const filterBySearch = (list: Lead[]) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    const digits = q.replace(/\D/g, '');
+    return list.filter(l => {
+      const name = `${l.first_name ?? ''} ${l.last_name ?? ''}`.toLowerCase();
+      if (name.includes(q)) return true;
+      if (digits && l.phone) {
+        const phoneDigits = l.phone.replace(/\D/g, '');
+        if (phoneDigits.includes(digits)) return true;
+      }
+      return false;
+    });
+  };
+
   const renderList = (list: Lead[], emptyLabel: string) => {
     if (loading) return <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>;
-    if (list.length === 0) return <EmptyState label={emptyLabel} />;
+    const filtered = filterBySearch(list);
+    if (filtered.length === 0) {
+      return search.trim()
+        ? <div className="text-center py-8"><p className="text-muted-foreground text-sm">No matches for "{search}"</p></div>
+        : <EmptyState label={emptyLabel} />;
+    }
     return (
       <div className="space-y-2.5">
-        {list.map(lead => (
+        {filtered.map(lead => (
           <LeadCard key={lead.id} lead={lead} onAction={handleAction} onBook={setBookLead} onScript={setScriptLead} />
         ))}
       </div>
     );
   };
+
+  const activeList = subTab === 'booked' ? bookedLeads : contactedLeads;
+  const matchCount = filterBySearch(activeList).length;
 
   return (
     <div className="space-y-3">
@@ -618,6 +643,32 @@ export function MyDayNewLeadsTab({ onCountChange }: MyDayNewLeadsTabProps) {
             {bookedLeads.length > 0 && <Badge variant="secondary" className="h-3.5 px-1 text-[9px] min-w-[16px]">{bookedLeads.length}</Badge>}
           </TabsTrigger>
         </TabsList>
+
+        {/* Search bar — sits directly under the Contacted/Booked tab row, filters whichever tab is active */}
+        <div className="mt-2 relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search leads by name or phone…"
+            className="pl-8 pr-16 h-9 text-[13px]"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+              aria-label="Clear search"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        {search.trim() && (
+          <p className="text-[11px] text-muted-foreground mt-1 px-1">
+            {matchCount} match{matchCount === 1 ? '' : 'es'} in {subTab === 'booked' ? 'Booked' : 'Contacted'}
+          </p>
+        )}
 
         <TabsContent value="contacted" className="mt-2">
           {renderList([...contactedLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)), 'contacted')}
