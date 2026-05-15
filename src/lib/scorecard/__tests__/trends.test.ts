@@ -41,24 +41,25 @@ describe('getCadenceForDate — ISO week boundaries', () => {
   });
 
   it('long-year boundary (week 53 → week 1) keeps parity rule deterministic', () => {
-    // 2026 has ISO week 53. Both 53 and 1 are odd → both 'self'. This is the
-    // documented behavior of the studio-wide odd/even rule. If this changes,
-    // notifications, dot status, and chip language all need to update together.
+    // 2026 has ISO week 53. Both 53 and 1 are odd → both 'formal'. This is the
+    // documented behavior of the studio-wide even/odd rule (even = self,
+    // odd = formal). If this changes, notifications, dot status, and chip
+    // language all need to update together.
     const dec28_2026 = new Date(2026, 11, 28); // Mon, ISO week 53 of 2026
     const jan04_2027 = new Date(2027, 0, 4);   // Mon, ISO week 1 of 2027
     const c1 = getCadenceForDate(dec28_2026);
     const c2 = getCadenceForDate(jan04_2027);
     expect(c1.isoWeek).toBe(53);
     expect(c2.isoWeek).toBe(1);
-    expect(c1.type).toBe('self');
-    expect(c2.type).toBe('self');
+    expect(c1.type).toBe('formal');
+    expect(c2.type).toBe('formal');
   });
 
   it('handles ISO week 53 in long years (2026)', () => {
     const d = new Date(2026, 11, 30); // Wed in week 53
     const c = getCadenceForDate(d);
     expect(c.isoWeek).toBe(53);
-    expect(c.type).toBe(c.isoWeek % 2 === 1 ? 'self' : 'formal');
+    expect(c.type).toBe(c.isoWeek % 2 === 0 ? 'self' : 'formal');
   });
 
   it('produces consistent week start/end across DST spring-forward (Mar 8, 2026)', () => {
