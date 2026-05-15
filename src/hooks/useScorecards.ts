@@ -49,6 +49,8 @@ export interface FvComment {
 export function useScorecards(opts: { from?: string; to?: string; evaluatee?: string; firstTimerId?: string } = {}) {
   return useQuery({
     queryKey: ['fv_scorecards', opts],
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       let q = supabase.from('fv_scorecards' as any).select('*').order('class_date', { ascending: false });
       if (opts.from) q = q.gte('class_date', opts.from);
