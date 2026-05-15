@@ -114,13 +114,13 @@ export function applyMovingAverage(points: TrendPoint[], window = 4): TrendPoint
 /* ───────────────────── Cadence (studio-wide odd/even ISO week) ───────────────────── */
 
 /**
- * Studio-wide cadence: odd ISO weeks = self-eval, even ISO weeks = formal eval.
+ * Studio-wide cadence: even ISO weeks = self-eval, odd ISO weeks = formal eval.
  * Same obligation for every coach in the same week.
  */
 export function getCadenceForDate(d: Date = getNowCentral()): { type: CadenceType; weekStart: Date; weekEnd: Date; isoWeek: number } {
   const isoWeek = getISOWeek(d);
   return {
-    type: isoWeek % 2 === 1 ? 'self' : 'formal',
+    type: isoWeek % 2 === 0 ? 'self' : 'formal',
     weekStart: startOfWeek(d, { weekStartsOn: 1 }),
     weekEnd: endOfWeek(d, { weekStartsOn: 1 }),
     isoWeek,
@@ -173,7 +173,7 @@ export function cadenceStreakWeeks(coachName: string, cards: FvScorecard[], toda
   let cursor = addDays(startOfWeek(today, { weekStartsOn: 1 }), -7); // last full week
   while (true) {
     const isoWeek = getISOWeek(cursor);
-    const type: CadenceType = isoWeek % 2 === 1 ? 'self' : 'formal';
+    const type: CadenceType = isoWeek % 2 === 0 ? 'self' : 'formal';
     const wkStart = cursor;
     const wkEnd = endOfWeek(cursor, { weekStartsOn: 1 });
     if (!hasMetCadenceForWeek(coachName, cards, wkStart, wkEnd, type)) break;
@@ -193,7 +193,7 @@ export function cadenceDotStatus(coachName: string, cards: FvScorecard[], today:
   const lastStart = addDays(cur.weekStart, -7);
   const lastEnd = addDays(cur.weekEnd, -7);
   const lastIso = getISOWeek(lastStart);
-  const lastType: CadenceType = lastIso % 2 === 1 ? 'self' : 'formal';
+  const lastType: CadenceType = lastIso % 2 === 0 ? 'self' : 'formal';
   if (!hasMetCadenceForWeek(coachName, cards, lastStart, lastEnd, lastType)) return 'missed';
   return 'pending';
 }
