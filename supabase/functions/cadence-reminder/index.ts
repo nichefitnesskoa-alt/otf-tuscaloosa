@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const isoWeek = getISOWeek(now);
-    const cadenceType: "self" | "formal" = isoWeek % 2 === 1 ? "self" : "formal";
+    const cadenceType: "self" | "formal" = isoWeek % 2 === 0 ? "self" : "formal";
     const wantEvalType = cadenceType === "self" ? "self_eval" : "formal_eval";
     const weekStart = chicagoWeekStart(now);
     const weekEnd = new Date(weekStart.getTime() + 7 * 86400_000 - 1);
