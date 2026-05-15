@@ -114,13 +114,13 @@ export function applyMovingAverage(points: TrendPoint[], window = 4): TrendPoint
 /* ───────────────────── Cadence (studio-wide odd/even ISO week) ───────────────────── */
 
 /**
- * Studio-wide cadence: odd ISO weeks = self-eval, even ISO weeks = formal eval.
+ * Studio-wide cadence: even ISO weeks = self-eval, odd ISO weeks = formal eval.
  * Same obligation for every coach in the same week.
  */
 export function getCadenceForDate(d: Date = getNowCentral()): { type: CadenceType; weekStart: Date; weekEnd: Date; isoWeek: number } {
   const isoWeek = getISOWeek(d);
   return {
-    type: isoWeek % 2 === 1 ? 'self' : 'formal',
+    type: isoWeek % 2 === 0 ? 'self' : 'formal',
     weekStart: startOfWeek(d, { weekStartsOn: 1 }),
     weekEnd: endOfWeek(d, { weekStartsOn: 1 }),
     isoWeek,
