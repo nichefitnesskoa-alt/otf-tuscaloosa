@@ -193,7 +193,7 @@ export function cadenceDotStatus(coachName: string, cards: FvScorecard[], today:
   const lastStart = addDays(cur.weekStart, -7);
   const lastEnd = addDays(cur.weekEnd, -7);
   const lastIso = getISOWeek(lastStart);
-  const lastType: CadenceType = lastIso % 2 === 1 ? 'self' : 'formal';
+  const lastType: CadenceType = lastIso % 2 === 0 ? 'self' : 'formal';
   if (!hasMetCadenceForWeek(coachName, cards, lastStart, lastEnd, lastType)) return 'missed';
   return 'pending';
 }
