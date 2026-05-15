@@ -173,7 +173,7 @@ export function cadenceStreakWeeks(coachName: string, cards: FvScorecard[], toda
   let cursor = addDays(startOfWeek(today, { weekStartsOn: 1 }), -7); // last full week
   while (true) {
     const isoWeek = getISOWeek(cursor);
-    const type: CadenceType = isoWeek % 2 === 1 ? 'self' : 'formal';
+    const type: CadenceType = isoWeek % 2 === 0 ? 'self' : 'formal';
     const wkStart = cursor;
     const wkEnd = endOfWeek(cursor, { weekStartsOn: 1 });
     if (!hasMetCadenceForWeek(coachName, cards, wkStart, wkEnd, type)) break;
