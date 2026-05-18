@@ -36,17 +36,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const resolveUser = useCallback(async (name: string) => {
-    // Look up role from staff table
-    const { data } = await supabase
+    // Look up role + permissions from staff table
+    const { data } = await (supabase
       .from('staff')
-      .select('role')
+      .select('role, permissions') as any)
       .eq('name', name)
       .eq('is_active', true)
       .limit(1)
       .maybeSingle();
 
     const role = getRoleForName(name, (data as any)?.role);
-    return { id: name, name, role };
+    const permissions = ((data as any)?.permissions || {}) as Record<string, boolean>;
+    return { id: name, name, role, permissions };
   }, []);
 
   // Load user from localStorage on mount
