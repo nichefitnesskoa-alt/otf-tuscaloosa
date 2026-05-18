@@ -38,6 +38,9 @@ export default function StaffManagement() {
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState<StaffRole>('SA');
   const [saving, setSaving] = useState(false);
+  const [editingPermissions, setEditingPermissions] = useState<StaffMember | null>(null);
+  const [permDraft, setPermDraft] = useState<Record<string, boolean>>({});
+  const [savingPerms, setSavingPerms] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
