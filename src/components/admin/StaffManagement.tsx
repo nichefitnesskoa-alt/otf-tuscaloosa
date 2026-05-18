@@ -81,6 +81,7 @@ export default function StaffManagement() {
       is_active: s.is_active ?? true,
       created_at: s.created_at,
       last_active: lastActiveMap[s.name] || undefined,
+      permissions: (s.permissions || {}) as Record<string, boolean>,
     }));
 
     setStaff(enriched);
