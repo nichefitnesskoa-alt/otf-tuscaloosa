@@ -371,6 +371,35 @@ export default function StaffManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permissions Dialog */}
+      <Dialog open={!!editingPermissions} onOpenChange={(o) => !o && setEditingPermissions(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Permissions · {editingPermissions?.name}</DialogTitle>
+            <DialogDescription>
+              Check what {editingPermissions?.name} can see. Defaults are based on their role; toggle to override. Koa always sees everything.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
+            {PERMISSION_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={!!permDraft[key]}
+                  onCheckedChange={(v) => setPermDraft(prev => ({ ...prev, [key]: v === true }))}
+                />
+                <span className="text-sm">{PERMISSION_LABELS[key as PermissionKey]}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPermissions(null)}>Cancel</Button>
+            <Button onClick={savePermissions} disabled={savingPerms} className="bg-[#E8540A] hover:bg-[#d44a08] text-white">
+              {savingPerms ? 'Saving…' : 'Save Permissions'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
