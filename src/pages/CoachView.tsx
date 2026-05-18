@@ -266,7 +266,7 @@ export default function CoachView() {
 
       {isAdmin && <TheSystemSection />}
 
-      {(isAdmin || isCoachLike) && (
+      {(isAdmin || user?.name === 'Jackson' || user?.permissions?.['feature.coaching_scripts'] === true) && (
         <CollapsibleSection
           id="workout-templates"
           title="Workout Templates With Class Times (Every Effort)"

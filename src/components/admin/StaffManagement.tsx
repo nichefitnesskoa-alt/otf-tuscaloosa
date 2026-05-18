@@ -6,12 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, UserPlus, Pencil, UserMinus, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Pencil, UserMinus, UserCheck, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
+import { PERMISSION_KEYS, PERMISSION_LABELS, canSee, type PermissionKey } from '@/lib/auth/roles';
+import type { User } from '@/types';
 
 interface StaffMember {
   id: string;
@@ -20,6 +23,7 @@ interface StaffMember {
   is_active: boolean;
   created_at: string;
   last_active?: string;
+  permissions?: Record<string, boolean>;
 }
 
 type StaffRole = 'SA' | 'Coach' | 'Both' | 'Admin';
@@ -34,6 +38,9 @@ export default function StaffManagement() {
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState<StaffRole>('SA');
   const [saving, setSaving] = useState(false);
+  const [editingPermissions, setEditingPermissions] = useState<StaffMember | null>(null);
+  const [permDraft, setPermDraft] = useState<Record<string, boolean>>({});
+  const [savingPerms, setSavingPerms] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -77,6 +84,7 @@ export default function StaffManagement() {
       is_active: s.is_active ?? true,
       created_at: s.created_at,
       last_active: lastActiveMap[s.name] || undefined,
+      permissions: (s.permissions || {}) as Record<string, boolean>,
     }));
 
     setStaff(enriched);
@@ -167,6 +175,36 @@ export default function StaffManagement() {
     }
   };
 
+  const openPermissions = (s: StaffMember) => {
+    setEditingPermissions(s);
+    // Seed draft with current overrides; missing keys mean "use role default" which we show as the resolved value.
+    const fakeUser: User = { id: s.name, name: s.name, role: s.role as any, permissions: s.permissions || {} };
+    const seed: Record<string, boolean> = {};
+    for (const key of PERMISSION_KEYS) {
+      seed[key] = canSee(fakeUser, key);
+    }
+    setPermDraft(seed);
+  };
+
+  const savePermissions = async () => {
+    if (!editingPermissions) return;
+    setSavingPerms(true);
+    try {
+      const { error } = await (supabase
+        .from('staff')
+        .update({ permissions: permDraft } as any) as any)
+        .eq('id', editingPermissions.id);
+      if (error) throw error;
+      toast.success(`Permissions updated for ${editingPermissions.name}`);
+      setEditingPermissions(null);
+      fetchStaff();
+    } catch (err: any) {
+      toast.error(err?.message || 'Save failed');
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
   const activeStaff = staff.filter(s => s.is_active);
   const inactiveStaff = staff.filter(s => !s.is_active);
 
@@ -218,6 +256,9 @@ export default function StaffManagement() {
                   </Button>
                 ) : (
                   <>
+                    <Button size="sm" variant="ghost" onClick={() => openPermissions(s)} title="Edit Permissions">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -326,6 +367,35 @@ export default function StaffManagement() {
             <Button variant="outline" onClick={() => setShowDeactivateConfirm(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => showDeactivateConfirm && handleDeactivate(showDeactivateConfirm)}>
               Deactivate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permissions Dialog */}
+      <Dialog open={!!editingPermissions} onOpenChange={(o) => !o && setEditingPermissions(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Permissions · {editingPermissions?.name}</DialogTitle>
+            <DialogDescription>
+              Check what {editingPermissions?.name} can see. Defaults are based on their role; toggle to override. Koa always sees everything.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
+            {PERMISSION_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-3 px-2 py-2 rounded hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={!!permDraft[key]}
+                  onCheckedChange={(v) => setPermDraft(prev => ({ ...prev, [key]: v === true }))}
+                />
+                <span className="text-sm">{PERMISSION_LABELS[key as PermissionKey]}</span>
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPermissions(null)}>Cancel</Button>
+            <Button onClick={savePermissions} disabled={savingPerms} className="bg-[#E8540A] hover:bg-[#d44a08] text-white">
+              {savingPerms ? 'Saving…' : 'Save Permissions'}
             </Button>
           </DialogFooter>
         </DialogContent>

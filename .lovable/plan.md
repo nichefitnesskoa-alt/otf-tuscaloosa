@@ -1,44 +1,41 @@
-## Goals
+## 1. Per-staff tab/feature permissions (Staff Management)
 
-1. Add a search bar (name + phone) inside the MyDay → New Leads tab that filters both the Contacted and Booked sub-tabs.
-2. Auto-detect leads who already have a real intro booked in the system (e.g. Katie Davis, Jacqueline Othmer) and move them from "Contacted" into "Booked" automatically — no manual cleanup needed.
+Add a `permissions` JSONB column to the `staff` table holding a map of feature keys → boolean. When a value is missing, fall back to the current role-based default so nothing breaks for existing staff.
 
-## 1. Search bar in MyDay Leads tab
+Feature keys (matches what's actually in BottomNav + key sections):
+- `nav.my_day`, `nav.coach_view`, `nav.studio`, `nav.wig`, `nav.own_it`, `nav.vips`, `nav.my_intros`, `nav.pipeline`, `nav.admin`
+- `feature.coaching_scripts` (the Workout Templates / Coaching Scripts section in Coach View)
+- `feature.scripts_tab` (Scripts tab in My Day)
 
-File: `src/features/myDay/MyDayNewLeadsTab.tsx`
+In `StaffManagement.tsx`, add an "Edit Permissions" button on each row that opens a dialog with a checkbox per feature key, pre-checked from the role default. Saving writes the JSONB.
 
-- Add `search` state at the top of `MyDayNewLeadsTab`.
-- Render a search input directly under the `TabsList` (so it sits right below the "Contacted / Booked" tab row and filters whichever tab is active). Includes a Search icon, an `X` clear button, placeholder "Search leads by name or phone…", and a small "{N} match" count when a query is entered.
-- Filter is applied inside `renderList` callsites: case-insensitive name match (first + last) and digits-only phone match (so "2052706992", "(205) 270-6992", "205-270" all work).
-- Searching never changes the active sub-tab; it just narrows the visible list within whichever tab the user is on.
+In `BottomNav.tsx` and `CoachView.tsx` (and the Scripts tab in My Day), replace the current role checks with a small helper `canSee(user, key)` that reads `user.permissions[key]` if present, else falls back to the existing role logic. Koa is always allowed everything regardless.
 
-## 2. Auto-move "already booked" leads from Contacted → Booked
+## 2. Restrict Coaching Scripts to Koa + Jackson
 
-Today, `runDeduplicationForLead` (called every 5 min by `backgroundDedupRecheck`) only updates `stage` when the lead is currently `new`, `flagged`, or `already_in_system`. Leads already marked `contacted` are skipped, so people like Katie Davis and Jacqueline Othmer stay stuck in Contacted even after a real booking exists.
+Two surfaces show coaching scripts today:
+- `src/pages/CoachView.tsx` line 269 — "Workout Templates With Class Times" section, currently shown to `isAdmin || isCoachLike`
+- `src/components/coach/CoachingScripts.tsx` — the component itself
 
-Changes:
+Gate the section to: `user.name === 'Koa' || user.name === 'Jackson'`. Once #1 ships this becomes a per-staff toggle (`feature.coaching_scripts`) seeded `true` only for Koa and Jackson, but the hard-coded gate goes in now so it's correct immediately.
 
-**A. `src/lib/leads/detectDuplicate.ts`**
-- In `runDeduplicationForLead`, when the existing lead stage is `contacted` (or `new` / `flagged`) AND `detectDuplicate` returns a `HIGH`-confidence phone/email match against `intros_booked`, set:
-  - `stage = 'booked'`
-  - `booked_intro_id = matchedRecord.id` (the `intros_booked.id`)
-  - Write a `lead_activities` row: `activity_type='stage_change'`, `notes='Auto-moved to Booked — matched existing intro <member_name> on <class_date>'`, `performed_by='System (auto-dedup)'`.
-- If the matched booking is `CLOSED_PURCHASED` (already a member), keep current behavior — leave it for the existing "Clean Duplicates" tool to delete (we don't want auto-deletes from a background task).
-- Name-only / `MEDIUM` matches keep current behavior (no stage change for `contacted`) to avoid false auto-moves.
+## 3. Vivian's 8:45 intro not showing as "ran" in Studio
 
-**B. `src/features/myDay/MyDayNewLeadsTab.tsx`**
-- `backgroundDedupRecheck` already iterates over `new` and `contacted` leads — no change needed beyond passing the current stage (already does). After it runs, the realtime UPDATE subscription will pull the new stage and the lead will jump to the Booked sub-tab automatically.
+What I found in the DB:
 
-**C. One-time backfill (no migration, runs in the same code path)**
-- The next background dedup pass after deploy will catch Katie Davis, Jacqueline Othmer, and any other contacted leads with matching `intros_booked` rows and move them to Booked. No manual action required.
+- Booking `5de3306c…` — Vivian Shanlever, 2026-05-18 08:45, coach Koa, `booking_status_canon = SECOND_INTRO_SCHEDULED`
+- Run `dcb644d2…` — linked to that booking, `result_canon = SECOND_INTRO_SCHEDULED`, `intro_owner = Madison`, `coach_name = Koa`, `ignore_from_metrics = false`
+- A 2nd intro `6aea1af3…` was correctly booked for 2026-05-26 with Nathan
 
-## Verification
+By our own canon (`didIntroActuallyRun` in `src/lib/canon/introRules.ts`), `SECOND_INTRO_SCHEDULED` IS a ran intro — the member showed up and chose to book a 2nd intro. So she should be counted in Per-SA, Per-Coach, funnel, and WIG.
 
-- Search: type "katie" on Contacted → only Katie shows; switch to Booked tab → search persists and filters Booked. Type "270" → matches by phone. Clear button empties the field.
-- Auto-move: with Katie Davis currently in Contacted and a matching `intros_booked` row in the DB, reload My Day → within ~2 seconds (initial 1.5s dedup timer) Katie disappears from Contacted and appears in Booked with a "✓ Booked" banner. `lead_activities` row recorded for the stage change.
-- Coherence: Leads page (`/leads`) reads from the same `leads` table, so the same auto-move applies there too. The existing "Clean Duplicates" button still handles purchased-member deletion (unchanged).
+Most likely culprit: a Studio widget that filters on a narrower list than `didIntroActuallyRun` (for example checking `result_canon === 'SHOWED'` or excluding `SECOND_INTRO_SCHEDULED` directly). I want to confirm exactly where she's missing before changing logic, because changing the wrong filter would inflate other numbers.
 
-## Out of scope
+I need one quick clarification before I touch this — see the question below.
 
-- No DB migrations.
-- No changes to the Pipeline new-leads tab (mirror change can be added later if you want it there too — say the word).
+## Technical notes
+
+- Migration: `alter table staff add column permissions jsonb not null default '{}'::jsonb;`
+- `useActiveStaff` and `AuthContext` must select the new column so `user.permissions` is available.
+- Admin (Koa) bypasses all permission checks.
+- No changes to existing data — empty `{}` means "use role defaults", so behavior is unchanged for everyone until Koa edits them.

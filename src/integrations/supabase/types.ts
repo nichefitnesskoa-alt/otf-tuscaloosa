@@ -2692,6 +2692,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          permissions: Json
           role: string
           user_id: string | null
         }
@@ -2701,6 +2702,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          permissions?: Json
           role: string
           user_id?: string | null
         }
@@ -2710,6 +2712,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          permissions?: Json
           role?: string
           user_id?: string | null
         }
