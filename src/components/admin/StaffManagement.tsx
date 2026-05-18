@@ -175,6 +175,36 @@ export default function StaffManagement() {
     }
   };
 
+  const openPermissions = (s: StaffMember) => {
+    setEditingPermissions(s);
+    // Seed draft with current overrides; missing keys mean "use role default" which we show as the resolved value.
+    const fakeUser: User = { id: s.name, name: s.name, role: s.role as any, permissions: s.permissions || {} };
+    const seed: Record<string, boolean> = {};
+    for (const key of PERMISSION_KEYS) {
+      seed[key] = canSee(fakeUser, key);
+    }
+    setPermDraft(seed);
+  };
+
+  const savePermissions = async () => {
+    if (!editingPermissions) return;
+    setSavingPerms(true);
+    try {
+      const { error } = await (supabase
+        .from('staff')
+        .update({ permissions: permDraft } as any) as any)
+        .eq('id', editingPermissions.id);
+      if (error) throw error;
+      toast.success(`Permissions updated for ${editingPermissions.name}`);
+      setEditingPermissions(null);
+      fetchStaff();
+    } catch (err: any) {
+      toast.error(err?.message || 'Save failed');
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
   const activeStaff = staff.filter(s => s.is_active);
   const inactiveStaff = staff.filter(s => !s.is_active);
 
