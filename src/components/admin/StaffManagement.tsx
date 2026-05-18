@@ -6,12 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, UserPlus, Pencil, UserMinus, UserCheck } from 'lucide-react';
+import { Users, UserPlus, Pencil, UserMinus, UserCheck, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
+import { PERMISSION_KEYS, PERMISSION_LABELS, canSee, type PermissionKey } from '@/lib/auth/roles';
+import type { User } from '@/types';
 
 interface StaffMember {
   id: string;
