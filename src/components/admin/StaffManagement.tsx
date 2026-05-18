@@ -23,6 +23,7 @@ interface StaffMember {
   is_active: boolean;
   created_at: string;
   last_active?: string;
+  permissions?: Record<string, boolean>;
 }
 
 type StaffRole = 'SA' | 'Coach' | 'Both' | 'Admin';
