@@ -256,6 +256,9 @@ export default function StaffManagement() {
                   </Button>
                 ) : (
                   <>
+                    <Button size="sm" variant="ghost" onClick={() => openPermissions(s)} title="Edit Permissions">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </Button>
                     <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
