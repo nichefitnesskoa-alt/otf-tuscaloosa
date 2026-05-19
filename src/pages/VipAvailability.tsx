@@ -501,6 +501,35 @@ function useMonthData(monthOffset: number) {
   }, [monthOffset]);
 }
 
+function useWeekData(weekOffset: number) {
+  return useMemo(() => {
+    const now = getNowCentral();
+    const base = addDays(now, weekOffset * 7);
+    const weekStart = startOfWeek(base, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(base, { weekStartsOn: 0 });
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const todayStr = getTodayYMD();
+    return {
+      weekStart,
+      weekEnd,
+      weekLabel: `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d')}`,
+      days: days.map((d) => {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        return {
+          date: dateStr,
+          dayDate: d,
+          isToday: dateStr === todayStr,
+          isPast: isBefore(d, new Date(todayStr + 'T00:00:00')) && dateStr !== todayStr,
+          dayLabel: format(d, 'EEE, MMM d'),
+        };
+      }),
+      todayStr,
+      queryStart: format(weekStart, 'yyyy-MM-dd'),
+      queryEnd: format(weekEnd, 'yyyy-MM-dd'),
+    };
+  }, [weekOffset]);
+}
+
 /* ── Main Page ─────────────────────────────────────── */
 
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
