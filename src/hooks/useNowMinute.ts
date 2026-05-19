@@ -10,7 +10,7 @@
  *   const today = useChicagoToday();      // 'yyyy-MM-dd' Chicago, rolls over
  */
 import { useEffect, useState } from 'react';
-import { getChicagoTodayYMD } from '@/lib/dateUtils';
+import { getChicagoTodayYMD } from '@/lib/classSchedule';
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
