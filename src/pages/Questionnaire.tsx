@@ -802,14 +802,14 @@ export default function Questionnaire() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+        <div className="max-w-md mx-auto flex items-center justify-between">
           <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 object-contain" />
           {step > 0 && step < 8 && (
             <span className="text-xs font-medium" style={{ color: '#777' }}>{step} of 7</span>
           )}
         </div>
         {step > 0 && step < 8 && (
-          <div className="max-w-lg mx-auto mt-2">
+          <div className="max-w-md mx-auto mt-2">
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
               <div
                 className="h-full rounded-full transition-all duration-500 ease-out"
@@ -821,7 +821,7 @@ export default function Questionnaire() {
       </div>
 
       {/* Content */}
-      <div className="max-w-lg mx-auto px-5 py-8">
+      <div className="max-w-md mx-auto px-5 py-8">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
