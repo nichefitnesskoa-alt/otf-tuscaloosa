@@ -321,6 +321,6 @@ export function useFollowUpCount() {
 
       return count;
     },
-    refetchInterval: 120000,
   });
+
 }
