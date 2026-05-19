@@ -33,6 +33,7 @@ import {
   endOfWeek,
   eachDayOfInterval,
   addMonths,
+  addDays,
   isBefore,
   isSameMonth,
   isToday as isDateToday,
