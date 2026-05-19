@@ -23,28 +23,25 @@ async function getAccessToken(): Promise<string> {
   }
 
   let serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-  if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
+  if (!serviceAccountJson) {
+    console.error('[import-sheet-leads] Service account env var missing');
+    throw new Error('Sheets integration not configured');
+  }
 
   serviceAccountJson = serviceAccountJson.trim();
-  // Remove wrapping quotes if present
   if ((serviceAccountJson.startsWith('"') && serviceAccountJson.endsWith('"')) ||
       (serviceAccountJson.startsWith("'") && serviceAccountJson.endsWith("'"))) {
     serviceAccountJson = serviceAccountJson.slice(1, -1);
   }
-  // Unescape doubly-escaped quotes
   if (serviceAccountJson.includes('\\"')) {
     serviceAccountJson = serviceAccountJson.replace(/\\"/g, '"');
   }
-  // Only fix literal newlines INSIDE the private_key value, not everywhere
-  // Try parsing as-is first, only transform if it fails
   let parseAttempt: Record<string, string> | null = null;
   try {
     parseAttempt = JSON.parse(serviceAccountJson);
   } catch {
-    // The JSON likely has real newlines/tabs — normalize them for JSON compatibility
     serviceAccountJson = serviceAccountJson
       .replace(/\r\n/g, '\\n').replace(/\r/g, '\\n').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
-    // no-op, will parse below
   }
 
   let serviceAccount: Record<string, string>;
@@ -54,13 +51,13 @@ async function getAccessToken(): Promise<string> {
     try {
       serviceAccount = JSON.parse(serviceAccountJson);
     } catch (parseErr) {
-      console.error('[import-sheet-leads] JSON parse failed. First 80 chars:', serviceAccountJson.slice(0, 80));
-      throw new Error(`Service account JSON parse error: ${parseErr}`);
+      console.error('[import-sheet-leads] JSON parse failed:', parseErr);
+      throw new Error('Sheets integration configuration error');
     }
   }
-  console.log('[import-sheet-leads] client_email:', serviceAccount.client_email || '(missing)');
   if (!serviceAccount.client_email || !serviceAccount.private_key) {
-    throw new Error('Service account JSON missing required fields');
+    console.error('[import-sheet-leads] Service account missing required fields');
+    throw new Error('Sheets integration configuration error');
   }
 
   const header = { alg: 'RS256', typ: 'JWT' };
@@ -691,13 +688,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Log to sheets_sync_log
+    // Log to sheets_sync_log (generic message only; details stay in server logs)
     try {
       await supabase.from('sheets_sync_log').insert({
         sync_type: mode === 'backfill' ? 'backfill_sheet_leads' : 'import_sheet_leads',
         status: errors > 0 ? 'partial' : 'success',
         records_synced: imported,
-        error_message: errors > 0 ? `${errors} errors. ${details.filter(d => d.includes('failed')).join('; ')}` : null,
+        error_message: errors > 0 ? `${errors} row(s) failed — see server logs` : null,
       });
     } catch (logErr) {
       console.error('[import-sheet-leads] Failed to log sync:', logErr);
@@ -725,12 +722,12 @@ Deno.serve(async (req) => {
         sync_type: 'import_sheet_leads',
         status: 'error',
         records_synced: 0,
-        error_message: String(err),
+        error_message: 'Sync failed — see server logs',
       });
     } catch (logErr) {
       console.error('[import-sheet-leads] Failed to log error:', logErr);
     }
 
-    return jsonResponse({ error: 'Internal server error', details: String(err) }, 500);
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 });
