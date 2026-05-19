@@ -688,13 +688,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Log to sheets_sync_log
+    // Log to sheets_sync_log (generic message only; details stay in server logs)
     try {
       await supabase.from('sheets_sync_log').insert({
         sync_type: mode === 'backfill' ? 'backfill_sheet_leads' : 'import_sheet_leads',
         status: errors > 0 ? 'partial' : 'success',
         records_synced: imported,
-        error_message: errors > 0 ? `${errors} errors. ${details.filter(d => d.includes('failed')).join('; ')}` : null,
+        error_message: errors > 0 ? `${errors} row(s) failed — see server logs` : null,
       });
     } catch (logErr) {
       console.error('[import-sheet-leads] Failed to log sync:', logErr);
@@ -722,12 +722,12 @@ Deno.serve(async (req) => {
         sync_type: 'import_sheet_leads',
         status: 'error',
         records_synced: 0,
-        error_message: String(err),
+        error_message: 'Sync failed — see server logs',
       });
     } catch (logErr) {
       console.error('[import-sheet-leads] Failed to log error:', logErr);
     }
 
-    return jsonResponse({ error: 'Internal server error', details: String(err) }, 500);
+    return jsonResponse({ error: 'Internal server error' }, 500);
   }
 });
