@@ -4,6 +4,7 @@
  * Week navigation: Previous / Current range / Next.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useNowMinute } from '@/hooks/useNowMinute';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
