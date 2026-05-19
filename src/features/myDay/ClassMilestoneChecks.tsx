@@ -41,8 +41,9 @@ type RowState = 'upcoming' | 'available' | 'checked' | 'missed';
 
 export function ClassMilestoneChecks() {
   const { user } = useAuth();
-  const [today, setToday] = useState(getChicagoTodayYMD());
-  const [minutesNow, setMinutesNow] = useState(getChicagoMinutesNow());
+  const today = useChicagoToday();
+  const nowDate = useNowMinute();
+  const minutesNow = nowDate.getHours() * 60 + nowDate.getMinutes();
   const [checks, setChecks] = useState<CheckRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -58,15 +59,6 @@ export function ClassMilestoneChecks() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 30s ticker refreshes "now" + rolls date past midnight
-  useEffect(() => {
-    const t = setInterval(() => {
-      setMinutesNow(getChicagoMinutesNow());
-      const ymd = getChicagoTodayYMD();
-      if (ymd !== today) setToday(ymd);
-    }, 30_000);
-    return () => clearInterval(t);
-  }, [today]);
 
   // Realtime
   useEffect(() => {
