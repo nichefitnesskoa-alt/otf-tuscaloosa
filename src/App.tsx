@@ -40,7 +40,16 @@ function QuestionnaireRedirect() {
   return <Navigate to={`/q/${id}`} replace />;
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: React.ReactNode; requireAdmin?: boolean; blockCoach?: boolean }) {
   const { isAuthenticated, canAccessAdmin, user } = useAuth();

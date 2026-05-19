@@ -1,41 +1,79 @@
-## 1. Per-staff tab/feature permissions (Staff Management)
+## 1. Stop the app from constantly refreshing
 
-Add a `permissions` JSONB column to the `staff` table holding a map of feature keys → boolean. When a value is missing, fall back to the current role-based default so nothing breaks for existing staff.
+The global React Query client (`src/App.tsx` line 43) is created with defaults, so `refetchOnWindowFocus` is `true`. Every time the user clicks back into the tab — including the preview iframe regaining focus — every query refetches and loading states flash. This matches what the session replay shows (welcome / shift recap screen and "Loading…" cycling).
 
-Feature keys (matches what's actually in BottomNav + key sections):
-- `nav.my_day`, `nav.coach_view`, `nav.studio`, `nav.wig`, `nav.own_it`, `nav.vips`, `nav.my_intros`, `nav.pipeline`, `nav.admin`
-- `feature.coaching_scripts` (the Workout Templates / Coaching Scripts section in Coach View)
-- `feature.scripts_tab` (Scripts tab in My Day)
+**Change:** Configure the global `QueryClient` with safe defaults so refresh is opt-in, not the default.
 
-In `StaffManagement.tsx`, add an "Edit Permissions" button on each row that opens a dialog with a checkbox per feature key, pre-checked from the role default. Saving writes the JSONB.
+```ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
+```
 
-In `BottomNav.tsx` and `CoachView.tsx` (and the Scripts tab in My Day), replace the current role checks with a small helper `canSee(user, key)` that reads `user.permissions[key]` if present, else falls back to the existing role logic. Koa is always allowed everything regardless.
+Realtime subscriptions still drive live updates where they're set up, so My Day, intros, follow-ups stay live — only the focus-triggered "everything refetches" goes away.
 
-## 2. Restrict Coaching Scripts to Koa + Jackson
+## 2. Questionnaire → native calendar (not an .ics download)
 
-Two surfaces show coaching scripts today:
-- `src/pages/CoachView.tsx` line 269 — "Workout Templates With Class Times" section, currently shown to `isAdmin || isCoachLike`
-- `src/components/coach/CoachingScripts.tsx` — the component itself
+Today the "Add to Calendar" button at the end of `src/pages/Questionnaire.tsx` (lines 215–238) builds an .ics blob and `window.location.href`s it. On iOS Safari and Android Chrome that usually triggers a file download instead of opening the OS calendar.
 
-Gate the section to: `user.name === 'Koa' || user.name === 'Jackson'`. Once #1 ships this becomes a per-staff toggle (`feature.coaching_scripts`) seeded `true` only for Koa and Jackson, but the hard-coded gate goes in now so it's correct immediately.
+**Change:** Replace the single button with three intent-based actions, with a 1-day-prior reminder built in:
 
-## 3. Vivian's 8:45 intro not showing as "ran" in Studio
+- **Apple Calendar / iPhone** → real `.ics` link via an `<a href="data:text/calendar;…" download>` styled as a button. Include a `VALARM` block (`TRIGGER:-P1D`, `ACTION:DISPLAY`) so iOS imports the event with a 1-day-before alert pre-set.
+- **Google Calendar** → open `https://calendar.google.com/calendar/render?action=TEMPLATE&...` in a new tab. Google's URL params do not support reminders, so we append a note in the description: "Reminder: a 1-day-before alert is recommended." (Google won't let third parties set it programmatically — this is the documented limitation.)
+- **Outlook / Other** → fallback `.ics` download (same file as Apple).
 
-What I found in the DB:
+Auto-detect platform via `navigator.userAgent`: on iOS show Apple first; on Android show Google first; on desktop show both side-by-side.
 
-- Booking `5de3306c…` — Vivian Shanlever, 2026-05-18 08:45, coach Koa, `booking_status_canon = SECOND_INTRO_SCHEDULED`
-- Run `dcb644d2…` — linked to that booking, `result_canon = SECOND_INTRO_SCHEDULED`, `intro_owner = Madison`, `coach_name = Koa`, `ignore_from_metrics = false`
-- A 2nd intro `6aea1af3…` was correctly booked for 2026-05-26 with Nathan
+Reuse the same Chicago-time → UTC conversion helper already in `src/lib/vip/calendar.ts` so the date math is identical to the VIP confirmed flow. Extract a shared `buildIntroCalendarEvent({ date, time, durationMin: 60, reminderMinutes: 1440 })` into `src/lib/calendar/eventBuilders.ts` so both questionnaire and VIP pages stay coherent.
 
-By our own canon (`didIntroActuallyRun` in `src/lib/canon/introRules.ts`), `SECOND_INTRO_SCHEDULED` IS a ran intro — the member showed up and chose to book a 2nd intro. So she should be counted in Per-SA, Per-Coach, funnel, and WIG.
+## 3. Make the questionnaire mobile-exclusive
 
-Most likely culprit: a Studio widget that filters on a narrower list than `didIntroActuallyRun` (for example checking `result_canon === 'SHOWED'` or excluding `SECOND_INTRO_SCHEDULED` directly). I want to confirm exactly where she's missing before changing logic, because changing the wrong filter would inflate other numbers.
+The questionnaire (`src/pages/Questionnaire.tsx`, 836 lines) is texted to leads' phones, so it should be designed for phones first. Audit and tighten:
 
-I need one quick clarification before I touch this — see the question below.
+- Cap layout at `max-w-md mx-auto px-5` on every step.
+- Bigger tap targets on `SelectCard` (min-height 56px, full-width, 16px text minimum to prevent iOS auto-zoom on focus).
+- Inputs: `text-base` (16px) on all `<input>` / `<textarea>` (prevents iOS zoom). `inputmode` and `autocomplete` set appropriately (`tel`, `email`).
+- Sticky bottom action bar for Continue / Back with safe-area padding (`pb-[env(safe-area-inset-bottom)]`).
+- Replace any side-by-side multi-column option layouts with single-column stacks.
+- Progress bar pinned to top with safe-area top padding.
+- Final confirmation screen: stack the three calendar buttons vertically full-width, 48px tall.
+
+No business logic or copy changes — just layout, spacing, and input ergonomics.
+
+## 4. VIP Availability — week view on mobile, times visible at a glance
+
+`src/pages/VipAvailability.tsx` currently renders a full month grid. On mobile it shows only colored dots and requires tapping into a bottom sheet to see times.
+
+**Change:**
+
+- On mobile (`useIsMobile()`), switch the default view to a **week-at-a-glance list**: 7 day rows stacked vertically, each row showing the date header and every slot for that day as a tappable pill with the time visible (`5:00 PM · Available`).
+- Navigation: "Previous week / Next week" buttons replace month nav on mobile. Current-week disables previous-week. Header shows `Nov 17 – Nov 23`.
+- Each available slot becomes a 48px-tall row with time on the left, status pill on the right, and tapping it opens the existing `ClaimDialog` directly — no intermediate sheet.
+- Reserved / business / open-to-members slots render in the same list with the existing color coding and label so the visual language stays consistent with desktop.
+- Add a "Switch to month view" toggle for users who want the old grid (keeps current logic intact).
+
+Desktop is unchanged — the month grid already shows times in pills.
+
+Files touched:
+- `src/pages/VipAvailability.tsx` — add `WeekListView` component, mobile branch picks week list, desktop branch keeps month grid.
+- New helper `useWeekData(weekOffset)` mirroring `useMonthData`.
+
+## Verification
+
+- Window focus on My Day no longer triggers visible reloads — confirmed by tabbing away and back.
+- Questionnaire confirmation: on iPhone, Apple button creates an event with a 1-day alert. On Android, Google button opens a pre-filled event. On desktop, .ics downloads as fallback.
+- Questionnaire renders cleanly at 375px wide with no horizontal scroll and no input zoom on focus.
+- VIP availability on mobile shows the current week with every time visible without tapping; week nav advances correctly; claim flow still works end-to-end.
 
 ## Technical notes
 
-- Migration: `alter table staff add column permissions jsonb not null default '{}'::jsonb;`
-- `useActiveStaff` and `AuthContext` must select the new column so `user.permissions` is available.
-- Admin (Koa) bypasses all permission checks.
-- No changes to existing data — empty `{}` means "use role defaults", so behavior is unchanged for everyone until Koa edits them.
+- Files edited: `src/App.tsx`, `src/pages/Questionnaire.tsx`, `src/pages/VipAvailability.tsx`. New: `src/lib/calendar/eventBuilders.ts`.
+- No DB migrations. No type changes. No role/permission changes.
+- Reuses existing `date-fns` + `date-fns-tz` and existing `formatDisplayTime` / `getNowCentral` / `getTodayYMD` helpers — no new deps.
