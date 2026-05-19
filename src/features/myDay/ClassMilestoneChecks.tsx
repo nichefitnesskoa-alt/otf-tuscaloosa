@@ -19,11 +19,10 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   getTodayClassTimes,
-  getChicagoTodayYMD,
-  getChicagoMinutesNow,
   hhmmToMinutes,
   formatClassTimeDisplay,
 } from '@/lib/classSchedule';
+import { useNowMinute, useChicagoToday } from '@/hooks/useNowMinute';
 
 const WINDOW_MINUTES = 4 * 60; // 4 hours after class start
 const UNDO_MINUTES = 30;
