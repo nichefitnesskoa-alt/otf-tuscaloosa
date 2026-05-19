@@ -4,6 +4,7 @@
  * Week navigation: Previous / Current range / Next.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useNowMinute } from '@/hooks/useNowMinute';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { differenceInMinutes } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -191,28 +192,23 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   }, []);
 
   // Focused booking: nearest today's intro within 2 hours (only when viewing today)
-  const [focusedBookingId, setFocusedBookingId] = useState<string | null>(null);
-  useEffect(() => {
-    const compute = () => {
-      if (!selectedIsToday || !isCurrentWeek) { setFocusedBookingId(null); return; }
-      const now = new Date();
-      let nearest: { id: string; mins: number } | null = null;
-      for (const item of selectedDayItems) {
-        if (!item.introTime) continue;
-        try {
-          const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
-          const mins = differenceInMinutes(classStart, now);
-          if (mins > 0 && mins <= 120) {
-            if (!nearest || mins < nearest.mins) nearest = { id: item.bookingId, mins };
-          }
-        } catch {}
-      }
-      setFocusedBookingId(nearest?.id || null);
-    };
-    compute();
-    const interval = setInterval(compute, 60000);
-    return () => clearInterval(interval);
-  }, [selectedDayItems, selectedIsToday, isCurrentWeek]);
+  const nowDate = useNowMinute();
+  const focusedBookingId = useMemo<string | null>(() => {
+    if (!selectedIsToday || !isCurrentWeek) return null;
+    let nearest: { id: string; mins: number } | null = null;
+    for (const item of selectedDayItems) {
+      if (!item.introTime) continue;
+      try {
+        const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+        const mins = differenceInMinutes(classStart, nowDate);
+        if (mins > 0 && mins <= 120) {
+          if (!nearest || mins < nearest.mins) nearest = { id: item.bookingId, mins };
+        }
+      } catch {}
+    }
+    return nearest?.id ?? null;
+  }, [selectedDayItems, selectedIsToday, isCurrentWeek, nowDate]);
+
 
   // Summary counts (for non-weekFull today view)
   const { introsRun } = useData();

@@ -146,11 +146,10 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
       })
       .subscribe();
 
-    const interval = setInterval(fetchNewLeads, 60000);
     return () => {
-      clearInterval(interval);
       supabase.removeChannel(channel);
     };
+
   }, [fetchNewLeads]);
 
   const handleOpenScript = (lead: NewLead) => {

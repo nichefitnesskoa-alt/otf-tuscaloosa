@@ -3,7 +3,8 @@
  * MyDay-specific logic: prep checkbox, Q status, focus mode, outcome drawer.
  * Collapsible: collapsed shows summary row, expanded shows full card.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNowMinute } from '@/hooks/useNowMinute';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -141,23 +142,15 @@ export default function IntroRowCard({
   const qBar = getQBar(localQStatus);
   const hasActiveField = useRef(false);
 
-  // ── Focus mode: compute minutesUntilClass ──
-  const [minutesUntilClass, setMinutesUntilClass] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!item.introTime || !item.classDate) { setMinutesUntilClass(null); return; }
-    const compute = () => {
-      try {
-        const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
-        const now = new Date();
-        const diff = Math.round((classStart.getTime() - now.getTime()) / 60000);
-        setMinutesUntilClass(diff);
-      } catch { setMinutesUntilClass(null); }
-    };
-    compute();
-    const interval = setInterval(compute, 60000);
-    return () => clearInterval(interval);
-  }, [item.classDate, item.introTime]);
+  // ── Focus mode: compute minutesUntilClass off shared 1-min ticker ──
+  const nowDate = useNowMinute();
+  const minutesUntilClass = useMemo<number | null>(() => {
+    if (!item.introTime || !item.classDate) return null;
+    try {
+      const classStart = new Date(`${item.classDate}T${item.introTime}:00`);
+      return Math.round((classStart.getTime() - nowDate.getTime()) / 60000);
+    } catch { return null; }
+  }, [item.classDate, item.introTime, nowDate]);
 
   const isInFocusWindow = isFocused && minutesUntilClass !== null && minutesUntilClass <= 120 && minutesUntilClass > 0;
   const focusHours = minutesUntilClass !== null ? Math.floor(minutesUntilClass / 60) : 0;
@@ -179,10 +172,12 @@ export default function IntroRowCard({
   }, [item.isSecondIntro, item.prepped, item.bookingId]);
 
 
-  // Auto-detect questionnaire completion every 30s
+  // Initial questionnaire-status check on mount. Live updates come from the
+  // shared MyDay realtime subscription on intro_questionnaires — no per-card poll.
   useEffect(() => {
     if (localQStatus === 'Q_COMPLETED' || item.isSecondIntro) return;
-    const check = async () => {
+    let cancelled = false;
+    (async () => {
       const { data } = await supabase
         .from('intro_questionnaires')
         .select('status')
@@ -190,16 +185,14 @@ export default function IntroRowCard({
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (data) {
-        const s = (data as any).status;
-        if (s === 'completed' || s === 'submitted') setLocalQStatus('Q_COMPLETED');
-        else if (s === 'sent') setLocalQStatus('Q_SENT');
-      }
-    };
-    check();
-    const interval = setInterval(check, 30000);
-    return () => clearInterval(interval);
+      if (cancelled || !data) return;
+      const s = (data as any).status;
+      if (s === 'completed' || s === 'submitted') setLocalQStatus('Q_COMPLETED');
+      else if (s === 'sent') setLocalQStatus('Q_SENT');
+    })();
+    return () => { cancelled = true; };
   }, [item.bookingId, item.isSecondIntro, localQStatus]);
+
 
   useEffect(() => {
     setLocalQStatus(item.questionnaireStatus);

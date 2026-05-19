@@ -9,7 +9,7 @@
  * 5. This Week's Schedule
  * 6. Tabs (Today, Week, F/U, Leads, IG DMs, Q Hub, Outcomes)
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
@@ -174,12 +174,18 @@ export default function MyDayPage() {
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }, [todayRuns]);
 
-  // Realtime
+  // Realtime — debounced so a burst of writes (script_actions, questionnaires)
+  // collapses into ONE metrics refetch per ~2.5s window.
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRealtimeUpdate = useCallback(() => {
-    const timer = setTimeout(() => fetchMetrics(), 1500);
-    return () => clearTimeout(timer);
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = setTimeout(() => { fetchMetrics(); }, 2500);
+  }, []);
+  useEffect(() => () => {
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
   }, []);
   useRealtimeMyDay(handleRealtimeUpdate);
+
 
   // Listen for Prep/Script/Coach events from IntroRowCard
   useEffect(() => {

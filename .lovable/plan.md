@@ -1,79 +1,89 @@
-## 1. Stop the app from constantly refreshing
 
-The global React Query client (`src/App.tsx` line 43) is created with defaults, so `refetchOnWindowFocus` is `true`. Every time the user clicks back into the tab — including the preview iframe regaining focus — every query refetches and loading states flash. This matches what the session replay shows (welcome / shift recap screen and "Loading…" cycling).
+## Diagnosis: "constant refresh" on My Day
 
-**Change:** Configure the global `QueryClient` with safe defaults so refresh is opt-in, not the default.
+The session replay shows DOM nodes being torn down and rebuilt on a tight cadence (status badges flipping, time labels redrawing, milestone rows re-mounting). This is **not** a full `window.location` reload — `ErrorBoundary.handleReload` is the only `reload()` call and is button-only. It's also **not** a runaway useEffect loop (no setState-inside-effect that depends on its own output, no router redirect loop). It is a **cascade of timers + realtime subscriptions + unstable child keys** firing constantly in the My Day tree and re-rendering large chunks of UI.
 
-```ts
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
-      staleTime: 30_000,
-      retry: 1,
-    },
-  },
-});
-```
+Here are the specific root causes, ranked by impact.
 
-Realtime subscriptions still drive live updates where they're set up, so My Day, intros, follow-ups stay live — only the focus-triggered "everything refetches" goes away.
+---
 
-## 2. Questionnaire → native calendar (not an .ics download)
+### 1. Ticker storm on My Day (biggest contributor)
 
-Today the "Add to Calendar" button at the end of `src/pages/Questionnaire.tsx` (lines 215–238) builds an .ics blob and `window.location.href`s it. On iOS Safari and Android Chrome that usually triggers a file download instead of opening the OS calendar.
+Six independent components on `/my-day` each run their own `setInterval`, every one of them calling `setState` on its parent subtree:
 
-**Change:** Replace the single button with three intent-based actions, with a 1-day-prior reminder built in:
+| File | Line | Interval |
+|---|---|---|
+| `src/features/myDay/ClassMilestoneChecks.tsx` | 63 | 30s — `setMinutesNow(...)` re-renders the whole milestone list |
+| `src/features/myDay/IntroRowCard.tsx` | 158 | 60s — runs **per row** |
+| `src/features/myDay/IntroRowCard.tsx` | 200 | 30s — runs **per row** |
+| `src/features/myDay/UpcomingIntrosCard.tsx` | 213 | 60s |
+| `src/features/myDay/NewLeadsAlert.tsx` | 149 | 60s — also re-runs `fetchNewLeads()` which queries `intros_booked` with no filter |
+| `src/features/myDay/MyDayNewLeadsTab.tsx` | 474 | 5 min — `backgroundDedupRecheck()` |
+| `src/components/dashboard/IntroCountdown.tsx` | 33 | 60s |
+| `src/components/leads/FollowUpQueue.tsx` | 185, 324 | React Query `refetchInterval: 60_000` and `120_000` |
 
-- **Apple Calendar / iPhone** → real `.ics` link via an `<a href="data:text/calendar;…" download>` styled as a button. Include a `VALARM` block (`TRIGGER:-P1D`, `ACTION:DISPLAY`) so iOS imports the event with a 1-day-before alert pre-set.
-- **Google Calendar** → open `https://calendar.google.com/calendar/render?action=TEMPLATE&...` in a new tab. Google's URL params do not support reminders, so we append a note in the description: "Reminder: a 1-day-before alert is recommended." (Google won't let third parties set it programmatically — this is the documented limitation.)
-- **Outlook / Other** → fallback `.ics` download (same file as Apple).
+With N intro cards visible, you have ~`2N + 5` timers firing within any 60-second window, each producing a `setState` that re-renders sibling subtrees. To the user this looks like the page is constantly refreshing.
 
-Auto-detect platform via `navigator.userAgent`: on iOS show Apple first; on Android show Google first; on desktop show both side-by-side.
+**Fix direction:**
+- Hoist a single 30s "now" ticker into a context (e.g. `useNowMinute()`), have all per-row countdowns subscribe to that value instead of owning their own intervals.
+- Drop the per-row 30s interval in `IntroRowCard` — 60s is enough granularity for "minutes until class".
+- Remove the 60s `fetchNewLeads` poll in `NewLeadsAlert`; it already has realtime subscriptions on `lead_activities` and `intros_booked`. Polling is redundant.
+- For `FollowUpQueue`, drop `refetchInterval` — the realtime subscription on `follow_up_queue` already covers liveness.
 
-Reuse the same Chicago-time → UTC conversion helper already in `src/lib/vip/calendar.ts` so the date math is identical to the VIP confirmed flow. Extract a shared `buildIntroCalendarEvent({ date, time, durationMin: 60, reminderMinutes: 1440 })` into `src/lib/calendar/eventBuilders.ts` so both questionnaire and VIP pages stay coherent.
+### 2. Realtime channel fans out and re-fetches everything
 
-## 3. Make the questionnaire mobile-exclusive
+`src/hooks/useRealtimeMyDay.ts` subscribes to **six tables** (`intros_booked`, `intros_run`, `leads`, `follow_up_queue`, `script_actions`, `intro_questionnaires`) and fires `onUpdate` on every `*` event. On `/my-day`:
 
-The questionnaire (`src/pages/Questionnaire.tsx`, 836 lines) is texted to leads' phones, so it should be designed for phones first. Audit and tighten:
+- `MyDayPage.tsx:178` — every event triggers `setTimeout(fetchMetrics, 1500)`. `fetchMetrics` (line 230) runs three Supabase queries and calls `setTodayScriptsSent`, `setTodayFollowUpsSent`, `setNeedsOutcomeCount` — three re-renders of the whole page.
+- The cleanup returned by `handleRealtimeUpdate` is **discarded** because `useRealtimeMyDay`'s subscriber doesn't call it. So each event leaks a 1.5s timer (not a loop, but compounds the cascade).
+- In a busy studio (`script_actions` writes happen on every clipboard copy, `intro_questionnaires` writes on every Q field), this fires many times per minute.
 
-- Cap layout at `max-w-md mx-auto px-5` on every step.
-- Bigger tap targets on `SelectCard` (min-height 56px, full-width, 16px text minimum to prevent iOS auto-zoom on focus).
-- Inputs: `text-base` (16px) on all `<input>` / `<textarea>` (prevents iOS zoom). `inputmode` and `autocomplete` set appropriately (`tel`, `email`).
-- Sticky bottom action bar for Continue / Back with safe-area padding (`pb-[env(safe-area-inset-bottom)]`).
-- Replace any side-by-side multi-column option layouts with single-column stacks.
-- Progress bar pinned to top with safe-area top padding.
-- Final confirmation screen: stack the three calendar buttons vertically full-width, 48px tall.
+`src/features/myDay/NewLeadsAlert.tsx:130` adds **another** realtime channel on `lead_activities` and `intros_booked` — duplicate coverage of `intros_booked` already in `useRealtimeMyDay`.
 
-No business logic or copy changes — just layout, spacing, and input ergonomics.
+`src/features/myDay/ClassMilestoneChecks.tsx:73` adds a third channel.
 
-## 4. VIP Availability — week view on mobile, times visible at a glance
+**Fix direction:**
+- In `useRealtimeMyDay`, scope subscriptions to the tables that surface needs to know about (split into per-page hooks, e.g. `useRealtimeIntros`, `useRealtimeFollowUps`).
+- Debounce the realtime handler in `MyDayPage` (one trailing call per ~2s window) and remove the leaked-timer pattern by moving the `setTimeout` into a ref.
+- Have `MyDayPage` pull `todayScriptsSent`, `todayFollowUpsSent`, `needsOutcomeCount` from `useQuery` keyed on `['myday-metrics', user.name, todayStr]` so React Query dedupes & caches.
 
-`src/pages/VipAvailability.tsx` currently renders a full month grid. On mobile it shows only colored dots and requires tapping into a bottom sheet to see times.
+### 3. Unstable `todayStr` recomputed every render
 
-**Change:**
+Several components compute `const todayStr = format(new Date(), 'yyyy-MM-dd')` directly in the render body:
 
-- On mobile (`useIsMobile()`), switch the default view to a **week-at-a-glance list**: 7 day rows stacked vertically, each row showing the date header and every slot for that day as a tappable pill with the time visible (`5:00 PM · Available`).
-- Navigation: "Previous week / Next week" buttons replace month nav on mobile. Current-week disables previous-week. Header shows `Nov 17 – Nov 23`.
-- Each available slot becomes a 48px-tall row with time on the left, status pill on the right, and tapping it opens the existing `ClaimDialog` directly — no intermediate sheet.
-- Reserved / business / open-to-members slots render in the same list with the existing color coding and label so the visual language stays consistent with desktop.
-- Add a "Switch to month view" toggle for users who want the old grid (keeps current logic intact).
+- `src/features/myDay/MyDayPage.tsx:143` (`getTodayYMD()`)
+- `src/features/myDay/ShiftChecklist.tsx:63`
+- `src/features/myDay/MyDayShiftSummary.tsx:26`
+- `src/features/myDay/ClassMilestoneChecks.tsx:49` (`useMemo([today])` — fine, but `today` updates every 30s)
 
-Desktop is unchanged — the month grid already shows times in pills.
+`todayStr` value is stable for the day, so the **deps don't re-fire**, but each render produces a fresh string passed to children — combined with the inline arrow callbacks in `MyDayPage` (e.g. `onSaved={() => { ... refreshData(); fetchMetrics(); }}` at line 528, `onDone={() => { setBookIntroLead(null); fetchMetrics(); }}` at 541), every memoized child gets a new prop identity each render and re-renders too.
 
-Files touched:
-- `src/pages/VipAvailability.tsx` — add `WeekListView` component, mobile branch picks week list, desktop branch keeps month grid.
-- New helper `useWeekData(weekOffset)` mirroring `useMonthData`.
+**Fix direction:**
+- Memoize `todayStr`/`greeting` with `useMemo(..., [])` (or compute once in a top-level provider).
+- Wrap callback props in `useCallback`.
 
-## Verification
+### 4. `useDataAudit` singleton triggers cross-component re-renders
 
-- Window focus on My Day no longer triggers visible reloads — confirmed by tabbing away and back.
-- Questionnaire confirmation: on iPhone, Apple button creates an event with a 1-day alert. On Android, Google button opens a pre-filled event. On desktop, .ics downloads as fallback.
-- Questionnaire renders cleanly at 375px wide with no horizontal scroll and no input zoom on focus.
-- VIP availability on mobile shows the current week with every time visible without tapping; week nav advances correctly; claim flow still works end-to-end.
+`src/hooks/useDataAudit.ts` keeps a module-level `listeners` set. When the 30-minute interval runs `runFullAudit`, it calls `notifyListeners()` which `setResult` on every subscribed component. `runAudit` is `useCallback(..., [running])` so its identity flips on every audit (running → true → false). Not strictly a loop, but any consumer that depends on `runAudit` in its own effect will re-run.
 
-## Technical notes
+Lower priority — verify no consumer puts `runAudit` in a `useEffect` dep array.
 
-- Files edited: `src/App.tsx`, `src/pages/Questionnaire.tsx`, `src/pages/VipAvailability.tsx`. New: `src/lib/calendar/eventBuilders.ts`.
-- No DB migrations. No type changes. No role/permission changes.
-- Reuses existing `date-fns` + `date-fns-tz` and existing `formatDisplayTime` / `getNowCentral` / `getTodayYMD` helpers — no new deps.
+### 5. Things that look suspicious but are NOT the cause
+
+- `QueryClient` defaults in `src/App.tsx` already disable `refetchOnWindowFocus`. Good.
+- `AuthContext` only resolves the user once from `localStorage`. No re-init loop.
+- `DataContext.fetchData` runs once on mount. The `online`/`myday:walk-in-added` listeners only refire on real events.
+- `ErrorBoundary` only reloads on explicit user click.
+- Router has no auto-redirect loops; `ProtectedRoute` redirects to `/my-day` once when conditions match.
+
+---
+
+### Suggested order of work (when the user approves)
+
+1. Hoist a single `useNowMinute()` ticker (and Chicago "today" rollover) into a tiny provider; consume in `IntroRowCard`, `UpcomingIntrosCard`, `ClassMilestoneChecks`, `IntroCountdown`, `NewLeadsAlert`. Net effect: 1 `setState` per minute studio-wide, not ~`2N+5`.
+2. In `MyDayPage`, debounce `handleRealtimeUpdate` to a single trailing call per 2.5s using a `useRef` timer, and convert the three `fetchMetrics` counters into a `useQuery` so they share cache and don't each trigger a separate render.
+3. Remove redundant polling: `NewLeadsAlert` 60s interval, `FollowUpQueue` `refetchInterval`s, second 30s timer in `IntroRowCard`.
+4. Memoize/`useCallback` the inline handlers in `MyDayPage` that fan out to drawers and lists, so memoized children stop re-rendering on every parent tick.
+5. Split `useRealtimeMyDay` so My Day only subscribes to the tables it actually consumes (drop `script_actions` + `intro_questionnaires` from MyDay's subscription; consume those locally where needed).
+
+No code changes yet — this plan documents the cause and the fix shape for your approval.

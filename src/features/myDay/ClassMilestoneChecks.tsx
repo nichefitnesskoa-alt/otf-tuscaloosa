@@ -19,11 +19,10 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   getTodayClassTimes,
-  getChicagoTodayYMD,
-  getChicagoMinutesNow,
   hhmmToMinutes,
   formatClassTimeDisplay,
 } from '@/lib/classSchedule';
+import { useNowMinute, useChicagoToday } from '@/hooks/useNowMinute';
 
 const WINDOW_MINUTES = 4 * 60; // 4 hours after class start
 const UNDO_MINUTES = 30;
@@ -41,8 +40,9 @@ type RowState = 'upcoming' | 'available' | 'checked' | 'missed';
 
 export function ClassMilestoneChecks() {
   const { user } = useAuth();
-  const [today, setToday] = useState(getChicagoTodayYMD());
-  const [minutesNow, setMinutesNow] = useState(getChicagoMinutesNow());
+  const today = useChicagoToday();
+  const nowDate = useNowMinute();
+  const minutesNow = nowDate.getHours() * 60 + nowDate.getMinutes();
   const [checks, setChecks] = useState<CheckRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -58,15 +58,6 @@ export function ClassMilestoneChecks() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 30s ticker refreshes "now" + rolls date past midnight
-  useEffect(() => {
-    const t = setInterval(() => {
-      setMinutesNow(getChicagoMinutesNow());
-      const ymd = getChicagoTodayYMD();
-      if (ymd !== today) setToday(ymd);
-    }, 30_000);
-    return () => clearInterval(t);
-  }, [today]);
 
   // Realtime
   useEffect(() => {

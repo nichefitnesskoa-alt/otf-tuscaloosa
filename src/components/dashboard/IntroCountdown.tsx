@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNowMinute } from '@/hooks/useNowMinute';
 
 interface IntroCountdownProps {
   classTime: string | null;
@@ -9,30 +10,18 @@ interface IntroCountdownProps {
 }
 
 export function IntroCountdown({ classTime, classDate }: IntroCountdownProps) {
-  const [minutesUntil, setMinutesUntil] = useState<number | null>(null);
+  const now = useNowMinute();
 
-  useEffect(() => {
-    if (!classTime) return;
-
-    const calculate = () => {
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      if (classDate !== todayStr) {
-        setMinutesUntil(null);
-        return;
-      }
-
-      const [h, m] = classTime.split(':').map(Number);
-      const classDateTime = new Date();
-      classDateTime.setHours(h, m, 0, 0);
-      const diff = Math.round((classDateTime.getTime() - Date.now()) / 60000);
-      setMinutesUntil(diff > 0 ? diff : null);
-    };
-
-    calculate();
-    const interval = setInterval(calculate, 60000);
-    return () => clearInterval(interval);
-  }, [classTime, classDate]);
+  const minutesUntil = useMemo<number | null>(() => {
+    if (!classTime) return null;
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (classDate !== todayStr) return null;
+    const [h, m] = classTime.split(':').map(Number);
+    const classDateTime = new Date(now);
+    classDateTime.setHours(h, m, 0, 0);
+    const diff = Math.round((classDateTime.getTime() - now.getTime()) / 60000);
+    return diff > 0 ? diff : null;
+  }, [classTime, classDate, now]);
 
   if (minutesUntil === null) return null;
 
