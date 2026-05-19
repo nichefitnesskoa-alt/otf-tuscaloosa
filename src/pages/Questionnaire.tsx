@@ -218,30 +218,18 @@ export default function Questionnaire() {
     setStep(8);
   };
 
-  const downloadICS = () => {
-    if (!data) return;
-    const dateStr = data.scheduled_class_date.replace(/-/g, '');
-    let startTime = '090000';
-    let endTime = '100000';
-    if (data.scheduled_class_time) {
-      const [h, m] = data.scheduled_class_time.split(':');
-      startTime = `${h.padStart(2, '0')}${m.padStart(2, '0')}00`;
-      const endH = (parseInt(h) + 1).toString().padStart(2, '0');
-      endTime = `${endH}${m.padStart(2, '0')}00`;
-    }
-    const ics = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
-      `DTSTART:${dateStr}T${startTime}`,
-      `DTEND:${dateStr}T${endTime}`,
-      'SUMMARY:Orangetheory Fitness - Intro Class',
-      'LOCATION:Orangetheory Fitness Tuscaloosa',
-      'DESCRIPTION:Your first OTF class! Arrive 15 minutes early.',
-      'END:VEVENT', 'END:VCALENDAR',
-    ].join('\r\n');
-    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    window.location.href = url;
-  };
+  const calendarEvent = data
+    ? {
+        date: data.scheduled_class_date,
+        time: data.scheduled_class_time,
+        durationMin: 60,
+        title: 'Orangetheory Fitness — Intro Class',
+        description:
+          "Your first OTF class! Arrive 15 minutes early to get set up with your heart rate monitor. (Reminder set for 1 day before.)",
+        location: 'Orangetheory Fitness Tuscaloosa',
+        reminderMinutes: 1440,
+      }
+    : null;
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
