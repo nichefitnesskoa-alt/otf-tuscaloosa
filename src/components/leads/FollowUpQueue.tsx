@@ -182,8 +182,8 @@ export function FollowUpQueue() {
       items.sort((a, b) => b.hoursOverdue - a.hoursOverdue);
       return items;
     },
-    refetchInterval: 60000,
   });
+
 
   if (isLoading || followUps.length === 0) return null;
 
