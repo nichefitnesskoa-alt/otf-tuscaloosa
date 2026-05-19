@@ -744,15 +744,53 @@ export default function Questionnaire() {
             <p className="text-lg" style={{ color: '#555' }}>
               Your coach will use this to make your first class awesome. See you on {formatClassDate()}!
             </p>
-            <Button
-              onClick={downloadICS}
-              variant="outline"
-              className="w-full h-14 text-base font-semibold rounded-xl border-2"
-              style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE }}
-            >
-              <CalendarPlus className="w-5 h-5 mr-2" />
-              Add to Calendar
-            </Button>
+            {calendarEvent && (() => {
+              const platform = detectPlatform();
+              const icsHref = buildIcsDataUri(calendarEvent);
+              const googleHref = buildGoogleCalendarUrl(calendarEvent);
+              const appleBtn = (
+                <a
+                  key="apple"
+                  href={icsHref}
+                  download="otf-intro.ics"
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border-2 font-semibold text-base"
+                  style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE, backgroundColor: 'white' }}
+                >
+                  <Apple className="w-5 h-5" /> Add to Apple Calendar
+                </a>
+              );
+              const googleBtn = (
+                <a
+                  key="google"
+                  href={googleHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border-2 font-semibold text-base"
+                  style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE, backgroundColor: 'white' }}
+                >
+                  <CalendarPlus className="w-5 h-5" /> Add to Google Calendar
+                </a>
+              );
+              const otherBtn = (
+                <button
+                  key="other"
+                  onClick={() => downloadIcs(calendarEvent)}
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-medium text-sm"
+                  style={{ color: '#555', backgroundColor: 'transparent' }}
+                >
+                  Other calendar (download .ics)
+                </button>
+              );
+              const order = platform === 'android' ? [googleBtn, appleBtn, otherBtn] : [appleBtn, googleBtn, otherBtn];
+              return (
+                <div className="space-y-3">
+                  <p className="text-sm" style={{ color: '#666' }}>
+                    Save it to your calendar — we'll set a reminder for the day before.
+                  </p>
+                  {order}
+                </div>
+              );
+            })()}
           </div>
         );
 
