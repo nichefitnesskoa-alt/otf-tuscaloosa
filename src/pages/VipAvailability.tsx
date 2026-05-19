@@ -539,13 +539,23 @@ export default function VipAvailability() {
   const [sessions, setSessions] = useState<PublicSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [forceMonthOnMobile, setForceMonthOnMobile] = useState(false);
   const [claimSession, setClaimSession] = useState<PublicSession | null>(null);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const { monthLabel, days, queryStart, queryEnd } = useMonthData(monthOffset);
+  const useWeekView = isMobile && !forceMonthOnMobile;
+
+  const monthData = useMonthData(monthOffset);
+  const weekData = useWeekData(weekOffset);
+  const { monthLabel, days } = monthData;
+  const { weekLabel, days: weekDays } = weekData;
+  const queryStart = useWeekView ? weekData.queryStart : monthData.queryStart;
+  const queryEnd = useWeekView ? weekData.queryEnd : monthData.queryEnd;
 
   const isCurrentMonth = monthOffset === 0;
+  const isCurrentWeek = weekOffset === 0;
 
   const fetchSessions = useCallback(async () => {
     const { data } = await sb
