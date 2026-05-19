@@ -143,17 +143,26 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Missing lead.email or lead.phone" }, 400);
       }
 
-      // Duplicate detection on email and phone
-      const orFilters: string[] = [];
-      if (lead.email) orFilters.push(`email.eq.${lead.email}`);
-      if (lead.phone) orFilters.push(`phone.eq.${lead.phone}`);
-
-      const { data: existingLead } = await supabase
-        .from("leads")
-        .select("id, first_name, last_name")
-        .or(orFilters.join(","))
-        .limit(1)
-        .maybeSingle();
+      // Duplicate detection on email and phone (use .eq to avoid PostgREST filter injection)
+      let existingLead: { id: string; first_name: string; last_name: string } | null = null;
+      if (lead.email) {
+        const { data } = await supabase
+          .from("leads")
+          .select("id, first_name, last_name")
+          .eq("email", lead.email)
+          .limit(1)
+          .maybeSingle();
+        if (data) existingLead = data;
+      }
+      if (!existingLead && lead.phone) {
+        const { data } = await supabase
+          .from("leads")
+          .select("id, first_name, last_name")
+          .eq("phone", lead.phone)
+          .limit(1)
+          .maybeSingle();
+        if (data) existingLead = data;
+      }
 
       if (existingLead) {
         // Record intake event for audit
