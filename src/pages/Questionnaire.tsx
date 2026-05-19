@@ -5,9 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check } from 'lucide-react';
+import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check, Apple } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format, parse } from 'date-fns';
+import {
+  buildIcsDataUri,
+  buildGoogleCalendarUrl,
+  detectPlatform,
+  downloadIcs,
+} from '@/lib/calendar/eventBuilders';
 
 const OTF_ORANGE = '#FF6900';
 const TOTAL_STEPS = 9; // welcome + 7 question screens + completion
