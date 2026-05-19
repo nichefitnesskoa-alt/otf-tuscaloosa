@@ -174,12 +174,18 @@ export default function MyDayPage() {
     return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   }, [todayRuns]);
 
-  // Realtime
+  // Realtime — debounced so a burst of writes (script_actions, questionnaires)
+  // collapses into ONE metrics refetch per ~2.5s window.
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleRealtimeUpdate = useCallback(() => {
-    const timer = setTimeout(() => fetchMetrics(), 1500);
-    return () => clearTimeout(timer);
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+    realtimeTimerRef.current = setTimeout(() => { fetchMetrics(); }, 2500);
+  }, []);
+  useEffect(() => () => {
+    if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
   }, []);
   useRealtimeMyDay(handleRealtimeUpdate);
+
 
   // Listen for Prep/Script/Coach events from IntroRowCard
   useEffect(() => {
