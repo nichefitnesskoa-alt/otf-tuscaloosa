@@ -9,7 +9,7 @@
  * 5. This Week's Schedule
  * 6. Tabs (Today, Week, F/U, Leads, IG DMs, Q Hub, Outcomes)
  */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
