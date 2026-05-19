@@ -3,7 +3,8 @@
  * MyDay-specific logic: prep checkbox, Q status, focus mode, outcome drawer.
  * Collapsible: collapsed shows summary row, expanded shows full card.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useNowMinute } from '@/hooks/useNowMinute';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
