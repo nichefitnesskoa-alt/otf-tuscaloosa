@@ -33,6 +33,7 @@ import {
   endOfWeek,
   eachDayOfInterval,
   addMonths,
+  addDays,
   isBefore,
   isSameMonth,
   isToday as isDateToday,
@@ -500,6 +501,35 @@ function useMonthData(monthOffset: number) {
   }, [monthOffset]);
 }
 
+function useWeekData(weekOffset: number) {
+  return useMemo(() => {
+    const now = getNowCentral();
+    const base = addDays(now, weekOffset * 7);
+    const weekStart = startOfWeek(base, { weekStartsOn: 0 });
+    const weekEnd = endOfWeek(base, { weekStartsOn: 0 });
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+    const todayStr = getTodayYMD();
+    return {
+      weekStart,
+      weekEnd,
+      weekLabel: `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d')}`,
+      days: days.map((d) => {
+        const dateStr = format(d, 'yyyy-MM-dd');
+        return {
+          date: dateStr,
+          dayDate: d,
+          isToday: dateStr === todayStr,
+          isPast: isBefore(d, new Date(todayStr + 'T00:00:00')) && dateStr !== todayStr,
+          dayLabel: format(d, 'EEE, MMM d'),
+        };
+      }),
+      todayStr,
+      queryStart: format(weekStart, 'yyyy-MM-dd'),
+      queryEnd: format(weekEnd, 'yyyy-MM-dd'),
+    };
+  }, [weekOffset]);
+}
+
 /* ── Main Page ─────────────────────────────────────── */
 
 const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -509,13 +539,23 @@ export default function VipAvailability() {
   const [sessions, setSessions] = useState<PublicSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [forceMonthOnMobile, setForceMonthOnMobile] = useState(false);
   const [claimSession, setClaimSession] = useState<PublicSession | null>(null);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const { monthLabel, days, queryStart, queryEnd } = useMonthData(monthOffset);
+  const useWeekView = isMobile && !forceMonthOnMobile;
+
+  const monthData = useMonthData(monthOffset);
+  const weekData = useWeekData(weekOffset);
+  const { monthLabel, days } = monthData;
+  const { weekLabel, days: weekDays } = weekData;
+  const queryStart = useWeekView ? weekData.queryStart : monthData.queryStart;
+  const queryEnd = useWeekView ? weekData.queryEnd : monthData.queryEnd;
 
   const isCurrentMonth = monthOffset === 0;
+  const isCurrentWeek = weekOffset === 0;
 
   const fetchSessions = useCallback(async () => {
     const { data } = await sb
@@ -599,45 +639,188 @@ export default function VipAvailability() {
       </div>
 
       <div className="max-w-5xl mx-auto p-4 space-y-4">
-        {/* Month Navigation */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="min-h-[44px] flex-1 text-sm font-medium"
-            disabled={isCurrentMonth}
-            onClick={() => setMonthOffset((o) => o - 1)}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Previous Month
-          </Button>
-          <div className="flex-1 text-center">
-            <p className="text-sm font-semibold">{monthLabel}</p>
-            {!isCurrentMonth && (
-              <button
-                onClick={() => setMonthOffset(0)}
-                className="text-xs text-[#FF6900] underline cursor-pointer mt-0.5"
-              >
-                Back to this month
-              </button>
-            )}
+        {/* Navigation — week on mobile, month on desktop */}
+        {useWeekView ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="min-h-[44px] flex-1 text-sm font-medium"
+              disabled={isCurrentWeek}
+              onClick={() => setWeekOffset((o) => o - 1)}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Prev Week
+            </Button>
+            <div className="flex-1 text-center">
+              <p className="text-sm font-semibold">{weekLabel}</p>
+              {!isCurrentWeek && (
+                <button
+                  onClick={() => setWeekOffset(0)}
+                  className="text-xs text-[#FF6900] underline cursor-pointer mt-0.5"
+                >
+                  Back to this week
+                </button>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="min-h-[44px] flex-1 text-sm font-medium"
+              onClick={() => setWeekOffset((o) => o + 1)}
+            >
+              Next Week
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            className="min-h-[44px] flex-1 text-sm font-medium"
-            onClick={() => setMonthOffset((o) => o + 1)}
-          >
-            Next Month
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="min-h-[44px] flex-1 text-sm font-medium"
+              disabled={isCurrentMonth}
+              onClick={() => setMonthOffset((o) => o - 1)}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Previous Month
+            </Button>
+            <div className="flex-1 text-center">
+              <p className="text-sm font-semibold">{monthLabel}</p>
+              {!isCurrentMonth && (
+                <button
+                  onClick={() => setMonthOffset(0)}
+                  className="text-xs text-[#FF6900] underline cursor-pointer mt-0.5"
+                >
+                  Back to this month
+                </button>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="min-h-[44px] flex-1 text-sm font-medium"
+              onClick={() => setMonthOffset((o) => o + 1)}
+            >
+              Next Month
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* Mobile: toggle to full month view */}
+        {isMobile && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setForceMonthOnMobile((v) => !v)}
+              className="text-xs text-[#FF6900] underline"
+            >
+              {useWeekView ? 'See full month view' : 'Back to week view'}
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        ) : useWeekView ? (
+          /* MOBILE WEEK LIST */
+          <div className="space-y-3">
+            {weekDays.map((day) => {
+              const daySessions = sessionsByDate[day.date] || [];
+              return (
+                <div
+                  key={day.date}
+                  className={cn(
+                    'rounded-lg border bg-card overflow-hidden',
+                    day.isToday && 'border-[#FF6900]'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex items-center justify-between px-3 py-2 border-b',
+                      day.isToday ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-muted/30'
+                    )}
+                  >
+                    <p className="text-sm font-bold">
+                      {day.dayLabel}
+                      {day.isToday && <span className="ml-2 text-[10px] uppercase text-[#FF6900]">Today</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {daySessions.length === 0
+                        ? 'No slots'
+                        : `${daySessions.length} slot${daySessions.length === 1 ? '' : 's'}`}
+                    </p>
+                  </div>
+                  {daySessions.length > 0 && (
+                    <div className="divide-y">
+                      {daySessions.map((s) => {
+                        const isOpen = s.status === 'open';
+                        const isOpenType = s.session_type === 'open';
+                        const isBusiness = s.session_type === 'business_customers';
+                        const confirmed = confirmedIds.has(s.id);
+                        const sessionDate = new Date(s.session_date + 'T00:00:00');
+                        const diffDays = Math.ceil(
+                          (sessionDate.getTime() - getNowCentral().getTime()) / (1000 * 60 * 60 * 24)
+                        );
+                        const tooSoon = diffDays < 3;
+                        const canClaim = isOpen && !tooSoon && !confirmed;
+
+                        const borderColor = confirmed
+                          ? 'border-l-green-500'
+                          : isOpen
+                            ? 'border-l-green-500'
+                            : isBusiness
+                              ? 'border-l-blue-500'
+                              : isOpenType
+                                ? 'border-l-teal-500'
+                                : 'border-l-amber-500';
+
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => canClaim && setClaimSession(s)}
+                            disabled={!canClaim}
+                            className={cn(
+                              'w-full flex items-center justify-between px-3 py-3 border-l-4 text-left min-h-[56px]',
+                              borderColor,
+                              canClaim && 'hover:bg-muted/40 active:bg-muted/60 cursor-pointer',
+                              !canClaim && 'cursor-default'
+                            )}
+                          >
+                            <div>
+                              <p className="text-base font-bold">{formatDisplayTime(s.session_time)}</p>
+                              {confirmed ? (
+                                <p className="text-xs text-green-600 font-medium">✓ Confirmed</p>
+                              ) : isOpen && tooSoon ? (
+                                <p className="text-xs text-muted-foreground italic">Within 3 days — contact us</p>
+                              ) : isOpen ? (
+                                <p className="text-xs text-green-600 font-semibold">Available</p>
+                              ) : isBusiness ? (
+                                <p className="text-xs text-blue-600 truncate">{s.reserved_by_group || 'Group'} · Business</p>
+                              ) : isOpenType ? (
+                                <p className="text-xs text-teal-600 truncate">{s.reserved_by_group || 'Group'} · Members welcome</p>
+                              ) : (
+                                <p className="text-xs text-amber-600 italic truncate">{s.reserved_by_group || 'Reserved'}</p>
+                              )}
+                            </div>
+                            {canClaim && (
+                              <span className="text-xs font-bold text-white bg-[#FF6900] px-3 py-1.5 rounded-full">
+                                Claim
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <p className="text-center text-xs text-muted-foreground pt-2">
+              Green = available · Amber = reserved · Blue = business event · Teal = open to members · Max 36 · Min 3 days out
+            </p>
+          </div>
         ) : (
           <>
-            {/* Calendar Grid */}
+            {/* DESKTOP / FULL MONTH GRID */}
             <div className="border rounded-lg overflow-hidden bg-card">
               {/* Day Headers */}
               <div className="grid grid-cols-7 border-b bg-muted/30">
@@ -688,7 +871,6 @@ export default function VipAvailability() {
                         {/* Slot display */}
                         {hasSlots && (
                           isMobile ? (
-                            /* Mobile: colored dots */
                             <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
                               {daySessions.map((s) => {
                                 const isOpen = s.status === 'open';
@@ -707,7 +889,6 @@ export default function VipAvailability() {
                               })}
                             </div>
                           ) : (
-                            /* Desktop: inline time pills */
                             <div className="flex flex-col gap-0.5 mt-0.5">
                               {daySessions.map((s) => (
                                 <SlotPill
@@ -727,14 +908,13 @@ export default function VipAvailability() {
               ))}
             </div>
 
-
-            {/* Legend line */}
             <p className="text-center text-xs text-muted-foreground pt-2">
               Green = available to claim · Amber = reserved private · Blue = business event · Teal = open to members · Max capacity: 36 · Tap to book
             </p>
           </>
         )}
       </div>
+
 
       {/* Mobile Bottom Sheet */}
       {isMobile && (

@@ -5,9 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check } from 'lucide-react';
+import { CalendarPlus, ChevronRight, ChevronLeft, Loader2, CheckCircle, Check, Apple } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format, parse } from 'date-fns';
+import {
+  buildIcsDataUri,
+  buildGoogleCalendarUrl,
+  detectPlatform,
+  downloadIcs,
+} from '@/lib/calendar/eventBuilders';
 
 const OTF_ORANGE = '#FF6900';
 const TOTAL_STEPS = 9; // welcome + 7 question screens + completion
@@ -212,30 +218,18 @@ export default function Questionnaire() {
     setStep(8);
   };
 
-  const downloadICS = () => {
-    if (!data) return;
-    const dateStr = data.scheduled_class_date.replace(/-/g, '');
-    let startTime = '090000';
-    let endTime = '100000';
-    if (data.scheduled_class_time) {
-      const [h, m] = data.scheduled_class_time.split(':');
-      startTime = `${h.padStart(2, '0')}${m.padStart(2, '0')}00`;
-      const endH = (parseInt(h) + 1).toString().padStart(2, '0');
-      endTime = `${endH}${m.padStart(2, '0')}00`;
-    }
-    const ics = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
-      `DTSTART:${dateStr}T${startTime}`,
-      `DTEND:${dateStr}T${endTime}`,
-      'SUMMARY:Orangetheory Fitness - Intro Class',
-      'LOCATION:Orangetheory Fitness Tuscaloosa',
-      'DESCRIPTION:Your first OTF class! Arrive 15 minutes early.',
-      'END:VEVENT', 'END:VCALENDAR',
-    ].join('\r\n');
-    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    window.location.href = url;
-  };
+  const calendarEvent = data
+    ? {
+        date: data.scheduled_class_date,
+        time: data.scheduled_class_time,
+        durationMin: 60,
+        title: 'Orangetheory Fitness — Intro Class',
+        description:
+          "Your first OTF class! Arrive 15 minutes early to get set up with your heart rate monitor. (Reminder set for 1 day before.)",
+        location: 'Orangetheory Fitness Tuscaloosa',
+        reminderMinutes: 1440,
+      }
+    : null;
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white">
@@ -750,15 +744,53 @@ export default function Questionnaire() {
             <p className="text-lg" style={{ color: '#555' }}>
               Your coach will use this to make your first class awesome. See you on {formatClassDate()}!
             </p>
-            <Button
-              onClick={downloadICS}
-              variant="outline"
-              className="w-full h-14 text-base font-semibold rounded-xl border-2"
-              style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE }}
-            >
-              <CalendarPlus className="w-5 h-5 mr-2" />
-              Add to Calendar
-            </Button>
+            {calendarEvent && (() => {
+              const platform = detectPlatform();
+              const icsHref = buildIcsDataUri(calendarEvent);
+              const googleHref = buildGoogleCalendarUrl(calendarEvent);
+              const appleBtn = (
+                <a
+                  key="apple"
+                  href={icsHref}
+                  download="otf-intro.ics"
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border-2 font-semibold text-base"
+                  style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE, backgroundColor: 'white' }}
+                >
+                  <Apple className="w-5 h-5" /> Add to Apple Calendar
+                </a>
+              );
+              const googleBtn = (
+                <a
+                  key="google"
+                  href={googleHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border-2 font-semibold text-base"
+                  style={{ borderColor: OTF_ORANGE, color: OTF_ORANGE, backgroundColor: 'white' }}
+                >
+                  <CalendarPlus className="w-5 h-5" /> Add to Google Calendar
+                </a>
+              );
+              const otherBtn = (
+                <button
+                  key="other"
+                  onClick={() => downloadIcs(calendarEvent)}
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-xl font-medium text-sm"
+                  style={{ color: '#555', backgroundColor: 'transparent' }}
+                >
+                  Other calendar (download .ics)
+                </button>
+              );
+              const order = platform === 'android' ? [googleBtn, appleBtn, otherBtn] : [appleBtn, googleBtn, otherBtn];
+              return (
+                <div className="space-y-3">
+                  <p className="text-sm" style={{ color: '#666' }}>
+                    Save it to your calendar — we'll set a reminder for the day before.
+                  </p>
+                  {order}
+                </div>
+              );
+            })()}
           </div>
         );
 
@@ -770,14 +802,14 @@ export default function Questionnaire() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+        <div className="max-w-md mx-auto flex items-center justify-between">
           <img src={otfLogo} alt="Orangetheory Fitness" className="h-8 object-contain" />
           {step > 0 && step < 8 && (
             <span className="text-xs font-medium" style={{ color: '#777' }}>{step} of 7</span>
           )}
         </div>
         {step > 0 && step < 8 && (
-          <div className="max-w-lg mx-auto mt-2">
+          <div className="max-w-md mx-auto mt-2">
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
               <div
                 className="h-full rounded-full transition-all duration-500 ease-out"
@@ -789,7 +821,7 @@ export default function Questionnaire() {
       </div>
 
       {/* Content */}
-      <div className="max-w-lg mx-auto px-5 py-8">
+      <div className="max-w-md mx-auto px-5 py-8">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
