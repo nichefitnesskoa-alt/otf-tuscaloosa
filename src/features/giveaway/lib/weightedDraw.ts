@@ -4,27 +4,27 @@ export interface DrawEntry {
   total_entries: number;
 }
 
-/** Only entries with > 0 tickets are eligible. */
-export function eligibleEntries(entries: DrawEntry[]): DrawEntry[] {
-  return entries.filter(e => e.total_entries > 0);
+/** Only entries with > 0 tickets and not in excludeIds are eligible. */
+export function eligibleEntries(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {
+  return entries.filter(e => e.total_entries > 0 && !(excludeIds?.has(e.id)));
 }
 
-export function buildTicketPool(entries: DrawEntry[]): DrawEntry[] {
+export function buildTicketPool(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry[] {
   const pool: DrawEntry[] = [];
-  for (const e of eligibleEntries(entries)) {
+  for (const e of eligibleEntries(entries, excludeIds)) {
     for (let i = 0; i < e.total_entries; i++) pool.push(e);
   }
   return pool;
 }
 
-export function drawWinner(entries: DrawEntry[]): DrawEntry | null {
-  const pool = buildTicketPool(entries);
+export function drawWinner(entries: DrawEntry[], excludeIds?: Set<string>): DrawEntry | null {
+  const pool = buildTicketPool(entries, excludeIds);
   if (!pool.length) return null;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function topWeightedForWheel(entries: DrawEntry[], max = 20): DrawEntry[] {
-  return eligibleEntries(entries)
+export function topWeightedForWheel(entries: DrawEntry[], max = 20, excludeIds?: Set<string>): DrawEntry[] {
+  return eligibleEntries(entries, excludeIds)
     .sort((a, b) => b.total_entries - a.total_entries)
     .slice(0, max);
 }

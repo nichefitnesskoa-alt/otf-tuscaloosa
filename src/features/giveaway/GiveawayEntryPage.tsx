@@ -9,6 +9,7 @@ import { AchievementCard } from './components/AchievementCard';
 import { ScreenshotUpload } from './components/ScreenshotUpload';
 import { LiveEntryCounter } from './components/LiveEntryCounter';
 import { ConfirmationScreen } from './components/ConfirmationScreen';
+import { PrizeShowcase } from './components/PrizeShowcase';
 import { getStudioIg, getStudioCity } from './lib/studioBrand';
 
 interface PartnerActionState {
@@ -226,6 +227,13 @@ export default function GiveawayEntryPage() {
           </div>
         )}
 
+        <PrizeShowcase
+          slug={studio.studio_slug}
+          partners={partners}
+          winnerStructure={studio.winner_structure ?? 'single'}
+        />
+
+
         <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 sm:p-5 mb-6 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" value={form.first_name} onChange={(v) => setForm({ ...form, first_name: v })} />
@@ -309,6 +317,12 @@ export default function GiveawayEntryPage() {
                   <p className="text-xs text-[#F5F2EE]/50 mb-2">
                     <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" className="hover:text-[#E8540A]">@{handle}</a>
                   </p>
+                )}
+                {p.prize_description && (
+                  <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1" style={{ fontSize: 11 }}>
+                    <span>🎁</span>
+                    <span className="font-bold">Prize: {p.prize_description}</span>
+                  </div>
                 )}
                 <ScreenshotUpload
                   studioSlug={studio.studio_slug}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { WinnerStructure } from '../lib/winnerStructure';
 
 export interface GiveawayStudio {
   id: string;
@@ -7,6 +8,7 @@ export interface GiveawayStudio {
   studio_name: string;
   countdown_duration_days: number;
   goes_live_at: string | null;
+  winner_structure: WinnerStructure;
 }
 
 export function useGiveawayStudio(slug: string | undefined) {
@@ -25,6 +27,15 @@ export function useGiveawayStudio(slug: string | undefined) {
   }, [slug]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!slug) return;
+    const ch = supabase
+      .channel(`giveaway-studio-${slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'giveaway_studios', filter: `studio_slug=eq.${slug}` }, () => refresh())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [slug, refresh]);
 
   return { studio, loading, refresh };
 }

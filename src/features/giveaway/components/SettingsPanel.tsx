@@ -2,23 +2,32 @@ import { useEffect, useState } from 'react';
 import { GiveawayStudio } from '../hooks/useGiveawayStudio';
 import { useGiveawayPartners, GiveawayPartner, PartnerInput } from '../hooks/useGiveawayPartners';
 import { supabase } from '@/integrations/supabase/client';
-import { Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Plus, Check, X, Gift } from 'lucide-react';
+import {
+  WINNER_STRUCTURE_OPTIONS,
+  type WinnerStructure,
+} from '../lib/winnerStructure';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
+  const [winnerStructure, setWinnerStructure] = useState<WinnerStructure>(studio.winner_structure ?? 'single');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setDuration(studio.countdown_duration_days);
-  }, [studio.id, studio.countdown_duration_days]);
+    setWinnerStructure(studio.winner_structure ?? 'single');
+  }, [studio.id, studio.countdown_duration_days, studio.winner_structure]);
 
-  const saveDuration = async () => {
+  const saveSettings = async () => {
     setSaving(true);
     setMsg(null);
     const { error } = await supabase
       .from('giveaway_studios' as any)
-      .update({ countdown_duration_days: duration })
+      .update({
+        countdown_duration_days: duration,
+        winner_structure: winnerStructure,
+      })
       .eq('id', studio.id);
     setSaving(false);
     setMsg(error ? error.message : 'Saved');
@@ -50,6 +59,8 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
     <div className="max-w-2xl space-y-6">
       <PartnersSection slug={studio.studio_slug} />
 
+      <WinnerStructureSection value={winnerStructure} onChange={setWinnerStructure} />
+
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Countdown</h2>
         <div>
@@ -64,7 +75,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={saveDuration} disabled={saving}
+          <button onClick={saveSettings} disabled={saving}
             className="min-h-[44px] px-5 rounded-lg bg-[#2a2a2c] hover:bg-[#3a3a3c] border border-[#3a3a3c] text-[#F5F2EE] font-bold cursor-pointer">
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
@@ -100,6 +111,56 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
   );
 }
 
+function WinnerStructureSection({
+  value,
+  onChange,
+}: {
+  value: WinnerStructure;
+  onChange: (v: WinnerStructure) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
+      <div>
+        <h2 className="text-xl font-black">Winner Draw Rules</h2>
+        <p className="text-sm text-[#F5F2EE]/60 mt-1">How prizes get awarded. Shown plainly on the participant form.</p>
+      </div>
+
+      <div className="space-y-3">
+        {WINNER_STRUCTURE_OPTIONS.map(opt => {
+          const Icon = opt.icon;
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={`w-full text-left rounded-lg border-2 px-4 py-4 min-h-[44px] flex items-start gap-4 cursor-pointer transition ${
+                selected
+                  ? 'border-[#E8540A] bg-[#E8540A]/10 text-[#F5F2EE]'
+                  : 'border-[#3a3a3c] bg-[#2a2a2c] text-[#F5F2EE]/80 hover:border-[#E8540A]/50'
+              }`}
+            >
+              <div className={`flex-shrink-0 mt-0.5 ${selected ? 'text-[#E8540A]' : 'text-[#F5F2EE]/50'}`}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`font-black text-base ${selected ? 'text-[#F5F2EE]' : 'text-[#F5F2EE]'}`}>{opt.title}</p>
+                <p className="text-sm mt-1 text-[#F5F2EE]/70">{opt.subtitle}</p>
+              </div>
+              <div className={`flex-shrink-0 mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                selected ? 'border-[#E8540A] bg-[#E8540A]' : 'border-[#3a3a3c]'
+              }`}>
+                {selected && <Check className="h-3 w-3 text-white" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-[#F5F2EE]/50">Saved with the Save Settings button below.</p>
+    </div>
+  );
+}
+
 function PartnersSection({ slug }: { slug: string }) {
   const { partners, add, update, remove } = useGiveawayPartners(slug);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -125,6 +186,7 @@ function PartnersSection({ slug }: { slug: string }) {
                   partner_name: p.partner_name,
                   partner_ig_handle: p.partner_ig_handle,
                   receipt_instructions: p.receipt_instructions,
+                  prize_description: p.prize_description,
                 }}
                 submitLabel="Update Partner"
                 onSubmit={async (input) => {
@@ -176,8 +238,13 @@ function PartnerCard({ partner, onEdit, onDelete }: { partner: GiveawayPartner; 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-lg font-black text-[#F5F2EE] truncate">{partner.partner_name}</p>
+          {partner.prize_description && (
+            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8540A] bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-2 py-0.5">
+              <Gift className="h-3 w-3" /> Prize: {partner.prize_description}
+            </span>
+          )}
           {partner.partner_ig_handle && (
-            <p className="text-sm text-[#F5F2EE]/60 mt-0.5">@{partner.partner_ig_handle}</p>
+            <p className="text-sm text-[#F5F2EE]/60 mt-1.5">@{partner.partner_ig_handle}</p>
           )}
           {partner.receipt_instructions && (
             <p className="text-sm text-[#F5F2EE]/70 mt-2 line-clamp-2">{partner.receipt_instructions}</p>
@@ -209,6 +276,7 @@ function PartnerForm({
   const [name, setName] = useState(initial?.partner_name ?? '');
   const [ig, setIg] = useState(initial?.partner_ig_handle ?? '');
   const [instr, setInstr] = useState(initial?.receipt_instructions ?? '');
+  const [prize, setPrize] = useState(initial?.prize_description ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -221,6 +289,7 @@ function PartnerForm({
       partner_name: name,
       partner_ig_handle: cleanIg || null,
       receipt_instructions: instr || null,
+      prize_description: prize || null,
     });
     setBusy(false);
     if (error) setErr(error);
@@ -232,6 +301,13 @@ function PartnerForm({
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Partner Business Name *</span>
         <input value={name} onChange={(e) => setName(e.target.value)}
           className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
+      </label>
+      <label className="block">
+        <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Prize for this partner</span>
+        <input value={prize} onChange={(e) => setPrize(e.target.value)}
+          placeholder="e.g. One free blowout, $25 gift card, Free meal for two"
+          className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]" />
+        <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown on the entry form so participants know what they can win.</span>
       </label>
       <label className="block">
         <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Instagram Handle</span>

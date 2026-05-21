@@ -61,8 +61,18 @@ export default function GiveawayAdminPage() {
               </button>
             </div>
             <EntriesTable entries={entries} partners={partners} />
-            <DrawWinner entries={drawEntries} />
-            <SpinWheel entries={drawEntries} />
+            <DrawWinner
+              entries={drawEntries}
+              partners={partners}
+              winnerStructure={studio.winner_structure ?? 'single'}
+              studioSlug={studio.studio_slug}
+            />
+            <SpinWheel
+              entries={drawEntries}
+              partners={partners}
+              winnerStructure={studio.winner_structure ?? 'single'}
+              studioSlug={studio.studio_slug}
+            />
           </div>
         )}
         {tab === 'settings' && (
