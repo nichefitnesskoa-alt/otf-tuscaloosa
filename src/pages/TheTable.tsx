@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,8 +90,12 @@ export default function TheTable() {
   const [winOwnerId, setWinOwnerId] = useState<string | null>(null);
   const effectiveWinOwnerId = winOwnerId ?? myOwners[0]?.id ?? null;
 
-  // Refresh helper
-  const refresh = (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] });
+  // Refresh helper — stable identity so child effects don't re-run on every render
+  const refresh = useCallback(
+    (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] }),
+    [qc, meeting?.id],
+  );
+  const onEntryChange = useCallback(() => refresh('table-entries'), [refresh]);
 
   // Effective week being viewed (deep-linked meetings override the stepper).
   const effectiveWeek = meeting?.meeting_date ?? weekDate;
@@ -253,7 +257,7 @@ export default function TheTable() {
               meetingId={meeting.id}
               ownerId={mine.id}
               entry={myEntry}
-              onChange={() => refresh('table-entries')}
+              onChange={onEntryChange}
             />
           </CollapsibleUpdateCard>
         );
@@ -696,9 +700,19 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
   // Keep local entryId in sync when parent refetches.
   useEffect(() => { if (entry?.id) setEntryId(entry.id); }, [entry?.id]);
 
-  // Ensure exactly one row exists for this (meeting, owner) before any blur-save races.
+  // Latest onChange via ref so the seeding effect never re-runs because of
+  // a new callback identity from the parent.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  // Ensure exactly one row exists for this (meeting, owner) before any
+  // blur-save races. Runs once per (meeting_id, owner_id) pair.
+  const seededRef = useRef<string | null>(null);
   useEffect(() => {
     if (entryId) return;
+    const pairKey = `${meetingId}:${ownerId}`;
+    if (seededRef.current === pairKey) return;
+    seededRef.current = pairKey;
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
@@ -711,13 +725,12 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
         .maybeSingle();
       if (cancelled) return;
       if (error) { toast.error(`Couldn't open your entry: ${error.message}`); return; }
-      if (data?.id) { setEntryId(data.id); onChange(); }
+      if (data?.id) { setEntryId(data.id); onChangeRef.current(); }
     })();
     return () => { cancelled = true; };
-  }, [entryId, meetingId, ownerId, onChange]);
+  }, [entryId, meetingId, ownerId]);
 
   const save = async (field: keyof OwnerEntry, value: string) => {
-    // Always upsert by the unique key so racing blurs merge instead of failing.
     const { data, error } = await supabase
       .from('table_owner_entries')
       .upsert(
@@ -730,7 +743,7 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     if (data?.id && !entryId) setEntryId(data.id);
     setSavedField(field as string);
     setTimeout(() => setSavedField(null), 2000);
-    onChange();
+    onChangeRef.current();
   };
 
   const fields: { key: keyof OwnerEntry; label: string }[] = [
@@ -739,6 +752,10 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
     { key: 'ideas', label: 'Any ideas on your mind?' },
     { key: 'ask', label: 'What do you need from someone in this room?' },
   ];
+
+  // resetKey ties the input's seeded text to the entry row id. Once the row
+  // exists, re-renders from realtime invalidations no longer reset typed text.
+  const resetKey = entry?.id ?? entryId ?? 'pending';
 
   return (
     <div className="space-y-3">
@@ -750,6 +767,7 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
             <label className="text-xs font-medium block mb-1">{f.label}</label>
             <MentionInput
               defaultValue={val}
+              resetKey={resetKey}
               disabled={locked}
               className={cn(
                 'min-h-[70px] border-2',
