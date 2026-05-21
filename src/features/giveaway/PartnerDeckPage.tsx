@@ -196,10 +196,13 @@ export default function PartnerDeckPage() {
   ];
 
   return (
-    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
+    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', width: '100%', maxWidth: '100vw', overflowX: 'hidden', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
       <style>{`
+        .deck-container, .deck-container *, .deck-slide, .deck-slide * { box-sizing: border-box; }
+        .deck-container, #deck-scroll, .deck-slide { max-width: 100vw; overflow-x: hidden; }
+        .deck-slide { width: 100%; }
         @media(max-width:768px){
-          .deck-slide{ padding:32px 20px !important; }
+          .deck-slide{ padding:32px 20px !important; max-width:100vw !important; overflow-x:hidden !important; }
           .deck-eyebrow{ font-size:9px !important; letter-spacing:0.18em !important; }
           .deck-body{ font-size:13px !important; max-width:none !important; }
           .deck-phase-title{ font-size:15px !important; }
