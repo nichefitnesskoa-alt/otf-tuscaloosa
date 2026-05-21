@@ -440,7 +440,7 @@ function IntelligenceTab() {
                       <span className="text-sm font-semibold">{data?.report_date || r.report_date}</span>
                       <div className="flex items-center gap-2 text-xs">
                         <Badge variant="outline">{data?.intros_ran ?? '—'} intros</Badge>
-                        <Badge variant="outline" className="text-green-600">{data?.sales ?? '—'} sales</Badge>
+                        <Badge variant="outline" className="text-success">{data?.sales ?? '—'} sales</Badge>
                         <Badge variant="outline">{data?.close_rate ?? '—'}%</Badge>
                       </div>
                     </div>

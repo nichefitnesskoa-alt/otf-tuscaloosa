@@ -26,7 +26,7 @@ export function ShoutoutsSection({ shoutoutCategories, shoutouts, manualShoutout
   return (
     <MeetingSection
       title="Shoutouts"
-      icon={<Trophy className={isPresentMode ? 'w-10 h-10 text-yellow-400' : 'w-5 h-5 text-yellow-500'} />}
+      icon={<Trophy className={isPresentMode ? 'w-10 h-10 text-warning' : 'w-5 h-5 text-warning'} />}
       sectionId="shoutouts"
       isPresentMode={isPresentMode}
     >

@@ -125,10 +125,10 @@ export default function VipConfirmed() {
       <main className="max-w-3xl mx-auto px-4 py-10 space-y-10">
         {/* Hero */}
         <section className="text-center space-y-2">
-          <h2 className="text-5xl md:text-6xl font-extrabold tracking-tight text-neutral-900">
+          <h2 className="text-5xl md:text-6xl font-extrabold tracking-tight text-neutral">
             You're in.
           </h2>
-          <p className="text-base md:text-lg text-neutral-500">
+          <p className="text-base md:text-lg text-neutral">
             Here's what happens next.
           </p>
         </section>
@@ -138,11 +138,11 @@ export default function VipConfirmed() {
           className="rounded-2xl bg-white px-6 py-6 text-center mx-auto max-w-xl"
           style={{ border: `2px solid ${ORANGE}` }}
         >
-          <p className="text-sm uppercase tracking-widest text-neutral-500 font-semibold">{dayName}</p>
-          <p className="text-2xl md:text-3xl font-bold mt-1 text-neutral-900">{fullDate}</p>
+          <p className="text-sm uppercase tracking-widest text-neutral font-semibold">{dayName}</p>
+          <p className="text-2xl md:text-3xl font-bold mt-1 text-neutral">{fullDate}</p>
           <p className="text-xl md:text-2xl font-semibold mt-1" style={{ color: ORANGE }}>{timeLabel}</p>
           {groupName && (
-            <p className="text-sm text-neutral-600 mt-2">Group: <span className="font-semibold">{groupName}</span></p>
+            <p className="text-sm text-neutral mt-2">Group: <span className="font-semibold">{groupName}</span></p>
           )}
         </section>
 
@@ -162,9 +162,9 @@ export default function VipConfirmed() {
                   {step.n}
                 </div>
                 <div>
-                  <p className="font-semibold text-neutral-900 text-sm md:text-base">{step.label}</p>
+                  <p className="font-semibold text-neutral text-sm md:text-base">{step.label}</p>
                   {step.sub && (
-                    <p className="text-xs md:text-sm text-neutral-500 leading-snug mt-0.5 max-w-[200px]">
+                    <p className="text-xs md:text-sm text-neutral leading-snug mt-0.5 max-w-[200px]">
                       {step.sub}
                     </p>
                   )}
@@ -177,12 +177,12 @@ export default function VipConfirmed() {
         {/* Share section */}
         <section className="space-y-3 max-w-xl mx-auto">
           <div className="text-center">
-            <h3 className="text-xl font-bold text-neutral-900">Share this with your group</h3>
-            <p className="text-sm text-neutral-500 mt-1">
+            <h3 className="text-xl font-bold text-neutral">Share this with your group</h3>
+            <p className="text-sm text-neutral mt-1">
               Each person fills out their own info before class.
             </p>
           </div>
-          <div className="rounded-xl bg-white border border-neutral-200 px-3 py-2">
+          <div className="rounded-xl bg-white border border-neutral px-3 py-2">
             <Input
               readOnly
               value={registerUrl}
@@ -235,7 +235,7 @@ export default function VipConfirmed() {
               level="M"
             />
           </div>
-          <p className="text-sm text-neutral-500">Or scan to register</p>
+          <p className="text-sm text-neutral">Or scan to register</p>
           <Button
             onClick={handleQrDownload}
             variant="outline"

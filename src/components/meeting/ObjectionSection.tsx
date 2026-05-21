@@ -39,11 +39,11 @@ export function ObjectionSection({ metrics, isPresentMode }: Props) {
               <div className={cn(
                 'rounded-full',
                 isPresentMode ? 'w-3 h-3' : 'w-2 h-2',
-                isTop ? 'bg-red-400' : 'bg-white/30'
+                isTop ? 'bg-danger' : 'bg-white/30'
               )} />
               <span className={isPresentMode ? 'text-white' : ''}>{name}: {count} ({pct.toFixed(0)}%)</span>
               {isTop && (
-                <span className={isPresentMode ? 'text-yellow-400 text-base' : 'text-xs text-yellow-600'}>
+                <span className={isPresentMode ? 'text-warning text-base' : 'text-xs text-warning'}>
                   ← Recommended drill
                 </span>
               )}

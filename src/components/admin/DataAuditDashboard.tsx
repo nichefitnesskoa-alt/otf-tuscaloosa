@@ -16,9 +16,9 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 function StatusIcon({ status }: { status: 'pass' | 'warn' | 'fail' }) {
-  if (status === 'pass') return <ShieldCheck className="w-4 h-4 text-green-500" />;
-  if (status === 'warn') return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-  return <XCircle className="w-4 h-4 text-red-500" />;
+  if (status === 'pass') return <ShieldCheck className="w-4 h-4 text-success" />;
+  if (status === 'warn') return <AlertTriangle className="w-4 h-4 text-warning" />;
+  return <XCircle className="w-4 h-4 text-danger" />;
 }
 
 function InlineFixField({ id, field, name, onSaved }: { id: string; field: string; name: string; onSaved: () => void }) {
@@ -129,7 +129,7 @@ function CheckRow({ check, onFixComplete }: { check: AuditCheckResult; onFixComp
               size="sm"
               onClick={handleFix}
               disabled={fixing}
-              className="gap-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="gap-1 bg-brand hover:bg-brand text-white"
             >
               {fixing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wrench className="w-3 h-3" />}
               {fixing ? 'Fixing…' : fixResult ? `Fixed ${fixResult.fixed} records` : 'Fix All'}
@@ -196,7 +196,7 @@ function HealthTrend() {
   const trend = latest - oldest;
 
   const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
-  const trendColor = trend > 0 ? 'text-green-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground';
+  const trendColor = trend > 0 ? 'text-success' : trend < 0 ? 'text-danger' : 'text-muted-foreground';
 
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -277,19 +277,19 @@ export default function DataAuditDashboard() {
         {result && (
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+              <ShieldCheck className="w-3.5 h-3.5 text-success" />
               <span className="text-xs font-medium">{result.passCount} passing</span>
             </div>
             {result.warnCount > 0 && (
               <div className="flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                <AlertTriangle className="w-3.5 h-3.5 text-warning" />
                 <span className="text-xs font-medium">{result.warnCount} warning{result.warnCount !== 1 ? 's' : ''}</span>
               </div>
             )}
             {result.failCount > 0 && (
               <div className="flex items-center gap-1">
-                <XCircle className="w-3.5 h-3.5 text-red-500" />
-                <span className="text-xs font-medium text-red-500">{result.failCount} failing</span>
+                <XCircle className="w-3.5 h-3.5 text-danger" />
+                <span className="text-xs font-medium text-danger">{result.failCount} failing</span>
               </div>
             )}
             <div className="ml-auto">
@@ -304,7 +304,7 @@ export default function DataAuditDashboard() {
             size="sm"
             onClick={handleFixAll}
             disabled={fixingAll || running}
-            className="gap-1 w-full bg-orange-500 hover:bg-orange-600 text-white"
+            className="gap-1 w-full bg-brand hover:bg-brand text-white"
           >
             {fixingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
             {fixingAll ? 'Fixing all issues…' : 'Fix All Issues'}

@@ -178,16 +178,16 @@ export default function OutreachEffectiveness() {
           </h4>
           {qStats ? (
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-2">
-                <div className="text-lg font-bold text-emerald-600">{qStats.answeredPct}%</div>
+              <div className="rounded-lg bg-success-dim dark:bg-success/20 p-2">
+                <div className="text-lg font-bold text-success">{qStats.answeredPct}%</div>
                 <div className="text-[10px] text-muted-foreground">Sent & Answered</div>
               </div>
-              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-2">
-                <div className="text-lg font-bold text-amber-600">{qStats.waitingPct}%</div>
+              <div className="rounded-lg bg-warning-dim dark:bg-warning/20 p-2">
+                <div className="text-lg font-bold text-warning">{qStats.waitingPct}%</div>
                 <div className="text-[10px] text-muted-foreground">Sent, Waiting</div>
               </div>
-              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-2">
-                <div className="text-lg font-bold text-red-600">{qStats.unreachablePct}%</div>
+              <div className="rounded-lg bg-danger-dim dark:bg-danger/20 p-2">
+                <div className="text-lg font-bold text-danger">{qStats.unreachablePct}%</div>
                 <div className="text-[10px] text-muted-foreground">Unreachable</div>
               </div>
             </div>
@@ -205,16 +205,16 @@ export default function OutreachEffectiveness() {
           </h4>
           {confirmStats ? (
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-2">
-                <div className="text-lg font-bold text-emerald-600">{confirmStats.confirmedPct}%</div>
+              <div className="rounded-lg bg-success-dim dark:bg-success/20 p-2">
+                <div className="text-lg font-bold text-success">{confirmStats.confirmedPct}%</div>
                 <div className="text-[10px] text-muted-foreground">Confirmed</div>
               </div>
-              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 p-2">
-                <div className="text-lg font-bold text-amber-600">{confirmStats.noResponsePct}%</div>
+              <div className="rounded-lg bg-warning-dim dark:bg-warning/20 p-2">
+                <div className="text-lg font-bold text-warning">{confirmStats.noResponsePct}%</div>
                 <div className="text-[10px] text-muted-foreground">No Response</div>
               </div>
-              <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-2">
-                <div className="text-lg font-bold text-red-600">{confirmStats.unreachablePct}%</div>
+              <div className="rounded-lg bg-danger-dim dark:bg-danger/20 p-2">
+                <div className="text-lg font-bold text-danger">{confirmStats.unreachablePct}%</div>
                 <div className="text-[10px] text-muted-foreground">Unreachable</div>
               </div>
             </div>

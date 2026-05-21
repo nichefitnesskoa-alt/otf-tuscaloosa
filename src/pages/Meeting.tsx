@@ -201,7 +201,7 @@ export default function Meeting() {
   // Present Mode
   if (isPresentMode) {
     return (
-      <div className="bg-gray-950 text-white min-h-screen relative">
+      <div className="bg-neutral text-white min-h-screen relative">
         {/* Section sidebar */}
         <div className="fixed left-2 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-2">
           {PRESENT_SECTION_IDS.map((id, i) => {
@@ -212,7 +212,7 @@ export default function Meeting() {
                 onClick={() => setCurrentSection(i)}
                 className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center transition-all',
-                  currentSection === i ? 'bg-white text-gray-950 scale-110' : 'bg-white/20 text-white/60 hover:bg-white/30'
+                  currentSection === i ? 'bg-white text-neutral scale-110' : 'bg-white/20 text-white/60 hover:bg-white/30'
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -245,7 +245,7 @@ export default function Meeting() {
             {format(meetingMonday, 'EEEE, MMMM d, yyyy')}
           </h1>
           {energyInsight && (
-            <p className="text-2xl text-yellow-400 text-center max-w-2xl">{energyInsight}</p>
+            <p className="text-2xl text-warning text-center max-w-2xl">{energyInsight}</p>
           )}
           {!isAdmin && (
             <p className="text-sm text-white/30 mt-8">Generated Sunday at 3:00 PM</p>
@@ -305,7 +305,7 @@ export default function Meeting() {
 
       {/* Energy insight */}
       {energyInsight && (
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 text-center">
+        <div className="bg-gradient-to-r from-warning-dim to-brand-dim dark:from-warning/20 dark:to-brand/20 border border-warning dark:border-warning rounded-lg p-4 text-center">
           <p className="text-lg font-semibold">{energyInsight}</p>
         </div>
       )}

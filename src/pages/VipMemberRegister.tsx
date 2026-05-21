@@ -207,7 +207,7 @@ export default function VipMemberRegister() {
   if (loadingSession) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF6900]" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand" />
       </div>
     );
   }
@@ -215,7 +215,7 @@ export default function VipMemberRegister() {
   if (notFound || !session) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
-        <div className="bg-[#FF6900] text-white w-full py-6 absolute top-0 left-0">
+        <div className="bg-brand text-white w-full py-6 absolute top-0 left-0">
           <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
         </div>
         <div className="mt-20">
@@ -232,11 +232,11 @@ export default function VipMemberRegister() {
   if (alreadyRegistered) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
+        <div className="bg-brand text-white py-6 px-4 text-center">
           <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-          <CheckCircle className="w-16 h-16 text-green-600 mb-4" />
+          <CheckCircle className="w-16 h-16 text-success mb-4" />
           <p className="text-lg font-semibold">Looks like you've already registered for this session.</p>
           <p className="text-sm text-muted-foreground mt-2">See you there! 🧡</p>
         </div>
@@ -252,10 +252,10 @@ export default function VipMemberRegister() {
           <h1 className="text-xl font-extrabold tracking-wide">OTF TUSCALOOSA</h1>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-2xl mx-auto">
-          <p className="text-3xl md:text-4xl font-semibold leading-relaxed text-neutral-900">
+          <p className="text-3xl md:text-4xl font-semibold leading-relaxed text-neutral">
             You just did something most people talk about but never do.
           </p>
-          <p className="text-base text-neutral-500 mt-8 leading-relaxed">
+          <p className="text-base text-neutral mt-8 leading-relaxed">
             We'll see you on {shortDate}. Come 15 minutes early and we'll get you set up.
           </p>
           <p className="text-lg font-semibold mt-6" style={{ color: '#E8540A' }}>
@@ -289,12 +289,12 @@ export default function VipMemberRegister() {
         {/* Group + session details */}
         <div className="text-center space-y-1">
           {session.reserved_by_group && (
-            <h2 className="text-2xl font-extrabold text-neutral-900">{session.reserved_by_group}</h2>
+            <h2 className="text-2xl font-extrabold text-neutral">{session.reserved_by_group}</h2>
           )}
-          <p className="text-base font-semibold text-neutral-700">
+          <p className="text-base font-semibold text-neutral">
             {dateLabel} at {timeLabel}
           </p>
-          <p className="text-sm text-neutral-500 pt-2">
+          <p className="text-sm text-neutral pt-2">
             Fill out your info before class.
           </p>
         </div>
@@ -312,7 +312,7 @@ export default function VipMemberRegister() {
                 className="h-12 text-base rounded-xl border"
                 style={errors.firstName ? { borderColor: '#ef4444' } : undefined}
               />
-              {errors.firstName && <p className="text-xs text-red-500">{errors.firstName}</p>}
+              {errors.firstName && <p className="text-xs text-danger">{errors.firstName}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
@@ -324,7 +324,7 @@ export default function VipMemberRegister() {
                 className="h-12 text-base rounded-xl border"
                 style={errors.lastName ? { borderColor: '#ef4444' } : undefined}
               />
-              {errors.lastName && <p className="text-xs text-red-500">{errors.lastName}</p>}
+              {errors.lastName && <p className="text-xs text-danger">{errors.lastName}</p>}
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export default function VipMemberRegister() {
               className="h-12 text-base rounded-xl border"
               style={errors.email ? { borderColor: '#ef4444' } : undefined}
             />
-            {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
+            {errors.email && <p className="text-xs text-danger">{errors.email}</p>}
           </div>
 
           {/* Phone */}
@@ -355,7 +355,7 @@ export default function VipMemberRegister() {
               className="h-12 text-base rounded-xl border"
               style={errors.phone ? { borderColor: '#ef4444' } : undefined}
             />
-            {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
+            {errors.phone && <p className="text-xs text-danger">{errors.phone}</p>}
           </div>
 
           {/* Fitness Level */}
@@ -370,7 +370,7 @@ export default function VipMemberRegister() {
                   className={cn(
                     'flex flex-col items-center justify-center rounded-xl border-2 py-3 min-h-[44px] cursor-pointer transition-colors',
                     fitnessLevel === level
-                      ? 'border-[#FF6900] bg-orange-50 text-[#FF6900]'
+                      ? 'border-brand bg-brand-dim text-brand'
                       : 'border-border hover:border-muted-foreground/40'
                   )}
                 >
@@ -381,7 +381,7 @@ export default function VipMemberRegister() {
                 </button>
               ))}
             </div>
-            {errors.fitnessLevel && <p className="text-xs text-red-500">{errors.fitnessLevel}</p>}
+            {errors.fitnessLevel && <p className="text-xs text-danger">{errors.fitnessLevel}</p>}
           </div>
 
           {/* Injuries */}
@@ -415,7 +415,7 @@ export default function VipMemberRegister() {
                 className="h-10 text-sm rounded-lg border"
                 style={errors.birthday ? { borderColor: '#ef4444' } : undefined}
               />
-              {errors.birthday && <p className="text-xs text-red-500">{errors.birthday}</p>}
+              {errors.birthday && <p className="text-xs text-danger">{errors.birthday}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -432,17 +432,17 @@ export default function VipMemberRegister() {
                 max={500}
                 style={errors.weight ? { borderColor: '#ef4444' } : undefined}
               />
-              {errors.weight && <p className="text-xs text-red-500">{errors.weight}</p>}
+              {errors.weight && <p className="text-xs text-danger">{errors.weight}</p>}
             </div>
           </div>
 
           {errors.form && (
-            <p className="text-sm text-center text-red-500">{errors.form}</p>
+            <p className="text-sm text-center text-danger">{errors.form}</p>
           )}
 
           <Button
             type="submit"
-            className="w-full min-h-[44px] h-14 text-lg font-semibold rounded-xl bg-[#FF6900] hover:bg-[#e55f00] text-white"
+            className="w-full min-h-[44px] h-14 text-lg font-semibold rounded-xl bg-brand hover:bg-brand-hover text-white"
             disabled={submitting}
           >
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit My Info'}
@@ -451,7 +451,7 @@ export default function VipMemberRegister() {
 
         {/* Share with friends */}
         <div className="pt-2 text-center space-y-2">
-          <p className="text-sm text-neutral-600 font-medium">Know someone who should join?</p>
+          <p className="text-sm text-neutral font-medium">Know someone who should join?</p>
           {typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function' ? (
             <Button
               type="button"

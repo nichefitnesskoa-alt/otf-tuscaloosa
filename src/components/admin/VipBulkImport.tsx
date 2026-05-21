@@ -221,7 +221,7 @@ export default function VipBulkImport() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Star className="w-4 h-4 text-purple-600" />
+              <Star className="w-4 h-4 text-brand" />
               VIP Groups ({groups.length})
             </CardTitle>
           </CardHeader>
@@ -237,7 +237,7 @@ export default function VipBulkImport() {
                     className="flex items-center gap-2 flex-1 text-left"
                     onClick={() => setActiveGroup(g.name)}
                   >
-                    <Star className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                    <Star className="w-4 h-4 text-brand flex-shrink-0" />
                     <span className="font-medium text-sm">{g.name}</span>
                   </button>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -305,7 +305,7 @@ export default function VipBulkImport() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Star className="w-4 h-4 text-purple-600" />
+            <Star className="w-4 h-4 text-brand" />
             VIP Bulk Import
           </CardTitle>
           <p className="text-xs text-muted-foreground">
@@ -337,7 +337,7 @@ export default function VipBulkImport() {
               Preview Import
             </Button>
             {showPreview && parsed.filter(r => !r.error).length > 0 && (
-              <Button onClick={handleImport} size="sm" disabled={importing} className="bg-purple-600 hover:bg-purple-700">
+              <Button onClick={handleImport} size="sm" disabled={importing} className="bg-brand hover:bg-brand">
                 {importing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
                 Import {parsed.filter(r => !r.error).length} Client(s)
               </Button>

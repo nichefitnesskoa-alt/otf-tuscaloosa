@@ -243,13 +243,13 @@ export function IntegrityDashboard() {
   };
 
   const typeColor: Record<string, string> = {
-    orphan_run: 'bg-red-100 text-red-800',
-    sale_no_buydate: 'bg-amber-100 text-amber-800',
-    closed_no_run: 'bg-orange-100 text-orange-800',
-    status_mismatch: 'bg-blue-100 text-blue-800',
-    missing_amc_idempotency: 'bg-purple-100 text-purple-800',
-    vip_followup: 'bg-purple-100 text-purple-800',
-    vip_questionnaire: 'bg-purple-100 text-purple-800',
+    orphan_run: 'bg-danger-dim text-danger',
+    sale_no_buydate: 'bg-warning-dim text-warning',
+    closed_no_run: 'bg-brand-dim text-brand',
+    status_mismatch: 'bg-neutral-dim text-neutral',
+    missing_amc_idempotency: 'bg-brand-dim text-brand',
+    vip_followup: 'bg-brand-dim text-brand',
+    vip_questionnaire: 'bg-brand-dim text-brand',
   };
 
   const handleCleanVipFollowUps = async () => {
@@ -292,24 +292,24 @@ export function IntegrityDashboard() {
         {loading ? (
           <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
         ) : anomalies.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-700 py-4">
+          <div className="flex items-center gap-2 text-sm text-success py-4">
             <CheckCircle2 className="w-4 h-4" /> No integrity issues found
           </div>
         ) : (
           <div className="space-y-2">
             {/* VIP bulk cleanup buttons */}
             {(anomalies.some(a => a.type === 'vip_followup') || anomalies.some(a => a.type === 'vip_questionnaire')) && (
-              <div className="flex items-center gap-2 p-2 rounded border border-purple-200 bg-purple-50">
-                <Star className="w-4 h-4 text-purple-600" />
-                <span className="text-xs font-medium text-purple-700">VIP Contamination</span>
+              <div className="flex items-center gap-2 p-2 rounded border border-brand bg-brand-dim">
+                <Star className="w-4 h-4 text-brand" />
+                <span className="text-xs font-medium text-brand">VIP Contamination</span>
                 {anomalies.some(a => a.type === 'vip_followup') && (
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-purple-300"
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-brand"
                     onClick={handleCleanVipFollowUps} disabled={fixing === 'vip_followups'}>
                     {fixing === 'vip_followups' ? <Loader2 className="w-3 h-3 animate-spin" /> : `Remove ${anomalies.filter(a => a.type === 'vip_followup').length} VIP Follow-ups`}
                   </Button>
                 )}
                 {anomalies.some(a => a.type === 'vip_questionnaire') && (
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-purple-300"
+                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-brand"
                     onClick={handleArchiveVipQuestionnaires} disabled={fixing === 'vip_qs'}>
                     {fixing === 'vip_qs' ? <Loader2 className="w-3 h-3 animate-spin" /> : `Archive ${anomalies.filter(a => a.type === 'vip_questionnaire').length} VIP Qs`}
                   </Button>

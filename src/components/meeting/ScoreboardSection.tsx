@@ -16,7 +16,7 @@ function Trend({ current, previous, suffix = '', invert = false }: { current: nu
   const isDown = invert ? diff > 0 : diff < 0;
   if (Math.abs(diff) < 0.5) return <Minus className="w-4 h-4 text-muted-foreground inline" />;
   return (
-    <span className={cn('inline-flex items-center gap-0.5 text-sm font-medium', isUp ? 'text-green-400' : 'text-red-400')}>
+    <span className={cn('inline-flex items-center gap-0.5 text-sm font-medium', isUp ? 'text-success' : 'text-danger')}>
       {isUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
       {Math.abs(diff).toFixed(0)}{suffix}
     </span>
@@ -39,12 +39,12 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
             <Trend current={m.amc} previous={m.amc - m.amcChange} />
           </div>
           <div className="text-center">
-            <p className="text-6xl font-black text-green-400">{m.sales}</p>
+            <p className="text-6xl font-black text-success">{m.sales}</p>
             <p className="text-lg text-white/60 mt-1">Sales</p>
             <Trend current={m.sales} previous={m.salesPrev} />
           </div>
           <div className="text-center">
-            <p className={cn("text-6xl font-black", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-400' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-400' : 'text-red-400')}>{m.closeRate.toFixed(0)}%</p>
+            <p className={cn("text-6xl font-black", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-success' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-warning' : 'text-danger')}>{m.closeRate.toFixed(0)}%</p>
             <p className="text-lg text-white/60 mt-1">Close Rate</p>
             <p className="text-xs text-white/40">(booked → any sale)</p>
             <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
@@ -55,9 +55,9 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         <div className="bg-white/10 rounded-xl p-6 mb-6 text-center">
           <p className="text-2xl text-white">
             <span className="font-bold">{m.booked}</span> Booked → <span className="font-bold">{m.showed}</span> Showed
-            <span className="text-white/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-green-400">{m.introSales}</span> Sold
+            <span className="text-white/50"> ({m.showRate.toFixed(0)}%)</span> → <span className="font-bold text-success">{m.introSales}</span> Sold
           </p>
-          <p className="text-lg text-red-400 mt-2">{m.noShows} No-Shows ({m.noShowRate.toFixed(0)}%)</p>
+          <p className="text-lg text-danger mt-2">{m.noShows} No-Shows ({m.noShowRate.toFixed(0)}%)</p>
           {m.sales - m.introSales > 0 && (
             <p className="text-sm text-white/60 mt-1">Total Sales: {m.sales} (includes {m.sales - m.introSales} outside-intro)</p>
           )}
@@ -90,12 +90,12 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
 
         {/* Biggest Opportunity */}
         {m.biggestOpportunity && (
-          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-6 text-center">
+          <div className="bg-brand-dim border border-brand rounded-xl p-6 text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <AlertTriangle className="w-6 h-6 text-yellow-400" />
-              <p className="text-xl font-bold text-yellow-400">Biggest Opportunity</p>
+              <AlertTriangle className="w-6 h-6 text-brand" />
+              <p className="text-xl font-bold text-brand">Biggest Opportunity</p>
             </div>
-            <p className="text-lg text-white">{m.biggestOpportunity}</p>
+            <p className="text-lg text-text-primary">{m.biggestOpportunity}</p>
           </div>
         )}
       </MeetingSection>
@@ -113,12 +113,12 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
           <Trend current={m.amc} previous={m.amc - m.amcChange} />
         </div>
         <div className="text-center p-3 bg-muted rounded-lg">
-          <p className="text-2xl font-bold text-green-600">{m.sales}</p>
+          <p className="text-2xl font-bold text-success">{m.sales}</p>
           <p className="text-xs text-muted-foreground">Sales</p>
           <Trend current={m.sales} previous={m.salesPrev} />
         </div>
         <div className="text-center p-3 bg-muted rounded-lg">
-          <p className={cn("text-2xl font-bold", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-green-600' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-yellow-600' : 'text-red-600')}>{m.closeRate.toFixed(0)}%</p>
+          <p className={cn("text-2xl font-bold", m.closeRate >= CLOSE_RATE_THRESHOLDS.green ? 'text-success' : m.closeRate >= CLOSE_RATE_THRESHOLDS.amber ? 'text-warning' : 'text-danger')}>{m.closeRate.toFixed(0)}%</p>
           <p className="text-xs text-muted-foreground">Close Rate <span className="text-[10px] opacity-70">(booked → any sale)</span></p>
           <Trend current={m.closeRate} previous={m.closeRatePrev} suffix="%" />
         </div>
@@ -132,9 +132,9 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
         <div className="p-2 bg-muted rounded">Prepped & Role Played: {(m as any).prepRate?.toFixed(0) ?? '—'}%</div>
       </div>
       {m.biggestOpportunity && (
-        <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm">
-          <p className="font-medium text-yellow-800 dark:text-yellow-200">💡 Biggest Opportunity</p>
-          <p className="text-yellow-700 dark:text-yellow-300 mt-1">{m.biggestOpportunity}</p>
+        <div className="mt-3 p-3 bg-warning-dim dark:bg-warning/20 border border-warning dark:border-warning rounded-lg text-sm">
+          <p className="font-medium text-warning dark:text-warning">💡 Biggest Opportunity</p>
+          <p className="text-warning dark:text-warning mt-1">{m.biggestOpportunity}</p>
         </div>
       )}
     </MeetingSection>

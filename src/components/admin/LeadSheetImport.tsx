@@ -168,7 +168,7 @@ export function LeadSheetImport() {
               {lastResult.errors > 0 ? (
                 <AlertTriangle className="w-4 h-4 text-destructive" />
               ) : (
-                <CheckCircle className="w-4 h-4 text-green-600" />
+                <CheckCircle className="w-4 h-4 text-success" />
               )}
               <span className="font-medium">
                 {lastMode === 'backfill' && lastResult.rows_scanned != null && (

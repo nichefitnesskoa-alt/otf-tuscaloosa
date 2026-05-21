@@ -27,10 +27,10 @@ const STAGE_LABELS: Record<string, string> = {
   decision: 'Decision',
 };
 const STAGE_COLORS: Record<string, string> = {
-  applied: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  three_step_complete: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-  interview: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  decision: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  applied: 'bg-neutral-dim text-neutral dark:bg-neutral dark:text-neutral',
+  three_step_complete: 'bg-brand-dim text-brand dark:bg-brand dark:text-brand',
+  interview: 'bg-warning-dim text-warning dark:bg-warning dark:text-warning',
+  decision: 'bg-success-dim text-success dark:bg-success dark:text-success',
 };
 const DECISION_OPTIONS = [
   { value: 'approved', label: 'Approved — Offer Extended' },
@@ -352,8 +352,8 @@ function CandidateCard({ candidate, onSelect, onMove, onSendLink, nextStage }: {
             <p className="text-xs text-muted-foreground">{displayRoles(candidate.role)}</p>
           </div>
           <div className="flex items-center gap-1">
-            {candidate.video_url && <Video className="w-3 h-3 text-green-500" />}
-            {candidate.three_step_complete && <FileText className="w-3 h-3 text-blue-500" />}
+            {candidate.video_url && <Video className="w-3 h-3 text-success" />}
+            {candidate.three_step_complete && <FileText className="w-3 h-3 text-neutral" />}
           </div>
         </div>
         <div className="flex items-center justify-between">
@@ -635,7 +635,7 @@ function CandidateDetailSheet({ candidate, onClose, onDeleted, userName }: {
                                 const selected = (avail[d.day] || []).includes(slot);
                                 return (
                                   <td key={d.day} className="p-0.5">
-                                    <div className={`w-8 h-5 rounded ${selected ? 'bg-orange-500' : 'bg-muted'}`} />
+                                    <div className={`w-8 h-5 rounded ${selected ? 'bg-brand' : 'bg-muted'}`} />
                                   </td>
                                 );
                               })}

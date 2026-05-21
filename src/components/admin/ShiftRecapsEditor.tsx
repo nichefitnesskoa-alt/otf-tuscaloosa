@@ -314,7 +314,7 @@ export default function ShiftRecapsEditor() {
                             {recap.shift_type}
                           </Badge>
                           {(recap.shift_type === 'Auto-closed' || recap.other_info?.includes('Auto-submitted')) && (
-                            <Badge className="text-[10px] bg-amber-500/15 text-amber-600 border-amber-300 dark:text-amber-400" variant="outline">
+                            <Badge className="text-[10px] bg-warning/15 text-warning border-warning dark:text-warning" variant="outline">
                               Auto-closed
                             </Badge>
                           )}
