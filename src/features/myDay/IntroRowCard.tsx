@@ -32,12 +32,12 @@ import {
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
+      return { bg: 'bg-success', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
     case 'Q_SENT':
-      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
+      return { bg: 'bg-warning', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
     case 'NO_Q':
     default:
-      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
+      return { bg: 'bg-danger', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
   }
 }
 
@@ -47,12 +47,12 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNe
   }
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Questionnaire Complete</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Questionnaire Sent</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Questionnaire Sent</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Questionnaire</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-white border-transparent">No Questionnaire</Badge>;
   }
 }
 
@@ -73,7 +73,7 @@ function TappableQBadge({ status, onTap, noQNeeded = false }: { status: Upcoming
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-[#dc2626] text-white border-transparent cursor-pointer hover:bg-[#b91c1c] transition-colors min-h-[28px]"
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
     >
       {copied ? 'Link copied!' : 'No Questionnaire'}
     </button>
