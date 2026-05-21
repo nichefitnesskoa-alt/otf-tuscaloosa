@@ -184,7 +184,7 @@ export default function PartnerDeckPage() {
   ];
 
   return (
-    <div style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh' }}>
+    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
       <style>{`
         @media(max-width:768px){
           .deck-slide{ padding:32px 20px !important; }
