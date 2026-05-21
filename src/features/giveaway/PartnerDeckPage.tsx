@@ -1,10 +1,72 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
-import { getStudioCity, getStudioIgHandle, getParticipantStudioName, getAdminStudioName } from '@/lib/studioNames';
+import { getStudioCity, getParticipantStudioName } from '@/lib/studioNames';
 import { DEFAULT_DECK_COPY, computeBundleTotal } from './lib/partnerDeckDefaults';
-import { Video, Users, Star, Share2, ExternalLink } from 'lucide-react';
+import { Video, Users, Star, Share2, ArrowUpRight, Phone, Mail } from 'lucide-react';
+
+/* ─────────── OTF Brand Constants ─────────── */
+const C = {
+  orange: '#FF6F0D',
+  bone: '#FDF7EA',
+  dark: '#0A0A0A',
+  gray: '#D7D7D7',
+  boneDim10: 'rgba(253,247,234,0.1)',
+  boneDim08: 'rgba(253,247,234,0.08)',
+  boneDim15: 'rgba(253,247,234,0.15)',
+  boneDim20: 'rgba(253,247,234,0.2)',
+  boneDim05: 'rgba(253,247,234,0.05)',
+  boneDim06: 'rgba(253,247,234,0.6)',
+  boneDim05Text: 'rgba(253,247,234,0.5)',
+  darkDim55: 'rgba(10,10,10,0.55)',
+  darkDim7: 'rgba(10,10,10,0.7)',
+  darkDim4: 'rgba(10,10,10,0.4)',
+  darkDim18: 'rgba(10,10,10,0.18)',
+  darkDim15: 'rgba(10,10,10,0.15)',
+  darkDim10: 'rgba(10,10,10,0.1)',
+  darkDim08: 'rgba(10,10,10,0.08)',
+  darkDim5: 'rgba(10,10,10,0.5)',
+  orangeDim12: 'rgba(255,111,13,0.12)',
+  orangeDim25: 'rgba(255,111,13,0.25)',
+  orangeDim10: 'rgba(255,111,13,0.1)',
+};
+
+const FONT_STACK = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
+const LABEL_FONT = "system-ui, Arial, sans-serif";
+
+const display = (size: number, weight = 900): React.CSSProperties => ({
+  fontFamily: FONT_STACK,
+  fontWeight: weight,
+  letterSpacing: '-0.04em',
+  lineHeight: 0.9,
+  fontSize: size,
+});
+
+const headline = (size: number): React.CSSProperties => ({
+  fontFamily: FONT_STACK,
+  fontWeight: 700,
+  letterSpacing: '-0.02em',
+  lineHeight: 1.05,
+  fontSize: size,
+});
+
+const body = (size: number, weight: 300 | 400 = 400): React.CSSProperties => ({
+  fontFamily: FONT_STACK,
+  fontWeight: weight,
+  letterSpacing: '-0.01em',
+  lineHeight: 1.6,
+  fontSize: size,
+});
+
+const label = (color: string, size = 10): React.CSSProperties => ({
+  fontFamily: LABEL_FONT,
+  fontWeight: 700,
+  letterSpacing: '0.2em',
+  textTransform: 'uppercase',
+  fontSize: size,
+  color,
+});
 
 export default function PartnerDeckPage() {
   const { studioSlug } = useParams<{ studioSlug: string }>();
@@ -15,7 +77,6 @@ export default function PartnerDeckPage() {
 
   const prospectName = searchParams.get('prospect')?.trim() || null;
 
-  // Track active slide via scroll position
   useEffect(() => {
     const handler = () => {
       const container = document.getElementById('deck-scroll');
@@ -29,40 +90,49 @@ export default function PartnerDeckPage() {
   }, [studio?.id]);
 
   if (!studio || !studioSlug) {
-    return <div className="min-h-screen bg-surface-page text-text-primary flex items-center justify-center font-body">Loading deck…</div>;
+    return (
+      <div style={{ minHeight: '100vh', background: C.dark, color: C.bone, fontFamily: FONT_STACK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Loading deck.
+      </div>
+    );
   }
 
   const city = getStudioCity(studioSlug);
   const anchor = studio.deck_prize_anchor_value ?? 169;
   const bundleTotal = computeBundleTotal(anchor, partners.length, studio.deck_headline_value);
-  const duration = studio.countdown_duration_days ?? 10;
 
   const slides = [
-    { id: 'cover',     render: () => <SlideCover     studioSlug={studioSlug} city={city} prospectName={prospectName} /> },
-    { id: 'concept',   render: () => <SlideConcept   intro={studio.deck_intro_copy} /> },
-    { id: 'prize',     render: () => <SlidePrize     city={city} partners={partners} anchor={anchor} bundleTotal={bundleTotal} prospectName={prospectName} /> },
-    { id: 'timeline',  render: () => <SlideTimeline  defaultDays={duration} /> },
-    { id: 'story',     render: () => <SlideStory     prospectName={prospectName} /> },
-    { id: 'tracking',  render: () => <SlideTracking  studioSlug={studioSlug} /> },
-    { id: 'entry',     render: () => <SlideEntry     studioSlug={studioSlug} partners={partners} prospectName={prospectName} /> },
-    { id: 'ask',       render: () => <SlideAsk       studio={studio} anchor={anchor} prospectName={prospectName} /> },
-    { id: 'cta',       render: () => <SlideCta       studio={studio} studioSlug={studioSlug} /> },
+    { id: 'cover',    render: () => <SlideCover    city={city} prospectName={prospectName} /> },
+    { id: 'concept',  render: () => <SlideConcept  intro={studio.deck_intro_copy} /> },
+    { id: 'prize',    render: () => <SlidePrize    city={city} partners={partners} anchor={anchor} bundleTotal={bundleTotal} prospectName={prospectName} /> },
+    { id: 'timeline', render: () => <SlideTimeline /> },
+    { id: 'story',    render: () => <SlideStory    /> },
+    { id: 'tracking', render: () => <SlideTracking studioSlug={studioSlug} /> },
+    { id: 'entry',    render: () => <SlideEntry    partners={partners} /> },
+    { id: 'ask',      render: () => <SlideAsk      studio={studio} anchor={anchor} /> },
+    { id: 'cta',      render: () => <SlideCta      studio={studio} city={city} /> },
   ];
 
   return (
-    <div className="min-h-screen bg-surface-page font-body text-text-primary">
-      {/* Dot nav */}
-      <nav className="fixed right-3 md:right-6 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3">
+    <div style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh' }}>
+      <nav style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {slides.map((s, i) => (
           <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
             onClick={() => setActiveSlide(i)}
-            className={`block h-2.5 w-2.5 rounded-full transition-transform ${activeSlide === i ? 'bg-brand scale-150' : 'bg-neutral-dim hover:bg-neutral'}`} />
+            style={{
+              display: 'block',
+              height: 6, width: 6, borderRadius: '50%',
+              transition: 'all 0.25s',
+              background: activeSlide === i ? C.orange : C.boneDim20,
+              transform: activeSlide === i ? 'scale(1.5)' : 'scale(1)',
+              cursor: 'pointer',
+            }} />
         ))}
       </nav>
 
-      <div id="deck-scroll" className="h-screen overflow-y-auto snap-y snap-mandatory scroll-smooth">
+      <div id="deck-scroll" style={{ height: '100vh', overflowY: 'auto', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
         {slides.map((s, i) => (
-          <section key={s.id} id={`slide-${i}`} className="snap-start min-h-screen w-full flex">
+          <section key={s.id} id={`slide-${i}`} style={{ scrollSnapAlign: 'start', minHeight: '100vh', width: '100%', display: 'flex' }}>
             {s.render()}
           </section>
         ))}
@@ -71,174 +141,191 @@ export default function PartnerDeckPage() {
   );
 }
 
-/* ---------------- Slide 1: Cover ---------------- */
-function SlideCover({ studioSlug, city, prospectName }: { studioSlug: string; city: string; prospectName: string | null }) {
+/* ─────────── Slide 1: Cover ─────────── */
+function SlideCover({ city, prospectName }: { city: string; prospectName: string | null }) {
   return (
-    <div className="relative w-full bg-surface-page flex flex-col">
-      <div className="absolute top-0 left-0 right-0 h-1.5 bg-brand" />
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 md:px-12 py-20 max-w-5xl mx-auto">
-        <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] font-bold text-brand mb-6">Partnership Opportunity</p>
-        <h1 className="font-display font-black text-5xl md:text-7xl leading-[0.95] text-text-primary mb-4">
-          Cross-Collab
-        </h1>
-        <p className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-brand mb-8 break-words">
-          {getAdminStudioName(studioSlug)}{prospectName ? ` × ${prospectName}` : ''}
+    <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 960, margin: '0 auto' }}>
+        <div style={{ ...display(13), color: C.bone, opacity: 0.92, marginBottom: 28 }}>OTF</div>
+        <p style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
+        <h1 style={{ ...display(96), color: C.bone, marginBottom: 16 }}>Cross-collab</h1>
+        <p style={{ ...display(72), color: C.orange, marginBottom: 28, wordBreak: 'break-word' }}>
+          {prospectName
+            ? `OrangeTheory Fitness \u00D7 ${prospectName}`
+            : 'OrangeTheory Fitness Tuscaloosa'}
         </p>
-        <p className="text-base md:text-xl text-text-secondary max-w-2xl leading-relaxed">
-          A community giveaway built around {city}'s best local businesses — and the people who love them.
+        <p style={{ ...body(18), color: C.gray, maxWidth: 360 }}>
+          A giveaway built around {city}'s best local businesses and the people who love them.
         </p>
       </div>
-      <p className="text-center text-[9px] uppercase tracking-[0.3em] text-text-secondary pb-8">Scroll to explore</p>
+      <p style={{ ...label(C.gray, 9), opacity: 0.4, textAlign: 'center', paddingBottom: 32 }}>Scroll to explore</p>
     </div>
   );
 }
 
-/* ---------------- Slide 2: Concept (orange) ---------------- */
+/* ─────────── Slide 2: Concept (orange) ─────────── */
 function SlideConcept({ intro }: { intro: string | null }) {
   return (
-    <div className="w-full bg-brand flex items-center justify-center px-6 md:px-12 py-20" style={{ color: '#1C1C1E' }}>
-      <div className="max-w-3xl">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold mb-6 opacity-80">The concept</p>
-        <h2 className="font-display font-black text-5xl md:text-7xl leading-[0.95] mb-8">One big prize.<br/>Every brand wins.</h2>
-        <p className="text-lg md:text-2xl leading-relaxed">{intro?.trim() || DEFAULT_DECK_COPY.intro}</p>
+    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720 }}>
+        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
+        <h2 style={{ ...display(96), color: C.dark, marginBottom: 32, maxWidth: 640 }}>One big prize. Every brand wins.</h2>
+        <p style={{ ...body(22), color: C.dark }}>{intro?.trim() || DEFAULT_DECK_COPY.intro}</p>
       </div>
     </div>
   );
 }
 
-/* ---------------- Slide 3: Prize ---------------- */
-function SlidePrize({ city, partners, anchor, bundleTotal, prospectName }: any) {
+/* ─────────── Slide 3: Prize ─────────── */
+function SlidePrize({ city, partners, anchor, bundleTotal }: any) {
   type Row = { tag: string; tagAccent: boolean; title: string; description: string; value?: string };
   const rows: Row[] = [
-    { tag: `OrangeTheory Fitness ${city}`, tagAccent: true,
+    {
+      tag: `OrangeTheory Fitness ${city}`, tagAccent: true,
       title: 'One month free membership',
-      description: 'Full access — all classes, all month. This is the anchor of the bundle.',
-      value: `$${anchor}` },
+      description: 'Full access, all classes, all month. This is the anchor of the bundle.',
+      value: `$${anchor}`,
+    },
   ];
   for (const p of partners) {
-    if (p.prize_description) {
-      rows.push({
-        tag: p.partner_name, tagAccent: false,
-        title: p.prize_description,
-        description: `A featured experience from ${p.partner_name}.`,
-      });
-    } else {
-      rows.push({
-        tag: p.partner_name, tagAccent: false,
-        title: 'Prize TBD',
-        description: 'Details coming soon.',
-      });
-    }
-  }
-  if (prospectName) {
     rows.push({
-      tag: prospectName, tagAccent: false,
-      title: 'A gift card or signature service',
-      description: `Ideally matched at $${anchor} — enough to make it feel like a real prize for your brand too.`,
-      value: `~$${anchor}`,
-    });
-  }
-  if (partners.length === 0 && !prospectName) {
-    rows.push({
-      tag: 'Your business', tagAccent: false,
-      title: 'A gift card or signature service',
-      description: `Ideally matched at $${anchor} — enough to make it feel like a real prize for your brand too.`,
-      value: `~$${anchor}`,
+      tag: p.partner_name,
+      tagAccent: false,
+      title: p.prize_description?.trim() || 'Prize coming',
+      description: p.partner_instructions?.trim() || '',
     });
   }
 
   return (
-    <div className="w-full bg-surface-page flex items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-4xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-brand mb-3">The prize package</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-text-primary mb-3">One bundle, built together.</h2>
-        <p className="text-sm md:text-base text-brand mb-8">Target total value: {bundleTotal} — the more partners, the bigger the prize, the more people enter.</p>
+    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720, width: '100%' }}>
+        <p style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
+        <h2 style={{ ...display(64), color: C.bone, marginBottom: 12 }}>One bundle, built together.</h2>
+        <p style={{ ...body(12), color: C.orange, opacity: 0.85, marginBottom: 8 }}>Target total value: {bundleTotal}</p>
+        <p style={{ ...body(12), color: C.gray, marginBottom: 32 }}>
+          The more partners join, the bigger the prize. The more people enter.
+        </p>
 
-        <div className="space-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className="rounded-xl border border-surface-border bg-surface-card p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
-              <div className="md:w-56 flex items-center gap-3 flex-wrap">
-                <span className={`inline-block px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-wider ${r.tagAccent ? 'bg-brand text-brand-foreground' : 'bg-surface-input text-text-secondary border border-surface-border'}`}>{r.tag}</span>
-                {r.value && <span className="md:hidden text-brand font-display font-black text-2xl">{r.value}</span>}
+        <div style={{ maxWidth: 520, width: '100%' }}>
+          {rows.map((r, i) => {
+            const isLast = i === rows.length - 1;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: isLast ? 'none' : `1px solid ${C.boneDim08}` }}>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '3px 8px',
+                  borderRadius: 2,
+                  fontFamily: LABEL_FONT,
+                  fontSize: 9,
+                  fontWeight: 900,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                  background: r.tagAccent ? C.orange : C.boneDim08,
+                  color: r.tagAccent ? C.dark : C.gray,
+                  border: r.tagAccent ? 'none' : `1px solid ${C.boneDim15}`,
+                  flexShrink: 0,
+                }}>{r.tag}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ ...headline(15), color: C.bone, fontWeight: 900 }}>{r.title}</p>
+                  {r.description && (
+                    <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>
+                  )}
+                </div>
+                {r.value && (
+                  <p style={{ ...headline(11), color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-display font-black text-xl md:text-2xl text-text-primary">{r.title}</p>
-                <p className="text-sm text-text-secondary mt-1">{r.description}</p>
-              </div>
-              {r.value && <p className="hidden md:block text-brand font-display font-black text-3xl">{r.value}</p>}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-/* ---------------- Slide 4: Timeline ---------------- */
-function SlideTimeline({ defaultDays }: { defaultDays: number }) {
-  const [days, setDays] = useState<number>(defaultDays);
-  useEffect(() => setDays(defaultDays), [defaultDays]);
-  return (
-    <div className="w-full bg-surface-page flex items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-4xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-brand mb-3">Campaign timeline</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-text-primary mb-6">Built around your month.</h2>
-
-        <div className="inline-flex rounded-lg border border-surface-border overflow-hidden mb-8">
-          {[7, 10, 14].map(d => (
-            <button key={d} onClick={() => setDays(d)}
-              className={`min-h-[44px] px-5 font-bold text-sm cursor-pointer ${days === d ? 'bg-surface-card text-brand border-r border-brand last:border-r-0' : 'bg-transparent text-text-secondary hover:bg-surface-card'}`}>
-              {d} days
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-4">
-          <Phase n={1} tag="Early in the month" title="Build the hype"
-            body="Tease the bundle, the partners, and what's coming. Drop sneak previews. Build anticipation without giving away the entry yet." />
-          <Phase n={2} tag={`Last ${days} days of the month`} title="Giveaway goes live"
-            body={`We open entries and push hard across every platform for ${days} straight days. Stories, posts, in-studio mentions, partner cross-shares.`} />
-          <Phase n={3} tag="End of the month" title="Winner announced + documented"
-            body="Live draw, winner reveal video, recap content shared with every partner so they can amplify the win on their own channels." />
-        </div>
-      </div>
-    </div>
-  );
-}
-function Phase({ n, tag, title, body }: { n: number; tag: string; title: string; body: string }) {
-  return (
-    <div className="rounded-xl border border-surface-border bg-surface-card p-5 md:p-6 flex gap-4">
-      <div className="font-display font-black text-4xl md:text-5xl text-brand leading-none">{n}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs uppercase tracking-wider font-bold text-text-secondary mb-1">{tag}</p>
-        <p className="font-display font-black text-xl md:text-2xl text-text-primary">{title}</p>
-        <p className="text-sm text-text-secondary mt-1.5">{body}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- Slide 5: Story ---------------- */
-function SlideStory({ prospectName }: { prospectName: string | null }) {
-  const items = [
-    { Icon: Video, title: 'We come to you first', body: 'Short on-site video at your business to introduce you to our audience before the giveaway goes live.' },
-    { Icon: Users, title: prospectName ? `VIP class for the ${prospectName} team` : 'VIP class for your whole team', body: 'Bring your crew in for a private OTF class. We capture the experience together so you have content to use too.' },
-    { Icon: Star,  title: "The winner's journey", body: 'We document the winner enjoying every partner prize — proof that real people show up for what you offered.' },
-    { Icon: Share2, title: 'Shared across every platform', body: 'Every piece of content gets cross-shared between every partner. You get reach you couldn\'t buy.' },
+/* ─────────── Slide 4: Timeline (Bone, light) ─────────── */
+function SlideTimeline() {
+  const phases = [
+    {
+      tag: 'Early in the month',
+      title: 'Build the story first.',
+      body: 'We come to your business and shoot real content. You bring your team to OTF for a class. We document both. Your audience sees what the partnership actually looks like before the giveaway starts.',
+    },
+    {
+      tag: 'Final stretch of the month',
+      title: 'Giveaway goes live.',
+      body: "Everyone pushes it. Social, stories, in-store, email. The entry tracker runs in real time so you can see how it's going.",
+    },
+    {
+      tag: 'End of the month',
+      title: 'Winner. Documented.',
+      body: 'We follow the winner to every business and shoot the whole thing. That content keeps working long after the giveaway closes.',
+    },
   ];
   return (
-    <div className="w-full bg-surface-page flex items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-5xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-brand mb-3">How we build it together</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-text-primary mb-10">Content-first from day one.</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {items.map((it, i) => (
-            <div key={i} className="rounded-xl border border-surface-border bg-surface-card p-6">
-              <div className="h-10 w-10 rounded-lg bg-brand-dim text-brand flex items-center justify-center mb-3">
-                <it.Icon className="h-5 w-5" />
+    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720, width: '100%' }}>
+        <p style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
+        <h2 style={{ ...display(64), color: C.dark, marginBottom: 16 }}>Built around your month.</h2>
+        <p style={{ fontFamily: LABEL_FONT, fontSize: 14, color: '#555', textAlign: 'center', marginBottom: 24 }}>
+          Giveaway windows run 7, 10, or 14 days. We settle on the right one when we talk.
+        </p>
+
+        <div>
+          {phases.map((p, i) => {
+            const isLast = i === phases.length - 1;
+            return (
+              <div key={i} style={{ display: 'flex', gap: 18, padding: '14px 0', borderBottom: isLast ? 'none' : '1px solid rgba(10,10,10,0.08)' }}>
+                <div style={{ ...display(10), color: C.orange, minWidth: 26, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    display: 'inline-block',
+                    background: C.dark,
+                    color: C.orange,
+                    fontFamily: LABEL_FONT,
+                    fontSize: 8,
+                    fontWeight: 700,
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    padding: '3px 7px',
+                    borderRadius: 2,
+                    marginBottom: 5,
+                  }}>{p.tag}</span>
+                  <p style={{ ...headline(16), color: C.dark, fontWeight: 900 }}>{p.title}</p>
+                  <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: '#555', lineHeight: 1.5, marginTop: 4 }}>{p.body}</p>
+                </div>
               </div>
-              <p className="font-display font-black text-xl text-text-primary">{it.title}</p>
-              <p className="text-sm text-text-secondary mt-2">{it.body}</p>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Slide 5: How we build it ─────────── */
+function SlideStory() {
+  const items = [
+    { Icon: Video,  title: 'We come to you first.',          body: 'Real content from your business. No scripts. We show your audience what makes you worth following.' },
+    { Icon: Users,  title: 'Your team at OTF.',              body: 'One class, shot together. Your audience sees the human side of the partnership.' },
+    { Icon: Star,   title: "The winner's journey.",          body: 'We follow the winner to every business. Real people, real payoff. Shared everywhere.' },
+    { Icon: Share2, title: 'Pushed across every platform.',  body: 'Every partner promotes. Your brand reaches audiences that had no idea you existed.' },
+  ];
+  return (
+    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 960, width: '100%' }}>
+        <p style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
+        <h2 style={{ ...display(64), color: C.bone, marginBottom: 40 }}>Content-first, from day one.</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+          {items.map((it, i) => (
+            <div key={i} style={{ background: C.dark, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '20px 22px' }}>
+              <div style={{ height: 34, width: 34, borderRadius: '50%', background: C.orangeDim12, border: `1px solid ${C.orangeDim25}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <it.Icon size={15} color={C.orange} strokeWidth={2} />
+              </div>
+              <p style={{ ...headline(14), color: C.bone, fontWeight: 900, letterSpacing: '-0.01em' }}>{it.title}</p>
+              <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim05Text, lineHeight: 1.5, marginTop: 6 }}>{it.body}</p>
             </div>
           ))}
         </div>
@@ -247,166 +334,167 @@ function SlideStory({ prospectName }: { prospectName: string | null }) {
   );
 }
 
-/* ---------------- Slide 6: Tracking (orange) ---------------- */
+/* ─────────── Slide 6: Tracking (orange) ─────────── */
 function SlideTracking({ studioSlug }: { studioSlug: string }) {
   return (
-    <div className="w-full bg-brand flex items-center justify-center px-6 md:px-12 py-20" style={{ color: '#1C1C1E' }}>
-      <div className="max-w-4xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold mb-3 opacity-80">The tracking system</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] mb-6">Built in. Live from day one.</h2>
-        <p className="text-lg md:text-xl mb-8 leading-relaxed">
-          Entries are tracked in real time through our app — you can see exactly how many people entered because of your business, any time.
+    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720, width: '100%' }}>
+        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
+        <h2 style={{ ...display(64), color: C.dark, marginBottom: 16 }}>Built in. Live from day one.</h2>
+        <p style={{ ...body(16), color: C.dark, opacity: 0.7, maxWidth: 480, marginBottom: 32 }}>
+          Entries are tracked in real time. You can see exactly how many people entered because of your business. Any time.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <LinkCard href={`/giveaway/${studioSlug}`} eyebrow="Giveaway entry" title="What entrants see" />
-          <LinkCard href={`/admin/${studioSlug}`} eyebrow="Partner dashboard" title="Live entry tracker" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+          <LinkCard href={`/giveaway/${studioSlug}`}              label="Giveaway entry"     title="What entrants see"      url={`/giveaway/${studioSlug}`} />
+          <LinkCard href={`/admin/${studioSlug}/partner-view`}    label="Partner dashboard"  title="Your live entry tracker" url={`/admin/${studioSlug}/partner-view`} />
         </div>
-        <p className="text-sm mt-6 opacity-80">The tracker is customizable per studio, per partner, and per campaign duration.</p>
+        <p style={{ ...body(11), color: C.dark, opacity: 0.5, textAlign: 'center', marginTop: 24 }}>
+          Customizable per studio, per partner, per campaign.
+        </p>
       </div>
     </div>
   );
 }
-function LinkCard({ href, eyebrow, title }: { href: string; eyebrow: string; title: string }) {
+function LinkCard({ href, label: lbl, title, url }: { href: string; label: string; title: string; url: string }) {
+  const [hover, setHover] = useState(false);
   return (
     <a href={href} target="_blank" rel="noreferrer"
-      className="block rounded-xl p-5 cursor-pointer transition-transform hover:-translate-y-0.5"
-      style={{ background: '#1C1C1E', color: '#F5F2EE' }}>
-      <p className="text-[10px] uppercase tracking-[0.25em] font-bold" style={{ color: '#E8540A' }}>{eyebrow}</p>
-      <div className="flex items-center justify-between mt-2 gap-3">
-        <p className="font-display font-black text-xl">{title}</p>
-        <ExternalLink className="h-4 w-4 opacity-60" />
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'block',
+        background: hover ? C.darkDim18 : C.darkDim10,
+        borderRadius: 8,
+        padding: '16px 20px',
+        textDecoration: 'none',
+        transition: 'background 0.2s',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ height: 36, width: 36, background: C.darkDim15, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ArrowUpRight size={18} color={C.dark} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ ...label(C.dark, 9), opacity: 0.55, marginBottom: 2 }}>{lbl}</p>
+          <p style={{ ...headline(14), color: C.dark, fontWeight: 900 }}>{title}</p>
+          <p style={{ fontFamily: LABEL_FONT, fontSize: 10, color: C.darkDim5, marginTop: 2 }}>{url}</p>
+        </div>
       </div>
     </a>
   );
 }
 
-/* ---------------- Slide 7: Entry actions ---------------- */
-function SlideEntry({ studioSlug, partners, prospectName }: any) {
-  const handles: string[] = [getStudioIgHandle(studioSlug)];
+/* ─────────── Slide 7: Entry actions (Bone, light) ─────────── */
+function SlideEntry({ partners }: any) {
+  const baseActions: { text: string; bonus?: boolean }[] = [
+    { text: 'Follow all participating businesses' },
+    { text: 'Like, comment, tag a friend, and share to your story' },
+    { text: 'Fill out the entry form' },
+    { text: 'Post a story of you taking a class and tag us' },
+  ];
   for (const p of partners) {
-    if (p.partner_ig_handle) handles.push(p.partner_ig_handle.startsWith('@') ? p.partner_ig_handle : `@${p.partner_ig_handle}`);
-  }
-  if (prospectName) handles.push(`@${prospectName} on Instagram`);
-
-  const visitItems: { label: string; bonus: boolean }[] = [];
-  for (const p of partners) visitItems.push({ label: `Visit ${p.partner_name}`, bonus: true });
-  if (prospectName) visitItems.push({ label: `Visit ${prospectName}`, bonus: true });
-  if (partners.length === 0 && !prospectName) {
-    visitItems.push({ label: 'Visit a partner business or try a free OTF class', bonus: false });
+    baseActions.push({ text: `Visit ${p.partner_name}`, bonus: true });
   }
 
   return (
-    <div className="w-full bg-surface-card flex items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-4xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-brand mb-3">How people enter</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-text-primary mb-10">Easy to enter.<br/>Hard to ignore.</h2>
+    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720, width: '100%' }}>
+        <p style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
+        <h2 style={{ ...display(64), color: C.dark, marginBottom: 32 }}>Easy to enter. Hard to ignore.</h2>
 
-        <ol className="space-y-4">
-          <ActionRow n={1} title="Follow all participating businesses">
-            <div className="flex flex-wrap gap-2 mt-2">
-              {handles.map((h, i) => (
-                <span key={i} className="inline-block px-2.5 py-1 rounded text-xs bg-surface-input border border-surface-border text-text-secondary">{h}</span>
-              ))}
+        <div style={{ maxWidth: 560 }}>
+          {baseActions.map((a, i) => {
+            const isLast = i === baseActions.length - 1;
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: isLast ? 'none' : '1px solid rgba(10,10,10,0.08)' }}>
+                <span style={{ ...display(10), color: C.orange, minWidth: 18, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 13, color: C.dark, flex: 1, lineHeight: 1.35, letterSpacing: '-0.01em' }}>{a.text}</span>
+                {a.bonus && (
+                  <span style={{
+                    background: C.orangeDim10,
+                    color: C.orange,
+                    fontFamily: LABEL_FONT,
+                    fontSize: 9,
+                    fontWeight: 900,
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    padding: '3px 7px',
+                    borderRadius: 3,
+                  }}>Bonus</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Slide 8: What we need ─────────── */
+function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
+  const cards = [
+    { lbl: 'Prize',      body: studio.deck_what_we_need_prize?.trim()      || DEFAULT_DECK_COPY.askPrize(anchor) },
+    { lbl: 'Promotion',  body: studio.deck_what_we_need_promotion?.trim()  || DEFAULT_DECK_COPY.askPromotion },
+    { lbl: 'VIP class',  body: studio.deck_what_we_need_class?.trim()      || DEFAULT_DECK_COPY.askClass },
+    { lbl: '15 minutes', body: studio.deck_what_we_need_time?.trim()       || DEFAULT_DECK_COPY.askTime },
+  ];
+  return (
+    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 720, width: '100%' }}>
+        <p style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
+        <h2 style={{ ...display(64), color: C.bone, marginBottom: 32 }}>A simple ask. A real return.</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {cards.map((c, i) => (
+            <div key={i} style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px' }}>
+              <p style={{ ...label(C.orange, 9), marginBottom: 6 }}>{c.lbl}</p>
+              <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim06, lineHeight: 1.45, letterSpacing: '-0.01em' }}>{c.body}</p>
             </div>
-          </ActionRow>
-          <ActionRow n={2} title="Like, comment, and tag friends on posts" />
-          <ActionRow n={3} title="Share the giveaway to their story" />
-          <ActionRow n={4} title="Post a story of you taking a class and tag us" />
-          {visitItems.map((v, i) => (
-            <ActionRow key={`v-${i}`} n={5 + i} title={v.label} bonus={v.bonus} />
           ))}
-        </ol>
-      </div>
-    </div>
-  );
-}
-function ActionRow({ n, title, bonus, children }: { n: number; title: string; bonus?: boolean; children?: React.ReactNode }) {
-  return (
-    <li className="rounded-xl border border-surface-border bg-surface-page p-5 flex gap-4">
-      <span className="flex-shrink-0 h-9 w-9 rounded-full bg-brand text-brand-foreground font-display font-black text-base flex items-center justify-center">{n}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-display font-black text-lg md:text-xl text-text-primary">{title}</p>
-          {bonus && <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-brand-dim text-brand">Bonus entries</span>}
-        </div>
-        {children}
-      </div>
-    </li>
-  );
-}
-
-/* ---------------- Slide 8: What we need ---------------- */
-function SlideAsk({ studio, anchor, prospectName }: any) {
-  const prizeBody = studio.deck_what_we_need_prize?.trim()
-    || (prospectName
-      ? `A ${prospectName} gift card or signature service at roughly $${anchor} — matched value to the OTF membership.`
-      : DEFAULT_DECK_COPY.askPrize(anchor));
-  const classBody = studio.deck_what_we_need_class?.trim()
-    || (prospectName
-      ? `Bring your ${prospectName} staff for an OTF class so we can capture and share the experience together.`
-      : DEFAULT_DECK_COPY.askClass);
-  const promoBody = studio.deck_what_we_need_promotion?.trim() || DEFAULT_DECK_COPY.askPromotion;
-  const timeBody = studio.deck_what_we_need_time?.trim() || DEFAULT_DECK_COPY.askTime;
-
-  return (
-    <div className="w-full bg-surface-page flex items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-5xl w-full">
-        <p className="text-xs uppercase tracking-[0.3em] font-bold text-brand mb-3">What we need from you</p>
-        <h2 className="font-display font-black text-4xl md:text-6xl leading-[0.95] text-text-primary mb-10">Simple ask. Real return.</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <AskCard label="Prize" body={prizeBody} />
-          <AskCard label="Promotion" body={promoBody} />
-          <AskCard label="VIP Class" body={classBody} />
-          <AskCard label="15 Minutes" body={timeBody} />
         </div>
       </div>
     </div>
   );
 }
-function AskCard({ label, body }: { label: string; body: string }) {
-  return (
-    <div className="rounded-xl border border-surface-border bg-surface-card p-6">
-      <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-brand mb-3">{label}</p>
-      <p className="text-base text-text-primary leading-relaxed">{body}</p>
-    </div>
-  );
-}
 
-/* ---------------- Slide 9: CTA ---------------- */
-function SlideCta({ studio, studioSlug }: { studio: any; studioSlug: string }) {
-  const hasContact = studio.deck_contact_name || studio.deck_contact_phone || studio.deck_contact_email;
+/* ─────────── Slide 9: CTA (Bone) ─────────── */
+function SlideCta({ studio, city }: { studio: any; city: string }) {
+  const phoneClean = studio.deck_contact_phone ? String(studio.deck_contact_phone).replace(/[^0-9+]/g, '') : null;
   return (
-    <div className="relative w-full bg-surface-card flex flex-col items-center justify-center px-6 md:px-12 py-20">
-      <div className="max-w-3xl w-full text-center">
-        <h2 className="font-display font-black text-5xl md:text-7xl leading-[0.95] text-text-primary mb-2">Want in?</h2>
-        <p className="font-display font-black text-5xl md:text-7xl leading-[0.95] text-brand mb-8">Let's talk.</p>
-        <p className="text-base md:text-lg text-text-secondary max-w-xl mx-auto mb-10">
-          This works because every partner is genuinely invested. If it sounds like a fit, reach out and we'll handle the rest.
+    <div style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ ...display(72), color: C.dark, opacity: 0.12, marginBottom: 12, lineHeight: 1 }}>OTF</div>
+      <div style={{ maxWidth: 560, width: '100%', textAlign: 'center' }}>
+        <h2 style={{ ...display(96), color: C.dark }}>Want in?</h2>
+        <p style={{ ...display(96), color: C.orange, marginBottom: 24 }}>Let's talk.</p>
+        <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 13, color: '#555', lineHeight: 1.55, maxWidth: 360, margin: '0 auto 28px' }}>
+          This works because everyone in it is actually invested. If it sounds like a fit, reach out. We'll take it from there.
         </p>
 
-        {hasContact && (
-          <div className="rounded-2xl border border-surface-border bg-surface-page p-6 md:p-8 text-left">
-            <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-text-secondary mb-3">
-              Your contact at {getParticipantStudioName(studioSlug)}
+        {(studio.deck_contact_name || phoneClean || studio.deck_contact_email) && (
+          <div style={{ background: C.dark, borderRadius: 8, padding: '22px 28px', maxWidth: 320, width: '100%', margin: '0 auto', textAlign: 'center' }}>
+            <p style={{ ...label(C.gray, 9), marginBottom: 10 }}>
+              Your contact at OrangeTheory Fitness {city}
             </p>
             {studio.deck_contact_name && (
-              <p className="font-display font-black text-3xl md:text-4xl text-text-primary leading-tight">{studio.deck_contact_name}</p>
+              <p style={{ ...headline(20), color: C.bone, fontWeight: 900, marginBottom: 2 }}>{studio.deck_contact_name}</p>
             )}
             {studio.deck_contact_title && (
-              <p className="text-sm text-brand font-bold mt-1">{studio.deck_contact_title}</p>
+              <p style={{ fontFamily: LABEL_FONT, fontSize: 11, color: C.orange, letterSpacing: '0.04em', marginBottom: 14 }}>{studio.deck_contact_title}</p>
             )}
-            <div className="mt-4 space-y-1.5 text-sm">
-              {studio.deck_contact_phone && (
-                <a href={`tel:${studio.deck_contact_phone.replace(/[^0-9+]/g, '')}`} className="block text-text-primary hover:text-brand">{studio.deck_contact_phone}</a>
-              )}
-              {studio.deck_contact_email && (
-                <a href={`mailto:${studio.deck_contact_email}`} className="block text-text-primary hover:text-brand break-all">{studio.deck_contact_email}</a>
-              )}
-            </div>
+            {phoneClean && (
+              <a href={`tel:${phoneClean}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: C.gray, fontSize: 11, fontFamily: FONT_STACK, marginBottom: 6, textDecoration: 'none' }}>
+                <Phone size={12} color={C.gray} style={{ opacity: 0.5 }} />
+                {studio.deck_contact_phone}
+              </a>
+            )}
+            {studio.deck_contact_email && (
+              <a href={`mailto:${studio.deck_contact_email}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: C.gray, fontSize: 11, fontFamily: FONT_STACK, textDecoration: 'none', wordBreak: 'break-all' }}>
+                <Mail size={12} color={C.gray} style={{ opacity: 0.5 }} />
+                {studio.deck_contact_email}
+              </a>
+            )}
           </div>
         )}
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-brand" />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: C.orange }} />
     </div>
   );
 }
