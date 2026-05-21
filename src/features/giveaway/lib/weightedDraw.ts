@@ -4,10 +4,15 @@ export interface DrawEntry {
   total_entries: number;
 }
 
+/** Only entries with > 0 tickets are eligible. */
+export function eligibleEntries(entries: DrawEntry[]): DrawEntry[] {
+  return entries.filter(e => e.total_entries > 0);
+}
+
 export function buildTicketPool(entries: DrawEntry[]): DrawEntry[] {
   const pool: DrawEntry[] = [];
-  for (const e of entries) {
-    for (let i = 0; i < Math.max(0, e.total_entries); i++) pool.push(e);
+  for (const e of eligibleEntries(entries)) {
+    for (let i = 0; i < e.total_entries; i++) pool.push(e);
   }
   return pool;
 }
@@ -19,5 +24,7 @@ export function drawWinner(entries: DrawEntry[]): DrawEntry | null {
 }
 
 export function topWeightedForWheel(entries: DrawEntry[], max = 20): DrawEntry[] {
-  return [...entries].sort((a, b) => b.total_entries - a.total_entries).slice(0, max);
+  return eligibleEntries(entries)
+    .sort((a, b) => b.total_entries - a.total_entries)
+    .slice(0, max);
 }

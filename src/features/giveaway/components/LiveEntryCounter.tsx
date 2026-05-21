@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
-export function LiveEntryCounter({ entries, max = 6 }: { entries: number; max?: number }) {
+export function LiveEntryCounter({ entries, max }: { entries: number; max: number }) {
   const [displayed, setDisplayed] = useState(entries);
   useEffect(() => {
     if (displayed === entries) return;
@@ -16,7 +16,8 @@ export function LiveEntryCounter({ entries, max = 6 }: { entries: number; max?: 
     requestAnimationFrame(step);
   }, [entries]); // eslint-disable-line
 
-  const pct = Math.min(100, (entries / max) * 100);
+  const safeMax = Math.max(max, 1);
+  const pct = Math.min(100, (entries / safeMax) * 100);
 
   return (
     <div className="rounded-2xl border-2 border-[#E8540A]/40 bg-gradient-to-b from-[#E8540A]/10 to-transparent p-6 text-center">
