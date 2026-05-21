@@ -21,16 +21,18 @@ export function Countdown({ targetIso, label }: { targetIso: string; label?: str
   }, [target]);
 
   const seg = (n: number, l: string) => (
-    <div className="flex flex-col items-center px-3 sm:px-5 py-3 rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] min-w-[72px]">
-      <span className="text-3xl sm:text-5xl font-black tabular-nums text-[#E8540A] leading-none">{String(n).padStart(2,'0')}</span>
-      <span className="text-[10px] uppercase tracking-widest text-[#F5F2EE]/60 mt-1">{l}</span>
+    <div className="flex flex-col items-center px-3 py-3 rounded-lg bg-[#2a2a2c] border border-[#3a3a3c]" style={{ minWidth: 64 }}>
+      <span className="font-display font-black tabular-nums text-[#E8540A] leading-none" style={{ fontSize: 'clamp(36px, 5vw, 48px)' }}>
+        {String(n).padStart(2,'0')}
+      </span>
+      <span className="font-display text-[10px] md:text-[11px] uppercase tracking-widest text-[#F5F2EE]/60 mt-1">{l}</span>
     </div>
   );
 
   return (
     <div className="flex flex-col items-center gap-3">
-      {label && <p className="text-sm uppercase tracking-widest text-[#F5F2EE]/70">{label}</p>}
-      <div className="flex gap-2 sm:gap-3">
+      {label && <p className="font-display text-sm uppercase tracking-widest text-[#F5F2EE]/70">{label}</p>}
+      <div className="flex gap-2 md:gap-3">
         {seg(t.days,'Days')}{seg(t.hours,'Hrs')}{seg(t.minutes,'Min')}{seg(t.seconds,'Sec')}
       </div>
     </div>

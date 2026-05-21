@@ -21,18 +21,19 @@ export function LiveEntryCounter({ entries, max }: { entries: number; max: numbe
 
   return (
     <div className="rounded-2xl border-2 border-[#E8540A]/40 bg-gradient-to-b from-[#E8540A]/10 to-transparent p-6 text-center">
-      <p className="text-xs uppercase tracking-[0.25em] text-[#F5F2EE]/70 font-bold">Your Entries</p>
+      <p className="font-display text-[11px] md:text-[13px] uppercase tracking-[0.25em] text-[#F5F2EE]/70 font-bold">Your Entries</p>
       <motion.div
         key={entries}
         initial={{ scale: 1 }}
         animate={{ scale: [1, 1.15, 1] }}
         transition={{ duration: 0.4 }}
-        className="text-7xl sm:text-8xl font-black text-[#E8540A] leading-none my-2 tabular-nums"
+        className="font-display font-black text-[#E8540A] leading-none my-2 tabular-nums"
+        style={{ fontSize: 'clamp(72px, 10vw, 96px)' }}
       >
         {displayed}
       </motion.div>
-      <p className="text-sm text-[#F5F2EE]/70 mb-3">of {max} possible</p>
-      <div className="h-3 bg-[#2a2a2c] rounded-full overflow-hidden">
+      <p className="font-body text-sm text-[#F5F2EE]/70 mb-3">of {max} possible</p>
+      <div className="h-2 md:h-2 bg-[#2a2a2c] rounded-full overflow-hidden">
         <motion.div
           className="h-full bg-[#E8540A]"
           initial={false}
