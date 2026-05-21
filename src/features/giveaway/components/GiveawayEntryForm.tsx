@@ -12,7 +12,7 @@ import { ConfirmationScreen } from './ConfirmationScreen';
 import { PrizeShowcase } from './PrizeShowcase';
 import { getParticipantStudioName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
-import { getDrawRuleStatement } from '../lib/winnerStructure';
+import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
 
 interface PartnerActionState {
   partner_id: string;
@@ -239,11 +239,29 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
           </div>
         )}
 
-        <PrizeShowcase slug={studio.studio_slug} partners={partners} />
-
-        <p className="font-body italic text-[13px] text-[#8E8E93] -mt-4 mb-8">
-          {getDrawRuleStatement(studio.winner_structure ?? 'single')}
-        </p>
+        {(() => {
+          const ef = getEntryFormPrizeFraming(studio.winner_structure ?? 'single');
+          return (
+            <>
+              <PrizeShowcase slug={studio.studio_slug} partners={partners} showWinnerBadge={ef.showWinnerBadgeOnCards} />
+              <div
+                className="mt-2 mb-3 w-full rounded text-center font-display font-bold"
+                style={{
+                  background: 'rgba(232, 84, 10, 0.15)',
+                  border: '1px solid #E8540A',
+                  color: '#E8540A',
+                  fontSize: 14,
+                  padding: '10px 16px',
+                }}
+              >
+                {ef.bannerText}
+              </div>
+              <p className="font-body italic text-[13px] text-[#8E8E93] mb-8">
+                {ef.winnerRuleStatement}
+              </p>
+            </>
+          );
+        })()}
 
         {/* Personal info — 2-col desktop, 1-col mobile */}
         <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 md:p-6 mb-6">

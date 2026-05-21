@@ -4,9 +4,11 @@ import { getParticipantStudioName, getStudioIgHandle } from '@/lib/studioNames';
 export function PrizeShowcase({
   slug,
   partners,
+  showWinnerBadge,
 }: {
   slug: string;
   partners: GiveawayPartner[];
+  showWinnerBadge?: boolean;
 }) {
   const igHandle = getStudioIgHandle(slug).replace(/^@/, '');
 
@@ -42,14 +44,14 @@ export function PrizeShowcase({
         className="hidden md:grid gap-3"
         style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
       >
-        {cards.map(c => <PrizeCard key={c.id} {...c} />)}
+        {cards.map(c => <PrizeCard key={c.id} {...c} showWinnerBadge={showWinnerBadge} />)}
       </div>
 
       {/* Mobile horizontal scroll */}
       <div className="md:hidden flex gap-2.5 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2" style={{ scrollPaddingLeft: 16 }}>
         {cards.map(c => (
           <div key={c.id} className="snap-start flex-shrink-0" style={{ width: 200 }}>
-            <PrizeCard {...c} mobile />
+            <PrizeCard {...c} mobile showWinnerBadge={showWinnerBadge} />
           </div>
         ))}
         {/* peek spacer */}
@@ -60,17 +62,18 @@ export function PrizeShowcase({
 }
 
 function PrizeCard({
-  prize, business, handle, tbd, mobile,
+  prize, business, handle, tbd, mobile, showWinnerBadge,
 }: {
   prize: string;
   business: string;
   handle?: string | null;
   tbd?: boolean;
   mobile?: boolean;
+  showWinnerBadge?: boolean;
 }) {
   return (
     <article
-      className="rounded-xl border-[1.5px] border-[#E8540A] bg-[#2A2A2C] overflow-hidden flex flex-col"
+      className="relative rounded-xl border-[1.5px] border-[#E8540A] bg-[#2A2A2C] overflow-hidden flex flex-col"
       style={{ height: mobile ? 160 : 180 }}
     >
       <div className="flex-1 flex items-center justify-center px-4 py-3 text-center">
@@ -97,6 +100,14 @@ function PrizeCard({
           </p>
         )}
       </div>
+      {showWinnerBadge && (
+        <span
+          className="absolute bottom-1.5 right-1.5 bg-[#2A2A2C] text-[#8E8E93] border border-[#3a3a3c] rounded-[2px] px-1.5 py-0.5 font-display font-bold uppercase"
+          style={{ fontSize: 8, letterSpacing: '0.16em' }}
+        >
+          1 winner
+        </span>
+      )}
     </article>
   );
 }
