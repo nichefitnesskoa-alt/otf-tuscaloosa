@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 interface FitTextProps {
   children: ReactNode;
@@ -10,14 +10,16 @@ interface FitTextProps {
   as?: 'h1' | 'h2' | 'p' | 'span' | 'div';
   /** Width-cap multiplier (0..1). Default 1 = fill container width. */
   fillRatio?: number;
+  /** Allow natural word wrapping; auto-size so the widest line fits the container. */
+  multiline?: boolean;
 }
 
 /**
- * Auto-sizes its child text to fill the container width on one line.
- * Uses ResizeObserver and binary-search; respects min/max bounds.
- * If `fixed` is provided, that exact px is used (clamped if it overflows on small widths).
+ * Auto-sizes its child text to fill the container width.
+ * Single-line by default (nowrap). With `multiline`, wraps at word boundaries
+ * and picks the largest size where no word/line overflows the container.
  */
-export function FitText({ children, min, max, fixed, style, as = 'span', fillRatio = 1 }: FitTextProps) {
+export function FitText({ children, min, max, fixed, style, as = 'span', fillRatio = 1, multiline = false }: FitTextProps) {
   const wrapRef = useRef<HTMLElement | null>(null);
   const measureRef = useRef<HTMLSpanElement | null>(null);
   const [size, setSize] = useState<number>(fixed ?? max);
@@ -30,21 +32,27 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
     const fit = () => {
       const containerWidth = wrap.clientWidth * fillRatio;
       if (containerWidth <= 0) return;
+      // keep measurement width in sync for multiline mode
+      if (multiline) measure.style.width = `${containerWidth}px`;
 
-      // Binary search for the largest size that fits on one line.
+      const fits = (px: number) => {
+        measure.style.fontSize = `${px}px`;
+        if (multiline) {
+          // No horizontal overflow = every word/line fits the available width.
+          return measure.scrollWidth <= Math.ceil(containerWidth);
+        }
+        return measure.scrollWidth <= containerWidth;
+      };
+
       let lo = min;
       let hi = fixed ? Math.min(fixed, max) : max;
-      // First measure at hi
-      measure.style.fontSize = `${hi}px`;
-      if (measure.scrollWidth <= containerWidth) {
+      if (fits(hi)) {
         setSize(hi);
         return;
       }
-      // If a fixed value was set but doesn't fit, fall back to auto-fit.
       while (lo < hi - 1) {
         const mid = Math.floor((lo + hi) / 2);
-        measure.style.fontSize = `${mid}px`;
-        if (measure.scrollWidth <= containerWidth) lo = mid;
+        if (fits(mid)) lo = mid;
         else hi = mid;
       }
       setSize(Math.max(min, lo));
@@ -54,29 +62,38 @@ export function FitText({ children, min, max, fixed, style, as = 'span', fillRat
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, [children, min, max, fixed, fillRatio]);
+  }, [children, min, max, fixed, fillRatio, multiline]);
 
   const Tag: any = as;
+  const measureStyle: CSSProperties = multiline
+    ? {
+        position: 'absolute',
+        visibility: 'hidden',
+        pointerEvents: 'none',
+        whiteSpace: 'normal',
+        wordBreak: 'normal',
+        fontFamily: 'inherit',
+        fontWeight: 'inherit',
+        letterSpacing: 'inherit',
+        lineHeight: 'inherit',
+      }
+    : {
+        position: 'absolute',
+        visibility: 'hidden',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        fontFamily: 'inherit',
+        fontWeight: 'inherit',
+        letterSpacing: 'inherit',
+        lineHeight: 'inherit',
+      };
+
   return (
     <Tag ref={wrapRef} style={{ ...style, fontSize: size, display: 'block', width: '100%' }}>
-      {/* hidden measurement node mirrors the visible text */}
-      <span
-        ref={measureRef}
-        aria-hidden
-        style={{
-          position: 'absolute',
-          visibility: 'hidden',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          fontFamily: 'inherit',
-          fontWeight: 'inherit',
-          letterSpacing: 'inherit',
-          lineHeight: 'inherit',
-        }}
-      >
+      <span ref={measureRef} aria-hidden style={measureStyle}>
         {children}
       </span>
-      <span style={{ whiteSpace: 'nowrap', display: 'block' }}>{children}</span>
+      <span style={{ whiteSpace: multiline ? 'normal' : 'nowrap', display: 'block' }}>{children}</span>
     </Tag>
   );
 }
