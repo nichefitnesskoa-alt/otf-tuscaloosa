@@ -29,7 +29,7 @@ interface LeadDetailSheetProps {
 const STAGE_COLORS: Record<string, string> = {
   new: 'bg-info text-info-foreground',
   contacted: 'bg-warning text-warning-foreground',
-  won: 'bg-amber-500 text-white',
+  won: 'bg-warning text-white',
   lost: 'bg-muted text-muted-foreground',
 };
 
@@ -194,7 +194,7 @@ export function LeadDetailSheet({ lead, activities, open, onOpenChange, onRefres
                   </Button>
                 )}
                 {lead.stage !== 'won' && (
-                  <Button size="sm" className="text-xs bg-amber-500 hover:bg-amber-600 text-white" onClick={handleMarkPurchased} disabled={markingPurchased}>
+                  <Button size="sm" className="text-xs bg-warning hover:bg-warning text-white" onClick={handleMarkPurchased} disabled={markingPurchased}>
                     <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Purchased
                   </Button>
                 )}

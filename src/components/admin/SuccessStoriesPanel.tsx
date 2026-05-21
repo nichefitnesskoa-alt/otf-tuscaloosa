@@ -308,11 +308,11 @@ export default function SuccessStoriesPanel() {
                     <span className="font-semibold">{name || 'Anonymous'}</span>
                     {s.membership_duration && <Badge variant="outline" className="text-xs">{s.membership_duration}</Badge>}
                     {s.social_media_permission ? (
-                      <Badge className="bg-green-100 text-green-800 text-xs">Approved</Badge>
+                      <Badge className="bg-success-dim text-success text-xs">Approved</Badge>
                     ) : (
                       <Badge variant="destructive" className="text-xs">No Permission</Badge>
                     )}
-                    {s.featured && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+                    {s.featured && <Star className="w-4 h-4 text-warning fill-warning" />}
                     <span className="text-xs text-muted-foreground">
                       {s.submitted_at && format(new Date(s.submitted_at), 'MMM d, yyyy')}
                     </span>

@@ -16,7 +16,7 @@ interface LeadKanbanBoardProps {
 const COLUMNS = [
   { stage: 'new', label: 'New', color: 'bg-info/10 border-info/30' },
   { stage: 'contacted', label: 'Contacted', color: 'bg-warning/10 border-warning/30' },
-  { stage: 'won', label: 'Purchased', color: 'bg-amber-500/10 border-amber-500/30' },
+  { stage: 'won', label: 'Purchased', color: 'bg-warning/10 border-warning/30' },
   { stage: 'lost', label: 'Do Not Contact', color: 'bg-muted border-muted-foreground/20' },
 ];
 

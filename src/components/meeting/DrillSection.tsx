@@ -34,17 +34,17 @@ export function DrillSection({ topObjection, drillOverride, onOverrideChange, is
       )}
 
       <div className={isPresentMode ? 'text-white' : ''}>
-        <p className={isPresentMode ? 'text-2xl font-bold mb-6 text-yellow-400' : 'text-sm font-semibold mb-3'}>
+        <p className={isPresentMode ? 'text-2xl font-bold mb-6 text-warning' : 'text-sm font-semibold mb-3'}>
           EIRMA for "{activeObjection}"
         </p>
 
         {playbook ? (
           <div className={isPresentMode ? 'space-y-5 text-xl' : 'space-y-3 text-sm'}>
-            <div><span className="font-bold text-blue-400">E — Empathize:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.empathize_line}</span></div>
-            <div><span className="font-bold text-purple-400">I — Isolate:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.isolate_question}</span></div>
-            <div><span className="font-bold text-green-400">R — Redirect:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.redirect_framework}</span></div>
-            <div><span className="font-bold text-orange-400">M — Suggest:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.suggestion_framework}</span></div>
-            <div><span className="font-bold text-red-400">A — Ask:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.ask_line}</span></div>
+            <div><span className="font-bold text-neutral">E — Empathize:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.empathize_line}</span></div>
+            <div><span className="font-bold text-brand">I — Isolate:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.isolate_question}</span></div>
+            <div><span className="font-bold text-success">R — Redirect:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.redirect_framework}</span></div>
+            <div><span className="font-bold text-brand">M — Suggest:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.suggestion_framework}</span></div>
+            <div><span className="font-bold text-danger">A — Ask:</span> <span className={isPresentMode ? 'text-white/90' : ''}>{playbook.ask_line}</span></div>
           </div>
         ) : (
           <p className={isPresentMode ? 'text-white/60 text-lg' : 'text-muted-foreground text-sm'}>
@@ -56,7 +56,7 @@ export function DrillSection({ topObjection, drillOverride, onOverrideChange, is
           'mt-6 p-4 rounded-lg',
           isPresentMode ? 'bg-white/10' : 'bg-muted'
         )}>
-          <p className={isPresentMode ? 'text-lg font-semibold text-yellow-400 mb-2' : 'text-sm font-medium mb-1'}>Drill Format:</p>
+          <p className={isPresentMode ? 'text-lg font-semibold text-warning mb-2' : 'text-sm font-medium mb-1'}>Drill Format:</p>
           <p className={isPresentMode ? 'text-lg text-white/80' : 'text-sm text-muted-foreground'}>
             Pair up. One person is the member, one is the SA. The member gives the "{activeObjection}" objection. The SA runs EIRMA. Switch after 3 minutes. Go.
           </p>

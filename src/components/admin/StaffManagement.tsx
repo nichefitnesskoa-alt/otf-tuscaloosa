@@ -211,9 +211,9 @@ export default function StaffManagement() {
   const getRoleBadgeColor = (r: string) => {
     switch (r) {
       case 'Admin': return 'bg-primary text-primary-foreground';
-      case 'Coach': return 'bg-green-600 text-white';
-      case 'Both': return 'bg-blue-600 text-white';
-      default: return 'bg-blue-500 text-white';
+      case 'Coach': return 'bg-success text-white';
+      case 'Both': return 'bg-neutral text-white';
+      default: return 'bg-neutral text-white';
     }
   };
 

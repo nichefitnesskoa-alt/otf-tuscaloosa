@@ -86,7 +86,7 @@ export default function ReferralTree() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
+            <Trophy className="w-4 h-4 text-warning" />
             Top Referrers
           </CardTitle>
         </CardHeader>
@@ -98,7 +98,7 @@ export default function ReferralTree() {
               {topReferrers.map((ref, i) => (
                 <div key={ref.name} className="flex items-center justify-between p-2 rounded border bg-muted/30">
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-bold ${i === 0 ? 'text-amber-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-700' : 'text-muted-foreground'}`}>
+                    <span className={`text-sm font-bold ${i === 0 ? 'text-warning' : i === 1 ? 'text-neutral' : i === 2 ? 'text-warning' : 'text-muted-foreground'}`}>
                       #{i + 1}
                     </span>
                     <span className="text-sm font-medium">{ref.name}</span>

@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const HEALTH_DOT: Record<string, string> = {
-  green: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500',
+  green: 'bg-success', amber: 'bg-warning', red: 'bg-danger',
 };
 
 // Convert "13:30" / "13:30:00" → "1:30 PM" (no military time anywhere).
@@ -171,7 +171,7 @@ export default function TheTable() {
 
   // ---------- Carry-forward ----------
   const carryBlock = carryForward.length > 0 && (
-    <Card className="p-4 mb-4 border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20">
+    <Card className="p-4 mb-4 border-warning/40 bg-warning-dim/40 dark:bg-warning/20">
       <div className="font-semibold mb-2 text-sm">Open from prior weeks ({carryForward.length})</div>
       <div className="space-y-1">
         {carryForward.slice(0, 6).map(a => {
@@ -181,7 +181,7 @@ export default function TheTable() {
               <div className="flex-1 truncate">
                 <span className="font-medium">{a.owner_name}:</span> {a.description}
               </div>
-              <div className={cn('text-xs', overdue && 'text-red-600 font-semibold')}>
+              <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
                 {format(new Date(a.due_date + 'T12:00:00'), 'MMM d')}
               </div>
               <Select value={a.status} onValueChange={async (v) => {
@@ -205,7 +205,7 @@ export default function TheTable() {
   // ---------- Wins logger (always visible) ----------
   const winButton = (
     <Button variant="outline" size="sm" onClick={() => setWinOpen(true)}>
-      <Trophy className="w-4 h-4 mr-1 text-amber-500" /> Log a win this week
+      <Trophy className="w-4 h-4 mr-1 text-warning" /> Log a win this week
     </Button>
   );
 
@@ -214,7 +214,7 @@ export default function TheTable() {
     <>
       {/* Studio Leader — Architect (separate from Owner grid) */}
       {architect && (
-        <Card className="p-4 mb-4 border-2 border-[#E8540A]/60 bg-[#E8540A]/5">
+        <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
           <div className="flex items-center justify-between mb-2">
             <div>
               <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold">Studio Leader — Architect</div>
@@ -275,7 +275,7 @@ export default function TheTable() {
                   <div className="font-medium text-sm">{o.display_name} · {o.lane_name || '—'}</div>
                   <Badge
                     variant={e?.submitted_at ? 'default' : 'outline'}
-                    className={e?.submitted_at ? 'bg-emerald-600 text-[10px]' : 'text-amber-600 border-amber-600 text-[10px]'}
+                    className={e?.submitted_at ? 'bg-success text-[10px]' : 'text-warning border-warning text-[10px]'}
                   >
                     {e?.submitted_at ? 'Locked in' : 'Not yet'}
                   </Badge>
@@ -304,11 +304,11 @@ export default function TheTable() {
         <div className="text-sm font-semibold mb-3">How to respond</div>
         <div className="space-y-2 text-sm">
           <div className="flex gap-2">
-            <Badge className="bg-emerald-600 shrink-0">Add</Badge>
+            <Badge className="bg-success shrink-0">Add</Badge>
             <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
           </div>
           <div className="flex gap-2">
-            <Badge className="bg-red-600 shrink-0">Flag</Badge>
+            <Badge className="bg-danger shrink-0">Flag</Badge>
             <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
           </div>
           <div className="flex gap-2">
@@ -355,7 +355,7 @@ export default function TheTable() {
                   <div className="font-medium">{a.owner_name}</div>
                   <div className="text-muted-foreground">{a.description}</div>
                 </div>
-                <div className={cn('text-xs', overdue && 'text-red-600 font-semibold')}>
+                <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
                   {format(new Date(a.due_date + 'T12:00:00'), 'MMM d')}
                 </div>
                 <Select value={a.status} onValueChange={async (v) => {
@@ -419,7 +419,7 @@ export default function TheTable() {
             </Select>
           )}
           <MentionInput value={winText} onChange={setWinText} placeholder="Big or small — log it. Type @ to tag." className="min-h-[100px]" />
-          <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={async () => {
+          <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={async () => {
             if (!winText.trim() || !user?.name) return;
             await supabase.from('table_wins').insert({
               owner_id: effectiveWinOwnerId, owner_name: user.name,
@@ -522,7 +522,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
 
   return (
     <>
-      <Card className="p-4 mb-4 border-2 border-dashed border-[#E8540A]/40">
+      <Card className="p-4 mb-4 border-2 border-dashed border-brand/40">
         <button
           type="button"
           onClick={() => !hasNoLane && setExpanded(v => !v)}
@@ -585,7 +585,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
                 <datalist id="my-lanes-initial">
                   {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
                 </datalist>
-                <Button className="mt-2 bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+                <Button className="mt-2 bg-[#E8540A] hover:bg-brand/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
                   Claim this lane
                 </Button>
               </div>
@@ -613,7 +613,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
           <p className="text-sm">Most people max out at 2 lanes — sure you can carry a third?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={() => setPendingThirdConfirm(false)}>Not yet</Button>
-            <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => { setPendingThirdConfirm(false); setCommitOpen(true); }}>
+            <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={() => { setPendingThirdConfirm(false); setCommitOpen(true); }}>
               Keep going
             </Button>
           </div>
@@ -633,7 +633,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
           {!picking ? (
             <div className="flex gap-2 justify-end mt-2">
               <Button variant="ghost" onClick={() => setCommitOpen(false)}>Not yet</Button>
-              <Button className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setPicking(true)}>Add the lane</Button>
+              <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={() => setPicking(true)}>Add the lane</Button>
             </div>
           ) : (
             <div className="space-y-2 mt-2">
@@ -649,7 +649,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
                   .filter(s => !myOwners.some(o => (o.lane_name ?? '').toLowerCase() === s.lane.toLowerCase()))
                   .map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
               </datalist>
-              <Button className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+              <Button className="w-full bg-[#E8540A] hover:bg-brand/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
                 Add this lane
               </Button>
             </div>
@@ -771,17 +771,17 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
               disabled={locked}
               className={cn(
                 'min-h-[70px] border-2',
-                filled ? 'border-emerald-500/40' : 'border-amber-500/40',
+                filled ? 'border-success/40' : 'border-warning/40',
               )}
               onBlur={(e: any) => e.target.value !== val && save(f.key, e.target.value)}
             />
-            {savedField === f.key && <span className="text-xs text-emerald-600">Saved</span>}
+            {savedField === f.key && <span className="text-xs text-success">Saved</span>}
           </div>
         );
       })}
       {!locked && (
         <Button
-          className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90"
+          className="w-full bg-[#E8540A] hover:bg-brand/90"
           onClick={async () => {
             const id = entry?.id ?? entryId;
             if (!id) { toast.error("Hang on — still opening your entry. Try again in a sec."); return; }
@@ -819,7 +819,7 @@ function ActionItemDialog({ meetingId, responseId, defaultDesc, onClose }: {
             <SelectContent>{staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
           </Select>
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-          <Button className="w-full bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={async () => {
+          <Button className="w-full bg-[#E8540A] hover:bg-brand/90" onClick={async () => {
             const owner = staff.find(s => s.id === staffId);
             if (!owner) return;
             await supabase.from('table_action_items').insert({
@@ -864,7 +864,7 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
   };
 
   return (
-    <Card className="p-4 mb-4 border-2 border-[#E8540A]/60 bg-[#E8540A]/5">
+    <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
       <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold mb-1">Studio Leader Close</div>
       <div className="font-semibold mb-3">Architect's wrap</div>
       <Textarea
@@ -883,7 +883,7 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
           const on = selected.includes(w.id);
           return (
             <button key={w.id} onClick={() => toggleWin(w.id)}
-              className={cn('w-full text-left border rounded-md p-2 text-sm transition-colors', on && 'border-amber-500 bg-amber-50 dark:bg-amber-950/30')}>
+              className={cn('w-full text-left border rounded-md p-2 text-sm transition-colors', on && 'border-warning bg-warning-dim dark:bg-warning/30')}>
               <div className="font-medium">{w.owner_name}</div>
               <div className="text-muted-foreground">{w.content}</div>
             </button>
@@ -905,7 +905,7 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
   useEffect(() => { setOpen(!locked); }, [locked]);
 
   return (
-    <Card className="p-4 mb-4 border-[#E8540A]/40">
+    <Card className="p-4 mb-4 border-brand/40">
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -913,7 +913,7 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div className="font-semibold truncate">Your update — {laneName || 'Ownership role unassigned'}</div>
-          {locked && <Badge className="bg-emerald-600 text-[10px]">Locked in</Badge>}
+          {locked && <Badge className="bg-success text-[10px]">Locked in</Badge>}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {locked && !open && <Pencil className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -973,9 +973,9 @@ function OwnerLiveCard({
       </div>
 
       <div className="flex gap-2 mb-3 flex-wrap">
-        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setMode('add')}>Add</Button>
-        <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => setMode('flag')}>Flag</Button>
-        <Button size="sm" className="bg-[#E8540A] hover:bg-[#E8540A]/90" onClick={() => setMode('own_it')}>Own It</Button>
+        <Button size="sm" className="bg-success hover:bg-success" onClick={() => setMode('add')}>Add</Button>
+        <Button size="sm" className="bg-danger hover:bg-danger" onClick={() => setMode('flag')}>Flag</Button>
+        <Button size="sm" className="bg-[#E8540A] hover:bg-brand/90" onClick={() => setMode('own_it')}>Own It</Button>
       </div>
       {mode && (
         <div className="mb-3 flex gap-2 items-start">
@@ -1006,8 +1006,8 @@ function OwnerLiveCard({
             <div key={r.id} className="border rounded-md p-2">
               <div className="flex items-center gap-2 text-sm">
                 <Badge className={cn(
-                  r.mode === 'add' && 'bg-emerald-600',
-                  r.mode === 'flag' && 'bg-red-600',
+                  r.mode === 'add' && 'bg-success',
+                  r.mode === 'flag' && 'bg-danger',
                   r.mode === 'own_it' && 'bg-[#E8540A]',
                 )}>{modeLabel}</Badge>
                 <span className="font-medium">{r.responder_name}</span>

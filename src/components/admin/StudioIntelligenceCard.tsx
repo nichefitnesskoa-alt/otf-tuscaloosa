@@ -110,7 +110,7 @@ export function StudioIntelligenceCard({ dismissible = false, onDismiss }: Studi
             <div className="text-muted-foreground">Intros</div>
           </div>
           <div className="rounded-md bg-background p-2 text-center">
-            <div className="text-lg font-bold text-green-600">{data.sales}</div>
+            <div className="text-lg font-bold text-success">{data.sales}</div>
             <div className="text-muted-foreground">Sales</div>
           </div>
           <div className="rounded-md bg-background p-2 text-center">

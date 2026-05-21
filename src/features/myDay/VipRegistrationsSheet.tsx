@@ -332,7 +332,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                     </div>
                   )}
                   {summary.purchaseNeedsTier > 0 && (
-                    <div className="text-amber-600 dark:text-amber-400">
+                    <div className="text-warning dark:text-warning">
                       ⚠ {summary.purchaseNeedsTier} purchase{summary.purchaseNeedsTier !== 1 ? 's' : ''} need membership tier selected
                     </div>
                   )}
@@ -382,7 +382,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                       )}
                       {r.outcome === 'purchased' && r.membership_type && !showMembershipPicker && (
                         <div className="text-[11px] mt-1 flex items-center gap-2">
-                          <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                          <span className="font-medium text-success dark:text-success">
                             Purchased — {r.membership_type} — ${(r.commission_amount ?? 0).toFixed(2)}
                           </span>
                           <button
@@ -431,7 +431,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                     </Select>
                   </div>
                   {showMembershipPicker && (
-                    <div className="ml-1 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
+                    <div className="ml-1 rounded-md border border-warning dark:border-warning bg-warning-dim dark:bg-warning/30 p-2 space-y-2">
                       <div className="text-[11px] font-semibold">Which membership did they buy?</div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Select

@@ -216,12 +216,12 @@ function ClaimDialog({
 
           <div className="space-y-3">
             {tooSoon && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-700 dark:text-amber-400">
+              <div className="bg-warning-dim dark:bg-warning/30 border border-warning dark:border-warning rounded-lg p-3 text-sm text-warning dark:text-warning">
                 ⚠️ This slot is less than 3 days away and can no longer be claimed online. Please contact us directly if you need to book on short notice.
               </div>
             )}
             {error && (
-              <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
+              <div className="bg-danger-dim dark:bg-danger/30 border border-danger dark:border-danger rounded-lg p-3 text-sm text-danger dark:text-danger">
                 {error}
               </div>
             )}
@@ -275,7 +275,7 @@ function ClaimDialog({
                     className={cn(
                       'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
                       sessionType === opt.type
-                        ? 'border-[#E8540A] bg-orange-50 dark:bg-orange-950/20'
+                        ? 'border-[#E8540A] bg-brand-dim dark:bg-brand/20'
                         : 'border-border hover:border-muted-foreground/30'
                     )}
                   >
@@ -323,8 +323,8 @@ function SlotPill({
 
   if (isConfirmed) {
     return (
-      <div className="rounded border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30 px-1.5 py-1 text-center">
-        <CheckCircle className="w-3.5 h-3.5 text-green-600 mx-auto" />
+      <div className="rounded border-l-4 border-l-green-500 bg-success-dim dark:bg-success/30 px-1.5 py-1 text-center">
+        <CheckCircle className="w-3.5 h-3.5 text-success mx-auto" />
       </div>
     );
   }
@@ -358,7 +358,7 @@ function SlotPill({
       className={cn(
         'rounded border-l-4 px-1.5 py-1 bg-card',
         borderColor,
-        canClick && 'cursor-pointer hover:bg-green-50 dark:hover:bg-green-950/20 transition-colors'
+        canClick && 'cursor-pointer hover:bg-success-dim dark:hover:bg-success/20 transition-colors'
       )}
     >
       <p className={cn('text-[11px] font-semibold leading-tight', (!isOpen || tooSoon) && 'text-muted-foreground')}>
@@ -367,17 +367,17 @@ function SlotPill({
       {isOpen && tooSoon ? (
         <p className="text-[10px] leading-tight text-muted-foreground italic">Contact us</p>
       ) : isOpen ? (
-        <p className="text-[10px] leading-tight text-green-600 dark:text-green-400 font-medium">Available</p>
+        <p className="text-[10px] leading-tight text-success dark:text-success font-medium">Available</p>
       ) : isBusiness ? (
-        <p className="text-[10px] leading-tight text-blue-600 dark:text-blue-400 truncate">
+        <p className="text-[10px] leading-tight text-neutral dark:text-neutral truncate">
           {session.reserved_by_group || 'Group'} · Business Event
         </p>
       ) : isOpenType ? (
-        <p className="text-[10px] leading-tight text-teal-600 dark:text-teal-400 truncate">
+        <p className="text-[10px] leading-tight text-success dark:text-success truncate">
           {session.reserved_by_group || 'Group'} · Members Welcome
         </p>
       ) : (
-        <p className="text-[10px] leading-tight text-amber-600 dark:text-amber-400 italic truncate">
+        <p className="text-[10px] leading-tight text-warning dark:text-warning italic truncate">
           {session.reserved_by_group || 'Reserved'}
         </p>
       )}
@@ -410,9 +410,9 @@ function DaySlotList({
 
         if (confirmed) {
           return (
-            <div key={s.id} className="rounded-lg border-l-4 border-l-green-500 bg-green-50 dark:bg-green-950/30 p-3 text-center">
-              <CheckCircle className="w-5 h-5 text-green-600 mx-auto mb-1" />
-              <p className="text-xs font-semibold text-green-700 dark:text-green-400">Confirmed!</p>
+            <div key={s.id} className="rounded-lg border-l-4 border-l-green-500 bg-success-dim dark:bg-success/30 p-3 text-center">
+              <CheckCircle className="w-5 h-5 text-success mx-auto mb-1" />
+              <p className="text-xs font-semibold text-success dark:text-success">Confirmed!</p>
             </div>
           );
         }
@@ -430,7 +430,7 @@ function DaySlotList({
             <p className="font-semibold text-sm">{formatDisplayTime(s.session_time)}</p>
             {isOpen ? (
               <>
-                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Available</p>
+                <p className="text-xs text-success dark:text-success font-medium">Available</p>
                 <Button
                   className="w-full h-11 mt-2 bg-[#FF6900] hover:bg-[#e55f00] text-white font-semibold text-sm"
                   onClick={() => onClaim(s)}
@@ -440,19 +440,19 @@ function DaySlotList({
               </>
             ) : isBusiness ? (
               <>
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                <p className="text-xs text-neutral dark:text-neutral font-medium">
                   Reserved — {s.reserved_by_group || 'Group'} · Business Event
                 </p>
               </>
             ) : isOpenType ? (
               <>
-                <p className="text-xs text-teal-600 dark:text-teal-400 font-medium">
+                <p className="text-xs text-success dark:text-success font-medium">
                   Reserved — {s.reserved_by_group || 'Group'} + Members Welcome
                 </p>
               </>
             ) : (
               <>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Reserved — Private Event</p>
+                <p className="text-xs text-warning dark:text-warning font-medium">Reserved — Private Event</p>
                 {s.reserved_by_group && (
                   <p className="text-xs text-muted-foreground italic mt-0.5">{s.reserved_by_group}</p>
                 )}
@@ -614,7 +614,7 @@ export default function VipAvailability() {
   }, [days]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-neutral-dim dark:bg-neutral">
       {/* Header */}
       <div className="bg-[#FF6900] text-white py-8 px-4">
         <div className="max-w-5xl mx-auto text-center">
@@ -736,7 +736,7 @@ export default function VipAvailability() {
                   <div
                     className={cn(
                       'flex items-center justify-between px-3 py-2 border-b',
-                      day.isToday ? 'bg-orange-50 dark:bg-orange-950/20' : 'bg-muted/30'
+                      day.isToday ? 'bg-brand-dim dark:bg-brand/20' : 'bg-muted/30'
                     )}
                   >
                     <p className="text-sm font-bold">
@@ -788,17 +788,17 @@ export default function VipAvailability() {
                             <div>
                               <p className="text-base font-bold">{formatDisplayTime(s.session_time)}</p>
                               {confirmed ? (
-                                <p className="text-xs text-green-600 font-medium">✓ Confirmed</p>
+                                <p className="text-xs text-success font-medium">✓ Confirmed</p>
                               ) : isOpen && tooSoon ? (
                                 <p className="text-xs text-muted-foreground italic">Within 3 days — contact us</p>
                               ) : isOpen ? (
-                                <p className="text-xs text-green-600 font-semibold">Available</p>
+                                <p className="text-xs text-success font-semibold">Available</p>
                               ) : isBusiness ? (
-                                <p className="text-xs text-blue-600 truncate">{s.reserved_by_group || 'Group'} · Business</p>
+                                <p className="text-xs text-neutral truncate">{s.reserved_by_group || 'Group'} · Business</p>
                               ) : isOpenType ? (
-                                <p className="text-xs text-teal-600 truncate">{s.reserved_by_group || 'Group'} · Members welcome</p>
+                                <p className="text-xs text-success truncate">{s.reserved_by_group || 'Group'} · Members welcome</p>
                               ) : (
-                                <p className="text-xs text-amber-600 italic truncate">{s.reserved_by_group || 'Reserved'}</p>
+                                <p className="text-xs text-warning italic truncate">{s.reserved_by_group || 'Reserved'}</p>
                               )}
                             </div>
                             {canClaim && (
@@ -848,7 +848,7 @@ export default function VipAvailability() {
                           'relative border-r last:border-r-0 p-1 transition-colors text-left align-top',
                           isMobile ? 'min-h-[52px]' : 'min-h-[80px] min-w-[120px]',
                           !day.isCurrentMonth && 'bg-muted/20',
-                          day.isToday && 'bg-orange-50/50 dark:bg-orange-950/10',
+                          day.isToday && 'bg-brand-dim/50 dark:bg-brand/10',
                           isMobile && hasSlots && 'cursor-pointer hover:bg-muted/40',
                           (!hasSlots || !isMobile) && 'cursor-default'
                         )}
@@ -877,14 +877,14 @@ export default function VipAvailability() {
                                 const isOpenType = s.session_type === 'open';
                                 const isBusiness = s.session_type === 'business_customers';
                                 const dotColor = confirmedIds.has(s.id)
-                                  ? 'bg-green-500 ring-1 ring-green-300'
+                                  ? 'bg-success ring-1 ring-success-dim'
                                   : isOpen
-                                    ? 'bg-green-500'
+                                    ? 'bg-success'
                                     : isBusiness
-                                      ? 'bg-blue-500'
+                                      ? 'bg-neutral'
                                       : isOpenType
-                                        ? 'bg-teal-500'
-                                        : 'bg-amber-500';
+                                        ? 'bg-success'
+                                        : 'bg-warning';
                                 return <span key={s.id} className={cn('w-2 h-2 rounded-full', dotColor)} />;
                               })}
                             </div>

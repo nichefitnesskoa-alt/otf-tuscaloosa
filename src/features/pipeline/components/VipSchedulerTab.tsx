@@ -111,9 +111,9 @@ function generateSlug(date: string, time: string): string {
 }
 
 function StatusBadge({ status, group }: { status: string; group: string | null }) {
-  if (status === 'open') return <Badge className="bg-green-600 text-white border-transparent text-xs">Open</Badge>;
-  if (status === 'reserved') return <Badge className="bg-amber-500 text-white border-transparent text-xs">Reserved — {group}</Badge>;
-  if (status === 'cancelled') return <Badge className="bg-red-600 text-white border-transparent text-xs">Cancelled</Badge>;
+  if (status === 'open') return <Badge className="bg-success text-white border-transparent text-xs">Open</Badge>;
+  if (status === 'reserved') return <Badge className="bg-warning text-white border-transparent text-xs">Reserved — {group}</Badge>;
+  if (status === 'cancelled') return <Badge className="bg-danger text-white border-transparent text-xs">Cancelled</Badge>;
   return <Badge variant="secondary" className="text-xs">{status}</Badge>;
 }
 
@@ -443,7 +443,7 @@ export function VipSchedulerTab() {
           <Button variant="outline" size="sm" className="h-9 text-xs gap-1" onClick={handleCopyLink}>
             <Copy className="w-3.5 h-3.5" /> Copy Availability Link
           </Button>
-          <Button size="sm" className="h-9 text-xs gap-1 bg-orange-600 hover:bg-orange-700 text-white" onClick={() => setAddOpen(true)}>
+          <Button size="sm" className="h-9 text-xs gap-1 bg-brand hover:bg-brand text-white" onClick={() => setAddOpen(true)}>
             <CalendarPlus className="w-3.5 h-3.5" /> Add One-Off Slot
           </Button>
         </div>
@@ -608,9 +608,9 @@ export function VipSchedulerTab() {
                     }
                     const pct = Math.min(100, (registered / estimated) * 100);
                     const color =
-                      registered >= estimated ? 'text-green-600' :
-                      registered > 0 ? 'text-amber-600' :
-                      'text-red-600';
+                      registered >= estimated ? 'text-success' :
+                      registered > 0 ? 'text-warning' :
+                      'text-danger';
                     return (
                       <div className="space-y-1 pt-1">
                         <div className="h-1 w-full bg-muted rounded-sm overflow-hidden">
@@ -629,7 +629,7 @@ export function VipSchedulerTab() {
                   {isPast && s.status === 'reserved' && (
                     <div className="flex items-center gap-2 pt-1 border-t">
                       {attendanceSaved === s.id ? (
-                        <span className="text-xs text-green-600 flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>
+                        <span className="text-xs text-success flex items-center gap-1"><Check className="w-3 h-3" /> Saved</span>
                       ) : s.actual_attendance != null ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium">Attendance: {s.actual_attendance}</span>
@@ -641,7 +641,7 @@ export function VipSchedulerTab() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 text-xs gap-1 border-amber-500 text-amber-700"
+                          className="h-8 text-xs gap-1 border-warning text-warning"
                           onClick={() => { setAttendanceId(s.id); setAttendanceValue(''); }}
                         >
                           <Users className="w-3 h-3" /> Add Attendance
@@ -658,7 +658,7 @@ export function VipSchedulerTab() {
                             className="h-8 w-40 text-sm"
                             autoFocus
                           />
-                          <Button size="sm" className="h-8 text-xs bg-orange-600 hover:bg-orange-700 text-white" disabled={attendanceSaving} onClick={() => handleSaveAttendance(s.id)}>
+                          <Button size="sm" className="h-8 text-xs bg-brand hover:bg-brand text-white" disabled={attendanceSaving} onClick={() => handleSaveAttendance(s.id)}>
                             {attendanceSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setAttendanceId(null); setAttendanceValue(''); }}>Cancel</Button>
@@ -681,7 +681,7 @@ export function VipSchedulerTab() {
                       </div>
                       <Button
                         size="sm"
-                        className="h-9 bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                        className="h-9 bg-brand hover:bg-brand text-white text-xs"
                         disabled={markSaving || !markGroupName.trim()}
                         onClick={() => handleMarkReserved(s.id)}
                       >
@@ -719,7 +719,7 @@ export function VipSchedulerTab() {
               <Card key={t.id} className={!t.is_active ? 'opacity-60' : ''}>
                 <CardContent className="p-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${t.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    <div className={`w-2 h-2 rounded-full ${t.is_active ? 'bg-success' : 'bg-neutral'}`} />
                     <span className="text-sm font-medium">
                       {DAY_NAMES[t.day_of_week]} · {formatDisplayTime(t.slot_time)}
                     </span>
@@ -779,7 +779,7 @@ export function VipSchedulerTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button
-              className="bg-orange-600 hover:bg-orange-700 text-white"
+              className="bg-brand hover:bg-brand text-white"
               onClick={handleAddSlot}
               disabled={saving}
             >
@@ -823,7 +823,7 @@ export function VipSchedulerTab() {
                       {attended != null ? (
                         <div className="text-xl font-bold">{attended}</div>
                       ) : (
-                        <Button variant="link" size="sm" className="text-amber-600 text-xs p-0 h-auto" onClick={() => {
+                        <Button variant="link" size="sm" className="text-warning text-xs p-0 h-auto" onClick={() => {
                           if (session) { setAttendanceId(session.id); setAttendanceValue(''); }
                         }}>Add attendance</Button>
                       )}
@@ -850,7 +850,7 @@ export function VipSchedulerTab() {
                     </div>
                   </div>
                   {perfData.joins > 0 ? (
-                    <p className="text-xs text-green-600 font-medium">{perfData.joins} member{perfData.joins > 1 ? 's' : ''} joined from this class</p>
+                    <p className="text-xs text-success font-medium">{perfData.joins} member{perfData.joins > 1 ? 's' : ''} joined from this class</p>
                   ) : perfData.introsRan > 0 ? (
                     <p className="text-xs text-muted-foreground">No joins yet from this class</p>
                   ) : perfData.introsBooked > 0 ? (
@@ -867,9 +867,9 @@ export function VipSchedulerTab() {
           {(() => {
             const session = sessions.find(s => s.id === regOpen);
             return session?.reserved_contact_name ? (
-              <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+              <Card className="border-brand bg-brand-dim dark:bg-brand/20">
                 <CardContent className="p-3 space-y-1">
-                  <div className="text-xs font-semibold text-orange-700 dark:text-orange-400">Group Contact</div>
+                  <div className="text-xs font-semibold text-brand dark:text-brand">Group Contact</div>
                   <div className="text-sm font-medium">{session.reserved_contact_name}</div>
                   {session.reserved_contact_phone && (
                     <a href={`tel:${session.reserved_contact_phone}`} className="text-xs text-primary underline">
@@ -964,8 +964,8 @@ export function VipSchedulerTab() {
           </DialogHeader>
           <div className="space-y-3">
             {/* Read-only VIP info */}
-            <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-2">
-              <div className="text-xs font-medium text-orange-700">VIP Class: {bookFromVip?.reserved_by_group} — {bookFromVip && format(new Date(bookFromVip.session_date + 'T00:00:00'), 'MMM d')}</div>
+            <div className="rounded-lg border border-brand bg-brand-dim dark:bg-brand/20 p-2">
+              <div className="text-xs font-medium text-brand">VIP Class: {bookFromVip?.reserved_by_group} — {bookFromVip && format(new Date(bookFromVip.session_date + 'T00:00:00'), 'MMM d')}</div>
               <div className="text-[10px] text-muted-foreground">Lead Source: VIP Class (auto-set)</div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -992,7 +992,7 @@ export function VipSchedulerTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBookFromVip(null)}>Cancel</Button>
-            <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={bookSaving} onClick={handleBookFromVip}>
+            <Button className="bg-brand hover:bg-brand text-white" disabled={bookSaving} onClick={handleBookFromVip}>
               {bookSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CalendarCheck className="w-4 h-4 mr-1" />}
               Book Intro
             </Button>
@@ -1075,7 +1075,7 @@ export function VipSchedulerTab() {
                 </div>
               </div>
               <Button
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2"
+                className="w-full bg-brand hover:bg-brand text-white gap-2"
                 onClick={() => {
                   if (!qrSession) return;
                   const d = new Date(qrSession.session_date + 'T00:00:00');

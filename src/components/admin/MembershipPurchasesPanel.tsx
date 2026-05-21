@@ -394,7 +394,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                         {purchase.membership_type}
                       </Badge>
                       {purchase.membership_type.toLowerCase().includes('hrm') && (
-                        <Badge variant="outline" className="text-[10px] ml-1 text-blue-600 border-blue-200 bg-blue-50">HRM</Badge>
+                        <Badge variant="outline" className="text-[10px] ml-1 text-neutral border-neutral bg-neutral-dim">HRM</Badge>
                       )}
                     </TableCell>
                     <TableCell className="font-medium text-success">

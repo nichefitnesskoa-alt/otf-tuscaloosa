@@ -61,7 +61,7 @@ export default function TheTableHistory() {
         <>
           <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className="mb-3">← All meetings</Button>
           <h2 className="text-xl font-bold mb-3">Own It — {format(new Date(detail.meeting.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</h2>
-          {detail.meeting.koa_open_note && <Card className="p-3 mb-3 border-2 border-[#E8540A]/40 bg-[#E8540A]/5"><div className="text-xs font-semibold uppercase mb-1 text-[#E8540A]">Studio Leader Open</div>{detail.meeting.koa_open_note}</Card>}
+          {detail.meeting.koa_open_note && <Card className="p-3 mb-3 border-2 border-brand/40 bg-brand/5"><div className="text-xs font-semibold uppercase mb-1 text-[#E8540A]">Studio Leader Open</div>{detail.meeting.koa_open_note}</Card>}
           <div className="space-y-3">
             {detail.entries.filter((e: any) => !e.table_owners?.is_architect).map((e: any) => (
               <Card key={e.id} className="p-3">
@@ -89,7 +89,7 @@ export default function TheTableHistory() {
             </Card>
           )}
           {detail.close && (
-            <Card className="p-3 mt-3 border-2 border-[#E8540A]/40 bg-[#E8540A]/5">
+            <Card className="p-3 mt-3 border-2 border-brand/40 bg-brand/5">
               <div className="text-xs font-semibold uppercase mb-1 text-[#E8540A]">Studio Leader Close</div>
               {detail.close.koa_close_note && <p className="text-sm">{detail.close.koa_close_note}</p>}
               {detail.close.energy_word && <div className="mt-2 text-xs"><b>Energy word:</b> {detail.close.energy_word}</div>}

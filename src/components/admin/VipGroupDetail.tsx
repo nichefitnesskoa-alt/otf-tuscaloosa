@@ -702,7 +702,7 @@ export default function VipGroupDetail({ groupName, onBack }: VipGroupDetailProp
         </Button>
         <div className="flex-1">
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <Star className="w-5 h-5 text-purple-600" />
+            <Star className="w-5 h-5 text-brand" />
             {groupName}
           </h2>
         </div>

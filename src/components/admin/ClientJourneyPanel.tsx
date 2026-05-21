@@ -1711,7 +1711,7 @@ export default function ClientJourneyPanel() {
               Not Interested
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.not_interested}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="vip_class" className="flex-1 min-w-[60px] text-xs gap-1 text-purple-600 data-[state=active]:text-purple-700">
+            <TabsTrigger value="vip_class" className="flex-1 min-w-[60px] text-xs gap-1 text-brand data-[state=active]:text-brand">
               <Star className="w-3 h-3" />
               VIP
               <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.vip_class}</Badge>
@@ -1772,14 +1772,14 @@ export default function ClientJourneyPanel() {
               {vipGroups.map(([groupName, groupJourneys]) => (
                 <div key={groupName}>
                   <div className="mb-2">
-                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-purple-50 border border-purple-200">
-                      <Star className="w-3.5 h-3.5 text-purple-600" />
-                      <span className="text-sm font-semibold text-purple-700">{groupName}</span>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-brand-dim border border-brand">
+                      <Star className="w-3.5 h-3.5 text-brand" />
+                      <span className="text-sm font-semibold text-brand">{groupName}</span>
                       <Badge variant="secondary" className="text-[10px] h-5">{groupJourneys.length}</Badge>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="ml-auto h-6 text-[10px] gap-1 border-purple-300 text-purple-700 hover:bg-purple-100"
+                        className="ml-auto h-6 text-[10px] gap-1 border-brand text-brand hover:bg-brand-dim"
                         onClick={() => {
                           setBulkScheduleGroup(bulkScheduleGroup === groupName ? null : groupName);
                           setBulkDate('');
@@ -1791,7 +1791,7 @@ export default function ClientJourneyPanel() {
                       </Button>
                     </div>
                     {bulkScheduleGroup === groupName && (
-                      <div className="flex items-center gap-2 mt-1.5 px-2 py-2 rounded-md bg-purple-50/50 border border-purple-100">
+                      <div className="flex items-center gap-2 mt-1.5 px-2 py-2 rounded-md bg-brand-dim/50 border border-brand">
                         <Input
                           type="date"
                           value={bulkDate}
@@ -1884,8 +1884,8 @@ export default function ClientJourneyPanel() {
                                 if (!vip) return null;
                                 return (
                                   <>
-                                    {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
-                                    {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                                    {vip.birthday && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                                    {vip.weight_lbs && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
                                   </>
                                 );
                               })()}
@@ -1968,8 +1968,8 @@ export default function ClientJourneyPanel() {
                           if (!vip) return null;
                           return (
                             <>
-                              {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
-                              {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                              {vip.birthday && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                              {vip.weight_lbs && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
                             </>
                           );
                         })()}

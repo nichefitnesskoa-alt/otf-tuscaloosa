@@ -39,7 +39,7 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
           <div className="text-center">
             <p className="text-5xl font-black">{closeRate.toFixed(0)}%</p>
             <p className="text-xl text-white/60 mt-2">Current Close Rate <span className="text-sm text-white/40">(booked → any sale)</span></p>
-            {wigTarget && <p className="text-lg text-yellow-400 mt-1">Target: {wigTarget}</p>}
+            {wigTarget && <p className="text-lg text-warning mt-1">Target: {wigTarget}</p>}
           </div>
 
           {/* Per-SA Lead Measures Table */}
@@ -72,14 +72,14 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
 
           {previousCommitments && (
             <div className="bg-white/10 rounded-xl p-6">
-              <p className="text-lg font-semibold text-yellow-400 mb-3">Last Week's Commitments</p>
+              <p className="text-lg font-semibold text-warning mb-3">Last Week's Commitments</p>
               <p className="text-lg text-white/80 whitespace-pre-wrap">{previousCommitments}</p>
             </div>
           )}
 
           {wigCommitments && (
             <div className="bg-white/10 rounded-xl p-6">
-              <p className="text-lg font-semibold text-green-400 mb-3">This Week's Commitments</p>
+              <p className="text-lg font-semibold text-success mb-3">This Week's Commitments</p>
               <p className="text-lg text-white/80 whitespace-pre-wrap">{wigCommitments}</p>
             </div>
           )}
@@ -141,9 +141,9 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
           )}
 
           {previousCommitments && (
-            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-sm">
-              <p className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">Last Week's Commitments</p>
-              <p className="text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap">{previousCommitments}</p>
+            <div className="p-3 bg-warning-dim dark:bg-warning/20 rounded-lg text-sm">
+              <p className="font-medium text-warning dark:text-warning mb-1">Last Week's Commitments</p>
+              <p className="text-warning dark:text-warning whitespace-pre-wrap">{previousCommitments}</p>
             </div>
           )}
 
