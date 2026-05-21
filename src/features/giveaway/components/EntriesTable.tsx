@@ -3,12 +3,12 @@ import { GiveawayPartner } from '../hooks/useGiveawayPartners';
 import { Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
-const FIXED_ACTIONS = [
+const FIXED_ACTIONS: Array<{ key: string; urlKey?: string; label: string; short: string }> = [
   { key: 'action_instagram_follow', label: 'Instagram Follow', short: 'IG' },
   { key: 'action_post_engagement', urlKey: 'action_post_engagement_screenshot_url', label: 'Post Engagement', short: 'Post' },
   { key: 'action_story_share', urlKey: 'action_story_share_screenshot_url', label: 'Story Share', short: 'Story' },
   { key: 'action_free_class', urlKey: 'action_free_class_screenshot_url', label: 'Class Story Post', short: 'Story' },
-] as const;
+];
 
 interface Entry {
   id: string;
