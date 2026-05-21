@@ -70,16 +70,16 @@ function getQStatus(j: ClientJourney): 'complete' | 'not_answered' | 'not_sent' 
 }
 
 function QStatusPill({ status }: { status: 'complete' | 'not_answered' | 'not_sent' }) {
-  if (status === 'complete') return <Badge className="bg-green-600 text-white text-[10px] px-1.5">Complete</Badge>;
-  if (status === 'not_answered') return <Badge className="bg-amber-500 text-white text-[10px] px-1.5">Not Answered</Badge>;
-  return <Badge className="bg-red-600 text-white text-[10px] px-1.5">Not Sent</Badge>;
+  if (status === 'complete') return <Badge className="bg-success-dim text-white text-[10px] px-1.5">Complete</Badge>;
+  if (status === 'not_answered') return <Badge className="bg-warning-dim text-white text-[10px] px-1.5">Not Answered</Badge>;
+  return <Badge className="bg-danger-dim text-white text-[10px] px-1.5">Not Sent</Badge>;
 }
 
 function OutcomeBadge({ result }: { result: string }) {
-  if (isMembershipSale(result)) return <Badge className="bg-green-600 text-white text-[10px]">Sold</Badge>;
+  if (isMembershipSale(result)) return <Badge className="bg-success-dim text-white text-[10px]">Sold</Badge>;
   if (result === 'No-show') return <Badge variant="destructive" className="text-[10px]">No Show</Badge>;
-  if (result === "Didn't Buy" || result === 'Follow-up needed') return <Badge className="bg-amber-500 text-white text-[10px]">Follow-up</Badge>;
-  if (result === 'Follow-up needed' || result === 'Booked 2nd intro') return <Badge className="bg-blue-600 text-white text-[10px]">Follow-up</Badge>;
+  if (result === "Didn't Buy" || result === 'Follow-up needed') return <Badge className="bg-warning-dim text-white text-[10px]">Follow-up</Badge>;
+  if (result === 'Follow-up needed' || result === 'Booked 2nd intro') return <Badge className="bg-neutral-dim text-white text-[10px]">Follow-up</Badge>;
   return <Badge variant="secondary" className="text-[10px]">{result}</Badge>;
 }
 
@@ -431,10 +431,10 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
         );
       case 'outcome': return r ? <OutcomeBadge result={r.result} /> : <span className="text-xs text-muted-foreground">—</span>;
       case 'membership': return r && isMembershipSale(r.result) ? <span className="text-xs">{r.result}</span> : <span className="text-xs">—</span>;
-      case 'commission': return r && (r.commission_amount || 0) > 0 ? <span className="text-xs text-green-600 font-medium">${r.commission_amount}</span> : <span className="text-xs">—</span>;
+      case 'commission': return r && (r.commission_amount || 0) > 0 ? <span className="text-xs text-success font-medium">${r.commission_amount}</span> : <span className="text-xs">—</span>;
       case 'status': {
         const s = journey.status;
-        if (s === 'purchased') return <Badge className="bg-green-600 text-white text-[10px]">Purchased</Badge>;
+        if (s === 'purchased') return <Badge className="bg-success-dim text-white text-[10px]">Purchased</Badge>;
         if (s === 'not_interested') return <Badge variant="secondary" className="text-[10px]">Not Interested</Badge>;
         if (s === 'no_show') return <Badge variant="destructive" className="text-[10px]">No-show</Badge>;
         if (s === 'active') return <Badge variant="outline" className="text-[10px]">Active</Badge>;
@@ -711,7 +711,7 @@ function ExpandedRowDetail({
                 </div>
                 <div className="flex items-center gap-1">
                   <Badge variant={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'default' : 'outline'}
-                    className={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'bg-green-600 text-white' : ''}>
+                    className={b.booking_status_canon === 'CLOSED_PURCHASED' ? 'bg-success-dim text-white' : ''}>
                     {b.booking_status || 'Active'}
                   </Badge>
                   <DropdownMenu>
@@ -779,7 +779,7 @@ function ExpandedRowDetail({
                     />
                   ) : (r.commission_amount || 0) > 0 ? (
                     <button
-                      className="text-green-600 font-medium hover:underline cursor-pointer"
+                      className="text-success font-medium hover:underline cursor-pointer"
                       onClick={() => { if (isAdmin) { setCommissionValue(String(r.commission_amount || 0)); setEditingCommission(r.id); } }}
                     >
                       ${r.commission_amount}
@@ -937,7 +937,7 @@ function BySourceTable({
             </div>
             <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs font-bold">{stat.totalBooked}</div>
             <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs">{stat.showed}</div>
-            <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs text-green-600 font-medium">{stat.sold}</div>
+            <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs text-success font-medium">{stat.sold}</div>
             <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs">{stat.showed > 0 ? `${Math.round(stat.sold / stat.showed * 100)}%` : '—'}</div>
             <div className="px-3 py-2 w-[140px] flex-shrink-0 text-xs">{stat.totalBooked > 0 ? `${Math.round((stat.totalBooked - stat.showed) / stat.totalBooked * 100)}%` : '—'}</div>
           </div>
@@ -952,7 +952,7 @@ function BySourceTable({
                     <span className="font-medium w-[150px] truncate">{j.memberName}</span>
                     <span className="text-muted-foreground w-[100px]">{b?.class_date || '—'}</span>
                     {r ? <OutcomeBadge result={r.result} /> : <span className="text-muted-foreground">No run</span>}
-                    {(r?.commission_amount || 0) > 0 && <span className="text-green-600">${r?.commission_amount}</span>}
+                    {(r?.commission_amount || 0) > 0 && <span className="text-success">${r?.commission_amount}</span>}
                   </div>
                 );
               })}

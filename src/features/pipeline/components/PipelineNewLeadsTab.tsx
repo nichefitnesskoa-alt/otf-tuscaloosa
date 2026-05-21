@@ -107,7 +107,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
         </div>
 
         {isFlagged && lead.duplicate_notes && (
-          <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+          <div className="rounded bg-warning-dim border border-warning px-2.5 py-1.5 text-[11px] text-warning">
             ⚠ {lead.duplicate_notes}
           </div>
         )}
@@ -125,7 +125,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
               🔍 Find in System
             </Button>
             {findResult && (
-              <div className={`rounded px-2.5 py-1.5 text-[11px] ${findResult.isDuplicate ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200' : 'bg-muted/50 border border-border text-muted-foreground'}`}>
+              <div className={`rounded px-2.5 py-1.5 text-[11px] ${findResult.isDuplicate ? 'bg-warning-dim border border-warning text-warning' : 'bg-muted/50 border border-border text-muted-foreground'}`}>
                 {findResult.isDuplicate
                   ? <>✓ Match found — {findResult.summaryNote}
                     <div className="flex gap-1.5 mt-1.5">
@@ -407,7 +407,7 @@ export function PipelineNewLeadsTab() {
               {count > 0 && (
                 <Badge
                   variant={badgeVariant === 'warning' ? 'secondary' : badgeVariant}
-                  className={`h-3.5 px-1 text-[9px] min-w-[16px] ${value === 'flagged' ? 'bg-amber-500 text-white' : ''}`}
+                  className={`h-3.5 px-1 text-[9px] min-w-[16px] ${value === 'flagged' ? 'bg-warning-dim text-white' : ''}`}
                 >
                   {count}
                 </Badge>

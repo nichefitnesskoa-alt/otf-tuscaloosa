@@ -40,11 +40,11 @@ const TYPE_SHORT_LABELS: Record<FollowUpType, string> = {
 
 const TYPE_COLORS: Record<FollowUpType, string> = {
   noshow_1st: 'bg-destructive/15 text-destructive',
-  noshow_2nd: 'bg-red-700/15 text-red-700',
-  reschedule: 'bg-purple-500/15 text-purple-600',
-  didnt_buy_1st: 'bg-orange-500/15 text-orange-600',
-  didnt_buy_2nd: 'bg-amber-600/15 text-amber-700',
-  planning_to_buy: 'bg-teal-500/15 text-teal-600',
+  noshow_2nd: 'bg-danger-dim text-danger',
+  reschedule: 'bg-brand-dim text-brand',
+  didnt_buy_1st: 'bg-warning-dim text-warning',
+  didnt_buy_2nd: 'bg-warning-dim text-warning',
+  planning_to_buy: 'bg-neutral-dim text-neutral',
 };
 
 function getPriority(item: FollowUpItem, todayStr: string): { score: number; label: string; color: string } {
@@ -56,7 +56,7 @@ function getPriority(item: FollowUpItem, todayStr: string): { score: number; lab
     return { score: 2, label: 'Due today', color: 'bg-brand text-white' };
   }
   if (!item.lastContactAt) {
-    return { score: 3, label: 'First touch', color: 'bg-amber-500/20 text-amber-700' };
+    return { score: 3, label: 'First touch', color: 'bg-warning-dim text-warning' };
   }
   const daysSinceContact = differenceInDays(new Date(), new Date(item.lastContactAt));
   if (daysSinceContact >= 7) {
@@ -394,12 +394,12 @@ function FollowUpCard({ item, todayStr, onRefresh, userName }: {
             {TYPE_SHORT_LABELS[item.followUpType]}
           </span>
           {(item as any).transferredFromCoach && (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning-dim text-warning">
               Transferred from Coach
             </span>
           )}
           {item.plannedBuyDate && (
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-600">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-dim text-neutral">
               Buying {(() => {
                 try {
                   const days = differenceInDays(new Date(item.plannedBuyDate + 'T12:00:00'), new Date());

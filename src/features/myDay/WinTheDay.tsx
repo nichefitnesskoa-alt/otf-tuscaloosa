@@ -321,13 +321,13 @@ export function WinTheDay({ onSwitchTab, defaultCollapsed }: WinTheDayProps) {
               <span className="text-sm font-bold">Win the Day</span>
               <span className="text-xs text-muted-foreground">·</span>
               {allComplete ? (
-                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">✓ All done</span>
+                <span className="text-xs font-medium text-success">✓ All done</span>
               ) : (
                 <span className={cn(
                   "text-xs font-semibold px-1.5 py-0.5 rounded-full",
                   incompleteCount >= 4
                     ? "bg-destructive/15 text-destructive"
-                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    : "bg-warning-dim text-warning dark:bg-warning-dim dark:text-warning"
                 )}>
                   {incompleteCount} incomplete
                 </span>
@@ -650,7 +650,7 @@ function ChecklistRow({ item, onAction, onCircleTap }: { item: ChecklistItem; on
         'flex items-center gap-2 rounded-md px-2 py-1.5 border-l-2 transition-all',
         urgencyBorder,
         item.completed ? 'opacity-60' : 'bg-muted/30',
-        isOutcomeUrgent && 'animate-pulse ring-1 ring-orange-400/60 bg-orange-50/30 dark:bg-orange-950/20',
+        isOutcomeUrgent && 'animate-pulse ring-1 ring-orange-400/60 bg-warning-dim',
       )}
       style={isOutcomeUrgent ? { animationDuration: '3s' } : undefined}
     >
@@ -662,7 +662,7 @@ function ChecklistRow({ item, onAction, onCircleTap }: { item: ChecklistItem; on
         aria-label={item.completed ? 'Completed' : `Mark ${item.text} complete`}
       >
         {item.completed ? (
-          <Check className="w-4 h-4 text-emerald-500" />
+          <Check className="w-4 h-4 text-success" />
         ) : (
           <Circle className="w-4 h-4 text-muted-foreground" />
         )}

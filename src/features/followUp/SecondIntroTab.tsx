@@ -83,11 +83,11 @@ export default function SecondIntroTab({ items, coolingItems, coolingCount, isLo
             onFieldSaved={onRefresh}
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             badges={
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-white border-transparent">2nd</Badge>
             }
             outcomeBadge={
               <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${
-                isToday ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-blue-100 text-blue-700 border-blue-300'
+                isToday ? 'bg-warning-dim text-warning border-warning' : 'bg-neutral-dim text-neutral border-neutral'
               }`}>
                 {isToday ? '🔥 Today' : isFuture ? '📅 Upcoming' : '⏳ Past — needs outcome'}
               </Badge>
@@ -159,7 +159,7 @@ export default function SecondIntroTab({ items, coolingItems, coolingCount, isLo
             borderColor="#64748b"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             badges={
-              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+              <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-white border-transparent">2nd</Badge>
             }
             outcomeBadge={
               <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">

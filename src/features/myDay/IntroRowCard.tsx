@@ -378,7 +378,7 @@ export default function IntroRowCard({
         <span className="font-semibold text-sm truncate">{item.memberName}</span>
         <span className="pointer-events-none flex items-center gap-1 flex-wrap">
           {item.isVipClassIntro ? (
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">VIP Class Intro</Badge>
           ) : (
             <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
               {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
@@ -392,7 +392,7 @@ export default function IntroRowCard({
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
         </span>
         {item.vipClassName && (
-          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-600/20 text-purple-400 border-purple-500/30">
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">
             VIP: {item.vipClassName}
           </Badge>
         )}
@@ -423,7 +423,7 @@ export default function IntroRowCard({
         >
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
             <span className="font-semibold text-sm truncate">{item.vipGroupName || 'VIP Group'}</span>
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">VIP Group</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning-dim text-white border-transparent">VIP Group</Badge>
             <span className="text-xs text-muted-foreground">
               {item.vipRegisteredCount || 0} registered · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}
             </span>
@@ -493,8 +493,8 @@ export default function IntroRowCard({
   const topBanner = (
     <>
       {isInFocusWindow && (
-        <div className="flex items-center justify-center py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
-          <Badge className="text-[10px] px-2 py-0 h-4 bg-amber-500 text-white border-transparent">
+        <div className="flex items-center justify-center py-0.5 bg-warning-dim text-warning">
+          <Badge className="text-[10px] px-2 py-0 h-4 bg-warning-dim text-white border-transparent">
             🕐 Class in {focusHours}h {focusMins}m
           </Badge>
         </div>
@@ -525,10 +525,10 @@ export default function IntroRowCard({
   const badges = (
     <>
       {item.isSecondIntro && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-white border-transparent">2nd</Badge>
       )}
       {item.isVip && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand-dim text-white border-transparent">VIP</Badge>
       )}
     </>
   );
@@ -565,7 +565,7 @@ export default function IntroRowCard({
         size="sm"
         className={cn(
           'h-9 flex-1 text-xs gap-1',
-          isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
+          isInFocusWindow && !prepped && 'animate-pulse bg-warning-dim text-white hover:bg-warning-dim',
         )}
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
         onClick={() => {

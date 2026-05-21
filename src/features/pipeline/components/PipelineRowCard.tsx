@@ -110,7 +110,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
               {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               <span className="font-medium">{journey.memberName}</span>
               {journey.bookings.some(b => b.lead_source === 'Milestone Referral') && (
-                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 hover:bg-orange-500/20 text-[9px] h-4">Milestone</Badge>
+                <Badge className="bg-warning-dim text-warning border-warning hover:bg-warning-dim text-[9px] h-4">Milestone</Badge>
               )}
               {journey.hasInconsistency && <AlertTriangle className="w-4 h-4 text-warning" />}
             </div>
@@ -145,14 +145,14 @@ export const PipelineRowCard = memo(function PipelineRowCard({
               if (!vip) return null;
               return (
                 <>
-                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">
                     📱 {vip.phone || '—'}
                   </span>
-                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                  <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded truncate max-w-[140px]">
                     ✉️ {vip.email || '—'}
                   </span>
-                  {vip.birthday && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
-                  {vip.weight_lbs && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
+                  {vip.birthday && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">🎂 {vip.birthday}</span>}
+                  {vip.weight_lbs && <span className="text-[10px] bg-brand-dim text-brand px-1.5 py-0.5 rounded">⚖️ {vip.weight_lbs} lbs</span>}
                 </>
               );
             })()}
@@ -193,7 +193,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                           <Badge variant="secondary" className="text-[10px] mt-0.5 ml-1">VIP</Badge>
                         )}
                         {(b as any).booking_type_canon === 'COMP' && (
-                          <Badge className="text-[10px] mt-0.5 ml-1 bg-amber-100 text-amber-800 border-amber-300">COMP</Badge>
+                          <Badge className="text-[10px] mt-0.5 ml-1 bg-warning-dim text-warning border-warning">COMP</Badge>
                         )}
                         {/* Admin-only booking type selector */}
                         {isAdmin && (
@@ -345,7 +345,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
           {/* Action buttons */}
           <div className="pt-2 border-t border-dashed flex gap-2 flex-wrap">
             {hasVipBooking && vipStatus !== 'CONVERTED' && (
-              <Button variant="default" size="sm" className="text-xs gap-1 bg-purple-600 hover:bg-purple-700"
+              <Button variant="default" size="sm" className="text-xs gap-1 bg-brand-dim hover:bg-brand-dim"
                 onClick={() => {
                   const vb = journey.bookings.find(b => isVipBooking(b as any));
                   if (vb) setConvertBooking(vb);
@@ -354,7 +354,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
               </Button>
             )}
             {vipStatus === 'CONVERTED' && (
-              <Badge variant="outline" className="text-[10px] text-purple-600 border-purple-300">✓ Converted</Badge>
+              <Badge variant="outline" className="text-[10px] text-brand border-brand">✓ Converted</Badge>
             )}
             <Button variant="outline" size="sm" className="flex-1 text-xs"
               onClick={() => onOpenDialog('create_run', { journey })}>

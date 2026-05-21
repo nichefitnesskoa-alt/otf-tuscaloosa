@@ -373,7 +373,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
         {/* Capped warning */}
         {isCapped && (
-          <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">
+          <div className="flex items-center gap-1.5 text-xs text-warning bg-warning-dim rounded px-2 py-1">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>Showing first 200 results. Narrow your date range for complete data.</span>
           </div>
