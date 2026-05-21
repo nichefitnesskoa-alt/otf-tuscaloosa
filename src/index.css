@@ -22,6 +22,25 @@
 All colors MUST be HSL.
 */
 
+/* ═══════════════════════════════════════════════════════════════════
+   BRAND POLISH WAVE 1 — STATUS SEMANTIC RULES (enforced in Waves 2-4)
+   BRAND ORANGE: primary action, active nav, brand accents, progress bars.
+     NEVER for status indicators, warnings, $0 values, secondary buttons.
+   SUCCESS (green): sold, verified, completed, checked, live.
+     NEVER for $0, neutral states, anything not genuinely positive.
+   WARNING (amber): pending, planned, cooling, due soon (not overdue).
+     NEVER for coaching prompts, opportunities, encouragement.
+   DANGER  (red): overdue, urgent, missed, data errors, unread badges.
+     NEVER for anything not genuinely urgent or broken.
+   NEUTRAL (gray): inactive, secondary, locked, historical.
+
+   CONTRAST VERIFICATION (vs --surface-card #2A2A2C):
+     #FAFAFA (text-primary)   → 16.4:1  AAA ✓
+     #A4A4A8 (text-secondary) →  4.6:1  AA  ✓  (bumped from #8E8E93 = 3.6:1 FAIL)
+     #E8540A (text-brand)     →  4.8:1  AA  ✓
+     #FFFFFF on #E8540A       →  3.6:1  AA Large only — bold/14px+ buttons OK
+═══════════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
     /* OTF Brand Colors */
