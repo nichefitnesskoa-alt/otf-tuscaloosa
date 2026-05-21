@@ -48,16 +48,45 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         success: {
-          DEFAULT: "hsl(var(--success))",
+          DEFAULT: "hsl(var(--status-success))",
           foreground: "hsl(var(--success-foreground))",
+          dim: "hsl(var(--status-success-dim))",
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
+          DEFAULT: "hsl(var(--status-warning))",
           foreground: "hsl(var(--warning-foreground))",
+          dim: "hsl(var(--status-warning-dim))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
+        },
+        brand: {
+          DEFAULT: "hsl(var(--brand))",
+          dim: "hsl(var(--brand-dim))",
+          hover: "hsl(var(--brand-hover))",
+          foreground: "hsl(var(--brand-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--status-danger))",
+          dim: "hsl(var(--status-danger-dim))",
+        },
+        neutral: {
+          DEFAULT: "hsl(var(--status-neutral))",
+          dim: "hsl(var(--status-neutral-dim))",
+        },
+        surface: {
+          page: "hsl(var(--surface-page))",
+          card: "hsl(var(--surface-card))",
+          "card-hover": "hsl(var(--surface-card-hover))",
+          border: "hsl(var(--surface-border))",
+          input: "hsl(var(--surface-input))",
+        },
+        text: {
+          primary: "hsl(var(--text-primary))",
+          secondary: "hsl(var(--text-secondary))",
+          brand: "hsl(var(--text-brand))",
+          public: "hsl(var(--text-public))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",

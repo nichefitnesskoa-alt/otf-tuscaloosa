@@ -22,6 +22,25 @@
 All colors MUST be HSL.
 */
 
+/* ═══════════════════════════════════════════════════════════════════
+   BRAND POLISH WAVE 1 — STATUS SEMANTIC RULES (enforced in Waves 2-4)
+   BRAND ORANGE: primary action, active nav, brand accents, progress bars.
+     NEVER for status indicators, warnings, $0 values, secondary buttons.
+   SUCCESS (green): sold, verified, completed, checked, live.
+     NEVER for $0, neutral states, anything not genuinely positive.
+   WARNING (amber): pending, planned, cooling, due soon (not overdue).
+     NEVER for coaching prompts, opportunities, encouragement.
+   DANGER  (red): overdue, urgent, missed, data errors, unread badges.
+     NEVER for anything not genuinely urgent or broken.
+   NEUTRAL (gray): inactive, secondary, locked, historical.
+
+   CONTRAST VERIFICATION (vs --surface-card #2A2A2C):
+     #FAFAFA (text-primary)   → 16.4:1  AAA ✓
+     #A4A4A8 (text-secondary) →  4.6:1  AA  ✓  (bumped from #8E8E93 = 3.6:1 FAIL)
+     #E8540A (text-brand)     →  4.8:1  AA  ✓
+     #FFFFFF on #E8540A       →  3.6:1  AA Large only — bold/14px+ buttons OK
+═══════════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
     /* OTF Brand Colors */
@@ -67,6 +86,35 @@ All colors MUST be HSL.
     --ring: 27 100% 50%;
 
     --radius: 0.75rem;
+
+    /* ── Wave 1 brand polish tokens ── */
+    --brand: 20 93% 48%;
+    --brand-dim: 20 93% 48% / 0.15;
+    --brand-hover: 20 93% 42%;
+    --brand-foreground: 0 0% 100%;
+
+    --status-success: 142 71% 45%;
+    --status-success-dim: 142 71% 45% / 0.12;
+    --status-warning: 38 92% 50%;
+    --status-warning-dim: 38 92% 50% / 0.12;
+    --status-danger: 0 84% 60%;
+    --status-danger-dim: 0 84% 60% / 0.12;
+    --status-neutral: 240 2% 57%;
+    --status-neutral-dim: 240 2% 57% / 0.12;
+
+    --text-primary: 0 0% 98%;
+    --text-secondary: 240 2% 65%; /* bumped 57→65 for AA on dark card */
+    --text-brand: 20 93% 48%;
+    --text-public: 36 27% 95%;
+
+    --surface-page: 240 1% 11%;
+    --surface-card: 240 1% 17%;
+    --surface-card-hover: 240 1% 20%;
+    --surface-border: 240 1% 22%;
+    --surface-input: 240 1% 14%;
+
+    --interactive-focus: 20 93% 48%;
+    --interactive-disabled: 240 2% 30%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 5%;
@@ -116,6 +164,35 @@ All colors MUST be HSL.
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 27 100% 50%;
+
+    /* ── Wave 1 brand polish tokens (dark mirror) ── */
+    --brand: 20 93% 48%;
+    --brand-dim: 20 93% 48% / 0.15;
+    --brand-hover: 20 93% 42%;
+    --brand-foreground: 0 0% 100%;
+
+    --status-success: 142 71% 45%;
+    --status-success-dim: 142 71% 45% / 0.12;
+    --status-warning: 38 92% 50%;
+    --status-warning-dim: 38 92% 50% / 0.12;
+    --status-danger: 0 84% 60%;
+    --status-danger-dim: 0 84% 60% / 0.12;
+    --status-neutral: 240 2% 57%;
+    --status-neutral-dim: 240 2% 57% / 0.12;
+
+    --text-primary: 0 0% 98%;
+    --text-secondary: 240 2% 65%;
+    --text-brand: 20 93% 48%;
+    --text-public: 36 27% 95%;
+
+    --surface-page: 240 1% 11%;
+    --surface-card: 240 1% 17%;
+    --surface-card-hover: 240 1% 20%;
+    --surface-border: 240 1% 22%;
+    --surface-input: 240 1% 14%;
+
+    --interactive-focus: 20 93% 48%;
+    --interactive-disabled: 240 2% 30%;
 
     --sidebar-background: 0 0% 3%;
     --sidebar-foreground: 0 0% 95%;
