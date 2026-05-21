@@ -188,15 +188,16 @@ export function VipSchedulerTab() {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id, is_group_contact, estimated_group_size')
+        .select('vip_session_id, is_group_contact')
         .in('vip_session_id', ids);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        if (r.is_group_contact) {
-          if (r.estimated_group_size) estimates[r.vip_session_id] = r.estimated_group_size;
-        } else {
-          counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
-        }
+        // Count all registrations (members + group contact) for the badge.
+        counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
+      }
+      // Estimated group size lives on vip_sessions, not vip_registrations.
+      for (const s of data as any[]) {
+        if (s.estimated_group_size) estimates[s.id] = s.estimated_group_size;
       }
     }
     setRegCounts(counts);
