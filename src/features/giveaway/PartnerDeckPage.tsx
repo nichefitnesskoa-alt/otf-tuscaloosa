@@ -177,10 +177,12 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
 
 /* ─────────── Slide 2: Concept ─────────── */
 function SlideConcept({ studio }: { studio: any }) {
-  const headlineText = pick(studio.deck_s2_headline, DEFAULT_DECK.s2_headline);
+  const { headline: headlineText, body: bodyText } = getDeckSlide2(
+    studio.winner_structure,
+    studio.deck_s2_headline,
+    studio.deck_s2_body ?? studio.deck_intro_copy,
+  );
   const sentences = headlineText.split(/(?<=\.)\s+/).filter(Boolean);
-  const autoBody = slide2AutoCopy(studio.winner_structure);
-  const bodyText = pick(studio.deck_s2_body ?? studio.deck_intro_copy, autoBody);
 
   return (
     <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
