@@ -946,41 +946,91 @@ export function VipSchedulerTab() {
             ) : null;
           })()}
 
+          {/* Action row: always visible — Add Person + Export */}
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <Button
+              size="sm"
+              className="h-9 text-xs bg-brand hover:bg-brand text-white"
+              onClick={() => setAddPersonOpen(o => !o)}
+            >
+              {addPersonOpen ? <X className="w-3.5 h-3.5 mr-1" /> : <Users className="w-3.5 h-3.5 mr-1" />}
+              {addPersonOpen ? 'Cancel' : '+ Add Person'}
+            </Button>
+            {registrations.filter(r => !r.is_group_contact).length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs"
+                onClick={() => {
+                  const members = registrations.filter(r => !r.is_group_contact);
+                  const headers = ['First Name','Last Name','Email','Phone','Fitness Level','Injuries','Birthday','Weight (lbs)'];
+                  const rows = members.map(r => [
+                    r.first_name || '', r.last_name || '', r.email || '', r.phone || '',
+                    r.fitness_level?.toString() || '', r.injuries || '',
+                    r.birthday || '', r.weight_lbs?.toString() || '',
+                  ]);
+                  const csv = [headers, ...rows].map(row => row.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+                  const blob = new Blob([csv], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  const session = sessions.find(s => s.id === regOpen);
+                  a.download = `vip-registrations-${session?.session_date || 'export'}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export to CSV
+              </Button>
+            )}
+          </div>
+
+          {/* Inline Add Person form */}
+          {addPersonOpen && (
+            <Card className="border-brand/40">
+              <CardContent className="p-3 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add a person to this class</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">First Name <span className="text-destructive">*</span></Label><Input value={addPersonForm.firstName} onChange={e => setAddPersonForm({ ...addPersonForm, firstName: autoCapitalizeName(e.target.value) })} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Last Name</Label><Input value={addPersonForm.lastName} onChange={e => setAddPersonForm({ ...addPersonForm, lastName: autoCapitalizeName(e.target.value) })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1"><Label className="text-xs">Phone</Label><Input type="tel" value={addPersonForm.phone} onChange={e => setAddPersonForm({ ...addPersonForm, phone: formatPhoneAsYouType(e.target.value) })} placeholder="(555) 555-5555" /></div>
+                  <div className="space-y-1"><Label className="text-xs">Email</Label><Input type="email" value={addPersonForm.email} onChange={e => setAddPersonForm({ ...addPersonForm, email: e.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fitness (1–5)</Label>
+                    <Select value={addPersonForm.fitnessLevel} onValueChange={v => setAddPersonForm({ ...addPersonForm, fitnessLevel: v })}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1"><Label className="text-xs">Birthday</Label><Input type="date" value={addPersonForm.birthday} onChange={e => setAddPersonForm({ ...addPersonForm, birthday: e.target.value })} /></div>
+                  <div className="space-y-1"><Label className="text-xs">Weight (lbs)</Label><Input type="number" value={addPersonForm.weightLbs} onChange={e => setAddPersonForm({ ...addPersonForm, weightLbs: e.target.value })} /></div>
+                </div>
+                <div className="space-y-1"><Label className="text-xs">Injuries / Notes</Label><Textarea rows={2} value={addPersonForm.injuries} onChange={e => setAddPersonForm({ ...addPersonForm, injuries: e.target.value })} /></div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Switch id="add-person-group-contact" checked={addPersonForm.isGroupContact} onCheckedChange={v => setAddPersonForm({ ...addPersonForm, isGroupContact: v })} />
+                  <Label htmlFor="add-person-group-contact" className="text-xs cursor-pointer">This is the group contact</Label>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setAddPersonOpen(false)}>Cancel</Button>
+                  <Button size="sm" className="h-9 text-xs bg-brand hover:bg-brand text-white" disabled={addPersonSaving} onClick={handleAddPerson}>
+                    {addPersonSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Check className="w-4 h-4 mr-1" />}
+                    Add to roster
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {regLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
           ) : registrations.filter(r => !r.is_group_contact).length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">No individual members registered yet</p>
           ) : (
             <div className="space-y-3">
-              {/* Export CSV */}
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-xs"
-                  onClick={() => {
-                    const members = registrations.filter(r => !r.is_group_contact);
-                    const headers = ['First Name','Last Name','Email','Phone','Fitness Level','Injuries','Birthday','Weight (lbs)'];
-                    const rows = members.map(r => [
-                      r.first_name || '', r.last_name || '', r.email || '', r.phone || '',
-                      r.fitness_level?.toString() || '', r.injuries || '',
-                      r.birthday || '', r.weight_lbs?.toString() || '',
-                    ]);
-                    const csv = [headers, ...rows].map(row => row.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    const session = sessions.find(s => s.id === regOpen);
-                    a.download = `vip-registrations-${session?.session_date || 'export'}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  Export to CSV
-                </Button>
-              </div>
-
               {/* Registration table */}
               <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full text-xs">
