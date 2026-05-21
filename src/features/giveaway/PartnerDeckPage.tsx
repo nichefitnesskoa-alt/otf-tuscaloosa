@@ -147,7 +147,11 @@ export default function PartnerDeckPage() {
       html.style.setProperty('-webkit-text-size-adjust', prev.htmlTextAdjust);
       html.style.setProperty('text-size-adjust', prev.htmlTextAdjustStd);
       html.style.overflow = prev.htmlOverflow;
+      html.style.overflowX = prevHtmlOverflowX;
+      html.style.maxWidth = prevHtmlMaxWidth;
       body.style.overflow = prev.bodyOverflow;
+      body.style.overflowX = prevBodyOverflowX;
+      body.style.maxWidth = prevBodyMaxWidth;
       body.style.touchAction = prev.bodyTouchAction;
       document.removeEventListener('touchmove', preventZoom);
       document.removeEventListener('touchend', preventDoubleTap);
