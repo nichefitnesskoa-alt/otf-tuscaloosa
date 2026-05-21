@@ -7,6 +7,10 @@
   --intro-header-bg: #111111;
   --intro-header-text: #ffffff;
   --intro-header-meta: #bbbbbb;
+
+  /* Giveaway-feature typography (scoped via .font-display / .font-body utilities) */
+  --font-display: 'Big Shoulders Display', 'Bebas Neue', Impact, sans-serif;
+  --font-body: 'Barlow', system-ui, -apple-system, sans-serif;
 }
 .dark {
   --intro-header-bg: #ffffff;

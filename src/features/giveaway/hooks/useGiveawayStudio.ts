@@ -9,6 +9,8 @@ export interface GiveawayStudio {
   countdown_duration_days: number;
   goes_live_at: string | null;
   winner_structure: WinnerStructure;
+  title_format: 'auto_combined' | 'auto_studio_only' | 'custom';
+  custom_title: string | null;
 }
 
 export function useGiveawayStudio(slug: string | undefined) {
