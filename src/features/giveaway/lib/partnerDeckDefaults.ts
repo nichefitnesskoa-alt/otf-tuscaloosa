@@ -3,15 +3,15 @@
 
 export const DEFAULT_DECK_COPY = {
   intro:
-    'We pool prizes from local businesses into one major giveaway, then spend the final stretch of the month pushing it hard across every platform. More reach. Real leads. Actual community momentum.',
+    "We build one giveaway together and push it across every platform. Your audience finds our members. Our members find your business. Everyone gets more reach than they would running it alone.",
   askPrize: (anchor: number) =>
-    `A gift card or service at roughly $${anchor} — matched value to the OTF membership.`,
+    `A gift card or service. Match the value to the OTF membership (about $${anchor}) as closely as makes sense for you.`,
   askPromotion:
-    'Promote the giveaway to your audience — one story or post, your call. We provide the assets.',
+    "Post about the giveaway during the campaign. Repost our content when we tag you. Accept collaboration posts so we can co-author directly to your audience.",
   askClass:
-    'Bring your staff for an OTF class so we can capture and share the experience together.',
+    "Bring your team for one OTF class. We shoot it together and share it with both audiences.",
   askTime:
-    'About 15 minutes to align on the prize and timing. We handle the rest.',
+    "One call to lock in the details, the partners, and when we go live.",
 } as const;
 
 export function computeBundleTotal(anchor: number, partnerCount: number, override?: string | null): string {
