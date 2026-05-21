@@ -100,7 +100,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
             coachName={item.coachName}
             leadSource={item.leadSource}
             phone={item.phone}
-            borderColor={isStateB ? '#d97706' : isNoOutcome ? '#64748b' : '#dc2626'}
+            borderColor={isStateB ? 'hsl(var(--status-warning))' : isNoOutcome ? 'hsl(var(--status-neutral))' : 'hsl(var(--status-danger))'}
             editable
             bookingId={item.bookingId}
             editedBy={user?.name || ''}

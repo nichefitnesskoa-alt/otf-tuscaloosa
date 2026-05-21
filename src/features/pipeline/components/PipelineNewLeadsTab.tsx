@@ -35,9 +35,9 @@ type LeadAction = 'contacted' | 'move_to_new' | 'confirm_duplicate' | 'confirm_n
 function getSpeedInfo(createdAt: string) {
   const minutesSince = differenceInMinutes(new Date(), parseISO(createdAt));
   const hoursSince = minutesSince / 60;
-  if (hoursSince >= 4) return { color: '#dc2626', text: '🔴 Overdue — Contact Now' };
-  if (hoursSince >= 1) return { color: '#d97706', text: `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received` };
-  return { color: '#16a34a', text: `✓ New Lead — ${minutesSince}m ago` };
+  if (hoursSince >= 4) return { color: 'hsl(var(--status-danger))', text: '🔴 Overdue — Contact Now' };
+  if (hoursSince >= 1) return { color: 'hsl(var(--status-warning))', text: `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received` };
+  return { color: 'hsl(var(--status-success))', text: `✓ New Lead — ${minutesSince}m ago` };
 }
 
 function LeadCard({ lead, onAction, onBook, onScript }: {
@@ -72,14 +72,14 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
     }
   };
 
-  let borderColor = '#6b7280', bannerBg = '#6b7280', bannerText = '';
+  let borderColor = 'hsl(var(--status-neutral))', bannerBg = 'hsl(var(--status-neutral))', bannerText = '';
   if (isAlreadyInSystem) {
     bannerText = `✗ Already in System — ${lead.duplicate_notes || 'Existing record found'}`;
   } else if (isFlagged) {
-    borderColor = '#d97706'; bannerBg = '#d97706';
+    borderColor = 'hsl(var(--status-warning))'; bannerBg = 'hsl(var(--status-warning))';
     bannerText = '⚠ Possible Duplicate — Review Before Contacting';
   } else if (isBooked) {
-    borderColor = '#16a34a'; bannerBg = '#16a34a'; bannerText = '✓ Booked';
+    borderColor = 'hsl(var(--status-success))'; bannerBg = 'hsl(var(--status-success))'; bannerText = '✓ Booked';
   } else if (isContacted) {
     bannerText = '✓ Contacted';
   } else {

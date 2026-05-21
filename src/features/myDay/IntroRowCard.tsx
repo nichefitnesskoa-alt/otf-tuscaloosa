@@ -504,7 +504,7 @@ export default function IntroRowCard({
       ) : isOutcomeOverdue ? (
         <StatusBanner bgColor="#f97316" text="🟠 Outcome needed" />
       ) : isQOverdue ? (
-        <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
+        <StatusBanner bgColor="hsl(var(--status-danger))" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
         <StatusBanner bgColor="#2563eb" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
       ) : item.leadSource?.toLowerCase().includes('vip') ? (
@@ -514,7 +514,7 @@ export default function IntroRowCard({
         />
       ) : (
         <StatusBanner
-          bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
+          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : localQStatus === 'Q_SENT' ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
           text={qBar.bannerLabel}
         />
       )}
@@ -540,7 +540,7 @@ export default function IntroRowCard({
     const isNoShow = result === 'No-show';
     const isBooked2nd = result === 'Booked 2nd intro';
     const isPlanning2nd = result === 'Planning to Book 2nd Intro';
-    const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : isPlanning2nd ? '#7c3aed' : '#d97706';
+    const bgColor = isPurchased ? 'hsl(var(--status-success))' : isNoShow ? 'hsl(var(--status-neutral))' : isBooked2nd ? 'hsl(var(--status-neutral))' : isPlanning2nd ? 'hsl(var(--brand))' : 'hsl(var(--status-warning))';
     const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : isPlanning2nd ? '🟣 2nd Intro Planned' : `⏳ ${result}`;
     return (
       <div className="relative">
