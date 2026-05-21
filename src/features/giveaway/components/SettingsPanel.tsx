@@ -66,7 +66,7 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
   return (
     <div className="max-w-2xl space-y-6 font-body">
       <TitleFormatSection
-        studioName={studio.studio_name}
+        slug={studio.studio_slug}
         partners={partners}
         titleFormat={titleFormat}
         customTitle={customTitle}
@@ -180,39 +180,42 @@ function WinnerStructureSection({
 }
 
 function TitleFormatSection({
-  studioName,
+  slug,
   partners,
   titleFormat,
   customTitle,
   onChangeFormat,
   onChangeCustomTitle,
 }: {
-  studioName: string;
+  slug: string;
   partners: GiveawayPartner[];
   titleFormat: TitleFormat;
   customTitle: string;
   onChangeFormat: (v: TitleFormat) => void;
   onChangeCustomTitle: (v: string) => void;
 }) {
-  const options: { value: TitleFormat; title: string; subtitle: string }[] = [
+  const options: { value: TitleFormat; title: string; subtitle: string; preview: string }[] = [
     {
       value: 'auto_combined',
-      title: 'Studio × All Partners',
-      subtitle: getGiveawayTitle(studioName, partners, 'auto_combined', ''),
+      title: 'Auto: Studio + Partners',
+      subtitle: 'Updates automatically as you add or remove partners.',
+      preview: getGiveawayTitle(slug, partners, 'auto_combined', ''),
     },
     {
       value: 'auto_studio_only',
-      title: 'Studio Only',
-      subtitle: getGiveawayTitle(studioName, partners, 'auto_studio_only', ''),
+      title: 'Auto: Brand Only',
+      subtitle: 'Clean and simple.',
+      preview: getGiveawayTitle(slug, [], 'auto_studio_only', ''),
     },
     {
       value: 'custom',
       title: 'Custom Title',
       subtitle: 'Write your own headline below.',
+      preview: 'Shown exactly as typed on the entry form.',
     },
   ];
 
-  const livePreview = getGiveawayTitle(studioName, partners, titleFormat, customTitle);
+  const livePreview = getGiveawayTitle(slug, partners, titleFormat, customTitle);
 
   return (
     <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
@@ -238,6 +241,9 @@ function TitleFormatSection({
               <div className="flex-1 min-w-0">
                 <p className="font-black text-base text-[#F5F2EE]">{opt.title}</p>
                 <p className="text-sm mt-1 text-[#F5F2EE]/70 break-words">{opt.subtitle}</p>
+                {opt.value !== 'custom' && (
+                  <p className="font-display text-base text-[#E8540A] mt-2 break-words">{opt.preview}</p>
+                )}
               </div>
               <div className={`flex-shrink-0 mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
                 selected ? 'border-[#E8540A] bg-[#E8540A]' : 'border-[#3a3a3c]'
@@ -251,13 +257,14 @@ function TitleFormatSection({
 
       {titleFormat === 'custom' && (
         <label className="block">
-          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Custom Title</span>
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Custom giveaway title</span>
           <input
             value={customTitle}
             onChange={(e) => onChangeCustomTitle(e.target.value)}
-            placeholder="e.g. The Ultimate Tuscaloosa Glow-Up Giveaway"
+            placeholder="e.g. Tuscaloosa Summer Giveaway"
             className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]"
           />
+          <span className="block text-xs text-[#F5F2EE]/50 mt-1">Shown exactly as typed on the entry form.</span>
         </label>
       )}
 
