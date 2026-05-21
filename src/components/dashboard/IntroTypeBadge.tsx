@@ -57,8 +57,8 @@ export function IntroTypeBadge({ isSecondIntro, isVipClassIntro, className }: In
       className={cn(
         'text-[10px] px-1.5 py-0 h-4 font-semibold',
         isSecondIntro
-          ? 'bg-violet-500/15 text-violet-700 border-violet-500/30'
-          : 'bg-sky-500/15 text-sky-700 border-sky-500/30',
+          ? 'bg-brand-dim text-brand border-surface-border'
+          : 'bg-neutral-dim text-neutral border-surface-border',
         className
       )}
     >
