@@ -5,8 +5,6 @@ export interface GiveawayStudio {
   id: string;
   studio_slug: string;
   studio_name: string;
-  partner_name: string | null;
-  partner_instructions: string | null;
   countdown_duration_days: number;
   goes_live_at: string | null;
 }

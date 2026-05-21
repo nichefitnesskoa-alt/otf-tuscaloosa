@@ -1,128 +1,109 @@
-# OTF Giveaway System — Build Plan
+# Wave 2 — Multi-Partner + Entry Fix + Brand Polish
 
-Two-sided giveaway: gamified public entry forms (one per studio) and admin panels for management + winner draws. All data in existing Supabase.
+## 1. Schema migration
 
-## 1. Database (single migration)
+- New table `giveaway_partners` (studio_slug, partner_name, partner_ig_handle, receipt_instructions, display_order, created_at). Public RLS: read for all, insert/update/delete public (matches existing giveaway pattern).
+- `giveaway_entries`: add `partner_actions jsonb default '[]'`; change `base_entries` default `0`; recompute `total_entries` generated column = `base_entries + bonus_entries`.
+- Drop `giveaway_studios.partner_name` and `partner_instructions`.
+- Update Vestavia row: `studio_name = 'OTF Vestavia Hills'` (slug stays `vestavia`).
 
-**Tables**
-- `giveaway_studios` — `studio_slug` (unique), `studio_name`, `partner_name`, `partner_instructions`, `countdown_duration_days`, `goes_live_at`, timestamps
-- `giveaway_entries` — identity fields, `base_entries` (default 1), `bonus_entries`, `total_entries` (generated stored column), 5 action booleans + 4 screenshot URL columns, `submitted_at`. Unique on `(studio_slug, email)` (case-insensitive via expression index on `lower(email)`)
-- `giveaway_uploads` — `entry_id` FK, `action_type`, `file_url`
+## 2. Constants — single source of truth
 
-**Seed**: 4 rows in `giveaway_studios` — tuscaloosa, auburn, montgomery, vestavia. `goes_live_at = null`.
-
-**Storage**: `giveaway-uploads` bucket, public read.
-
-**RLS**
-- `giveaway_entries`: public INSERT, public SELECT (admin is URL-gated per spec)
-- `giveaway_uploads`: public INSERT + SELECT
-- `giveaway_studios`: public SELECT; UPDATE allowed (admin URL-gated)
-- Storage policies: public INSERT + SELECT on `giveaway-uploads`
-
-## 2. Routes (added to `src/App.tsx`, outside the authenticated app shell)
-
-- `/giveaway/:studioSlug` → `GiveawayEntryPage`
-- `/admin/:studioSlug` → `GiveawayAdminPage`
-
-These render standalone (no SA/Coach/Admin auth, no app nav).
-
-## 3. File structure
-
-```
-src/features/giveaway/
-  GiveawayEntryPage.tsx          — route component, state machine (coming soon / countdown / live / ended)
-  GiveawayAdminPage.tsx          — route component, sidebar layout
-  components/
-    Countdown.tsx                — D/H/M/S, recalculates each second
-    EntryForm.tsx                — name/email/phone inputs
-    AchievementCard.tsx          — single action card (lock → unlock animation)
-    ScreenshotUpload.tsx         — drag/tap upload to Storage, thumbnail preview
-    LiveEntryCounter.tsx         — animated count-up, progress bar 1-of-6
-    ConfirmationScreen.tsx       — confetti + name + entry total
-    EntriesTable.tsx             — expandable rows w/ screenshot thumbs
-    DrawWinner.tsx               — 3-2-1 reveal w/ confetti
-    SpinWheel.tsx                — canvas-based weighted wheel, top-20 cap
-    SettingsPanel.tsx            — partner fields, duration, go-live
-  hooks/
-    useGiveawayStudio.ts         — fetch + realtime studio row
-    useGiveawayEntries.ts        — fetch entries for admin
-    useEntryDraft.ts             — local form state, action completions
-  lib/
-    weightedDraw.ts              — build tickets array, pick winner
-    csvExport.ts                 — generate + download CSV
-    uploadScreenshot.ts          — Storage upload helper, returns public URL
+New `src/features/giveaway/lib/studioBrand.ts`:
+```ts
+export const STUDIO_IG: Record<string, { handle: string; display: string }> = {
+  tuscaloosa: { handle: 'otftuscaloosa', display: '@otftuscaloosa' },
+  auburn:     { handle: 'otfauburn',     display: '@otfauburn' },
+  montgomery: { handle: 'otfmontgomery', display: '@otfmontgomery' },
+  vestavia:   { handle: 'otfvestaviahills', display: '@otfvestaviahills' },
+};
+export const STUDIO_CITY: Record<string,string> = {
+  tuscaloosa: 'TUSCALOOSA', auburn: 'AUBURN',
+  montgomery: 'MONTGOMERY', vestavia: 'VESTAVIA HILLS',
+};
 ```
 
-## 4. Participant flow (`/giveaway/:studioSlug`)
+## 3. Hooks
 
-**Gate logic** based on `goes_live_at` + `countdown_duration_days`:
-- `null` → "Coming soon"
-- future → countdown screen
-- live window → form
-- past end → "Giveaway has ended"
+- New `useGiveawayPartners(slug)` — fetch ordered by `display_order`, expose `refresh`, `add`, `update`, `remove`.
+- `useGiveawayStudio` — drop `partner_name`/`partner_instructions` from interface.
 
-**Form behavior**
-- Studio pre-set from route; no dropdown
-- Action 1 (IG follow): checkbox → instant +1
-- Actions 2–5: upload to Storage first, then award +1 on success
-- Live counter: 1 base + N bonus, animated count-up + scale pulse, progress bar (max 6)
-- Submit disabled until name/email/phone filled
-- On submit:
-  1. Query `giveaway_entries` where `studio_slug` + `lower(email)` match
-  2. If exists → inline error "You've already entered at this studio."
-  3. Else insert row with action booleans + URLs → confirmation screen w/ confetti + earned count
+## 4. Admin Settings (`SettingsPanel.tsx`)
 
-**Partner copy** (Action 5): reads `partner_name`/`partner_instructions` from studio row with the documented fallbacks.
+Replace the Partner block with **Partner Businesses** section:
+- Header + subtext as specified.
+- Card list of partners (name bold, @handle gray, truncated instructions, Edit / Delete with confirm).
+- "Add Partner" orange full-width button → inline form (Name required, IG handle optional stored without `@`, Receipt Instructions textarea).
+- Save → insert via hook, refresh, close form.
+- Edit → same form pre-filled, "Update Partner".
+- Delete → confirm dialog with exact copy from prompt.
+All buttons 44px, visible borders, hover/active states, "Saved" inline 2s.
 
-## 5. Admin flow (`/admin/:studioSlug`)
+## 5. Participant Form (`GiveawayEntryPage.tsx`)
 
-**Sidebar**: Entries | Settings | studio name + "Admin" badge.
+State changes:
+- `base_entries = 0` everywhere. Total = bonus only.
+- `igAccountChecks: Record<string, boolean>` — keyed by handle. Studio handle first, then partners in `display_order`.
+- `action_instagram_follow` is derived: `true` only when every box in `igAccountChecks` is true.
+- `partner_actions: { partner_id, completed, screenshot_url }[]` — one entry per partner, completed on successful screenshot upload.
+- `bonusCount` = post_engagement + story_share + free_class + (ig follow all-checked ? 1 : 0) + completed partner_actions count.
+- Max = `5 + partners.length`.
+- Submit gated: requires name+email+phone AND `bonusCount >= 1` (per user answer). Helper text below button: "Complete at least one action to earn entries."
 
-**Entries view**
-- Header: "X total entries in pool" = sum of `total_entries`
-- Table: Name | Email | Phone | Entries (bold, orange badge if >1) | Actions Completed (5 check icons) | Submitted
-- Row click → expands to thumbnails of uploaded screenshots
-- **Download CSV** button: includes all fields + 5 action booleans + 4 screenshot URLs
-- **Draw Winner**: weighted via tickets array (name pushed `total_entries` times), 3-2-1 countdown → full-screen confetti reveal
-- **Spin Wheel**: same weighted source, capped to top-20 unique entrants by entry count, alternating charcoal/orange segments, physics-based decel over 4–6s, modal reveal
+UI:
+- Achievement #1 "Follow us on Instagram" — render checklist of all accounts, each row 44px with checkbox + handle + external link. Animated checkmark on check; reverts if any unchecked.
+- Action #5..N — one card per partner: title "Visit [name]", optional `@handle` chip, description = instructions or fallback, ScreenshotUpload writes into `partner_actions[i]`.
+- LiveEntryCounter shows `bonusCount` with label "of {5 + partners.length} possible".
 
-**Settings view**
-- Partner name (text), partner instructions (textarea)
-- Duration segmented control: 7 / 10 / 14
-- **GO LIVE NOW** button → sets `goes_live_at = now()`; shows end date; if already live shows "Reset / End Giveaway" → sets `null`
-- Save Settings persists partner fields + duration
+Insert payload: `base_entries: 0`, `bonus_entries: bonusCount`, fixed action fields, `partner_actions` jsonb. Upload bucket path namespaced by `draftId/partner_<id>`.
 
-## 6. Design tokens
+## 6. Coming Soon screen
 
-Add giveaway-scoped utilities/tokens (no clash with existing app):
-- Background `#1C1C1E`, accent `#E8540A`, body `#F5F2EE`
-- Display font: Bebas Neue (closest free analog of Big Shoulders, already-available pattern). Load via `<link>` in `index.html`.
-- All tap targets ≥ 44px
-- Animations via Framer Motion (already in repo) + a small canvas confetti util
+Replace block in `GiveawayEntryPage.tsx`:
+- Full-bleed `#1C1C1E` with top + bottom 6px orange bars.
+- Centered: ORANGETHEORY FITNESS eyebrow (orange, 11px, tracked), studio name 52px display, city 9px tracked light gray, 40px orange divider, "SOMETHING BIG IS COMING." 28px display, subline 14px gray, IG link 12px with Instagram icon.
+- Bottom-right "More Life. More Energy. More You." 8px gray.
+- Uses Big Shoulders Display + Jura via Google Fonts import in `index.html` (only added if not present). Applies to all 4 studio routes.
 
-## 7. Cross-file verification checklist (run before reporting done)
+## 7. Admin Entries Table (`EntriesTable.tsx`)
 
-- A. All 4 studio slugs seeded
-- B. Uploads land in `giveaway-uploads` before counter ticks
-- C. Action 5 copy reads from DB, not hardcoded
-- D. Draw + wheel weighted by `total_entries`
-- E. CSV includes all action booleans + URLs
-- F. Countdown ticks every 1s vs `goes_live_at + duration_days`
-- G. Email uniqueness scoped to `studio_slug`
-- H. 44px min tap targets verified
-- I. Confirmation shows earned entry total
+- Actions column: 4 fixed checkmarks + N partner checkmarks (tooltip shows partner name; circle with initial).
+- Expanded row: render fixed screenshots + map `partner_actions` to thumbnails labeled with partner name.
 
-## Technical notes
+## 8. CSV export (`csvExport.ts`)
 
-- Generated column: `total_entries integer GENERATED ALWAYS AS (base_entries + bonus_entries) STORED`
-- Case-insensitive email dedup: unique index on `(studio_slug, lower(email))` + lowercase email before insert/lookup
-- Storage uploads use anon client; path scheme: `{studio_slug}/{entry_draft_id}/{action_type}-{timestamp}.{ext}`
-- Public pages bypass existing auth gate by mounting routes above the `<RequireAuth>` boundary in `App.tsx`
-- Realtime subscription on `giveaway_entries` for admin so new entries appear live
-- Spin wheel implemented in plain `<canvas>` to avoid new deps
+Columns: first_name, last_name, email, phone, total_entries, submitted_at, action_instagram_follow, action_post_engagement, action_story_share, action_free_class, then per partner: `partner_<slug>_completed`, `partner_<slug>_screenshot_url` (slug = lowercased partner name with non-alphanum → `_`). Fetch partners list to drive headers.
 
-## Out of scope (confirm if needed)
+## 9. Draw + Spin Wheel
 
-- No email/SMS notification to winner
-- No image moderation on uploads
-- Admin has no auth — gated only by URL knowledge, as specified
+- `weightedDraw.ts`: filter `entries.filter(e => e.total_entries > 0)` before building ticket pool. (Likely already implicit but make explicit.)
+- `SpinWheel` and `DrawWinner`: exclude `total_entries === 0` from selectable pool; show "Not eligible (0 entries)" badge in entries table for those.
+
+## 10. Vestavia → Vestavia Hills
+
+Grep for `Vestavia` across `src/features/giveaway/**` and update display strings only. Slug `vestavia` unchanged. Studio row updated via migration. `STUDIO_IG.vestavia.handle = 'otfvestaviahills'`.
+
+## Coherence checks before done
+
+- Counter on entry form, Confirmation total, CSV `total_entries`, Spin wheel ticket count → all match `bonus_entries` with `base=0`.
+- Adding a partner in admin instantly appears as new action card + IG checkbox + "of X possible" label increments after refresh.
+- Deleting a partner does not break old entries (partner_actions still readable; CSV header for that partner dropped — acceptable per scope).
+- All 4 studio routes show branded Coming Soon when `goes_live_at` is null.
+- Submit blocked with 0 actions; allowed at ≥1.
+- Spin wheel + draw exclude 0-entry rows.
+
+## Files touched
+
+- supabase migration (new)
+- `src/features/giveaway/lib/studioBrand.ts` (new)
+- `src/features/giveaway/hooks/useGiveawayPartners.ts` (new)
+- `src/features/giveaway/hooks/useGiveawayStudio.ts`
+- `src/features/giveaway/GiveawayEntryPage.tsx`
+- `src/features/giveaway/GiveawayAdminPage.tsx` (minor — pass partners to table)
+- `src/features/giveaway/components/SettingsPanel.tsx`
+- `src/features/giveaway/components/EntriesTable.tsx`
+- `src/features/giveaway/components/LiveEntryCounter.tsx` (accept maxEntries prop)
+- `src/features/giveaway/components/ConfirmationScreen.tsx` (verify uses passed total only)
+- `src/features/giveaway/lib/csvExport.ts`
+- `src/features/giveaway/lib/weightedDraw.ts`
+- `index.html` (Google Fonts: Big Shoulders Display + Jura) if missing

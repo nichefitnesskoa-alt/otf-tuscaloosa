@@ -1,6 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface PartnerActionRow {
+  partner_id: string;
+  completed: boolean;
+  screenshot_url: string | null;
+}
+
 export interface GiveawayEntry {
   id: string;
   studio_slug: string;
@@ -18,8 +24,7 @@ export interface GiveawayEntry {
   action_story_share_screenshot_url: string | null;
   action_free_class: boolean;
   action_free_class_screenshot_url: string | null;
-  action_partner_visit: boolean;
-  action_partner_visit_photo_url: string | null;
+  partner_actions: PartnerActionRow[] | null;
   submitted_at: string;
 }
 
