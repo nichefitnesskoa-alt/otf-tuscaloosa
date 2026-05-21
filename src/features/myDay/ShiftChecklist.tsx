@@ -300,7 +300,7 @@ export function ShiftChecklist() {
         <div key={task.key} className="py-2">
           <ReferralAskRow shiftType={STANDARD_SHIFT} onLogged={onReferralLogged} />
           {task.completed && (
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+            <p className="text-[10px] text-success mt-2 flex items-center gap-1">
               <Check className="w-3 h-3" /> Marked complete for today
             </p>
           )}
@@ -315,18 +315,18 @@ export function ShiftChecklist() {
           onClick={() => toggleTask(task)}
           className={cn(
             'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer',
-            task.completed ? 'bg-primary border-primary' : 'border-muted-foreground/40 hover:border-primary',
+            task.completed ? 'bg-success border-success' : 'border-surface-border hover:border-brand',
           )}
         >
-          {task.completed && <Check className="w-3 h-3 text-primary-foreground" />}
+          {task.completed && <Check className="w-3 h-3 text-success-foreground" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('text-sm', task.completed && 'line-through text-muted-foreground')}>
+            <span className={cn('text-sm text-text-primary', task.completed && 'line-through text-text-secondary')}>
               {task.name}
             </span>
             {task.isOverride && (
-              <Badge className="text-[9px] h-4 bg-warning/20 text-warning border-warning/30 hover:bg-warning/20">
+              <Badge className="text-[9px] h-4 bg-warning-dim text-warning border-warning hover:bg-warning-dim">
                 Today only
               </Badge>
             )}
@@ -335,12 +335,12 @@ export function ShiftChecklist() {
             <div className="flex items-center gap-2 mt-1.5">
               {task.isFollowUpTask ? (
                 <>
-                  <span className="text-sm font-medium text-foreground">{displayCount ?? 0}</span>
-                  <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                  <span className="text-sm font-medium text-text-primary">{displayCount ?? 0}</span>
+                  <span className="text-[10px] text-text-secondary">{task.countLabel}</span>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] px-2 ml-1 cursor-pointer"
+                    className="h-7 text-[11px] px-2 ml-1 cursor-pointer bg-surface-card border-surface-border text-text-primary"
                     onClick={navigateToFollowUp}
                   >
                     Open Follow-Up Queue <ArrowRight className="w-3 h-3 ml-1" />
@@ -358,7 +358,7 @@ export function ShiftChecklist() {
                     }}
                     className="h-7 w-16 text-xs px-2"
                   />
-                  <span className="text-[10px] text-muted-foreground">{task.countLabel}</span>
+                  <span className="text-[10px] text-text-secondary">{task.countLabel}</span>
                 </>
               )}
             </div>
@@ -381,27 +381,27 @@ export function ShiftChecklist() {
 
   return (
     <div className="space-y-3">
-      <div className="bg-[#E8540A] rounded-xl p-4 space-y-3">
+      <div className="bg-brand rounded-xl p-4 space-y-3">
         <button
           type="button"
           onClick={toggleCard}
           className="w-full flex items-center justify-between gap-3 text-left cursor-pointer min-h-[44px]"
           aria-expanded={cardOpen}
         >
-          <p className="text-[13px] font-bold text-white uppercase tracking-wider">
+          <p className="text-[13px] font-bold text-brand-foreground uppercase tracking-wider">
             Today's Shift — {format(new Date(), 'EEE MMM d')}
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[11px] font-semibold text-white/90">
+            <span className="text-[11px] font-semibold text-brand-foreground/90">
               {standardsComplete} of {totalStandards} standards
             </span>
-            <ChevronDown className={cn('w-5 h-5 text-white transition-transform', !cardOpen && '-rotate-90')} />
+            <ChevronDown className={cn('w-5 h-5 text-brand-foreground transition-transform', !cardOpen && '-rotate-90')} />
           </div>
         </button>
 
         {cardOpen && (
-          <div className="bg-card rounded-lg p-3 space-y-3">
-            <p className="text-[11px] text-muted-foreground">
+          <div className="bg-surface-card rounded-lg p-3 space-y-3">
+            <p className="text-[11px] text-text-secondary">
               {standardsComplete} of {totalStandards} standards complete
             </p>
 
