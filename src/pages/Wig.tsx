@@ -547,6 +547,10 @@ export default function Wig() {
           }
         }
 
+        // Track which run rows have been counted so the buy_date pass below
+        // doesn't double-credit a close already attributed via class_date.
+        const countedRunBookingIds = new Set<string>();
+
         for (const batch of closeBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
@@ -578,13 +582,117 @@ export default function Wig() {
             if (isCloseRun(r)) {
               ex.closed++;
               ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE' });
+              if (r.linked_intro_booked_id) countedRunBookingIds.add(r.linked_intro_booked_id);
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach
               ex.closed++;
               ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE' });
+              countedRunBookingIds.add(r.linked_intro_booked_id);
             }
             coachCloseMap.set(cName, ex);
           });
+        }
+
+        // === Cross-period close backfill (anchored to buy_date) ===
+        // Studio totalClosed uses isSaleInRange (buy_date). The per-coach pass
+        // above keys on class_date-in-range, so a member whose intro was in a
+        // prior period but who buys in this period was being dropped from
+        // Coach Closes drill-down. Fetch sale runs by buy_date in range and
+        // merge any not already counted above.
+        const SALE_CANONS = ['SALE','PREMIER','PREMIER_OTBEAT','ELITE','BASIC'];
+        const { data: buyDateSales } = await supabase
+          .from('intros_run')
+          .select('id, linked_intro_booked_id, coach_name, result, result_canon, buy_date')
+          .in('result_canon', SALE_CANONS)
+          .gte('buy_date', rangeStart)
+          .lte('buy_date', rangeEnd);
+
+        const newSales = (buyDateSales || []).filter((r: any) =>
+          r.linked_intro_booked_id && !countedRunBookingIds.has(r.linked_intro_booked_id)
+        );
+
+        const missingBookingIds = Array.from(new Set(
+          newSales.map((r: any) => r.linked_intro_booked_id).filter((id: string) => !bookingByIdMap.has(id))
+        ));
+        if (missingBookingIds.length > 0) {
+          for (let i = 0; i < missingBookingIds.length; i += 500) {
+            const batch = missingBookingIds.slice(i, i + 500);
+            const { data: rows } = await supabase
+              .from('intros_booked')
+              .select('id, member_name, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id, deleted_at')
+              .in('id', batch);
+            (rows || []).forEach((b: any) => bookingByIdMap.set(b.id, b));
+          }
+        }
+
+        // Walk originating_booking_id up to the root first intro (Total Journey).
+        const rootCache = new Map<string, any>();
+        const resolveRoot = async (startId: string): Promise<any | null> => {
+          if (rootCache.has(startId)) return rootCache.get(startId);
+          let current = bookingByIdMap.get(startId);
+          const visited = new Set<string>();
+          while (current?.originating_booking_id && !visited.has(current.id)) {
+            visited.add(current.id);
+            const parentId = current.originating_booking_id;
+            if (!bookingByIdMap.has(parentId)) {
+              const { data: parentRow } = await supabase
+                .from('intros_booked')
+                .select('id, member_name, coach_name, originating_booking_id, booking_status_canon, is_vip, ignore_from_metrics, class_date, referred_by_member_name, lead_source, vip_session_id, deleted_at')
+                .eq('id', parentId)
+                .maybeSingle();
+              if (parentRow) bookingByIdMap.set(parentId, parentRow);
+            }
+            const next = bookingByIdMap.get(parentId);
+            if (!next) break;
+            current = next;
+          }
+          rootCache.set(startId, current || null);
+          return current || null;
+        };
+
+        // Resolve VIP coach for any new vip_session_ids.
+        const newVipSessionIds = Array.from(new Set(
+          newSales
+            .map((r: any) => bookingByIdMap.get(r.linked_intro_booked_id))
+            .filter((b: any) => b && (b.lead_source || '').startsWith('VIP Class') && b.vip_session_id && !vipCoachMap.has(b.vip_session_id))
+            .map((b: any) => b.vip_session_id as string)
+        ));
+        if (newVipSessionIds.length > 0) {
+          const { data: vipRows } = await (supabase as any)
+            .from('vip_sessions')
+            .select('id, coach_name')
+            .in('id', newVipSessionIds);
+          for (const v of (vipRows || [])) {
+            if (v.coach_name) vipCoachMap.set(v.id, v.coach_name);
+          }
+        }
+
+        for (const r of newSales) {
+          const linked = bookingByIdMap.get(r.linked_intro_booked_id);
+          if (!linked) continue;
+          const root = (await resolveRoot(r.linked_intro_booked_id)) || linked;
+          if (isBookingExcludedFromMetrics(root)) continue;
+
+          // Coach = root first intro's coach with VIP override (Total Journey),
+          // falling back to the sale run's coach if the root has none.
+          const cName = resolveCloseCoach(root, root.coach_name || r.coach_name) || r.coach_name;
+          if (!cName) continue;
+
+          const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
+          ex.total++;
+          ex.closed++;
+          coachCloseMap.set(cName, ex);
+
+          const isViaSecond = !!linked.originating_booking_id;
+          ensureAttrib(cName).closes.push({
+            bookingId: root.id,
+            member: root.member_name || linked.member_name || 'Unknown',
+            classDate: root.class_date || null,
+            source: root.lead_source || null,
+            resultLabel: 'SALE',
+            via: isViaSecond ? '2nd_intro' : 'direct',
+          });
+          countedRunBookingIds.add(r.linked_intro_booked_id);
         }
       }
 
