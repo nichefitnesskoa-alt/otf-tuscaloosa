@@ -51,7 +51,7 @@ export function PrizeShowcase({
       <div className="md:hidden flex gap-2.5 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-2" style={{ scrollPaddingLeft: 16 }}>
         {cards.map(c => (
           <div key={c.id} className="snap-start flex-shrink-0" style={{ width: 200 }}>
-            <PrizeCard {...c} mobile />
+            <PrizeCard {...c} mobile showWinnerBadge={showWinnerBadge} />
           </div>
         ))}
         {/* peek spacer */}
