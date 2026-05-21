@@ -14,10 +14,10 @@ interface LeadKanbanBoardProps {
 }
 
 const COLUMNS = [
-  { stage: 'new', label: 'New', color: 'bg-info/10 border-info/30' },
-  { stage: 'contacted', label: 'Contacted', color: 'bg-warning/10 border-warning/30' },
-  { stage: 'won', label: 'Purchased', color: 'bg-warning/10 border-warning/30' },
-  { stage: 'lost', label: 'Do Not Contact', color: 'bg-muted border-muted-foreground/20' },
+  { stage: 'new', label: 'New', color: 'bg-surface-card border-surface-border border-l-4' },
+  { stage: 'contacted', label: 'Contacted', color: 'bg-surface-card border-surface-border border-l-4' },
+  { stage: 'won', label: 'Purchased', color: 'bg-surface-card border-surface-border border-l-4 border-l-success' },
+  { stage: 'lost', label: 'Do Not Contact', color: 'bg-surface-card border-surface-border border-l-4 border-l-neutral' },
 ];
 
 export function LeadKanbanBoard({ leads, activities, onLeadClick, onStageChange, onBookIntro, onMarkAlreadyBooked, onMarkLost }: LeadKanbanBoardProps) {
