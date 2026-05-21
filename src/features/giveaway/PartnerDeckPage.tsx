@@ -175,22 +175,35 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <div style={{ ...displayStyle, fontSize: 13, color: C.bone, opacity: 0.92, marginBottom: 28 }}>OTF</div>
-        <p style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
+      <div className="deck-slide" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
         <div style={{ width: '100%', maxWidth: 1000 }}>
-          <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
-            fixed={studio.deck_s1_title1_size}
-            style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-            Cross-collab
-          </FitText>
-          <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
-            fixed={studio.deck_s1_title2_size}
-            style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
-            {orangeLine}
-          </FitText>
+          {/* Desktop: single-line auto-fit */}
+          <div className="deck-cover-desktop">
+            <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
+              fixed={studio.deck_s1_title1_size}
+              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              Cross-collab
+            </FitText>
+            <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
+              fixed={studio.deck_s1_title2_size}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+              {orangeLine}
+            </FitText>
+          </div>
+          {/* Mobile: natural wrap, auto-size to widest line */}
+          <div className="deck-cover-mobile" style={{ display: 'none' }}>
+            <FitText as="h1" multiline min={28} max={72}
+              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              Cross-collab
+            </FitText>
+            <FitText as="p" multiline min={24} max={64}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+              {orangeLine}
+            </FitText>
+          </div>
         </div>
-        <p style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
+        <p className="deck-body" style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
           A giveaway built around the best local businesses and the people who love them.
         </p>
       </div>
