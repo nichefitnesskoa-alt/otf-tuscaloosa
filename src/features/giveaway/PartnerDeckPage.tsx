@@ -262,7 +262,7 @@ export default function PartnerDeckPage() {
           ))}
         </nav>
 
-        <div id="deck-scroll" style={{ height: '100vh', overflowY: 'auto', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
+        <div id="deck-scroll" style={{ height: '100vh', width: '100%', maxWidth: '100vw', overflowY: 'auto', overflowX: 'hidden', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
           {slides.map((s, i) => (
             <section key={s.id} id={`slide-${i}`} style={{ scrollSnapAlign: 'start', minHeight: '100vh', width: '100%', display: 'flex' }}>
               {s.render()}
