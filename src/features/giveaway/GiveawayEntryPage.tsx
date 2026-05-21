@@ -227,6 +227,13 @@ export default function GiveawayEntryPage() {
           </div>
         )}
 
+        <PrizeShowcase
+          slug={studio.studio_slug}
+          partners={partners}
+          winnerStructure={studio.winner_structure ?? 'single'}
+        />
+
+
         <div className="rounded-xl bg-[#1f1f21] border border-[#3a3a3c] p-4 sm:p-5 mb-6 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" value={form.first_name} onChange={(v) => setForm({ ...form, first_name: v })} />
