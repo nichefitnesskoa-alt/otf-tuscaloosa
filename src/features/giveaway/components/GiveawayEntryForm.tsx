@@ -223,7 +223,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
         {/* Hero */}
         <div className="mb-8 md:mb-10">
           {isMobile ? (
-            <MobileStackedTitle studioName={getParticipantStudioName(slug)} partners={partners} />
+            <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
           ) : (
             <FitText
               as="h1"
