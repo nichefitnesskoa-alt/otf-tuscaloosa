@@ -1110,6 +1110,7 @@ export type Database = {
           id: string
           partner_ig_handle: string | null
           partner_name: string
+          prize_description: string | null
           receipt_instructions: string | null
           studio_slug: string
         }
@@ -1119,6 +1120,7 @@ export type Database = {
           id?: string
           partner_ig_handle?: string | null
           partner_name: string
+          prize_description?: string | null
           receipt_instructions?: string | null
           studio_slug: string
         }
@@ -1128,6 +1130,7 @@ export type Database = {
           id?: string
           partner_ig_handle?: string | null
           partner_name?: string
+          prize_description?: string | null
           receipt_instructions?: string | null
           studio_slug?: string
         }
@@ -1150,6 +1153,7 @@ export type Database = {
           studio_name: string
           studio_slug: string
           updated_at: string
+          winner_structure: string
         }
         Insert: {
           countdown_duration_days?: number
@@ -1159,6 +1163,7 @@ export type Database = {
           studio_name: string
           studio_slug: string
           updated_at?: string
+          winner_structure?: string
         }
         Update: {
           countdown_duration_days?: number
@@ -1168,6 +1173,7 @@ export type Database = {
           studio_name?: string
           studio_slug?: string
           updated_at?: string
+          winner_structure?: string
         }
         Relationships: []
       }

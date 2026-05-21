@@ -1,109 +1,126 @@
-# Wave 2 — Multi-Partner + Entry Fix + Brand Polish
+# Wave 3 — Prize Display + Winner Structure
 
 ## 1. Schema migration
 
-- New table `giveaway_partners` (studio_slug, partner_name, partner_ig_handle, receipt_instructions, display_order, created_at). Public RLS: read for all, insert/update/delete public (matches existing giveaway pattern).
-- `giveaway_entries`: add `partner_actions jsonb default '[]'`; change `base_entries` default `0`; recompute `total_entries` generated column = `base_entries + bonus_entries`.
-- Drop `giveaway_studios.partner_name` and `partner_instructions`.
-- Update Vestavia row: `studio_name = 'OTF Vestavia Hills'` (slug stays `vestavia`).
+`supabase/migrations/<new>.sql`:
+- `ALTER TABLE giveaway_partners ADD COLUMN prize_description text;`
+- `ALTER TABLE giveaway_studios ADD COLUMN winner_structure text NOT NULL DEFAULT 'single';`
+- `ALTER TABLE giveaway_studios ADD CONSTRAINT giveaway_studios_winner_structure_chk CHECK (winner_structure IN ('single','per_prize_with_removal','per_prize_allow_repeat'));`
 
-## 2. Constants — single source of truth
+After migration, `src/integrations/supabase/types.ts` regenerates automatically.
 
-New `src/features/giveaway/lib/studioBrand.ts`:
-```ts
-export const STUDIO_IG: Record<string, { handle: string; display: string }> = {
-  tuscaloosa: { handle: 'otftuscaloosa', display: '@otftuscaloosa' },
-  auburn:     { handle: 'otfauburn',     display: '@otfauburn' },
-  montgomery: { handle: 'otfmontgomery', display: '@otfmontgomery' },
-  vestavia:   { handle: 'otfvestaviahills', display: '@otfvestaviahills' },
-};
-export const STUDIO_CITY: Record<string,string> = {
-  tuscaloosa: 'TUSCALOOSA', auburn: 'AUBURN',
-  montgomery: 'MONTGOMERY', vestavia: 'VESTAVIA HILLS',
-};
-```
+## 2. Shared types & helpers
+
+`src/features/giveaway/lib/winnerStructure.ts` (new) — canonical source of truth:
+- `export type WinnerStructure = 'single' | 'per_prize_with_removal' | 'per_prize_allow_repeat';`
+- `WINNER_STRUCTURE_OPTIONS` array with `{ value, title, subtitle, icon }` for the three cards.
+- `getDrawRuleStatement(ws): string` — returns the plain-English line shown on the entry form and admin summary.
+- `isPerPrize(ws)`, `removesWinners(ws)` boolean helpers used by draw + wheel.
+
+This is the single helper every consumer reads from — no hardcoded copy elsewhere.
 
 ## 3. Hooks
 
-- New `useGiveawayPartners(slug)` — fetch ordered by `display_order`, expose `refresh`, `add`, `update`, `remove`.
-- `useGiveawayStudio` — drop `partner_name`/`partner_instructions` from interface.
+`useGiveawayPartners.ts`
+- Add `prize_description` to insert, update, select payloads.
+- Type already comes from regenerated `types.ts`.
+
+`useGiveawayStudio.ts`
+- Include `winner_structure` in select.
+- `updateStudio` mutation accepts `winner_structure` and merges with existing fields (do not reset countdown/goes_live_at).
 
 ## 4. Admin Settings (`SettingsPanel.tsx`)
 
-Replace the Partner block with **Partner Businesses** section:
-- Header + subtext as specified.
-- Card list of partners (name bold, @handle gray, truncated instructions, Edit / Delete with confirm).
-- "Add Partner" orange full-width button → inline form (Name required, IG handle optional stored without `@`, Receipt Instructions textarea).
-- Save → insert via hook, refresh, close form.
-- Edit → same form pre-filled, "Update Partner".
-- Delete → confirm dialog with exact copy from prompt.
-All buttons 44px, visible borders, hover/active states, "Saved" inline 2s.
+Partner Add/Edit form:
+- New optional input `Prize for this partner` with placeholder + helper text.
+- Saved alongside name, IG, instructions.
+- Partner card list: under partner name show small OTF orange pill `Prize: [description]` when set.
 
-## 5. Participant Form (`GiveawayEntryPage.tsx`)
+New section `Winner Draw Rules` below Partners:
+- Three full-width selectable cards (button elements, 44px+, visible border, hover, cursor pointer).
+- Selected: orange border + orange tint background + white text + check indicator.
+- Cards source from `WINNER_STRUCTURE_OPTIONS`.
+- Selection updates local state; Save Settings persists `winner_structure` via `updateStudio` together with current countdown/goes_live_at — no field reset.
+- Inline "Saved" 2s confirmation, no re-render of section.
 
-State changes:
-- `base_entries = 0` everywhere. Total = bonus only.
-- `igAccountChecks: Record<string, boolean>` — keyed by handle. Studio handle first, then partners in `display_order`.
-- `action_instagram_follow` is derived: `true` only when every box in `igAccountChecks` is true.
-- `partner_actions: { partner_id, completed, screenshot_url }[]` — one entry per partner, completed on successful screenshot upload.
-- `bonusCount` = post_engagement + story_share + free_class + (ig follow all-checked ? 1 : 0) + completed partner_actions count.
-- Max = `5 + partners.length`.
-- Submit gated: requires name+email+phone AND `bonusCount >= 1` (per user answer). Helper text below button: "Complete at least one action to earn entries."
+## 5. Participant entry form (`GiveawayEntryPage.tsx`)
 
-UI:
-- Achievement #1 "Follow us on Instagram" — render checklist of all accounts, each row 44px with checkbox + handle + external link. Animated checkmark on check; reverts if any unchecked.
-- Action #5..N — one card per partner: title "Visit [name]", optional `@handle` chip, description = instructions or fallback, ScreenshotUpload writes into `partner_actions[i]`.
-- LiveEntryCounter shows `bonusCount` with label "of {5 + partners.length} possible".
+Fetch `winner_structure` via `useGiveawayStudio`. Fetch partners with `prize_description` via `useGiveawayPartners`.
 
-Insert payload: `base_entries: 0`, `bonus_entries: bonusCount`, fixed action fields, `partner_actions` jsonb. Upload bucket path namespaced by `draftId/partner_<id>`.
+New `PrizeShowcase` block (inline component or `components/PrizeShowcase.tsx`) placed between countdown and entry form:
+- Eyebrow `WHAT YOU COULD WIN` — small caps, OTF orange, tracked.
+- Horizontal scroll on mobile, grid (`md:grid-cols-3` ish) on desktop.
+- Card 1 (always): orange border, badge `GRAND PRIZE`, headline `FREE OTF MEMBERSHIP`, subtext `OrangeTheory Fitness {STUDIO_CITY[slug]}`, flame/OTF mark.
+- Cards 2+: one per partner where `prize_description` is set. Bold partner name, prominent OTF orange prize text, gray IG handle if set, dark bg + subtle orange border.
+- Partners without `prize_description` are excluded from showcase but remain in action list below.
+- Below the cards render `getDrawRuleStatement(winner_structure)` in muted text.
 
-## 6. Coming Soon screen
+Partner action cards (action 5+):
+- If `prize_description` set, render small pill under partner name + IG: `🎁 Prize: {prize_description}` — dark bg, OTF orange text, 11px, rounded border, no truncation.
 
-Replace block in `GiveawayEntryPage.tsx`:
-- Full-bleed `#1C1C1E` with top + bottom 6px orange bars.
-- Centered: ORANGETHEORY FITNESS eyebrow (orange, 11px, tracked), studio name 52px display, city 9px tracked light gray, 40px orange divider, "SOMETHING BIG IS COMING." 28px display, subline 14px gray, IG link 12px with Instagram icon.
-- Bottom-right "More Life. More Energy. More You." 8px gray.
-- Uses Big Shoulders Display + Jura via Google Fonts import in `index.html` (only added if not present). Applies to all 4 studio routes.
+No change to entry submission logic.
 
-## 7. Admin Entries Table (`EntriesTable.tsx`)
+## 6. Admin entries / draw page
 
-- Actions column: 4 fixed checkmarks + N partner checkmarks (tooltip shows partner name; circle with initial).
-- Expanded row: render fixed screenshots + map `partner_actions` to thumbnails labeled with partner name.
+`DrawWinner.tsx` becomes structure-aware. Fetch `winner_structure` + partners (with prizes) on mount.
 
-## 8. CSV export (`csvExport.ts`)
+Build a `prizes` array on load:
+```
+[
+  { id: 'membership', label: `OTF Membership — ${STUDIO_CITY[slug]}` },
+  ...partners.filter(p => p.prize_description).map(p => ({ id: p.id, label: p.prize_description, partnerName: p.partner_name })),
+]
+```
 
-Columns: first_name, last_name, email, phone, total_entries, submitted_at, action_instagram_follow, action_post_engagement, action_story_share, action_free_class, then per partner: `partner_<slug>_completed`, `partner_<slug>_screenshot_url` (slug = lowercased partner name with non-alphanum → `_`). Fetch partners list to drive headers.
+`single` mode → unchanged UI: one DRAW WINNER button. Winner overlay lists every prize in `prizes` under the name.
 
-## 9. Draw + Spin Wheel
+`per_prize_*` mode → render a list of rows, one per prize:
+- Row layout: prize label left, status middle, DRAW button right (44px, visible border).
+- Row state machine in component state: `idle | drawing | drawn`. `drawnWinners: Record<prizeId, EntryRow>`.
+- DRAW click → run 3-2-1 countdown animation, then `weightedDraw(pool)`:
+  - Pool = entries with `total_entries > 0`.
+  - `per_prize_with_removal`: pool excludes IDs already in `drawnWinners`.
+  - `per_prize_allow_repeat`: pool always the full eligible set.
+- On reveal: row turns green with `✓ {Winner Name}`. If removal mode, sub-note `Removed from remaining draws`.
+- Once every prize has a winner, render a summary card `All prizes awarded` listing each prize → winner pair.
 
-- `weightedDraw.ts`: filter `entries.filter(e => e.total_entries > 0)` before building ticket pool. (Likely already implicit but make explicit.)
-- `SpinWheel` and `DrawWinner`: exclude `total_entries === 0` from selectable pool; show "Not eligible (0 entries)" badge in entries table for those.
+State is session-local — not persisted (per requirement F).
 
-## 10. Vestavia → Vestavia Hills
+## 7. Spin wheel (`SpinWheel.tsx`)
 
-Grep for `Vestavia` across `src/features/giveaway/**` and update display strings only. Slug `vestavia` unchanged. Studio row updated via migration. `STUDIO_IG.vestavia.handle = 'otfvestaviahills'`.
+Fetch same `prizes` list + `winner_structure`.
 
-## Coherence checks before done
+`single` → unchanged. Winner overlay lists all prizes.
 
-- Counter on entry form, Confirmation total, CSV `total_entries`, Spin wheel ticket count → all match `bonus_entries` with `base=0`.
-- Adding a partner in admin instantly appears as new action card + IG checkbox + "of X possible" label increments after refresh.
-- Deleting a partner does not break old entries (partner_actions still readable; CSV header for that partner dropped — acceptable per scope).
-- All 4 studio routes show branded Coming Soon when `goes_live_at` is null.
-- Submit blocked with 0 actions; allowed at ≥1.
-- Spin wheel + draw exclude 0-entry rows.
+`per_prize_*` →
+- Above the wheel, prize selector dropdown: `Spinning for: [prize]` populated from `prizes`.
+- Wheel pool independent from DrawWinner state (per requirement H).
+- Local state `wheelRemoved: Set<entryId>`.
+- After a spin in `per_prize_with_removal` mode, show prompt `Remove {winner} from wheel for next spin?` with Yes/No 44px buttons. Yes adds to `wheelRemoved` and rebuilds wheel; No leaves pool intact.
+- `per_prize_allow_repeat` never modifies the wheel pool.
+
+`weightedDraw.ts` already filters `total_entries > 0`; accept an optional `excludeIds` set used by both DrawWinner and SpinWheel.
+
+## 8. Verification checklist (must pass before reporting done)
+
+- Partner add/edit/list round-trips `prize_description` (DB read confirms).
+- Settings save persists `winner_structure` without clearing countdown or goes_live_at.
+- Entry form: prize showcase shows membership card + only partners with prizes; draw-rule line matches the selected structure for each of the 3 settings.
+- Action card pill renders only when prize is set; full text, no truncation.
+- DrawWinner: in removal mode a prior winner cannot be drawn again across any subsequent prize row; in repeat mode they can.
+- SpinWheel removal state is independent from DrawWinner state.
+- All four slugs (tuscaloosa, auburn, montgomery, vestavia) read their own studio row → behavior switches per studio.
+- Role permissions unchanged; admin-only surfaces untouched for SA/Coach.
 
 ## Files touched
 
-- supabase migration (new)
-- `src/features/giveaway/lib/studioBrand.ts` (new)
-- `src/features/giveaway/hooks/useGiveawayPartners.ts` (new)
+- `supabase/migrations/<new>.sql`
+- `src/features/giveaway/lib/winnerStructure.ts` (new)
+- `src/features/giveaway/lib/weightedDraw.ts` (add excludeIds)
+- `src/features/giveaway/hooks/useGiveawayPartners.ts`
 - `src/features/giveaway/hooks/useGiveawayStudio.ts`
-- `src/features/giveaway/GiveawayEntryPage.tsx`
-- `src/features/giveaway/GiveawayAdminPage.tsx` (minor — pass partners to table)
 - `src/features/giveaway/components/SettingsPanel.tsx`
-- `src/features/giveaway/components/EntriesTable.tsx`
-- `src/features/giveaway/components/LiveEntryCounter.tsx` (accept maxEntries prop)
-- `src/features/giveaway/components/ConfirmationScreen.tsx` (verify uses passed total only)
-- `src/features/giveaway/lib/csvExport.ts`
-- `src/features/giveaway/lib/weightedDraw.ts`
-- `index.html` (Google Fonts: Big Shoulders Display + Jura) if missing
+- `src/features/giveaway/components/PrizeShowcase.tsx` (new)
+- `src/features/giveaway/GiveawayEntryPage.tsx`
+- `src/features/giveaway/components/DrawWinner.tsx`
+- `src/features/giveaway/components/SpinWheel.tsx`
