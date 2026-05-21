@@ -22,7 +22,7 @@ export function useGiveawayStudio(slug: string | undefined) {
       .select('*')
       .eq('studio_slug', slug)
       .maybeSingle();
-    setStudio((data as GiveawayStudio | null) ?? null);
+    setStudio(((data as unknown) as GiveawayStudio | null) ?? null);
     setLoading(false);
   }, [slug]);
 
