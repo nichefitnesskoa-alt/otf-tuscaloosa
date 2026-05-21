@@ -1156,11 +1156,18 @@ export type Database = {
           deck_headline_value: string | null
           deck_intro_copy: string | null
           deck_prize_anchor_value: number | null
+          deck_s1_subtitle_size: number | null
+          deck_s1_title1_size: number | null
+          deck_s1_title2_size: number | null
           deck_s2_body: string | null
           deck_s2_headline: string | null
+          deck_s2_headline_size: number | null
           deck_s3_headline: string | null
+          deck_s3_headline_size: number | null
           deck_s3_value_note: string | null
           deck_s4_headline: string | null
+          deck_s4_headline_size: number | null
+          deck_s4_phase_title_size: number | null
           deck_s4_phase1_body: string | null
           deck_s4_phase1_title: string | null
           deck_s4_phase2_body: string | null
@@ -1176,19 +1183,26 @@ export type Database = {
           deck_s5_c3_title: string | null
           deck_s5_c4_body: string | null
           deck_s5_c4_title: string | null
+          deck_s5_card_title_size: number | null
           deck_s5_headline: string | null
+          deck_s5_headline_size: number | null
           deck_s6_body: string | null
           deck_s6_headline: string | null
+          deck_s6_headline_size: number | null
           deck_s6_note: string | null
           deck_s7_headline: string | null
+          deck_s7_headline_size: number | null
           deck_s8_class: string | null
           deck_s8_headline: string | null
+          deck_s8_headline_size: number | null
           deck_s8_prize: string | null
           deck_s8_promo: string | null
           deck_s8_time: string | null
           deck_s9_body: string | null
           deck_s9_headline: string | null
+          deck_s9_headline_size: number | null
           deck_s9_subline: string | null
+          deck_s9_subline_size: number | null
           deck_what_we_need_class: string | null
           deck_what_we_need_prize: string | null
           deck_what_we_need_promotion: string | null
@@ -1212,11 +1226,18 @@ export type Database = {
           deck_headline_value?: string | null
           deck_intro_copy?: string | null
           deck_prize_anchor_value?: number | null
+          deck_s1_subtitle_size?: number | null
+          deck_s1_title1_size?: number | null
+          deck_s1_title2_size?: number | null
           deck_s2_body?: string | null
           deck_s2_headline?: string | null
+          deck_s2_headline_size?: number | null
           deck_s3_headline?: string | null
+          deck_s3_headline_size?: number | null
           deck_s3_value_note?: string | null
           deck_s4_headline?: string | null
+          deck_s4_headline_size?: number | null
+          deck_s4_phase_title_size?: number | null
           deck_s4_phase1_body?: string | null
           deck_s4_phase1_title?: string | null
           deck_s4_phase2_body?: string | null
@@ -1232,19 +1253,26 @@ export type Database = {
           deck_s5_c3_title?: string | null
           deck_s5_c4_body?: string | null
           deck_s5_c4_title?: string | null
+          deck_s5_card_title_size?: number | null
           deck_s5_headline?: string | null
+          deck_s5_headline_size?: number | null
           deck_s6_body?: string | null
           deck_s6_headline?: string | null
+          deck_s6_headline_size?: number | null
           deck_s6_note?: string | null
           deck_s7_headline?: string | null
+          deck_s7_headline_size?: number | null
           deck_s8_class?: string | null
           deck_s8_headline?: string | null
+          deck_s8_headline_size?: number | null
           deck_s8_prize?: string | null
           deck_s8_promo?: string | null
           deck_s8_time?: string | null
           deck_s9_body?: string | null
           deck_s9_headline?: string | null
+          deck_s9_headline_size?: number | null
           deck_s9_subline?: string | null
+          deck_s9_subline_size?: number | null
           deck_what_we_need_class?: string | null
           deck_what_we_need_prize?: string | null
           deck_what_we_need_promotion?: string | null
@@ -1268,11 +1296,18 @@ export type Database = {
           deck_headline_value?: string | null
           deck_intro_copy?: string | null
           deck_prize_anchor_value?: number | null
+          deck_s1_subtitle_size?: number | null
+          deck_s1_title1_size?: number | null
+          deck_s1_title2_size?: number | null
           deck_s2_body?: string | null
           deck_s2_headline?: string | null
+          deck_s2_headline_size?: number | null
           deck_s3_headline?: string | null
+          deck_s3_headline_size?: number | null
           deck_s3_value_note?: string | null
           deck_s4_headline?: string | null
+          deck_s4_headline_size?: number | null
+          deck_s4_phase_title_size?: number | null
           deck_s4_phase1_body?: string | null
           deck_s4_phase1_title?: string | null
           deck_s4_phase2_body?: string | null
@@ -1288,19 +1323,26 @@ export type Database = {
           deck_s5_c3_title?: string | null
           deck_s5_c4_body?: string | null
           deck_s5_c4_title?: string | null
+          deck_s5_card_title_size?: number | null
           deck_s5_headline?: string | null
+          deck_s5_headline_size?: number | null
           deck_s6_body?: string | null
           deck_s6_headline?: string | null
+          deck_s6_headline_size?: number | null
           deck_s6_note?: string | null
           deck_s7_headline?: string | null
+          deck_s7_headline_size?: number | null
           deck_s8_class?: string | null
           deck_s8_headline?: string | null
+          deck_s8_headline_size?: number | null
           deck_s8_prize?: string | null
           deck_s8_promo?: string | null
           deck_s8_time?: string | null
           deck_s9_body?: string | null
           deck_s9_headline?: string | null
+          deck_s9_headline_size?: number | null
           deck_s9_subline?: string | null
+          deck_s9_subline_size?: number | null
           deck_what_we_need_class?: string | null
           deck_what_we_need_prize?: string | null
           deck_what_we_need_promotion?: string | null

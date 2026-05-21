@@ -1,0 +1,15 @@
+ALTER TABLE public.giveaway_studios
+  ADD COLUMN IF NOT EXISTS deck_s1_title1_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s1_title2_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s1_subtitle_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s2_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s3_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s4_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s4_phase_title_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s5_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s5_card_title_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s6_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s7_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s8_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s9_headline_size integer,
+  ADD COLUMN IF NOT EXISTS deck_s9_subline_size integer;
