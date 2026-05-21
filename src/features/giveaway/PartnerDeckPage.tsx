@@ -78,6 +78,19 @@ export default function PartnerDeckPage() {
   const { studio } = useGiveawayStudio(studioSlug);
   const { partners } = useGiveawayPartners(studioSlug);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [showRotatePrompt, setShowRotatePrompt] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(orientation: portrait) and (max-width: 767px)');
+    const update = () => setShowRotatePrompt(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      mql.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -98,6 +111,7 @@ export default function PartnerDeckPage() {
       </div>
     );
   }
+
 
   const city = getStudioCity(studioSlug);
   const anchor = studio.deck_prize_anchor_value ?? 169;
@@ -141,29 +155,56 @@ export default function PartnerDeckPage() {
           .deck-prize-row-mobile{ display:none !important; }
         }
       `}</style>
-      <nav className="deck-nav" style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {slides.map((s, i) => (
-          <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
-            onClick={() => setActiveSlide(i)}
-            style={{
-              display: 'block', height: 6, width: 6, borderRadius: '50%',
-              transition: 'all 0.25s',
-              background: activeSlide === i ? C.orange : C.boneDim20,
-              transform: activeSlide === i ? 'scale(1.5)' : 'scale(1)', cursor: 'pointer',
-            }} />
-        ))}
-      </nav>
 
-      <div id="deck-scroll" style={{ height: '100vh', overflowY: 'auto', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
-        {slides.map((s, i) => (
-          <section key={s.id} id={`slide-${i}`} style={{ scrollSnapAlign: 'start', minHeight: '100vh', width: '100%', display: 'flex' }}>
-            {s.render()}
-          </section>
-        ))}
+      {showRotatePrompt && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, background: C.dark,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 24, textAlign: 'center',
+        }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={C.orange} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 24 }} aria-hidden>
+            <rect x="6" y="2" width="12" height="20" rx="2" ry="2" />
+            <line x1="12" y1="18" x2="12" y2="18" />
+            <path d="M2 12a10 10 0 0 1 4-8" />
+            <polyline points="2 4 2 8 6 8" />
+          </svg>
+          <h1 style={{ fontFamily: FONT_STACK, fontWeight: 700, color: C.bone, fontSize: 22, letterSpacing: '-0.02em', marginBottom: 8 }}>
+            Rotate your phone
+          </h1>
+          <p style={{ fontFamily: FONT_STACK, fontWeight: 400, color: C.gray, fontSize: 14, maxWidth: 260, lineHeight: 1.45 }}>
+            This deck is best viewed in landscape mode.
+          </p>
+          <div style={{ width: 40, height: 2, background: C.orange, margin: '32px auto 0' }} />
+        </div>
+      )}
+
+      <div style={{ display: showRotatePrompt ? 'none' : 'block' }}>
+        <nav className="deck-nav" style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {slides.map((s, i) => (
+            <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
+              onClick={() => setActiveSlide(i)}
+              style={{
+                display: 'block', height: 6, width: 6, borderRadius: '50%',
+                transition: 'all 0.25s',
+                background: activeSlide === i ? C.orange : C.boneDim20,
+                transform: activeSlide === i ? 'scale(1.5)' : 'scale(1)', cursor: 'pointer',
+              }} />
+          ))}
+        </nav>
+
+        <div id="deck-scroll" style={{ height: '100vh', overflowY: 'auto', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
+          {slides.map((s, i) => (
+            <section key={s.id} id={`slide-${i}`} style={{ scrollSnapAlign: 'start', minHeight: '100vh', width: '100%', display: 'flex' }}>
+              {s.render()}
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
+
 
 /* ─────────── Slide 1: Cover ─────────── */
 function SlideCover({ partners, studio }: { partners: { partner_name: string }[]; studio: any }) {
@@ -172,6 +213,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
   if (partners.length >= 1) {
     orangeLine = ['OrangeTheory Fitness', ...partners.map(p => p.partner_name)].join(SEP);
   }
+  const title1 = (studio.deck_s1_title1 && String(studio.deck_s1_title1).trim()) || 'Cross-Collab Raffle';
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
@@ -183,7 +225,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
             <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
               fixed={studio.deck_s1_title1_size}
               style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-              Cross-collab
+              {title1}
             </FitText>
             <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
               fixed={studio.deck_s1_title2_size}
@@ -191,14 +233,14 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
               {orangeLine}
             </FitText>
           </div>
-          {/* Mobile: natural wrap, auto-size to widest line */}
+          {/* Mobile (landscape): title nowrap fills width, partner line wraps naturally */}
           <div className="deck-cover-mobile" style={{ display: 'none' }}>
-            <FitText as="h1" multiline min={28} max={72}
+            <FitText as="h1" min={24} max={72}
               style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-              Cross-collab
+              {title1}
             </FitText>
-            <FitText as="p" multiline min={24} max={64}
-              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+            <FitText as="p" multiline min={18} max={56}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28, lineHeight: 0.95 }}>
               {orangeLine}
             </FitText>
           </div>
@@ -211,6 +253,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
     </div>
   );
 }
+
 
 /* ─────────── Slide 2: Concept ─────────── */
 function SlideConcept({ studio }: { studio: any }) {

@@ -10,9 +10,13 @@ import { ScreenshotUpload } from './ScreenshotUpload';
 import { LiveEntryCounter } from './LiveEntryCounter';
 import { ConfirmationScreen } from './ConfirmationScreen';
 import { PrizeShowcase } from './PrizeShowcase';
-import { getParticipantStudioName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
+import { FitText } from './FitText';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { getParticipantStudioName, getParticipantBrandName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
+
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
+
 
 interface PartnerActionState {
   partner_id: string;
@@ -50,11 +54,13 @@ interface Props {
 export function GiveawayEntryForm({ slug, previewMode }: Props) {
   const { studio, loading } = useGiveawayStudio(slug);
   const { partners } = useGiveawayPartners(slug);
+  const isMobile = useIsMobile();
   const [form, setForm] = useState<FormState>({ ...baseEmpty, ig_checks: {}, partner_actions: [] });
   const [draftId] = useState<string>(() => crypto.randomUUID());
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ firstName: string; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
 
   const studioIgHandle = getStudioIgHandle(slug).replace(/^@/, '');
   const studioIgDisplay = getStudioIgHandle(slug);
@@ -216,12 +222,26 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
       <div className="w-full max-w-[1200px] mx-auto px-4 md:px-12 py-6 md:py-10">
         {/* Hero */}
         <div className="mb-8 md:mb-10">
-          <h1
-            className="font-display font-black text-[#E8540A] leading-[0.95] uppercase line-clamp-2"
-            style={{ fontSize: 'clamp(32px, 5vw, 56px)', letterSpacing: '0.01em' }}
-          >
-            {giveawayTitle}
-          </h1>
+          {isMobile ? (
+            <MobileStackedTitle studioName={getParticipantBrandName()} partners={partners} />
+          ) : (
+            <FitText
+              as="h1"
+              min={28}
+              max={56}
+              multiline
+              style={{
+                fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
+                fontWeight: 900,
+                color: '#E8540A',
+                lineHeight: 0.95,
+                letterSpacing: '0.01em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {giveawayTitle}
+            </FitText>
+          )}
           <p
             className="font-display font-medium uppercase text-[#8E8E93] mt-2"
             style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}
@@ -232,6 +252,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
             Complete actions below to earn entries. More entries = more chances to win.
           </p>
         </div>
+
 
         {endAt && (
           <div className="mb-8 flex justify-center md:justify-start">
@@ -402,6 +423,50 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
     </Shell>
   );
 }
+
+const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
+
+function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
+  const baseStyle: React.CSSProperties = {
+    fontFamily: TITLE_FONT,
+    fontWeight: 900,
+    lineHeight: 0.95,
+    letterSpacing: '0.01em',
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
+  };
+  const sep = (
+    <div
+      style={{
+        fontFamily: TITLE_FONT,
+        fontWeight: 900,
+        color: '#E8540A',
+        fontSize: 20,
+        textAlign: 'center',
+        margin: '4px 0',
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  );
+  return (
+    <div>
+      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>
+        {studioName}
+      </FitText>
+      {partners.map((p, i) => (
+        <div key={i}>
+          {sep}
+          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>
+            {p.partner_name}
+          </FitText>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
