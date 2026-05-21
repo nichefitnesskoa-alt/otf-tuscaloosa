@@ -257,7 +257,7 @@ export default function TheTable() {
               meetingId={meeting.id}
               ownerId={mine.id}
               entry={myEntry}
-              onChange={() => refresh('table-entries')}
+              onChange={onEntryChange}
             />
           </CollapsibleUpdateCard>
         );
