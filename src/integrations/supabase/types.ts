@@ -1149,6 +1149,17 @@ export type Database = {
           countdown_duration_days: number
           created_at: string
           custom_title: string | null
+          deck_contact_email: string | null
+          deck_contact_name: string | null
+          deck_contact_phone: string | null
+          deck_contact_title: string | null
+          deck_headline_value: string | null
+          deck_intro_copy: string | null
+          deck_prize_anchor_value: number | null
+          deck_what_we_need_class: string | null
+          deck_what_we_need_prize: string | null
+          deck_what_we_need_promotion: string | null
+          deck_what_we_need_time: string | null
           goes_live_at: string | null
           id: string
           studio_name: string
@@ -1161,6 +1172,17 @@ export type Database = {
           countdown_duration_days?: number
           created_at?: string
           custom_title?: string | null
+          deck_contact_email?: string | null
+          deck_contact_name?: string | null
+          deck_contact_phone?: string | null
+          deck_contact_title?: string | null
+          deck_headline_value?: string | null
+          deck_intro_copy?: string | null
+          deck_prize_anchor_value?: number | null
+          deck_what_we_need_class?: string | null
+          deck_what_we_need_prize?: string | null
+          deck_what_we_need_promotion?: string | null
+          deck_what_we_need_time?: string | null
           goes_live_at?: string | null
           id?: string
           studio_name: string
@@ -1173,6 +1195,17 @@ export type Database = {
           countdown_duration_days?: number
           created_at?: string
           custom_title?: string | null
+          deck_contact_email?: string | null
+          deck_contact_name?: string | null
+          deck_contact_phone?: string | null
+          deck_contact_title?: string | null
+          deck_headline_value?: string | null
+          deck_intro_copy?: string | null
+          deck_prize_anchor_value?: number | null
+          deck_what_we_need_class?: string | null
+          deck_what_we_need_prize?: string | null
+          deck_what_we_need_promotion?: string | null
+          deck_what_we_need_time?: string | null
           goes_live_at?: string | null
           id?: string
           studio_name?: string
