@@ -213,6 +213,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
   if (partners.length >= 1) {
     orangeLine = ['OrangeTheory Fitness', ...partners.map(p => p.partner_name)].join(SEP);
   }
+  const title1 = (studio.deck_s1_title1 && String(studio.deck_s1_title1).trim()) || 'Cross-Collab Raffle';
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
@@ -224,7 +225,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
             <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
               fixed={studio.deck_s1_title1_size}
               style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-              Cross-collab
+              {title1}
             </FitText>
             <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
               fixed={studio.deck_s1_title2_size}
@@ -232,14 +233,14 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
               {orangeLine}
             </FitText>
           </div>
-          {/* Mobile: natural wrap, auto-size to widest line */}
+          {/* Mobile (landscape): title nowrap fills width, partner line wraps naturally */}
           <div className="deck-cover-mobile" style={{ display: 'none' }}>
-            <FitText as="h1" multiline min={28} max={72}
+            <FitText as="h1" min={24} max={72}
               style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-              Cross-collab
+              {title1}
             </FitText>
-            <FitText as="p" multiline min={24} max={64}
-              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+            <FitText as="p" multiline min={18} max={56}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28, lineHeight: 0.95 }}>
               {orangeLine}
             </FitText>
           </div>
@@ -252,6 +253,7 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
     </div>
   );
 }
+
 
 /* ─────────── Slide 2: Concept ─────────── */
 function SlideConcept({ studio }: { studio: any }) {
