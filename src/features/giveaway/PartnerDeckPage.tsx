@@ -117,7 +117,31 @@ export default function PartnerDeckPage() {
 
   return (
     <div style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh' }}>
-      <nav style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <style>{`
+        @media(max-width:768px){
+          .deck-slide{ padding:32px 20px !important; }
+          .deck-eyebrow{ font-size:9px !important; letter-spacing:0.18em !important; }
+          .deck-body{ font-size:13px !important; max-width:none !important; }
+          .deck-phase-title{ font-size:15px !important; }
+          .deck-ask-card{ padding:14px !important; }
+          .deck-ask-label{ font-size:9px !important; }
+          .deck-ask-body{ font-size:12px !important; }
+          .deck-nav{ right:12px !important; gap:6px !important; }
+          .deck-nav a{ width:5px !important; height:5px !important; }
+          .deck-cover-desktop{ display:none !important; }
+          .deck-cover-mobile{ display:block !important; }
+          .deck-prize-row-desktop{ display:none !important; }
+          .deck-prize-row-mobile{ display:flex !important; }
+          .deck-story-icon-wrap{ width:32px !important; height:32px !important; }
+          .deck-grid{ grid-template-columns:1fr !important; }
+          .deck-grid-2{ grid-template-columns:1fr !important; }
+        }
+        @media(min-width:769px){
+          .deck-cover-mobile{ display:none !important; }
+          .deck-prize-row-mobile{ display:none !important; }
+        }
+      `}</style>
+      <nav className="deck-nav" style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {slides.map((s, i) => (
           <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
             onClick={() => setActiveSlide(i)}
