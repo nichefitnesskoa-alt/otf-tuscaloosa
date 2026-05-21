@@ -1,69 +1,61 @@
+## Problems found
 
-# Fix: WIG Coach Closes must match Studio totalClosed (buy_date anchored)
+I pulled the actual data for the Bama Dining (May 22) session and traced the disconnect.
 
-## The bug (verified with real data)
+**1. "0 registered" is a silent query failure.**
+`VipSchedulerTab.fetchSessions()` runs:
+```ts
+sb.from('vip_registrations')
+  .select('vip_session_id, is_group_contact, estimated_group_size')
+```
+`estimated_group_size` lives on `vip_sessions`, NOT `vip_registrations`. The select errors out, `regs` comes back empty, every card renders `0 registered` — even when the Registrations dialog (which uses a correct select) shows 5 people. That's exactly what your screenshots show: card says 0, dialog says 5 Registered.
 
-Kimberly Brown:
-- `intros_booked`: `class_date = 2026-04-15`, `coach_name = Koa`, `intro_owner = Kaiya`
-- `intros_run` (linked): `result_canon = BASIC`, `buy_date = 2026-05-21`, `run_date = 2026-04-15`, `coach_name = Koa`
+**2. Group contact lives in the wrong place.**
+The group contact (Nicole Welch) is stored only as `reserved_contact_name/phone/email` on `vip_sessions`. She is never inserted into `vip_registrations`, so:
+- She's not in the roster, CSV export, or attendance count.
+- There's no way to add her details (fitness level, injuries, birthday, etc.) like a real attendee.
+- There's no "add another person" affordance inside the Registrations dialog at all — staff currently have to send the public registration link to add anyone after the fact.
 
-With WIG date filter `this_month` (May 1–31, 2026):
+**3. Pipeline VIP tab vs VIPs page "don't communicate".**
+Both pages render the exact same `VipSchedulerTab`, so the disconnect you're seeing is the same `0 registered` bug surfacing in both places plus the group contact not being counted. Fixing #1 and #2 makes the two views agree by construction (single source of truth — same query, same rows).
 
-| Surface | Counts Kimberly? | Why |
-|---|---|---|
-| Studio `totalClosed` (Wig.tsx L216–225) | YES | uses `isSaleInRange(r, ...)` which anchors to `buy_date` (May) per [Metric Date Anchoring](mem://logic/reporting/metric-date-anchoring) |
-| Coach "Closes" drill-down (Wig.tsx L350–620) | NO | only fetches `intros_booked` where `class_date BETWEEN range_start AND range_end`. Kimberly's April class is excluded from `firstIntroBookings`, so her run is never inspected for the per-coach close map |
+## Plan
 
-So the top metric reads 1, the drill-down reads 0 — same data point, two answers. Violates the workspace coherence rule and the "Anchor sales to buy_date" core rule.
+### A. Fix the registered count (root cause)
+- In `src/features/pipeline/components/VipSchedulerTab.tsx`, remove `estimated_group_size` from the `vip_registrations` select inside `fetchSessions`.
+- Count registered = all rows for the session (group contact included, see B).
+- Keep `regEstimates` sourced from `vip_sessions.estimated_group_size` (already on the session), not from registrations.
 
-## Fix
+### B. Promote group contact to a real registration
+- When a session is marked Reserved with a group contact, also upsert a `vip_registrations` row for that contact with `is_group_contact = true` and `vip_session_id = <session>`. Backfill once for existing reserved sessions that have `reserved_contact_name` but no matching registration row (one-time migration, idempotent).
+- Registrations dialog already sorts `is_group_contact` first — the existing "Group Contact" card stays, but the table will now also include them, and the count will include them.
+- CSV export already iterates `registrations`, so they'll be included automatically.
 
-In `src/pages/Wig.tsx` `loadLeadMeasures`, augment per-coach close attribution with a second pass anchored to `buy_date` so closes match the studio top-line exactly:
+### C. Add "Add person" inside the Registrations dialog
+- New "+ Add Person" button in the dialog header (next to Export to CSV).
+- Opens a compact inline form: First name, Last name, Phone, Email, Fitness level (1–5), Injuries, Birthday, Weight, plus a `Group Contact` toggle (defaults off; if on, also updates `vip_sessions.reserved_contact_*` so the two stay in sync).
+- Insert into `vip_registrations` with `vip_session_id`. Realtime subscription already in place will refresh counts on every card instantly.
+- Reuse `FormHelpers` (`formatPhoneAsYouType`, `autoCapitalizeName`) and existing styling — no new components, no new libraries.
 
-1. **New query** after the existing first-intro pull, restricted to membership sale runs whose `buy_date` falls in `rangeStart..rangeEnd`:
-   ```ts
-   const { data: saleRunsByBuy } = await supabase
-     .from('intros_run')
-     .select('id, linked_intro_booked_id, coach_name, result, result_canon, buy_date, run_date, created_at')
-     .in('result_canon', ['SALE','PREMIER','PREMIER_OTBEAT','ELITE','BASIC'])
-     .gte('buy_date', rangeStart)
-     .lte('buy_date', rangeEnd);
-   ```
-   This is the same canonical sale set the studio uses; we just use `buy_date` as the bucket.
+### D. Verify cross-surface coherence (per workspace rules)
+After the fix, confirm with real data:
+- Bama Dining May 22 card shows `5 registered` (or `6` after promoting Nicole).
+- Registrations dialog shows the same number, with Nicole listed as Group Contact at top.
+- Pipeline → VIP Scheduler tab and VIPs page both show identical counts (same component, same query).
+- `VipPerformanceDashboard` "Total Attendees" still works (it reads `vip_registrations.outcome` + `vip_sessions.actual_attendance`, not affected).
+- CSV export includes the group contact row.
 
-2. **Resolve each sale to a first-intro booking + coach**, mirroring existing logic:
-   - Fetch the linked `intros_booked` row (batched `.in('id', ...)`) if not already in `bookingByIdMap`.
-   - Walk `originating_booking_id` upward to find the root first intro (Total Journey, matches existing 2nd-intro credit path at L498–588). Reuse the helper pattern already in `resolveJourneyChainsForBookings` so we don't duplicate logic — or inline a small batched parent lookup since we only need the root booking row for VIP/lead_source.
-   - Coach = `resolveCloseCoach(rootBooking, run.coach_name)` (same VIP override already in place).
-   - Skip if `result_canon === 'VIP_CLASS_INTRO'` (already excluded today).
-   - Skip if `isBookingExcludedFromMetrics(rootBooking)` (DELETED_SOFT, ignore_from_metrics, etc.).
+### Technical details
 
-3. **Merge into `coachCloseMap` and `attribMap` without double-counting**:
-   - Track a `countedRunIds: Set<string>` across both passes. The existing pass at L550–588 adds to this set as it counts. The new pass only counts runs whose id is not already in it.
-   - For brand-new closes (intro was outside the period), push into `attribMap[coach].closes` with `via: 'direct'` (or `via: '2nd_intro'` if the run is on a 2nd intro and we credit the originator coach — match existing Total Journey behavior). Use `classDate` from the root booking so the drill-down still shows when the member first came in.
-   - Also increment the coach's `closeTotal`/`closed` so close-rate denominator math behaves the same way the existing pass does.
+Files touched:
+- `src/features/pipeline/components/VipSchedulerTab.tsx` — fix select, add "+ Add Person" form, wire group-contact upsert when marking reserved.
+- One Supabase migration: backfill `vip_registrations` rows for existing reserved sessions whose `reserved_contact_name` is set but who have no matching registration. Idempotent (`ON CONFLICT DO NOTHING` on a name+phone+session match, or guarded with `NOT EXISTS`).
 
-4. **Coached count is NOT changed.** Coached stays anchored to `class_date in range` (that's correct — Koa didn't coach a new intro in May for Kimberly). Per-coach close rate can therefore legitimately exceed coached count in a given month when a prior month's intro converts; that's the same shape the studio already shows and matches the Total Journey definition.
+Out of scope (won't touch):
+- `VipPipelineTable` — it lists VIP-sourced intro bookings, not registrations; not the source of the mismatch.
+- `VipPerformanceDashboard` quarterly metrics.
+- Public `/vip-availability` flow.
 
-5. **Reconciliation invariant (assert in code via console.warn in dev only, optional)**: after both passes, `sum(coachData.closes) === totalClosed`. If they ever drift, log a diagnostic with the offending booking ids so future regressions are obvious.
-
-## Files touched
-
-- `src/pages/Wig.tsx` — extend `loadLeadMeasures` only. No other files.
-
-No DB changes. No schema changes. No new helper file required (existing journey helper covers the parent-walk if we want; otherwise a 5-line inline lookup is enough).
-
-## Verification
-
-- Reload `/wig` with default `this_month` filter.
-- Top "Close rate" card numerator (`coachTableTotals.closes`) should equal `totalClosed` (the studio metric on the same page).
-- Open "Koa · Closes" drill-down for May 2026 — Kimberly Brown should appear alongside the existing four sales, total 5.
-- Switch filter to April 2026 — Kimberly should NOT appear under closes (her sale buy_date is May), confirming we anchored to `buy_date`, not `class_date` or `run_date`.
-- Switch filter to "All time" — counts unchanged.
-- Spot-check one VIP Class sale to confirm VIP coach override still works on the new pass.
-
-## Out of scope
-
-- Coach Stats "Coached" column logic (intentional — coached is a class_date metric).
-- Studio dashboards (already correct, this fix brings WIG into agreement with them).
-- Commission attribution (uses `intro_owner`, separate concern — Kimberly's commission already credits Kaiya correctly).
+### Confirm before I build
+1. When adding a person via "+ Add Person", should the default `lead_source` story stay as just a registration (no intro booking auto-created), or should I also expose the existing "Book Intro" flow from inside that form? My default: just register; staff can still hit Book Intro on the card afterward.
+2. For the one-time backfill of existing reserved sessions' group contacts into `vip_registrations` — proceed for all historical reserved sessions, or only future-dated ones?
