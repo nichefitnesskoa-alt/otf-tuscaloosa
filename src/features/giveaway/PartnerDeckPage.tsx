@@ -265,10 +265,21 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
 
   const footerColor = framing.footerStyle === 'brand' ? C.orange : C.gray;
 
+  const tagPillStyle = (accent: boolean, mobileCapWidth?: boolean): React.CSSProperties => ({
+    display: 'inline-block', padding: '3px 8px', borderRadius: 2,
+    fontFamily: LABEL_FONT, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em',
+    textTransform: 'uppercase', whiteSpace: 'nowrap',
+    background: accent ? C.orange : C.boneDim08,
+    color: accent ? C.dark : C.gray,
+    border: accent ? 'none' : `1px solid ${C.boneDim15}`,
+    flexShrink: 0,
+    ...(mobileCapWidth ? { maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis' } : null),
+  });
+
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
         <FitText as="h2" min={SIZES.s3_headline.min} max={SIZES.s3_headline.max}
           fixed={studio.deck_s3_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 12 }}>
@@ -281,27 +292,37 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
           {rows.map((r, i) => {
             const isLast = i === rows.length - 1;
             const showValue = !!r.value && (!framing.showWinnerBadgePerRow || r.tagAccent);
+            const rowBorder = isLast ? 'none' : `1px solid ${C.boneDim08}`;
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: isLast ? 'none' : `1px solid ${C.boneDim08}` }}>
-                <span style={{
-                  display: 'inline-block', padding: '3px 8px', borderRadius: 2,
-                  fontFamily: LABEL_FONT, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', whiteSpace: 'nowrap',
-                  background: r.tagAccent ? C.orange : C.boneDim08,
-                  color: r.tagAccent ? C.dark : C.gray,
-                  border: r.tagAccent ? 'none' : `1px solid ${C.boneDim15}`,
-                  flexShrink: 0,
-                }}>{r.tag}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={i}>
+                {/* Desktop row */}
+                <div className="deck-prize-row-desktop" style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: rowBorder }}>
+                  <span style={tagPillStyle(r.tagAccent)}>{r.tag}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
+                    {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
+                  </div>
+                  {showValue && (
+                    <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
+                  )}
+                  {framing.showWinnerBadgePerRow && (
+                    <span style={{ marginLeft: showValue ? 8 : 'auto' }}>{winnerBadge}</span>
+                  )}
+                </div>
+                {/* Mobile row: stacked */}
+                <div className="deck-prize-row-mobile" style={{ display: 'none', flexDirection: 'column', padding: '14px 0', borderBottom: rowBorder }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <span style={tagPillStyle(r.tagAccent, true)}>{r.tag}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      {framing.showWinnerBadgePerRow && winnerBadge}
+                      {showValue && (
+                        <span style={{ fontFamily: FONT_STACK, fontSize: 12, fontWeight: 700, color: C.orange, flexShrink: 0 }}>{r.value}</span>
+                      )}
+                    </div>
+                  </div>
                   <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
                   {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
                 </div>
-                {showValue && (
-                  <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
-                )}
-                {framing.showWinnerBadgePerRow && (
-                  <span style={{ marginLeft: showValue ? 8 : 'auto' }}>{winnerBadge}</span>
-                )}
               </div>
             );
           })}
