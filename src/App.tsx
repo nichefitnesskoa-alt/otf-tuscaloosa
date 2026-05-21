@@ -35,6 +35,7 @@ import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
+import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
@@ -157,6 +158,7 @@ function AppRoutes() {
       <Route path="/join-the-team" element={<Apply />} />
       <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
       <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
+      <Route path="/admin/:studioSlug/preview" element={<GiveawayPreviewPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route
         path="/my-day"

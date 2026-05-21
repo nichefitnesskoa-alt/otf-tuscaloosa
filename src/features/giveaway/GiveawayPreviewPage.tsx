@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Eye, ArrowLeft, Smartphone, Monitor, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -122,6 +122,3 @@ export default function GiveawayPreviewPage() {
     </div>
   );
 }
-
-// Re-export Link to satisfy linter for unused import
-export { Link };
