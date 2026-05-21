@@ -22,6 +22,40 @@ export interface GiveawayStudio {
   deck_what_we_need_promotion: string | null;
   deck_what_we_need_class: string | null;
   deck_what_we_need_time: string | null;
+  // Per-slide editable fields
+  deck_s2_headline: string | null;
+  deck_s2_body: string | null;
+  deck_s3_headline: string | null;
+  deck_s3_value_note: string | null;
+  deck_s4_headline: string | null;
+  deck_s4_subtext: string | null;
+  deck_s4_phase1_title: string | null;
+  deck_s4_phase1_body: string | null;
+  deck_s4_phase2_title: string | null;
+  deck_s4_phase2_body: string | null;
+  deck_s4_phase3_title: string | null;
+  deck_s4_phase3_body: string | null;
+  deck_s5_headline: string | null;
+  deck_s5_c1_title: string | null;
+  deck_s5_c1_body: string | null;
+  deck_s5_c2_title: string | null;
+  deck_s5_c2_body: string | null;
+  deck_s5_c3_title: string | null;
+  deck_s5_c3_body: string | null;
+  deck_s5_c4_title: string | null;
+  deck_s5_c4_body: string | null;
+  deck_s6_headline: string | null;
+  deck_s6_body: string | null;
+  deck_s6_note: string | null;
+  deck_s7_headline: string | null;
+  deck_s8_headline: string | null;
+  deck_s8_prize: string | null;
+  deck_s8_promo: string | null;
+  deck_s8_class: string | null;
+  deck_s8_time: string | null;
+  deck_s9_headline: string | null;
+  deck_s9_subline: string | null;
+  deck_s9_body: string | null;
 }
 
 export function useGiveawayStudio(slug: string | undefined) {
