@@ -92,6 +92,60 @@ export default function PartnerDeckPage() {
     };
   }, []);
 
+  // Lock to full screen — prevent pinch zoom, double-tap zoom, Safari text auto-adjust.
+  // Scoped to the public partner deck route only; fully cleaned up on unmount.
+  useEffect(() => {
+    // 1. Swap viewport meta tag to disable user scaling
+    const viewport = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+    const prevViewport = viewport?.getAttribute('content') ?? null;
+    if (viewport) {
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+
+    // 2. Safari/iOS CSS overrides on html + body
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlTextAdjust: html.style.getPropertyValue('-webkit-text-size-adjust'),
+      htmlTextAdjustStd: html.style.getPropertyValue('text-size-adjust'),
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyTouchAction: body.style.touchAction,
+    };
+    html.style.setProperty('-webkit-text-size-adjust', 'none');
+    html.style.setProperty('text-size-adjust', 'none');
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.touchAction = 'none';
+
+    // 3. Prevent pinch zoom
+    const preventZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+
+    // 4. Prevent double-tap zoom
+    let lastTap = 0;
+    const preventDoubleTap = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault();
+      lastTap = now;
+    };
+
+    document.addEventListener('touchmove', preventZoom, { passive: false });
+    document.addEventListener('touchend', preventDoubleTap, { passive: false });
+
+    return () => {
+      if (viewport && prevViewport !== null) viewport.setAttribute('content', prevViewport);
+      html.style.setProperty('-webkit-text-size-adjust', prev.htmlTextAdjust);
+      html.style.setProperty('text-size-adjust', prev.htmlTextAdjustStd);
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.touchAction = prev.bodyTouchAction;
+      document.removeEventListener('touchmove', preventZoom);
+      document.removeEventListener('touchend', preventDoubleTap);
+    };
+  }, []);
+
   useEffect(() => {
     const handler = () => {
       const container = document.getElementById('deck-scroll');
@@ -130,7 +184,7 @@ export default function PartnerDeckPage() {
   ];
 
   return (
-    <div style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh' }}>
+    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
       <style>{`
         @media(max-width:768px){
           .deck-slide{ padding:32px 20px !important; }
