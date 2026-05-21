@@ -44,7 +44,7 @@ export function PrizeShowcase({
         className="hidden md:grid gap-3"
         style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
       >
-        {cards.map(c => <PrizeCard key={c.id} {...c} />)}
+        {cards.map(c => <PrizeCard key={c.id} {...c} showWinnerBadge={showWinnerBadge} />)}
       </div>
 
       {/* Mobile horizontal scroll */}
