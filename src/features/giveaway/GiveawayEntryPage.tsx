@@ -318,6 +318,12 @@ export default function GiveawayEntryPage() {
                     <a href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer" className="hover:text-[#E8540A]">@{handle}</a>
                   </p>
                 )}
+                {p.prize_description && (
+                  <div className="mb-3 inline-flex items-start gap-1.5 rounded-md border border-[#E8540A]/40 bg-[#E8540A]/10 text-[#E8540A] px-2 py-1" style={{ fontSize: 11 }}>
+                    <span>🎁</span>
+                    <span className="font-bold">Prize: {p.prize_description}</span>
+                  </div>
+                )}
                 <ScreenshotUpload
                   studioSlug={studio.studio_slug}
                   draftId={draftId}
