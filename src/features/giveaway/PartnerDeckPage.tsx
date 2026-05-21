@@ -212,7 +212,21 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
   for (const p of partners) {
     rows.push({ tag: p.partner_name, tagAccent: false, title: p.prize_description?.trim() || 'Prize coming', description: p.receipt_instructions?.trim() || '' });
   }
-  const valueNote = pick(studio.deck_s3_value_note, `Target total value: ${bundleTotal}`);
+  const framing = getDeckSlide3Framing(studio.winner_structure);
+  const headlineText = pick(studio.deck_s3_headline, framing.headline);
+  const valueNote = `Total prize value: ${bundleTotal}`;
+
+  const winnerBadge = (
+    <span style={{
+      display: 'inline-block', padding: '2px 6px', borderRadius: 2,
+      fontFamily: LABEL_FONT, fontSize: 9, fontWeight: 700, letterSpacing: '0.16em',
+      textTransform: 'uppercase', whiteSpace: 'nowrap',
+      background: C.boneDim08, color: C.gray, border: `1px solid ${C.boneDim15}`,
+      flexShrink: 0,
+    }}>1 winner</span>
+  );
+
+  const footerColor = framing.footerStyle === 'brand' ? C.orange : C.gray;
 
   return (
     <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
@@ -221,14 +235,15 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
         <FitText as="h2" min={SIZES.s3_headline.min} max={SIZES.s3_headline.max}
           fixed={studio.deck_s3_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 12 }}>
-          {pick(studio.deck_s3_headline, DEFAULT_DECK.s3_headline)}
+          {headlineText}
         </FitText>
-        <p style={{ ...body(12), color: C.orange, opacity: 0.85, marginBottom: 8 }}>{valueNote}</p>
-        <p style={{ ...body(12), color: C.gray, marginBottom: 32 }}>The more partners join, the bigger the prize. The more people enter.</p>
+        <p style={{ ...body(12), color: C.orange, opacity: 0.85, marginBottom: 4 }}>{valueNote}</p>
+        <p style={{ ...body(12), color: C.gray, marginBottom: 32 }}>{framing.bundleSubtext}</p>
 
         <div style={{ maxWidth: 520, width: '100%' }}>
           {rows.map((r, i) => {
             const isLast = i === rows.length - 1;
+            const showValue = !!r.value && (!framing.showWinnerBadgePerRow || r.tagAccent);
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: isLast ? 'none' : `1px solid ${C.boneDim08}` }}>
                 <span style={{
@@ -244,10 +259,20 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
                   <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
                   {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
                 </div>
-                {r.value && <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>}
+                {showValue && (
+                  <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
+                )}
+                {framing.showWinnerBadgePerRow && (
+                  <span style={{ marginLeft: showValue ? 8 : 'auto' }}>{winnerBadge}</span>
+                )}
               </div>
             );
           })}
+          <p style={{
+            ...body(12), color: footerColor, fontStyle: 'italic', marginTop: 12,
+          }}>
+            {framing.footerLine}
+          </p>
         </div>
       </div>
     </div>
