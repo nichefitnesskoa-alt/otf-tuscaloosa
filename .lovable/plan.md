@@ -1,89 +1,56 @@
+## What's broken
 
-## Diagnosis: "constant refresh" on My Day
+Own It (`/the-table`) has two places people type:
 
-The session replay shows DOM nodes being torn down and rebuilt on a tight cadence (status badges flipping, time labels redrawing, milestone rows re-mounting). This is **not** a full `window.location` reload — `ErrorBoundary.handleReload` is the only `reload()` call and is button-only. It's also **not** a runaway useEffect loop (no setState-inside-effect that depends on its own output, no router redirect loop). It is a **cascade of timers + realtime subscriptions + unstable child keys** firing constantly in the My Day tree and re-rendering large chunks of UI.
+1. **OwnerEntryForm** — the 4 lane-update fields (Last week / This week / Ideas / Ask). These use `MentionInput` in **uncontrolled** mode (`defaultValue` + `onBlur`).
+2. **OwnerLiveCard** — the Add / Flag / Own It response box. Uses `MentionInput` in **controlled** mode.
 
-Here are the specific root causes, ranked by impact.
+Three issues stack up to make typing feel broken:
 
----
+### Issue 1 — `MentionInput` is half-controlled
+In `src/components/shared/MentionInput.tsx`:
+```tsx
+defaultValue={isControlled ? undefined : defaultValue}
+value={isControlled ? text : undefined}
+```
+Passing `value={undefined}` plus `defaultValue` on the same `<Textarea>`/`<Input>` puts React in a fragile mode. Every parent re-render (and Own It re-renders constantly from realtime invalidations on `table_owner_entries`, `table_responses`, `table_owners`) re-evaluates `defaultValue` from the latest `entry?.field`. If React ever flips its internal "controlled?" decision because of an `undefined`→string transition, the input snaps back to the old DB value and the user's in-progress text disappears.
 
-### 1. Ticker storm on My Day (biggest contributor)
+### Issue 2 — OwnerEntryForm mounts before its row exists
+`OwnerEntryForm` runs an `upsert` in `useEffect` to create the empty entry. That upsert fires realtime → invalidates `table-entries` → refetches → parent passes a new `entry` object → `val` recomputes → `defaultValue` prop changes from `''` to `''`. Combined with Issue 1 this is enough to wipe characters mid-typing on slower devices. It also means if the user types fast enough to blur before `entryId` is set, the first `save()` upsert races the mount upsert and one of them wins with stale text.
 
-Six independent components on `/my-day` each run their own `setInterval`, every one of them calling `setState` on its parent subtree:
+### Issue 3 — Inline `onChange`/`refresh` callbacks
+`TheTable` builds `onChange={() => refresh('table-entries')}` inline every render. `refresh` itself is rebuilt every render. So `OwnerEntryForm`'s mount effect has a churning `onChange` in its deps; combined with realtime invalidations, the form re-runs work unnecessarily and any internal `useMemo` keyed on these props thrashes.
 
-| File | Line | Interval |
-|---|---|---|
-| `src/features/myDay/ClassMilestoneChecks.tsx` | 63 | 30s — `setMinutesNow(...)` re-renders the whole milestone list |
-| `src/features/myDay/IntroRowCard.tsx` | 158 | 60s — runs **per row** |
-| `src/features/myDay/IntroRowCard.tsx` | 200 | 30s — runs **per row** |
-| `src/features/myDay/UpcomingIntrosCard.tsx` | 213 | 60s |
-| `src/features/myDay/NewLeadsAlert.tsx` | 149 | 60s — also re-runs `fetchNewLeads()` which queries `intros_booked` with no filter |
-| `src/features/myDay/MyDayNewLeadsTab.tsx` | 474 | 5 min — `backgroundDedupRecheck()` |
-| `src/components/dashboard/IntroCountdown.tsx` | 33 | 60s |
-| `src/components/leads/FollowUpQueue.tsx` | 185, 324 | React Query `refetchInterval: 60_000` and `120_000` |
+## The fix (three small surgical changes)
 
-With N intro cards visible, you have ~`2N + 5` timers firing within any 60-second window, each producing a `setState` that re-renders sibling subtrees. To the user this looks like the page is constantly refreshing.
+### 1. `src/components/shared/MentionInput.tsx` — make it always controlled internally
+- Always render `<Field value={text} onChange={handleChange} />`. Never pass `defaultValue` to the underlying field.
+- Keep `internal` state seeded from `defaultValue ?? ''`.
+- Sync `internal` from `defaultValue` **only when an explicit `resetKey` prop changes** (new optional prop). That way re-renders triggered by realtime cannot blow away typed text.
+- Keep `value`/`onChange` controlled mode working unchanged for callers that pass them.
 
-**Fix direction:**
-- Hoist a single 30s "now" ticker into a context (e.g. `useNowMinute()`), have all per-row countdowns subscribe to that value instead of owning their own intervals.
-- Drop the per-row 30s interval in `IntroRowCard` — 60s is enough granularity for "minutes until class".
-- Remove the 60s `fetchNewLeads` poll in `NewLeadsAlert`; it already has realtime subscriptions on `lead_activities` and `intros_booked`. Polling is redundant.
-- For `FollowUpQueue`, drop `refetchInterval` — the realtime subscription on `follow_up_queue` already covers liveness.
+This single change makes every consumer (OwnerEntryForm, OwnerLiveCard, Win logger) bulletproof against re-render-driven text loss.
 
-### 2. Realtime channel fans out and re-fetches everything
+### 2. `src/pages/TheTable.tsx` — `OwnerEntryForm` hardening
+- Move the "ensure entry row exists" upsert into a small hook scoped to `(meetingId, ownerId)` that only runs once per pair and stores the resolved `entryId` in a ref. Stop depending on `onChange` in its deps.
+- Pass `resetKey={entry?.id ?? 'new'}` to each `MentionInput` so that when the row is first created the inputs accept the fresh empty defaults exactly once, and after that ignore prop churn.
+- Wrap `refresh` and the per-form `onChange` in `useCallback` with stable deps so child effects don't see new function identities every render.
 
-`src/hooks/useRealtimeMyDay.ts` subscribes to **six tables** (`intros_booked`, `intros_run`, `leads`, `follow_up_queue`, `script_actions`, `intro_questionnaires`) and fires `onUpdate` on every `*` event. On `/my-day`:
+### 3. `src/hooks/useActiveStaff.ts` — stabilise derived arrays
+- Memoise `allActive`, `coaches`, `salesAssociates` on `staff`. Currently they're rebuilt every call, which makes every `MentionInput` instance see "new" arrays and recompute candidates each render. Not the proximal cause of input failure but it's noise in the same hot path.
 
-- `MyDayPage.tsx:178` — every event triggers `setTimeout(fetchMetrics, 1500)`. `fetchMetrics` (line 230) runs three Supabase queries and calls `setTodayScriptsSent`, `setTodayFollowUpsSent`, `setNeedsOutcomeCount` — three re-renders of the whole page.
-- The cleanup returned by `handleRealtimeUpdate` is **discarded** because `useRealtimeMyDay`'s subscriber doesn't call it. So each event leaks a 1.5s timer (not a loop, but compounds the cascade).
-- In a busy studio (`script_actions` writes happen on every clipboard copy, `intro_questionnaires` writes on every Q field), this fires many times per minute.
+## How we verify it sticks
 
-`src/features/myDay/NewLeadsAlert.tsx:130` adds **another** realtime channel on `lead_activities` and `intros_booked` — duplicate coverage of `intros_booked` already in `useRealtimeMyDay`.
+1. Open `/the-table`, claim a lane, type into all 4 fields rapidly — every character stays.
+2. Have a second tab post a response (or flip the meeting) while typing in the first tab — typed text survives realtime invalidations.
+3. Open the Add / Flag / Own It composer in the live view, type with `@` triggering the mention popup, press Enter to insert — caret + remaining text intact.
+4. Log a win from the dialog — text persists through the `table-wins` insert.
+5. Confirm no console warnings about "changing controlled to uncontrolled component".
 
-`src/features/myDay/ClassMilestoneChecks.tsx:73` adds a third channel.
+## Files touched
 
-**Fix direction:**
-- In `useRealtimeMyDay`, scope subscriptions to the tables that surface needs to know about (split into per-page hooks, e.g. `useRealtimeIntros`, `useRealtimeFollowUps`).
-- Debounce the realtime handler in `MyDayPage` (one trailing call per ~2s window) and remove the leaked-timer pattern by moving the `setTimeout` into a ref.
-- Have `MyDayPage` pull `todayScriptsSent`, `todayFollowUpsSent`, `needsOutcomeCount` from `useQuery` keyed on `['myday-metrics', user.name, todayStr]` so React Query dedupes & caches.
+- `src/components/shared/MentionInput.tsx` (controlled-only refactor + `resetKey` prop)
+- `src/pages/TheTable.tsx` (`OwnerEntryForm` seeding + stable callbacks + `resetKey` passthrough)
+- `src/hooks/useActiveStaff.ts` (memoised derived lists)
 
-### 3. Unstable `todayStr` recomputed every render
-
-Several components compute `const todayStr = format(new Date(), 'yyyy-MM-dd')` directly in the render body:
-
-- `src/features/myDay/MyDayPage.tsx:143` (`getTodayYMD()`)
-- `src/features/myDay/ShiftChecklist.tsx:63`
-- `src/features/myDay/MyDayShiftSummary.tsx:26`
-- `src/features/myDay/ClassMilestoneChecks.tsx:49` (`useMemo([today])` — fine, but `today` updates every 30s)
-
-`todayStr` value is stable for the day, so the **deps don't re-fire**, but each render produces a fresh string passed to children — combined with the inline arrow callbacks in `MyDayPage` (e.g. `onSaved={() => { ... refreshData(); fetchMetrics(); }}` at line 528, `onDone={() => { setBookIntroLead(null); fetchMetrics(); }}` at 541), every memoized child gets a new prop identity each render and re-renders too.
-
-**Fix direction:**
-- Memoize `todayStr`/`greeting` with `useMemo(..., [])` (or compute once in a top-level provider).
-- Wrap callback props in `useCallback`.
-
-### 4. `useDataAudit` singleton triggers cross-component re-renders
-
-`src/hooks/useDataAudit.ts` keeps a module-level `listeners` set. When the 30-minute interval runs `runFullAudit`, it calls `notifyListeners()` which `setResult` on every subscribed component. `runAudit` is `useCallback(..., [running])` so its identity flips on every audit (running → true → false). Not strictly a loop, but any consumer that depends on `runAudit` in its own effect will re-run.
-
-Lower priority — verify no consumer puts `runAudit` in a `useEffect` dep array.
-
-### 5. Things that look suspicious but are NOT the cause
-
-- `QueryClient` defaults in `src/App.tsx` already disable `refetchOnWindowFocus`. Good.
-- `AuthContext` only resolves the user once from `localStorage`. No re-init loop.
-- `DataContext.fetchData` runs once on mount. The `online`/`myday:walk-in-added` listeners only refire on real events.
-- `ErrorBoundary` only reloads on explicit user click.
-- Router has no auto-redirect loops; `ProtectedRoute` redirects to `/my-day` once when conditions match.
-
----
-
-### Suggested order of work (when the user approves)
-
-1. Hoist a single `useNowMinute()` ticker (and Chicago "today" rollover) into a tiny provider; consume in `IntroRowCard`, `UpcomingIntrosCard`, `ClassMilestoneChecks`, `IntroCountdown`, `NewLeadsAlert`. Net effect: 1 `setState` per minute studio-wide, not ~`2N+5`.
-2. In `MyDayPage`, debounce `handleRealtimeUpdate` to a single trailing call per 2.5s using a `useRef` timer, and convert the three `fetchMetrics` counters into a `useQuery` so they share cache and don't each trigger a separate render.
-3. Remove redundant polling: `NewLeadsAlert` 60s interval, `FollowUpQueue` `refetchInterval`s, second 30s timer in `IntroRowCard`.
-4. Memoize/`useCallback` the inline handlers in `MyDayPage` that fan out to drawers and lists, so memoized children stop re-rendering on every parent tick.
-5. Split `useRealtimeMyDay` so My Day only subscribes to the tables it actually consumes (drop `script_actions` + `intro_questionnaires` from MyDay's subscription; consume those locally where needed).
-
-No code changes yet — this plan documents the cause and the fix shape for your approval.
+No database changes. No behaviour changes for other consumers of `MentionInput` — they continue to work in their existing controlled mode.

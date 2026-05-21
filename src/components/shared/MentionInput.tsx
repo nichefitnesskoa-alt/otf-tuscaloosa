@@ -19,23 +19,45 @@ interface Props {
   variant?: 'textarea' | 'input';
   autoFocus?: boolean;
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => void;
+  /**
+   * When this key changes, the internal text is reset to the latest
+   * `defaultValue`. Use it to seed the input from a specific record id
+   * (e.g. the entry row id) without losing typed text on unrelated re-renders.
+   */
+  resetKey?: string | number | null;
 }
 
 /**
  * Free text input with `@` autocomplete that lists active staff names AND
  * active lane owner roles (e.g. `@IG Owner — Bri`). Picks insert the chosen
  * token verbatim into the text.
+ *
+ * Always renders the underlying field as a fully controlled input — even
+ * when called with `defaultValue`. That prevents React from flipping the
+ * field between controlled/uncontrolled when parents re-render from realtime
+ * invalidations, which previously wiped in-progress text on Own It.
  */
 export function MentionInput({
   defaultValue, value, onChange, onBlur, placeholder, className, disabled,
-  variant = 'textarea', autoFocus, onKeyDown,
+  variant = 'textarea', autoFocus, onKeyDown, resetKey,
 }: Props) {
   const isControlled = value !== undefined;
   const [internal, setInternal] = useState(defaultValue ?? '');
   const text = isControlled ? (value as string) : internal;
 
+  // Re-seed internal state only when the caller explicitly says the source
+  // record changed (resetKey). Re-renders alone never reset.
+  const lastResetKey = useRef(resetKey);
+  useEffect(() => {
+    if (isControlled) return;
+    if (lastResetKey.current !== resetKey) {
+      lastResetKey.current = resetKey;
+      setInternal(defaultValue ?? '');
+    }
+  }, [resetKey, defaultValue, isControlled]);
+
   const ref = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
-  const [openAt, setOpenAt] = useState<number | null>(null); // index of `@` triggering popup
+  const [openAt, setOpenAt] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
 
@@ -48,17 +70,13 @@ export function MentionInput({
   );
   const filtered = useMemo(() => filterCandidates(query, candidates), [query, candidates]);
 
-  // Detect whether the user is currently typing into a mention.
   const updateMentionState = (next: string, caret: number) => {
-    // Walk back from caret to find an `@` not separated by whitespace.
     let i = caret - 1;
     while (i >= 0 && /[A-Za-z0-9 ]/.test(next[i])) i--;
     if (i >= 0 && next[i] === '@') {
-      // Reject if previous char is alphanumeric (mid-word @ doesn't count).
       const prev = i > 0 ? next[i - 1] : ' ';
       if (/[A-Za-z0-9]/.test(prev)) { setOpenAt(null); return; }
       const q = next.slice(i + 1, caret);
-      // Cancel after 30 chars typed without a match
       if (q.length > 30) { setOpenAt(null); return; }
       setOpenAt(i);
       setQuery(q);
@@ -115,8 +133,7 @@ export function MentionInput({
     <div className="relative">
       <Field
         ref={ref as any}
-        defaultValue={isControlled ? undefined : defaultValue}
-        value={isControlled ? text : undefined}
+        value={text}
         onChange={handleChange}
         onBlur={(e: any) => { setTimeout(() => setOpenAt(null), 150); onBlur?.(e); }}
         onKeyDown={handleKeyDown}
