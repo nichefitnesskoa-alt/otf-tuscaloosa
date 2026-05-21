@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ActiveStaffMember {
@@ -25,9 +25,11 @@ export function useActiveStaff() {
     fetch();
   }, []);
 
-  const allActive = staff.map(s => s.name);
-  const coaches = staff.filter(s => ['Coach', 'Both', 'Admin'].includes(s.role)).map(s => s.name);
-  const salesAssociates = staff.filter(s => ['SA', 'Both', 'Admin'].includes(s.role)).map(s => s.name);
+  const derived = useMemo(() => ({
+    allActive: staff.map(s => s.name),
+    coaches: staff.filter(s => ['Coach', 'Both', 'Admin'].includes(s.role)).map(s => s.name),
+    salesAssociates: staff.filter(s => ['SA', 'Both', 'Admin'].includes(s.role)).map(s => s.name),
+  }), [staff]);
 
-  return { staff, allActive, coaches, salesAssociates, loading };
+  return { staff, ...derived, loading };
 }
