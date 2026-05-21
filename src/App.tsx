@@ -33,6 +33,8 @@ import TheTable from "./pages/TheTable";
 import TheTableHistory from "./pages/TheTableHistory";
 import Apply from "./pages/Apply";
 import NotFound from "./pages/NotFound";
+import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
+import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
@@ -153,6 +155,8 @@ function AppRoutes() {
       <Route path="/apply" element={<Apply />} />
       <Route path="/apply/:token" element={<Apply />} />
       <Route path="/join-the-team" element={<Apply />} />
+      <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
+      <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route
         path="/my-day"
