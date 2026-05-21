@@ -4,9 +4,11 @@ import { getParticipantStudioName, getStudioIgHandle } from '@/lib/studioNames';
 export function PrizeShowcase({
   slug,
   partners,
+  showWinnerBadge,
 }: {
   slug: string;
   partners: GiveawayPartner[];
+  showWinnerBadge?: boolean;
 }) {
   const igHandle = getStudioIgHandle(slug).replace(/^@/, '');
 
