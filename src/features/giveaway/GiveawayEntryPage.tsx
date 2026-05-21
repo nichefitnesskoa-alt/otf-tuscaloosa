@@ -9,6 +9,7 @@ import { AchievementCard } from './components/AchievementCard';
 import { ScreenshotUpload } from './components/ScreenshotUpload';
 import { LiveEntryCounter } from './components/LiveEntryCounter';
 import { ConfirmationScreen } from './components/ConfirmationScreen';
+import { PrizeShowcase } from './components/PrizeShowcase';
 import { getStudioIg, getStudioCity } from './lib/studioBrand';
 
 interface PartnerActionState {
