@@ -423,6 +423,50 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
   );
 }
 
+const TITLE_FONT = "'PP Right Grotesk', 'Arial Black', Arial, sans-serif";
+
+function MobileStackedTitle({ studioName, partners }: { studioName: string; partners: { partner_name: string }[] }) {
+  const baseStyle: React.CSSProperties = {
+    fontFamily: TITLE_FONT,
+    fontWeight: 900,
+    lineHeight: 0.95,
+    letterSpacing: '0.01em',
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
+  };
+  const sep = (
+    <div
+      style={{
+        fontFamily: TITLE_FONT,
+        fontWeight: 900,
+        color: '#E8540A',
+        fontSize: 20,
+        textAlign: 'center',
+        margin: '4px 0',
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  );
+  return (
+    <div>
+      <FitText as="div" min={24} max={48} style={{ ...baseStyle, color: '#FDF7EA' }}>
+        {studioName}
+      </FitText>
+      {partners.map((p, i) => (
+        <div key={i}>
+          {sep}
+          <FitText as="div" min={20} max={48} style={{ ...baseStyle, color: '#E8540A' }}>
+            {p.partner_name}
+          </FitText>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE]">{children}</div>;
 }
