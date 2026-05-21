@@ -17,7 +17,7 @@ const IG_HANDLE: Record<string, string> = {
   tuscaloosa: '@otftuscaloosa',
   auburn: '@otfauburn',
   montgomery: '@otfmontgomery',
-  vestavia: '@otfvestavia',
+  vestavia: '@otfvestaviahills',
 };
 
 function humanize(slug: string): string {
@@ -42,9 +42,7 @@ export function getParticipantBrandName(): string {
 /** "OTF Tuscaloosa" — admin shorthand only */
 export function getAdminStudioName(slug: Slug): string {
   const city = CITY[slug] ?? humanize(slug);
-  // Keep admin shorthand short — first word of multi-word cities still reads well in nav.
-  const shortCity = slug === 'vestavia' ? 'Vestavia' : city;
-  return `OTF ${shortCity}`;
+  return `OTF ${city}`;
 }
 
 /** "Tuscaloosa" / "Vestavia Hills" — city only */
