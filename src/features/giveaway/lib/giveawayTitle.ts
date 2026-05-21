@@ -1,50 +1,48 @@
 import type { GiveawayPartner } from '../hooks/useGiveawayPartners';
+import { getParticipantBrandName, getParticipantStudioName } from '@/lib/studioNames';
 
 export type TitleFormat = 'auto_combined' | 'auto_studio_only' | 'custom';
 
 /**
- * Strip the leading "OTF " from a stored studio_name so we can rebuild
- * "OTF X × Y × Z Giveaway" without doubling the prefix.
+ * Build the participant-facing giveaway title.
+ * City is NEVER included here — the co-brand bar carries city context.
  */
-function stripOtfPrefix(name: string): string {
-  return (name || '').replace(/^otf\s+/i, '').trim();
-}
-
 export function getGiveawayTitle(
-  studioName: string,
+  slug: string,
   partners: Pick<GiveawayPartner, 'partner_name'>[],
   titleFormat: TitleFormat | null | undefined,
   customTitle: string | null | undefined,
 ): string {
   const fmt: TitleFormat = (titleFormat as TitleFormat) || 'auto_combined';
-  const studio = stripOtfPrefix(studioName) || 'Giveaway';
+  const brand = getParticipantBrandName();
 
   if (fmt === 'custom') {
     const ct = (customTitle || '').trim();
     if (ct) return ct;
-    return `OTF ${studio} Giveaway`;
+    return `${brand} Giveaway`;
   }
 
   if (fmt === 'auto_studio_only') {
-    return `OTF ${studio} Giveaway`;
+    return `${brand} Giveaway`;
   }
 
   // auto_combined
-  const names = partners.map(p => p.partner_name?.trim()).filter(Boolean) as string[];
-  if (names.length === 0) return `OTF ${studio} Giveaway`;
-  return `OTF ${studio} × ${names.join(' × ')} Giveaway`;
+  const names = (partners || [])
+    .map(p => p.partner_name?.trim())
+    .filter((n): n is string => !!n);
+  if (names.length === 0) return `${brand} Giveaway`;
+  return `${brand} × ${names.join(' × ')} Giveaway`;
 }
 
 /**
- * "Presented by OTF Studio + Partner1 + Partner2"
+ * "Presented by OrangeTheory Fitness Tuscaloosa + Partner1 + Partner2"
  * Returns the parts so the renderer can style separators distinctly.
  */
 export function getCoBrandParts(
-  studioName: string,
+  slug: string,
   partners: Pick<GiveawayPartner, 'partner_name'>[],
 ): string[] {
-  const studio = stripOtfPrefix(studioName) || 'Giveaway';
-  const parts = [`OTF ${studio}`];
+  const parts = [getParticipantStudioName(slug)];
   for (const p of partners) {
     const n = p.partner_name?.trim();
     if (n) parts.push(n);

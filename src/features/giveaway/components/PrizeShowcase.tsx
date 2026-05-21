@@ -1,5 +1,5 @@
 import { GiveawayPartner } from '../hooks/useGiveawayPartners';
-import { getStudioIg, getStudioCity } from '../lib/studioBrand';
+import { getParticipantStudioName, getStudioIgHandle } from '@/lib/studioNames';
 
 export function PrizeShowcase({
   slug,
@@ -8,15 +8,14 @@ export function PrizeShowcase({
   slug: string;
   partners: GiveawayPartner[];
 }) {
-  const ig = getStudioIg(slug);
-  const city = getStudioCity(slug);
+  const igHandle = getStudioIgHandle(slug).replace(/^@/, '');
 
   const cards: Array<{ id: string; prize: string; business: string; handle?: string | null; tbd?: boolean }> = [
     {
       id: 'otf',
       prize: 'FREE MEMBERSHIP',
-      business: `ORANGETHEORY FITNESS ${city}`,
-      handle: ig.handle,
+      business: getParticipantStudioName(slug).toUpperCase(),
+      handle: igHandle,
     },
     ...partners.map(p => {
       const prizeText = (p.prize_description || '').trim();

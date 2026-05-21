@@ -9,7 +9,7 @@ import {
   removesWinners,
   type WinnerStructure,
 } from '../lib/winnerStructure';
-import { getStudioCity } from '../lib/studioBrand';
+import { getParticipantStudioName } from '@/lib/studioNames';
 
 interface Prize {
   id: string;
@@ -34,9 +34,8 @@ export function DrawWinner({
   studioSlug: string;
 }) {
   const prizes = useMemo<Prize[]>(() => {
-    const city = getStudioCity(studioSlug);
     const list: Prize[] = [
-      { id: 'membership', label: `OTF Membership — ${city}` },
+      { id: 'membership', label: `${getParticipantStudioName(studioSlug)} Membership` },
     ];
     for (const p of partners) {
       const desc = (p.prize_description || '').trim();
