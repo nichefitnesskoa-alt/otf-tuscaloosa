@@ -615,7 +615,7 @@ export function VipSchedulerTab() {
                       <div className="space-y-1 pt-1">
                         <div className="h-1 w-full bg-muted rounded-sm overflow-hidden">
                           <div
-                            className="h-full bg-[#E8540A] rounded-sm transition-all"
+                            className="h-full bg-brand rounded-sm transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -1049,7 +1049,7 @@ export function VipSchedulerTab() {
           </DialogHeader>
           {qrSession?.shareable_slug && (
             <div className="flex flex-col items-center gap-4 py-2">
-              <div className="border-4 border-[#E8540A] rounded-lg p-2 bg-white inline-block">
+              <div className="border-4 border-brand rounded-lg p-2 bg-white inline-block">
                 <QRCodeCanvas
                   id="scheduler-qr-canvas"
                   value={`https://otf-tuscaloosa.lovable.app/vip/${qrSession.shareable_slug}/register`}

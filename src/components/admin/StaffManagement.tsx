@@ -284,7 +284,7 @@ export default function StaffManagement() {
               <Users className="w-4 h-4" />
               Staff Management
             </CardTitle>
-            <Button size="sm" onClick={openAdd} className="gap-1 bg-[#E8540A] hover:bg-[#d44a08] text-white">
+            <Button size="sm" onClick={openAdd} className="gap-1 bg-brand hover:bg-brand-hover text-white">
               <UserPlus className="w-3.5 h-3.5" />
               Add Staff Member
             </Button>
@@ -394,7 +394,7 @@ export default function StaffManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingPermissions(null)}>Cancel</Button>
-            <Button onClick={savePermissions} disabled={savingPerms} className="bg-[#E8540A] hover:bg-[#d44a08] text-white">
+            <Button onClick={savePermissions} disabled={savingPerms} className="bg-brand hover:bg-brand-hover text-white">
               {savingPerms ? 'Saving…' : 'Save Permissions'}
             </Button>
           </DialogFooter>

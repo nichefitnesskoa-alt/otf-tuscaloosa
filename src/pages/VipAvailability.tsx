@@ -275,7 +275,7 @@ function ClaimDialog({
                     className={cn(
                       'w-full text-left rounded-lg border-2 p-3 cursor-pointer transition-colors min-h-[44px]',
                       sessionType === opt.type
-                        ? 'border-[#E8540A] bg-brand-dim dark:bg-brand/20'
+                        ? 'border-brand bg-brand-dim dark:bg-brand/20'
                         : 'border-border hover:border-muted-foreground/30'
                     )}
                   >
@@ -287,7 +287,7 @@ function ClaimDialog({
             </div>
 
             <Button
-              className="w-full h-11 bg-[#FF6900] hover:bg-[#e55f00] text-white font-semibold"
+              className="w-full h-11 bg-brand hover:bg-brand-hover text-white font-semibold"
               onClick={handleClaim}
               disabled={submitting || !canSubmit}
             >
@@ -432,7 +432,7 @@ function DaySlotList({
               <>
                 <p className="text-xs text-success dark:text-success font-medium">Available</p>
                 <Button
-                  className="w-full h-11 mt-2 bg-[#FF6900] hover:bg-[#e55f00] text-white font-semibold text-sm"
+                  className="w-full h-11 mt-2 bg-brand hover:bg-brand-hover text-white font-semibold text-sm"
                   onClick={() => onClaim(s)}
                 >
                   Claim This Slot
@@ -616,7 +616,7 @@ export default function VipAvailability() {
   return (
     <div className="min-h-screen bg-neutral-dim dark:bg-neutral">
       {/* Header */}
-      <div className="bg-[#FF6900] text-white py-8 px-4">
+      <div className="bg-brand text-white py-8 px-4">
         <div className="max-w-5xl mx-auto text-center">
           <h1 className="text-2xl font-bold">
             OTF Tuscaloosa — VIP Group Classes
@@ -656,7 +656,7 @@ export default function VipAvailability() {
               {!isCurrentWeek && (
                 <button
                   onClick={() => setWeekOffset(0)}
-                  className="text-xs text-[#FF6900] underline cursor-pointer mt-0.5"
+                  className="text-xs text-brand underline cursor-pointer mt-0.5"
                 >
                   Back to this week
                 </button>
@@ -687,7 +687,7 @@ export default function VipAvailability() {
               {!isCurrentMonth && (
                 <button
                   onClick={() => setMonthOffset(0)}
-                  className="text-xs text-[#FF6900] underline cursor-pointer mt-0.5"
+                  className="text-xs text-brand underline cursor-pointer mt-0.5"
                 >
                   Back to this month
                 </button>
@@ -709,7 +709,7 @@ export default function VipAvailability() {
           <div className="flex justify-center">
             <button
               onClick={() => setForceMonthOnMobile((v) => !v)}
-              className="text-xs text-[#FF6900] underline"
+              className="text-xs text-brand underline"
             >
               {useWeekView ? 'See full month view' : 'Back to week view'}
             </button>
@@ -730,7 +730,7 @@ export default function VipAvailability() {
                   key={day.date}
                   className={cn(
                     'rounded-lg border bg-card overflow-hidden',
-                    day.isToday && 'border-[#FF6900]'
+                    day.isToday && 'border-brand'
                   )}
                 >
                   <div
@@ -741,7 +741,7 @@ export default function VipAvailability() {
                   >
                     <p className="text-sm font-bold">
                       {day.dayLabel}
-                      {day.isToday && <span className="ml-2 text-[10px] uppercase text-[#FF6900]">Today</span>}
+                      {day.isToday && <span className="ml-2 text-[10px] uppercase text-brand">Today</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {daySessions.length === 0
@@ -802,7 +802,7 @@ export default function VipAvailability() {
                               )}
                             </div>
                             {canClaim && (
-                              <span className="text-xs font-bold text-white bg-[#FF6900] px-3 py-1.5 rounded-full">
+                              <span className="text-xs font-bold text-white bg-brand px-3 py-1.5 rounded-full">
                                 Claim
                               </span>
                             )}
@@ -859,7 +859,7 @@ export default function VipAvailability() {
                             'inline-flex items-center justify-center text-xs font-medium',
                             isMobile ? 'w-6 h-6' : 'w-7 h-7',
                             day.isToday
-                              ? 'bg-[#FF6900] text-white rounded-full font-bold'
+                              ? 'bg-brand text-white rounded-full font-bold'
                               : !day.isCurrentMonth
                                 ? 'text-muted-foreground/40'
                                 : 'text-foreground'

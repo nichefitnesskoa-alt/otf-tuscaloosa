@@ -207,7 +207,7 @@ export default function VipMemberRegister() {
   if (loadingSession) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF6900]" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand" />
       </div>
     );
   }
@@ -215,7 +215,7 @@ export default function VipMemberRegister() {
   if (notFound || !session) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
-        <div className="bg-[#FF6900] text-white w-full py-6 absolute top-0 left-0">
+        <div className="bg-brand text-white w-full py-6 absolute top-0 left-0">
           <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
         </div>
         <div className="mt-20">
@@ -232,7 +232,7 @@ export default function VipMemberRegister() {
   if (alreadyRegistered) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-[#FF6900] text-white py-6 px-4 text-center">
+        <div className="bg-brand text-white py-6 px-4 text-center">
           <h1 className="text-xl font-bold">OTF Tuscaloosa</h1>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
@@ -370,7 +370,7 @@ export default function VipMemberRegister() {
                   className={cn(
                     'flex flex-col items-center justify-center rounded-xl border-2 py-3 min-h-[44px] cursor-pointer transition-colors',
                     fitnessLevel === level
-                      ? 'border-[#FF6900] bg-brand-dim text-[#FF6900]'
+                      ? 'border-brand bg-brand-dim text-brand'
                       : 'border-border hover:border-muted-foreground/40'
                   )}
                 >
@@ -442,7 +442,7 @@ export default function VipMemberRegister() {
 
           <Button
             type="submit"
-            className="w-full min-h-[44px] h-14 text-lg font-semibold rounded-xl bg-[#FF6900] hover:bg-[#e55f00] text-white"
+            className="w-full min-h-[44px] h-14 text-lg font-semibold rounded-xl bg-brand hover:bg-brand-hover text-white"
             disabled={submitting}
           >
             {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit My Info'}

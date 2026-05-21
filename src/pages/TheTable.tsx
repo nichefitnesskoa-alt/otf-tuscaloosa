@@ -118,7 +118,7 @@ export default function TheTable() {
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Flag className="w-6 h-6 text-[#E8540A]" /> Own It
+            <Flag className="w-6 h-6 text-brand" /> Own It
           </h1>
         </div>
         <div className="flex gap-2 items-center flex-wrap justify-end">
@@ -146,7 +146,7 @@ export default function TheTable() {
             {meeting ? `${formatMeetingTime(meeting.meeting_time)} · ` : ''}
             <Badge variant="secondary" className="ml-1">{phaseLabel}</Badge>
             {effectiveWeek !== currentMonday && (
-              <button onClick={goToToday} className="ml-2 text-[#E8540A] underline text-xs">Today</button>
+              <button onClick={goToToday} className="ml-2 text-brand underline text-xs">Today</button>
             )}
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function TheTable() {
         <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold">Studio Leader — Architect</div>
+              <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader — Architect</div>
               <div className="text-lg font-bold">{architect.display_name}</div>
             </div>
           </div>
@@ -312,7 +312,7 @@ export default function TheTable() {
             <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
           </div>
           <div className="flex gap-2">
-            <Badge className="bg-[#E8540A] shrink-0">Own It</Badge>
+            <Badge className="bg-brand shrink-0">Own It</Badge>
             <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
           </div>
         </div>
@@ -419,7 +419,7 @@ export default function TheTable() {
             </Select>
           )}
           <MentionInput value={winText} onChange={setWinText} placeholder="Big or small — log it. Type @ to tag." className="min-h-[100px]" />
-          <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={async () => {
+          <Button className="bg-brand hover:bg-brand-hover" onClick={async () => {
             if (!winText.trim() || !user?.name) return;
             await supabase.from('table_wins').insert({
               owner_id: effectiveWinOwnerId, owner_name: user.name,
@@ -585,7 +585,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
                 <datalist id="my-lanes-initial">
                   {LANE_SUGGESTIONS.map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
                 </datalist>
-                <Button className="mt-2 bg-[#E8540A] hover:bg-brand/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+                <Button className="mt-2 bg-brand hover:bg-brand-hover" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
                   Claim this lane
                 </Button>
               </div>
@@ -613,7 +613,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
           <p className="text-sm">Most people max out at 2 lanes — sure you can carry a third?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={() => setPendingThirdConfirm(false)}>Not yet</Button>
-            <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={() => { setPendingThirdConfirm(false); setCommitOpen(true); }}>
+            <Button className="bg-brand hover:bg-brand-hover" onClick={() => { setPendingThirdConfirm(false); setCommitOpen(true); }}>
               Keep going
             </Button>
           </div>
@@ -633,7 +633,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
           {!picking ? (
             <div className="flex gap-2 justify-end mt-2">
               <Button variant="ghost" onClick={() => setCommitOpen(false)}>Not yet</Button>
-              <Button className="bg-[#E8540A] hover:bg-brand/90" onClick={() => setPicking(true)}>Add the lane</Button>
+              <Button className="bg-brand hover:bg-brand-hover" onClick={() => setPicking(true)}>Add the lane</Button>
             </div>
           ) : (
             <div className="space-y-2 mt-2">
@@ -649,7 +649,7 @@ function MyLanesManager({ myOwners, onChanged }: { myOwners: TableOwner[]; onCha
                   .filter(s => !myOwners.some(o => (o.lane_name ?? '').toLowerCase() === s.lane.toLowerCase()))
                   .map(s => <option key={s.lane} value={s.lane}>{s.description}</option>)}
               </datalist>
-              <Button className="w-full bg-[#E8540A] hover:bg-brand/90" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
+              <Button className="w-full bg-brand hover:bg-brand-hover" onClick={confirmAddLane} disabled={!pickerLane.trim() || saving}>
                 Add this lane
               </Button>
             </div>
@@ -781,7 +781,7 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
       })}
       {!locked && (
         <Button
-          className="w-full bg-[#E8540A] hover:bg-brand/90"
+          className="w-full bg-brand hover:bg-brand-hover"
           onClick={async () => {
             const id = entry?.id ?? entryId;
             if (!id) { toast.error("Hang on — still opening your entry. Try again in a sec."); return; }
@@ -819,7 +819,7 @@ function ActionItemDialog({ meetingId, responseId, defaultDesc, onClose }: {
             <SelectContent>{staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
           </Select>
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-          <Button className="w-full bg-[#E8540A] hover:bg-brand/90" onClick={async () => {
+          <Button className="w-full bg-brand hover:bg-brand-hover" onClick={async () => {
             const owner = staff.find(s => s.id === staffId);
             if (!owner) return;
             await supabase.from('table_action_items').insert({
@@ -865,7 +865,7 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
 
   return (
     <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
-      <div className="text-[11px] uppercase tracking-wider text-[#E8540A] font-bold mb-1">Studio Leader Close</div>
+      <div className="text-[11px] uppercase tracking-wider text-brand font-bold mb-1">Studio Leader Close</div>
       <div className="font-semibold mb-3">Architect's wrap</div>
       <Textarea
         value={note} onChange={(e) => setNote(e.target.value)}
@@ -975,7 +975,7 @@ function OwnerLiveCard({
       <div className="flex gap-2 mb-3 flex-wrap">
         <Button size="sm" className="bg-success hover:bg-success" onClick={() => setMode('add')}>Add</Button>
         <Button size="sm" className="bg-danger hover:bg-danger" onClick={() => setMode('flag')}>Flag</Button>
-        <Button size="sm" className="bg-[#E8540A] hover:bg-brand/90" onClick={() => setMode('own_it')}>Own It</Button>
+        <Button size="sm" className="bg-brand hover:bg-brand-hover" onClick={() => setMode('own_it')}>Own It</Button>
       </div>
       {mode && (
         <div className="mb-3 flex gap-2 items-start">
@@ -1008,7 +1008,7 @@ function OwnerLiveCard({
                 <Badge className={cn(
                   r.mode === 'add' && 'bg-success',
                   r.mode === 'flag' && 'bg-danger',
-                  r.mode === 'own_it' && 'bg-[#E8540A]',
+                  r.mode === 'own_it' && 'bg-brand',
                 )}>{modeLabel}</Badge>
                 <span className="font-medium">{r.responder_name}</span>
                 <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
