@@ -112,10 +112,18 @@ export default function PartnerDeckPage() {
       bodyOverflow: body.style.overflow,
       bodyTouchAction: body.style.touchAction,
     };
+    const prevHtmlOverflowX = html.style.overflowX;
+    const prevBodyOverflowX = body.style.overflowX;
+    const prevHtmlMaxWidth = html.style.maxWidth;
+    const prevBodyMaxWidth = body.style.maxWidth;
     html.style.setProperty('-webkit-text-size-adjust', 'none');
     html.style.setProperty('text-size-adjust', 'none');
     html.style.overflow = 'hidden';
+    html.style.overflowX = 'hidden';
+    html.style.maxWidth = '100vw';
     body.style.overflow = 'hidden';
+    body.style.overflowX = 'hidden';
+    body.style.maxWidth = '100vw';
     body.style.touchAction = 'none';
 
     // 3. Prevent pinch zoom
@@ -139,7 +147,11 @@ export default function PartnerDeckPage() {
       html.style.setProperty('-webkit-text-size-adjust', prev.htmlTextAdjust);
       html.style.setProperty('text-size-adjust', prev.htmlTextAdjustStd);
       html.style.overflow = prev.htmlOverflow;
+      html.style.overflowX = prevHtmlOverflowX;
+      html.style.maxWidth = prevHtmlMaxWidth;
       body.style.overflow = prev.bodyOverflow;
+      body.style.overflowX = prevBodyOverflowX;
+      body.style.maxWidth = prevBodyMaxWidth;
       body.style.touchAction = prev.bodyTouchAction;
       document.removeEventListener('touchmove', preventZoom);
       document.removeEventListener('touchend', preventDoubleTap);
@@ -184,10 +196,13 @@ export default function PartnerDeckPage() {
   ];
 
   return (
-    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
+    <div className="deck-container" style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh', width: '100%', maxWidth: '100vw', overflowX: 'hidden', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
       <style>{`
+        .deck-container, .deck-container *, .deck-slide, .deck-slide * { box-sizing: border-box; }
+        .deck-container, #deck-scroll, .deck-slide { max-width: 100vw; overflow-x: hidden; }
+        .deck-slide { width: 100%; }
         @media(max-width:768px){
-          .deck-slide{ padding:32px 20px !important; }
+          .deck-slide{ padding:32px 20px !important; max-width:100vw !important; overflow-x:hidden !important; }
           .deck-eyebrow{ font-size:9px !important; letter-spacing:0.18em !important; }
           .deck-body{ font-size:13px !important; max-width:none !important; }
           .deck-phase-title{ font-size:15px !important; }
@@ -247,7 +262,7 @@ export default function PartnerDeckPage() {
           ))}
         </nav>
 
-        <div id="deck-scroll" style={{ height: '100vh', overflowY: 'auto', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
+        <div id="deck-scroll" style={{ height: '100vh', width: '100%', maxWidth: '100vw', overflowY: 'auto', overflowX: 'hidden', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
           {slides.map((s, i) => (
             <section key={s.id} id={`slide-${i}`} style={{ scrollSnapAlign: 'start', minHeight: '100vh', width: '100%', display: 'flex' }}>
               {s.render()}
