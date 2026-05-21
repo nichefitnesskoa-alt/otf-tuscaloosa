@@ -46,7 +46,7 @@ export default function PartnerDeckPage() {
     { id: 'tracking',  render: () => <SlideTracking  studioSlug={studioSlug} /> },
     { id: 'entry',     render: () => <SlideEntry     studioSlug={studioSlug} partners={partners} prospectName={prospectName} /> },
     { id: 'ask',       render: () => <SlideAsk       studio={studio} anchor={anchor} prospectName={prospectName} /> },
-    { id: 'cta',       render: () => <SlideCta       studio={studio} city={city} /> },
+    { id: 'cta',       render: () => <SlideCta       studio={studio} studioSlug={studioSlug} /> },
   ];
 
   return (
@@ -373,7 +373,7 @@ function AskCard({ label, body }: { label: string; body: string }) {
 }
 
 /* ---------------- Slide 9: CTA ---------------- */
-function SlideCta({ studio, city }: { studio: any; city: string }) {
+function SlideCta({ studio, studioSlug }: { studio: any; studioSlug: string }) {
   const hasContact = studio.deck_contact_name || studio.deck_contact_phone || studio.deck_contact_email;
   return (
     <div className="relative w-full bg-surface-card flex flex-col items-center justify-center px-6 md:px-12 py-20">
@@ -387,7 +387,7 @@ function SlideCta({ studio, city }: { studio: any; city: string }) {
         {hasContact && (
           <div className="rounded-2xl border border-surface-border bg-surface-page p-6 md:p-8 text-left">
             <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-text-secondary mb-3">
-              Your contact at {getParticipantStudioName(city.toLowerCase())}
+              Your contact at {getParticipantStudioName(studioSlug)}
             </p>
             {studio.deck_contact_name && (
               <p className="font-display font-black text-3xl md:text-4xl text-text-primary leading-tight">{studio.deck_contact_name}</p>
