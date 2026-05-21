@@ -38,6 +38,7 @@ import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
 import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
 import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
 import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
+import PartnerViewPage from "./features/giveaway/PartnerViewPage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
