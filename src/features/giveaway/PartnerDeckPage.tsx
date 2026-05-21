@@ -4,6 +4,7 @@ import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { getStudioCity } from '@/lib/studioNames';
 import { DEFAULT_DECK_COPY, DEFAULT_DECK, computeBundleTotal, pick, slide2AutoCopy } from './lib/partnerDeckDefaults';
+import { getDeckSlide2, getDeckSlide3Framing } from './lib/winnerCopy';
 import { FitText } from './components/FitText';
 import { Video, Users, Star, Share2, ArrowUpRight, Phone, Mail } from 'lucide-react';
 
