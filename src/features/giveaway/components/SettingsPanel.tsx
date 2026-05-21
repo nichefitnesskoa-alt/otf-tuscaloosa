@@ -8,6 +8,7 @@ import {
   type WinnerStructure,
 } from '../lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from '../lib/giveawayTitle';
+import { PartnerDeckSettings } from './PartnerDeckSettings';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
@@ -77,6 +78,9 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       <PartnersSection slug={studio.studio_slug} />
 
       <WinnerStructureSection value={winnerStructure} onChange={setWinnerStructure} />
+
+      <PartnerDeckSettings studio={studio} onSaved={onSaved} />
+
 
 
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">

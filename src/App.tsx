@@ -36,6 +36,8 @@ import NotFound from "./pages/NotFound";
 import GiveawayEntryPage from "./features/giveaway/GiveawayEntryPage";
 import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
 import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
+import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
+import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
 import { useParams } from "react-router-dom";
 
 function QuestionnaireRedirect() {
@@ -159,6 +161,8 @@ function AppRoutes() {
       <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
       <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
       <Route path="/admin/:studioSlug/preview" element={<GiveawayPreviewPage />} />
+      <Route path="/admin/:studioSlug/partner-deck" element={<ProtectedRoute><PartnerDeckAdminPage /></ProtectedRoute>} />
+      <Route path="/partner-deck/:studioSlug" element={<PartnerDeckPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route
         path="/my-day"

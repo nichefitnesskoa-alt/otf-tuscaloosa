@@ -8,7 +8,7 @@ import { DrawWinner } from './components/DrawWinner';
 import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
-import { Download, Users, Settings as SettingsIcon, Eye } from 'lucide-react';
+import { Download, Users, Settings as SettingsIcon, Eye, Presentation } from 'lucide-react';
 import { getAdminStudioName } from '@/lib/studioNames';
 
 export default function GiveawayAdminPage() {
@@ -40,6 +40,7 @@ export default function GiveawayAdminPage() {
         <nav className="flex md:flex-col gap-2">
           <NavBtn active={tab === 'entries'} onClick={() => setTab('entries')} icon={<Users className="h-4 w-4" />}>Entries</NavBtn>
           <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/preview`)} icon={<Eye className="h-4 w-4" />}>Preview</NavBtn>
+          <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/partner-deck`)} icon={<Presentation className="h-4 w-4" />}>Partner Deck</NavBtn>
           <NavBtn active={tab === 'settings'} onClick={() => setTab('settings')} icon={<SettingsIcon className="h-4 w-4" />}>Settings</NavBtn>
         </nav>
       </aside>
