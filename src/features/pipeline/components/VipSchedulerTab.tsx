@@ -192,7 +192,8 @@ export function VipSchedulerTab() {
         .in('vip_session_id', ids);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        // Count all registrations (members + group contact) for the badge.
+        // Count individual members only — group contact is shown separately in the dialog.
+        if (r.is_group_contact) continue;
         counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
