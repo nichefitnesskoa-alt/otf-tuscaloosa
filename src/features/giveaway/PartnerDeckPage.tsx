@@ -222,9 +222,9 @@ function SlideConcept({ studio }: { studio: any }) {
   const sentences = headlineText.split(/(?<=\.)\s+/).filter(Boolean);
 
   return (
-    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 900, width: '100%' }}>
-        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
+        <p className="deck-eyebrow" style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
         <div style={{ marginBottom: 32 }}>
           {sentences.map((s, i) => (
             <FitText key={i} as="div" min={SIZES.s2_headline.min} max={SIZES.s2_headline.max}
@@ -345,9 +345,9 @@ function SlideTimeline({ studio }: { studio: any }) {
     { tag: DEFAULT_DECK.s4_phase3_tag, title: pick(studio.deck_s4_phase3_title, DEFAULT_DECK.s4_phase3_title), body: pick(studio.deck_s4_phase3_body, DEFAULT_DECK.s4_phase3_body) },
   ];
   return (
-    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
         <FitText as="h2" min={SIZES.s4_headline.min} max={SIZES.s4_headline.max}
           fixed={studio.deck_s4_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
@@ -371,6 +371,7 @@ function SlideTimeline({ studio }: { studio: any }) {
                   }}>{p.tag}</span>
                   <FitText as="p" min={SIZES.s4_phase_title.min} max={SIZES.s4_phase_title.max}
                     fixed={studio.deck_s4_phase_title_size}
+                    /* className not supported on FitText; mobile size pinned via global rule below via parent class */
                     style={{ ...headlineStyle, color: C.dark, fontWeight: 900 }}>
                     {p.title}
                   </FitText>
@@ -394,9 +395,9 @@ function SlideStory({ studio }: { studio: any }) {
     { Icon: Share2, title: pick(studio.deck_s5_c4_title, DEFAULT_DECK.s5_c4_title), body: pick(studio.deck_s5_c4_body, DEFAULT_DECK.s5_c4_body) },
   ];
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 960, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
         <FitText as="h2" min={SIZES.s5_headline.min} max={SIZES.s5_headline.max}
           fixed={studio.deck_s5_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 40 }}>
@@ -405,7 +406,7 @@ function SlideStory({ studio }: { studio: any }) {
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(items.length), gap: 12, alignItems: 'stretch' }}>
           {items.map((it, i) => (
             <div key={i} style={{ background: C.dark, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ height: 34, width: 34, borderRadius: '50%', background: C.orangeDim12, border: `1px solid ${C.orangeDim25}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <div className="deck-story-icon-wrap" style={{ height: 34, width: 34, borderRadius: '50%', background: C.orangeDim12, border: `1px solid ${C.orangeDim25}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <it.Icon size={15} color={C.orange} strokeWidth={2} />
               </div>
               <div>
@@ -428,9 +429,9 @@ function SlideStory({ studio }: { studio: any }) {
 /* ─────────── Slide 6: Tracking ─────────── */
 function SlideTracking({ studioSlug, studio }: { studioSlug: string; studio: any }) {
   return (
-    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
+        <p className="deck-eyebrow" style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
         <FitText as="h2" min={SIZES.s6_headline.min} max={SIZES.s6_headline.max}
           fixed={studio.deck_s6_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
@@ -486,9 +487,9 @@ function SlideEntry({ partners, studio }: any) {
   for (const p of partners) baseActions.push({ text: `Visit ${p.partner_name}`, bonus: true });
 
   return (
-    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
         <FitText as="h2" min={SIZES.s7_headline.min} max={SIZES.s7_headline.max}
           fixed={studio.deck_s7_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 32 }}>
@@ -527,9 +528,9 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
     { lbl: '15 minutes', body: pick(studio.deck_s8_time  ?? studio.deck_what_we_need_time,       DEFAULT_DECK_COPY.askTime) },
   ];
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
         <FitText as="h2" min={SIZES.s8_headline.min} max={SIZES.s8_headline.max}
           fixed={studio.deck_s8_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 32 }}>
@@ -537,9 +538,9 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
         </FitText>
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(cards.length), gap: 12, alignItems: 'stretch' }}>
           {cards.map((c, i) => (
-            <div key={i} style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <p style={{ ...label(C.orange, 9), marginBottom: 6 }}>{c.lbl}</p>
-              <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim06, lineHeight: 1.45, letterSpacing: '-0.01em' }}>{c.body}</p>
+            <div key={i} className="deck-ask-card" style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <p className="deck-ask-label" style={{ ...label(C.orange, 9), marginBottom: 6 }}>{c.lbl}</p>
+              <p className="deck-ask-body" style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim06, lineHeight: 1.45, letterSpacing: '-0.01em' }}>{c.body}</p>
             </div>
           ))}
         </div>
@@ -552,8 +553,7 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
 function SlideCta({ studio, city }: { studio: any; city: string }) {
   const phoneClean = studio.deck_contact_phone ? String(studio.deck_contact_phone).replace(/[^0-9+]/g, '') : null;
   return (
-    <div style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
-      <div style={{ ...displayStyle, fontSize: 72, color: C.dark, opacity: 0.12, marginBottom: 12, lineHeight: 1 }}>OTF</div>
+    <div className="deck-slide" style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 700, width: '100%', textAlign: 'center' }}>
         <FitText as="h2" min={SIZES.s9_headline.min} max={SIZES.s9_headline.max}
           fixed={studio.deck_s9_headline_size}
