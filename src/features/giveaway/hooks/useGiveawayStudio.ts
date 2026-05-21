@@ -56,6 +56,21 @@ export interface GiveawayStudio {
   deck_s9_headline: string | null;
   deck_s9_subline: string | null;
   deck_s9_body: string | null;
+  // Per-element size overrides (null = auto-size)
+  deck_s1_title1_size: number | null;
+  deck_s1_title2_size: number | null;
+  deck_s1_subtitle_size: number | null;
+  deck_s2_headline_size: number | null;
+  deck_s3_headline_size: number | null;
+  deck_s4_headline_size: number | null;
+  deck_s4_phase_title_size: number | null;
+  deck_s5_headline_size: number | null;
+  deck_s5_card_title_size: number | null;
+  deck_s6_headline_size: number | null;
+  deck_s7_headline_size: number | null;
+  deck_s8_headline_size: number | null;
+  deck_s9_headline_size: number | null;
+  deck_s9_subline_size: number | null;
 }
 
 export function useGiveawayStudio(slug: string | undefined) {
