@@ -32,7 +32,7 @@ import {
 import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
-import { colorForCoach } from '@/lib/scorecard/coachColors';
+import { colorForCoach } from '@/lib/coachColors';
 
 const STUDIO_KEY = '__studio__';
 const STUDIO_COLOR = 'hsl(20 90% 47%)'; // OTF orange — reserved for studio overall
