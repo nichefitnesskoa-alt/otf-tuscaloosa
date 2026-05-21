@@ -58,8 +58,8 @@ function ContactDatePicker({ item, onRefresh }: { item: FollowUpItem; onRefresh:
         <button
           className={cn(
             'flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors',
-            'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
-            'hover:bg-blue-100 dark:hover:bg-blue-900/40',
+            'bg-neutral-dim border-neutral text-neutral',
+            'hover:bg-neutral-dim dark:hover:bg-neutral-dim',
           )}
           disabled={saving}
         >
@@ -131,14 +131,14 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
           coachName={item.coachName}
           leadSource={item.leadSource}
           phone={item.phone}
-          borderColor="#2563eb"
+          borderColor="hsl(var(--status-neutral))"
           editable
           bookingId={item.bookingId}
           editedBy={user?.name || ''}
           onFieldSaved={onRefresh}
           topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
           outcomeBadge={
-            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-blue-100 text-blue-700 border-blue-300 border">
+            <Badge className="text-[10px] px-1.5 py-0 h-5 bg-neutral-dim text-neutral border-neutral border">
               📅 Plans to Reschedule
             </Badge>
           }
@@ -189,7 +189,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
             coachName={item.coachName}
             leadSource={item.leadSource}
             phone={item.phone}
-            borderColor="#64748b"
+            borderColor="hsl(var(--status-neutral))"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             outcomeBadge={
               <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">

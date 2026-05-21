@@ -86,10 +86,10 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
         const isNoOutcome = item.badgeType === 'no_outcome';
         
         const badge = isStateB
-          ? <Badge className="text-[10px] px-1.5 py-0 h-5 border bg-amber-100 text-amber-700 border-amber-300">⏳ 2nd Intro — Still Undecided</Badge>
+          ? <Badge className="text-[10px] px-1.5 py-0 h-5 border bg-warning-dim text-warning border-warning">⏳ 2nd Intro — Still Undecided</Badge>
           : isNoOutcome
             ? <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">👻 Missed Guest</Badge>
-            : <Badge className="text-[10px] px-1.5 py-0 h-5 border bg-red-100 text-red-700 border-red-300">📋 Follow-up Needed</Badge>;
+            : <Badge className="text-[10px] px-1.5 py-0 h-5 border bg-danger-dim text-danger border-danger">📋 Follow-up Needed</Badge>;
 
         return (
           <IntroCard
@@ -100,7 +100,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
             coachName={item.coachName}
             leadSource={item.leadSource}
             phone={item.phone}
-            borderColor={isStateB ? '#d97706' : isNoOutcome ? '#64748b' : '#dc2626'}
+            borderColor={isStateB ? 'hsl(var(--status-warning))' : isNoOutcome ? 'hsl(var(--status-neutral))' : 'hsl(var(--status-danger))'}
             editable
             bookingId={item.bookingId}
             editedBy={user?.name || ''}
@@ -203,7 +203,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
             coachName={item.coachName}
             leadSource={item.leadSource}
             phone={item.phone}
-            borderColor="#64748b"
+            borderColor="hsl(var(--status-neutral))"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             outcomeBadge={
               <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">

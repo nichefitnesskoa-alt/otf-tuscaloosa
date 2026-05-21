@@ -32,12 +32,12 @@ import {
 function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
   switch (status) {
     case 'Q_COMPLETED':
-      return { bg: 'bg-[#16a34a]', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
+      return { bg: 'bg-success', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
     case 'Q_SENT':
-      return { bg: 'bg-[#d97706]', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
+      return { bg: 'bg-warning', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
     case 'NO_Q':
     default:
-      return { bg: 'bg-[#dc2626]', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
+      return { bg: 'bg-danger', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
   }
 }
 
@@ -47,12 +47,12 @@ function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNe
   }
   switch (status) {
     case 'Q_COMPLETED':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#16a34a] text-white border-transparent">Questionnaire Complete</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#d97706] text-white border-transparent">Questionnaire Sent</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Questionnaire Sent</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-[#dc2626] text-white border-transparent">No Questionnaire</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-white border-transparent">No Questionnaire</Badge>;
   }
 }
 
@@ -73,7 +73,7 @@ function TappableQBadge({ status, onTap, noQNeeded = false }: { status: Upcoming
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-[#dc2626] text-white border-transparent cursor-pointer hover:bg-[#b91c1c] transition-colors min-h-[28px]"
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
     >
       {copied ? 'Link copied!' : 'No Questionnaire'}
     </button>
@@ -378,7 +378,7 @@ export default function IntroRowCard({
         <span className="font-semibold text-sm truncate">{item.memberName}</span>
         <span className="pointer-events-none flex items-center gap-1 flex-wrap">
           {item.isVipClassIntro ? (
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-500/15 text-purple-700 border-purple-500/30">VIP Class Intro</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">VIP Class Intro</Badge>
           ) : (
             <Badge variant={item.isSecondIntro ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 h-4">
               {item.isSecondIntro ? '2nd Intro' : '1st Intro'}
@@ -392,7 +392,7 @@ export default function IntroRowCard({
           <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
         </span>
         {item.vipClassName && (
-          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-purple-600/20 text-purple-400 border-purple-500/30">
+          <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">
             VIP: {item.vipClassName}
           </Badge>
         )}
@@ -423,7 +423,7 @@ export default function IntroRowCard({
         >
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
             <span className="font-semibold text-sm truncate">{item.vipGroupName || 'VIP Group'}</span>
-            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">VIP Group</Badge>
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning-dim text-white border-transparent">VIP Group</Badge>
             <span className="text-xs text-muted-foreground">
               {item.vipRegisteredCount || 0} registered · {item.introTime ? formatDisplayTime(item.introTime) : 'TBD'}
             </span>
@@ -493,28 +493,28 @@ export default function IntroRowCard({
   const topBanner = (
     <>
       {isInFocusWindow && (
-        <div className="flex items-center justify-center py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
-          <Badge className="text-[10px] px-2 py-0 h-4 bg-amber-500 text-white border-transparent">
+        <div className="flex items-center justify-center py-0.5 bg-warning-dim text-warning">
+          <Badge className="text-[10px] px-2 py-0 h-4 bg-warning-dim text-white border-transparent">
             🕐 Class in {focusHours}h {focusMins}m
           </Badge>
         </div>
       )}
       {needsOutcome ? (
-        <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
+        <StatusBanner bgColor="hsl(var(--brand))" text="⚠ Outcome Not Logged" />
       ) : isOutcomeOverdue ? (
-        <StatusBanner bgColor="#f97316" text="🟠 Outcome needed" />
+        <StatusBanner bgColor="hsl(var(--status-warning))" text="🟠 Outcome needed" />
       ) : isQOverdue ? (
-        <StatusBanner bgColor="#dc2626" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
+        <StatusBanner bgColor="hsl(var(--status-danger))" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
-        <StatusBanner bgColor="#2563eb" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
+        <StatusBanner bgColor="hsl(var(--status-neutral))" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
       ) : item.leadSource?.toLowerCase().includes('vip') ? (
         <StatusBanner
-          bgColor="#7e22ce"
+          bgColor="hsl(var(--brand))"
           text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
         />
       ) : (
         <StatusBanner
-          bgColor={localQStatus === 'Q_COMPLETED' ? '#16a34a' : localQStatus === 'Q_SENT' ? '#d97706' : '#dc2626'}
+          bgColor={localQStatus === 'Q_COMPLETED' ? 'hsl(var(--status-success))' : localQStatus === 'Q_SENT' ? 'hsl(var(--status-warning))' : 'hsl(var(--status-danger))'}
           text={qBar.bannerLabel}
         />
       )}
@@ -525,10 +525,10 @@ export default function IntroRowCard({
   const badges = (
     <>
       {item.isSecondIntro && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-600 text-white border-transparent">2nd</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-neutral-dim text-white border-transparent">2nd</Badge>
       )}
       {item.isVip && (
-        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
+        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-brand-dim text-white border-transparent">VIP</Badge>
       )}
     </>
   );
@@ -540,7 +540,7 @@ export default function IntroRowCard({
     const isNoShow = result === 'No-show';
     const isBooked2nd = result === 'Booked 2nd intro';
     const isPlanning2nd = result === 'Planning to Book 2nd Intro';
-    const bgColor = isPurchased ? '#16a34a' : isNoShow ? '#6b7280' : isBooked2nd ? '#2563eb' : isPlanning2nd ? '#7c3aed' : '#d97706';
+    const bgColor = isPurchased ? 'hsl(var(--status-success))' : isNoShow ? 'hsl(var(--status-neutral))' : isBooked2nd ? 'hsl(var(--status-neutral))' : isPlanning2nd ? 'hsl(var(--brand))' : 'hsl(var(--status-warning))';
     const label = isPurchased ? `✓ Purchased — ${result}` : isNoShow ? '👻 No-show' : isBooked2nd ? '📅 Booked 2nd Intro' : isPlanning2nd ? '🟣 2nd Intro Planned' : `⏳ ${result}`;
     return (
       <div className="relative">
@@ -565,7 +565,7 @@ export default function IntroRowCard({
         size="sm"
         className={cn(
           'h-9 flex-1 text-xs gap-1',
-          isInFocusWindow && !prepped && 'animate-pulse bg-orange-500 text-white hover:bg-orange-600',
+          isInFocusWindow && !prepped && 'animate-pulse bg-warning-dim text-white hover:bg-warning-dim',
         )}
         style={isInFocusWindow && !prepped ? { animationDuration: '2s' } : undefined}
         onClick={() => {

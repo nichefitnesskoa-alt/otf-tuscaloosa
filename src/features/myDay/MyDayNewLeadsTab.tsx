@@ -29,9 +29,9 @@ import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '
 function getSpeedInfo(createdAt: string) {
   const minutesSince = differenceInMinutes(new Date(), parseISO(createdAt));
   const hoursSince = minutesSince / 60;
-  if (hoursSince >= 4) return { color: '#dc2626', text: '🔴 Overdue — Contact Now' };
-  if (hoursSince >= 1) return { color: '#d97706', text: `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received` };
-  return { color: '#16a34a', text: `✓ New Lead — ${minutesSince}m ago` };
+  if (hoursSince >= 4) return { color: 'hsl(var(--status-danger))', text: '🔴 Overdue — Contact Now' };
+  if (hoursSince >= 1) return { color: 'hsl(var(--status-warning))', text: `⚠ Contact Soon — ${Math.floor(hoursSince)}h since received` };
+  return { color: 'hsl(var(--status-success))', text: `✓ New Lead — ${minutesSince}m ago` };
 }
 
 function formatDuration(minutes: number) {
@@ -118,7 +118,7 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
     ? Math.min(...responseTimes)
     : null;
 
-  const statusColor = overdue > 0 ? 'border-destructive/40 bg-destructive/5' : warning > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-green-500/40 bg-green-500/5';
+  const statusColor = overdue > 0 ? 'border-destructive/40 bg-destructive/5' : warning > 0 ? 'border-warning bg-warning-dim' : 'border-success bg-success-dim';
 
   return (
     <div className={`rounded-lg border-2 ${statusColor} p-2.5`}>
@@ -138,13 +138,13 @@ function SpeedToLeadBanner({ leads }: { leads: Lead[] }) {
           <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">🔴 {overdue} Overdue</Badge>
         )}
         {warning > 0 && (
-          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 text-white">⚠ {warning} Soon</Badge>
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-warning-dim text-white">⚠ {warning} Soon</Badge>
         )}
         {overdue === 0 && warning === 0 && newLeads.length === 0 && activityLoaded && avgResponse !== null && (
           <span className="text-muted-foreground">All clear</span>
         )}
         {overdue === 0 && warning === 0 && newLeads.length > 0 && (
-          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-600 text-white">✓ All fresh</Badge>
+          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-success-dim text-white">✓ All fresh</Badge>
         )}
       </div>
     </div>
@@ -201,14 +201,14 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
   };
 
   // Banner + border colors
-  let borderColor = '#6b7280', bannerBg = '#6b7280', bannerText = '';
+  let borderColor = 'hsl(var(--status-neutral))', bannerBg = 'hsl(var(--status-neutral))', bannerText = '';
   if (isAlreadyInSystem) {
     bannerText = `✗ Already in System — ${lead.duplicate_notes || 'Existing record found'}`;
   } else if (isFlagged) {
-    borderColor = '#d97706'; bannerBg = '#d97706';
+    borderColor = 'hsl(var(--status-warning))'; bannerBg = 'hsl(var(--status-warning))';
     bannerText = '⚠ Possible Duplicate — Review Before Contacting';
   } else if (isBooked) {
-    borderColor = '#16a34a'; bannerBg = '#16a34a'; bannerText = '✓ Booked';
+    borderColor = 'hsl(var(--status-success))'; bannerBg = 'hsl(var(--status-success))'; bannerText = '✓ Booked';
   } else if (isContacted) {
     bannerText = '✓ Contacted';
   } else {
@@ -249,7 +249,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
             <p className="text-[10px] text-muted-foreground mt-1">Received: {receivedLabel}</p>
             {/* Individual speed metric */}
             {isNew && (
-              <p className={`text-[11px] font-semibold mt-0.5 ${minutesSinceCreated >= 240 ? 'text-destructive' : minutesSinceCreated >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>
+              <p className={`text-[11px] font-semibold mt-0.5 ${minutesSinceCreated >= 240 ? 'text-destructive' : minutesSinceCreated >= 60 ? 'text-warning' : 'text-success'}`}>
                 ⏱ {formatDuration(minutesSinceCreated)} waiting
               </p>
             )}
@@ -263,7 +263,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
 
         {/* Match details */}
         {isFlagged && lead.duplicate_notes && (
-          <div className="rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 text-[11px] text-amber-800 dark:text-amber-200">
+          <div className="rounded bg-warning-dim border border-warning px-2.5 py-1.5 text-[11px] text-warning">
             ⚠ {lead.duplicate_notes}
           </div>
         )}
@@ -281,7 +281,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
               🔍 Find in System
             </Button>
             {findResult && (
-              <div className={`rounded px-2.5 py-1.5 text-[11px] ${findResult.isDuplicate ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200' : 'bg-muted/50 border border-border text-muted-foreground'}`}>
+              <div className={`rounded px-2.5 py-1.5 text-[11px] ${findResult.isDuplicate ? 'bg-warning-dim border border-warning text-warning' : 'bg-muted/50 border border-border text-muted-foreground'}`}>
                 {findResult.isDuplicate
                   ? <>✓ Match found — {findResult.summaryNote}
                     <div className="flex gap-1.5 mt-1.5">
