@@ -221,12 +221,26 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
       <div className="w-full max-w-[1200px] mx-auto px-4 md:px-12 py-6 md:py-10">
         {/* Hero */}
         <div className="mb-8 md:mb-10">
-          <h1
-            className="font-display font-black text-[#E8540A] leading-[0.95] uppercase line-clamp-2"
-            style={{ fontSize: 'clamp(32px, 5vw, 56px)', letterSpacing: '0.01em' }}
-          >
-            {giveawayTitle}
-          </h1>
+          {isMobile ? (
+            <MobileStackedTitle studioName={getParticipantStudioName(slug)} partners={partners} />
+          ) : (
+            <FitText
+              as="h1"
+              min={28}
+              max={56}
+              multiline
+              style={{
+                fontFamily: "'PP Right Grotesk', 'Arial Black', Arial, sans-serif",
+                fontWeight: 900,
+                color: '#E8540A',
+                lineHeight: 0.95,
+                letterSpacing: '0.01em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {giveawayTitle}
+            </FitText>
+          )}
           <p
             className="font-display font-medium uppercase text-[#8E8E93] mt-2"
             style={{ fontSize: 'clamp(10px, 1vw, 12px)', letterSpacing: '0.2em' }}
@@ -237,6 +251,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
             Complete actions below to earn entries. More entries = more chances to win.
           </p>
         </div>
+
 
         {endAt && (
           <div className="mb-8 flex justify-center md:justify-start">
