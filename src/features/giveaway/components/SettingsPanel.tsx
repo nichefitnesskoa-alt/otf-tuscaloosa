@@ -179,6 +179,98 @@ function WinnerStructureSection({
   );
 }
 
+function TitleFormatSection({
+  studioName,
+  partners,
+  titleFormat,
+  customTitle,
+  onChangeFormat,
+  onChangeCustomTitle,
+}: {
+  studioName: string;
+  partners: GiveawayPartner[];
+  titleFormat: TitleFormat;
+  customTitle: string;
+  onChangeFormat: (v: TitleFormat) => void;
+  onChangeCustomTitle: (v: string) => void;
+}) {
+  const options: { value: TitleFormat; title: string; subtitle: string }[] = [
+    {
+      value: 'auto_combined',
+      title: 'Studio × All Partners',
+      subtitle: getGiveawayTitle(studioName, partners, 'auto_combined', ''),
+    },
+    {
+      value: 'auto_studio_only',
+      title: 'Studio Only',
+      subtitle: getGiveawayTitle(studioName, partners, 'auto_studio_only', ''),
+    },
+    {
+      value: 'custom',
+      title: 'Custom Title',
+      subtitle: 'Write your own headline below.',
+    },
+  ];
+
+  const livePreview = getGiveawayTitle(studioName, partners, titleFormat, customTitle);
+
+  return (
+    <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
+      <div>
+        <h2 className="text-xl font-black">Giveaway Title</h2>
+        <p className="text-sm text-[#F5F2EE]/60 mt-1">What participants see at the top of the entry form.</p>
+      </div>
+
+      <div className="space-y-3">
+        {options.map(opt => {
+          const selected = titleFormat === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChangeFormat(opt.value)}
+              className={`w-full text-left rounded-lg border-2 px-4 py-4 min-h-[44px] flex items-start gap-4 cursor-pointer transition ${
+                selected
+                  ? 'border-[#E8540A] bg-[#E8540A]/10'
+                  : 'border-[#3a3a3c] bg-[#2a2a2c] hover:border-[#E8540A]/50'
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-base text-[#F5F2EE]">{opt.title}</p>
+                <p className="text-sm mt-1 text-[#F5F2EE]/70 break-words">{opt.subtitle}</p>
+              </div>
+              <div className={`flex-shrink-0 mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                selected ? 'border-[#E8540A] bg-[#E8540A]' : 'border-[#3a3a3c]'
+              }`}>
+                {selected && <Check className="h-3 w-3 text-white" />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {titleFormat === 'custom' && (
+        <label className="block">
+          <span className="block text-xs uppercase tracking-wider text-[#F5F2EE]/60 mb-1 font-bold">Custom Title</span>
+          <input
+            value={customTitle}
+            onChange={(e) => onChangeCustomTitle(e.target.value)}
+            placeholder="e.g. The Ultimate Tuscaloosa Glow-Up Giveaway"
+            className="w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE]"
+          />
+        </label>
+      )}
+
+      <div className="rounded-lg border border-[#3a3a3c] bg-[#181819] px-4 py-3">
+        <p className="text-[10px] uppercase tracking-wider text-[#F5F2EE]/50 font-bold mb-1">Live Preview</p>
+        <p className="font-display text-lg text-[#F5F2EE] break-words">{livePreview}</p>
+      </div>
+
+      <p className="text-xs text-[#F5F2EE]/50">Saved with the Save Settings button below.</p>
+    </div>
+  );
+}
+
 function PartnersSection({ slug }: { slug: string }) {
   const { partners, add, update, remove } = useGiveawayPartners(slug);
   const [editingId, setEditingId] = useState<string | null>(null);
