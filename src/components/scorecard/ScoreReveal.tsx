@@ -35,7 +35,7 @@ export function ScoreReveal({ level, total, onClose }: { level: 1 | 2 | 3; total
           </div>
           <h2 className="text-2xl font-black">{copy.headline}</h2>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto">{copy.body}</p>
-          <Button onClick={onClose} className="w-full text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
+          <Button onClick={onClose} className="w-full bg-brand text-brand-foreground hover:bg-brand-hover font-bold" style={{ minHeight: '44px' }}>
             Done
           </Button>
         </div>

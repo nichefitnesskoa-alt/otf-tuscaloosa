@@ -35,7 +35,7 @@ import { UnscoredDrillDown } from './UnscoredDrillDown';
 import { colorForCoach } from '@/lib/coachColors';
 
 const STUDIO_KEY = '__studio__';
-const STUDIO_COLOR = 'hsl(20 90% 47%)'; // OTF orange — reserved for studio overall
+const STUDIO_COLOR = 'hsl(var(--brand))'; // OTF orange — reserved for studio overall
 
 type ChartMode = 'avg' | 'closed';
 
@@ -281,8 +281,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                 points={coachPoints}
                                 studioOverlay={data.studioPoints}
                                 onPointTap={(p) => setDrilldown({ label: `${coach} · ${p.bucket}`, cards: p.scorecards })}
-                                primaryColor="hsl(20 90% 47%)"
-                                secondaryColor="hsl(38 92% 60%)"
+                                primaryColor="hsl(var(--brand))"
+                                secondaryColor="hsl(var(--warning))"
                               />
                             </div>
                           )}
@@ -607,7 +607,7 @@ function EmptyState({ onScoreFirst }: { onScoreFirst: () => void }) {
           First Visit Experience is the standard. The first scorecard starts the trend for every coach in this studio.
         </p>
       </div>
-      <Button onClick={onScoreFirst} className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white min-h-[44px]">
+      <Button onClick={onScoreFirst} className="bg-brand hover:bg-brand-hover text-brand-foreground min-h-[44px]">
         Score Your First Intro
       </Button>
     </Card>

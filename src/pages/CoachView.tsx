@@ -449,15 +449,15 @@ function ClassTimeIntroSelector({
                     1st Intro
                   </Badge>
                   {isQComplete ? (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success-dim text-success border-transparent">Questionnaire Complete</Badge>
                   ) : (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-destructive text-white border-transparent">No Questionnaire</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger-dim text-danger border-transparent">No Questionnaire</Badge>
                   )}
                   {intro.coach_debrief_submitted === true && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Debrief ✓</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success-dim text-success border-transparent">Debrief ✓</Badge>
                   )}
                   {intro.coach_debrief_submitted !== true && isClassTimePastStatic(intro.class_date, intro.intro_time, getTodayYMD()) && (
-                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Debrief needed</Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning-dim text-warning border-transparent">Debrief needed</Badge>
                   )}
                   {/* Shoutout badges removed — superseded by FV Scorecard */}
                 </div>

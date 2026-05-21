@@ -74,7 +74,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
                         <div key={b.key} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
                           <span className="text-foreground/80 flex-1">{b.label}</span>
                           <span
-                            className="ml-2 px-2 py-0.5 rounded text-white text-[10px] font-bold"
+                            className="ml-2 px-2 py-0.5 rounded text-brand-foreground text-[10px] font-bold"
                             style={{ backgroundColor: s != null ? SCORE_COLOR[s] : 'hsl(var(--muted))' }}
                           >
                             {s != null ? SCORE_LABEL[s] : '—'}
@@ -128,7 +128,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
             </div>
             <div className="space-y-2">
               <Textarea value={draft} onChange={e => setDraft(e.target.value)} placeholder="Add a comment…" className="min-h-[60px]" />
-              <Button onClick={submitComment} disabled={!draft.trim()} className="w-full text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
+              <Button onClick={submitComment} disabled={!draft.trim()} className="w-full bg-brand text-brand-foreground hover:bg-brand-hover font-bold" style={{ minHeight: '44px' }}>
                 Post comment
               </Button>
             </div>

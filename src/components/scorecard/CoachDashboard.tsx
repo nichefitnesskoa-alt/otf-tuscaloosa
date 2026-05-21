@@ -146,7 +146,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
               <XAxis dataKey="week" tick={{ fontSize: 10 }} />
               <YAxis domain={[0, 30]} tick={{ fontSize: 10 }} />
               <RTooltip />
-              <Line type="monotone" dataKey="avg" stroke="#E8540A" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="avg" stroke="hsl(var(--brand))" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         )}

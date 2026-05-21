@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DollarSign, Users, Download, Loader2, ChevronRight, CalendarDays, Trash2 } from 'lucide-react';
-import { capitalizeName } from '@/lib/utils';
+import { capitalizeName, cn } from '@/lib/utils';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -398,11 +398,17 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
         ) : (
           <>
             {/* Summary Stats */}
-            <div className="p-4 bg-success/10 rounded-lg border border-success/20">
+            <div className={cn(
+              "p-4 rounded-lg border",
+              totalCommission > 0 ? "bg-success/10 border-success/20" : "bg-surface-card border-surface-border"
+            )}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Total Commission</p>
-                  <p className="text-3xl font-black text-success">
+                  <p className={cn(
+                    "text-3xl font-black",
+                    totalCommission > 0 ? "text-success" : "text-text-secondary"
+                  )}>
                     ${totalCommission.toFixed(2)}
                   </p>
                 </div>
@@ -439,7 +445,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                               </p>
                             </div>
                           </div>
-                          <p className="font-bold text-success text-lg">
+                          <p className={cn("font-bold text-lg", entry.total > 0 ? "text-success" : "text-text-secondary")}>
                             ${entry.total.toFixed(2)}
                           </p>
                         </div>

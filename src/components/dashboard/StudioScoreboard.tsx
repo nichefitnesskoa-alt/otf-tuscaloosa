@@ -21,7 +21,7 @@ export function StudioScoreboard({
 }: StudioScoreboardProps) {
 
   return (
-    <Card className="bg-foreground text-background">
+    <Card className="bg-surface-card border-surface-border text-text-primary">
       <CardContent className="p-4">
         <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="w-5 h-5" />
