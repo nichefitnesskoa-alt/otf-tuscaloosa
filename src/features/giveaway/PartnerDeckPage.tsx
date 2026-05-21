@@ -78,6 +78,19 @@ export default function PartnerDeckPage() {
   const { studio } = useGiveawayStudio(studioSlug);
   const { partners } = useGiveawayPartners(studioSlug);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [showRotatePrompt, setShowRotatePrompt] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(orientation: portrait) and (max-width: 767px)');
+    const update = () => setShowRotatePrompt(mql.matches);
+    update();
+    mql.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      mql.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -98,6 +111,7 @@ export default function PartnerDeckPage() {
       </div>
     );
   }
+
 
   const city = getStudioCity(studioSlug);
   const anchor = studio.deck_prize_anchor_value ?? 169;
