@@ -161,7 +161,7 @@ function AppRoutes() {
       <Route path="/giveaway/:studioSlug" element={<GiveawayEntryPage />} />
       <Route path="/admin/:studioSlug" element={<GiveawayAdminPage />} />
       <Route path="/admin/:studioSlug/preview" element={<GiveawayPreviewPage />} />
-      <Route path="/admin/:studioSlug/partner-deck" element={<ProtectedRoute><PartnerDeckAdminPage /></ProtectedRoute>} />
+      <Route path="/admin/:studioSlug/partner-deck" element={<PartnerDeckAdminPage />} />
       <Route path="/partner-deck/:studioSlug" element={<PartnerDeckPage />} />
       <Route path="/questionnaire/:id" element={<QuestionnaireRedirect />} />
       <Route
