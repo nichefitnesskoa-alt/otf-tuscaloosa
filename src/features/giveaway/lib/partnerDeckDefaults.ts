@@ -1,9 +1,23 @@
 // Default copy for the partner pitch deck. Used when a studio leaves a
 // deck_* override blank in admin settings.
 
+import type { WinnerStructure } from './winnerStructure';
+
+export const SLIDE2_AUTO_COPY: Record<WinnerStructure, string> = {
+  single:
+    'We build one giveaway together and push it across every platform. Your audience finds our members. Our members find your business. One winner takes the whole bundle.',
+  per_prize_with_removal:
+    'We build one giveaway together and push it across every platform. Each business has its own prize and its own winner. More chances to win means more people enter.',
+  per_prize_allow_repeat:
+    'We build one giveaway together and push it across every platform. Each business has its own prize and its own winner. The same person could win more than once.',
+};
+
+export function slide2AutoCopy(ws: WinnerStructure | null | undefined): string {
+  return SLIDE2_AUTO_COPY[(ws as WinnerStructure) ?? 'single'] ?? SLIDE2_AUTO_COPY.single;
+}
+
 export const DEFAULT_DECK_COPY = {
-  intro:
-    "We build one giveaway together and push it across every platform. Your audience finds our members. Our members find your business. Everyone gets more reach than they would running it alone.",
+  intro: SLIDE2_AUTO_COPY.single,
   askPrize: (anchor: number) =>
     `A gift card or service. Match the value to the OTF membership (about $${anchor}) as closely as makes sense for you.`,
   askPromotion:
