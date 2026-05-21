@@ -221,10 +221,7 @@ export function ScorecardFormBody(props: BodyProps) {
             {' · '}
             {(() => { try { return new Date(loadedSubmittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return ''; } })()}
           </span>
-          <span
-            className="text-[11px] font-bold px-2 py-1 rounded-full text-white"
-            style={{ backgroundColor: '#E8540A' }}
-          >
+          <span className="text-[11px] font-bold px-2 py-1 rounded-full bg-brand text-brand-foreground">
             L{level} · {total}/30
           </span>
         </div>
@@ -310,7 +307,7 @@ export function ScorecardFormBody(props: BodyProps) {
                 <h3 className="font-bold text-xs tracking-wide uppercase truncate">
                   {col.label}{col.subtitle && <span className="text-[10px] text-muted-foreground ml-1">({col.subtitle})</span>}
                 </h3>
-                <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: 'hsl(20, 90%, 47%)' }}>
+                <span className="text-xs font-bold tabular-nums shrink-0 text-brand">
                   {colTotal(col.key)}/6
                 </span>
               </div>
@@ -341,15 +338,15 @@ export function ScorecardFormBody(props: BodyProps) {
       </div>
 
       {/* Submit row */}
-      <div className="flex items-center justify-between gap-3 border-t pt-3">
+      <div className="flex items-center justify-between gap-3 border-t pt-3 pr-4">
         <div className="text-sm">
           <span className="text-muted-foreground mr-2">Total</span>
-          <span className="text-2xl font-bold tabular-nums" style={{ color: 'hsl(20, 90%, 47%)' }}>{total}/30</span>
+          <span className="text-2xl font-bold tabular-nums text-brand">{total}/30</span>
           <span className="text-xs text-muted-foreground ml-2">
             {total >= 22 ? 'Level 3 — Studio Best' : total >= 12 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
           </span>
         </div>
-        <Button onClick={handleSubmit} disabled={submitting} className="text-white font-bold" style={{ minHeight: '44px', backgroundColor: '#E8540A' }}>
+        <Button onClick={handleSubmit} disabled={submitting} className="bg-brand text-brand-foreground hover:bg-brand-hover font-bold" style={{ minHeight: '44px' }}>
           {submitting ? 'Submitting…' : 'Submit Scorecard'}
         </Button>
       </div>
@@ -379,8 +376,8 @@ export function ScorecardFormBody(props: BodyProps) {
             <Button
               onClick={handleReflectionSubmit}
               disabled={submitting || !reflectionDraft.trim()}
-              className="w-full text-white font-bold"
-              style={{ minHeight: '44px', backgroundColor: '#E8540A' }}
+              className="w-full bg-brand text-brand-foreground hover:bg-brand-hover font-bold"
+              style={{ minHeight: '44px' }}
             >
               {submitting ? 'Saving…' : 'Save and see score'}
             </Button>

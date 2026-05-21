@@ -35,7 +35,7 @@ import { UnscoredDrillDown } from './UnscoredDrillDown';
 import { colorForCoach } from '@/lib/coachColors';
 
 const STUDIO_KEY = '__studio__';
-const STUDIO_COLOR = 'hsl(20 90% 47%)'; // OTF orange — reserved for studio overall
+const STUDIO_COLOR = 'hsl(var(--brand))'; // OTF orange — reserved for studio overall
 
 type ChartMode = 'avg' | 'closed';
 
@@ -281,8 +281,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                 points={coachPoints}
                                 studioOverlay={data.studioPoints}
                                 onPointTap={(p) => setDrilldown({ label: `${coach} · ${p.bucket}`, cards: p.scorecards })}
-                                primaryColor="hsl(20 90% 47%)"
-                                secondaryColor="hsl(38 92% 60%)"
+                                primaryColor="hsl(var(--brand))"
+                                secondaryColor="hsl(var(--warning))"
                               />
                             </div>
                           )}

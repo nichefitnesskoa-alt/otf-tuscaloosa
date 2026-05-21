@@ -8,9 +8,9 @@ export function BulletControl({ value, onChange, onClear, label }: {
   label: string;
 }) {
   const opts: { v: 0 | 1 | 2; lbl: string; cls: string }[] = [
-    { v: 0, lbl: 'Missed',   cls: 'bg-destructive text-white border-destructive' },
-    { v: 1, lbl: 'Partial',  cls: 'bg-warning text-white border-warning' },
-    { v: 2, lbl: 'Hit',      cls: 'bg-success text-white border-success' },
+    { v: 0, lbl: 'Missed',   cls: 'bg-danger-dim text-danger border-danger' },
+    { v: 1, lbl: 'Partial',  cls: 'bg-warning-dim text-warning border-warning' },
+    { v: 2, lbl: 'Hit',      cls: 'bg-success-dim text-success border-success' },
   ];
   return (
     <div className="space-y-1.5">
