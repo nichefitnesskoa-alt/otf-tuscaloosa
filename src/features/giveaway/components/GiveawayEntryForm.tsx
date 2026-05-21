@@ -10,7 +10,7 @@ import { ScreenshotUpload } from './ScreenshotUpload';
 import { LiveEntryCounter } from './LiveEntryCounter';
 import { ConfirmationScreen } from './ConfirmationScreen';
 import { PrizeShowcase } from './PrizeShowcase';
-import { getStudioIg, getStudioCity } from '../lib/studioBrand';
+import { getParticipantStudioName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getDrawRuleStatement } from '../lib/winnerStructure';
 
@@ -56,16 +56,18 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
   const [submitted, setSubmitted] = useState<{ firstName: string; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const studioIg = getStudioIg(slug);
+  const studioIgHandle = getStudioIgHandle(slug).replace(/^@/, '');
+  const studioIgDisplay = getStudioIgHandle(slug);
+  const studioParticipantName = getParticipantStudioName(slug);
 
   const igAccounts = useMemo(() => {
-    const list: { handle: string; label: string }[] = [{ handle: studioIg.handle, label: studioIg.display }];
+    const list: { handle: string; label: string }[] = [{ handle: studioIgHandle, label: studioIgDisplay }];
     for (const p of partners) {
       const h = (p.partner_ig_handle || '').trim().replace(/^@/, '');
       if (h) list.push({ handle: h, label: `@${h}` });
     }
     return list;
-  }, [studioIg.handle, studioIg.display, partners]);
+  }, [studioIgHandle, studioIgDisplay, partners]);
 
   useEffect(() => {
     setForm(prev => {
@@ -104,9 +106,9 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
   }
 
   const giveawayTitle = getGiveawayTitle(
-    studio.studio_name, partners, studio.title_format, studio.custom_title,
+    slug, partners, studio.title_format, studio.custom_title,
   );
-  const coBrandParts = getCoBrandParts(studio.studio_name, partners);
+  const coBrandParts = getCoBrandParts(slug, partners);
 
   const now = Date.now();
   const liveAt = studio.goes_live_at ? new Date(studio.goes_live_at).getTime() : null;
@@ -114,7 +116,7 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
 
   // In preview mode we always show the live form regardless of live state.
   if (!previewMode && !liveAt) {
-    return <ComingSoonScreen studioName={studio.studio_name} slug={slug} giveawayTitle={giveawayTitle} coBrandParts={coBrandParts} />;
+    return <ComingSoonScreen slug={slug} giveawayTitle={giveawayTitle} coBrandParts={coBrandParts} />;
   }
 
   if (!previewMode && now < (liveAt as number)) {
@@ -260,8 +262,8 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
               number={1}
               title="Follow on Instagram"
               description={igAccounts.length > 1
-                ? `Follow all ${igAccounts.length} accounts to earn this entry.`
-                : `Follow ${igAccounts[0]?.label || ''} on Instagram.`}
+                ? `Follow ${studioParticipantName} (${studioIgDisplay}) and ${igAccounts.length - 1} partner${igAccounts.length - 1 === 1 ? '' : 's'} on Instagram to earn this entry.`
+                : `Follow ${studioParticipantName} on Instagram (${studioIgDisplay})`}
               unlocked={igFollowComplete}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -420,34 +422,32 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
 }
 
 function ComingSoonScreen({
-  studioName, slug, giveawayTitle, coBrandParts,
+  slug, giveawayTitle, coBrandParts,
 }: {
-  studioName: string; slug: string; giveawayTitle: string; coBrandParts: string[];
+  slug: string; giveawayTitle: string; coBrandParts: string[];
 }) {
-  const ig = getStudioIg(slug);
+  const igHandle = getStudioIgHandle(slug);
+  const igHandleStripped = igHandle.replace(/^@/, '');
   const city = getStudioCity(slug);
   return (
     <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE] flex flex-col">
       <div className="h-1.5 bg-[#E8540A] w-full" />
       <CoBrandBar parts={coBrandParts} />
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        <p className="font-display text-[11px] uppercase text-[#E8540A] font-black mb-6" style={{ letterSpacing: '0.35em' }}>
-          Orangetheory Fitness
-        </p>
-        <h1 className="font-display font-black text-[#F5F2EE]" style={{ fontSize: 'clamp(40px, 7vw, 64px)', lineHeight: 1, letterSpacing: '0.02em' }}>
-          {city}
+        <h1 className="font-display font-black text-[#F5F2EE]" style={{ fontSize: 'clamp(40px, 7vw, 64px)', lineHeight: 1, letterSpacing: '0.01em' }}>
+          OrangeTheory Fitness
         </h1>
-        <p className="font-body text-[#F5F2EE]/60 mt-2" style={{ fontSize: 10, letterSpacing: '0.5em' }}>
-          {studioName}
+        <p className="font-display font-bold text-[#F5F2EE]/70 mt-3 uppercase" style={{ fontSize: 'clamp(12px, 1.4vw, 16px)', letterSpacing: '0.35em' }}>
+          {city}
         </p>
         <div className="h-px w-10 bg-[#E8540A] my-8" />
         <h2 className="font-display font-black text-[#E8540A] uppercase max-w-xl line-clamp-2" style={{ fontSize: 'clamp(28px, 4vw, 40px)', letterSpacing: '0.02em' }}>
           {giveawayTitle}
         </h2>
-        <p className="font-body text-sm text-[#F5F2EE]/60 mt-3">Something big is coming. A giveaway you won't want to miss.</p>
-        <a href={`https://instagram.com/${ig.handle}`} target="_blank" rel="noreferrer"
+        <p className="font-body text-sm text-[#F5F2EE]/60 mt-3">A giveaway you won't want to miss is on the way.</p>
+        <a href={`https://instagram.com/${igHandleStripped}`} target="_blank" rel="noreferrer"
           className="font-display inline-flex items-center gap-1.5 mt-8 text-[12px] text-[#E8540A] font-bold hover:underline cursor-pointer uppercase tracking-wider">
-          <Instagram className="h-4 w-4" /> {ig.display}
+          <Instagram className="h-4 w-4" /> {igHandle}
         </a>
       </div>
       <div className="px-6 pb-3 flex justify-end">
