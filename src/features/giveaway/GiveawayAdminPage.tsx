@@ -9,6 +9,7 @@ import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
 import { Download, Users, Settings as SettingsIcon, Eye } from 'lucide-react';
+import { getAdminStudioName } from '@/lib/studioNames';
 
 export default function GiveawayAdminPage() {
   const { studioSlug } = useParams<{ studioSlug: string }>();
@@ -33,7 +34,7 @@ export default function GiveawayAdminPage() {
       <aside className="md:w-64 md:min-h-screen border-b md:border-b-0 md:border-r border-[#3a3a3c] bg-[#181819] p-4 md:p-6">
         <div className="mb-6">
           <p className="text-[10px] uppercase tracking-[0.25em] text-[#E8540A] font-bold">Giveaway</p>
-          <h1 className="text-xl font-black">{studio.studio_name}</h1>
+          <h1 className="text-xl font-black">{getAdminStudioName(studio.studio_slug)}</h1>
           <span className="inline-block mt-1 text-[10px] bg-[#2a2a2c] border border-[#3a3a3c] px-2 py-0.5 rounded uppercase tracking-wider">Admin</span>
         </div>
         <nav className="flex md:flex-col gap-2">

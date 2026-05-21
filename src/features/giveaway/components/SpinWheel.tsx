@@ -8,7 +8,7 @@ import {
   removesWinners,
   type WinnerStructure,
 } from '../lib/winnerStructure';
-import { getStudioCity } from '../lib/studioBrand';
+import { getParticipantStudioName } from '@/lib/studioNames';
 
 interface Segment { entry: DrawEntry; startAngle: number; endAngle: number; }
 
@@ -38,8 +38,7 @@ export function SpinWheel({
   const canRemove = removesWinners(winnerStructure);
 
   const prizes = useMemo<Prize[]>(() => {
-    const city = getStudioCity(studioSlug);
-    const list: Prize[] = [{ id: 'membership', label: `OTF Membership — ${city}` }];
+    const list: Prize[] = [{ id: 'membership', label: `${getParticipantStudioName(studioSlug)} Membership` }];
     for (const p of partners) {
       const desc = (p.prize_description || '').trim();
       if (!desc) continue;
