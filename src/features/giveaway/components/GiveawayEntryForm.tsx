@@ -10,9 +10,12 @@ import { ScreenshotUpload } from './ScreenshotUpload';
 import { LiveEntryCounter } from './LiveEntryCounter';
 import { ConfirmationScreen } from './ConfirmationScreen';
 import { PrizeShowcase } from './PrizeShowcase';
+import { FitText } from './FitText';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getParticipantStudioName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
 import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
+
 
 interface PartnerActionState {
   partner_id: string;
