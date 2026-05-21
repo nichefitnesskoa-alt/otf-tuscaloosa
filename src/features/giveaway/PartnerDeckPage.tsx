@@ -112,10 +112,18 @@ export default function PartnerDeckPage() {
       bodyOverflow: body.style.overflow,
       bodyTouchAction: body.style.touchAction,
     };
+    const prevHtmlOverflowX = html.style.overflowX;
+    const prevBodyOverflowX = body.style.overflowX;
+    const prevHtmlMaxWidth = html.style.maxWidth;
+    const prevBodyMaxWidth = body.style.maxWidth;
     html.style.setProperty('-webkit-text-size-adjust', 'none');
     html.style.setProperty('text-size-adjust', 'none');
     html.style.overflow = 'hidden';
+    html.style.overflowX = 'hidden';
+    html.style.maxWidth = '100vw';
     body.style.overflow = 'hidden';
+    body.style.overflowX = 'hidden';
+    body.style.maxWidth = '100vw';
     body.style.touchAction = 'none';
 
     // 3. Prevent pinch zoom
