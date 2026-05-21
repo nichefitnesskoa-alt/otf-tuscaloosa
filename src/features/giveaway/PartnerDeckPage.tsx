@@ -371,7 +371,6 @@ function SlideTimeline({ studio }: { studio: any }) {
                   }}>{p.tag}</span>
                   <FitText as="p" min={SIZES.s4_phase_title.min} max={SIZES.s4_phase_title.max}
                     fixed={studio.deck_s4_phase_title_size}
-                    /* className not supported on FitText; mobile size pinned via global rule below via parent class */
                     style={{ ...headlineStyle, color: C.dark, fontWeight: 900 }}>
                     {p.title}
                   </FitText>
