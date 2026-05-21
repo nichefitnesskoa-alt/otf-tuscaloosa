@@ -1043,6 +1043,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          partner_actions: Json
           phone: string
           studio_slug: string
           submitted_at: string
@@ -1064,6 +1065,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          partner_actions?: Json
           phone: string
           studio_slug: string
           submitted_at?: string
@@ -1085,6 +1087,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          partner_actions?: Json
           phone?: string
           studio_slug?: string
           submitted_at?: string
@@ -1100,14 +1103,50 @@ export type Database = {
           },
         ]
       }
+      giveaway_partners: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          partner_ig_handle: string | null
+          partner_name: string
+          receipt_instructions: string | null
+          studio_slug: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          partner_ig_handle?: string | null
+          partner_name: string
+          receipt_instructions?: string | null
+          studio_slug: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          partner_ig_handle?: string | null
+          partner_name?: string
+          receipt_instructions?: string | null
+          studio_slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giveaway_partners_studio_slug_fkey"
+            columns: ["studio_slug"]
+            isOneToOne: false
+            referencedRelation: "giveaway_studios"
+            referencedColumns: ["studio_slug"]
+          },
+        ]
+      }
       giveaway_studios: {
         Row: {
           countdown_duration_days: number
           created_at: string
           goes_live_at: string | null
           id: string
-          partner_instructions: string | null
-          partner_name: string | null
           studio_name: string
           studio_slug: string
           updated_at: string
@@ -1117,8 +1156,6 @@ export type Database = {
           created_at?: string
           goes_live_at?: string | null
           id?: string
-          partner_instructions?: string | null
-          partner_name?: string | null
           studio_name: string
           studio_slug: string
           updated_at?: string
@@ -1128,8 +1165,6 @@ export type Database = {
           created_at?: string
           goes_live_at?: string | null
           id?: string
-          partner_instructions?: string | null
-          partner_name?: string | null
           studio_name?: string
           studio_slug?: string
           updated_at?: string
