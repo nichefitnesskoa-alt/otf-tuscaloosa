@@ -7,6 +7,7 @@ export interface GiveawayPartner {
   partner_name: string;
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
+  prize_description: string | null;
   display_order: number;
   created_at: string;
 }
@@ -15,6 +16,7 @@ export interface PartnerInput {
   partner_name: string;
   partner_ig_handle: string | null;
   receipt_instructions: string | null;
+  prize_description: string | null;
 }
 
 export function useGiveawayPartners(slug: string | undefined) {
@@ -52,6 +54,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_name: input.partner_name.trim(),
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
+      prize_description: input.prize_description?.trim() || null,
       display_order: nextOrder,
     });
     if (!error) await refresh();
@@ -63,6 +66,7 @@ export function useGiveawayPartners(slug: string | undefined) {
       partner_name: input.partner_name.trim(),
       partner_ig_handle: input.partner_ig_handle?.trim() || null,
       receipt_instructions: input.receipt_instructions?.trim() || null,
+      prize_description: input.prize_description?.trim() || null,
     }).eq('id', id);
     if (!error) await refresh();
     return { error: error?.message };
