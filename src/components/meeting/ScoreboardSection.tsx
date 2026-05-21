@@ -90,12 +90,12 @@ export function ScoreboardSection({ metrics, dateLabel, isPresentMode }: Props) 
 
         {/* Biggest Opportunity */}
         {m.biggestOpportunity && (
-          <div className="bg-warning/20 border border-warning/30 rounded-xl p-6 text-center">
+          <div className="bg-brand-dim border border-brand rounded-xl p-6 text-center">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <AlertTriangle className="w-6 h-6 text-warning" />
-              <p className="text-xl font-bold text-warning">Biggest Opportunity</p>
+              <AlertTriangle className="w-6 h-6 text-brand" />
+              <p className="text-xl font-bold text-brand">Biggest Opportunity</p>
             </div>
-            <p className="text-lg text-white">{m.biggestOpportunity}</p>
+            <p className="text-lg text-text-primary">{m.biggestOpportunity}</p>
           </div>
         )}
       </MeetingSection>
