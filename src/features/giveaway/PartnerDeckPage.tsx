@@ -3,17 +3,18 @@ import { useParams } from 'react-router-dom';
 import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { getStudioCity } from '@/lib/studioNames';
-import { DEFAULT_DECK_COPY, DEFAULT_DECK, computeBundleTotal, pick } from './lib/partnerDeckDefaults';
+import { DEFAULT_DECK_COPY, DEFAULT_DECK, computeBundleTotal, pick, slide2AutoCopy } from './lib/partnerDeckDefaults';
+import { FitText } from './components/FitText';
 import { Video, Users, Star, Share2, ArrowUpRight, Phone, Mail } from 'lucide-react';
 
-/* ─────────── OTF Brand Constants ─────────── */
+/* OTF brand */
 const C = {
   orange: '#FF6F0D',
   bone: '#FDF7EA',
   dark: '#0A0A0A',
   gray: '#D7D7D7',
-  boneDim10: 'rgba(253,247,234,0.1)',
   boneDim08: 'rgba(253,247,234,0.08)',
+  boneDim10: 'rgba(253,247,234,0.1)',
   boneDim15: 'rgba(253,247,234,0.15)',
   boneDim20: 'rgba(253,247,234,0.2)',
   boneDim05: 'rgba(253,247,234,0.05)',
@@ -22,7 +23,6 @@ const C = {
   darkDim18: 'rgba(10,10,10,0.18)',
   darkDim15: 'rgba(10,10,10,0.15)',
   darkDim10: 'rgba(10,10,10,0.1)',
-  darkDim08: 'rgba(10,10,10,0.08)',
   darkDim5: 'rgba(10,10,10,0.5)',
   orangeDim12: 'rgba(255,111,13,0.12)',
   orangeDim25: 'rgba(255,111,13,0.25)',
@@ -32,46 +32,44 @@ const C = {
 const FONT_STACK = "'PP Right Grotesk', 'Arial Black', 'Helvetica Neue', Arial, sans-serif";
 const LABEL_FONT = "system-ui, Arial, sans-serif";
 
-const display = (size: number | string, weight = 900): React.CSSProperties => ({
-  fontFamily: FONT_STACK,
-  fontWeight: weight,
-  letterSpacing: '-0.04em',
-  lineHeight: 0.9,
-  fontSize: size as any,
-});
-
-const headline = (size: number): React.CSSProperties => ({
-  fontFamily: FONT_STACK,
-  fontWeight: 700,
-  letterSpacing: '-0.02em',
-  lineHeight: 1.05,
-  fontSize: size,
-});
-
+const displayStyle: React.CSSProperties = {
+  fontFamily: FONT_STACK, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 0.95,
+};
+const headlineStyle: React.CSSProperties = {
+  fontFamily: FONT_STACK, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.05,
+};
 const body = (size: number, weight: 300 | 400 = 400): React.CSSProperties => ({
-  fontFamily: FONT_STACK,
-  fontWeight: weight,
-  letterSpacing: '-0.01em',
-  lineHeight: 1.6,
-  fontSize: size,
+  fontFamily: FONT_STACK, fontWeight: weight, letterSpacing: '-0.01em', lineHeight: 1.6, fontSize: size,
 });
-
 const label = (color: string, size = 10): React.CSSProperties => ({
-  fontFamily: LABEL_FONT,
-  fontWeight: 700,
-  letterSpacing: '0.2em',
-  textTransform: 'uppercase',
-  fontSize: size,
-  color,
+  fontFamily: LABEL_FONT, fontWeight: 700, letterSpacing: '0.2em',
+  textTransform: 'uppercase', fontSize: size, color,
 });
 
-// Symmetric grid: 4 cards = 2x2, never an orphan row.
+// Min/max font caps per element
+const SIZES = {
+  s1_title1: { min: 48, max: 96 },   // Cross-collab
+  s1_title2: { min: 28, max: 72 },   // partner names
+  s1_subtitle: { min: 16, max: 22 },
+  s2_headline: { min: 32, max: 88 },
+  s3_headline: { min: 22, max: 64 },
+  s4_headline: { min: 22, max: 64 },
+  s4_phase_title: { min: 16, max: 32 },
+  s5_headline: { min: 22, max: 64 },
+  s5_card_title: { min: 16, max: 28 },
+  s6_headline: { min: 22, max: 60 },
+  s7_headline: { min: 22, max: 64 },
+  s8_headline: { min: 22, max: 64 },
+  s9_headline: { min: 32, max: 96 },
+  s9_subline: { min: 32, max: 96 },
+};
+
 function gridColsFor(n: number): string {
   if (n <= 1) return '1fr';
   if (n === 2) return '1fr 1fr';
   if (n === 3) return '1fr 1fr 1fr';
   if (n === 4) return '1fr 1fr';
-  return '1fr 1fr 1fr'; // 5 or 6
+  return '1fr 1fr 1fr';
 }
 
 export default function PartnerDeckPage() {
@@ -105,7 +103,7 @@ export default function PartnerDeckPage() {
   const bundleTotal = computeBundleTotal(anchor, partners.length, studio.deck_headline_value);
 
   const slides = [
-    { id: 'cover',    render: () => <SlideCover    partners={partners} /> },
+    { id: 'cover',    render: () => <SlideCover    partners={partners} studio={studio} /> },
     { id: 'concept',  render: () => <SlideConcept  studio={studio} /> },
     { id: 'prize',    render: () => <SlidePrize    city={city} partners={partners} anchor={anchor} bundleTotal={bundleTotal} studio={studio} /> },
     { id: 'timeline', render: () => <SlideTimeline studio={studio} /> },
@@ -123,12 +121,10 @@ export default function PartnerDeckPage() {
           <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
             onClick={() => setActiveSlide(i)}
             style={{
-              display: 'block',
-              height: 6, width: 6, borderRadius: '50%',
+              display: 'block', height: 6, width: 6, borderRadius: '50%',
               transition: 'all 0.25s',
               background: activeSlide === i ? C.orange : C.boneDim20,
-              transform: activeSlide === i ? 'scale(1.5)' : 'scale(1)',
-              cursor: 'pointer',
+              transform: activeSlide === i ? 'scale(1.5)' : 'scale(1)', cursor: 'pointer',
             }} />
         ))}
       </nav>
@@ -145,25 +141,30 @@ export default function PartnerDeckPage() {
 }
 
 /* ─────────── Slide 1: Cover ─────────── */
-function SlideCover({ partners }: { partners: { partner_name: string }[] }) {
-  // Build orange line from partners only — no city, no prospect.
+function SlideCover({ partners, studio }: { partners: { partner_name: string }[]; studio: any }) {
   const SEP = ' \u00D7 ';
   let orangeLine = 'OrangeTheory Fitness';
   if (partners.length >= 1) {
     orangeLine = ['OrangeTheory Fitness', ...partners.map(p => p.partner_name)].join(SEP);
   }
-  // clamp font-size: never below 28px, scales with viewport.
-  const orangeSize = 'clamp(28px, 6.2vw, 72px)';
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <div style={{ ...display(13), color: C.bone, opacity: 0.92, marginBottom: 28 }}>OTF</div>
+        <div style={{ ...displayStyle, fontSize: 13, color: C.bone, opacity: 0.92, marginBottom: 28 }}>OTF</div>
         <p style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
-        <h1 style={{ ...display('clamp(48px, 10vw, 96px)'), color: C.bone, marginBottom: 16, whiteSpace: 'nowrap' }}>Cross-collab</h1>
-        <p style={{ ...display(orangeSize), color: C.orange, marginBottom: 28, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {orangeLine}
-        </p>
+        <div style={{ width: '100%', maxWidth: 1000 }}>
+          <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
+            fixed={studio.deck_s1_title1_size}
+            style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+            Cross-collab
+          </FitText>
+          <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
+            fixed={studio.deck_s1_title2_size}
+            style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+            {orangeLine}
+          </FitText>
+        </div>
         <p style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
           A giveaway built around the best local businesses and the people who love them.
         </p>
@@ -173,16 +174,27 @@ function SlideCover({ partners }: { partners: { partner_name: string }[] }) {
   );
 }
 
-/* ─────────── Slide 2: Concept (orange) ─────────── */
+/* ─────────── Slide 2: Concept ─────────── */
 function SlideConcept({ studio }: { studio: any }) {
+  const headlineText = pick(studio.deck_s2_headline, DEFAULT_DECK.s2_headline);
+  const sentences = headlineText.split(/(?<=\.)\s+/).filter(Boolean);
+  const autoBody = slide2AutoCopy(studio.winner_structure);
+  const bodyText = pick(studio.deck_s2_body ?? studio.deck_intro_copy, autoBody);
+
   return (
     <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
-      <div style={{ maxWidth: 720 }}>
+      <div style={{ maxWidth: 900, width: '100%' }}>
         <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
-        <h2 style={{ ...display('clamp(48px, 8vw, 88px)'), color: C.dark, marginBottom: 32, maxWidth: 720 }}>
-          {pick(studio.deck_s2_headline, DEFAULT_DECK.s2_headline)}
-        </h2>
-        <p style={{ ...body(22), color: C.dark }}>{pick(studio.deck_s2_body ?? studio.deck_intro_copy, DEFAULT_DECK_COPY.intro)}</p>
+        <div style={{ marginBottom: 32 }}>
+          {sentences.map((s, i) => (
+            <FitText key={i} as="div" min={SIZES.s2_headline.min} max={SIZES.s2_headline.max}
+              fixed={studio.deck_s2_headline_size}
+              style={{ ...displayStyle, color: C.dark }}>
+              {s}
+            </FitText>
+          ))}
+        </div>
+        <p style={{ ...body(22), color: C.dark, maxWidth: 720 }}>{bodyText}</p>
       </div>
     </div>
   );
@@ -192,20 +204,10 @@ function SlideConcept({ studio }: { studio: any }) {
 function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
   type Row = { tag: string; tagAccent: boolean; title: string; description: string; value?: string };
   const rows: Row[] = [
-    {
-      tag: `OrangeTheory Fitness ${city}`, tagAccent: true,
-      title: 'One month free membership',
-      description: 'Full access, all classes, all month. This is the anchor of the bundle.',
-      value: `$${anchor}`,
-    },
+    { tag: `OrangeTheory Fitness ${city}`, tagAccent: true, title: 'One month free membership', description: 'Full access, all classes, all month. This is the anchor of the bundle.', value: `$${anchor}` },
   ];
   for (const p of partners) {
-    rows.push({
-      tag: p.partner_name,
-      tagAccent: false,
-      title: p.prize_description?.trim() || 'Prize coming',
-      description: p.receipt_instructions?.trim() || '',
-    });
+    rows.push({ tag: p.partner_name, tagAccent: false, title: p.prize_description?.trim() || 'Prize coming', description: p.receipt_instructions?.trim() || '' });
   }
   const valueNote = pick(studio.deck_s3_value_note, `Target total value: ${bundleTotal}`);
 
@@ -213,13 +215,13 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
     <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
         <p style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
-        <h2 style={{ ...display('clamp(40px, 6vw, 64px)'), color: C.bone, marginBottom: 12 }}>
+        <FitText as="h2" min={SIZES.s3_headline.min} max={SIZES.s3_headline.max}
+          fixed={studio.deck_s3_headline_size}
+          style={{ ...displayStyle, color: C.bone, marginBottom: 12 }}>
           {pick(studio.deck_s3_headline, DEFAULT_DECK.s3_headline)}
-        </h2>
+        </FitText>
         <p style={{ ...body(12), color: C.orange, opacity: 0.85, marginBottom: 8 }}>{valueNote}</p>
-        <p style={{ ...body(12), color: C.gray, marginBottom: 32 }}>
-          The more partners join, the bigger the prize. The more people enter.
-        </p>
+        <p style={{ ...body(12), color: C.gray, marginBottom: 32 }}>The more partners join, the bigger the prize. The more people enter.</p>
 
         <div style={{ maxWidth: 520, width: '100%' }}>
           {rows.map((r, i) => {
@@ -236,14 +238,10 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
                   flexShrink: 0,
                 }}>{r.tag}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ ...headline(15), color: C.bone, fontWeight: 900 }}>{r.title}</p>
-                  {r.description && (
-                    <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>
-                  )}
+                  <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
+                  {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
                 </div>
-                {r.value && (
-                  <p style={{ ...headline(11), color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
-                )}
+                {r.value && <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>}
               </div>
             );
           })}
@@ -253,7 +251,7 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
   );
 }
 
-/* ─────────── Slide 4: Timeline (Bone, light) ─────────── */
+/* ─────────── Slide 4: Timeline ─────────── */
 function SlideTimeline({ studio }: { studio: any }) {
   const phases = [
     { tag: DEFAULT_DECK.s4_phase1_tag, title: pick(studio.deck_s4_phase1_title, DEFAULT_DECK.s4_phase1_title), body: pick(studio.deck_s4_phase1_body, DEFAULT_DECK.s4_phase1_body) },
@@ -264,10 +262,12 @@ function SlideTimeline({ studio }: { studio: any }) {
     <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
         <p style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
-        <h2 style={{ ...display('clamp(40px, 6vw, 64px)'), color: C.dark, marginBottom: 16 }}>
+        <FitText as="h2" min={SIZES.s4_headline.min} max={SIZES.s4_headline.max}
+          fixed={studio.deck_s4_headline_size}
+          style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
           {pick(studio.deck_s4_headline, DEFAULT_DECK.s4_headline)}
-        </h2>
-        <p style={{ fontFamily: LABEL_FONT, fontSize: 14, color: '#555', textAlign: 'center', marginBottom: 24 }}>
+        </FitText>
+        <p style={{ fontFamily: LABEL_FONT, fontSize: 14, color: '#555', marginBottom: 24 }}>
           {pick(studio.deck_s4_subtext, DEFAULT_DECK.s4_subtext)}
         </p>
 
@@ -276,15 +276,19 @@ function SlideTimeline({ studio }: { studio: any }) {
             const isLast = i === phases.length - 1;
             return (
               <div key={i} style={{ display: 'flex', gap: 18, padding: '14px 0', borderBottom: isLast ? 'none' : '1px solid rgba(10,10,10,0.08)' }}>
-                <div style={{ ...display(10), color: C.orange, minWidth: 26, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</div>
+                <div style={{ ...displayStyle, fontSize: 10, color: C.orange, minWidth: 26, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{
                     display: 'inline-block', background: C.dark, color: C.orange,
                     fontFamily: LABEL_FONT, fontSize: 8, fontWeight: 700, letterSpacing: '0.2em',
                     textTransform: 'uppercase', padding: '3px 7px', borderRadius: 2, marginBottom: 5,
                   }}>{p.tag}</span>
-                  <p style={{ ...headline(16), color: C.dark, fontWeight: 900 }}>{p.title}</p>
-                  <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: '#555', lineHeight: 1.5, marginTop: 4 }}>{p.body}</p>
+                  <FitText as="p" min={SIZES.s4_phase_title.min} max={SIZES.s4_phase_title.max}
+                    fixed={studio.deck_s4_phase_title_size}
+                    style={{ ...headlineStyle, color: C.dark, fontWeight: 900 }}>
+                    {p.title}
+                  </FitText>
+                  <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 13, color: '#555', lineHeight: 1.5, marginTop: 4 }}>{p.body}</p>
                 </div>
               </div>
             );
@@ -307,9 +311,11 @@ function SlideStory({ studio }: { studio: any }) {
     <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 960, width: '100%' }}>
         <p style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
-        <h2 style={{ ...display('clamp(40px, 6vw, 64px)'), color: C.bone, marginBottom: 40 }}>
+        <FitText as="h2" min={SIZES.s5_headline.min} max={SIZES.s5_headline.max}
+          fixed={studio.deck_s5_headline_size}
+          style={{ ...displayStyle, color: C.bone, marginBottom: 40 }}>
           {pick(studio.deck_s5_headline, DEFAULT_DECK.s5_headline)}
-        </h2>
+        </FitText>
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(items.length), gap: 12, alignItems: 'stretch' }}>
           {items.map((it, i) => (
             <div key={i} style={{ background: C.dark, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -317,7 +323,11 @@ function SlideStory({ studio }: { studio: any }) {
                 <it.Icon size={15} color={C.orange} strokeWidth={2} />
               </div>
               <div>
-                <p style={{ ...headline(14), color: C.bone, fontWeight: 900, letterSpacing: '-0.01em' }}>{it.title}</p>
+                <FitText as="p" min={SIZES.s5_card_title.min} max={SIZES.s5_card_title.max}
+                  fixed={studio.deck_s5_card_title_size}
+                  style={{ ...headlineStyle, color: C.bone, fontWeight: 900, letterSpacing: '-0.01em' }}>
+                  {it.title}
+                </FitText>
                 <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim05Text, lineHeight: 1.5, marginTop: 6 }}>{it.body}</p>
               </div>
             </div>
@@ -329,21 +339,23 @@ function SlideStory({ studio }: { studio: any }) {
   );
 }
 
-/* ─────────── Slide 6: Tracking (orange) ─────────── */
+/* ─────────── Slide 6: Tracking ─────────── */
 function SlideTracking({ studioSlug, studio }: { studioSlug: string; studio: any }) {
   return (
     <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
         <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
-        <h2 style={{ ...display('clamp(36px, 5.5vw, 60px)'), color: C.dark, marginBottom: 16, whiteSpace: 'nowrap' }}>
+        <FitText as="h2" min={SIZES.s6_headline.min} max={SIZES.s6_headline.max}
+          fixed={studio.deck_s6_headline_size}
+          style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
           {pick(studio.deck_s6_headline, DEFAULT_DECK.s6_headline)}
-        </h2>
+        </FitText>
         <p style={{ ...body(16), color: C.dark, opacity: 0.7, maxWidth: 480, marginBottom: 32 }}>
           {pick(studio.deck_s6_body, DEFAULT_DECK.s6_body)}
         </p>
         <div className="deck-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'stretch' }}>
-          <LinkCard href={`/giveaway/${studioSlug}`}              label="Giveaway entry"     title="What entrants see"      url={`/giveaway/${studioSlug}`} />
-          <LinkCard href={`/admin/${studioSlug}/partner-view`}    label="Partner dashboard"  title="Your live entry tracker" url={`/admin/${studioSlug}/partner-view`} />
+          <LinkCard href={`/giveaway/${studioSlug}`}           label="Giveaway entry"    title="What entrants see"       url={`/giveaway/${studioSlug}`} />
+          <LinkCard href={`/admin/${studioSlug}/partner-view`} label="Partner dashboard" title="Your live entry tracker" url={`/admin/${studioSlug}/partner-view`} />
         </div>
         <p style={{ ...body(11), color: C.dark, opacity: 0.5, textAlign: 'center', marginTop: 24 }}>
           {pick(studio.deck_s6_note, DEFAULT_DECK.s6_note)}
@@ -353,10 +365,11 @@ function SlideTracking({ studioSlug, studio }: { studioSlug: string; studio: any
     </div>
   );
 }
+
 function LinkCard({ href, label: lbl, title, url }: { href: string; label: string; title: string; url: string }) {
   const [hover, setHover] = useState(false);
   return (
-    <a href={href} target="_blank" rel="noreferrer"
+    <a href={href} rel="noreferrer"
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
         display: 'block', background: hover ? C.darkDim18 : C.darkDim10,
@@ -368,7 +381,7 @@ function LinkCard({ href, label: lbl, title, url }: { href: string; label: strin
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ ...label(C.dark, 9), opacity: 0.55, marginBottom: 2 }}>{lbl}</p>
-          <p style={{ ...headline(14), color: C.dark, fontWeight: 900 }}>{title}</p>
+          <p style={{ ...headlineStyle, fontSize: 14, color: C.dark, fontWeight: 900 }}>{title}</p>
           <p style={{ fontFamily: LABEL_FONT, fontSize: 10, color: C.darkDim5, marginTop: 2 }}>{url}</p>
         </div>
       </div>
@@ -376,7 +389,7 @@ function LinkCard({ href, label: lbl, title, url }: { href: string; label: strin
   );
 }
 
-/* ─────────── Slide 7: Entry actions (Bone, light) ─────────── */
+/* ─────────── Slide 7: Entry actions ─────────── */
 function SlideEntry({ partners, studio }: any) {
   const baseActions: { text: string; bonus?: boolean }[] = [
     { text: 'Follow all participating businesses' },
@@ -384,24 +397,24 @@ function SlideEntry({ partners, studio }: any) {
     { text: 'Fill out the entry form' },
     { text: 'Post a story of you taking a class and tag us' },
   ];
-  for (const p of partners) {
-    baseActions.push({ text: `Visit ${p.partner_name}`, bonus: true });
-  }
+  for (const p of partners) baseActions.push({ text: `Visit ${p.partner_name}`, bonus: true });
 
   return (
     <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
         <p style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
-        <h2 style={{ ...display('clamp(40px, 6vw, 64px)'), color: C.dark, marginBottom: 32 }}>
+        <FitText as="h2" min={SIZES.s7_headline.min} max={SIZES.s7_headline.max}
+          fixed={studio.deck_s7_headline_size}
+          style={{ ...displayStyle, color: C.dark, marginBottom: 32 }}>
           {pick(studio.deck_s7_headline, DEFAULT_DECK.s7_headline)}
-        </h2>
+        </FitText>
 
         <div style={{ maxWidth: 560 }}>
           {baseActions.map((a, i) => {
             const isLast = i === baseActions.length - 1;
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: isLast ? 'none' : '1px solid rgba(10,10,10,0.08)' }}>
-                <span style={{ ...display(10), color: C.orange, minWidth: 18, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ ...displayStyle, fontSize: 10, color: C.orange, minWidth: 18, lineHeight: 1.2 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 13, color: C.dark, flex: 1, lineHeight: 1.35, letterSpacing: '-0.01em' }}>{a.text}</span>
                 {a.bonus && (
                   <span style={{
@@ -431,9 +444,11 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
     <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
         <p style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
-        <h2 style={{ ...display('clamp(40px, 6vw, 64px)'), color: C.bone, marginBottom: 32 }}>
+        <FitText as="h2" min={SIZES.s8_headline.min} max={SIZES.s8_headline.max}
+          fixed={studio.deck_s8_headline_size}
+          style={{ ...displayStyle, color: C.bone, marginBottom: 32 }}>
           {pick(studio.deck_s8_headline, DEFAULT_DECK.s8_headline)}
-        </h2>
+        </FitText>
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(cards.length), gap: 12, alignItems: 'stretch' }}>
           {cards.map((c, i) => (
             <div key={i} style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -447,34 +462,32 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
   );
 }
 
-/* ─────────── Slide 9: CTA (Bone) ─────────── */
+/* ─────────── Slide 9: CTA ─────────── */
 function SlideCta({ studio, city }: { studio: any; city: string }) {
   const phoneClean = studio.deck_contact_phone ? String(studio.deck_contact_phone).replace(/[^0-9+]/g, '') : null;
   return (
     <div style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
-      <div style={{ ...display(72), color: C.dark, opacity: 0.12, marginBottom: 12, lineHeight: 1 }}>OTF</div>
-      <div style={{ maxWidth: 560, width: '100%', textAlign: 'center' }}>
-        <h2 style={{ ...display('clamp(56px, 9vw, 96px)'), color: C.dark, whiteSpace: 'nowrap' }}>
+      <div style={{ ...displayStyle, fontSize: 72, color: C.dark, opacity: 0.12, marginBottom: 12, lineHeight: 1 }}>OTF</div>
+      <div style={{ maxWidth: 700, width: '100%', textAlign: 'center' }}>
+        <FitText as="h2" min={SIZES.s9_headline.min} max={SIZES.s9_headline.max}
+          fixed={studio.deck_s9_headline_size}
+          style={{ ...displayStyle, color: C.dark }}>
           {pick(studio.deck_s9_headline, DEFAULT_DECK.s9_headline)}
-        </h2>
-        <p style={{ ...display('clamp(56px, 9vw, 96px)'), color: C.orange, marginBottom: 24, whiteSpace: 'nowrap' }}>
+        </FitText>
+        <FitText as="p" min={SIZES.s9_subline.min} max={SIZES.s9_subline.max}
+          fixed={studio.deck_s9_subline_size}
+          style={{ ...displayStyle, color: C.orange, marginBottom: 24 }}>
           {pick(studio.deck_s9_subline, DEFAULT_DECK.s9_subline)}
-        </p>
+        </FitText>
         <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 13, color: '#555', lineHeight: 1.55, maxWidth: 360, margin: '0 auto 28px' }}>
           {pick(studio.deck_s9_body, DEFAULT_DECK.s9_body)}
         </p>
 
         {(studio.deck_contact_name || phoneClean || studio.deck_contact_email) && (
           <div style={{ background: C.dark, borderRadius: 8, padding: '22px 28px', maxWidth: 320, width: '100%', margin: '0 auto', textAlign: 'center' }}>
-            <p style={{ ...label(C.gray, 9), marginBottom: 10 }}>
-              Your contact at OrangeTheory Fitness {city}
-            </p>
-            {studio.deck_contact_name && (
-              <p style={{ ...headline(20), color: C.bone, fontWeight: 900, marginBottom: 2 }}>{studio.deck_contact_name}</p>
-            )}
-            {studio.deck_contact_title && (
-              <p style={{ fontFamily: LABEL_FONT, fontSize: 11, color: C.orange, letterSpacing: '0.04em', marginBottom: 14 }}>{studio.deck_contact_title}</p>
-            )}
+            <p style={{ ...label(C.gray, 9), marginBottom: 10 }}>Your contact at OrangeTheory Fitness {city}</p>
+            {studio.deck_contact_name && <p style={{ ...headlineStyle, fontSize: 20, color: C.bone, fontWeight: 900, marginBottom: 2 }}>{studio.deck_contact_name}</p>}
+            {studio.deck_contact_title && <p style={{ fontFamily: LABEL_FONT, fontSize: 11, color: C.orange, letterSpacing: '0.04em', marginBottom: 14 }}>{studio.deck_contact_title}</p>}
             {phoneClean && (
               <a href={`tel:${phoneClean}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: C.gray, fontSize: 11, fontFamily: FONT_STACK, marginBottom: 6, textDecoration: 'none' }}>
                 <Phone size={12} color={C.gray} style={{ opacity: 0.5 }} />
