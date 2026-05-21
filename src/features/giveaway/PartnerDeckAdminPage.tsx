@@ -5,6 +5,7 @@ import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, Check, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { DEFAULT_DECK, slide2AutoCopy } from './lib/partnerDeckDefaults';
+import { getDeckSlide2 } from './lib/winnerCopy';
 import { WINNER_STRUCTURE_OPTIONS, type WinnerStructure } from './lib/winnerStructure';
 import { getGiveawayTitle, type TitleFormat } from './lib/giveawayTitle';
 
