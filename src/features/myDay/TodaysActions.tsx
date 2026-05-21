@@ -14,9 +14,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const toneClass: Record<ActionChip['tone'], string> = {
-  primary: 'bg-[#E8540A]/10 border-[#E8540A]/40 text-[#E8540A] hover:bg-[#E8540A]/20',
-  amber: 'bg-amber-500/10 border-amber-500/40 text-amber-700 hover:bg-amber-500/20',
-  green: 'bg-green-500/10 border-green-500/40 text-green-700 hover:bg-green-500/20',
+  primary: 'bg-brand-dim border-brand text-brand hover:bg-brand/20',
+  amber: 'bg-warning-dim border-warning text-warning hover:bg-warning/20',
+  green: 'bg-success-dim border-success text-success hover:bg-success/20',
 };
 
 export function TodaysActions() {
@@ -84,14 +84,14 @@ export function TodaysActions() {
   }, [effectiveRole]);
 
   return (
-    <Card className="p-3 border-[#E8540A]/30">
+    <Card className="p-3 border-brand">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-[#E8540A]" /> Today's Actions
+        <h2 className="text-sm font-semibold flex items-center gap-1.5 text-text-primary">
+          <Sparkles className="w-4 h-4 text-brand" /> Today's Actions
         </h2>
         {isAdmin && (
           <Select value={adminPerson} onValueChange={setAdminPerson}>
-            <SelectTrigger className="h-8 w-[160px] text-xs">
+            <SelectTrigger className="h-8 w-[160px] text-xs bg-surface-card border-surface-border text-text-primary">
               <SelectValue placeholder="Pick a person" />
             </SelectTrigger>
             <SelectContent>
@@ -104,7 +104,7 @@ export function TodaysActions() {
       </div>
 
       {chips.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">{emptyMessage}</p>
+        <p className="text-xs text-text-secondary py-2">{emptyMessage}</p>
       ) : (
         <div className="space-y-1.5">
           {chips.map(c => (
@@ -129,7 +129,7 @@ export function TodaysActions() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setRefTarget(null)}>Cancel</Button>
-            <Button onClick={saveReferral} disabled={saving} className="bg-[#E8540A] hover:bg-[#E8540A]/90">
+            <Button onClick={saveReferral} disabled={saving} className="bg-brand hover:bg-brand-hover text-brand-foreground">
               {saving ? 'Saving…' : 'Mark asked'}
             </Button>
           </DialogFooter>

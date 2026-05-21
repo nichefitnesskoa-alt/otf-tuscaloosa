@@ -89,7 +89,7 @@ export function VipClaimBanner() {
   return (
     <div className="mx-4 mt-2 space-y-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-brand">
           <Sparkles className="w-3.5 h-3.5" />
           VIP Updates
         </div>
@@ -104,12 +104,12 @@ export function VipClaimBanner() {
         return (
           <div
             key={n.id}
-            className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2"
+            className="flex items-start gap-2 rounded-lg bg-surface-card border-l-4 border-brand px-3 py-2"
           >
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold">{n.title}</p>
-              <p className="text-[11px] text-muted-foreground leading-snug">{n.body}</p>
-              <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+              <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+              <p className="text-[11px] text-text-secondary leading-snug">{n.body}</p>
+              <p className="text-[10px] text-text-secondary mt-0.5">
                 {formatDistanceToNowStrict(new Date(n.created_at), { addSuffix: true })}
               </p>
               {isRegistration && (
@@ -117,7 +117,7 @@ export function VipClaimBanner() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-surface-card border-surface-border text-text-primary"
                     onClick={() => copyPhone(n.id, n.meta.phone)}
                   >
                     {copiedId === n.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -125,7 +125,7 @@ export function VipClaimBanner() {
                   </Button>
                   <Button
                     size="sm"
-                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-primary hover:bg-primary/90 text-primary-foreground"
+                    className="h-9 min-h-[36px] text-[11px] gap-1 cursor-pointer bg-brand hover:bg-brand-hover text-brand-foreground"
                     onClick={() => openScript(n)}
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -133,7 +133,7 @@ export function VipClaimBanner() {
                   </Button>
                   <a
                     href={`tel:${n.meta.phone}`}
-                    className="inline-flex items-center gap-1 text-[11px] text-primary underline px-1"
+                    className="inline-flex items-center gap-1 text-[11px] text-brand underline px-1"
                   >
                     <Phone className="w-3 h-3" />
                     {n.meta.phone}
