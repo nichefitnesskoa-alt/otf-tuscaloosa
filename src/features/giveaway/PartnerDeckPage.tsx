@@ -117,7 +117,31 @@ export default function PartnerDeckPage() {
 
   return (
     <div style={{ background: C.dark, color: C.bone, fontFamily: FONT_STACK, letterSpacing: '-0.02em', minHeight: '100vh' }}>
-      <nav style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <style>{`
+        @media(max-width:768px){
+          .deck-slide{ padding:32px 20px !important; }
+          .deck-eyebrow{ font-size:9px !important; letter-spacing:0.18em !important; }
+          .deck-body{ font-size:13px !important; max-width:none !important; }
+          .deck-phase-title{ font-size:15px !important; }
+          .deck-ask-card{ padding:14px !important; }
+          .deck-ask-label{ font-size:9px !important; }
+          .deck-ask-body{ font-size:12px !important; }
+          .deck-nav{ right:12px !important; gap:6px !important; }
+          .deck-nav a{ width:5px !important; height:5px !important; }
+          .deck-cover-desktop{ display:none !important; }
+          .deck-cover-mobile{ display:block !important; }
+          .deck-prize-row-desktop{ display:none !important; }
+          .deck-prize-row-mobile{ display:flex !important; }
+          .deck-story-icon-wrap{ width:32px !important; height:32px !important; }
+          .deck-grid{ grid-template-columns:1fr !important; }
+          .deck-grid-2{ grid-template-columns:1fr !important; }
+        }
+        @media(min-width:769px){
+          .deck-cover-mobile{ display:none !important; }
+          .deck-prize-row-mobile{ display:none !important; }
+        }
+      `}</style>
+      <nav className="deck-nav" style={{ position: 'fixed', right: 24, top: '50%', transform: 'translateY(-50%)', zIndex: 100, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {slides.map((s, i) => (
           <a key={s.id} href={`#slide-${i}`} aria-label={`Slide ${i + 1}`}
             onClick={() => setActiveSlide(i)}
@@ -151,22 +175,35 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <div style={{ ...displayStyle, fontSize: 13, color: C.bone, opacity: 0.92, marginBottom: 28 }}>OTF</div>
-        <p style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
+      <div className="deck-slide" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '80px 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 24 }}>Partnership opportunity</p>
         <div style={{ width: '100%', maxWidth: 1000 }}>
-          <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
-            fixed={studio.deck_s1_title1_size}
-            style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
-            Cross-collab
-          </FitText>
-          <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
-            fixed={studio.deck_s1_title2_size}
-            style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
-            {orangeLine}
-          </FitText>
+          {/* Desktop: single-line auto-fit */}
+          <div className="deck-cover-desktop">
+            <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
+              fixed={studio.deck_s1_title1_size}
+              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              Cross-collab
+            </FitText>
+            <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
+              fixed={studio.deck_s1_title2_size}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+              {orangeLine}
+            </FitText>
+          </div>
+          {/* Mobile: natural wrap, auto-size to widest line */}
+          <div className="deck-cover-mobile" style={{ display: 'none' }}>
+            <FitText as="h1" multiline min={28} max={72}
+              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              Cross-collab
+            </FitText>
+            <FitText as="p" multiline min={24} max={64}
+              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+              {orangeLine}
+            </FitText>
+          </div>
         </div>
-        <p style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
+        <p className="deck-body" style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
           A giveaway built around the best local businesses and the people who love them.
         </p>
       </div>
@@ -185,9 +222,9 @@ function SlideConcept({ studio }: { studio: any }) {
   const sentences = headlineText.split(/(?<=\.)\s+/).filter(Boolean);
 
   return (
-    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 900, width: '100%' }}>
-        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
+        <p className="deck-eyebrow" style={{ ...label(C.dark), opacity: 0.55, marginBottom: 24 }}>The concept</p>
         <div style={{ marginBottom: 32 }}>
           {sentences.map((s, i) => (
             <FitText key={i} as="div" min={SIZES.s2_headline.min} max={SIZES.s2_headline.max}
@@ -228,10 +265,21 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
 
   const footerColor = framing.footerStyle === 'brand' ? C.orange : C.gray;
 
+  const tagPillStyle = (accent: boolean, mobileCapWidth?: boolean): React.CSSProperties => ({
+    display: 'inline-block', padding: '3px 8px', borderRadius: 2,
+    fontFamily: LABEL_FONT, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em',
+    textTransform: 'uppercase', whiteSpace: 'nowrap',
+    background: accent ? C.orange : C.boneDim08,
+    color: accent ? C.dark : C.gray,
+    border: accent ? 'none' : `1px solid ${C.boneDim15}`,
+    flexShrink: 0,
+    ...(mobileCapWidth ? { maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis' } : null),
+  });
+
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>The prize package</p>
         <FitText as="h2" min={SIZES.s3_headline.min} max={SIZES.s3_headline.max}
           fixed={studio.deck_s3_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 12 }}>
@@ -244,27 +292,37 @@ function SlidePrize({ city, partners, anchor, bundleTotal, studio }: any) {
           {rows.map((r, i) => {
             const isLast = i === rows.length - 1;
             const showValue = !!r.value && (!framing.showWinnerBadgePerRow || r.tagAccent);
+            const rowBorder = isLast ? 'none' : `1px solid ${C.boneDim08}`;
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: isLast ? 'none' : `1px solid ${C.boneDim08}` }}>
-                <span style={{
-                  display: 'inline-block', padding: '3px 8px', borderRadius: 2,
-                  fontFamily: LABEL_FONT, fontSize: 9, fontWeight: 900, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', whiteSpace: 'nowrap',
-                  background: r.tagAccent ? C.orange : C.boneDim08,
-                  color: r.tagAccent ? C.dark : C.gray,
-                  border: r.tagAccent ? 'none' : `1px solid ${C.boneDim15}`,
-                  flexShrink: 0,
-                }}>{r.tag}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div key={i}>
+                {/* Desktop row */}
+                <div className="deck-prize-row-desktop" style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 0', borderBottom: rowBorder }}>
+                  <span style={tagPillStyle(r.tagAccent)}>{r.tag}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
+                    {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
+                  </div>
+                  {showValue && (
+                    <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
+                  )}
+                  {framing.showWinnerBadgePerRow && (
+                    <span style={{ marginLeft: showValue ? 8 : 'auto' }}>{winnerBadge}</span>
+                  )}
+                </div>
+                {/* Mobile row: stacked */}
+                <div className="deck-prize-row-mobile" style={{ display: 'none', flexDirection: 'column', padding: '14px 0', borderBottom: rowBorder }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <span style={tagPillStyle(r.tagAccent, true)}>{r.tag}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      {framing.showWinnerBadgePerRow && winnerBadge}
+                      {showValue && (
+                        <span style={{ fontFamily: FONT_STACK, fontSize: 12, fontWeight: 700, color: C.orange, flexShrink: 0 }}>{r.value}</span>
+                      )}
+                    </div>
+                  </div>
                   <p style={{ ...headlineStyle, fontSize: 15, color: C.bone, fontWeight: 900 }}>{r.title}</p>
                   {r.description && <p style={{ ...body(12), color: C.boneDim05Text, lineHeight: 1.45, marginTop: 4 }}>{r.description}</p>}
                 </div>
-                {showValue && (
-                  <p style={{ ...headlineStyle, fontSize: 11, color: C.orange, fontWeight: 900, marginLeft: 'auto', flexShrink: 0 }}>{r.value}</p>
-                )}
-                {framing.showWinnerBadgePerRow && (
-                  <span style={{ marginLeft: showValue ? 8 : 'auto' }}>{winnerBadge}</span>
-                )}
               </div>
             );
           })}
@@ -287,9 +345,9 @@ function SlideTimeline({ studio }: { studio: any }) {
     { tag: DEFAULT_DECK.s4_phase3_tag, title: pick(studio.deck_s4_phase3_title, DEFAULT_DECK.s4_phase3_title), body: pick(studio.deck_s4_phase3_body, DEFAULT_DECK.s4_phase3_body) },
   ];
   return (
-    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>Campaign timeline</p>
         <FitText as="h2" min={SIZES.s4_headline.min} max={SIZES.s4_headline.max}
           fixed={studio.deck_s4_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
@@ -336,9 +394,9 @@ function SlideStory({ studio }: { studio: any }) {
     { Icon: Share2, title: pick(studio.deck_s5_c4_title, DEFAULT_DECK.s5_c4_title), body: pick(studio.deck_s5_c4_body, DEFAULT_DECK.s5_c4_body) },
   ];
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 960, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>How we build it</p>
         <FitText as="h2" min={SIZES.s5_headline.min} max={SIZES.s5_headline.max}
           fixed={studio.deck_s5_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 40 }}>
@@ -347,7 +405,7 @@ function SlideStory({ studio }: { studio: any }) {
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(items.length), gap: 12, alignItems: 'stretch' }}>
           {items.map((it, i) => (
             <div key={i} style={{ background: C.dark, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div style={{ height: 34, width: 34, borderRadius: '50%', background: C.orangeDim12, border: `1px solid ${C.orangeDim25}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <div className="deck-story-icon-wrap" style={{ height: 34, width: 34, borderRadius: '50%', background: C.orangeDim12, border: `1px solid ${C.orangeDim25}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <it.Icon size={15} color={C.orange} strokeWidth={2} />
               </div>
               <div>
@@ -370,9 +428,9 @@ function SlideStory({ studio }: { studio: any }) {
 /* ─────────── Slide 6: Tracking ─────────── */
 function SlideTracking({ studioSlug, studio }: { studioSlug: string; studio: any }) {
   return (
-    <div style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.orange, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
+        <p className="deck-eyebrow" style={{ ...label(C.dark), opacity: 0.55, marginBottom: 12 }}>The tracking system</p>
         <FitText as="h2" min={SIZES.s6_headline.min} max={SIZES.s6_headline.max}
           fixed={studio.deck_s6_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 16 }}>
@@ -428,9 +486,9 @@ function SlideEntry({ partners, studio }: any) {
   for (const p of partners) baseActions.push({ text: `Visit ${p.partner_name}`, bonus: true });
 
   return (
-    <div style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.bone, color: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>How people enter</p>
         <FitText as="h2" min={SIZES.s7_headline.min} max={SIZES.s7_headline.max}
           fixed={studio.deck_s7_headline_size}
           style={{ ...displayStyle, color: C.dark, marginBottom: 32 }}>
@@ -469,9 +527,9 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
     { lbl: '15 minutes', body: pick(studio.deck_s8_time  ?? studio.deck_what_we_need_time,       DEFAULT_DECK_COPY.askTime) },
   ];
   return (
-    <div style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div className="deck-slide" style={{ width: '100%', background: C.dark, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 720, width: '100%' }}>
-        <p style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
+        <p className="deck-eyebrow" style={{ ...label(C.orange), marginBottom: 12 }}>What we need from you</p>
         <FitText as="h2" min={SIZES.s8_headline.min} max={SIZES.s8_headline.max}
           fixed={studio.deck_s8_headline_size}
           style={{ ...displayStyle, color: C.bone, marginBottom: 32 }}>
@@ -479,9 +537,9 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
         </FitText>
         <div className="deck-grid" style={{ display: 'grid', gridTemplateColumns: gridColsFor(cards.length), gap: 12, alignItems: 'stretch' }}>
           {cards.map((c, i) => (
-            <div key={i} style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <p style={{ ...label(C.orange, 9), marginBottom: 6 }}>{c.lbl}</p>
-              <p style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim06, lineHeight: 1.45, letterSpacing: '-0.01em' }}>{c.body}</p>
+            <div key={i} className="deck-ask-card" style={{ background: C.boneDim05, border: `1px solid ${C.boneDim10}`, borderRadius: 6, padding: '15px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <p className="deck-ask-label" style={{ ...label(C.orange, 9), marginBottom: 6 }}>{c.lbl}</p>
+              <p className="deck-ask-body" style={{ fontFamily: FONT_STACK, fontWeight: 400, fontSize: 12, color: C.boneDim06, lineHeight: 1.45, letterSpacing: '-0.01em' }}>{c.body}</p>
             </div>
           ))}
         </div>
@@ -494,8 +552,7 @@ function SlideAsk({ studio, anchor }: { studio: any; anchor: number }) {
 function SlideCta({ studio, city }: { studio: any; city: string }) {
   const phoneClean = studio.deck_contact_phone ? String(studio.deck_contact_phone).replace(/[^0-9+]/g, '') : null;
   return (
-    <div style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
-      <div style={{ ...displayStyle, fontSize: 72, color: C.dark, opacity: 0.12, marginBottom: 12, lineHeight: 1 }}>OTF</div>
+    <div className="deck-slide" style={{ position: 'relative', width: '100%', background: C.bone, color: C.dark, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: 700, width: '100%', textAlign: 'center' }}>
         <FitText as="h2" min={SIZES.s9_headline.min} max={SIZES.s9_headline.max}
           fixed={studio.deck_s9_headline_size}

@@ -1,126 +1,98 @@
-# Prize Display + Winner Copy — Wired to Winner Structure
 
-## Goal
+# Partner Deck — Mobile Layout Fixes
 
-Make `winner_structure` from `giveaway_studios` the single source of truth that drives:
-1. Partner deck slide 2 (headline + body)
-2. Partner deck slide 3 (prize rows + footer line)
-3. Participant entry form prize section (banner + per-card winner badge + rule statement)
+Scope: `src/features/giveaway/PartnerDeckPage.tsx` and `src/features/giveaway/components/FitText.tsx` only. Desktop unchanged. Giveaway entry form and admin untouched.
 
-Inline editor placeholders + helper text update with the active winner structure. Manual overrides on slide 2 still win.
+## 1. FitText: allow multi-line measurement
 
-## Files in scope
+`FitText` currently forces `white-space: nowrap` and measures single-line `scrollWidth`. To support natural wrap on mobile while keeping desktop one-line behavior, add an opt-in `multiline` mode.
 
-- `src/features/giveaway/lib/winnerCopy.ts` (new, single source of truth)
-- `src/features/giveaway/PartnerDeckPage.tsx` (slide 2 + slide 3)
-- `src/features/giveaway/PartnerDeckAdminPage.tsx` (slide 2 placeholders + helper text)
-- `src/features/giveaway/components/GiveawayEntryForm.tsx` (banner + rule statement)
-- `src/features/giveaway/components/PrizeShowcase.tsx` (per-card "1 WINNER" badge in per-prize modes)
-- `src/features/giveaway/lib/partnerDeckDefaults.ts` (re-export from winnerCopy.ts for back-compat; remove duplicated SLIDE2_AUTO_COPY content)
+- New prop: `multiline?: boolean` (default `false`).
+- When `false`: keep current behavior (nowrap, binary-search by width).
+- When `true`: hidden measurer uses the actual container width with `white-space: normal`, `word-break: normal`; binary-search the largest size where `measure.scrollWidth <= containerWidth` (i.e. no word forces horizontal overflow — longest word/line fits). Visible span renders with `white-space: normal`, `display: block`, no nowrap.
+- No change to `min`/`max`/`fixed`/`fillRatio` semantics.
 
-Nothing else is touched. Giveaway admin (entries, draw, wheel) is not opened.
+## 2. Slide 1 (Cover) — remove "OTF", wrap title on mobile
 
-## 1. New helper: `src/features/giveaway/lib/winnerCopy.ts`
+In `SlideCover`:
+- Delete the `<div>OTF</div>` placeholder above the "Partnership opportunity" label (line 155). Nothing replaces it.
+- Render the two `FitText` headlines (`Cross-collab`, `orangeLine`) twice, gated by a CSS class. Cleanest pattern: render one set inside a `.deck-cover-desktop` wrapper and an alternate set inside `.deck-cover-mobile` wrapper, toggled via `<style>{`@media(max-width:768px){.deck-cover-desktop{display:none!important}} @media(min-width:769px){.deck-cover-mobile{display:none!important}}`}</style>`. (This matches the existing inline `<style>` pattern used in Slides 5/6.)
+  - Desktop variant: unchanged — `multiline={false}`, `min/max` from `SIZES.s1_title1` / `SIZES.s1_title2`.
+  - Mobile variant: `multiline`, with mobile-tuned bounds — title1 (`Cross-collab`): `min={28} max={72}`; title2 (orange partner line): `min={24} max={64}`. No `fixed` override applied on mobile (auto-size only, so it always fits).
 
-Three exported functions, plus a typed `WinnerStructure` re-export.
+## 3. Slide 3 (Prize) — stacked row on mobile
 
-```ts
-export function getDeckSlide2(ws, headlineOverride?, bodyOverride?) {
-  // returns { headline, body }
-  // headline: 'single' => 'One big prize. Every brand wins.'
-  //          per_prize_* => 'One big giveaway. Every business wins.'
-  // body: three full strings exactly as specified in prompt
-  // overrides (non-empty trimmed) win per field
-}
+In `SlidePrize`, replace the single horizontal `<div>` for each row with two layouts driven by class names:
+- Desktop (`.deck-prize-row-desktop`): unchanged — current flex layout including tag pill, title/description block, optional value, optional winner badge.
+- Mobile (`.deck-prize-row-mobile`): stacked structure
+  ```
+  <div class="row">
+    <div class="top">       <!-- flex, justify-content: space-between -->
+      <span class="tag-pill" />        <!-- max-width: 60% -->
+      <div class="right">              <!-- flex, gap 8 -->
+        [winner badge]                 <!-- if framing.showWinnerBadgePerRow -->
+        [value]                        <!-- if showValue -->
+      </div>
+    </div>
+    <p class="title">{r.title}</p>
+    {r.description && <p class="desc">{r.description}</p>}
+  </div>
+  ```
+  - Row padding `14px 0`, border-bottom `1px solid C.boneDim08`, last row no border.
+  - Title: 15px, weight 900, color `C.bone`.
+  - Description: 12px, line-height 1.45, color `C.boneDim05Text`.
+  - Value: 12px, weight 700, color `C.orange`, flex-shrink 0.
+- Toggle desktop vs mobile variants via the existing `<style>` mediaquery technique (`@media(max-width:768px){.deck-prize-row-desktop{display:none!important}.deck-prize-row-mobile{display:flex!important;flex-direction:column}}` and inverse for `min-width:769px`).
+- Footer line below rows: keep as-is (already wraps cleanly).
 
-export function getDeckSlide3Framing(ws) {
-  // returns { headline, bundleSubtext, showWinnerBadgePerRow, footerLine, footerStyle: 'brand'|'muted' }
-  // single:
-  //   headline: 'One bundle, built together.'
-  //   bundleSubtext: 'One winner takes everything.'
-  //   showWinnerBadgePerRow: false
-  //   footerLine: 'Everything goes to one winner.'
-  //   footerStyle: 'brand' (orange, italic, 12px)
-  // per_prize_with_removal:
-  //   headline: 'One prize each. Every business represented.'
-  //   bundleSubtext: "Separate winner for each prize. Winners can't win twice."
-  //   showWinnerBadgePerRow: true
-  //   footerLine: "Each prize goes to a different winner. Once you win, you're out of the pool."
-  //   footerStyle: 'muted'
-  // per_prize_allow_repeat:
-  //   headline: 'One prize each. Every business represented.'
-  //   bundleSubtext: 'Separate winner for each prize. Same person can win more than once.'
-  //   showWinnerBadgePerRow: true
-  //   footerLine: 'Each prize goes to its own winner. The same person could win more than once.'
-  //   footerStyle: 'muted'
-}
+## 4. Slide 5 (Story) — full-width cards on mobile
 
-export function getEntryFormPrizeFraming(ws) {
-  // returns { showWinnerBadgeOnCards, bannerText, winnerRuleStatement }
-  // single:
-  //   showWinnerBadgeOnCards: false
-  //   bannerText: 'One winner takes the whole bundle.'
-  //   winnerRuleStatement: 'One winner will be drawn to receive all prizes.'
-  // per_prize_with_removal:
-  //   showWinnerBadgeOnCards: true
-  //   bannerText: 'Every prize has its own winner.'
-  //   winnerRuleStatement: "One winner drawn per prize. Win once and you're out of the pool for the remaining draws."
-  // per_prize_allow_repeat:
-  //   showWinnerBadgeOnCards: true
-  //   bannerText: 'Every prize has its own winner.'
-  //   winnerRuleStatement: 'One winner drawn per prize. The same person can win more than once.'
+Already correctly switches to `1fr` via `.deck-grid` rule. To remove dead space:
+- On mobile, reduce slide horizontal padding to `20px` (Section 6) so the inner content area widens.
+- Confirm card container has no extra horizontal padding (it doesn't — only the slide wrapper).
+- Reduce mobile icon size: add `.deck-story-icon { width:32px; height:32px; }` and the lucide icon's `strokeWidth={2}` already fine; size change for the icon itself via inline conditional is awkward — instead add `<style>@media(max-width:768px){.deck-story-icon-wrap{width:32px!important;height:32px!important}}</style>`. Inner `<it.Icon size={15} />` left as-is; the surrounding 34→32 swap is sufficient per spec.
+
+## 5. Slide 9 (CTA) — remove "OTF" placeholder
+
+Per Fix 4 wording ("No logo, no 'OTF' text, no placeholder of any kind"), the giant translucent `OTF` on slide 9 (line 498) is also a placeholder. Remove that `<div>OTF</div>` block entirely. (If the user actually wanted to keep slide 9's faded OTF and only remove slide 1's, we'll back this out — flagging here for confirmation.)
+
+## 6. Mobile spacing pass (single shared `<style>` block at top of `PartnerDeckPage`)
+
+Inject one top-level `<style>` element inside the component's root `<div>` with `@media(max-width:768px)` rules so every slide picks up consistent mobile treatment without rewriting each inline `padding`. Targets:
+
+```css
+@media(max-width:768px){
+  .deck-slide{ padding:32px 20px !important; }
+  .deck-eyebrow{ font-size:9px !important; letter-spacing:0.18em !important; }
+  .deck-body{ font-size:13px !important; max-width:none !important; }
+  .deck-phase-title{ font-size:15px !important; }
+  .deck-ask-card{ padding:14px !important; }
+  .deck-ask-label{ font-size:9px !important; }
+  .deck-ask-body{ font-size:12px !important; }
+  .deck-nav{ right:12px !important; gap:6px !important; }
+  .deck-nav a{ width:5px !important; height:5px !important; }
 }
 ```
 
-`partnerDeckDefaults.ts`: replace `SLIDE2_AUTO_COPY` and `slide2AutoCopy` with thin re-exports calling into `winnerCopy.ts` so older imports keep working without duplicating strings.
+Add the corresponding class names to each slide's outer wrapper (`deck-slide`), eyebrows (`deck-eyebrow`), body copy paragraphs (`deck-body`), the nav `<nav>` (`deck-nav`), Slide 8 cards (`deck-ask-card` etc), and Slide 4 phase title `FitText` (`deck-phase-title`).
 
-## 2. `PartnerDeckPage.tsx`
+## 7. Verification
 
-### SlideConcept (slide 2)
-- Replace `pick(studio.deck_s2_headline, DEFAULT_DECK.s2_headline)` and `pick(studio.deck_s2_body ?? deck_intro_copy, autoBody)` with:
-  ```
-  const { headline, body } = getDeckSlide2(studio.winner_structure, studio.deck_s2_headline, studio.deck_s2_body ?? studio.deck_intro_copy);
-  ```
-- Render `headline` (split-by-sentence FitText) and `body` exactly as today.
-
-### SlidePrize (slide 3)
-- Compute `const f = getDeckSlide3Framing(studio.winner_structure)`.
-- Use `pick(studio.deck_s3_headline, f.headline)` so manual headline override still works (per prompt: only headline can be overridden on slide 3).
-- Render `f.bundleSubtext` as a new line below the value-note (always auto, no override).
-- For each row: when `f.showWinnerBadgePerRow`, render a `1 WINNER` badge on the right (replaces the `$value` on partner rows; OTF row keeps `$value` AND adds the badge per spec).
-- Below last row: render `f.footerLine` with `f.footerStyle` (brand: `color: C.orange, italic, 12px, marginTop:12`; muted: `color: C.gray, italic, 12px, marginTop:12`).
-- Badge styling per spec: 9px, uppercase, letter-spacing wide, padding `2px 6px`, border-radius 2, `bg: C.boneDim08`, `color: C.gray`, `border: 1px solid C.boneDim15`.
-
-## 3. `PartnerDeckAdminPage.tsx`
-
-Slide 2 section only:
-- Headline field placeholder uses `getDeckSlide2(ws).headline` (no overrides passed).
-- Body field placeholder uses `getDeckSlide2(ws).body`.
-- Add `helper` prop (or inline `<p>`) under each input: `"Auto-generates based on your Winner Draw Rules selection."` styled `text-[#8E8E93] text-[11px] italic mt-1`.
-- If `SavedInput`/`SavedTextarea` don't accept a helper prop, add a small `helperText` prop in those local components.
-
-No other admin sections change.
-
-## 4. `GiveawayEntryForm.tsx`
-
-After `<PrizeShowcase>`:
-- Compute `const ef = getEntryFormPrizeFraming(studio.winner_structure ?? 'single')`.
-- Render a new full-width banner: `bg-[#E8540A]/15 border border-[#E8540A] rounded text-[#E8540A] font-display font-bold text-[14px] text-center px-4 py-2.5` with `ef.bannerText`.
-- Replace the existing `getDrawRuleStatement(...)` line with `ef.winnerRuleStatement` (same italic muted styling). Keeps one source of truth for entry-form rule text.
-- Pass `showWinnerBadge={ef.showWinnerBadgeOnCards}` down to `<PrizeShowcase>`.
-
-## 5. `PrizeShowcase.tsx`
-
-- Accept new optional prop `showWinnerBadge?: boolean`.
-- Inside `PrizeCard`, when `showWinnerBadge` is true, render an absolutely-positioned `1 WINNER` badge in bottom-right of the card (8px uppercase, tracked, `bg-[#2A2A2C] text-[#8E8E93] border border-[#3a3a3c] rounded-[2px] px-1.5 py-0.5`).
-- No other layout changes.
-
-## Verification (post-build)
-
-Run through the 5-step flow from the prompt against the live preview, switching `winner_structure` in the inline editor and confirming each surface updates. Confirm manual `deck_s2_headline` / `deck_s2_body` overrides still win and clearing them restores auto-copy. Confirm `deck_s3_headline` override still wins. Confirm bundleSubtext + footer line on slide 3 are NOT user-overridable (always auto). Confirm no hardcoded winner-dependent strings remain in the three surfaces.
+After build:
+- Set preview viewport to mobile (375×812).
+- Slide 1: title wraps cleanly, no "OTF" above eyebrow, no cutoff, no ellipsis.
+- Slide 3: each prize row stacked (tag+value top, title/desc below); winner badges visible in per-prize modes.
+- Slide 5: 4 cards single-column, full content width.
+- Slide 9: no faded OTF behind headline.
+- Nav dots tighter to right edge.
+- Set preview viewport to desktop (1440×900) and confirm all slides render identically to current.
 
 ## Out of scope
 
-- Giveaway admin (entries, draw, wheel)
-- Any file not listed above
-- DB schema (no migration required — all driven from existing `winner_structure`)
+- `PartnerDeckAdminPage.tsx`, `GiveawayEntryForm.tsx`, `PrizeShowcase.tsx`, `partnerDeckDefaults.ts`, `winnerCopy.ts`.
+- Any DB schema change.
+- Any desktop visual change.
+
+## Confirmation needed
+
+CONFIRM THIS VALUE: should the giant translucent "OTF" on Slide 9 (CTA) also be removed, or only the small "OTF" above the Slide 1 eyebrow? Plan currently removes both per the "no placeholder of any kind" wording — say the word and I'll keep Slide 9's intact.
