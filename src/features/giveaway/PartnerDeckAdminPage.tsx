@@ -223,10 +223,18 @@ function Editor({
       </Section>
 
       <Section label="Slide 2 — The Concept">
-        <SavedInput field={'deck_s2_headline' as FieldKey} label="Headline" value={studio.deck_s2_headline} placeholder={DEFAULT_DECK.s2_headline} onSave={onSave} />
-        <SavedTextarea field={'deck_s2_body' as FieldKey} label="Body copy" value={studio.deck_s2_body ?? studio.deck_intro_copy} rows={3}
-          placeholder={slide2AutoCopy(studio.winner_structure as WinnerStructure)} onSave={onSave} />
-        <p className="text-[10px] italic text-text-secondary -mt-1">Leave blank to auto-fill based on Winner Draw Rules.</p>
+        {(() => {
+          const auto = getDeckSlide2(winnerStructure);
+          return (
+            <>
+              <SavedInput field={'deck_s2_headline' as FieldKey} label="Headline" value={studio.deck_s2_headline} placeholder={auto.headline} onSave={onSave} />
+              <p className="text-[11px] italic text-text-secondary -mt-1">Auto-generates based on your Winner Draw Rules selection.</p>
+              <SavedTextarea field={'deck_s2_body' as FieldKey} label="Body copy" value={studio.deck_s2_body ?? studio.deck_intro_copy} rows={4}
+                placeholder={auto.body} onSave={onSave} />
+              <p className="text-[11px] italic text-text-secondary -mt-1">Auto-generates based on your Winner Draw Rules selection.</p>
+            </>
+          );
+        })()}
         <SizeRefine title="Headline size" field={'deck_s2_headline_size' as FieldKey} value={studio.deck_s2_headline_size} min={32} max={88} onSave={onSave} />
       </Section>
 
