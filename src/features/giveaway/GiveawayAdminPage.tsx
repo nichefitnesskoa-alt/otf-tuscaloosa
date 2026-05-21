@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayEntries } from './hooks/useGiveawayEntries';
 import { useGiveawayPartners } from './hooks/useGiveawayPartners';
@@ -8,10 +8,11 @@ import { DrawWinner } from './components/DrawWinner';
 import { SpinWheel } from './components/SpinWheel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { downloadEntriesCsv } from './lib/csvExport';
-import { Download, Users, Settings as SettingsIcon } from 'lucide-react';
+import { Download, Users, Settings as SettingsIcon, Eye } from 'lucide-react';
 
 export default function GiveawayAdminPage() {
   const { studioSlug } = useParams<{ studioSlug: string }>();
+  const navigate = useNavigate();
   const { studio, refresh: refreshStudio } = useGiveawayStudio(studioSlug);
   const { entries } = useGiveawayEntries(studioSlug);
   const { partners } = useGiveawayPartners(studioSlug);
@@ -37,6 +38,7 @@ export default function GiveawayAdminPage() {
         </div>
         <nav className="flex md:flex-col gap-2">
           <NavBtn active={tab === 'entries'} onClick={() => setTab('entries')} icon={<Users className="h-4 w-4" />}>Entries</NavBtn>
+          <NavBtn active={false} onClick={() => navigate(`/admin/${studioSlug}/preview`)} icon={<Eye className="h-4 w-4" />}>Preview</NavBtn>
           <NavBtn active={tab === 'settings'} onClick={() => setTab('settings')} icon={<SettingsIcon className="h-4 w-4" />}>Settings</NavBtn>
         </nav>
       </aside>
