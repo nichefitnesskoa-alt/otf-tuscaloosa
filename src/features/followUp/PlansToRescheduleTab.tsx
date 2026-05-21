@@ -131,7 +131,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
           coachName={item.coachName}
           leadSource={item.leadSource}
           phone={item.phone}
-          borderColor="#2563eb"
+          borderColor="hsl(var(--status-neutral))"
           editable
           bookingId={item.bookingId}
           editedBy={user?.name || ''}
@@ -189,7 +189,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
             coachName={item.coachName}
             leadSource={item.leadSource}
             phone={item.phone}
-            borderColor="#64748b"
+            borderColor="hsl(var(--status-neutral))"
             topBanner={<ContactedBanner lastContactAt={item.lastContactAt} contactNextDate={item.contactNextDate} />}
             outcomeBadge={
               <Badge className="text-[10px] px-1.5 py-0 h-5 bg-muted text-muted-foreground border">

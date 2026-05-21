@@ -500,16 +500,16 @@ export default function IntroRowCard({
         </div>
       )}
       {needsOutcome ? (
-        <StatusBanner bgColor="#7c3aed" text="⚠ Outcome Not Logged" />
+        <StatusBanner bgColor="hsl(var(--brand))" text="⚠ Outcome Not Logged" />
       ) : isOutcomeOverdue ? (
-        <StatusBanner bgColor="#f97316" text="🟠 Outcome needed" />
+        <StatusBanner bgColor="hsl(var(--status-warning))" text="🟠 Outcome needed" />
       ) : isQOverdue ? (
         <StatusBanner bgColor="hsl(var(--status-danger))" text={`🔴 Questionnaire Overdue — Class in ${focusHours}h ${focusMins}m`} />
       ) : item.isSecondIntro ? (
-        <StatusBanner bgColor="#2563eb" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
+        <StatusBanner bgColor="hsl(var(--status-neutral))" text={item.confirmedAt ? "🔵 2nd Intro — Confirmed ✓" : "🔵 2nd Intro"} />
       ) : item.leadSource?.toLowerCase().includes('vip') ? (
         <StatusBanner
-          bgColor="#7e22ce"
+          bgColor="hsl(var(--brand))"
           text={`🟣 VIP Class — ${localQStatus === 'Q_COMPLETED' ? 'Questionnaire Complete ✓' : localQStatus === 'Q_SENT' ? 'Questionnaire Sent' : 'Questionnaire Not Sent'}`}
         />
       ) : (
