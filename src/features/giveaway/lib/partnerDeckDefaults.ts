@@ -2,19 +2,18 @@
 // deck_* override blank in admin settings.
 
 import type { WinnerStructure } from './winnerStructure';
+import { getDeckSlide2 } from './winnerCopy';
 
-export const SLIDE2_AUTO_COPY: Record<WinnerStructure, string> = {
-  single:
-    'We build one giveaway together and push it across every platform. Your audience finds our members. Our members find your business. One winner takes the whole bundle.',
-  per_prize_with_removal:
-    'We build one giveaway together and push it across every platform. Each business has its own prize and its own winner. More chances to win means more people enter.',
-  per_prize_allow_repeat:
-    'We build one giveaway together and push it across every platform. Each business has its own prize and its own winner. The same person could win more than once.',
-};
-
+// Back-compat: delegate to winnerCopy single source of truth.
 export function slide2AutoCopy(ws: WinnerStructure | null | undefined): string {
-  return SLIDE2_AUTO_COPY[(ws as WinnerStructure) ?? 'single'] ?? SLIDE2_AUTO_COPY.single;
+  return getDeckSlide2(ws).body;
 }
+
+export const SLIDE2_AUTO_COPY = {
+  single: getDeckSlide2('single').body,
+  per_prize_with_removal: getDeckSlide2('per_prize_with_removal').body,
+  per_prize_allow_repeat: getDeckSlide2('per_prize_allow_repeat').body,
+} as const;
 
 export const DEFAULT_DECK_COPY = {
   intro: SLIDE2_AUTO_COPY.single,
