@@ -88,9 +88,8 @@ export default function GiveawayEntryPage() {
     (form.action_free_class ? 1 : 0) +
     partnerCompletedCount;
 
-  const maxEntries = 4 + igAccounts.length + partners.length; // 4 fixed action slots + IG (1) + partners
-  // Actually clarify: max = 5 fixed + partner count per spec
   const maxPossible = 5 + partners.length;
+
 
   if (loading) {
     return <div className="min-h-screen bg-[#1C1C1E] text-[#F5F2EE] flex items-center justify-center">Loading…</div>;
