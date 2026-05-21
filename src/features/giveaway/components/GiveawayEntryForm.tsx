@@ -53,11 +53,13 @@ interface Props {
 export function GiveawayEntryForm({ slug, previewMode }: Props) {
   const { studio, loading } = useGiveawayStudio(slug);
   const { partners } = useGiveawayPartners(slug);
+  const isMobile = useIsMobile();
   const [form, setForm] = useState<FormState>({ ...baseEmpty, ig_checks: {}, partner_actions: [] });
   const [draftId] = useState<string>(() => crypto.randomUUID());
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ firstName: string; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
 
   const studioIgHandle = getStudioIgHandle(slug).replace(/^@/, '');
   const studioIgDisplay = getStudioIgHandle(slug);
