@@ -607,7 +607,7 @@ function EmptyState({ onScoreFirst }: { onScoreFirst: () => void }) {
           First Visit Experience is the standard. The first scorecard starts the trend for every coach in this studio.
         </p>
       </div>
-      <Button onClick={onScoreFirst} className="bg-[#E8540A] hover:bg-[#E8540A]/90 text-white min-h-[44px]">
+      <Button onClick={onScoreFirst} className="bg-brand hover:bg-brand-hover text-brand-foreground min-h-[44px]">
         Score Your First Intro
       </Button>
     </Card>

@@ -195,7 +195,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
     : consent === false
       ? 'Shoutout: NO — tap to change'
       : 'Shoutout — tap to set';
-  const consentBg = consent === true ? 'bg-success' : consent === false ? 'bg-[hsl(20,90%,47%)]' : 'bg-[hsl(40,91%,49%)]';
+  const consentBg = consent === true ? 'bg-success' : consent === false ? 'bg-brand' : 'bg-warning';
 
   const q = questionnaire;
 
@@ -243,7 +243,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
           {/* ── CONVERSATION ANSWERS ROW — 3 columns (read-only for coach) ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+              <Label className="text-xs font-semibold text-brand">
                 What a 5/5 looks like
               </Label>
               <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
@@ -251,7 +251,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+              <Label className="text-xs font-semibold text-brand">
                 What would change
               </Label>
               <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
@@ -259,7 +259,7 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>
+              <Label className="text-xs font-semibold text-brand">
                 What's holding them back
               </Label>
               <div className="min-h-[60px] rounded-md bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap">
@@ -270,8 +270,8 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
 
           {/* Orange highlight line */}
           {convMeaning && (
-            <div className="rounded-md px-3 py-2 border" style={{ borderColor: 'hsl(20, 90%, 47%)', backgroundColor: 'hsl(20, 90%, 47%, 0.08)' }}>
-              <p className="text-sm font-semibold" style={{ color: 'hsl(20, 90%, 47%)' }}>↑ {convMeaning}</p>
+            <div className="rounded-md px-3 py-2 border border-brand bg-brand-dim">
+              <p className="text-sm font-semibold text-brand">↑ {convMeaning}</p>
             </div>
           )}
 
@@ -338,7 +338,7 @@ function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inl
           className={cn(
             "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
             value === true
-              ? "bg-success text-white border-success"
+              ? "bg-success text-brand-foreground border-success"
               : "bg-background text-muted-foreground border-input hover:bg-muted"
           )}
           style={{ minHeight: '36px' }}
@@ -351,7 +351,7 @@ function YesNoToggle({ label, value, onChange, savedKey, savedField, dimmed, inl
           className={cn(
             "px-3 rounded-md border text-xs font-semibold transition-colors cursor-pointer",
             value === false
-              ? "bg-destructive text-white border-destructive"
+              ? "bg-destructive text-brand-foreground border-destructive"
               : "bg-background text-muted-foreground border-input hover:bg-muted"
           )}
           style={{ minHeight: '36px' }}
