@@ -43,7 +43,7 @@ export function IntroTypeBadge({ isSecondIntro, isVipClassIntro, className }: In
       <Badge
         variant="outline"
         className={cn(
-          'text-[10px] px-1.5 py-0 h-4 font-semibold bg-purple-500/15 text-purple-700 border-purple-500/30',
+          'text-[10px] px-1.5 py-0 h-4 font-semibold bg-brand-dim text-brand border-surface-border',
           className
         )}
       >
