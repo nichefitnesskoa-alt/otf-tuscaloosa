@@ -1,126 +1,138 @@
-# Wave 3 — Prize Display + Winner Structure
+# Wave 4 — Typography, Co-Brand, Title Options, Live Preview, Responsive, Action Fix
 
-## 1. Schema migration
+## 1. Schema
 
-`supabase/migrations/<new>.sql`:
-- `ALTER TABLE giveaway_partners ADD COLUMN prize_description text;`
-- `ALTER TABLE giveaway_studios ADD COLUMN winner_structure text NOT NULL DEFAULT 'single';`
-- `ALTER TABLE giveaway_studios ADD CONSTRAINT giveaway_studios_winner_structure_chk CHECK (winner_structure IN ('single','per_prize_with_removal','per_prize_allow_repeat'));`
+Migration adds two columns to `giveaway_studios`:
+- `title_format text not null default 'auto_combined'` with CHECK constraint (`'auto_combined' | 'auto_studio_only' | 'custom'`)
+- `custom_title text` (nullable)
 
-After migration, `src/integrations/supabase/types.ts` regenerates automatically.
+No data backfill required — existing rows default to `auto_combined`.
 
-## 2. Shared types & helpers
+## 2. Typography system
 
-`src/features/giveaway/lib/winnerStructure.ts` (new) — canonical source of truth:
-- `export type WinnerStructure = 'single' | 'per_prize_with_removal' | 'per_prize_allow_repeat';`
-- `WINNER_STRUCTURE_OPTIONS` array with `{ value, title, subtitle, icon }` for the three cards.
-- `getDrawRuleStatement(ws): string` — returns the plain-English line shown on the entry form and admin summary.
-- `isPerPrize(ws)`, `removesWinners(ws)` boolean helpers used by draw + wheel.
+**Load fonts** in `index.html`:
+- `Big Shoulders Display` (700, 800, 900)
+- `Barlow` (400, 500, 600)
 
-This is the single helper every consumer reads from — no hardcoded copy elsewhere.
-
-## 3. Hooks
-
-`useGiveawayPartners.ts`
-- Add `prize_description` to insert, update, select payloads.
-- Type already comes from regenerated `types.ts`.
-
-`useGiveawayStudio.ts`
-- Include `winner_structure` in select.
-- `updateStudio` mutation accepts `winner_structure` and merges with existing fields (do not reset countdown/goes_live_at).
-
-## 4. Admin Settings (`SettingsPanel.tsx`)
-
-Partner Add/Edit form:
-- New optional input `Prize for this partner` with placeholder + helper text.
-- Saved alongside name, IG, instructions.
-- Partner card list: under partner name show small OTF orange pill `Prize: [description]` when set.
-
-New section `Winner Draw Rules` below Partners:
-- Three full-width selectable cards (button elements, 44px+, visible border, hover, cursor pointer).
-- Selected: orange border + orange tint background + white text + check indicator.
-- Cards source from `WINNER_STRUCTURE_OPTIONS`.
-- Selection updates local state; Save Settings persists `winner_structure` via `updateStudio` together with current countdown/goes_live_at — no field reset.
-- Inline "Saved" 2s confirmation, no re-render of section.
-
-## 5. Participant entry form (`GiveawayEntryPage.tsx`)
-
-Fetch `winner_structure` via `useGiveawayStudio`. Fetch partners with `prize_description` via `useGiveawayPartners`.
-
-New `PrizeShowcase` block (inline component or `components/PrizeShowcase.tsx`) placed between countdown and entry form:
-- Eyebrow `WHAT YOU COULD WIN` — small caps, OTF orange, tracked.
-- Horizontal scroll on mobile, grid (`md:grid-cols-3` ish) on desktop.
-- Card 1 (always): orange border, badge `GRAND PRIZE`, headline `FREE OTF MEMBERSHIP`, subtext `OrangeTheory Fitness {STUDIO_CITY[slug]}`, flame/OTF mark.
-- Cards 2+: one per partner where `prize_description` is set. Bold partner name, prominent OTF orange prize text, gray IG handle if set, dark bg + subtle orange border.
-- Partners without `prize_description` are excluded from showcase but remain in action list below.
-- Below the cards render `getDrawRuleStatement(winner_structure)` in muted text.
-
-Partner action cards (action 5+):
-- If `prize_description` set, render small pill under partner name + IG: `🎁 Prize: {prize_description}` — dark bg, OTF orange text, 11px, rounded border, no truncation.
-
-No change to entry submission logic.
-
-## 6. Admin entries / draw page
-
-`DrawWinner.tsx` becomes structure-aware. Fetch `winner_structure` + partners (with prizes) on mount.
-
-Build a `prizes` array on load:
+**CSS variables** in `src/index.css` `:root`:
 ```
-[
-  { id: 'membership', label: `OTF Membership — ${STUDIO_CITY[slug]}` },
-  ...partners.filter(p => p.prize_description).map(p => ({ id: p.id, label: p.prize_description, partnerName: p.partner_name })),
-]
+--font-display: 'Big Shoulders Display', 'Bebas Neue', Impact, sans-serif;
+--font-body: 'Barlow', system-ui, sans-serif;
 ```
 
-`single` mode → unchanged UI: one DRAW WINNER button. Winner overlay lists every prize in `prizes` under the name.
+**Tailwind config** (`tailwind.config.ts`) — extend `fontFamily`:
+```
+display: ['Big Shoulders Display', 'Bebas Neue', 'Impact', 'sans-serif'],
+body: ['Barlow', 'system-ui', 'sans-serif'],
+```
+Then use `font-display` / `font-body` utilities.
 
-`per_prize_*` mode → render a list of rows, one per prize:
-- Row layout: prize label left, status middle, DRAW button right (44px, visible border).
-- Row state machine in component state: `idle | drawing | drawn`. `drawnWinners: Record<prizeId, EntryRow>`.
-- DRAW click → run 3-2-1 countdown animation, then `weightedDraw(pool)`:
-  - Pool = entries with `total_entries > 0`.
-  - `per_prize_with_removal`: pool excludes IDs already in `drawnWinners`.
-  - `per_prize_allow_repeat`: pool always the full eligible set.
-- On reveal: row turns green with `✓ {Winner Name}`. If removal mode, sub-note `Removed from remaining draws`.
-- Once every prize has a winner, render a summary card `All prizes awarded` listing each prize → winner pair.
+**Scope of replacement (giveaway feature only).** Per the project's design system rules, swapping app-wide fonts on internal staff pages (MyDay, Pipeline, Coach View, Wig, etc.) would change every screen in the studio app — well outside the brief, which is about the public giveaway. I'll apply the new typography across:
+- `src/features/giveaway/**` (all components, pages, preview)
+- The giveaway routes' wrapper (no global body font swap)
 
-State is session-local — not persisted (per requirement F).
+I'll grep `src/features/giveaway` for every `font-`, `fontFamily`, `Big Shoulders`, `Bebas`, `Jura` reference and replace with the unified system. If you want the typography applied to the internal staff app too, say so and I'll extend the scope.
 
-## 7. Spin wheel (`SpinWheel.tsx`)
+## 3. Helpers
 
-Fetch same `prizes` list + `winner_structure`.
+New `src/features/giveaway/lib/giveawayTitle.ts`:
+- `getGiveawayTitle(studioName, partners, titleFormat, customTitle): string` — implements the rules with `×` separator.
+- `getCoBrandLockup(studioName, partners): string` — returns `"Presented by OTF X + Y + Z"`.
 
-`single` → unchanged. Winner overlay lists all prizes.
+## 4. Admin Settings — Title section
 
-`per_prize_*` →
-- Above the wheel, prize selector dropdown: `Spinning for: [prize]` populated from `prizes`.
-- Wheel pool independent from DrawWinner state (per requirement H).
-- Local state `wheelRemoved: Set<entryId>`.
-- After a spin in `per_prize_with_removal` mode, show prompt `Remove {winner} from wheel for next spin?` with Yes/No 44px buttons. Yes adds to `wheelRemoved` and rebuilds wheel; No leaves pool intact.
-- `per_prize_allow_repeat` never modifies the wheel pool.
+Edit `SettingsPanel.tsx`. Add `TitleFormatSection` at top using the same selectable-card pattern as `WinnerStructureSection`:
+- Three cards, each with live preview built from current studio name + partners.
+- Card 3 reveals `custom_title` input when selected.
+- Local state `titleFormat`, `customTitle`; persisted in existing `saveSettings` upsert alongside `countdown_duration_days` and `winner_structure` (no field reset).
 
-`weightedDraw.ts` already filters `total_entries > 0`; accept an optional `excludeIds` set used by both DrawWinner and SpinWheel.
+`useGiveawayStudio` and types: include `title_format`, `custom_title`.
 
-## 8. Verification checklist (must pass before reporting done)
+## 5. Participant form rebuild
 
-- Partner add/edit/list round-trips `prize_description` (DB read confirms).
-- Settings save persists `winner_structure` without clearing countdown or goes_live_at.
-- Entry form: prize showcase shows membership card + only partners with prizes; draw-rule line matches the selected structure for each of the 3 settings.
-- Action card pill renders only when prize is set; full text, no truncation.
-- DrawWinner: in removal mode a prior winner cannot be drawn again across any subsequent prize row; in repeat mode they can.
-- SpinWheel removal state is independent from DrawWinner state.
-- All four slugs (tuscaloosa, auburn, montgomery, vestavia) read their own studio row → behavior switches per studio.
-- Role permissions unchanged; admin-only surfaces untouched for SA/Coach.
+In `GiveawayEntryPage.tsx`:
+- **Co-brand top bar** (#242426) with co-brand lockup, full-width.
+- **Hero title** uses `getGiveawayTitle(...)` (replaces "WIN A FREE MEMBERSHIP"). Display font, OTF orange, responsive `clamp()`.
+- **Subline** under title with co-brand lockup, off-white/light gray.
+- **Page container**: `max-w-[1200px]`, `px-12 md:px-12 px-4`.
 
-## Files touched
+**`PrizeShowcase.tsx` rewrite**:
+- Single equal-card grid for OTF + partners (no hierarchy labels).
+- OTF card: `FREE MEMBERSHIP` / `ORANGETHEORY FITNESS {CITY}` / IG handle from `studioBrand`.
+- Partner cards: `prize_description` (or `PRIZE TBD` gray) / `partner_name` / `@handle`.
+- Desktop grid: `grid-template-columns: repeat(totalCards, minmax(0,1fr))`, `gap-3`, fixed 180px height.
+- Mobile: `flex overflow-x-auto snap-x snap-mandatory`, 200px fixed width, 20px peek.
+- Section header `WHAT YOU COULD WIN` — display, orange, tracked.
+- Winner rule statement preserved below.
 
-- `supabase/migrations/<new>.sql`
-- `src/features/giveaway/lib/winnerStructure.ts` (new)
-- `src/features/giveaway/lib/weightedDraw.ts` (add excludeIds)
-- `src/features/giveaway/hooks/useGiveawayPartners.ts`
-- `src/features/giveaway/hooks/useGiveawayStudio.ts`
-- `src/features/giveaway/components/SettingsPanel.tsx`
-- `src/features/giveaway/components/PrizeShowcase.tsx` (new)
-- `src/features/giveaway/GiveawayEntryPage.tsx`
-- `src/features/giveaway/components/DrawWinner.tsx`
-- `src/features/giveaway/components/SpinWheel.tsx`
+**Action cards grid** (desktop 2-col, mobile single-col):
+- Wrap actions in `grid md:grid-cols-2 gap-4`.
+- Instagram checklist (action 1), entry counter, submit → `md:col-span-2`.
+- Apply display/body fonts to number badges, titles, descriptions, upload zone label, verified state per spec.
+
+**Free class action (action 4) copy update**:
+- Title: `Post a Class Story`
+- Description: `Post a story of you taking a class and tag us. Upload a screenshot of your story.`
+- Upload label: `Tap to upload story screenshot`
+- Propagate to `csvExport.ts` header and `EntriesTable.tsx` tooltip; if `action_free_class` constant exists as a label, update there too.
+
+## 6. Live Preview route
+
+**Route**: `/admin/:studio_slug/preview` registered in the same place existing admin giveaway routes are declared (likely `src/App.tsx`; will verify and add for all four slugs via the existing `:studio_slug` pattern).
+
+**New file** `src/features/giveaway/GiveawayPreviewPage.tsx`:
+- Fixed top banner (44px, OTF orange) with title + Back to Admin + Go Live button (or `Giveaway is Live ✓` disabled state).
+- Confirm dialog for Go Live (writes `goes_live_at = now()`).
+- Desktop: device toggle (`Desktop | Mobile`); Mobile selected renders form inside a 390px centered phone frame.
+- Renders `<GiveawayEntryForm previewMode />`.
+
+**Refactor**: extract the participant form body from `GiveawayEntryPage.tsx` into a reusable `GiveawayEntryForm` component accepting `slug` and `previewMode`. In preview mode:
+- Submit button label `ENTER NOW (Preview — submissions disabled)`; click → toast, no insert.
+- Upload zones → toast on click, no upload.
+- Reads same Supabase data (no separate source).
+
+**Admin nav**: add Preview link (eye icon) between Settings and Entries in `GiveawayAdminPage.tsx`. Mobile admin nav becomes tab row `Entries | Preview | Settings`.
+
+## 7. Coming Soon screen
+
+Apply `getGiveawayTitle()` and co-brand lockup. Replace existing Jura/Big Shoulders inline font-family with `font-display` / `font-body` utilities.
+
+## 8. Responsive specifics
+
+Hero, countdown, entry form fields (2-col desktop / 1-col mobile), entry counter sizes, admin entries table → card list on mobile, all per spec using Tailwind `md:` prefixes.
+
+## 9. Files
+
+**New**
+- `supabase/migrations/<ts>_giveaway_title_format.sql`
+- `src/features/giveaway/lib/giveawayTitle.ts`
+- `src/features/giveaway/components/GiveawayEntryForm.tsx` (extracted)
+- `src/features/giveaway/GiveawayPreviewPage.tsx`
+
+**Edited**
+- `index.html` (Google Fonts)
+- `src/index.css` (font vars)
+- `tailwind.config.ts` (font families)
+- `src/App.tsx` (preview route)
+- `src/features/giveaway/GiveawayEntryPage.tsx` (uses extracted form + new title/header)
+- `src/features/giveaway/GiveawayAdminPage.tsx` (nav: Preview link, mobile tabs)
+- `src/features/giveaway/components/SettingsPanel.tsx` (TitleFormatSection + save)
+- `src/features/giveaway/components/PrizeShowcase.tsx` (full redesign)
+- `src/features/giveaway/components/LiveEntryCounter.tsx` (typography + sizing)
+- `src/features/giveaway/components/Countdown.tsx` (typography + sizing)
+- `src/features/giveaway/components/EntriesTable.tsx` (mobile cards + action 4 label + typography)
+- `src/features/giveaway/components/ScreenshotUpload.tsx` (typography, preview-disabled support)
+- `src/features/giveaway/hooks/useGiveawayStudio.ts` (new fields)
+- `src/features/giveaway/lib/csvExport.ts` (action 4 header)
+- `src/integrations/supabase/types.ts` (auto via migration)
+
+## 10. Verification
+
+- Grep `src/features/giveaway` for stray font references after refactor.
+- Manually open `/g/tuscaloosa` and `/admin/tuscaloosa/preview` (desktop + mobile viewports).
+- Confirm Save Settings preserves all four field groups (countdown, winner_structure, title_format, custom_title).
+- Confirm preview submit + upload are no-ops with toasts.
+
+## Question before I build
+
+**Typography scope**: confirm I should apply Big Shoulders/Barlow only inside the public giveaway feature (recommended — touching the internal staff app fonts is a much bigger change with risk to MyDay/Coach/Pipeline UIs). If you want it app-wide, I'll extend scope.

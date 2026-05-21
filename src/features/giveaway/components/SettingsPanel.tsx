@@ -7,17 +7,23 @@ import {
   WINNER_STRUCTURE_OPTIONS,
   type WinnerStructure,
 } from '../lib/winnerStructure';
+import { getGiveawayTitle, type TitleFormat } from '../lib/giveawayTitle';
 
 export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onSaved: () => void }) {
   const [duration, setDuration] = useState<number>(studio.countdown_duration_days);
   const [winnerStructure, setWinnerStructure] = useState<WinnerStructure>(studio.winner_structure ?? 'single');
+  const [titleFormat, setTitleFormat] = useState<TitleFormat>(studio.title_format ?? 'auto_combined');
+  const [customTitle, setCustomTitle] = useState<string>(studio.custom_title ?? '');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const { partners } = useGiveawayPartners(studio.studio_slug);
 
   useEffect(() => {
     setDuration(studio.countdown_duration_days);
     setWinnerStructure(studio.winner_structure ?? 'single');
-  }, [studio.id, studio.countdown_duration_days, studio.winner_structure]);
+    setTitleFormat(studio.title_format ?? 'auto_combined');
+    setCustomTitle(studio.custom_title ?? '');
+  }, [studio.id, studio.countdown_duration_days, studio.winner_structure, studio.title_format, studio.custom_title]);
 
   const saveSettings = async () => {
     setSaving(true);
@@ -27,6 +33,8 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
       .update({
         countdown_duration_days: duration,
         winner_structure: winnerStructure,
+        title_format: titleFormat,
+        custom_title: titleFormat === 'custom' ? (customTitle.trim() || null) : customTitle.trim() || null,
       })
       .eq('id', studio.id);
     setSaving(false);
@@ -56,10 +64,20 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
   const endAt = liveAt ? new Date(liveAt.getTime() + studio.countdown_duration_days * 86400 * 1000) : null;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-6 font-body">
+      <TitleFormatSection
+        studioName={studio.studio_name}
+        partners={partners}
+        titleFormat={titleFormat}
+        customTitle={customTitle}
+        onChangeFormat={setTitleFormat}
+        onChangeCustomTitle={setCustomTitle}
+      />
+
       <PartnersSection slug={studio.studio_slug} />
 
       <WinnerStructureSection value={winnerStructure} onChange={setWinnerStructure} />
+
 
       <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
         <h2 className="text-xl font-black">Countdown</h2>

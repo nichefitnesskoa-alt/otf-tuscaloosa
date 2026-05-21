@@ -43,7 +43,7 @@ export function downloadEntriesCsv(rows: EntryRow[], studioSlug: string, partner
   }
   const HEADERS = [
     'first_name','last_name','email','phone','total_entries','submitted_at',
-    'action_instagram_follow','action_post_engagement','action_story_share','action_free_class',
+    'action_instagram_follow','action_post_engagement','action_story_share','action_class_story_post',
     ...partnerHeaders,
   ];
 

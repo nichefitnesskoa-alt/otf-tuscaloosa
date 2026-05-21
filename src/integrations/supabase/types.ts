@@ -1148,30 +1148,36 @@ export type Database = {
         Row: {
           countdown_duration_days: number
           created_at: string
+          custom_title: string | null
           goes_live_at: string | null
           id: string
           studio_name: string
           studio_slug: string
+          title_format: string
           updated_at: string
           winner_structure: string
         }
         Insert: {
           countdown_duration_days?: number
           created_at?: string
+          custom_title?: string | null
           goes_live_at?: string | null
           id?: string
           studio_name: string
           studio_slug: string
+          title_format?: string
           updated_at?: string
           winner_structure?: string
         }
         Update: {
           countdown_duration_days?: number
           created_at?: string
+          custom_title?: string | null
           goes_live_at?: string | null
           id?: string
           studio_name?: string
           studio_slug?: string
+          title_format?: string
           updated_at?: string
           winner_structure?: string
         }
