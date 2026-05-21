@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGiveawayStudio } from './hooks/useGiveawayStudio';
 import { useGiveawayEntries } from './hooks/useGiveawayEntries';
+import { useGiveawayPartners } from './hooks/useGiveawayPartners';
 import { EntriesTable } from './components/EntriesTable';
 import { DrawWinner } from './components/DrawWinner';
 import { SpinWheel } from './components/SpinWheel';
@@ -13,9 +14,11 @@ export default function GiveawayAdminPage() {
   const { studioSlug } = useParams<{ studioSlug: string }>();
   const { studio, refresh: refreshStudio } = useGiveawayStudio(studioSlug);
   const { entries } = useGiveawayEntries(studioSlug);
+  const { partners } = useGiveawayPartners(studioSlug);
   const [tab, setTab] = useState<'entries' | 'settings'>('entries');
 
   const totalPool = useMemo(() => entries.reduce((s, e) => s + e.total_entries, 0), [entries]);
+  const eligibleCount = useMemo(() => entries.filter(e => e.total_entries > 0).length, [entries]);
   const drawEntries = useMemo(() => entries.map(e => ({
     id: e.id, name: `${e.first_name} ${e.last_name}`, total_entries: e.total_entries,
   })), [entries]);
@@ -45,19 +48,19 @@ export default function GiveawayAdminPage() {
               <div>
                 <h2 className="text-3xl font-black">Entries</h2>
                 <p className="text-sm text-[#F5F2EE]/60 mt-1">
-                  <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {entries.length} participants
+                  <span className="text-[#E8540A] font-bold text-base">{totalPool}</span> total entries in pool · {eligibleCount} eligible · {entries.length} participants
                 </p>
-                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Higher entries = higher chance of winning.</p>
+                <p className="text-xs text-[#F5F2EE]/50 mt-1">Each entry = one ticket. Participants with 0 entries cannot win.</p>
               </div>
               <button
-                onClick={() => downloadEntriesCsv(entries as any, studio.studio_slug)}
+                onClick={() => downloadEntriesCsv(entries as any, studio.studio_slug, partners)}
                 disabled={!entries.length}
-                className="min-h-[44px] inline-flex items-center gap-2 px-4 rounded-lg bg-[#2a2a2c] hover:bg-[#3a3a3c] border border-[#3a3a3c] text-[#F5F2EE] font-bold disabled:opacity-50"
+                className="min-h-[44px] inline-flex items-center gap-2 px-4 rounded-lg bg-[#2a2a2c] hover:bg-[#3a3a3c] border border-[#3a3a3c] text-[#F5F2EE] font-bold disabled:opacity-50 cursor-pointer"
               >
                 <Download className="h-4 w-4" /> Download CSV
               </button>
             </div>
-            <EntriesTable entries={entries} />
+            <EntriesTable entries={entries} partners={partners} />
             <DrawWinner entries={drawEntries} />
             <SpinWheel entries={drawEntries} />
           </div>
@@ -76,7 +79,7 @@ export default function GiveawayAdminPage() {
 function NavBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <button onClick={onClick}
-      className={`min-h-[44px] flex items-center gap-2 px-4 rounded-lg font-bold text-sm ${active ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/80 hover:bg-[#2a2a2c]'}`}>
+      className={`min-h-[44px] flex items-center gap-2 px-4 rounded-lg font-bold text-sm cursor-pointer ${active ? 'bg-[#E8540A] text-white' : 'text-[#F5F2EE]/80 hover:bg-[#2a2a2c]'}`}>
       {icon}{children}
     </button>
   );
