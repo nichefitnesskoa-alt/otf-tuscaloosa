@@ -12,7 +12,7 @@ import { ConfirmationScreen } from './ConfirmationScreen';
 import { PrizeShowcase } from './PrizeShowcase';
 import { getParticipantStudioName, getStudioCity, getStudioIgHandle } from '@/lib/studioNames';
 import { getGiveawayTitle, getCoBrandParts } from '../lib/giveawayTitle';
-import { getDrawRuleStatement } from '../lib/winnerStructure';
+import { getEntryFormPrizeFraming } from '../lib/winnerCopy';
 
 interface PartnerActionState {
   partner_id: string;
