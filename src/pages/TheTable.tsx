@@ -90,8 +90,12 @@ export default function TheTable() {
   const [winOwnerId, setWinOwnerId] = useState<string | null>(null);
   const effectiveWinOwnerId = winOwnerId ?? myOwners[0]?.id ?? null;
 
-  // Refresh helper
-  const refresh = (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] });
+  // Refresh helper — stable identity so child effects don't re-run on every render
+  const refresh = useCallback(
+    (key: string) => qc.invalidateQueries({ queryKey: [key, meeting?.id] }),
+    [qc, meeting?.id],
+  );
+  const onEntryChange = useCallback(() => refresh('table-entries'), [refresh]);
 
   // Effective week being viewed (deep-linked meetings override the stepper).
   const effectiveWeek = meeting?.meeting_date ?? weekDate;
