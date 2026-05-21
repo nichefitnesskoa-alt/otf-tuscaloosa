@@ -1,56 +1,128 @@
-## What's broken
+# OTF Giveaway System — Build Plan
 
-Own It (`/the-table`) has two places people type:
+Two-sided giveaway: gamified public entry forms (one per studio) and admin panels for management + winner draws. All data in existing Supabase.
 
-1. **OwnerEntryForm** — the 4 lane-update fields (Last week / This week / Ideas / Ask). These use `MentionInput` in **uncontrolled** mode (`defaultValue` + `onBlur`).
-2. **OwnerLiveCard** — the Add / Flag / Own It response box. Uses `MentionInput` in **controlled** mode.
+## 1. Database (single migration)
 
-Three issues stack up to make typing feel broken:
+**Tables**
+- `giveaway_studios` — `studio_slug` (unique), `studio_name`, `partner_name`, `partner_instructions`, `countdown_duration_days`, `goes_live_at`, timestamps
+- `giveaway_entries` — identity fields, `base_entries` (default 1), `bonus_entries`, `total_entries` (generated stored column), 5 action booleans + 4 screenshot URL columns, `submitted_at`. Unique on `(studio_slug, email)` (case-insensitive via expression index on `lower(email)`)
+- `giveaway_uploads` — `entry_id` FK, `action_type`, `file_url`
 
-### Issue 1 — `MentionInput` is half-controlled
-In `src/components/shared/MentionInput.tsx`:
-```tsx
-defaultValue={isControlled ? undefined : defaultValue}
-value={isControlled ? text : undefined}
+**Seed**: 4 rows in `giveaway_studios` — tuscaloosa, auburn, montgomery, vestavia. `goes_live_at = null`.
+
+**Storage**: `giveaway-uploads` bucket, public read.
+
+**RLS**
+- `giveaway_entries`: public INSERT, public SELECT (admin is URL-gated per spec)
+- `giveaway_uploads`: public INSERT + SELECT
+- `giveaway_studios`: public SELECT; UPDATE allowed (admin URL-gated)
+- Storage policies: public INSERT + SELECT on `giveaway-uploads`
+
+## 2. Routes (added to `src/App.tsx`, outside the authenticated app shell)
+
+- `/giveaway/:studioSlug` → `GiveawayEntryPage`
+- `/admin/:studioSlug` → `GiveawayAdminPage`
+
+These render standalone (no SA/Coach/Admin auth, no app nav).
+
+## 3. File structure
+
 ```
-Passing `value={undefined}` plus `defaultValue` on the same `<Textarea>`/`<Input>` puts React in a fragile mode. Every parent re-render (and Own It re-renders constantly from realtime invalidations on `table_owner_entries`, `table_responses`, `table_owners`) re-evaluates `defaultValue` from the latest `entry?.field`. If React ever flips its internal "controlled?" decision because of an `undefined`→string transition, the input snaps back to the old DB value and the user's in-progress text disappears.
+src/features/giveaway/
+  GiveawayEntryPage.tsx          — route component, state machine (coming soon / countdown / live / ended)
+  GiveawayAdminPage.tsx          — route component, sidebar layout
+  components/
+    Countdown.tsx                — D/H/M/S, recalculates each second
+    EntryForm.tsx                — name/email/phone inputs
+    AchievementCard.tsx          — single action card (lock → unlock animation)
+    ScreenshotUpload.tsx         — drag/tap upload to Storage, thumbnail preview
+    LiveEntryCounter.tsx         — animated count-up, progress bar 1-of-6
+    ConfirmationScreen.tsx       — confetti + name + entry total
+    EntriesTable.tsx             — expandable rows w/ screenshot thumbs
+    DrawWinner.tsx               — 3-2-1 reveal w/ confetti
+    SpinWheel.tsx                — canvas-based weighted wheel, top-20 cap
+    SettingsPanel.tsx            — partner fields, duration, go-live
+  hooks/
+    useGiveawayStudio.ts         — fetch + realtime studio row
+    useGiveawayEntries.ts        — fetch entries for admin
+    useEntryDraft.ts             — local form state, action completions
+  lib/
+    weightedDraw.ts              — build tickets array, pick winner
+    csvExport.ts                 — generate + download CSV
+    uploadScreenshot.ts          — Storage upload helper, returns public URL
+```
 
-### Issue 2 — OwnerEntryForm mounts before its row exists
-`OwnerEntryForm` runs an `upsert` in `useEffect` to create the empty entry. That upsert fires realtime → invalidates `table-entries` → refetches → parent passes a new `entry` object → `val` recomputes → `defaultValue` prop changes from `''` to `''`. Combined with Issue 1 this is enough to wipe characters mid-typing on slower devices. It also means if the user types fast enough to blur before `entryId` is set, the first `save()` upsert races the mount upsert and one of them wins with stale text.
+## 4. Participant flow (`/giveaway/:studioSlug`)
 
-### Issue 3 — Inline `onChange`/`refresh` callbacks
-`TheTable` builds `onChange={() => refresh('table-entries')}` inline every render. `refresh` itself is rebuilt every render. So `OwnerEntryForm`'s mount effect has a churning `onChange` in its deps; combined with realtime invalidations, the form re-runs work unnecessarily and any internal `useMemo` keyed on these props thrashes.
+**Gate logic** based on `goes_live_at` + `countdown_duration_days`:
+- `null` → "Coming soon"
+- future → countdown screen
+- live window → form
+- past end → "Giveaway has ended"
 
-## The fix (three small surgical changes)
+**Form behavior**
+- Studio pre-set from route; no dropdown
+- Action 1 (IG follow): checkbox → instant +1
+- Actions 2–5: upload to Storage first, then award +1 on success
+- Live counter: 1 base + N bonus, animated count-up + scale pulse, progress bar (max 6)
+- Submit disabled until name/email/phone filled
+- On submit:
+  1. Query `giveaway_entries` where `studio_slug` + `lower(email)` match
+  2. If exists → inline error "You've already entered at this studio."
+  3. Else insert row with action booleans + URLs → confirmation screen w/ confetti + earned count
 
-### 1. `src/components/shared/MentionInput.tsx` — make it always controlled internally
-- Always render `<Field value={text} onChange={handleChange} />`. Never pass `defaultValue` to the underlying field.
-- Keep `internal` state seeded from `defaultValue ?? ''`.
-- Sync `internal` from `defaultValue` **only when an explicit `resetKey` prop changes** (new optional prop). That way re-renders triggered by realtime cannot blow away typed text.
-- Keep `value`/`onChange` controlled mode working unchanged for callers that pass them.
+**Partner copy** (Action 5): reads `partner_name`/`partner_instructions` from studio row with the documented fallbacks.
 
-This single change makes every consumer (OwnerEntryForm, OwnerLiveCard, Win logger) bulletproof against re-render-driven text loss.
+## 5. Admin flow (`/admin/:studioSlug`)
 
-### 2. `src/pages/TheTable.tsx` — `OwnerEntryForm` hardening
-- Move the "ensure entry row exists" upsert into a small hook scoped to `(meetingId, ownerId)` that only runs once per pair and stores the resolved `entryId` in a ref. Stop depending on `onChange` in its deps.
-- Pass `resetKey={entry?.id ?? 'new'}` to each `MentionInput` so that when the row is first created the inputs accept the fresh empty defaults exactly once, and after that ignore prop churn.
-- Wrap `refresh` and the per-form `onChange` in `useCallback` with stable deps so child effects don't see new function identities every render.
+**Sidebar**: Entries | Settings | studio name + "Admin" badge.
 
-### 3. `src/hooks/useActiveStaff.ts` — stabilise derived arrays
-- Memoise `allActive`, `coaches`, `salesAssociates` on `staff`. Currently they're rebuilt every call, which makes every `MentionInput` instance see "new" arrays and recompute candidates each render. Not the proximal cause of input failure but it's noise in the same hot path.
+**Entries view**
+- Header: "X total entries in pool" = sum of `total_entries`
+- Table: Name | Email | Phone | Entries (bold, orange badge if >1) | Actions Completed (5 check icons) | Submitted
+- Row click → expands to thumbnails of uploaded screenshots
+- **Download CSV** button: includes all fields + 5 action booleans + 4 screenshot URLs
+- **Draw Winner**: weighted via tickets array (name pushed `total_entries` times), 3-2-1 countdown → full-screen confetti reveal
+- **Spin Wheel**: same weighted source, capped to top-20 unique entrants by entry count, alternating charcoal/orange segments, physics-based decel over 4–6s, modal reveal
 
-## How we verify it sticks
+**Settings view**
+- Partner name (text), partner instructions (textarea)
+- Duration segmented control: 7 / 10 / 14
+- **GO LIVE NOW** button → sets `goes_live_at = now()`; shows end date; if already live shows "Reset / End Giveaway" → sets `null`
+- Save Settings persists partner fields + duration
 
-1. Open `/the-table`, claim a lane, type into all 4 fields rapidly — every character stays.
-2. Have a second tab post a response (or flip the meeting) while typing in the first tab — typed text survives realtime invalidations.
-3. Open the Add / Flag / Own It composer in the live view, type with `@` triggering the mention popup, press Enter to insert — caret + remaining text intact.
-4. Log a win from the dialog — text persists through the `table-wins` insert.
-5. Confirm no console warnings about "changing controlled to uncontrolled component".
+## 6. Design tokens
 
-## Files touched
+Add giveaway-scoped utilities/tokens (no clash with existing app):
+- Background `#1C1C1E`, accent `#E8540A`, body `#F5F2EE`
+- Display font: Bebas Neue (closest free analog of Big Shoulders, already-available pattern). Load via `<link>` in `index.html`.
+- All tap targets ≥ 44px
+- Animations via Framer Motion (already in repo) + a small canvas confetti util
 
-- `src/components/shared/MentionInput.tsx` (controlled-only refactor + `resetKey` prop)
-- `src/pages/TheTable.tsx` (`OwnerEntryForm` seeding + stable callbacks + `resetKey` passthrough)
-- `src/hooks/useActiveStaff.ts` (memoised derived lists)
+## 7. Cross-file verification checklist (run before reporting done)
 
-No database changes. No behaviour changes for other consumers of `MentionInput` — they continue to work in their existing controlled mode.
+- A. All 4 studio slugs seeded
+- B. Uploads land in `giveaway-uploads` before counter ticks
+- C. Action 5 copy reads from DB, not hardcoded
+- D. Draw + wheel weighted by `total_entries`
+- E. CSV includes all action booleans + URLs
+- F. Countdown ticks every 1s vs `goes_live_at + duration_days`
+- G. Email uniqueness scoped to `studio_slug`
+- H. 44px min tap targets verified
+- I. Confirmation shows earned entry total
+
+## Technical notes
+
+- Generated column: `total_entries integer GENERATED ALWAYS AS (base_entries + bonus_entries) STORED`
+- Case-insensitive email dedup: unique index on `(studio_slug, lower(email))` + lowercase email before insert/lookup
+- Storage uploads use anon client; path scheme: `{studio_slug}/{entry_draft_id}/{action_type}-{timestamp}.{ext}`
+- Public pages bypass existing auth gate by mounting routes above the `<RequireAuth>` boundary in `App.tsx`
+- Realtime subscription on `giveaway_entries` for admin so new entries appear live
+- Spin wheel implemented in plain `<canvas>` to avoid new deps
+
+## Out of scope (confirm if needed)
+
+- No email/SMS notification to winner
+- No image moderation on uploads
+- Admin has no auth — gated only by URL knowledge, as specified

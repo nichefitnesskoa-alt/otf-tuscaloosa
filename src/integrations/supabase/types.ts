@@ -1026,6 +1026,151 @@ export type Database = {
         }
         Relationships: []
       }
+      giveaway_entries: {
+        Row: {
+          action_free_class: boolean
+          action_free_class_screenshot_url: string | null
+          action_instagram_follow: boolean
+          action_partner_visit: boolean
+          action_partner_visit_photo_url: string | null
+          action_post_engagement: boolean
+          action_post_engagement_screenshot_url: string | null
+          action_story_share: boolean
+          action_story_share_screenshot_url: string | null
+          base_entries: number
+          bonus_entries: number
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          studio_slug: string
+          submitted_at: string
+          total_entries: number | null
+        }
+        Insert: {
+          action_free_class?: boolean
+          action_free_class_screenshot_url?: string | null
+          action_instagram_follow?: boolean
+          action_partner_visit?: boolean
+          action_partner_visit_photo_url?: string | null
+          action_post_engagement?: boolean
+          action_post_engagement_screenshot_url?: string | null
+          action_story_share?: boolean
+          action_story_share_screenshot_url?: string | null
+          base_entries?: number
+          bonus_entries?: number
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          phone: string
+          studio_slug: string
+          submitted_at?: string
+          total_entries?: number | null
+        }
+        Update: {
+          action_free_class?: boolean
+          action_free_class_screenshot_url?: string | null
+          action_instagram_follow?: boolean
+          action_partner_visit?: boolean
+          action_partner_visit_photo_url?: string | null
+          action_post_engagement?: boolean
+          action_post_engagement_screenshot_url?: string | null
+          action_story_share?: boolean
+          action_story_share_screenshot_url?: string | null
+          base_entries?: number
+          bonus_entries?: number
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string
+          studio_slug?: string
+          submitted_at?: string
+          total_entries?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giveaway_entries_studio_slug_fkey"
+            columns: ["studio_slug"]
+            isOneToOne: false
+            referencedRelation: "giveaway_studios"
+            referencedColumns: ["studio_slug"]
+          },
+        ]
+      }
+      giveaway_studios: {
+        Row: {
+          countdown_duration_days: number
+          created_at: string
+          goes_live_at: string | null
+          id: string
+          partner_instructions: string | null
+          partner_name: string | null
+          studio_name: string
+          studio_slug: string
+          updated_at: string
+        }
+        Insert: {
+          countdown_duration_days?: number
+          created_at?: string
+          goes_live_at?: string | null
+          id?: string
+          partner_instructions?: string | null
+          partner_name?: string | null
+          studio_name: string
+          studio_slug: string
+          updated_at?: string
+        }
+        Update: {
+          countdown_duration_days?: number
+          created_at?: string
+          goes_live_at?: string | null
+          id?: string
+          partner_instructions?: string | null
+          partner_name?: string | null
+          studio_name?: string
+          studio_slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      giveaway_uploads: {
+        Row: {
+          action_type: string
+          entry_id: string | null
+          file_url: string
+          id: string
+          studio_slug: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          action_type: string
+          entry_id?: string | null
+          file_url: string
+          id?: string
+          studio_slug?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          action_type?: string
+          entry_id?: string | null
+          file_url?: string
+          id?: string
+          studio_slug?: string | null
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "giveaway_uploads_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "giveaway_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ig_leads: {
         Row: {
           created_at: string
