@@ -162,6 +162,66 @@ export function VipSchedulerTab() {
   // Performance data for registrations dialog
   const [perfData, setPerfData] = useState<{ introsBooked: number; introsRan: number; joins: number } | null>(null);
 
+  // Add Person inline form (inside Registrations dialog)
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [addPersonForm, setAddPersonForm] = useState({
+    firstName: '', lastName: '', phone: '', email: '',
+    fitnessLevel: '', injuries: '', birthday: '', weightLbs: '',
+    isGroupContact: false,
+  });
+  const [addPersonSaving, setAddPersonSaving] = useState(false);
+
+  const handleAddPerson = async () => {
+    if (!regOpen) return;
+    if (!addPersonForm.firstName.trim()) { toast.error('First name is required'); return; }
+    setAddPersonSaving(true);
+    try {
+      const fl = addPersonForm.fitnessLevel ? parseInt(addPersonForm.fitnessLevel) : null;
+      const wl = addPersonForm.weightLbs ? parseInt(addPersonForm.weightLbs) : null;
+      const phoneDigits = addPersonForm.phone.replace(/\D/g, '');
+
+      // If marking as group contact, also update the session's reserved_contact_* fields
+      // so the Group Contact card and the registration stay in sync (trigger handles dedup).
+      if (addPersonForm.isGroupContact) {
+        await sb.from('vip_sessions').update({
+          reserved_contact_name: `${addPersonForm.firstName.trim()} ${addPersonForm.lastName.trim()}`.trim(),
+          reserved_contact_phone: phoneDigits || null,
+          reserved_contact_email: addPersonForm.email.trim() || null,
+        } as any).eq('id', regOpen);
+      } else {
+        const { error } = await sb.from('vip_registrations').insert({
+          vip_session_id: regOpen,
+          first_name: addPersonForm.firstName.trim(),
+          last_name: addPersonForm.lastName.trim() || null,
+          phone: phoneDigits || null,
+          email: addPersonForm.email.trim() || null,
+          fitness_level: fl,
+          injuries: addPersonForm.injuries.trim() || null,
+          birthday: addPersonForm.birthday || null,
+          weight_lbs: wl,
+          is_group_contact: false,
+        } as any);
+        if (error) throw error;
+      }
+
+      toast.success('Person added to roster');
+      setAddPersonForm({
+        firstName: '', lastName: '', phone: '', email: '',
+        fitnessLevel: '', injuries: '', birthday: '', weightLbs: '',
+        isGroupContact: false,
+      });
+      setAddPersonOpen(false);
+      // Refresh dialog data + card counts (realtime sub also fires)
+      handleViewRegistrations(regOpen);
+      fetchSessions();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add person');
+    } finally {
+      setAddPersonSaving(false);
+    }
+  };
+
+
   // Templates
   const [templates, setTemplates] = useState<SlotTemplate[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
