@@ -89,7 +89,7 @@ export function MetricsConsistencyAlert({ dateRange, showWhenInSync = false }: P
           return;
         }
         // Update both the run (where Per-SA reads from) and the booking
-        const updates: Promise<any>[] = [
+        const [bRes, rRes] = await Promise.all([
           supabase.from('intros_booked').update({
             intro_owner: newOwner,
             intro_owner_locked: true,
@@ -98,10 +98,9 @@ export function MetricsConsistencyAlert({ dateRange, showWhenInSync = false }: P
           }).eq('id', item.bookingId),
           supabase.from('intros_run').update({ intro_owner: newOwner })
             .eq('linked_intro_booked_id', item.bookingId),
-        ];
-        const results = await Promise.all(updates);
-        const firstErr = results.find(r => r.error);
-        if (firstErr) throw firstErr.error;
+        ]);
+        if (bRes.error) throw bRes.error;
+        if (rRes.error) throw rRes.error;
         toast({ title: `Owner set to ${newOwner}`, description: item.memberName });
       } else if (action === 'toggle_ignore_metrics') {
         const current = (introsBooked.find(b => b.id === item.bookingId) as any)?.ignore_from_metrics === true;
