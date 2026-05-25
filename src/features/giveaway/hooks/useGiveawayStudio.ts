@@ -71,6 +71,7 @@ export interface GiveawayStudio {
   deck_s8_headline_size: number | null;
   deck_s9_headline_size: number | null;
   deck_s9_subline_size: number | null;
+  action_verification_modes: Record<string, 'checkbox' | 'screenshot'> | null;
 }
 
 export function useGiveawayStudio(slug: string | undefined) {
