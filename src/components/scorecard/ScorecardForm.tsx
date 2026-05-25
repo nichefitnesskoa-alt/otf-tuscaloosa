@@ -235,7 +235,7 @@ export function ScorecardFormBody(props: BodyProps) {
             className={`flex-1 px-3 rounded-md border text-xs font-semibold ${evalType === 'self_eval' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input text-muted-foreground hover:bg-muted'}`}
             style={{ minHeight: '36px' }}
           >Self Eval</button>
-          {user?.role === 'Admin' && (
+          {canFormalEval(user) && (
             <button
               type="button"
               onClick={() => onEvalTypeChange?.('formal_eval')}
