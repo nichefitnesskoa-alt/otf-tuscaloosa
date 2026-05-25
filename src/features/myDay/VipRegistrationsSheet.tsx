@@ -361,7 +361,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 <div key={r.id} className="p-3 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex-1 min-w-[140px]">
-                      <div className="text-sm font-medium truncate">{fullName}</div>
+                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                        {fullName}
+                        {r.is_group_contact && (
+                          <span className="text-[9px] font-bold uppercase tracking-wide bg-brand/15 text-brand border border-brand/40 rounded px-1.5 py-0.5">
+                            Group Contact
+                          </span>
+                        )}
+                      </div>
                       {r.email && (
                         <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                           ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
