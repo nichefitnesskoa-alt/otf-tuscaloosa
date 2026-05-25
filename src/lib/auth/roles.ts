@@ -17,6 +17,15 @@ export const isCoachLike = (u: User | null | undefined): boolean =>
 export const isSALike = (u: User | null | undefined): boolean =>
   u?.role === 'SA' || u?.role === 'Both';
 
+// Scoring access — Coach, Both, or Koa (Admin). SA-only staff cannot score
+// coaches in the First Visit Experience scorecard, ever.
+export const canScore = (u: User | null | undefined): boolean =>
+  isAdmin(u) || isCoachLike(u);
+
+// Formal evaluation is Koa-only (Admin identity). Coaches self-eval.
+export const canFormalEval = (u: User | null | undefined): boolean =>
+  isAdmin(u);
+
 // =====================================================================
 // Per-staff feature/tab permissions
 // =====================================================================
