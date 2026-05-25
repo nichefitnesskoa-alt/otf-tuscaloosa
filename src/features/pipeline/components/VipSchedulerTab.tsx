@@ -867,7 +867,7 @@ export function VipSchedulerTab() {
             <DialogDescription>
               {(() => {
                 const session = sessions.find(s => s.id === regOpen);
-                const memberCount = registrations.filter(r => !r.is_group_contact).length;
+                const memberCount = registrations.filter(isCountedAsMember).length;
                 return session ? `${session.reserved_by_group || 'VIP'} — ${format(new Date(session.session_date + 'T00:00:00'), 'MMM d')}` : `${memberCount} members registered`;
               })()}
             </DialogDescription>
