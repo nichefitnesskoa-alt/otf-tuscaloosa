@@ -1,0 +1,1 @@
+ALTER TABLE public.vip_sessions ADD COLUMN IF NOT EXISTS contact_attending_class boolean NOT NULL DEFAULT false;

@@ -3809,6 +3809,7 @@ export type Database = {
           business_sub_type: string | null
           capacity: number
           coach_name: string | null
+          contact_attending_class: boolean
           created_at: string
           created_by: string
           description: string | null
@@ -3836,6 +3837,7 @@ export type Database = {
           business_sub_type?: string | null
           capacity?: number
           coach_name?: string | null
+          contact_attending_class?: boolean
           created_at?: string
           created_by?: string
           description?: string | null
@@ -3863,6 +3865,7 @@ export type Database = {
           business_sub_type?: string | null
           capacity?: number
           coach_name?: string | null
+          contact_attending_class?: boolean
           created_at?: string
           created_by?: string
           description?: string | null
