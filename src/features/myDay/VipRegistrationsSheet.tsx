@@ -80,9 +80,10 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs, membership_type, commission_amount')
+          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs, membership_type, commission_amount, is_group_contact, attending_class')
           .eq('vip_session_id', vipSessionId)
-          .eq('is_group_contact', false)
+          .or('is_group_contact.eq.false,attending_class.eq.true')
+          .order('is_group_contact', { ascending: false })
           .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
