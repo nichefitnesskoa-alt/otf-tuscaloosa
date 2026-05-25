@@ -332,32 +332,50 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
           </div>
 
           <AchievementCard number={2} title="Like, comment & tag a friend"
-            description="Like our giveaway post, leave a comment, and tag a local friend. Upload a screenshot."
+            description="Like our giveaway post, leave a comment, and tag a local friend."
             unlocked={form.action_post_engagement}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="post_engagement"
-              value={form.action_post_engagement_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="post_engagement"
+              checked={form.action_post_engagement}
+              screenshotUrl={form.action_post_engagement_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_post_engagement: true, action_post_engagement_screenshot_url: url })}
               previewMode={previewMode}
             />
           </AchievementCard>
 
           <AchievementCard number={3} title="Share to your story"
-            description="Share our giveaway post to your Instagram story. Upload a screenshot."
+            description="Share our giveaway post to your Instagram story."
             unlocked={form.action_story_share}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="story_share"
-              value={form.action_story_share_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="story_share"
+              checked={form.action_story_share}
+              screenshotUrl={form.action_story_share_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_story_share: checked, action_story_share_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_story_share: true, action_story_share_screenshot_url: url })}
               previewMode={previewMode}
             />
           </AchievementCard>
 
           <AchievementCard number={4} title="Post a Class Story"
-            description="Post a story of you taking a class and tag us. Upload a screenshot of your story."
+            description="Post a story of you taking a class and tag us."
             unlocked={form.action_free_class}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="free_class"
-              value={form.action_free_class_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="free_class"
+              checked={form.action_free_class}
+              screenshotUrl={form.action_free_class_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_free_class: checked, action_free_class_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_free_class: true, action_free_class_screenshot_url: url })}
-              label="Tap to upload story screenshot"
+              screenshotLabel="Tap to upload story screenshot"
               previewMode={previewMode}
             />
           </AchievementCard>
@@ -365,12 +383,14 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
           {partners.map((p, idx) => {
             const state = form.partner_actions.find(a => a.partner_id === p.id);
             const handle = (p.partner_ig_handle || '').trim().replace(/^@/, '');
+            const partnerKey = `partner:${p.id}`;
+            const mode = getActionMode(studio.action_verification_modes, partnerKey, 'screenshot');
             return (
               <AchievementCard
                 key={p.id}
                 number={5 + idx}
                 title={`Visit ${p.partner_name}`}
-                description={p.receipt_instructions?.trim() || `Visit ${p.partner_name} and upload a photo of your receipt.`}
+                description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
                 unlocked={!!state?.completed}
               >
                 {handle && (
@@ -383,11 +403,14 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
                     <span>🎁</span><span>Prize: {p.prize_description}</span>
                   </div>
                 )}
-                <ScreenshotUpload
+                <ActionVerification
+                  mode={mode}
                   studioSlug={studio.studio_slug}
                   draftId={draftId}
                   actionType={`partner_${p.id}`}
-                  value={state?.screenshot_url ?? null}
+                  checked={!!state?.completed}
+                  screenshotUrl={state?.screenshot_url ?? null}
+                  onCheckboxChange={(checked) => setPartnerAction(p.id, { completed: checked, screenshot_url: null })}
                   onUploaded={(url) => setPartnerAction(p.id, { completed: true, screenshot_url: url })}
                   previewMode={previewMode}
                 />
