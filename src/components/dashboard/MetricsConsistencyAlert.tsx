@@ -38,6 +38,7 @@ export function MetricsConsistencyAlert({ dateRange, showWhenInSync = false }: P
   const { allActive } = useActiveStaff();
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(true);
+  const [showPairs, setShowPairs] = useState(false);
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
@@ -47,6 +48,10 @@ export function MetricsConsistencyAlert({ dateRange, showWhenInSync = false }: P
     [introsBooked, introsRun, dateRange],
   );
 
+  const realOffenders = drift.filter(d => !d.isExpectedPair);
+  const pairedItems = drift.filter(d => d.isExpectedPair);
+  const pairCount = pairedItems.length;
+
   const sources = [
     { label: 'Studio Scoreboard', ran: scoreboardRan },
     { label: 'Per-SA Runner Stats', ran: perSARan },
@@ -54,7 +59,9 @@ export function MetricsConsistencyAlert({ dateRange, showWhenInSync = false }: P
   ];
   const ranValues = sources.map(s => s.ran);
   const ranDrift = Math.max(...ranValues) - Math.min(...ranValues);
-  const inSync = ranDrift === 0 && drift.length === 0;
+  const totalsAgree = ranDrift === 0;
+  const inSync = totalsAgree && realOffenders.length === 0 && pairCount === 0;
+  const noRealIssues = totalsAgree && realOffenders.length === 0;
 
   if (inSync && !showWhenInSync) return null;
 
