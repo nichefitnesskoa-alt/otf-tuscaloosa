@@ -984,6 +984,37 @@ export function VipSchedulerTab() {
                           // Revert
                           setSessions(prev => prev.map(x => x.id === session.id ? { ...x, contact_attending_class: !checked } : x));
                         } else {
+                          // Ensure a vip_registrations row exists for the group contact so they
+                          // appear in the My Day attendee list with their own Showed/No-show row.
+                          const { data: existingContactReg } = await sb
+                            .from('vip_registrations')
+                            .select('id')
+                            .eq('vip_session_id', session.id)
+                            .eq('is_group_contact', true)
+                            .maybeSingle();
+                          const nameParts = (session.reserved_contact_name || '').trim().split(/\s+/);
+                          const firstName = nameParts[0] || session.reserved_contact_name || 'Group Contact';
+                          const lastName = nameParts.slice(1).join(' ') || null;
+                          if (existingContactReg) {
+                            await sb.from('vip_registrations').update({
+                              attending_class: checked,
+                              first_name: firstName,
+                              last_name: lastName,
+                              phone: session.reserved_contact_phone || null,
+                              email: (session as any).reserved_contact_email || null,
+                            }).eq('id', existingContactReg.id);
+                          } else if (checked) {
+                            await sb.from('vip_registrations').insert({
+                              vip_session_id: session.id,
+                              vip_class_name: session.vip_class_name,
+                              is_group_contact: true,
+                              attending_class: true,
+                              first_name: firstName,
+                              last_name: lastName,
+                              phone: session.reserved_contact_phone || null,
+                              email: (session as any).reserved_contact_email || null,
+                            });
+                          }
                           toast.success(checked ? `${session.reserved_contact_name} counted as attending` : 'Contact no longer counted');
                         }
                       }}
