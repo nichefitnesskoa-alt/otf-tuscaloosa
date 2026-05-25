@@ -217,7 +217,9 @@ function Editor({
       </div>
 
       <Section label="Slide 1 — Cover">
-        <p className="text-xs italic text-text-secondary">Title auto-builds from your partner list above.</p>
+        <p className="text-xs italic text-text-secondary">
+          Cover title follows your <strong>Giveaway Title</strong> setting above. "Auto: Studio + Partners" shows "Cross-Collab Raffle" + the partner line. "Auto: Brand Only" and "Custom Title" replace the big title and hide the partner line.
+        </p>
         <SizeRefine title="Title line 1 size" field={'deck_s1_title1_size' as FieldKey} value={studio.deck_s1_title1_size} min={48} max={96} onSave={onSave} />
         <SizeRefine title="Title line 2 size" field={'deck_s1_title2_size' as FieldKey} value={studio.deck_s1_title2_size} min={28} max={72} onSave={onSave} />
       </Section>
