@@ -85,7 +85,14 @@ interface VipRegistration {
   birthday: string | null;
   weight_lbs: number | null;
   is_group_contact: boolean;
+  attending_class?: boolean;
   created_at: string;
+}
+
+// Group contact is counted as a class member only when the operator
+// flips "Also attending the class" on the contact card.
+function isCountedAsMember(r: { is_group_contact: boolean; attending_class?: boolean | null }): boolean {
+  return !r.is_group_contact || r.attending_class === true;
 }
 
 interface SlotTemplate {
