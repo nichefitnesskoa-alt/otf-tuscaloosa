@@ -37,7 +37,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Scorecard — {sc.practice_name || 'First-Timer'}</SheetTitle>
+          <SheetTitle>Scorecard — {sc.first_timer_name || sc.practice_name || 'First-Timer'}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 space-y-4">

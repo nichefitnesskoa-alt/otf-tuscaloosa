@@ -28,6 +28,8 @@ export interface FvScorecard {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Joined from intros_booked.member_name via first_timer_id. Null for practice scorecards or orphaned records. */
+  first_timer_name?: string | null;
 }
 
 export interface FvBullet {
@@ -59,7 +61,18 @@ export function useScorecards(opts: { from?: string; to?: string; evaluatee?: st
       if (opts.firstTimerId) q = q.eq('first_timer_id', opts.firstTimerId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as unknown as FvScorecard[];
+      const cards = (data || []) as any[];
+      // Join member_name from intros_booked for any first_timer_id present.
+      const ftIds = Array.from(new Set(cards.map(c => c.first_timer_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (ftIds.length > 0) {
+        const { data: intros } = await supabase
+          .from('intros_booked')
+          .select('id, member_name')
+          .in('id', ftIds);
+        nameMap = Object.fromEntries((intros || []).map((i: any) => [i.id, i.member_name]));
+      }
+      return cards.map(c => ({ ...c, first_timer_name: c.first_timer_id ? nameMap[c.first_timer_id] ?? null : null })) as unknown as FvScorecard[];
     },
   });
 }
@@ -74,8 +87,18 @@ export function useScorecard(id: string | null) {
         supabase.from('fv_scorecard_bullets' as any).select('*').eq('scorecard_id', id),
         supabase.from('fv_scorecard_comments' as any).select('*').eq('scorecard_id', id).order('created_at', { ascending: true }),
       ]);
+      let first_timer_name: string | null = null;
+      const c = card as any;
+      if (c?.first_timer_id) {
+        const { data: intro } = await supabase
+          .from('intros_booked')
+          .select('member_name')
+          .eq('id', c.first_timer_id)
+          .maybeSingle();
+        first_timer_name = (intro as any)?.member_name ?? null;
+      }
       return {
-        scorecard: card as unknown as FvScorecard | null,
+        scorecard: card ? ({ ...(card as any), first_timer_name } as unknown as FvScorecard) : null,
         bullets: (bullets || []) as unknown as FvBullet[],
         comments: (comments || []) as unknown as FvComment[],
       };

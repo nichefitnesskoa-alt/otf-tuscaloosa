@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { canScore, canFormalEval } from '@/lib/auth/roles';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,6 +212,16 @@ export function ScorecardFormBody(props: BodyProps) {
     }
   };
 
+  // Hard block: SAs cannot score coaches. Belt-and-suspenders alongside UI hiding
+  // and the DB trigger that rejects non-Coach/Both/Admin evaluators.
+  if (!canScore(user)) {
+    return (
+      <div className="rounded-md border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
+        Scoring is restricted to coaches and admins.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground italic">Wrong and honest beats right and hidden.</p>
@@ -234,7 +245,7 @@ export function ScorecardFormBody(props: BodyProps) {
             className={`flex-1 px-3 rounded-md border text-xs font-semibold ${evalType === 'self_eval' ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-input text-muted-foreground hover:bg-muted'}`}
             style={{ minHeight: '36px' }}
           >Self Eval</button>
-          {user?.role === 'Admin' && (
+          {canFormalEval(user) && (
             <button
               type="button"
               onClick={() => onEvalTypeChange?.('formal_eval')}

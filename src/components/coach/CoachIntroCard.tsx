@@ -13,6 +13,7 @@ import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
 import { useScorecards } from '@/hooks/useScorecards';
 import { useQueryClient } from '@tanstack/react-query';
+import { canScore, canFormalEval } from '@/lib/auth/roles';
 
 interface CoachBooking {
   id: string;
@@ -284,25 +285,27 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
             </div>
           )}
 
-          {/* First Visit Experience Scorecard — inline */}
-          <div className="border-t pt-4 mt-2">
-            <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
-            <ScorecardFormBody
-              key={`${scorecardEvalType}:${resolvedScorecardId ?? 'new'}`}
-              firstTimerId={booking.id}
-              defaultMemberName={booking.member_name}
-              defaultClassDate={booking.class_date}
-              defaultCoachName={coachName}
-              defaultEvaluator={user?.name || ''}
-              evalType={scorecardEvalType}
-              onEvalTypeChange={setScorecardEvalType}
-              existingId={resolvedScorecardId}
-              showEvalToggle
-              onSubmitted={() => {
-                queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
-              }}
-            />
-          </div>
+          {/* First Visit Experience Scorecard — inline. Coaches/Both/Admin only. */}
+          {canScore(user) && (
+            <div className="border-t pt-4 mt-2">
+              <h4 className="font-bold text-sm tracking-wide mb-3">FIRST VISIT EXPERIENCE SCORECARD</h4>
+              <ScorecardFormBody
+                key={`${scorecardEvalType}:${resolvedScorecardId ?? 'new'}`}
+                firstTimerId={booking.id}
+                defaultMemberName={booking.member_name}
+                defaultClassDate={booking.class_date}
+                defaultCoachName={coachName}
+                defaultEvaluator={user?.name || ''}
+                evalType={scorecardEvalType}
+                onEvalTypeChange={setScorecardEvalType}
+                existingId={resolvedScorecardId}
+                showEvalToggle={canFormalEval(user)}
+                onSubmitted={() => {
+                  queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+                }}
+              />
+            </div>
+          )}
 
 
           {booking.last_edited_by && booking.last_edited_at && (

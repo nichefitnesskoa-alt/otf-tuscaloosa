@@ -33,6 +33,8 @@ import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
 import { colorForCoach } from '@/lib/coachColors';
+import { useAuth } from '@/context/AuthContext';
+import { canScore } from '@/lib/auth/roles';
 
 const STUDIO_KEY = '__studio__';
 const STUDIO_COLOR = 'hsl(var(--brand))'; // OTF orange — reserved for studio overall
@@ -53,6 +55,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [unscoredFor, setUnscoredFor] = useState<{ coach: string; intros: UnscoredIntro[] } | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userCanScore = canScore(user);
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
   const hasAnyScorecards = data.scorecards.length > 0;
@@ -251,7 +255,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                 )}
                               </p>
                             </button>
-                            {unscored > 0 && (
+                            {unscored > 0 && userCanScore && (
                               <button
                                 type="button"
                                 onClick={() => setUnscoredFor({
@@ -310,7 +314,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                 className="w-full flex items-center justify-between p-2 rounded-md border hover:bg-muted text-left min-h-[44px]"
               >
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold truncate">{c.evaluatee_name} <span className="text-muted-foreground">·</span> {c.practice_name || 'First-timer'}</p>
+                  <p className="text-xs font-semibold truncate">{c.evaluatee_name} <span className="text-muted-foreground">·</span> {c.first_timer_name || c.practice_name || 'First-timer'}</p>
                   <p className="text-[10px] text-muted-foreground">{format(new Date(c.class_date), 'MMM d')} · {c.eval_type === 'self_eval' ? 'Self' : 'Formal'} · by {c.evaluator_name}</p>
                 </div>
                 <span className={`text-sm font-black tabular-nums ${c.level === 3 ? 'text-primary' : c.level === 2 ? 'text-success' : 'text-muted-foreground'}`}>{c.total_score}/30</span>
