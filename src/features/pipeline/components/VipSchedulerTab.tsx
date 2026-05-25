@@ -255,12 +255,12 @@ export function VipSchedulerTab() {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id, is_group_contact')
+        .select('vip_session_id, is_group_contact, attending_class')
         .in('vip_session_id', ids);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        // Count individual members only — group contact is shown separately in the dialog.
-        if (r.is_group_contact) continue;
+        // Group contact only counts when "Also attending the class" is on.
+        if (!isCountedAsMember(r)) continue;
         counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
