@@ -77,6 +77,8 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
 
       <PartnersSection slug={studio.studio_slug} />
 
+      <VerificationMethodsSection studio={studio} partners={partners} onSaved={onSaved} />
+
       <WinnerStructureSection value={winnerStructure} onChange={setWinnerStructure} />
 
       <PartnerDeckSettings studio={studio} onSaved={onSaved} />
