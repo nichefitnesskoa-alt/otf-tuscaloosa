@@ -77,6 +77,8 @@ export function SettingsPanel({ studio, onSaved }: { studio: GiveawayStudio; onS
 
       <PartnersSection slug={studio.studio_slug} />
 
+      <VerificationMethodsSection studio={studio} partners={partners} onSaved={onSaved} />
+
       <WinnerStructureSection value={winnerStructure} onChange={setWinnerStructure} />
 
       <PartnerDeckSettings studio={studio} onSaved={onSaved} />
@@ -451,6 +453,110 @@ function PartnerForm({
           className="min-h-[44px] inline-flex items-center gap-1.5 px-3 text-[#F5F2EE]/70 hover:text-[#F5F2EE] font-bold cursor-pointer">
           <X className="h-4 w-4" /> Cancel
         </button>
+      </div>
+    </div>
+  );
+}
+
+const BUILT_IN_ACTIONS: { key: string; label: string; defaultMode: 'checkbox' | 'screenshot' }[] = [
+  { key: 'post_engagement', label: 'Like, comment & tag a friend', defaultMode: 'checkbox' },
+  { key: 'story_share', label: 'Share to your story', defaultMode: 'checkbox' },
+  { key: 'free_class', label: 'Post a Class Story', defaultMode: 'checkbox' },
+];
+
+function VerificationMethodsSection({
+  studio,
+  partners,
+  onSaved,
+}: {
+  studio: GiveawayStudio;
+  partners: GiveawayPartner[];
+  onSaved: () => void;
+}) {
+  const [modes, setModes] = useState<Record<string, 'checkbox' | 'screenshot'>>(
+    studio.action_verification_modes ?? {},
+  );
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setModes(studio.action_verification_modes ?? {});
+  }, [studio.id, studio.action_verification_modes]);
+
+  const rows = [
+    ...BUILT_IN_ACTIONS.map(a => ({ key: a.key, label: a.label, defaultMode: a.defaultMode })),
+    ...partners.map(p => ({ key: `partner:${p.id}`, label: `Visit ${p.partner_name}`, defaultMode: 'screenshot' as const })),
+  ];
+
+  const getMode = (key: string, defaultMode: 'checkbox' | 'screenshot') => {
+    const v = modes[key];
+    return v === 'checkbox' || v === 'screenshot' ? v : defaultMode;
+  };
+
+  const setMode = (key: string, mode: 'checkbox' | 'screenshot') => {
+    setModes(curr => ({ ...curr, [key]: mode }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    const { error } = await supabase
+      .from('giveaway_studios' as any)
+      .update({ action_verification_modes: modes })
+      .eq('id', studio.id);
+    setSaving(false);
+    setMsg(error ? error.message : 'Saved');
+    onSaved();
+    setTimeout(() => setMsg(null), 2000);
+  };
+
+  return (
+    <div className="rounded-xl border border-[#3a3a3c] bg-[#1f1f21] p-6 space-y-4">
+      <div>
+        <h2 className="text-xl font-black">Verification Method</h2>
+        <p className="text-sm text-[#F5F2EE]/60 mt-1">
+          Per-action: require a screenshot upload, or accept a self-checked box with a verification warning.
+        </p>
+      </div>
+
+      <ul className="space-y-2">
+        {rows.map(row => {
+          const mode = getMode(row.key, row.defaultMode);
+          return (
+            <li key={row.key} className="rounded-lg border border-[#3a3a3c] bg-[#2a2a2c] p-3 flex flex-wrap items-center gap-3 justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-[#F5F2EE] text-sm truncate">{row.label}</p>
+                <p className="text-[11px] text-[#F5F2EE]/50">
+                  Default: {row.defaultMode === 'checkbox' ? 'Checkbox' : 'Screenshot Upload'}
+                </p>
+              </div>
+              <div className="inline-flex rounded-lg border border-[#3a3a3c] overflow-hidden flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMode(row.key, 'checkbox')}
+                  className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'checkbox' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
+                >
+                  Checkbox
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode(row.key, 'screenshot')}
+                  className={`min-h-[40px] px-3 text-xs font-bold cursor-pointer ${mode === 'screenshot' ? 'bg-[#E8540A] text-white' : 'bg-[#2a2a2c] text-[#F5F2EE]/70 hover:bg-[#3a3a3c]'}`}
+                >
+                  Screenshot
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="flex items-center gap-3 pt-1">
+        <button onClick={save} disabled={saving}
+          className="min-h-[44px] px-5 rounded-lg bg-[#E8540A] hover:bg-[#ff6a1f] text-white font-bold cursor-pointer disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save Verification Methods'}
+        </button>
+        {msg && <span className="text-sm text-emerald-400">{msg}</span>}
       </div>
     </div>
   );

@@ -332,32 +332,50 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
           </div>
 
           <AchievementCard number={2} title="Like, comment & tag a friend"
-            description="Like our giveaway post, leave a comment, and tag a local friend. Upload a screenshot."
+            description="Like our giveaway post, leave a comment, and tag a local friend."
             unlocked={form.action_post_engagement}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="post_engagement"
-              value={form.action_post_engagement_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'post_engagement', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="post_engagement"
+              checked={form.action_post_engagement}
+              screenshotUrl={form.action_post_engagement_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_post_engagement: checked, action_post_engagement_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_post_engagement: true, action_post_engagement_screenshot_url: url })}
               previewMode={previewMode}
             />
           </AchievementCard>
 
           <AchievementCard number={3} title="Share to your story"
-            description="Share our giveaway post to your Instagram story. Upload a screenshot."
+            description="Share our giveaway post to your Instagram story."
             unlocked={form.action_story_share}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="story_share"
-              value={form.action_story_share_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'story_share', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="story_share"
+              checked={form.action_story_share}
+              screenshotUrl={form.action_story_share_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_story_share: checked, action_story_share_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_story_share: true, action_story_share_screenshot_url: url })}
               previewMode={previewMode}
             />
           </AchievementCard>
 
           <AchievementCard number={4} title="Post a Class Story"
-            description="Post a story of you taking a class and tag us. Upload a screenshot of your story."
+            description="Post a story of you taking a class and tag us."
             unlocked={form.action_free_class}>
-            <ScreenshotUpload studioSlug={studio.studio_slug} draftId={draftId} actionType="free_class"
-              value={form.action_free_class_screenshot_url}
+            <ActionVerification
+              mode={getActionMode(studio.action_verification_modes, 'free_class', 'checkbox')}
+              studioSlug={studio.studio_slug}
+              draftId={draftId}
+              actionType="free_class"
+              checked={form.action_free_class}
+              screenshotUrl={form.action_free_class_screenshot_url}
+              onCheckboxChange={(checked) => setForm({ ...form, action_free_class: checked, action_free_class_screenshot_url: null })}
               onUploaded={(url) => setForm({ ...form, action_free_class: true, action_free_class_screenshot_url: url })}
-              label="Tap to upload story screenshot"
+              screenshotLabel="Tap to upload story screenshot"
               previewMode={previewMode}
             />
           </AchievementCard>
@@ -365,12 +383,14 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
           {partners.map((p, idx) => {
             const state = form.partner_actions.find(a => a.partner_id === p.id);
             const handle = (p.partner_ig_handle || '').trim().replace(/^@/, '');
+            const partnerKey = `partner:${p.id}`;
+            const mode = getActionMode(studio.action_verification_modes, partnerKey, 'screenshot');
             return (
               <AchievementCard
                 key={p.id}
                 number={5 + idx}
                 title={`Visit ${p.partner_name}`}
-                description={p.receipt_instructions?.trim() || `Visit ${p.partner_name} and upload a photo of your receipt.`}
+                description={p.receipt_instructions?.trim() || `Visit ${p.partner_name}${mode === 'screenshot' ? ' and upload a photo of your receipt.' : '.'}`}
                 unlocked={!!state?.completed}
               >
                 {handle && (
@@ -383,11 +403,14 @@ export function GiveawayEntryForm({ slug, previewMode }: Props) {
                     <span>🎁</span><span>Prize: {p.prize_description}</span>
                   </div>
                 )}
-                <ScreenshotUpload
+                <ActionVerification
+                  mode={mode}
                   studioSlug={studio.studio_slug}
                   draftId={draftId}
                   actionType={`partner_${p.id}`}
-                  value={state?.screenshot_url ?? null}
+                  checked={!!state?.completed}
+                  screenshotUrl={state?.screenshot_url ?? null}
+                  onCheckboxChange={(checked) => setPartnerAction(p.id, { completed: checked, screenshot_url: null })}
                   onUploaded={(url) => setPartnerAction(p.id, { completed: true, screenshot_url: url })}
                   previewMode={previewMode}
                 />
@@ -501,6 +524,71 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
         className="font-body w-full min-h-[44px] rounded-lg bg-[#2a2a2c] border border-[#3a3a3c] focus:border-[#E8540A] focus:outline-none px-3 text-[#F5F2EE] text-base"
       />
     </label>
+  );
+}
+
+export function getActionMode(
+  modes: Record<string, 'checkbox' | 'screenshot'> | null | undefined,
+  key: string,
+  fallback: 'checkbox' | 'screenshot',
+): 'checkbox' | 'screenshot' {
+  const v = modes?.[key];
+  return v === 'checkbox' || v === 'screenshot' ? v : fallback;
+}
+
+function ActionVerification({
+  mode,
+  studioSlug,
+  draftId,
+  actionType,
+  checked,
+  screenshotUrl,
+  onCheckboxChange,
+  onUploaded,
+  screenshotLabel,
+  previewMode,
+}: {
+  mode: 'checkbox' | 'screenshot';
+  studioSlug: string;
+  draftId: string;
+  actionType: string;
+  checked: boolean;
+  screenshotUrl: string | null;
+  onCheckboxChange: (checked: boolean) => void;
+  onUploaded: (url: string) => void;
+  screenshotLabel?: string;
+  previewMode?: boolean;
+}) {
+  if (mode === 'screenshot') {
+    return (
+      <ScreenshotUpload
+        studioSlug={studioSlug}
+        draftId={draftId}
+        actionType={actionType}
+        value={screenshotUrl}
+        onUploaded={onUploaded}
+        label={screenshotLabel}
+        previewMode={previewMode}
+      />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-3 cursor-pointer min-h-[56px] rounded-lg border border-[#3a3a3c] hover:border-[#E8540A]/50 px-4 bg-[#181819]">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onCheckboxChange(e.target.checked)}
+          className="h-5 w-5 accent-[#E8540A] cursor-pointer"
+        />
+        <span className="flex-1 font-body text-sm font-semibold text-[#F5F2EE]">
+          {checked ? "Got it — marked complete" : "I completed this action"}
+        </span>
+      </label>
+      <p className="font-body text-[11px] leading-snug text-[#E8540A]/90 bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-3 py-2">
+        ⚠ We check every entry. Falsely marking this complete disqualifies your entries and bans you from future giveaways.
+      </p>
+    </div>
   );
 }
 

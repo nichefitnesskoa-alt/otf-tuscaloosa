@@ -1146,6 +1146,7 @@ export type Database = {
       }
       giveaway_studios: {
         Row: {
+          action_verification_modes: Json
           countdown_duration_days: number
           created_at: string
           custom_title: string | null
@@ -1216,6 +1217,7 @@ export type Database = {
           winner_structure: string
         }
         Insert: {
+          action_verification_modes?: Json
           countdown_duration_days?: number
           created_at?: string
           custom_title?: string | null
@@ -1286,6 +1288,7 @@ export type Database = {
           winner_structure?: string
         }
         Update: {
+          action_verification_modes?: Json
           countdown_duration_days?: number
           created_at?: string
           custom_title?: string | null
@@ -3810,6 +3813,9 @@ export type Database = {
           capacity: number
           coach_name: string | null
           contact_attending_class: boolean
+          contact_outcome: string | null
+          contact_outcome_logged_at: string | null
+          contact_outcome_logged_by: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -3838,6 +3844,9 @@ export type Database = {
           capacity?: number
           coach_name?: string | null
           contact_attending_class?: boolean
+          contact_outcome?: string | null
+          contact_outcome_logged_at?: string | null
+          contact_outcome_logged_by?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -3866,6 +3875,9 @@ export type Database = {
           capacity?: number
           coach_name?: string | null
           contact_attending_class?: boolean
+          contact_outcome?: string | null
+          contact_outcome_logged_at?: string | null
+          contact_outcome_logged_by?: string | null
           created_at?: string
           created_by?: string
           description?: string | null

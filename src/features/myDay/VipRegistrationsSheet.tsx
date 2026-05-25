@@ -35,6 +35,8 @@ interface RegRow {
   weight_lbs: number | null;
   membership_type: string | null;
   commission_amount: number | null;
+  is_group_contact: boolean;
+  attending_class: boolean;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
@@ -78,9 +80,10 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       const [{ data, error }, { data: sessionRow }] = await Promise.all([
         supabase
           .from('vip_registrations' as any)
-          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs, membership_type, commission_amount')
+          .select('id, first_name, last_name, phone, email, outcome, created_at, birthday, weight_lbs, membership_type, commission_amount, is_group_contact, attending_class')
           .eq('vip_session_id', vipSessionId)
-          .eq('is_group_contact', false)
+          .or('is_group_contact.eq.false,attending_class.eq.true')
+          .order('is_group_contact', { ascending: false })
           .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
@@ -358,7 +361,14 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
                 <div key={r.id} className="p-3 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex-1 min-w-[140px]">
-                      <div className="text-sm font-medium truncate">{fullName}</div>
+                      <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                        {fullName}
+                        {r.is_group_contact && (
+                          <span className="text-[9px] font-bold uppercase tracking-wide bg-brand/15 text-brand border border-brand/40 rounded px-1.5 py-0.5">
+                            Group Contact
+                          </span>
+                        )}
+                      </div>
                       {r.email && (
                         <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                           ✉ <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a>
