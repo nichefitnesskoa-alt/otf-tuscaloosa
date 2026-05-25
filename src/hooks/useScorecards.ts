@@ -87,8 +87,18 @@ export function useScorecard(id: string | null) {
         supabase.from('fv_scorecard_bullets' as any).select('*').eq('scorecard_id', id),
         supabase.from('fv_scorecard_comments' as any).select('*').eq('scorecard_id', id).order('created_at', { ascending: true }),
       ]);
+      let first_timer_name: string | null = null;
+      const c = card as any;
+      if (c?.first_timer_id) {
+        const { data: intro } = await supabase
+          .from('intros_booked')
+          .select('member_name')
+          .eq('id', c.first_timer_id)
+          .maybeSingle();
+        first_timer_name = (intro as any)?.member_name ?? null;
+      }
       return {
-        scorecard: card as unknown as FvScorecard | null,
+        scorecard: card ? ({ ...(card as any), first_timer_name } as unknown as FvScorecard) : null,
         bullets: (bullets || []) as unknown as FvBullet[],
         comments: (comments || []) as unknown as FvComment[],
       };
