@@ -264,8 +264,12 @@ export function VipSchedulerTab() {
         counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
+      // Group contact counts as +1 when "Also attending the class" is toggled on the session.
       for (const s of data as any[]) {
         if (s.estimated_group_size) estimates[s.id] = s.estimated_group_size;
+        if (s.contact_attending_class && s.reserved_contact_name) {
+          counts[s.id] = (counts[s.id] || 0) + 1;
+        }
       }
     }
     setRegCounts(counts);
