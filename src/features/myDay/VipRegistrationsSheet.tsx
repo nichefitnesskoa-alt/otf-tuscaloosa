@@ -35,6 +35,8 @@ interface RegRow {
   weight_lbs: number | null;
   membership_type: string | null;
   commission_amount: number | null;
+  is_group_contact: boolean;
+  attending_class: boolean;
 }
 
 const OUTCOME_OPTIONS: { value: string; label: string }[] = [
