@@ -212,6 +212,16 @@ export function ScorecardFormBody(props: BodyProps) {
     }
   };
 
+  // Hard block: SAs cannot score coaches. Belt-and-suspenders alongside UI hiding
+  // and the DB trigger that rejects non-Coach/Both/Admin evaluators.
+  if (!canScore(user)) {
+    return (
+      <div className="rounded-md border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
+        Scoring is restricted to coaches and admins.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground italic">Wrong and honest beats right and hidden.</p>
