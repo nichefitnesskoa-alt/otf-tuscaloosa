@@ -3710,6 +3710,7 @@ export type Database = {
       }
       vip_registrations: {
         Row: {
+          attending_class: boolean
           birthday: string | null
           booking_id: string | null
           commission_amount: number | null
@@ -3736,6 +3737,7 @@ export type Database = {
           weight_lbs: number | null
         }
         Insert: {
+          attending_class?: boolean
           birthday?: string | null
           booking_id?: string | null
           commission_amount?: number | null
@@ -3762,6 +3764,7 @@ export type Database = {
           weight_lbs?: number | null
         }
         Update: {
+          attending_class?: boolean
           birthday?: string | null
           booking_id?: string | null
           commission_amount?: number | null
