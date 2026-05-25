@@ -369,7 +369,7 @@ export function VipSchedulerTab() {
     setPerfData(null);
     const [{ data: regData }, { data: bookings }] = await Promise.all([
       sb.from('vip_registrations')
-        .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, created_at')
+        .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, attending_class, created_at')
         .eq('vip_session_id', sessionId)
         .order('is_group_contact', { ascending: false })
         .order('created_at', { ascending: true }),
