@@ -55,6 +55,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [unscoredFor, setUnscoredFor] = useState<{ coach: string; intros: UnscoredIntro[] } | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userCanScore = canScore(user);
 
   const { data, isLoading } = useFvTrendData(range, primary, smoothed);
   const hasAnyScorecards = data.scorecards.length > 0;
