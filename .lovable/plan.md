@@ -1,72 +1,82 @@
-## Plan
+# Drift Alert — Detail Differences + Offer Fixes
 
-Two independent issues. Both small, scoped fixes.
+Today the "Metrics disagree" card just shows totals (Scoreboard 24 / Per-SA 24 / Funnel 21) and a drift number. You still have to investigate which booking caused the gap. This plan upgrades the alert to **name the offending records and offer one-click fixes**.
 
----
+## What changes
 
-### 1. VIP group contact (Nicole Welch) missing from registrant list in My Day
+`src/components/dashboard/MetricsConsistencyAlert.tsx` becomes a true diagnostic panel.
 
-**Root cause:** `VipRegistrationsSheet.tsx` loads only `vip_registrations` where `is_group_contact = false`. The new `contact_attending_class` toggle bumps the header count (6) but never adds the contact as a row, so she can't be marked Showed/No-show and never appears in summaries.
+### 1. Compute per-booking source membership
 
-**Fix:**
-- In `VipRegistrationsSheet.tsx`, also fetch the session's `reserved_contact_name`, `reserved_contact_phone`, `reserved_contact_email`, `contact_attending_class`, `contact_outcome`, `contact_outcome_logged_at`, `contact_outcome_logged_by`.
-- When `contact_attending_class === true` AND `reserved_contact_name` exists, prepend a synthetic row to the rendered list, visually badged "Group Contact" (brand color), with the same Showed / No-show / Booked intro / Purchased dropdown as members.
-- Persist the contact's outcome on `vip_sessions` (new columns `contact_outcome`, `contact_outcome_logged_at`, `contact_outcome_logged_by`) — keeps `vip_registrations` clean and avoids creating fake registration rows.
-- Include the contact in the summary counters (`totalRegistered`, `showed`, `no_show`, etc.) so My Day stats match the "6 people registered" header.
-- If the contact's outcome = `booked_intro` or `purchased`, reuse existing `BookIntroSheet` / `saveVipPurchase` flows (pre-filled from `reserved_contact_*`).
+For the selected date range, build three sets of booking IDs (one per source) using the same logic each surface uses:
 
-**Migration:** add `contact_outcome text`, `contact_outcome_logged_at timestamptz`, `contact_outcome_logged_by text` to `vip_sessions`.
+- **Scoreboard set** — booking IDs counted in `metrics.studio.introsRun` (ran intros for the period)
+- **Per-SA set** — booking IDs in `metrics.perSA` aggregations
+- **Funnel set** — booking IDs flowing into `computeFunnelBothRows` `showed` totals (first + second)
 
-**Coherence check after build:**
-- Bama Dining May 22 with toggle on → list shows Nicole Welch + 6 members = 7 rows; header "7 people registered"; if Nicole = No-show, summary reads "X showed · Y no-show" including her.
-- Toggle off → Nicole disappears from the list, counts decrement, her outcome row stays in DB (preserved, not deleted) so re-toggling restores state.
-- Performance Summary card in the Scheduler tab dialog continues to use the same +1 logic — both surfaces match.
+Diff the sets to produce three lists:
 
----
+- In Scoreboard + Per-SA but **NOT Funnel** (the 3 missing rows in your screenshot)
+- In Funnel but not Scoreboard
+- In Per-SA but not Scoreboard (attribution drift)
 
-### 2. Giveaway entry form — per-action verification mode (checkbox vs screenshot)
+Same diffing for `sales`.
 
-**Default behavior change (per request):**
-- Action 2 "Like, comment & tag a friend" → **checkbox + warning**
-- Action 3 "Share to your story" → **checkbox + warning**
-- Action 4 "Post a Class Story" → **checkbox + warning**
-- Partner actions (Visit Hemline, Lush, Turbo, etc.) → **screenshot** (unchanged)
+### 2. Show offenders inline
 
-**Warning copy** (shown under each checkbox action):
-> ⚠ We verify every entry. False check-ins disqualify your entries and ban you from future giveaways.
+Replace the static "Drift — Ran: 3" footer with a collapsible list:
 
-**Admin override (Partner Deck / Settings panel):**
-- Add a "Verification Method" section listing every action (built-in + each partner) with a 2-option toggle per row: **Checkbox** or **Screenshot Upload**.
-- Persists to a new JSONB column `action_verification_modes` on `giveaway_studios`, shape:
-  ```json
-  { "post_engagement": "checkbox", "story_share": "checkbox", "free_class": "checkbox", "partner:<uuid>": "screenshot" }
-  ```
-- Default when key is missing: built-in actions → `checkbox`; partner actions → `screenshot`.
+```text
+Missing from Conversion Funnel (3)
+  • Jessica Smith — 5/12 — owner: Bri — reason: originating_booking_id points to deleted parent
+    [View booking] [Promote to 1st intro] [Clear originating link]
+  • Marcus Lee   — 5/18 — owner: Alex — reason: linked run on soft-deleted booking
+    [View booking] [Restore parent] [Mark run excluded]
+  • …
+```
 
-**Entry form changes (`GiveawayEntryForm.tsx`):**
-- Replace the three hard-coded `ScreenshotUpload` blocks (actions 2, 3, 4) with a small `<ActionVerification>` helper that renders either:
-  - `ScreenshotUpload` (current behavior), or
-  - A large checkbox with the verification warning underneath.
-- Same helper used for each partner action.
-- Submit logic: when an action is in checkbox mode and checked, set `action_*` boolean = true and leave `*_screenshot_url` = null. Server-side schema unchanged (the `_screenshot_url` columns are already nullable).
+Each row shows:
+- Member name, class date, intro owner
+- **Why** it drifts (computed from the same predicates `computeFunnelBothRows` uses: excluded booking, missing intro_owner, orphan chain, VIP flagged, etc.)
+- **Suggested fix buttons** scoped to that reason
 
-**Migration:** `ALTER TABLE giveaway_studios ADD COLUMN action_verification_modes jsonb NOT NULL DEFAULT '{}'::jsonb;`
+### 3. Fix actions (additive, reversible)
 
-**Coherence check after build:**
-- Fresh studio (empty `action_verification_modes`) → actions 2/3/4 render as checkboxes with warning; partners render as screenshot upload.
-- Admin flips action 2 to "Screenshot Upload" in Settings → form immediately shows uploader for that action only.
-- Admin flips a partner to "Checkbox" → that partner card shows checkbox + warning, no screenshot required.
-- Entries table / draw logic unaffected (booleans already drive eligibility; screenshot URLs were never required for the draw).
+Each action is a single-row update with an audit note; nothing destructive.
 
----
+| Reason | Fix button(s) |
+|---|---|
+| Orphan: `originating_booking_id` → deleted/missing parent | **Promote to 1st intro** (clears `originating_booking_id`) · **Open parent** |
+| Missing `intro_owner` | **Assign owner…** (opens staff picker, defaults to `booked_by`) |
+| Run linked to soft-deleted booking | **Re-link run…** (booking picker) · **Exclude run** (`ignore_from_metrics = true`) |
+| VIP flagged but counted elsewhere | **Toggle VIP** |
+| Soft-deleted but still in Scoreboard | **Confirm delete** (sets `booking_status_canon = DELETED_SOFT`) |
 
-### Files to touch
-- `src/features/myDay/VipRegistrationsSheet.tsx` (synthetic group-contact row + outcome persistence)
-- `src/features/giveaway/components/GiveawayEntryForm.tsx` (verification-mode-aware rendering)
-- `src/features/giveaway/components/SettingsPanel.tsx` (admin per-action mode toggles)
-- `src/features/giveaway/hooks/useGiveawayStudio.ts` (expose `action_verification_modes`)
-- Two new migrations:
-  - `vip_sessions`: add `contact_outcome`, `contact_outcome_logged_at`, `contact_outcome_logged_by`
-  - `giveaway_studios`: add `action_verification_modes jsonb default '{}'`
+All writes go through existing mutation hooks; no new edge functions.
 
-No changes to commission, attribution, intro pipeline, or draw logic.
+### 4. Helper extraction (per workspace coherence rule)
+
+Extract the booking-set computation into `src/lib/metrics/sourceMembership.ts`:
+
+```ts
+export function computeSourceMembership(
+  introsBooked, introsRun, dateRange,
+): { scoreboard: Set<string>; perSA: Set<string>; funnel: Set<string>; perBookingReason: Map<string, DriftReason> }
+```
+
+This becomes the single source of truth for "which booking is in which surface" and can be reused by future audits.
+
+## Files touched
+
+- `src/components/dashboard/MetricsConsistencyAlert.tsx` — expanded UI, diff rendering, fix buttons
+- `src/lib/metrics/sourceMembership.ts` — **new** canonical helper
+- `src/components/dashboard/ConversionFunnel.tsx` — export the booking-ID set it builds (small refactor so the helper can consume it without duplicating logic)
+- `src/hooks/useDashboardMetrics.ts` — expose the Scoreboard/Per-SA booking ID sets it already iterates over (no logic change)
+
+No DB migrations. No changes to metric definitions — only surfacing what already exists and providing remediation shortcuts.
+
+## Out of scope
+
+- Changing how any of the three sources count (keeps current Scoreboard/Per-SA/Funnel definitions intact)
+- Bulk fixes — every action is per-row and reversible
+- Historical audit log UI (writes still go through existing audit fields)
