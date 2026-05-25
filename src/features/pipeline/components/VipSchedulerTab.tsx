@@ -58,6 +58,7 @@ interface VipSession {
   attendance_logged_at: string | null;
   session_type: string | null;
   business_sub_type: string | null;
+  contact_attending_class?: boolean | null;
 }
 
 function getSessionTypeLabel(s: VipSession): string | null {
