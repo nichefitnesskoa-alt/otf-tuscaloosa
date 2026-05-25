@@ -64,7 +64,9 @@ export function RebookDialog({ open, onOpenChange, personName, bookingId, person
         }
       }
 
-      // Create new booking linked to original
+      // Create new booking linked to original via rebooked_from_booking_id ONLY.
+      // We intentionally do NOT set originating_booking_id — that field is
+      // reserved for true 2nd intros. A reschedule is still a first intro.
       const { error: insertError } = await supabase
         .from('intros_booked')
         .insert({
@@ -78,7 +80,6 @@ export function RebookDialog({ open, onOpenChange, personName, bookingId, person
           booking_status: 'Active',
           booking_status_canon: 'ACTIVE',
           booked_by: user?.name || 'Unknown',
-          originating_booking_id: bookingId,
           rebooked_from_booking_id: bookingId,
           rebook_reason: reason,
           rebooked_at: new Date().toISOString(),
@@ -86,8 +87,20 @@ export function RebookDialog({ open, onOpenChange, personName, bookingId, person
 
       if (insertError) throw insertError;
 
-      // Mark follow-up queue as saved_to_rebook
+      // Mark the original booking as superseded so it stops counting toward
+      // intros-ran / close-rate denominators on every reporting surface.
       if (bookingId) {
+        await supabase
+          .from('intros_booked')
+          .update({
+            booking_status_canon: 'RESCHEDULED',
+            ignore_from_metrics: true,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user?.name || 'Unknown',
+            edit_reason: 'Superseded by reschedule',
+          })
+          .eq('id', bookingId);
+
         await supabase
           .from('follow_up_queue')
           .update({
