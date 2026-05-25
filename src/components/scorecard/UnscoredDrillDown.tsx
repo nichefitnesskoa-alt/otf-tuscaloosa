@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ClipboardCheck } from 'lucide-react';
 import { ScorecardForm } from './ScorecardForm';
 import { useAuth } from '@/context/AuthContext';
+import { canScore, canFormalEval } from '@/lib/auth/roles';
 import type { UnscoredIntro } from '@/hooks/useFvTrendData';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -19,8 +20,14 @@ export function UnscoredDrillDown({ open, onOpenChange, coach, intros }: Props) 
   const queryClient = useQueryClient();
   const [active, setActive] = useState<UnscoredIntro | null>(null);
 
+  // Hard block: SAs cannot score coaches. Belt-and-suspenders alongside UI hiding.
+  if (!canScore(user)) return null;
+
+  // Coaches self-eval their own classes. Koa (Admin) can do formal evals; everyone
+  // else defaults to (and is locked to) self-eval. The form-level toggle is also
+  // gated by canFormalEval, so this can never produce an SA-attributed formal_eval.
   const evalType: 'self_eval' | 'formal_eval' =
-    user?.name === coach ? 'self_eval' : 'formal_eval';
+    canFormalEval(user) && user?.name !== coach ? 'formal_eval' : 'self_eval';
 
   return (
     <>
