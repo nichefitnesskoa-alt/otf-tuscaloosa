@@ -248,9 +248,28 @@ export function computeSourceMembership({
     });
   });
 
-  // Tag expected pairs: a member with BOTH "first_intro_suppressed_by_passed_second"
-  // AND "second_intro_outside_funnel_first" in the same range is normal definitional
-  // behavior — those two cancel out at the totals level.
+  // Tag expected pairs. Two cases are both definitional, not real issues:
+  //
+  // (a) In-range pair: same member has BOTH "first_intro_suppressed_by_passed_second"
+  //     and "second_intro_outside_funnel_first" inside the selected range — they
+  //     cancel at the totals level.
+  //
+  // (b) Cross-period carryover: a 1st intro lands in range but the member's
+  //     suppressing 2nd intro ran in a prior period. Funnel still suppresses
+  //     the 1st (global check) but doesn't add the 2nd to this range's
+  //     second.showed. Same definitional behavior — just straddles a date
+  //     boundary. Flag as expected so long as the member truly does have a
+  //     passed 2nd intro somewhere globally.
+  const membersWithGlobalPassedSecond = new Set<string>();
+  introsBooked.forEach(b => {
+    if (!(b as any).originating_booking_id) return;
+    const runs = runsByBooking.get(b.id) || [];
+    const ran = runs.some(r => didIntroActuallyRun(r));
+    if (!ran) return;
+    if (!hasBookingPassed(b)) return;
+    membersWithGlobalPassedSecond.add(nameKey(b.member_name));
+  });
+
   const memberPairBuckets = new Map<string, { firstSuppressed: DriftItem[]; secondCounted: DriftItem[] }>();
   drift.forEach(d => {
     if (
@@ -263,10 +282,17 @@ export function computeSourceMembership({
     else bucket.secondCounted.push(d);
     memberPairBuckets.set(key, bucket);
   });
-  memberPairBuckets.forEach(({ firstSuppressed, secondCounted }) => {
+  memberPairBuckets.forEach(({ firstSuppressed, secondCounted }, memberKey) => {
+    // Case (a): in-range pair
     if (firstSuppressed.length > 0 && secondCounted.length > 0) {
       firstSuppressed.forEach(d => { d.isExpectedPair = true; });
       secondCounted.forEach(d => { d.isExpectedPair = true; });
+      return;
+    }
+    // Case (b): cross-period carryover — 1st-suppressed with no in-range 2nd,
+    // but the member has a passed 2nd intro somewhere in history.
+    if (firstSuppressed.length > 0 && membersWithGlobalPassedSecond.has(memberKey)) {
+      firstSuppressed.forEach(d => { d.isExpectedPair = true; });
     }
   });
 
