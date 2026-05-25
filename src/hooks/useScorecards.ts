@@ -61,7 +61,18 @@ export function useScorecards(opts: { from?: string; to?: string; evaluatee?: st
       if (opts.firstTimerId) q = q.eq('first_timer_id', opts.firstTimerId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as unknown as FvScorecard[];
+      const cards = (data || []) as any[];
+      // Join member_name from intros_booked for any first_timer_id present.
+      const ftIds = Array.from(new Set(cards.map(c => c.first_timer_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (ftIds.length > 0) {
+        const { data: intros } = await supabase
+          .from('intros_booked')
+          .select('id, member_name')
+          .in('id', ftIds);
+        nameMap = Object.fromEntries((intros || []).map((i: any) => [i.id, i.member_name]));
+      }
+      return cards.map(c => ({ ...c, first_timer_name: c.first_timer_id ? nameMap[c.first_timer_id] ?? null : null })) as unknown as FvScorecard[];
     },
   });
 }
