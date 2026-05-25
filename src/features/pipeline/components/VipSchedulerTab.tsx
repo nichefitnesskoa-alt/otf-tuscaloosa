@@ -58,6 +58,7 @@ interface VipSession {
   attendance_logged_at: string | null;
   session_type: string | null;
   business_sub_type: string | null;
+  contact_attending_class?: boolean | null;
 }
 
 function getSessionTypeLabel(s: VipSession): string | null {
@@ -85,7 +86,14 @@ interface VipRegistration {
   birthday: string | null;
   weight_lbs: number | null;
   is_group_contact: boolean;
+  attending_class?: boolean;
   created_at: string;
+}
+
+// A registration row counts as a member when it isn't the group contact placeholder.
+// The group contact themselves is added via the session-level `contact_attending_class` flag.
+function isCountedAsMember(r: { is_group_contact: boolean }): boolean {
+  return !r.is_group_contact;
 }
 
 interface SlotTemplate {
@@ -248,17 +256,21 @@ export function VipSchedulerTab() {
       const ids = data.map((s: any) => s.id);
       const { data: regs } = await sb
         .from('vip_registrations')
-        .select('vip_session_id, is_group_contact')
+        .select('vip_session_id, is_group_contact, attending_class')
         .in('vip_session_id', ids);
       for (const r of (regs || []) as any[]) {
         if (!r.vip_session_id) continue;
-        // Count individual members only — group contact is shown separately in the dialog.
-        if (r.is_group_contact) continue;
+        // Group contact only counts when "Also attending the class" is on.
+        if (!isCountedAsMember(r)) continue;
         counts[r.vip_session_id] = (counts[r.vip_session_id] || 0) + 1;
       }
       // Estimated group size lives on vip_sessions, not vip_registrations.
+      // Group contact counts as +1 when "Also attending the class" is toggled on the session.
       for (const s of data as any[]) {
         if (s.estimated_group_size) estimates[s.id] = s.estimated_group_size;
+        if (s.contact_attending_class && s.reserved_contact_name) {
+          counts[s.id] = (counts[s.id] || 0) + 1;
+        }
       }
     }
     setRegCounts(counts);
@@ -362,7 +374,7 @@ export function VipSchedulerTab() {
     setPerfData(null);
     const [{ data: regData }, { data: bookings }] = await Promise.all([
       sb.from('vip_registrations')
-        .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, created_at')
+        .select('id, first_name, last_name, email, phone, fitness_level, injuries, birthday, weight_lbs, is_group_contact, attending_class, created_at')
         .eq('vip_session_id', sessionId)
         .order('is_group_contact', { ascending: false })
         .order('created_at', { ascending: true }),
@@ -551,7 +563,7 @@ export function VipSchedulerTab() {
         </div>
         <span className="text-[11px] text-muted-foreground">
           {showPast
-            ? (pastJumpDate ? `Showing ${format(pastJumpDate, 'MMM d')} → forward` : 'Showing all past + upcoming')
+            ? (pastJumpDate ? `Showing booked sessions from ${format(pastJumpDate, 'MMM d')} → forward` : 'Showing booked past + all upcoming')
             : 'Today and forward only'}
         </span>
       </div>
@@ -561,6 +573,9 @@ export function VipSchedulerTab() {
         const visibleSessions = sessions.filter(s => {
           if (s.session_date >= today) return true;
           if (!showPast) return false;
+          // Past sessions: only show ones that were actually booked.
+          const isBooked = !!s.reserved_by_group || s.status === 'reserved' || s.status === 'completed';
+          if (!isBooked) return false;
           if (pastJumpDate) return s.session_date >= format(pastJumpDate, 'yyyy-MM-dd');
           return true;
         });
@@ -860,7 +875,7 @@ export function VipSchedulerTab() {
             <DialogDescription>
               {(() => {
                 const session = sessions.find(s => s.id === regOpen);
-                const memberCount = registrations.filter(r => !r.is_group_contact).length;
+                const memberCount = registrations.filter(isCountedAsMember).length;
                 return session ? `${session.reserved_by_group || 'VIP'} — ${format(new Date(session.session_date + 'T00:00:00'), 'MMM d')}` : `${memberCount} members registered`;
               })()}
             </DialogDescription>
@@ -869,7 +884,8 @@ export function VipSchedulerTab() {
           {/* Performance Summary */}
           {perfData && (() => {
             const session = sessions.find(s => s.id === regOpen);
-            const memberCount = registrations.filter(r => !r.is_group_contact).length;
+            const contactBonus = session?.contact_attending_class && session?.reserved_contact_name ? 1 : 0;
+            const memberCount = registrations.filter(isCountedAsMember).length + contactBonus;
             const attended = session?.actual_attendance;
             const showRate = attended != null && memberCount > 0 ? ((attended / memberCount) * 100).toFixed(0) : null;
             return (
@@ -941,6 +957,38 @@ export function VipSchedulerTab() {
                   {session.estimated_group_size && (
                     <div className="text-xs text-muted-foreground">Estimated group size: {session.estimated_group_size}</div>
                   )}
+                  <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-brand/30">
+                    <Label htmlFor={`contact-attending-${session.id}`} className="text-xs font-medium cursor-pointer">
+                      Also attending the class
+                    </Label>
+                    <Switch
+                      id={`contact-attending-${session.id}`}
+                      checked={!!session.contact_attending_class}
+                      onCheckedChange={async (checked) => {
+                        // Optimistic update
+                        setSessions(prev => prev.map(x => x.id === session.id ? { ...x, contact_attending_class: checked } : x));
+                        setRegCounts(prev => {
+                          const base = prev[session.id] || 0;
+                          const wasOn = !!session.contact_attending_class;
+                          let next = base;
+                          if (checked && !wasOn) next = base + 1;
+                          else if (!checked && wasOn) next = Math.max(0, base - 1);
+                          return { ...prev, [session.id]: next };
+                        });
+                        const { error } = await sb
+                          .from('vip_sessions')
+                          .update({ contact_attending_class: checked })
+                          .eq('id', session.id);
+                        if (error) {
+                          toast.error('Failed to update');
+                          // Revert
+                          setSessions(prev => prev.map(x => x.id === session.id ? { ...x, contact_attending_class: !checked } : x));
+                        } else {
+                          toast.success(checked ? `${session.reserved_contact_name} counted as attending` : 'Contact no longer counted');
+                        }
+                      }}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             ) : null;

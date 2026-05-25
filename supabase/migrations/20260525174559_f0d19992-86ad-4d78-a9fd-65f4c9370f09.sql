@@ -1,0 +1,1 @@
+ALTER TABLE public.vip_registrations ADD COLUMN IF NOT EXISTS attending_class boolean NOT NULL DEFAULT false;
