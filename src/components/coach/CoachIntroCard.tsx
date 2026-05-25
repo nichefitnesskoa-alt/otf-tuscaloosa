@@ -13,6 +13,7 @@ import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { ScorecardFormBody } from '@/components/scorecard/ScorecardForm';
 import { useScorecards } from '@/hooks/useScorecards';
 import { useQueryClient } from '@tanstack/react-query';
+import { canScore, canFormalEval } from '@/lib/auth/roles';
 
 interface CoachBooking {
   id: string;
