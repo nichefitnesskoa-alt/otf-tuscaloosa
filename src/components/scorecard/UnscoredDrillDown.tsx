@@ -94,7 +94,7 @@ export function UnscoredDrillDown({ open, onOpenChange, coach, intros }: Props) 
             queryClient.invalidateQueries({ queryKey: ['fv_trend_ran_first_intros'] });
             queryClient.invalidateQueries({ queryKey: ['scorecards'] });
           }}
-          showEvalToggle={user?.role === 'Admin'}
+          showEvalToggle={canFormalEval(user)}
         />
       )}
     </>
