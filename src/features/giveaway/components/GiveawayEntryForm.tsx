@@ -527,6 +527,71 @@ function Field({ label, value, onChange, type = 'text' }: { label: string; value
   );
 }
 
+export function getActionMode(
+  modes: Record<string, 'checkbox' | 'screenshot'> | null | undefined,
+  key: string,
+  fallback: 'checkbox' | 'screenshot',
+): 'checkbox' | 'screenshot' {
+  const v = modes?.[key];
+  return v === 'checkbox' || v === 'screenshot' ? v : fallback;
+}
+
+function ActionVerification({
+  mode,
+  studioSlug,
+  draftId,
+  actionType,
+  checked,
+  screenshotUrl,
+  onCheckboxChange,
+  onUploaded,
+  screenshotLabel,
+  previewMode,
+}: {
+  mode: 'checkbox' | 'screenshot';
+  studioSlug: string;
+  draftId: string;
+  actionType: string;
+  checked: boolean;
+  screenshotUrl: string | null;
+  onCheckboxChange: (checked: boolean) => void;
+  onUploaded: (url: string) => void;
+  screenshotLabel?: string;
+  previewMode?: boolean;
+}) {
+  if (mode === 'screenshot') {
+    return (
+      <ScreenshotUpload
+        studioSlug={studioSlug}
+        draftId={draftId}
+        actionType={actionType}
+        value={screenshotUrl}
+        onUploaded={onUploaded}
+        label={screenshotLabel}
+        previewMode={previewMode}
+      />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-3 cursor-pointer min-h-[56px] rounded-lg border border-[#3a3a3c] hover:border-[#E8540A]/50 px-4 bg-[#181819]">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onCheckboxChange(e.target.checked)}
+          className="h-5 w-5 accent-[#E8540A] cursor-pointer"
+        />
+        <span className="flex-1 font-body text-sm font-semibold text-[#F5F2EE]">
+          {checked ? "Got it — marked complete" : "I completed this action"}
+        </span>
+      </label>
+      <p className="font-body text-[11px] leading-snug text-[#E8540A]/90 bg-[#E8540A]/10 border border-[#E8540A]/40 rounded px-3 py-2">
+        ⚠ We check every entry. Falsely marking this complete disqualifies your entries and bans you from future giveaways.
+      </p>
+    </div>
+  );
+}
+
 function ComingSoonScreen({
   slug, giveawayTitle, coBrandParts,
 }: {
