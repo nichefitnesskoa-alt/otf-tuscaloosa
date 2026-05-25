@@ -1,61 +1,69 @@
-## Problems found
+# Fix metric mismatch on rescheduled first intros
 
-I pulled the actual data for the Bama Dining (May 22) session and traced the disconnect.
+## Root cause
 
-**1. "0 registered" is a silent query failure.**
-`VipSchedulerTab.fetchSessions()` runs:
-```ts
-sb.from('vip_registrations')
-  .select('vip_session_id, is_group_contact, estimated_group_size')
-```
-`estimated_group_size` lives on `vip_sessions`, NOT `vip_registrations`. The select errors out, `regs` comes back empty, every card renders `0 registered` — even when the Registrations dialog (which uses a correct select) shows 5 people. That's exactly what your screenshots show: card says 0, dialog says 5 Registered.
+`originating_booking_id` is being used for two different concepts in code that should be separate:
 
-**2. Group contact lives in the wrong place.**
-The group contact (Nicole Welch) is stored only as `reserved_contact_name/phone/email` on `vip_sessions`. She is never inserted into `vip_registrations`, so:
-- She's not in the roster, CSV export, or attendance count.
-- There's no way to add her details (fitness level, injuries, birthday, etc.) like a real attendee.
-- There's no "add another person" affordance inside the Registrations dialog at all — staff currently have to send the public registration link to add anyone after the fact.
+1. **True 2nd intro chain** — member ran a first intro, then booked a separate second visit.
+2. **Reschedule** — same first intro, moved to a new date.
 
-**3. Pipeline VIP tab vs VIPs page "don't communicate".**
-Both pages render the exact same `VipSchedulerTab`, so the disconnect you're seeing is the same `0 registered` bug surfacing in both places plus the group contact not being counted. Fixing #1 and #2 makes the two views agree by construction (single source of truth — same query, same rows).
+When a no-showed first intro is rebooked, the new row gets `originating_booking_id` set, so every "first intro" filter, the Total Journey walker, and orphan-promotion treat the rebook as a 2nd intro. Result for Jessica Booker:
+
+| Surface | What it does | Jessica |
+|---|---|---|
+| Studio Scoreboard | Counts every SALE run | ✅ +1 sale |
+| Per-Coach drill (Studio tab) | Credits close to **1st intro** coach (TBD on the no-show row) | ❌ drops |
+| WIG page | Same Total Journey walker | ❌ drops |
+
+`rebooked_from_booking_id` already exists for this purpose and is being set in parallel. We just need to make it the only link for reschedules and stop writing `originating_booking_id`.
+
+VIP-class attendee behavior (Chatham, Madison) stays as-is per your call.
 
 ## Plan
 
-### A. Fix the registered count (root cause)
-- In `src/features/pipeline/components/VipSchedulerTab.tsx`, remove `estimated_group_size` from the `vip_registrations` select inside `fetchSessions`.
-- Count registered = all rows for the session (group contact included, see B).
-- Keep `regEstimates` sourced from `vip_sessions.estimated_group_size` (already on the session), not from registrations.
+### 1. Stop writing `originating_booking_id` on reschedule paths
 
-### B. Promote group contact to a real registration
-- When a session is marked Reserved with a group contact, also upsert a `vip_registrations` row for that contact with `is_group_contact = true` and `vip_session_id = <session>`. Backfill once for existing reserved sessions that have `reserved_contact_name` but no matching registration row (one-time migration, idempotent).
-- Registrations dialog already sorts `is_group_contact` first — the existing "Group Contact" card stays, but the table will now also include them, and the count will include them.
-- CSV export already iterates `registrations`, so they'll be included automatically.
+- **`src/components/dashboard/RebookDialog.tsx`** — remove `originating_booking_id: bookingId`. Keep `rebooked_from_booking_id`, `rebook_reason`, `rebooked_at`. This dialog is for rebooks/reschedules, never true 2nd intros.
+- **`src/components/myday/OutcomeDrawer.tsx`** — reschedule path already updates in place (good). No code change here; the bad row came from a different surface, which we cover above.
+- **`src/lib/domain/outcomes/applyIntroOutcomeUpdate.ts`** — keep `originating_booking_id` only when `rebook_reason === 'second_intro'` (true 2nd intro flow). No change needed; it already gates on the 2nd-intro branch.
 
-### C. Add "Add person" inside the Registrations dialog
-- New "+ Add Person" button in the dialog header (next to Export to CSV).
-- Opens a compact inline form: First name, Last name, Phone, Email, Fitness level (1–5), Injuries, Birthday, Weight, plus a `Group Contact` toggle (defaults off; if on, also updates `vip_sessions.reserved_contact_*` so the two stay in sync).
-- Insert into `vip_registrations` with `vip_session_id`. Realtime subscription already in place will refresh counts on every card instantly.
-- Reuse `FormHelpers` (`formatPhoneAsYouType`, `autoCapitalizeName`) and existing styling — no new components, no new libraries.
+### 2. Mark the superseded original as not-counted
 
-### D. Verify cross-surface coherence (per workspace rules)
-After the fix, confirm with real data:
-- Bama Dining May 22 card shows `5 registered` (or `6` after promoting Nicole).
-- Registrations dialog shows the same number, with Nicole listed as Group Contact at top.
-- Pipeline → VIP Scheduler tab and VIPs page both show identical counts (same component, same query).
-- `VipPerformanceDashboard` "Total Attendees" still works (it reads `vip_registrations.outcome` + `vip_sessions.actual_attendance`, not affected).
-- CSV export includes the group contact row.
+When a reschedule is created, flip the original booking so it stops contributing to denominators:
 
-### Technical details
+- Set `booking_status_canon = 'RESCHEDULED'` and `ignore_from_metrics = true` with `edit_reason = 'Superseded by reschedule'` on the original row.
+- Extend `src/lib/intros/excludedBookings.ts` so `booking_status_canon === 'RESCHEDULED'` is excluded.
+- Add `'RESCHEDULED'` to `src/lib/domain/outcomes/types.ts` canon list and validation trigger (`validate_booking_status_canon` if present — DB allows free text today so no trigger to update).
 
-Files touched:
-- `src/features/pipeline/components/VipSchedulerTab.tsx` — fix select, add "+ Add Person" form, wire group-contact upsert when marking reserved.
-- One Supabase migration: backfill `vip_registrations` rows for existing reserved sessions whose `reserved_contact_name` is set but who have no matching registration. Idempotent (`ON CONFLICT DO NOTHING` on a name+phone+session match, or guarded with `NOT EXISTS`).
+### 3. Data migration (one-time, idempotent)
 
-Out of scope (won't touch):
-- `VipPipelineTable` — it lists VIP-sourced intro bookings, not registrations; not the source of the mismatch.
-- `VipPerformanceDashboard` quarterly metrics.
-- Public `/vip-availability` flow.
+For every existing booking where `rebooked_from_booking_id IS NOT NULL` (or `rebook_reason` is anything except `'second_intro'`):
 
-### Confirm before I build
-1. When adding a person via "+ Add Person", should the default `lead_source` story stay as just a registration (no intro booking auto-created), or should I also expose the existing "Book Intro" flow from inside that form? My default: just register; staff can still hit Book Intro on the card afterward.
-2. For the one-time backfill of existing reserved sessions' group contacts into `vip_registrations` — proceed for all historical reserved sessions, or only future-dated ones?
+- `UPDATE intros_booked SET originating_booking_id = NULL WHERE rebooked_from_booking_id IS NOT NULL AND (rebook_reason IS NULL OR rebook_reason <> 'second_intro');`
+- For each such row, flip the linked original: `UPDATE intros_booked SET booking_status_canon = 'RESCHEDULED', ignore_from_metrics = true, edit_reason = 'Backfill: superseded by reschedule' WHERE id IN (SELECT rebooked_from_booking_id ...) AND booking_status_canon NOT IN ('RESCHEDULED', 'DELETED_SOFT');`
+
+Jessica's specific result after migration:
+- `8d88…` (May 2 NO_SHOW) → `booking_status_canon = 'RESCHEDULED'`, excluded from metrics.
+- `79ef…` (May 25 SALE) → `originating_booking_id = NULL`, becomes a first intro on its own.
+
+### 4. Verify cross-surface coherence
+
+Manually check Jessica + the 7 other people in the May 1–31 Koa drill:
+- Studio Scoreboard sales count unchanged (still includes Jessica).
+- Per-Coach drill Koa row: Coached count goes up by 1, Closes goes up by 1, Jessica appears with `SALE` label and `via: direct`.
+- WIG page Koa close count matches Per-Coach.
+- Reconciliation footer in the drill: `Counted as Coached` = `Counted as Close (direct)` + others, no longer drops Jessica.
+
+Also spot-check 1–2 other rescheduled bookings in the DB to confirm they now route to a single first-intro row.
+
+## Files touched
+
+- `src/components/dashboard/RebookDialog.tsx` (remove `originating_booking_id`, add status flip on original)
+- `src/lib/intros/excludedBookings.ts` (add `RESCHEDULED`)
+- Supabase migration: backfill `originating_booking_id` and `booking_status_canon` for reschedule rows
+- No changes to journey.ts / orphanedFirstIntros.ts / PerCoachTable.tsx / WIG — they automatically agree once the data is shaped correctly
+
+## Out of scope (per your direction)
+
+- VIP-class purchases (Chatham, Madison) keep counting as coach intros + closes.
+- No behavior change to true 2nd intros — those still chain via `originating_booking_id` and use Total Journey attribution to the first-intro coach.
