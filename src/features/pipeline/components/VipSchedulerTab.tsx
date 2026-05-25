@@ -954,6 +954,38 @@ export function VipSchedulerTab() {
                   {session.estimated_group_size && (
                     <div className="text-xs text-muted-foreground">Estimated group size: {session.estimated_group_size}</div>
                   )}
+                  <div className="flex items-center justify-between gap-2 pt-2 mt-1 border-t border-brand/30">
+                    <Label htmlFor={`contact-attending-${session.id}`} className="text-xs font-medium cursor-pointer">
+                      Also attending the class
+                    </Label>
+                    <Switch
+                      id={`contact-attending-${session.id}`}
+                      checked={!!session.contact_attending_class}
+                      onCheckedChange={async (checked) => {
+                        // Optimistic update
+                        setSessions(prev => prev.map(x => x.id === session.id ? { ...x, contact_attending_class: checked } : x));
+                        setRegCounts(prev => {
+                          const base = prev[session.id] || 0;
+                          const wasOn = !!session.contact_attending_class;
+                          let next = base;
+                          if (checked && !wasOn) next = base + 1;
+                          else if (!checked && wasOn) next = Math.max(0, base - 1);
+                          return { ...prev, [session.id]: next };
+                        });
+                        const { error } = await sb
+                          .from('vip_sessions')
+                          .update({ contact_attending_class: checked })
+                          .eq('id', session.id);
+                        if (error) {
+                          toast.error('Failed to update');
+                          // Revert
+                          setSessions(prev => prev.map(x => x.id === session.id ? { ...x, contact_attending_class: !checked } : x));
+                        } else {
+                          toast.success(checked ? `${session.reserved_contact_name} counted as attending` : 'Contact no longer counted');
+                        }
+                      }}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             ) : null;
