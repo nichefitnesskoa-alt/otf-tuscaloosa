@@ -28,6 +28,8 @@ export interface FvScorecard {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Joined from intros_booked.member_name via first_timer_id. Null for practice scorecards or orphaned records. */
+  first_timer_name?: string | null;
 }
 
 export interface FvBullet {
