@@ -168,9 +168,11 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
                 className="w-full flex items-center justify-between p-3 rounded-md border hover:bg-muted text-left transition-colors min-h-[44px]"
               >
                 <div>
-                  <p className="text-sm font-medium">{s.practice_name || 'First-timer'}</p>
+                  <p className="text-sm font-medium">
+                    {s.first_timer_name || s.practice_name || 'First-Timer'} · {format(new Date(s.class_date), 'MMM d')}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(s.class_date), 'MMM d')} · by {s.evaluator_name} · <Badge variant="outline" className="text-[10px]">{s.eval_type === 'self_eval' ? 'Self' : 'Formal'}</Badge>
+                    by {s.evaluator_name} · <Badge variant="outline" className="text-[10px]">{s.eval_type === 'self_eval' ? 'Self' : 'Formal'}</Badge>
                     {s.reflection_text && s.eval_type === 'self_eval' && s.level === 1 && (
                       <span className="ml-1.5 text-[10px] text-primary font-semibold">· Reflection saved</span>
                     )}
