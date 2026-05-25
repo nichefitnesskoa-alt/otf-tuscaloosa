@@ -279,11 +279,26 @@ export default function PartnerDeckPage() {
 /* ─────────── Slide 1: Cover ─────────── */
 function SlideCover({ partners, studio }: { partners: { partner_name: string }[]; studio: any }) {
   const SEP = ' \u00D7 ';
-  let orangeLine = 'OrangeTheory Fitness';
-  if (partners.length >= 1) {
-    orangeLine = ['OrangeTheory Fitness', ...partners.map(p => p.partner_name)].join(SEP);
+  const titleFormat: TitleFormat = (studio.title_format as TitleFormat) || 'auto_combined';
+
+  // Manual override always wins for big title
+  const manualOverride = studio.deck_s1_title1 && String(studio.deck_s1_title1).trim();
+  let title1: string;
+  if (manualOverride) {
+    title1 = manualOverride;
+  } else if (titleFormat === 'auto_combined') {
+    title1 = 'Cross-Collab Raffle';
+  } else {
+    // auto_studio_only or custom → derive from giveaway title
+    title1 = getGiveawayTitle(studio.studio_slug, partners, titleFormat, studio.custom_title);
   }
-  const title1 = (studio.deck_s1_title1 && String(studio.deck_s1_title1).trim()) || 'Cross-Collab Raffle';
+
+  // Orange line shows only for auto_combined (Brand × Partner × Partner)
+  const showOrangeLine = titleFormat === 'auto_combined';
+  const orangeLine = partners.length >= 1
+    ? ['OrangeTheory Fitness', ...partners.map(p => p.partner_name)].join(SEP)
+    : 'OrangeTheory Fitness';
+
   return (
     <div style={{ position: 'relative', width: '100%', background: C.dark, display: 'flex', flexDirection: 'column' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: C.orange }} />
@@ -294,25 +309,29 @@ function SlideCover({ partners, studio }: { partners: { partner_name: string }[]
           <div className="deck-cover-desktop">
             <FitText as="h1" min={SIZES.s1_title1.min} max={SIZES.s1_title1.max}
               fixed={studio.deck_s1_title1_size}
-              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              style={{ ...displayStyle, color: C.bone, marginBottom: showOrangeLine ? 16 : 28 }}>
               {title1}
             </FitText>
-            <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
-              fixed={studio.deck_s1_title2_size}
-              style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
-              {orangeLine}
-            </FitText>
+            {showOrangeLine && (
+              <FitText as="p" min={SIZES.s1_title2.min} max={SIZES.s1_title2.max}
+                fixed={studio.deck_s1_title2_size}
+                style={{ ...displayStyle, color: C.orange, marginBottom: 28 }}>
+                {orangeLine}
+              </FitText>
+            )}
           </div>
           {/* Mobile (landscape): title nowrap fills width, partner line wraps naturally */}
           <div className="deck-cover-mobile" style={{ display: 'none' }}>
             <FitText as="h1" min={24} max={72}
-              style={{ ...displayStyle, color: C.bone, marginBottom: 16 }}>
+              style={{ ...displayStyle, color: C.bone, marginBottom: showOrangeLine ? 16 : 28 }}>
               {title1}
             </FitText>
-            <FitText as="p" multiline min={18} max={56}
-              style={{ ...displayStyle, color: C.orange, marginBottom: 28, lineHeight: 0.95 }}>
-              {orangeLine}
-            </FitText>
+            {showOrangeLine && (
+              <FitText as="p" multiline min={18} max={56}
+                style={{ ...displayStyle, color: C.orange, marginBottom: 28, lineHeight: 0.95 }}>
+                {orangeLine}
+              </FitText>
+            )}
           </div>
         </div>
         <p className="deck-body" style={{ ...body(18), color: C.gray, maxWidth: 420 }}>
