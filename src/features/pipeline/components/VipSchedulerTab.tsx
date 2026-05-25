@@ -89,10 +89,10 @@ interface VipRegistration {
   created_at: string;
 }
 
-// Group contact is counted as a class member only when the operator
-// flips "Also attending the class" on the contact card.
-function isCountedAsMember(r: { is_group_contact: boolean; attending_class?: boolean | null }): boolean {
-  return !r.is_group_contact || r.attending_class === true;
+// A registration row counts as a member when it isn't the group contact placeholder.
+// The group contact themselves is added via the session-level `contact_attending_class` flag.
+function isCountedAsMember(r: { is_group_contact: boolean }): boolean {
+  return !r.is_group_contact;
 }
 
 interface SlotTemplate {
