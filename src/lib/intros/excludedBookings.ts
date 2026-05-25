@@ -16,6 +16,7 @@ export function isBookingExcludedFromMetrics(b: any): boolean {
   if (b.deleted_at) return true;
   const status = (b.booking_status_canon || '').toUpperCase();
   if (status === 'DELETED_SOFT') return true;
+  if (status === 'RESCHEDULED') return true; // superseded by a later booking
   if (status.includes('DUPLICATE') || status.includes('DELETED') || status.includes('DEAD')) return true;
   return false;
 }
