@@ -255,7 +255,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                                 )}
                               </p>
                             </button>
-                            {unscored > 0 && (
+                            {unscored > 0 && userCanScore && (
                               <button
                                 type="button"
                                 onClick={() => setUnscoredFor({
