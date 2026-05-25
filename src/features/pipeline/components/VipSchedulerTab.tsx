@@ -876,7 +876,7 @@ export function VipSchedulerTab() {
           {/* Performance Summary */}
           {perfData && (() => {
             const session = sessions.find(s => s.id === regOpen);
-            const memberCount = registrations.filter(r => !r.is_group_contact).length;
+            const memberCount = registrations.filter(isCountedAsMember).length;
             const attended = session?.actual_attendance;
             const showRate = attended != null && memberCount > 0 ? ((attended / memberCount) * 100).toFixed(0) : null;
             return (
