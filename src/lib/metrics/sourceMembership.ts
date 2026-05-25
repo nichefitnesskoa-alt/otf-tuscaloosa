@@ -244,7 +244,30 @@ export function computeSourceMembership({
       reasonCode,
       reasonText,
       suggestedFixes: fixes,
+      isExpectedPair: false, // tagged below
     });
+  });
+
+  // Tag expected pairs: a member with BOTH "first_intro_suppressed_by_passed_second"
+  // AND "second_intro_outside_funnel_first" in the same range is normal definitional
+  // behavior — those two cancel out at the totals level.
+  const memberPairBuckets = new Map<string, { firstSuppressed: DriftItem[]; secondCounted: DriftItem[] }>();
+  drift.forEach(d => {
+    if (
+      d.reasonCode !== 'first_intro_suppressed_by_passed_second' &&
+      d.reasonCode !== 'second_intro_outside_funnel_first'
+    ) return;
+    const key = nameKey(d.memberName);
+    const bucket = memberPairBuckets.get(key) || { firstSuppressed: [], secondCounted: [] };
+    if (d.reasonCode === 'first_intro_suppressed_by_passed_second') bucket.firstSuppressed.push(d);
+    else bucket.secondCounted.push(d);
+    memberPairBuckets.set(key, bucket);
+  });
+  memberPairBuckets.forEach(({ firstSuppressed, secondCounted }) => {
+    if (firstSuppressed.length > 0 && secondCounted.length > 0) {
+      firstSuppressed.forEach(d => { d.isExpectedPair = true; });
+      secondCounted.forEach(d => { d.isExpectedPair = true; });
+    }
   });
 
   drift.sort((a, b) => a.classDate.localeCompare(b.classDate));
