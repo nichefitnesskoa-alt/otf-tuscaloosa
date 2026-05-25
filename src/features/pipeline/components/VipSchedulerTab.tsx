@@ -563,7 +563,7 @@ export function VipSchedulerTab() {
         </div>
         <span className="text-[11px] text-muted-foreground">
           {showPast
-            ? (pastJumpDate ? `Showing ${format(pastJumpDate, 'MMM d')} → forward` : 'Showing all past + upcoming')
+            ? (pastJumpDate ? `Showing booked sessions from ${format(pastJumpDate, 'MMM d')} → forward` : 'Showing booked past + all upcoming')
             : 'Today and forward only'}
         </span>
       </div>
@@ -573,6 +573,9 @@ export function VipSchedulerTab() {
         const visibleSessions = sessions.filter(s => {
           if (s.session_date >= today) return true;
           if (!showPast) return false;
+          // Past sessions: only show ones that were actually booked.
+          const isBooked = !!s.reserved_by_group || s.status === 'reserved' || s.status === 'completed';
+          if (!isBooked) return false;
           if (pastJumpDate) return s.session_date >= format(pastJumpDate, 'yyyy-MM-dd');
           return true;
         });
