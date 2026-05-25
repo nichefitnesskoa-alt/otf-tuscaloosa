@@ -310,7 +310,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
                 className="w-full flex items-center justify-between p-2 rounded-md border hover:bg-muted text-left min-h-[44px]"
               >
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold truncate">{c.evaluatee_name} <span className="text-muted-foreground">·</span> {c.practice_name || 'First-timer'}</p>
+                  <p className="text-xs font-semibold truncate">{c.evaluatee_name} <span className="text-muted-foreground">·</span> {c.first_timer_name || c.practice_name || 'First-timer'}</p>
                   <p className="text-[10px] text-muted-foreground">{format(new Date(c.class_date), 'MMM d')} · {c.eval_type === 'self_eval' ? 'Self' : 'Formal'} · by {c.evaluator_name}</p>
                 </div>
                 <span className={`text-sm font-black tabular-nums ${c.level === 3 ? 'text-primary' : c.level === 2 ? 'text-success' : 'text-muted-foreground'}`}>{c.total_score}/30</span>
