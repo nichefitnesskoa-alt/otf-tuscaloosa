@@ -54,6 +54,13 @@ export interface DriftItem {
     | 'unknown';
   reasonText: string;
   suggestedFixes: FixAction[];
+  /**
+   * True when this drift is expected definitional behavior — a 1st intro
+   * suppressed by a passed 2nd, paired with the 2nd intro that the funnel
+   * counts in its second-intro row. These pairs cancel out at the totals
+   * level and are not real issues.
+   */
+  isExpectedPair: boolean;
 }
 
 interface Args {
