@@ -1,38 +1,28 @@
-## Add Giveaways section to Admin Panel
+## Fix: share the public partner deck URL, not the admin editor
 
-Today, the giveaway admin surfaces (`/admin/:studioSlug`, `/admin/:studioSlug/preview`, `/admin/:studioSlug/partner-deck`, `/admin/:studioSlug/partner-view`) are only reachable by typing the URL. This adds a single jump-off point inside `/admin` that lists every studio and exposes all four admin links per location.
+### What's happening
+The Giveaways tab in Admin currently exposes `/admin/{slug}/partner-deck`, which is the **editor** for the deck. Sharing that link forces recipients through a sign-in flow. There's already a separate public route — `/partner-deck/{slug}` (rendered by `PartnerDeckPage.tsx`) — that has no auth and is designed for partners.
 
-### Scope
+### Fix
+Restructure the Giveaways card in `src/components/admin/GiveawaysAdminTab.tsx` so the share link and the editor are clearly separated:
 
-One new tab in `src/pages/Admin.tsx`: **Giveaways**. Admin-only (already gated by the page).
+For each studio, show:
+1. **Admin (Entries & Draw)** → `/admin/{slug}` (opens in new tab)
+2. **Participant Preview** → `/admin/{slug}/preview` (opens in new tab)
+3. **Edit Partner Deck** → `/admin/{slug}/partner-deck` (opens in new tab) — internal editor
+4. **Partner Deck — Share Link** row with two side-by-side buttons:
+   - **Open** → `/partner-deck/{slug}` (opens in new tab, public route)
+   - **Copy link** → copies the absolute URL `${window.location.origin}/partner-deck/{slug}` to clipboard, shows "Copied" toast via existing sonner
+5. **Partner Dashboard** → `/admin/{slug}/partner-view` (opens in new tab) — keep as-is; this is the live entries tracker partners can also view
 
-### What it shows
+Use the existing `toast` from `sonner`. Buttons keep 44px min height and full readable labels. Helper text under the card clarifies: "Share the Partner Deck link with partners — no login required."
 
-For each of the 4 studios in `giveaway_studios` (Tuscaloosa, Auburn, Montgomery, Vestavia Hills), one card with the studio's admin name (via `getAdminStudioName(slug)`) and four buttons:
+### Files
+- `src/components/admin/GiveawaysAdminTab.tsx` — restructure buttons, add copy-to-clipboard action.
 
-- **Admin** → `/admin/{slug}` (entries, draw, settings)
-- **Preview** → `/admin/{slug}/preview` (participant view)
-- **Partner Deck (Admin)** → `/admin/{slug}/partner-deck`
-- **Partner View** → `/admin/{slug}/partner-view`
-
-Each button opens in a new tab (`target="_blank"`) so the operator keeps the admin panel open while reviewing.
-
-### Implementation
-
-1. `src/pages/Admin.tsx`
-   - Add `{ value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> }` to `adminSections`.
-   - Add a `<TabsContent value="giveaways">` block rendering a new `GiveawaysAdminTab` component.
-2. New component `src/components/admin/GiveawaysAdminTab.tsx`
-   - Fetches `giveaway_studios` (`select studio_slug` ordered by `studio_slug`) via Supabase on mount, with React Query.
-   - Renders one card per studio using `getAdminStudioName` from `src/lib/studioNames.ts`.
-   - Buttons use existing shadcn `Button` with `variant="outline"`, 44px min height, icons (`Users`, `Eye`, `Presentation`, `ExternalLink`), full readable labels.
-   - Empty/loading/error states inline (skeleton row, friendly message).
-
-No DB changes, no route changes, no role changes. The four giveaway routes already exist in `App.tsx`.
+No DB changes, no route changes. The public route already exists in `App.tsx` (`/partner-deck/:studioSlug`).
 
 ### Verification
-
-- As Koa, open `/admin` → Giveaways tab shows 4 studio cards.
-- Each of the 16 buttons opens the correct route in a new tab.
-- Non-admin roles still get redirected away from `/admin` (existing guard).
-- Studio list reflects whatever is in `giveaway_studios` (no hardcoded slugs).
+- Open `/admin` → Giveaways tab → click **Copy link** for Auburn → paste in incognito → loads the partner deck with no sign-in prompt.
+- Click **Open** → new tab loads `/partner-deck/auburn` directly.
+- **Edit Partner Deck** still opens the admin editor for Koa.
