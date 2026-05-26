@@ -501,6 +501,7 @@ export default function Admin() {
     { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
+    { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
