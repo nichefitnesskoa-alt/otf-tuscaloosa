@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown } from 'lucide-react';
+import { Settings, FileSpreadsheet, Database, Users, BarChart3, BookOpen, Phone, ClipboardCheck, FileText, TrendingUp, SearchCheck, Star, Brain, Zap, UserPlus, AlertTriangle, ListChecks, ChevronDown, Gift } from 'lucide-react';
+import GiveawaysAdminTab from '@/components/admin/GiveawaysAdminTab';
 import { Navigate, useNavigate } from 'react-router-dom';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -500,6 +501,7 @@ export default function Admin() {
     { value: 'hiring', label: 'Hiring', icon: <UserPlus className="w-4 h-4" /> },
     { value: 'staff', label: 'Staff Management', icon: <Users className="w-4 h-4" /> },
     { value: 'shifts', label: 'Shifts', icon: <ListChecks className="w-4 h-4" /> },
+    { value: 'giveaways', label: 'Giveaways', icon: <Gift className="w-4 h-4" /> },
   ], []);
 
   useEffect(() => {
@@ -635,6 +637,13 @@ export default function Admin() {
         <TabsContent value="shifts" className="space-y-4">
           <ShiftTasksAdmin />
         </TabsContent>
+
+        {/* Giveaways Tab */}
+        <TabsContent value="giveaways" className="space-y-4">
+          <GiveawaysAdminTab />
+        </TabsContent>
+
+
 
       </Tabs>
     </div>
