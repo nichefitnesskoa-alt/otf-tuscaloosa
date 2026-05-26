@@ -1,0 +1,2 @@
+ALTER TABLE public.giveaway_studios ADD COLUMN IF NOT EXISTS share_slug text;
+CREATE UNIQUE INDEX IF NOT EXISTS giveaway_studios_share_slug_lower_idx ON public.giveaway_studios (lower(share_slug)) WHERE share_slug IS NOT NULL;

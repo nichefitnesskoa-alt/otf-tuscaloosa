@@ -1,28 +1,56 @@
-## Fix: share the public partner deck URL, not the admin editor
+## Custom short share link per studio
 
-### What's happening
-The Giveaways tab in Admin currently exposes `/admin/{slug}/partner-deck`, which is the **editor** for the deck. Sharing that link forces recipients through a sign-in flow. There's already a separate public route — `/partner-deck/{slug}` (rendered by `PartnerDeckPage.tsx`) — that has no auth and is designed for partners.
+### Goal
+Replace `/partner-deck/{slug}` with a custom, editable, root-level link per studio — e.g. `otf-tuscaloosa.lovable.app/OTF-AUBURN-PARTNER`. Editable from the Giveaways tab. Each studio has its own.
 
-### Fix
-Restructure the Giveaways card in `src/components/admin/GiveawaysAdminTab.tsx` so the share link and the editor are clearly separated:
+### DB change (migration)
+Add a column to `giveaway_studios`:
+- `share_slug TEXT` — nullable, case-insensitive unique.
+- Unique index on `lower(share_slug)` to prevent collisions.
 
-For each studio, show:
-1. **Admin (Entries & Draw)** → `/admin/{slug}` (opens in new tab)
-2. **Participant Preview** → `/admin/{slug}/preview` (opens in new tab)
-3. **Edit Partner Deck** → `/admin/{slug}/partner-deck` (opens in new tab) — internal editor
-4. **Partner Deck — Share Link** row with two side-by-side buttons:
-   - **Open** → `/partner-deck/{slug}` (opens in new tab, public route)
-   - **Copy link** → copies the absolute URL `${window.location.origin}/partner-deck/{slug}` to clipboard, shows "Copied" toast via existing sonner
-5. **Partner Dashboard** → `/admin/{slug}/partner-view` (opens in new tab) — keep as-is; this is the live entries tracker partners can also view
+Seed defaults for the existing 4 studios:
+- `tuscaloosa` → `OTF-TUSCALOOSA-PARTNER`
+- `auburn` → `OTF-AUBURN-PARTNER`
+- `montgomery` → `OTF-MONTGOMERY-PARTNER`
+- `vestavia` → `OTF-VESTAVIA-PARTNER`
 
-Use the existing `toast` from `sonner`. Buttons keep 44px min height and full readable labels. Helper text under the card clarifies: "Share the Partner Deck link with partners — no login required."
+### Routing (`src/App.tsx`)
+Add a single catch-all root route **immediately before** `<Route path="*" element={<NotFound />}>`:
+
+```tsx
+<Route path="/:shareSlug" element={<PartnerDeckShareResolver />} />
+```
+
+New component `src/features/giveaway/PartnerDeckShareResolver.tsx`:
+- Reads `shareSlug` from the URL.
+- Hard-rejects (renders `<NotFound />`) any slug in a reserved list (matches every existing top-level route: `my-day`, `coach-view`, `recaps`, `wig`, `the-table`, `vips`, `my-intros`, `pipeline`, `admin`, `login`, `scripts`, `settings`, `meeting`, `q`, `story`, `vip-register`, `vip-availability`, `vip`, `apply`, `join-the-team`, `giveaway`, `partner-deck`, `questionnaire`, `scorecards`, `coaches`, `sas`, `dashboard`, `my-shifts`, `shift-recap`, `reports`, `leads`).
+- Queries `giveaway_studios` by `share_slug ILIKE :shareSlug`. If found, renders the existing `PartnerDeckPage` with that studio's `studio_slug` injected (refactor `PartnerDeckPage` to accept an optional `studioSlug` prop and fall back to `useParams`).
+- If not found, renders `<NotFound />`.
+
+Existing `/partner-deck/:studioSlug` route stays (backward compatibility for old shares).
+
+### Admin UI (`src/components/admin/GiveawaysAdminTab.tsx`)
+In each studio card, add at the top of the "Share Link" block:
+- **Custom share link** label.
+- A single-line input pre-filled with `share_slug`. Auto-uppercases on input; restricts to `[A-Z0-9-]`; max length 40.
+- Inline "Saved" indicator after blur; saves to `giveaway_studios.share_slug` (insert tool / SDK `.update`). Reject save if the slug is empty, reserved, or already taken (catch unique-violation → toast "That link is already taken").
+- Computed full URL displayed below: `${origin}/${share_slug}`.
+- **Copy link** and **Open** buttons now use the custom URL.
+
+Add a small helper line: "Letters, numbers, and hyphens only. The link is case-insensitive."
 
 ### Files
-- `src/components/admin/GiveawaysAdminTab.tsx` — restructure buttons, add copy-to-clipboard action.
-
-No DB changes, no route changes. The public route already exists in `App.tsx` (`/partner-deck/:studioSlug`).
+- Migration: add `share_slug` column + unique index.
+- Data update: seed default `share_slug` for the 4 existing rows.
+- `src/App.tsx` — add the catch-all route.
+- `src/features/giveaway/PartnerDeckShareResolver.tsx` — new.
+- `src/features/giveaway/PartnerDeckPage.tsx` — accept optional `studioSlug` prop.
+- `src/components/admin/GiveawaysAdminTab.tsx` — editable slug input + use custom URL.
 
 ### Verification
-- Open `/admin` → Giveaways tab → click **Copy link** for Auburn → paste in incognito → loads the partner deck with no sign-in prompt.
-- Click **Open** → new tab loads `/partner-deck/auburn` directly.
-- **Edit Partner Deck** still opens the admin editor for Koa.
+- Visit `otf-tuscaloosa.lovable.app/OTF-AUBURN-PARTNER` in incognito → loads Auburn partner deck, no sign-in.
+- Visit `otf-tuscaloosa.lovable.app/admin` → still loads the admin page (reserved slug not intercepted).
+- Visit `otf-tuscaloosa.lovable.app/nonsense-xyz` → 404.
+- Edit Auburn's slug to `AUBURN-OPEN-HOUSE` in Giveaways tab → old `OTF-AUBURN-PARTNER` URL 404s, new URL works.
+- Attempt to set the same slug on two studios → toast error, no save.
+- Legacy `/partner-deck/auburn` still works.

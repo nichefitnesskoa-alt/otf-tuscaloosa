@@ -1210,6 +1210,7 @@ export type Database = {
           deck_what_we_need_time: string | null
           goes_live_at: string | null
           id: string
+          share_slug: string | null
           studio_name: string
           studio_slug: string
           title_format: string
@@ -1281,6 +1282,7 @@ export type Database = {
           deck_what_we_need_time?: string | null
           goes_live_at?: string | null
           id?: string
+          share_slug?: string | null
           studio_name: string
           studio_slug: string
           title_format?: string
@@ -1352,6 +1354,7 @@ export type Database = {
           deck_what_we_need_time?: string | null
           goes_live_at?: string | null
           id?: string
+          share_slug?: string | null
           studio_name?: string
           studio_slug?: string
           title_format?: string
