@@ -74,8 +74,9 @@ function gridColsFor(n: number): string {
   return '1fr 1fr 1fr';
 }
 
-export default function PartnerDeckPage() {
-  const { studioSlug } = useParams<{ studioSlug: string }>();
+export default function PartnerDeckPage({ studioSlug: studioSlugProp }: { studioSlug?: string } = {}) {
+  const params = useParams<{ studioSlug: string }>();
+  const studioSlug = studioSlugProp ?? params.studioSlug;
   const { studio } = useGiveawayStudio(studioSlug);
   const { partners } = useGiveawayPartners(studioSlug);
   const [activeSlide, setActiveSlide] = useState(0);
