@@ -38,6 +38,7 @@ import GiveawayAdminPage from "./features/giveaway/GiveawayAdminPage";
 import GiveawayPreviewPage from "./features/giveaway/GiveawayPreviewPage";
 import PartnerDeckPage from "./features/giveaway/PartnerDeckPage";
 import PartnerDeckAdminPage from "./features/giveaway/PartnerDeckAdminPage";
+import PartnerDeckShareResolver from "./features/giveaway/PartnerDeckShareResolver";
 import PartnerViewPage from "./features/giveaway/PartnerViewPage";
 import { useParams } from "react-router-dom";
 
@@ -234,6 +235,7 @@ function AppRoutes() {
       <Route path="/the-table/history" element={<ProtectedRoute><TheTableHistory /></ProtectedRoute>} />
       <Route path="/the-table/:meetingId" element={<ProtectedRoute><TheTable /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
+      <Route path="/:shareSlug" element={<PartnerDeckShareResolver />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
