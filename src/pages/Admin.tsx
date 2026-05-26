@@ -638,6 +638,13 @@ export default function Admin() {
           <ShiftTasksAdmin />
         </TabsContent>
 
+        {/* Giveaways Tab */}
+        <TabsContent value="giveaways" className="space-y-4">
+          <GiveawaysAdminTab />
+        </TabsContent>
+
+
+
       </Tabs>
     </div>
   );
