@@ -84,8 +84,9 @@ function StudioCard({
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const publicUrl = value ? `${origin}/${value}` : '';
+  // Always use the published short domain for partner-facing links
+  const PUBLIC_ORIGIN = 'https://otf-tuscaloosa.lovable.app';
+  const publicUrl = value ? `${PUBLIC_ORIGIN}/${value}` : '';
 
   const save = async () => {
     const next = sanitize(value);
