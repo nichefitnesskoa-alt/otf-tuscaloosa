@@ -1,0 +1,16 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_owner_entries TO anon, authenticated;
+GRANT ALL ON public.table_owner_entries TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_owners TO anon, authenticated;
+GRANT ALL ON public.table_owners TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_meetings TO anon, authenticated;
+GRANT ALL ON public.table_meetings TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_responses TO anon, authenticated;
+GRANT ALL ON public.table_responses TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_action_items TO anon, authenticated;
+GRANT ALL ON public.table_action_items TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_wins TO anon, authenticated;
+GRANT ALL ON public.table_wins TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_closes TO anon, authenticated;
+GRANT ALL ON public.table_closes TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.table_mentions TO anon, authenticated;
+GRANT ALL ON public.table_mentions TO service_role;
