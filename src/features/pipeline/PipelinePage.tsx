@@ -45,7 +45,6 @@ import { PipelineSpreadsheet } from './components/PipelineSpreadsheet';
 import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import { PipelineSalesTab } from './components/PipelineSalesTab';
-import { PipelineSalesTab } from './components/PipelineSalesTab';
 
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';

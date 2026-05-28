@@ -74,57 +74,12 @@ export function PipelineTable({
     overscan: 10,
   });
 
-  // For VIP tab, render grouped
-  if (activeTab === 'vip_class' && vipGroups) {
-    return (
-      <div ref={parentRef} className="h-[500px] overflow-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
-        ) : (
-          <div className="space-y-4">
-            {vipGroups.map(([groupName, groupJourneys]) => (
-              <div key={groupName}>
-                <div className="mb-2">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-purple-50 border border-purple-200">
-                    <Star className="w-3.5 h-3.5 text-purple-600" />
-                    <span className="text-sm font-semibold text-purple-700">{groupName}</span>
-                    <Badge variant="secondary" className="text-[10px] h-5">{groupJourneys.length}</Badge>
-                    <Button
-                      variant="outline" size="sm"
-                      className="ml-auto h-6 text-[10px] gap-1 border-purple-300 text-purple-700 hover:bg-purple-100"
-                      onClick={() => { setBulkScheduleGroup(bulkScheduleGroup === groupName ? null : groupName); setBulkDate(''); setBulkTime(''); }}
-                    >
-                      <CalendarPlus className="w-3 h-3" /> Set Date & Time
-                    </Button>
-                  </div>
-                  {bulkScheduleGroup === groupName && (
-                    <div className="flex items-center gap-2 mt-1.5 px-2 py-2 rounded-md bg-purple-50/50 border border-purple-100">
-                      <Input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} className="h-7 text-xs w-36" />
-                      <ClassTimeSelect value={bulkTime} onValueChange={setBulkTime} triggerClassName="h-7 text-xs w-28" />
-                      <Button size="sm" className="h-7 text-xs gap-1" disabled={isBulkUpdating || !bulkDate || !bulkTime} onClick={() => handleBulkSchedule(groupName)}>
-                        {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Apply
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setBulkScheduleGroup(null)}><X className="w-3 h-3" /></Button>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {groupJourneys.map(journey => (
-                    <PipelineRowCard
-                      key={journey.memberKey}
-                      journey={journey}
-                      vipInfoMap={vipInfoMap}
-                      isOnline={isOnline}
-                      onOpenDialog={onOpenDialog}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  if (journeys.length === 0) {
+    return <div className="text-center text-sm text-muted-foreground py-8">No clients match current filters</div>;
   }
 
   if (isLoading) {
