@@ -193,8 +193,6 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
   };
 
   journeys.forEach(journey => {
-
-  journeys.forEach(journey => {
     counts.all++;
     counts.by_lead_source++;
     if (journey.runs.some(r => isMembershipSale(r.result))) counts.sales++;
