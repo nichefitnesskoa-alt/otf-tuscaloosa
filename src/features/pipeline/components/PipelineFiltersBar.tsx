@@ -63,13 +63,17 @@ export function PipelineFiltersBar({
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as JourneyTab)} className="w-full">
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="leads" className="flex-1 min-w-[80px] text-xs gap-1">
-            <UserPlus className="w-3 h-3" /> New Leads
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.leads}</Badge>
-          </TabsTrigger>
           <TabsTrigger value="all" className="flex-1 min-w-[70px] text-xs gap-1">
             <Users className="w-3 h-3" /> All
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.all}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="sales" className="flex-1 min-w-[80px] text-xs gap-1 text-success data-[state=active]:text-success">
+            <DollarSign className="w-3 h-3" /> Sales
+            <Badge className="ml-1 h-5 px-1.5 text-[10px] bg-success/15 text-success border border-success/40">{tabCounts.sales}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="flex-1 min-w-[80px] text-xs gap-1">
+            <UserPlus className="w-3 h-3" /> New Leads
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.leads}</Badge>
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="flex-1 min-w-[80px] text-xs gap-1">
             <Clock className="w-3 h-3" /> Upcoming
