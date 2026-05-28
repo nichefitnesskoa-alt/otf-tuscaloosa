@@ -591,7 +591,7 @@ export default function Wig() {
               // booking as counted, so the buy_date backfill pass below does
               // not double-credit the same Total Journey sale.
               countedRunBookingIds.add(r.linked_intro_booked_id);
-              const secondIds = (originatingToSecondMap as any)?.get?.(r.linked_intro_booked_id) || [];
+              const secondIds = secondIntroBookingMap.get(r.linked_intro_booked_id) || [];
               for (const sid of secondIds) countedRunBookingIds.add(sid);
             }
             coachCloseMap.set(cName, ex);
