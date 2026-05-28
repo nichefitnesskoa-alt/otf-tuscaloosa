@@ -184,7 +184,12 @@ export default function PipelinePage() {
           ) : (
             <PipelineSpreadsheet
               journeys={pipeline.filteredJourneys}
-              vipGroups={pipeline.vipGroups}
+          {/* Tab content */}
+          {pipeline.activeTab === 'sales' ? (
+            <PipelineSalesTab onAfterDelete={() => pipeline.silentRefreshAll()} />
+          ) : (
+            <PipelineSpreadsheet
+              journeys={pipeline.filteredJourneys}
               vipInfoMap={pipeline.vipInfoMap}
               scriptActionsMap={pipeline.scriptActionsMap}
               isLoading={pipeline.isLoading}
@@ -195,14 +200,6 @@ export default function PipelinePage() {
               onOpenScript={(j) => setScriptJourney(j)}
             />
           )}
-        </CardContent>
-      </Card>
-
-
-      {/* All dialogs */}
-      <PipelineDialogs
-        dialogState={dialogState}
-        onClose={closeDialog}
         onRefresh={handleRefreshAfterAction}
         journeys={pipeline.journeys}
         isOnline={isOnline}
