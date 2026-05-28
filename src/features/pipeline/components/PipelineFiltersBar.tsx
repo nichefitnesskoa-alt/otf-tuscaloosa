@@ -71,10 +71,6 @@ export function PipelineFiltersBar({
             <DollarSign className="w-3 h-3" /> Sales
             <Badge className="ml-1 h-5 px-1.5 text-[10px] bg-success/15 text-success border border-success/40">{tabCounts.sales}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="leads" className="flex-1 min-w-[80px] text-xs gap-1">
-            <UserPlus className="w-3 h-3" /> New Leads
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.leads}</Badge>
-          </TabsTrigger>
           <TabsTrigger value="upcoming" className="flex-1 min-w-[80px] text-xs gap-1">
             <Clock className="w-3 h-3" /> Upcoming
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.upcoming}</Badge>
@@ -103,12 +99,8 @@ export function PipelineFiltersBar({
             <UserX className="w-3 h-3" /> Not Interested
             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.not_interested}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="vip_class" className="flex-1 min-w-[60px] text-xs gap-1 text-purple-600 data-[state=active]:text-purple-700">
-            <Star className="w-3 h-3" /> VIP
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{tabCounts.vip_class}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="vip_scheduler" className="flex-1 min-w-[80px] text-xs gap-1 text-orange-600 data-[state=active]:text-orange-700">
-            <CalendarPlus className="w-3 h-3" /> Scheduler
+          <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
+            <Filter className="w-3 h-3" /> By Source
           </TabsTrigger>
           <TabsTrigger value="by_lead_source" className="flex-1 min-w-[80px] text-xs gap-1">
             <Filter className="w-3 h-3" /> By Source

@@ -111,9 +111,8 @@ export function usePipelineData() {
   }, [journeys, searchTerm, filterInconsistencies, activeTab, selectedLeadSource]);
 
   const vipGroups = useMemo(() => {
-    if (activeTab !== 'vip_class') return null;
     return groupByVipClass(filteredJourneys);
-  }, [filteredJourneys, activeTab]);
+  }, [filteredJourneys]);
 
   const refreshAll = useCallback(async () => {
     await fetchData();

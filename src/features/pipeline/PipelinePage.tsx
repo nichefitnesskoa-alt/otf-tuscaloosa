@@ -31,10 +31,10 @@
  * □ normalizeIntroResultStrict throws in dev for unmapped outcomes
  */
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GitBranch, RefreshCw, Loader2, Wand2, Plus, WifiOff, Clock } from 'lucide-react';
+import { GitBranch, RefreshCw, Wand2, Plus, WifiOff, Clock } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -43,9 +43,6 @@ import { usePipelineData } from './usePipelineData';
 import { PipelineFiltersBar } from './components/PipelineFiltersBar';
 import { PipelineSpreadsheet } from './components/PipelineSpreadsheet';
 import { PipelineDialogs } from './components/PipelineDialogs';
-import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
-import { VipPipelineTable } from './components/VipPipelineTable';
-import { VipSchedulerTab } from './components/VipSchedulerTab';
 import { PipelineSalesTab } from './components/PipelineSalesTab';
 
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
@@ -181,18 +178,11 @@ export default function PipelinePage() {
           </div>
 
           {/* Tab content */}
-          {pipeline.activeTab === 'leads' ? (
-            <PipelineNewLeadsTab />
-          ) : pipeline.activeTab === 'sales' ? (
+          {pipeline.activeTab === 'sales' ? (
             <PipelineSalesTab onAfterDelete={() => pipeline.silentRefreshAll()} />
-          ) : pipeline.activeTab === 'vip_class' ? (
-            <VipPipelineTable />
-          ) : pipeline.activeTab === 'vip_scheduler' ? (
-            <VipSchedulerTab />
           ) : (
             <PipelineSpreadsheet
               journeys={pipeline.filteredJourneys}
-              vipGroups={pipeline.vipGroups}
               vipInfoMap={pipeline.vipInfoMap}
               scriptActionsMap={pipeline.scriptActionsMap}
               isLoading={pipeline.isLoading}
@@ -205,7 +195,6 @@ export default function PipelinePage() {
           )}
         </CardContent>
       </Card>
-
 
       {/* All dialogs */}
       <PipelineDialogs

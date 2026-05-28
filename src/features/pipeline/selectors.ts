@@ -189,7 +189,7 @@ export function buildJourneys(
 export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
   const counts: TabCounts = {
     all: 0, sales: 0, upcoming: 0, today: 0, completed: 0, no_show: 0,
-    missed_guest: 0, second_intro: 0, not_interested: 0, by_lead_source: 0, vip_class: 0, vip_scheduler: 0, leads: 0,
+    missed_guest: 0, second_intro: 0, not_interested: 0, by_lead_source: 0,
   };
 
   journeys.forEach(journey => {
@@ -234,13 +234,6 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
     if (journey.bookings.some(b => b.booking_status_canon === 'NOT_INTERESTED' || b.booking_status === 'Not interested')) {
       counts.not_interested++;
     }
-
-    if (journey.bookings.some(b =>
-      b.is_vip === true ||
-      b.booking_type_canon === 'VIP' ||
-      b.booking_type_canon === 'COMP' ||
-      (b.lead_source && b.lead_source.toLowerCase().includes('vip'))
-    )) counts.vip_class++;
   });
 
   return counts;
@@ -253,7 +246,6 @@ export function filterJourneysByTab(
   tab: JourneyTab,
   selectedLeadSource: string | null,
 ): ClientJourney[] {
-  // VIP or COMP exclusion helper
   // Only exclude journeys where ALL bookings are VIP/COMP type.
   // Once a VIP is converted (STANDARD booking created), the journey appears in main tabs.
   const isExcludedJourney = (j: ClientJourney) =>
@@ -263,11 +255,6 @@ export function filterJourneysByTab(
       (b as any).booking_type_canon === 'COMP'
     );
 
-  if (tab === 'vip_class') {
-    return journeyList.filter(j => isExcludedJourney(j));
-  }
-
-  // All non-VIP/COMP tabs: exclude those journeys
   const nonVipJourneys = journeyList.filter(j => !isExcludedJourney(j));
   if (tab === 'all') return nonVipJourneys;
 

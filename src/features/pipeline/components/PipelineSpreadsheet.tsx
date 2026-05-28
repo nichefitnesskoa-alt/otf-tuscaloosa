@@ -28,7 +28,6 @@ import { ALL_STAFF as ACTIVE_ALL_STAFF } from '@/types';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
-  vipGroups: [string, ClientJourney[]][] | null;
   vipInfoMap: Map<string, VipInfo>;
   scriptActionsMap: Map<string, PipelineScriptAction[]>;
   isLoading: boolean;
@@ -244,7 +243,7 @@ function getSortValue(j: ClientJourney, key: string): string | number | boolean 
 // ── Main component ──
 
 export function PipelineSpreadsheet({
-  journeys, vipGroups, vipInfoMap, scriptActionsMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
+  journeys, vipInfoMap, scriptActionsMap, isLoading, activeTab, isOnline, onOpenDialog, onRefresh, onOpenScript,
 }: PipelineSpreadsheetProps) {
   const { user } = useAuth();
   const parentRef = useRef<HTMLDivElement>(null);
