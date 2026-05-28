@@ -46,6 +46,7 @@ import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineNewLeadsTab } from './components/PipelineNewLeadsTab';
 import { VipPipelineTable } from './components/VipPipelineTable';
 import { VipSchedulerTab } from './components/VipSchedulerTab';
+import { PipelineSalesTab } from './components/PipelineSalesTab';
 
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
@@ -182,6 +183,8 @@ export default function PipelinePage() {
           {/* Tab content */}
           {pipeline.activeTab === 'leads' ? (
             <PipelineNewLeadsTab />
+          ) : pipeline.activeTab === 'sales' ? (
+            <PipelineSalesTab onAfterDelete={() => pipeline.silentRefreshAll()} />
           ) : pipeline.activeTab === 'vip_class' ? (
             <VipPipelineTable />
           ) : pipeline.activeTab === 'vip_scheduler' ? (

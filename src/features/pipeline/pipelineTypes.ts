@@ -6,6 +6,7 @@ import type { BookingStatus, IntroResult } from '@/lib/domain/outcomes/types';
 
 export type JourneyTab =
   | 'all'
+  | 'sales'
   | 'upcoming'
   | 'today'
   | 'completed'

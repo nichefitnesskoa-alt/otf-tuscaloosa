@@ -587,7 +587,12 @@ export default function Wig() {
               // Total Journey: 2nd intro resulted in sale → credit this coach
               ex.closed++;
               ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE' });
+              // Mark BOTH the 1st-intro booking AND every downstream 2nd-intro
+              // booking as counted, so the buy_date backfill pass below does
+              // not double-credit the same Total Journey sale.
               countedRunBookingIds.add(r.linked_intro_booked_id);
+              const secondIds = secondIntroBookingMap.get(r.linked_intro_booked_id) || [];
+              for (const sid of secondIds) countedRunBookingIds.add(sid);
             }
             coachCloseMap.set(cName, ex);
           });

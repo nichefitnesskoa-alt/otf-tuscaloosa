@@ -188,13 +188,14 @@ export function buildJourneys(
 
 export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
   const counts: TabCounts = {
-    all: 0, upcoming: 0, today: 0, completed: 0, no_show: 0,
+    all: 0, sales: 0, upcoming: 0, today: 0, completed: 0, no_show: 0,
     missed_guest: 0, second_intro: 0, not_interested: 0, by_lead_source: 0, vip_class: 0, vip_scheduler: 0, leads: 0,
   };
 
   journeys.forEach(journey => {
     counts.all++;
     counts.by_lead_source++;
+    if (journey.runs.some(r => isMembershipSale(r.result))) counts.sales++;
 
     const latestActiveBooking = journey.bookings.find(
       b => b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active'
