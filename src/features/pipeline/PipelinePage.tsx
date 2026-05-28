@@ -183,6 +183,8 @@ export default function PipelinePage() {
           {/* Tab content */}
           {pipeline.activeTab === 'leads' ? (
             <PipelineNewLeadsTab />
+          ) : pipeline.activeTab === 'sales' ? (
+            <PipelineSalesTab onAfterDelete={() => pipeline.silentRefreshAll()} />
           ) : pipeline.activeTab === 'vip_class' ? (
             <VipPipelineTable />
           ) : pipeline.activeTab === 'vip_scheduler' ? (
