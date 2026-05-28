@@ -37,14 +37,6 @@ interface PipelineSpreadsheetProps {
   onRefresh: () => Promise<void>;
   onOpenScript?: (journey: ClientJourney) => void;
 }
-  scriptActionsMap: Map<string, PipelineScriptAction[]>;
-  isLoading: boolean;
-  activeTab: JourneyTab;
-  isOnline: boolean;
-  onOpenDialog: (type: string, data?: any) => void;
-  onRefresh: () => Promise<void>;
-  onOpenScript?: (journey: ClientJourney) => void;
-}
 
 type SortDir = 'asc' | 'desc';
 
