@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import {
   Search, AlertTriangle, Users, Clock, Calendar, CalendarCheck,
-  UserX, UserMinus, CalendarPlus, Filter, Star, UserPlus,
+  UserX, UserMinus, CalendarPlus, Filter, Star, UserPlus, DollarSign,
 } from 'lucide-react';
 import type { JourneyTab, TabCounts } from '../pipelineTypes';
 
