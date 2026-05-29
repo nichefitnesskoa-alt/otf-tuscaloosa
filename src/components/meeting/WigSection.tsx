@@ -145,6 +145,10 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
             </div>
           )}
 
+          <CoachScorecardGrid isPresentMode={false} />
+
+
+
           {previousCommitments && (
             <div className="p-3 bg-warning-dim dark:bg-warning/20 rounded-lg text-sm">
               <p className="font-medium text-warning dark:text-warning mb-1">Last Week's Commitments</p>
