@@ -2,6 +2,7 @@ import { MeetingSection } from './MeetingSection';
 import { Target, ClipboardCheck, BookOpen } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { CoachScorecardGrid } from './CoachScorecardGrid';
 
 interface PerSAMetric {
   saName: string;
@@ -69,6 +70,10 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
               <p className="text-[10px] text-white/30 mt-2 text-right">Close Rate = booked → any sale</p>
             </div>
           )}
+
+          <CoachScorecardGrid isPresentMode={true} />
+
+
 
           {previousCommitments && (
             <div className="bg-white/10 rounded-xl p-6">
@@ -139,6 +144,10 @@ export function WigSection({ closeRate, wigTarget, wigCommitments, previousCommi
               <p className="text-[9px] text-muted-foreground/60 px-2 pb-1 text-right">Close Rate = booked → any sale</p>
             </div>
           )}
+
+          <CoachScorecardGrid isPresentMode={false} />
+
+
 
           {previousCommitments && (
             <div className="p-3 bg-warning-dim dark:bg-warning/20 rounded-lg text-sm">
