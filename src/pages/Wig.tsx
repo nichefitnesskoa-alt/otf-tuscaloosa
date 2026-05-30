@@ -32,6 +32,7 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 
 export default function Wig() {
   const { user } = useAuth();
+  const { coaches: activeCoaches } = useActiveStaff();
   const { introsBooked, introsRun, isLoading, lastUpdated, refreshData, silentRefreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
   useRealtimeMyDay(useCallback(() => { silentRefreshData().catch(() => {}); }, [silentRefreshData]));
