@@ -69,7 +69,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { capitalizeName, getLocalDateString } from '@/lib/utils';
@@ -187,6 +188,7 @@ export async function syncIntroOwnerToBooking(
 export default function ClientJourneyPanel() {
   const { user } = useAuth();
   const { refreshData: refreshGlobalData } = useData();
+  const { allActive: ALL_STAFF, salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');

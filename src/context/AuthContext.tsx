@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { User, UserRole, COACHES, SALES_ASSOCIATES } from '@/types';
+import { User, UserRole } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
@@ -14,20 +14,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Determine role based on staff table, falling back to hardcoded lists.
+// Determine role based on staff table.
 // NOTE: 'Both' staff get the UNION of Coach + SA features (not Admin).
 // Admin access is gated by IDENTITY (Koa) below — never by role string.
+// Authoritative source = `staff` table. If a name is not in `staff`, default
+// to 'SA' (lowest privilege). No static fallback list — that drifts.
 function getRoleForName(name: string, staffRole?: string): UserRole {
-  if (staffRole) {
-    if (staffRole === 'Admin') return 'Admin';
-    if (staffRole === 'Coach') return 'Coach';
-    if (staffRole === 'Both') return 'Both';
-    return 'SA';
-  }
-  // Fallback for legacy
+  if (staffRole === 'Admin') return 'Admin';
+  if (staffRole === 'Coach') return 'Coach';
+  if (staffRole === 'Both') return 'Both';
   if (name === 'Koa') return 'Admin';
-  if ((COACHES as readonly string[]).includes(name)) return 'Coach';
-  if ((SALES_ASSOCIATES as readonly string[]).includes(name)) return 'SA';
   return 'SA';
 }
 
