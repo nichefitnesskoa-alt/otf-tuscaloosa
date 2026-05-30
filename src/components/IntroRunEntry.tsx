@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, UserCheck, Calendar, Info, AlertTriangle, Phone, Lightbulb } from 'lucide-react';
 import BookedIntroSelector from './BookedIntroSelector';
 import { supabase } from '@/integrations/supabase/client';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { EirmaPlaybook } from '@/components/dashboard/EirmaPlaybook';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';

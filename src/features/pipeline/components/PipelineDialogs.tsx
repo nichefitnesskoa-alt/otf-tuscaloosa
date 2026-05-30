@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { ALL_STAFF, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
