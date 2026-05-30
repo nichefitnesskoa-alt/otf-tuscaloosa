@@ -119,9 +119,13 @@ export default function Leads() {
             .maybeSingle();
 
           if (isBought || saleRun) {
-            // Already purchased → delete the lead entirely
-            await supabase.from('lead_activities').delete().eq('lead_id', lead.id);
-            await supabase.from('leads').delete().eq('id', lead.id);
+            // Soft-archive: flip stage to 'already_in_system' instead of hard-deleting.
+            // Preserves lead history + lead_activities trail for reporting/audit.
+            // Active lead queries filter on stage so the lead drops off the queue.
+            await supabase.from('leads').update({
+              stage: 'already_in_system',
+              lost_reason: 'Duplicate of purchased member — auto-cleaned',
+            }).eq('id', lead.id);
           } else {
             // Active booking → set to "booked" stage (not DNC)
             await supabase.from('leads').update({
