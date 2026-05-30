@@ -462,7 +462,7 @@ export function useDashboardMetrics(
       const existing = leadSourceMap.get(source) || { source, booked: 0, showed: 0, sold: 0, revenue: 0, bookedPeople: [], showedPeople: [], soldPeople: [] };
       existing.sold++;
       existing.revenue += run.commission_amount || 0;
-      const buyDate = run.buy_date || run.run_date || run.created_at.split('T')[0];
+      const buyDate = getRunSaleDate(run);
       existing.soldPeople.push({ name: run.member_name, date: buyDate, detail: run.result || undefined });
       leadSourceMap.set(source, existing);
     });
