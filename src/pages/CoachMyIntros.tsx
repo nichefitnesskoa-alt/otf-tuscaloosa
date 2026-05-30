@@ -358,7 +358,7 @@ export default function CoachMyIntros() {
     if (chainBookingIds.size > 0) {
       const { data: chainRuns } = await supabase
         .from('intros_run')
-        .select('linked_intro_booked_id, result, result_canon')
+        .select('linked_intro_booked_id, result, result_canon, buy_date')
         .in('linked_intro_booked_id', Array.from(chainBookingIds));
       (chainRuns || []).forEach((r: any) => {
         if (!r.linked_intro_booked_id) return;
