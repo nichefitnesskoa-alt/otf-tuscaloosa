@@ -103,6 +103,7 @@ export function ClassMilestoneChecks() {
     if (error) { toast.error('Could not save check'); return; }
     toast.success('Milestones checked');
     load();
+    notifyDataChanged(['class_milestone_checks', 'wig'], 'milestone-checked');
   };
 
   const handleUndo = async (row: CheckRow) => {
@@ -117,6 +118,7 @@ export function ClassMilestoneChecks() {
     setBusy(null);
     if (error) { toast.error('Could not undo'); return; }
     load();
+    notifyDataChanged(['class_milestone_checks', 'wig'], 'milestone-unchecked');
   };
 
   if (classTimes.length === 0) return null;
