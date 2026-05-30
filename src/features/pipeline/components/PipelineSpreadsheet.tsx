@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, isPostDatedSale } from '@/lib/sales-detection';
 import { isVipBooking } from '@/lib/vip/vipRules';
 
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
