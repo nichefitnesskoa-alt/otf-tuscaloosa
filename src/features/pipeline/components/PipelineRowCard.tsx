@@ -291,15 +291,26 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Badge
-                          variant={isMembershipSale(r.result) ? 'default' : 'outline'}
-                          className={isMembershipSale(r.result) ? 'bg-success' : ''}
-                        >
-                          {r.result}
-                        </Badge>
-                        {(r.commission_amount || 0) > 0 && (
-                          <span className="text-success font-medium">${r.commission_amount}</span>
-                        )}
+                        {(() => {
+                          const isSale = isMembershipSale(r.result);
+                          const postDated = isSale && isPostDatedSale(r as any);
+                          return (
+                            <>
+                              <Badge
+                                variant={isSale && !postDated ? 'default' : 'outline'}
+                                className={isSale && !postDated ? 'bg-success' : postDated ? 'bg-warning text-white border-warning' : ''}
+                              >
+                                {postDated ? `Pending · buys ${r.buy_date}` : r.result}
+                              </Badge>
+                              {(r.commission_amount || 0) > 0 && !postDated && (
+                                <span className="text-success font-medium">${r.commission_amount}</span>
+                              )}
+                              {postDated && (r.commission_amount || 0) > 0 && (
+                                <span className="text-warning font-medium" title="Commission lands on buy date">${r.commission_amount}</span>
+                              )}
+                            </>
+                          );
+                        })()}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
