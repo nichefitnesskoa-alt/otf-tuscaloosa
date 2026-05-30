@@ -6,13 +6,14 @@ import { PeerEvaluations } from '@/components/scorecard/PeerEvaluations';
 import { useScorecards } from '@/hooks/useScorecards';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { format } from 'date-fns';
 
 export default function CoachDetail() {
   const { coachName: raw } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { coaches } = useActiveStaff();
   const coachName = decodeURIComponent(raw || '');
 
   // Coaches (and Both) can only view their own page; Koa sees anyone.
@@ -50,7 +51,7 @@ export default function CoachDetail() {
       <CoachDashboard
         coachName={coachName}
         allowPicker={isAdmin}
-        coaches={[...COACHES]}
+        coaches={coaches}
       />
       <PeerEvaluations coachName={coachName} />
     </div>

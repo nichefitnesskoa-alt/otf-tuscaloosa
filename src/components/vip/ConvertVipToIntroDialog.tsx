@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 
 interface ConvertVipToIntroDialogProps {
   open: boolean;
@@ -38,6 +38,7 @@ export function ConvertVipToIntroDialog({
   open, onOpenChange, vipBooking, registrationId, referredByMember, onConverted,
 }: ConvertVipToIntroDialogProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [classDate, setClassDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [introTime, setIntroTime] = useState('');
   const [coachName, setCoachName] = useState(vipBooking.coach_name || 'TBD');

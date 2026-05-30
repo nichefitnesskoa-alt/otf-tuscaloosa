@@ -1,12 +1,12 @@
 import { useAuth } from '@/context/AuthContext';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
 import { useParams } from 'react-router-dom';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 
 export default function CoachScorecards() {
   const { user } = useAuth();
   const { who } = useParams();
-  const coaches = [...COACHES];
+  const { coaches } = useActiveStaff();
   const isKoa = user?.name === 'Koa';
   const isBoth = user?.role === 'Both';
   const isCoach = user?.role === 'Coach';

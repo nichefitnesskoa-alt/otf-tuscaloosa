@@ -31,7 +31,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
-import { ALL_STAFF, COACHES, SALES_ASSOCIATES } from '@/types';
+import { ALL_STAFF } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 
@@ -127,6 +128,7 @@ function StatusBadge({ status, group }: { status: string; group: string | null }
 
 export function VipSchedulerTab() {
   const { user } = useAuth();
+  const { coaches: COACHES, salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
   const [sessions, setSessions] = useState<VipSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
