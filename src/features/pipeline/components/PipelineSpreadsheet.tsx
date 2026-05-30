@@ -74,8 +74,13 @@ function QStatusPill({ status }: { status: 'complete' | 'not_answered' | 'not_se
   return <Badge className="bg-danger-dim text-white text-[10px] px-1.5">Not Sent</Badge>;
 }
 
-function OutcomeBadge({ result }: { result: string }) {
-  if (isMembershipSale(result)) return <Badge className="bg-success-dim text-white text-[10px]">Sold</Badge>;
+function OutcomeBadge({ result, run }: { result: string; run?: { result?: string | null; result_canon?: string | null; buy_date?: string | null } }) {
+  if (isMembershipSale(result)) {
+    if (run && isPostDatedSale(run)) {
+      return <Badge className="bg-warning-dim text-white text-[10px]" title={`Buys ${run.buy_date}`}>Pending</Badge>;
+    }
+    return <Badge className="bg-success-dim text-white text-[10px]">Sold</Badge>;
+  }
   if (result === 'No-show') return <Badge variant="destructive" className="text-[10px]">No Show</Badge>;
   if (result === "Didn't Buy" || result === 'Follow-up needed') return <Badge className="bg-warning-dim text-white text-[10px]">Follow-up</Badge>;
   if (result === 'Follow-up needed' || result === 'Booked 2nd intro') return <Badge className="bg-neutral-dim text-white text-[10px]">Follow-up</Badge>;
