@@ -2,7 +2,7 @@
  * Pure selector functions for Pipeline data.
  * No Supabase calls. Only transforms.
  */
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, isEffectiveSale } from '@/lib/sales-detection';
 import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { capitalizeNameOrNull, getLocalDateString } from './helpers';
 import type {
