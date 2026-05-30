@@ -31,7 +31,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
-import { ALL_STAFF } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
