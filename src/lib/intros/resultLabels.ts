@@ -7,7 +7,7 @@
  *   NOT_INTERESTED, ON_5_CLASS_PACK, PREMIER, PREMIER_OTBEAT, ELITE, BASIC,
  *   NO_SHOW, VIP_CLASS_INTRO, UNRESOLVED
  */
-import { isMembershipSale, SALE_CANONS, isSaleCanon } from '@/lib/sales-detection';
+import { isMembershipSale, SALE_CANONS, isSaleCanon, isPostDatedSale } from '@/lib/sales-detection';
 
 // Re-export so existing imports from this module keep working.
 export { SALE_CANONS, isSaleCanon };
