@@ -6,7 +6,7 @@ import {
   EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
   isPurchased, isNoShow,
 } from '@/lib/studio-metrics';
-import { isMembershipSale, getRunSaleDate } from '@/lib/sales-detection';
+import { isMembershipSale, isSaleCanon, getRunSaleDate } from '@/lib/sales-detection';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 /* ------------------------------------------------------------------ */
