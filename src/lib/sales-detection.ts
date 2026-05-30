@@ -10,6 +10,7 @@
 
 import { DateRange } from '@/lib/pay-period';
 import { parseLocalDate } from '@/lib/utils';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { isWithinInterval } from 'date-fns';
 
 /**
@@ -38,6 +39,36 @@ export const isMembershipSale = (result: string): boolean => {
   const lower = (result || '').toLowerCase();
   return ['premier', 'elite', 'basic'].some(m => lower.includes(m));
 };
+
+/**
+ * Post-dated sale: row is a sale, but buy_date is strictly after today (CST).
+ * Until buy_date arrives, the sale should NOT count anywhere — close rate,
+ * WIG, today's commission feeds, pipeline "sold" buckets, etc.
+ * Pass `asOfYMD` (YYYY-MM-DD) to override "today" for tests.
+ */
+export function isPostDatedSale(
+  run: { result?: string | null; result_canon?: string | null; buy_date?: string | null },
+  asOfYMD?: string,
+): boolean {
+  const isSale = isSaleCanon(run.result_canon) || isMembershipSale(run.result || '');
+  if (!isSale) return false;
+  if (!run.buy_date) return false;
+  const today = asOfYMD || getTodayYMD();
+  return run.buy_date > today;
+}
+
+/**
+ * Effective sale: a true sale that is NOT post-dated. Use this anywhere the
+ * code asks "is this run currently a sale?" without an explicit date range.
+ */
+export function isEffectiveSale(
+  run: { result?: string | null; result_canon?: string | null; buy_date?: string | null },
+  asOfYMD?: string,
+): boolean {
+  const isSale = isSaleCanon(run.result_canon) || isMembershipSale(run.result || '');
+  if (!isSale) return false;
+  return !isPostDatedSale(run, asOfYMD);
+}
 
 /**
  * Get the effective date for a sale/run, with proper fallback chain.

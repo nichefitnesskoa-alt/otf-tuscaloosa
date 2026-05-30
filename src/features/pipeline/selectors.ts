@@ -2,7 +2,7 @@
  * Pure selector functions for Pipeline data.
  * No Supabase calls. Only transforms.
  */
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, isEffectiveSale } from '@/lib/sales-detection';
 import { didIntroActuallyRun, NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
 import { capitalizeNameOrNull, getLocalDateString } from './helpers';
 import type {
@@ -79,7 +79,9 @@ export function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): b
 }
 
 function hasPurchasedMembership(journey: ClientJourney): boolean {
-  const hasSaleResult = journey.runs.some(r => isMembershipSale(r.result));
+  // Use isEffectiveSale so post-dated memberships (buy_date in future) don't
+  // count as purchased until their buy_date arrives.
+  const hasSaleResult = journey.runs.some(r => isEffectiveSale(r));
   const hasClosedBooking = journey.bookings.some(
     b => b.booking_status_canon === 'CLOSED_PURCHASED' || b.booking_status === 'Closed (Purchased)'
   );
@@ -135,7 +137,7 @@ export function buildJourneys(
 
     // Determine status using canon fields first
     let status: ClientJourney['status'] = 'unknown';
-    const hasSale = data.runs.some(r => isMembershipSale(r.result));
+    const hasSale = data.runs.some(r => isEffectiveSale(r));
     const hasNotInterested = data.bookings.some(
       b => b.booking_status_canon === 'NOT_INTERESTED' || b.booking_status === 'Not interested'
     );
@@ -195,7 +197,7 @@ export function computeTabCounts(journeys: ClientJourney[]): TabCounts {
   journeys.forEach(journey => {
     counts.all++;
     counts.by_lead_source++;
-    if (journey.runs.some(r => isMembershipSale(r.result))) counts.sales++;
+    if (journey.runs.some(r => isEffectiveSale(r))) counts.sales++;
 
     const latestActiveBooking = journey.bookings.find(
       b => b.booking_status_canon === 'ACTIVE' || !b.booking_status || b.booking_status === 'Active'
