@@ -137,8 +137,10 @@ export function isMembershipSaleResult(result: IntroResult): boolean {
 export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
   switch (result) {
     case 'PREMIER':
+    case 'PREMIER_OTBEAT':
     case 'ELITE':
     case 'BASIC':
+    case 'SALE':
       return 'CLOSED_PURCHASED';
     case 'NO_SHOW':
       return 'ACTIVE'; // keeps them available for rebooking
@@ -149,17 +151,21 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
     case 'SECOND_INTRO_SCHEDULED':
       return 'SECOND_INTRO_SCHEDULED';
     case 'FOLLOW_UP_NEEDED':
-      return 'ACTIVE';
+      return 'FOLLOW_UP_NEEDED';
     case 'PLANNING_2ND_INTRO':
-      return 'ACTIVE';
+      return 'PLANNING_2ND_INTRO';
     case 'PLANNING_TO_BUY':
-      return 'ACTIVE';
+      return 'PLANNING_TO_BUY';
     case 'ON_5_CLASS_PACK':
-      return 'ACTIVE';
+      // NOT a sale — free trial pack gifted by a current member.
+      // Must never map to CLOSED_PURCHASED.
+      return 'ON_5_CLASS_PACK';
     case 'PLANNING_RESCHEDULE':
       return 'PLANNING_RESCHEDULE';
     case 'VIP_CLASS_INTRO':
       return 'NOT_INTERESTED';
+    case 'DELETED':
+      return 'DELETED_SOFT';
     case 'UNRESOLVED':
     default:
       return 'ACTIVE';
