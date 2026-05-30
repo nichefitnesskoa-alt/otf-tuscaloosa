@@ -14,7 +14,9 @@ import {
 import { format } from 'date-fns';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
+import { CoachScorecardGrid } from './CoachScorecardGrid';
 import { useFvTrendData, type UnscoredIntro } from '@/hooks/useFvTrendData';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import {
   type DatePreset,
   type DateRange,
@@ -23,33 +25,21 @@ import {
 } from '@/lib/pay-period';
 import {
   cadenceDotStatus,
-  buildTrendPoints,
-  pickBucketSize,
-  applyMovingAverage,
   type EvalPrimary,
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
-import { colorForCoach } from '@/lib/coachColors';
 import { useAuth } from '@/context/AuthContext';
 import { canScore } from '@/lib/auth/roles';
-
-const STUDIO_KEY = '__studio__';
-const STUDIO_COLOR = 'hsl(var(--brand))'; // OTF orange — reserved for studio overall
-
-type ChartMode = 'avg' | 'closed';
 
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const range = useMemo(() => getDateRangeForPreset(preset, customRange) || getCurrentPayPeriod(), [preset, customRange]);
 
-  const [smoothed, setSmoothed] = useState(false);
   const [primary, setPrimary] = useState<EvalPrimary>('self');
-  const [chartMode, setChartMode] = useState<ChartMode>('avg');
-  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -57,48 +47,15 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const navigate = useNavigate();
   const { user } = useAuth();
   const userCanScore = canScore(user);
+  const { coaches: activeCoachList } = useActiveStaff();
+  const activeCoachSet = useMemo(() => new Set(activeCoachList), [activeCoachList]);
 
-  const { data, isLoading } = useFvTrendData(range, primary, smoothed);
+  const { data, isLoading } = useFvTrendData(range, primary, false);
   const hasAnyScorecards = data.scorecards.length > 0;
   const hasAnyRan = data.ranByCoach.size > 0;
   const isEmptyRange = !isLoading && !hasAnyScorecards && !hasAnyRan;
 
-  // Count submitted scorecards of the active primary type — drives empty state.
-  const primaryTypeCount = useMemo(() => {
-    const t = primary === 'self' ? 'self_eval' : 'formal_eval';
-    return data.scorecards.filter(s => s.submitted_at && s.eval_type === t).length;
-  }, [data.scorecards, primary]);
 
-  // Per-coach closed/not-closed cards & trend points (Closed chart mode).
-  const closedByCoach = useMemo(() => {
-    const map = new Map<string, FvScorecard[]>();
-    data.closedCards.forEach(c => {
-      const k = c.evaluatee_name || 'Unknown';
-      const arr = map.get(k) || [];
-      arr.push(c);
-      map.set(k, arr);
-    });
-    return map;
-  }, [data.closedCards]);
-
-  const perCoachClosedPoints = useMemo(() => {
-    const size = pickBucketSize(range);
-    const out = new Map<string, TrendPoint[]>();
-    closedByCoach.forEach((cards, coach) => {
-      let pts = buildTrendPoints(cards, range, size);
-      if (smoothed) pts = applyMovingAverage(pts, 4);
-      out.set(coach, pts);
-    });
-    return out;
-  }, [closedByCoach, range, smoothed]);
-
-  const toggleSeries = (key: string) => {
-    setHiddenSeries(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
 
   return (
