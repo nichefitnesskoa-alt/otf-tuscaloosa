@@ -222,7 +222,7 @@ export function computeFunnelBothRows(
     if (r.linked_intro_booked_id && !activeBookingIds.has(r.linked_intro_booked_id)) return;
 
     const key = resolveRunKey(r);
-    const buyDate = r.buy_date || r.run_date || r.created_at.split('T')[0];
+    const buyDate = getRunSaleDate(r);
     const allRunDates = (personRunDates.get(key) || []).sort();
     const runsBeforePurchase = allRunDates.filter(rd => rd <= buyDate).length;
     const isSecond = runsBeforePurchase >= 2 || personHasSecondBooking.get(key) === true;
