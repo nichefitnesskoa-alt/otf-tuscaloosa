@@ -4,6 +4,7 @@
  * Priority: phone > email > name+date > name only
  */
 import { supabase } from '@/integrations/supabase/client';
+import { isSaleCanon } from '@/lib/sales-detection';
 
 export type DuplicateConfidence = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
 export type DuplicateMatchType = 'phone' | 'email' | 'name_date' | 'name_only' | null;
