@@ -141,6 +141,7 @@ export default function Leads() {
       if (cleaned > 0) {
         toast.success(`${cleaned} duplicate${cleaned > 1 ? 's' : ''} cleaned`);
         refresh();
+        notifyDataChanged(['leads', 'intros_booked'], 'duplicate-cleaner');
       } else {
         toast.info('No duplicates found');
       }
