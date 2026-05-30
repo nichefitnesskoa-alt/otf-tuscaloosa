@@ -20,8 +20,7 @@ import { IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
 import { isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { isMembershipSale, isSaleInRange } from '@/lib/sales-detection';
-import { isCloseRun } from '@/lib/intros/close-detection';
+import { isSaleInRange } from '@/lib/sales-detection';
 
 interface CoachStats {
   coachName: string;
