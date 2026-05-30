@@ -393,7 +393,7 @@ export default function Wig() {
         for (const batch of childBatches) {
           const { data: rows } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, result, result_canon')
+            .select('linked_intro_booked_id, result, result_canon, buy_date')
             .in('linked_intro_booked_id', batch);
           (rows || []).forEach(r => candidateRuns.push(r));
         }
@@ -445,7 +445,7 @@ export default function Wig() {
         for (const batch of runBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, result, result_canon, coach_name, run_date, created_at')
+            .select('linked_intro_booked_id, result, result_canon, coach_name, buy_date, run_date, created_at')
             .in('linked_intro_booked_id', batch);
           (runs || []).forEach((r: any) => {
             if (r.result_canon === 'NO_SHOW' || r.result_canon === 'UNRESOLVED') return;
@@ -532,7 +532,7 @@ export default function Wig() {
             const batch2 = allSecondIds.slice(i, i + 500);
             const { data: secondRuns } = await supabase
               .from('intros_run')
-              .select('linked_intro_booked_id, result, result_canon')
+              .select('linked_intro_booked_id, result, result_canon, buy_date')
               .in('linked_intro_booked_id', batch2);
             (secondRuns || []).forEach((r2: any) => {
               if (isCloseRun(r2)) {
@@ -554,7 +554,7 @@ export default function Wig() {
         for (const batch of closeBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, coach_name, result, result_canon')
+            .select('linked_intro_booked_id, coach_name, result, result_canon, buy_date')
             .in('linked_intro_booked_id', batch)
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
