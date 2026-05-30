@@ -191,9 +191,17 @@ export function InlineIntroLogger({
       if (outcome === 'purchased' && commissionAmount > 0) {
         const saleId = `run_${introRunId}`;
         try {
-          await closeBookingOnSale(memberName, commissionAmount, membershipType, saleId, bookingId, saName);
+          const closeRes = await closeBookingOnSale(memberName, commissionAmount, membershipType, saleId, bookingId, saName);
+          if (!closeRes.success) {
+            toast.error(`Auto-close failed for ${memberName}`, {
+              description: closeRes.error || 'The sale was logged, but the booking status did not update. Fix it on the Pipeline page.',
+            });
+          }
         } catch (e) {
           console.error('Error in closeBookingOnSale:', e);
+          toast.error(`Auto-close failed for ${memberName}`, {
+            description: 'The sale was logged, but the booking status did not update. Fix it on the Pipeline page.',
+          });
         }
 
         // Match lead as won

@@ -806,7 +806,7 @@ export default function ShiftRecap() {
             // Auto-link matching lead as won
             await matchLeadByName(run.memberName, linkedBookingId, 'won', run.leadSource);
             
-            await closeBookingOnSale(
+            const closeRes = await closeBookingOnSale(
               run.memberName,
               commissionAmount,
               run.outcome,
@@ -814,6 +814,11 @@ export default function ShiftRecap() {
               linkedBookingId,
               user?.name || 'System'
             );
+            if (!closeRes.success) {
+              toast.error(`Auto-close failed for ${run.memberName}`, {
+                description: closeRes.error || 'Sale logged but booking status did not update. Fix it on Pipeline.',
+              });
+            }
 
             // Auto-increment AMC (only for eligible sales)
             if (isAmcEligibleSale({ membershipType: run.outcome, leadSource: run.leadSource || '' })) {
@@ -897,7 +902,11 @@ export default function ShiftRecap() {
                 user?.name || 'System'
               );
 
-              if (closeResult.requiresConfirmation && closeResult.matches) {
+              if (!closeResult.success) {
+                toast.error(`Auto-close failed for ${sale.memberName}`, {
+                  description: closeResult.error || 'Sale logged but booking status did not update. Fix it on Pipeline.',
+                });
+              } else if (closeResult.requiresConfirmation && closeResult.matches) {
                 setShowConfirmDialog(true);
               }
             }

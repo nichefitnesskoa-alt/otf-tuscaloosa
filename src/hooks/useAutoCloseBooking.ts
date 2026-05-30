@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 
 interface MatchingBooking {
   booking_id: string;
@@ -20,6 +21,21 @@ interface AutoCloseResult {
   requiresConfirmation?: boolean;
   matches?: MatchingBooking[];
   error?: string;
+}
+
+/**
+ * Canonical close payload. Every write branch in this hook MUST use this
+ * shape — booking_status_canon is 'CLOSED_PURCHASED' (the value every
+ * reader keys on across Pipeline, My Day, Follow-Up, WIG, close-rate
+ * selectors, and duplicate detection). The literal 'closed' is not a
+ * canon value and is read by nothing.
+ */
+function buildClosePayload(changedBy: string) {
+  return {
+    booking_status_canon: 'CLOSED_PURCHASED' as const,
+    closed_at: new Date().toISOString(),
+    closed_by: changedBy,
+  };
 }
 
 export function useAutoCloseBooking() {
@@ -53,11 +69,7 @@ export function useAutoCloseBooking() {
         // Close directly in DB
         const { error } = await supabase
           .from('intros_booked')
-          .update({
-            booking_status_canon: 'closed',
-            closed_at: new Date().toISOString(),
-            closed_by: changedBy,
-          })
+          .update(buildClosePayload(changedBy))
           .eq('id', relatedBookingId);
 
         if (error) throw error;
@@ -67,16 +79,19 @@ export function useAutoCloseBooking() {
           description: 'Removed from booked intros.',
         });
 
+        notifyDataChanged(['intros_booked', 'intros_run', 'wig'], 'auto-close:direct');
         return { success: true, closedCount: 1 };
       }
 
-      // Find matching bookings by member name in DB
+      // Find matching ACTIVE bookings by member name. DB only stores 'ACTIVE'
+      // (uppercase) on booking_status_canon — the previous lowercase 'active'
+      // entry was dead.
       const memberKey = normalizeName(memberName);
       const { data: matches, error: matchError } = await supabase
         .from('intros_booked')
         .select('id, member_name, class_date, intro_time, lead_source')
         .ilike('member_name', `%${memberName}%`)
-        .in('booking_status_canon', ['active', 'ACTIVE'])
+        .eq('booking_status_canon', 'ACTIVE')
         .is('deleted_at', null);
 
       if (matchError) throw matchError;
@@ -88,11 +103,7 @@ export function useAutoCloseBooking() {
       if (matches.length === 1) {
         const { error } = await supabase
           .from('intros_booked')
-          .update({
-            booking_status_canon: 'closed',
-            closed_at: new Date().toISOString(),
-            closed_by: changedBy,
-          })
+          .update(buildClosePayload(changedBy))
           .eq('id', matches[0].id);
 
         if (error) throw error;
@@ -102,6 +113,7 @@ export function useAutoCloseBooking() {
           description: 'Removed from booked intros.',
         });
 
+        notifyDataChanged(['intros_booked', 'intros_run', 'wig'], 'auto-close:name-match');
         return { success: true, closedCount: 1 };
       }
 
@@ -147,11 +159,7 @@ export function useAutoCloseBooking() {
     try {
       const { error } = await supabase
         .from('intros_booked')
-        .update({
-          booking_status_canon: 'closed',
-          closed_at: new Date().toISOString(),
-          closed_by: pendingSaleInfo.changedBy,
-        })
+        .update(buildClosePayload(pendingSaleInfo.changedBy))
         .eq('id', bookingId);
 
       if (error) throw error;
@@ -164,6 +172,7 @@ export function useAutoCloseBooking() {
       setPendingMatches(null);
       setPendingSaleInfo(null);
 
+      notifyDataChanged(['intros_booked', 'intros_run', 'wig'], 'auto-close:confirm');
       return { success: true, closedCount: 1 };
 
     } catch (err) {
