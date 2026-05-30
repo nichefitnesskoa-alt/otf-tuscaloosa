@@ -58,6 +58,11 @@ const queryClient = new QueryClient({
   },
 });
 
+// Register with the global invalidation bus so notifyDataChanged() can
+// invalidate React Query keys alongside DataContext refreshes.
+import { registerQueryClient } from '@/lib/data/invalidation';
+registerQueryClient(queryClient);
+
 function ProtectedRoute({ children, requireAdmin, blockCoach }: { children: React.ReactNode; requireAdmin?: boolean; blockCoach?: boolean }) {
   const { isAuthenticated, canAccessAdmin, user } = useAuth();
   

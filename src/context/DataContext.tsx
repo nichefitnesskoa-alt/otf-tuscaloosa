@@ -218,11 +218,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-refresh when a booking is added anywhere in the app
+  // Auto-refresh on global data-change signals (walk-ins, soft-deletes, edits).
+  // Two event names for back-compat: the legacy 'myday:walk-in-added' and the
+  // canonical 'app:data-changed' fired by notifyDataChanged().
   useEffect(() => {
-    const handleBookingAdded = () => fetchData();
+    const handleBookingAdded = () => fetchData(true);
     window.addEventListener('myday:walk-in-added', handleBookingAdded);
-    return () => window.removeEventListener('myday:walk-in-added', handleBookingAdded);
+    window.addEventListener('app:data-changed', handleBookingAdded);
+    return () => {
+      window.removeEventListener('myday:walk-in-added', handleBookingAdded);
+      window.removeEventListener('app:data-changed', handleBookingAdded);
+    };
   }, [fetchData]);
 
   // Auto-sync when coming back online

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Tables } from '@/integrations/supabase/types';
@@ -140,6 +141,7 @@ export default function Leads() {
       if (cleaned > 0) {
         toast.success(`${cleaned} duplicate${cleaned > 1 ? 's' : ''} cleaned`);
         refresh();
+        notifyDataChanged(['leads', 'intros_booked'], 'duplicate-cleaner');
       } else {
         toast.info('No duplicates found');
       }
