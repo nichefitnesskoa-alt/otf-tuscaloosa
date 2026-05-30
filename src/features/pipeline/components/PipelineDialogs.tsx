@@ -4,6 +4,7 @@
  * Booking field edits flow through pipelineActions → updateBookingFieldsFromPipeline.
  */
 import { useState } from 'react';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 import { format } from 'date-fns';
 import { formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 import { Button } from '@/components/ui/button';
