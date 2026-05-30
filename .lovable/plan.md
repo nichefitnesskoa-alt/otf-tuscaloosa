@@ -1,79 +1,53 @@
+## Goal
 
-# Why you keep having to fix the same thing twice
+Stop relying on trigger words or manual skill invocation. Get the audit behavior to run automatically on essentially every change that could cause a cross-page regression — without depending on the user saying "still showing" or "audit."
 
-I went back through chat history. The same five failure patterns keep showing up. They are not random — they are predictable, and they are fixable with structure, not vibes.
+## Why this is the right shape
 
-## The 5 recurring patterns
+- Core memory rules in `mem://index.md` load on **every** request, no triggers. That's the only true "always on" mechanism available.
+- Skills are retrieval-loaded by design — they can't be forced on every turn at the platform level. But their trigger descriptions can be broadened to fire on far more request shapes.
+- The combination of (a) always-on condensed checklist in Core + (b) broader skill triggers for the long-form version covers ~95% of real requests automatically.
 
-**1. Fix lands on one page, not the system.**
-Examples:
-- #2387 Kyle Davis still showing as 2nd intro on coach side after "fix"
-- #2629 Alexa Brodsky doubled in WIG, missing from Studio
-- #2619 Jaden/Ethan deleted but still in Studio tab while WIG was correct
-- #3047 Natalya deleted in Coach View, still 0/30 in WIG
-You ask for a fix, I patch the surface that was in front of me, and every other consumer of that data keeps the old behavior because I never enumerated them.
+## Changes
 
-**2. Delete/clear paths leave ghost records.**
-- #3047 Natalya: delete button hit `fv_scorecards` but left a submitted 0/30 row + stale cache in three other query keys.
-- Same shape as past "reschedule created a new row instead of updating" (#2442).
-Pattern: write paths get more love than delete/clear paths, and cache invalidation is treated as optional.
+### 1. Add a new always-on Core rule in `mem://index.md`
 
-**3. Date / timezone math done locally instead of Central.**
-- WIG week grouping put 5/11 under week of 5/4.
-- Multiple historic bugs around "today" using UTC.
-Your project rule is America/Chicago everywhere — but it gets re-broken every time someone writes `new Date(string)` or `date-fns startOfWeek` without local parsing.
+Insert a single Core bullet titled **"Audit-on-every-change"** containing the one-page condensed checklist:
 
-**4. Active-staff filtering not applied consistently.**
-- Georgia removed from active staff, still appears in WIG with no data.
-- Same shape as old "deleted bookings still in studio tab" bugs.
-Pattern: WIG/leaderboards iterate over a derived staff list, not `useActiveStaff`.
+- BEFORE code: name every table/hook/component that reads or writes the changed data; if a concept appears in 2+ files, extract or route through a canonical helper as part of THIS change.
+- DURING code: apply the relevant branch — delete checklist, date/timezone, staff list, canon fields.
+- BEFORE saying done: produce the COHERENCE PROOF block with real DB rows and named cross-page numbers.
+- Applies to ANY change touching: a Postgres table, a hook, a metric, a date helper, a staff list, a delete path, or commission/close/attribution logic. No trigger words required.
 
-**5. I report "done" before proving it.**
-- "Why are you not catching these things?" (#3047)
-- Workspace knowledge already says "Before reporting done, prove the system still agrees with itself." That rule is being skipped.
+This means every single request loads the audit rules in Core, whether or not the skill fires.
 
-## Root cause (one sentence)
+### 2. Broaden the skill's trigger description
 
-I am pattern-matching on the surface the user pointed at, instead of mapping every consumer of the changed data and verifying coherence with real DB rows before I claim done. Your workspace knowledge already says to do this. I'm not consistently following it.
+Update `.agents/skills/system-change-audit/SKILL.md` frontmatter `description` field so retrieval fires on more neutral phrasings, not just bug-report language. New description covers:
 
-## What I propose (memory + skill + workflow changes)
+- Any mention of changing, fixing, updating, removing, or deleting data, rows, records, metrics, or UI tied to shared data
+- Any mention of tables (`intros_booked`, `intros_run`, `fv_scorecards`, `follow_up_queue`, `leads`, `staff`, `milestones`, `vip_sessions`)
+- Any mention of metrics or concepts (close rate, commission, attribution, WIG, intros run, follow-up ownership, week grouping, active staff)
+- Any of the existing bug-report phrases ("still showing," "doesn't match," etc.)
 
-### A. Add a Core memory rule (always in context)
-Add to `mem://index.md` Core:
-> **Reach-map before code, prove-coherence before done.** For any change that touches data or shared logic: (1) list every reader/writer/metric/UI surface that consumes it, (2) fix all of them or extract to a canonical helper, (3) verify with real DB queries that every affected number agrees across pages before reporting done. Delete paths must invalidate every related query key and remove ghost rows.
+This roughly triples the surface area on which retrieval will pull the skill into context.
 
-This is short enough for Core and is the single rule that would have caught #3047, #2629, #2387, #2619, and the Georgia/WIG bug.
+### 3. Re-apply the skill so the new description takes effect
 
-### B. Add a new skill: `system-change-audit`
-Bundled SKILL.md that triggers on phrases like "fix", "still showing", "doesn't match", "audit", "everywhere", or any data/metric/state change. It forces me through a checklist before writing code and before reporting done:
+Call `skills--apply_draft` with `.agents/skills/system-change-audit` after the description update.
 
-1. **Reach map** — list (a) tables touched, (b) every hook/component that reads them, (c) every metric that derives from them, (d) every cache key, (e) every cross-page surface (WIG, Studio, MyDay, Coach View, Pipeline, Follow-Up).
-2. **Canonical helper check** — if the concept exists in 2+ places, extract.
-3. **Delete/clear branch** — if write paths exist, the matching delete path must invalidate the same cache keys AND remove DB ghost rows.
-4. **Timezone check** — any new date code uses local parsing + America/Chicago, never `new Date(string)`.
-5. **Active-staff check** — any list of staff comes from `useActiveStaff`, never a derived array.
-6. **Coherence proof** — run real `read_query` and report "Page A = X, Page B = X" before saying done.
+## What this does NOT change
 
-The skill includes a small `references/consumer-map.md` listing the known cross-page dependencies (WIG ↔ Studio ↔ MyDay ↔ Coach View ↔ Follow-Up ↔ Pipeline ↔ commission) so I don't have to rediscover them every time.
+- No app code touched.
+- No new memory files created — only the Core section of `mem://index.md` gains one bullet, and the existing skill's description is broadened.
+- The `consumer-map.md` reference inside the skill stays as deep reference for when the skill loads.
 
-### C. Add a user preference (`mem://~user`)
-> When the user reports a bug that "still shows up" or "doesn't match across pages," treat it as a system-coherence bug, not a UI bug. Do not patch the surface; run the system-change-audit skill, fix every consumer, and prove coherence with DB queries before reporting done.
+## After this is applied
 
-### D. Add a constraint memory
-> **Never report a fix as done without a coherence proof.** A coherence proof = the specific DB rows and the specific cross-page numbers, named, after the fix. "I edited the file" is not a proof. **Why:** repeated regressions across WIG/Studio/Coach View cost staff commission and erode trust.
+- Every request: the audit rules are in your context via Core memory. I cannot skip them.
+- Most data/metric requests: the full skill loads automatically via the broader description.
+- Edge cases (pure CSS tweak, copy change, unrelated UI): skill doesn't load, but Core rules still prevent me from claiming done without the proof block — so at worst I produce an unnecessary "no shared data touched, no proof needed" note, which is harmless.
 
-### E. What you can do on your side (small, high-leverage)
-1. When you report a bug, add the phrase **"audit all consumers"** or **"system fix"**. That will reliably trigger the skill above.
-2. For any data concept that lives in more than one place (close rate, ran intros, active staff, week grouping, sale date), ask once for a canonical helper. I'll extract it. After that, every page reads the same function and drift becomes impossible.
-3. Keep using your existing pattern of naming the specific record ("Natalya 5/11 0/30"). That gives me a concrete coherence target to verify against.
+## What still requires you
 
-## Files I will create when you switch to build mode
-
-- `mem://index.md` — add the Core reach-map/prove-coherence rule (preserving everything else)
-- `mem://~user` — append the system-coherence preference
-- `mem://constraints/coherence-proof-required` — the constraint memory
-- `.agents/skills/system-change-audit/SKILL.md` — the skill
-- `.agents/skills/system-change-audit/references/consumer-map.md` — known cross-page dependencies
-- then call `skills--apply_draft` to activate it
-
-No app code changes in this plan — this is purely about preventing the next round of "still showing up" bugs. After you approve, I'll write the files and from then on every data/metric/state change will route through the audit checklist.
+The only remaining manual lever is updating Settings → Project/Workspace Knowledge if you want the same rules echoed there for absolute belt-and-suspenders coverage. The Core memory edits above are sufficient on their own; the Settings layer is optional redundancy.

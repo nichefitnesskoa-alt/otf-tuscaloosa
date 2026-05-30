@@ -1,6 +1,6 @@
 ---
 name: system-change-audit
-description: Use whenever a change touches shared data, a metric, a derived state, or a delete/clear path, or when the user reports a bug with phrasing like "still showing", "doesn't match", "you didn't catch", "everywhere", "across all tabs", "audit", or "system fix". Forces a reach-map before code and a coherence proof before done so fixes don't land on one page while other consumers keep the old behavior.
+description: Use on ANY change, fix, update, refactor, delete, clear, archive, or rename that touches Postgres tables (intros_booked, intros_run, fv_scorecards, follow_up_queue, leads, staff, milestones, vip_sessions, monthly_lead_totals, shift_task_completions), hooks/queries, React Query cache keys, dates/weeks/pay-periods, staff/coach/SA lists, or any metric/concept (close rate, commission, attribution, WIG, intros run/booked, follow-up ownership, week grouping, active staff, sales, lead source). Also use when the user reports bugs with phrasing like "still showing", "doesn't match", "you didn't catch", "everywhere", "across all tabs", "audit", "system fix", "off by", "ghost", "missing", or names any cross-page surface (WIG, Studio, Coach View, MyDay, Pipeline, Follow-Up, Commission, Leaderboard). Forces a reach-map before code and a COHERENCE PROOF before done so fixes don't land on one page while other consumers keep the old behavior.
 ---
 
 # System Change Audit
