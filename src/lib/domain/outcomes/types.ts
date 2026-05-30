@@ -14,12 +14,18 @@ export type BookingStatus =
   | 'CLOSED_DIDNT_BUY'
   | 'CANCELLED'
   | 'DELETED_SOFT'
-  | 'PLANNING_RESCHEDULE';
+  | 'PLANNING_RESCHEDULE'
+  | 'ON_5_CLASS_PACK'
+  | 'FOLLOW_UP_NEEDED'
+  | 'PLANNING_2ND_INTRO'
+  | 'PLANNING_TO_BUY';
 
 export type IntroResult =
   | 'PREMIER'
+  | 'PREMIER_OTBEAT'
   | 'ELITE'
   | 'BASIC'
+  | 'SALE'
   | 'NO_SHOW'
   | 'DIDNT_BUY'
   | 'NOT_INTERESTED'
@@ -30,6 +36,7 @@ export type IntroResult =
   | 'ON_5_CLASS_PACK'
   | 'PLANNING_RESCHEDULE'
   | 'VIP_CLASS_INTRO'
+  | 'DELETED'
   | 'UNRESOLVED';
 
 // ── Normalizers ──
