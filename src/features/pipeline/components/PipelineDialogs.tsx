@@ -102,14 +102,21 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
   // Initialize state when dialog opens
   const isOpen = type !== null;
 
-  // Shared save wrapper
+  // Shared save wrapper. After every successful mutation we refetch the
+  // pipeline data AND broadcast on the global bus so React Query consumers
+  // (scorecards, theTable, follow-up hooks) invalidate alongside DataContext.
   const withSave = async (fn: () => Promise<void>) => {
     setIsSaving(true);
-    try { await fn(); await onRefresh(); } catch (e: any) {
+    try {
+      await fn();
+      await onRefresh();
+      notifyDataChanged(undefined, 'pipeline-dialog');
+    } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Action failed');
     } finally { setIsSaving(false); }
   };
+
 
   // ── EDIT BOOKING ──
   if (type === 'edit_booking' && booking) {
