@@ -121,8 +121,12 @@ export default function MyDayPage() {
 
   // Fallback: fetch booking from DB when not in current week's introsBooked (e.g. follow-up items)
   const [fallbackBooking, setFallbackBooking] = useState<any>(null);
+  // Boolean-ify localOutcomeBooking so reference churn from introsBooked refreshes
+  // doesn't re-fire this effect (which would re-fetch and create a new fallbackBooking
+  // ref → re-render → loop).
+  const hasLocalOutcomeBooking = !!localOutcomeBooking;
   useEffect(() => {
-    if (!outcomeBookingId || localOutcomeBooking) {
+    if (!outcomeBookingId || hasLocalOutcomeBooking) {
       setFallbackBooking(null);
       return;
     }
@@ -134,7 +138,7 @@ export default function MyDayPage() {
         .maybeSingle();
       setFallbackBooking(data);
     })();
-  }, [outcomeBookingId, localOutcomeBooking]);
+  }, [outcomeBookingId, hasLocalOutcomeBooking]);
 
   const outcomeBooking = localOutcomeBooking || fallbackBooking;
   
@@ -231,10 +235,16 @@ export default function MyDayPage() {
     // Check intelligence dismissal for today
     const todayKey = `si-dismissed-${getTodayYMD()}`;
     setIntelligenceDismissed(localStorage.getItem(todayKey) === 'true');
+    // fetchMetrics intentionally omitted — it's stable via useCallback on the same primitive deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.name, user?.id]);
 
+  // Stable primitive deps only — never depend on the user object reference, which
+  // changes on every AuthContext re-render and would cause an infinite refetch loop.
+  const userName = user?.name ?? '';
+  const userId = user?.id ?? '';
   const fetchMetrics = useCallback(async () => {
-    if (!user?.name) return;
+    if (!userName) return;
     try {
       const today = getTodayYMD();
       const todayStart = getTodayStartISO();
@@ -243,7 +253,7 @@ export default function MyDayPage() {
         .from('script_actions')
         .select('action_type')
         .gte('completed_at', todayStart)
-        .eq('completed_by', user.name);
+        .eq('completed_by', userName);
       setTodayScriptsSent((actionsData || []).filter(a => a.action_type === 'script_sent').length);
 
       const { count: fuSentCount } = await supabase
@@ -265,7 +275,7 @@ export default function MyDayPage() {
     } catch (err) {
       console.error('MyDay metrics fetch error:', err);
     }
-  }, [user?.name, user?.id]);
+  }, [userName, userId]);
 
 
   // Build script merge context for ScriptPickerSheet
