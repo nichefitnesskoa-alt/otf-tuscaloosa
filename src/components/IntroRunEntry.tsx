@@ -95,6 +95,7 @@ interface IntroRunEntryProps {
 }
 
 export default function IntroRunEntry({ intro, index, onUpdate, onRemove, currentUserName = 'SA' }: IntroRunEntryProps) {
+  const { coaches: COACHES } = useActiveStaff();
   const [entryMode, setEntryMode] = useState<'select' | 'manual'>('select');
   const [show2ndIntroPrompt, setShow2ndIntroPrompt] = useState(false);
   const [selectedBookingNeedsCoach, setSelectedBookingNeedsCoach] = useState(false);

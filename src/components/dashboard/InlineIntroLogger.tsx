@@ -55,6 +55,7 @@ export function InlineIntroLogger({
   const { user } = useAuth();
   const { refreshData } = useData();
   const { closeBookingOnSale } = useAutoCloseBooking();
+  const { coaches: COACHES } = useActiveStaff();
   const [outcome, setOutcome] = useState<string>('');
   const [objection, setObjection] = useState<string>('');
   const [membershipType, setMembershipType] = useState<string>('');

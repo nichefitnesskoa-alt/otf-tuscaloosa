@@ -50,6 +50,7 @@ function isReferralSource(source: string): boolean {
 
 export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroSheetProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');

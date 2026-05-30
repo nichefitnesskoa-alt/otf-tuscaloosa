@@ -260,6 +260,7 @@ export default function IntroCard({
 }: IntroCardProps) {
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
+  const { coaches: COACHES } = useActiveStaff();
 
   // VIP picker state — opens after lead source becomes VIP, or via affordance
   const [vipPickerOpen, setVipPickerOpen] = useState(false);

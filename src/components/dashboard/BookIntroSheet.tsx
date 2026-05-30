@@ -60,6 +60,7 @@ interface SearchResult {
 
 export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, prefillLastName, prefillPhone, prefillLeadSource, prefillVipSessionId, prefillCoach }: BookIntroSheetProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');

@@ -66,6 +66,7 @@ export default function IntroBookingEntry({
   onInstantSubmit,
 }: IntroBookingEntryProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [selectedClient, setSelectedClient] = useState<PotentialMatch | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);

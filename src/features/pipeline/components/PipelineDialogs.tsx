@@ -61,6 +61,7 @@ interface Props {
 export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isOnline, userName }: Props) {
   const { type, booking, run, journey } = dialogState;
   const [isSaving, setIsSaving] = useState(false);
+  const { salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
 
   // Edit booking state
   const [editBooking, setEditBooking] = useState<PipelineBooking | null>(null);
