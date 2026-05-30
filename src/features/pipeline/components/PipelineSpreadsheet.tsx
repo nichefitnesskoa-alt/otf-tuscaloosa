@@ -433,7 +433,7 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
             <Checkbox checked={(b as any)?.prepped === true} onCheckedChange={handlePreppedToggle} />
           </div>
         );
-      case 'outcome': return r ? <OutcomeBadge result={r.result} /> : <span className="text-xs text-muted-foreground">—</span>;
+      case 'outcome': return r ? <OutcomeBadge result={r.result} run={r} /> : <span className="text-xs text-muted-foreground">—</span>;
       case 'membership': return r && isMembershipSale(r.result) ? <span className="text-xs">{r.result}</span> : <span className="text-xs">—</span>;
       case 'commission': return r && (r.commission_amount || 0) > 0 ? <span className="text-xs text-success font-medium">${r.commission_amount}</span> : <span className="text-xs">—</span>;
       case 'status': {
@@ -760,7 +760,7 @@ function ExpandedRowDetail({
                     className="cursor-pointer hover:opacity-80 transition-opacity"
                     title="Tap to change outcome"
                   >
-                    <OutcomeBadge result={r.result} />
+                    <OutcomeBadge result={r.result} run={r} />
                   </button>
                   {/* Inline commission edit (admin only) */}
                   {isAdmin && editingCommission === r.id ? (
@@ -955,7 +955,7 @@ function BySourceTable({
                   <div key={j.memberKey} className="text-xs flex items-center gap-3 p-1.5 bg-background rounded border">
                     <span className="font-medium w-[150px] truncate">{j.memberName}</span>
                     <span className="text-muted-foreground w-[100px]">{b?.class_date || '—'}</span>
-                    {r ? <OutcomeBadge result={r.result} /> : <span className="text-muted-foreground">No run</span>}
+                    {r ? <OutcomeBadge result={r.result} run={r} /> : <span className="text-muted-foreground">No run</span>}
                     {(r?.commission_amount || 0) > 0 && <span className="text-success">${r?.commission_amount}</span>}
                   </div>
                 );
