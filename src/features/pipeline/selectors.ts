@@ -137,7 +137,7 @@ export function buildJourneys(
 
     // Determine status using canon fields first
     let status: ClientJourney['status'] = 'unknown';
-    const hasSale = data.runs.some(r => isMembershipSale(r.result));
+    const hasSale = data.runs.some(r => isEffectiveSale(r));
     const hasNotInterested = data.bookings.some(
       b => b.booking_status_canon === 'NOT_INTERESTED' || b.booking_status === 'Not interested'
     );
