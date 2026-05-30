@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { ALL_STAFF, LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
@@ -60,6 +61,7 @@ interface Props {
 export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isOnline, userName }: Props) {
   const { type, booking, run, journey } = dialogState;
   const [isSaving, setIsSaving] = useState(false);
+  const { salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
 
   // Edit booking state
   const [editBooking, setEditBooking] = useState<PipelineBooking | null>(null);

@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { getLocalDateString } from '@/lib/utils';
-import { ALL_STAFF } from '@/types';
+
 import { CalendarPlus, Loader2 } from 'lucide-react';
 import { DatePickerField, ClassTimeSelect } from '@/components/shared/FormHelpers';
 

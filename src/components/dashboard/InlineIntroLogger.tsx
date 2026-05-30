@@ -12,7 +12,7 @@ import { AlertTriangle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAutoCloseBooking } from '@/hooks/useAutoCloseBooking';
 import { applyIntroOutcomeUpdate } from '@/lib/outcome-update';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 
 interface InlineIntroLoggerProps {
   bookingId: string;
@@ -55,6 +55,7 @@ export function InlineIntroLogger({
   const { user } = useAuth();
   const { refreshData } = useData();
   const { closeBookingOnSale } = useAutoCloseBooking();
+  const { coaches: COACHES } = useActiveStaff();
   const [outcome, setOutcome] = useState<string>('');
   const [objection, setObjection] = useState<string>('');
   const [membershipType, setMembershipType] = useState<string>('');

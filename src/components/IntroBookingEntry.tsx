@@ -18,7 +18,8 @@ import QuestionnaireLink from './QuestionnaireLink';
 import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { useAuth } from '@/context/AuthContext';
-import { LEAD_SOURCES, COACHES } from '@/types';
+import { LEAD_SOURCES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { format, parseISO, isToday, isTomorrow } from 'date-fns';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
 
@@ -65,6 +66,7 @@ export default function IntroBookingEntry({
   onInstantSubmit,
 }: IntroBookingEntryProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [dismissedWarning, setDismissedWarning] = useState(false);
   const [selectedClient, setSelectedClient] = useState<PotentialMatch | null>(null);
   const [showRescheduleDialog, setShowRescheduleDialog] = useState(false);

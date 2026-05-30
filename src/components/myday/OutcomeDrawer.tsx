@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { applyIntroOutcomeUpdate } from '@/lib/domain/outcomes/applyIntroOutcomeUpdate';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { computeCommission, isSaleOutcome } from '@/lib/outcomes/commissionRules';
 import { formatDateShort, formatTime12h } from '@/lib/datetime/formatTime';
@@ -117,6 +117,7 @@ export function OutcomeDrawer({
   onCancel,
 }: OutcomeDrawerProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [outcome, setOutcome] = useState(currentResult || '');
   const [objection, setObjection] = useState(initialObjection);
   const [notes, setNotes] = useState(initialNotes);

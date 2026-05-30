@@ -25,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 
 
@@ -58,6 +58,7 @@ interface FollowUpsDueTodayProps {
 export function FollowUpsDueToday({ onRefresh, onCountChange }: FollowUpsDueTodayProps) {
   const { user } = useAuth();
   const { data: templates = [] } = useScriptTemplates();
+  const { coaches: COACHES } = useActiveStaff();
   const [items, setItems] = useState<FollowUpItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scriptItem, setScriptItem] = useState<FollowUpItem | null>(null);

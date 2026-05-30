@@ -18,7 +18,8 @@ import { autoComplete2ndIntroFollowups } from '@/lib/domain/outcomes/autoComplet
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { COACHES, LEAD_SOURCES } from '@/types';
+import { LEAD_SOURCES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Users, Search, X } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
@@ -59,6 +60,7 @@ interface SearchResult {
 
 export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, prefillLastName, prefillPhone, prefillLeadSource, prefillVipSessionId, prefillCoach }: BookIntroSheetProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');

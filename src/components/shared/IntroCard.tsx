@@ -11,7 +11,8 @@ import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { PhoneLink } from '@/components/shared/PhoneLink';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { COACHES, LEAD_SOURCES, CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
+import { LEAD_SOURCES, CLASS_TIMES, CLASS_TIME_LABELS } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -259,6 +260,7 @@ export default function IntroCard({
 }: IntroCardProps) {
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
+  const { coaches: COACHES } = useActiveStaff();
 
   // VIP picker state — opens after lead source becomes VIP, or via affordance
   const [vipPickerOpen, setVipPickerOpen] = useState(false);
