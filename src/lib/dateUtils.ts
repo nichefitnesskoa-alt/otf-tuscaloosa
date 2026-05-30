@@ -73,6 +73,20 @@ export function localDateToEndISO(ymd: string): string {
   return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
 }
 
+/**
+ * Parse a YYYY-MM-DD (or YYYY-MM-DDT…) string as a LOCAL Date.
+ * Use this everywhere instead of `new Date('YYYY-MM-DD')`, which is
+ * interpreted as UTC midnight and shifts to the previous day in CT.
+ * If `s` is null/empty/invalid, returns null.
+ */
+export function parseLocalDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const ymd = s.slice(0, 10);
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 12, 0, 0, 0); // noon to dodge DST edges
+}
+
 /** Returns current month as YYYY-MM in Central Time */
 export function getCurrentMonthYear(): string {
   return format(getNowCentral(), 'yyyy-MM');
