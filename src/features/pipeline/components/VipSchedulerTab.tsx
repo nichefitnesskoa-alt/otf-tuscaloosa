@@ -128,6 +128,7 @@ function StatusBadge({ status, group }: { status: string; group: string | null }
 
 export function VipSchedulerTab() {
   const { user } = useAuth();
+  const { coaches: COACHES, salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
   const [sessions, setSessions] = useState<VipSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
