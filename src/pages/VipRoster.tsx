@@ -5,6 +5,7 @@ import { Loader2, Users } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 const OTF_ORANGE = '#FF6900';
 const sb = supabase as any;
@@ -103,7 +104,7 @@ export default function VipRoster() {
           </h1>
           {session && (
             <p className="text-sm" style={{ color: '#555' }}>
-              {format(new Date(session.session_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')} at {formatDisplayTime(session.session_time)}
+              {format(parseLocalDate(session.session_date) ?? new Date(), 'EEEE, MMMM d, yyyy')} at {formatDisplayTime(session.session_time)}
             </p>
           )}
         </div>

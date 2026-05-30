@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, addDays, subWeeks, subDays, startOfDay } from 'date-fns';
-import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
+import { localDateToStartISO, localDateToEndISO, parseLocalDate } from '@/lib/dateUtils';
 import {
   EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
   isPurchased, isNoShow,
@@ -210,9 +210,11 @@ export function useGenerateAgenda() {
       }
 
       // Previous period for comparison
-      const prevEnd = subDays(new Date(startStr + 'T12:00:00'), 1);
+      const startLocal = parseLocalDate(startStr) ?? new Date();
+      const endLocal = parseLocalDate(endStr) ?? new Date();
+      const prevEnd = subDays(startLocal, 1);
       const dayCount = Math.round(
-        (new Date(endStr + 'T12:00:00').getTime() - new Date(startStr + 'T12:00:00').getTime()) / 86400000
+        (endLocal.getTime() - startLocal.getTime()) / 86400000
       );
       const prevStart = subDays(prevEnd, dayCount);
       const prevStartStr = format(prevStart, 'yyyy-MM-dd');

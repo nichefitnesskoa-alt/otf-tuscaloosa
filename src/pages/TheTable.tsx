@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { parseLocalDate } from '@/lib/dateUtils';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
@@ -176,14 +177,15 @@ export default function TheTable() {
       <div className="font-semibold mb-2 text-sm">Open from prior weeks ({carryForward.length})</div>
       <div className="space-y-1">
         {carryForward.slice(0, 6).map(a => {
-          const overdue = new Date(a.due_date) < new Date();
+          const dueDate = parseLocalDate(a.due_date);
+          const overdue = dueDate ? dueDate < new Date() : false;
           return (
             <div key={a.id} className="flex items-center justify-between text-sm border-b last:border-0 py-1">
               <div className="flex-1 truncate">
                 <span className="font-medium">{a.owner_name}:</span> {a.description}
               </div>
               <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
-                {format(new Date(a.due_date + 'T12:00:00'), 'MMM d')}
+                {dueDate ? format(dueDate, 'MMM d') : ''}
               </div>
               <Select value={a.status} onValueChange={async (v) => {
                 await supabase.from('table_action_items').update({ status: v }).eq('id', a.id);
@@ -349,7 +351,8 @@ export default function TheTable() {
         {actions.length === 0 && <div className="text-sm text-muted-foreground">No action items.</div>}
         <div className="space-y-1">
           {actions.map(a => {
-            const overdue = a.status !== 'done' && new Date(a.due_date) < new Date();
+            const dueDate = parseLocalDate(a.due_date);
+            const overdue = a.status !== 'done' && dueDate ? dueDate < new Date() : false;
             return (
               <div key={a.id} className="flex items-center justify-between gap-2 text-sm border-b last:border-0 py-2">
                 <div className="flex-1">
@@ -357,7 +360,7 @@ export default function TheTable() {
                   <div className="text-muted-foreground">{a.description}</div>
                 </div>
                 <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
-                  {format(new Date(a.due_date + 'T12:00:00'), 'MMM d')}
+                  {dueDate ? format(dueDate, 'MMM d') : ''}
                 </div>
                 <Select value={a.status} onValueChange={async (v) => {
                   await supabase.from('table_action_items').update({ status: v }).eq('id', a.id);

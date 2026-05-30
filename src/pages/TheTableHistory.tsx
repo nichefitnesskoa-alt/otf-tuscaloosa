@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { useNavigate } from 'react-router-dom';
 
 export default function TheTableHistory() {
@@ -50,7 +51,7 @@ export default function TheTableHistory() {
         <div className="space-y-2">
           {meetings.map((m: any) => (
             <Card key={m.id} className="p-3 cursor-pointer hover:border-brand" onClick={() => setSelected(m.id)}>
-              <div className="font-semibold">Own It — {format(new Date(m.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</div>
+              <div className="font-semibold">Own It — {format(parseLocalDate(m.meeting_date) ?? new Date(), 'MMM d, yyyy')}</div>
             </Card>
           ))}
           {meetings.length === 0 && <div className="text-muted-foreground text-center py-8">No completed meetings yet.</div>}
@@ -60,7 +61,7 @@ export default function TheTableHistory() {
       {selected && detail?.meeting && (
         <>
           <Button variant="ghost" size="sm" onClick={() => setSelected(null)} className="mb-3">← All meetings</Button>
-          <h2 className="text-xl font-bold mb-3">Own It — {format(new Date(detail.meeting.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</h2>
+          <h2 className="text-xl font-bold mb-3">Own It — {format(parseLocalDate(detail.meeting.meeting_date) ?? new Date(), 'MMM d, yyyy')}</h2>
           {detail.meeting.koa_open_note && <Card className="p-3 mb-3 border-2 border-brand/40 bg-brand/5"><div className="text-xs font-semibold uppercase mb-1 text-brand">Studio Leader Open</div>{detail.meeting.koa_open_note}</Card>}
           <div className="space-y-3">
             {detail.entries.filter((e: any) => !e.table_owners?.is_architect).map((e: any) => (
