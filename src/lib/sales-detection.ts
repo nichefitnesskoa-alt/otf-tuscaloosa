@@ -10,6 +10,7 @@
 
 import { DateRange } from '@/lib/pay-period';
 import { parseLocalDate } from '@/lib/utils';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { isWithinInterval } from 'date-fns';
 
 /**
