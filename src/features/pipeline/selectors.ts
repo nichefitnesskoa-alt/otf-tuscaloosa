@@ -79,7 +79,9 @@ export function isRealSecondIntro(b: PipelineBooking, journey: ClientJourney): b
 }
 
 function hasPurchasedMembership(journey: ClientJourney): boolean {
-  const hasSaleResult = journey.runs.some(r => isMembershipSale(r.result));
+  // Use isEffectiveSale so post-dated memberships (buy_date in future) don't
+  // count as purchased until their buy_date arrives.
+  const hasSaleResult = journey.runs.some(r => isEffectiveSale(r));
   const hasClosedBooking = journey.bookings.some(
     b => b.booking_status_canon === 'CLOSED_PURCHASED' || b.booking_status === 'Closed (Purchased)'
   );
