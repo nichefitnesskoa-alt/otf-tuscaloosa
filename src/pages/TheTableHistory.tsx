@@ -51,7 +51,7 @@ export default function TheTableHistory() {
         <div className="space-y-2">
           {meetings.map((m: any) => (
             <Card key={m.id} className="p-3 cursor-pointer hover:border-brand" onClick={() => setSelected(m.id)}>
-              <div className="font-semibold">Own It — {format(new Date(m.meeting_date + 'T12:00:00'), 'MMM d, yyyy')}</div>
+              <div className="font-semibold">Own It — {format(parseLocalDate(m.meeting_date) ?? new Date(), 'MMM d, yyyy')}</div>
             </Card>
           ))}
           {meetings.length === 0 && <div className="text-muted-foreground text-center py-8">No completed meetings yet.</div>}
