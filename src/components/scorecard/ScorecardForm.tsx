@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { canScore, canFormalEval } from '@/lib/auth/roles';
+import { canScore, canFormalEval, isAdmin } from '@/lib/auth/roles';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Trash2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -357,9 +359,48 @@ export function ScorecardFormBody(props: BodyProps) {
             {total >= 22 ? 'Level 3 — Studio Best' : total >= 12 ? 'Level 2 — Standard' : 'Level 1 — Foundation'}
           </span>
         </div>
-        <Button onClick={handleSubmit} disabled={submitting} className="bg-brand text-brand-foreground hover:bg-brand-hover font-bold" style={{ minHeight: '44px' }}>
-          {submitting ? 'Submitting…' : 'Submit Scorecard'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {scorecardId && isAdmin(user) && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive gap-1.5" style={{ minHeight: '44px' }}>
+                  <Trash2 className="w-4 h-4" /> Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this scorecard?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Removes the entire scorecard — as if it never happened. This can't be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      try {
+                        await supabase.from('fv_scorecard_bullets' as any).delete().eq('scorecard_id', scorecardId);
+                        await supabase.from('fv_scorecard_comments' as any).delete().eq('scorecard_id', scorecardId);
+                        const { error } = await supabase.from('fv_scorecards' as any).delete().eq('id', scorecardId);
+                        if (error) throw error;
+                        toast.success('Scorecard deleted');
+                        onSubmitted?.(scorecardId, level);
+                      } catch (e: any) {
+                        toast.error(e.message || 'Failed to delete');
+                      }
+                    }}
+                  >
+                    Delete scorecard
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Button onClick={handleSubmit} disabled={submitting} className="bg-brand text-brand-foreground hover:bg-brand-hover font-bold" style={{ minHeight: '44px' }}>
+            {submitting ? 'Submitting…' : 'Submit Scorecard'}
+          </Button>
+        </div>
       </div>
 
       {revealLevel && (
