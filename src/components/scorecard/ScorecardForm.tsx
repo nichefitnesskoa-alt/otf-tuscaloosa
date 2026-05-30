@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BULLETS, COLUMNS, CLASS_TYPES, scoreToLevel, bulletsToColumnScore, type ColumnKey, type ClassType, type EvalType } from '@/lib/scorecard/levels';
 import { BulletControl } from './BulletControl';
 import { ScoreReveal } from './ScoreReveal';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -59,6 +59,7 @@ export function ScorecardFormBody(props: BodyProps) {
   const [loadedSubmittedAt, setLoadedSubmittedAt] = useState<string | null>(null);
   const [loadedEvaluator, setLoadedEvaluator] = useState<string | null>(null);
 
+  const { coaches: COACHES } = useActiveStaff();
   const coachOptions = ['TBD', ...COACHES];
 
   useEffect(() => {
