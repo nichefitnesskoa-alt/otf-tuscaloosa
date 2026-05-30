@@ -1,340 +1,79 @@
-## What is actually wrong
 
-1. The “delete” button only invalidates the generic `fv_scorecards` query. The WIG section is powered by `fv_trend_scorecards`, and the inline Coach View is powered by the card’s resolved scorecard id. So after deletion, the UI can keep showing the old submitted scorecard from cached state.
-2. The current deleted/cleared Natalya record still exists in the database as a submitted `0/30` scorecard with zero bullets:
-  - `evaluatee_name = Natalya`
-  - `class_date = 2026-05-11`
-  - `total_score = 0`
-  - `submitted_at` is still present
-   That means WIG is correctly reading it as a real submitted scorecard unless we remove it.
-3. The week table is grouping with browser/local `date-fns` week math. The app requirement is Central Time, and this feature needs the label to be explicit: `Week starting 5/11`, with 5/11 through 5/17 intros in that column.
+# Why you keep having to fix the same thing twice
 
-## Files I will change
+I went back through chat history. The same five failure patterns keep showing up. They are not random — they are predictable, and they are fixable with structure, not vibes.
 
-- `src/components/scorecard/ScorecardForm.tsx`
-- `src/components/coach/CoachIntroCard.tsx`
-- `src/components/scorecard/UnscoredDrillDown.tsx`
-- `src/components/scorecard/CoachScorecardGrid.tsx`
-- possibly `src/lib/scorecard/trends.ts` only if needed to keep scorecard week logic canonical
+## The 5 recurring patterns
 
-## Implementation plan
+**1. Fix lands on one page, not the system.**
+Examples:
+- #2387 Kyle Davis still showing as 2nd intro on coach side after "fix"
+- #2629 Alexa Brodsky doubled in WIG, missing from Studio
+- #2619 Jaden/Ethan deleted but still in Studio tab while WIG was correct
+- #3047 Natalya deleted in Coach View, still 0/30 in WIG
+You ask for a fix, I patch the surface that was in front of me, and every other consumer of that data keeps the old behavior because I never enumerated them.
 
-1. **Make delete actually behave like “it never happened”**
-  - Keep the hard delete of `fv_scorecards`.
-  - After the delete succeeds, clear local form state so it no longer renders the deleted score as `0/30`.
-  - Change the callback contract so delete notifies parents as a delete event, not as a submitted score event.
-2. **Refresh every affected cache after delete**
-  - In Coach View, invalidate:
-    - `fv_scorecards`
-    - `fv_scorecard`
-    - `fv_trend_scorecards`
-    - `fv_trend_ran_first_intros`
-  - This ensures Coach View, WIG table, WIG tiles, drilldowns, and unscored counts all re-read the database after the delete.
-3. **Remove Natalya’s current bad submitted zero row**
-  - Delete the existing `fv_scorecards` row for Natalya on `2026-05-11` that has no bullets and `total_score = 0`.
-  - Because bullets/comments already cascade or are empty, this removes it from WIG entirely.
-4. **Fix WIG weekly grouping and labels**
-  - Replace the table header text from `wk 5/11` to `Week starting 5/11`.
-  - Use local date parsing for `class_date` everywhere in `CoachScorecardGrid` instead of ambiguous browser `Date` behavior.
-  - Make each week column cover exactly Monday 00:00 through Sunday 23:59 in local/Central business logic, so a `2026-05-11` scorecard lands under `Week starting 5/11`, not `5/4`.
-  - Update the drilldown label to match: `Natalya · Week starting 5/11`.
-5. **Verify with real data**
-  - Query the database to confirm Natalya no longer has the `2026-05-11` submitted `0/30` scorecard.
-  - Confirm the WIG scorecard query no longer returns that row.
-  - Confirm date math places `2026-05-11` in the week starting `5/11`.
+**2. Delete/clear paths leave ghost records.**
+- #3047 Natalya: delete button hit `fv_scorecards` but left a submitted 0/30 row + stale cache in three other query keys.
+- Same shape as past "reschedule created a new row instead of updating" (#2442).
+Pattern: write paths get more love than delete/clear paths, and cache invalidation is treated as optional.
 
-## Scope guard
+**3. Date / timezone math done locally instead of Central.**
+- WIG week grouping put 5/11 under week of 5/4.
+- Multiple historic bugs around "today" using UTC.
+Your project rule is America/Chicago everywhere — but it gets re-broken every time someone writes `new Date(string)` or `date-fns startOfWeek` without local parsing.
 
-No business logic, scoring formula, role logic, or UI redesign. This is strictly deletion correctness, cache invalidation, and week-start labeling/grouping.  
-  
-SCORECARD DELETE + WEEK GROUPING FIX
+**4. Active-staff filtering not applied consistently.**
+- Georgia removed from active staff, still appears in WIG with no data.
+- Same shape as old "deleted bookings still in studio tab" bugs.
+Pattern: WIG/leaderboards iterate over a derived staff list, not `useActiveStaff`.
 
-WHY THIS MATTERS
+**5. I report "done" before proving it.**
+- "Why are you not catching these things?" (#3047)
+- Workspace knowledge already says "Before reporting done, prove the system still agrees with itself." That rule is being skipped.
 
-The delete button on scorecards does not propagate correctly.
+## Root cause (one sentence)
 
-After deletion, WIG still shows 0/30 because the cache is not 
+I am pattern-matching on the surface the user pointed at, instead of mapping every consumer of the changed data and verifying coherence with real DB rows before I claim done. Your workspace knowledge already says to do this. I'm not consistently following it.
 
-fully invalidated and the bad database row still exists.
+## What I propose (memory + skill + workflow changes)
 
-The week grouping in the WIG table is also wrong — 5/11 shows 
+### A. Add a Core memory rule (always in context)
+Add to `mem://index.md` Core:
+> **Reach-map before code, prove-coherence before done.** For any change that touches data or shared logic: (1) list every reader/writer/metric/UI surface that consumes it, (2) fix all of them or extract to a canonical helper, (3) verify with real DB queries that every affected number agrees across pages before reporting done. Delete paths must invalidate every related query key and remove ghost rows.
 
-under week starting 5/4. Both need to be fixed together.
+This is short enough for Core and is the single rule that would have caught #3047, #2629, #2387, #2619, and the Georgia/WIG bug.
 
-SCOPE GUARD
+### B. Add a new skill: `system-change-audit`
+Bundled SKILL.md that triggers on phrases like "fix", "still showing", "doesn't match", "audit", "everywhere", or any data/metric/state change. It forces me through a checklist before writing code and before reporting done:
 
-No business logic changes. No scoring formula changes.
+1. **Reach map** — list (a) tables touched, (b) every hook/component that reads them, (c) every metric that derives from them, (d) every cache key, (e) every cross-page surface (WIG, Studio, MyDay, Coach View, Pipeline, Follow-Up).
+2. **Canonical helper check** — if the concept exists in 2+ places, extract.
+3. **Delete/clear branch** — if write paths exist, the matching delete path must invalidate the same cache keys AND remove DB ghost rows.
+4. **Timezone check** — any new date code uses local parsing + America/Chicago, never `new Date(string)`.
+5. **Active-staff check** — any list of staff comes from `useActiveStaff`, never a derived array.
+6. **Coherence proof** — run real `read_query` and report "Page A = X, Page B = X" before saying done.
 
-No role logic changes. No UI redesign.
+The skill includes a small `references/consumer-map.md` listing the known cross-page dependencies (WIG ↔ Studio ↔ MyDay ↔ Coach View ↔ Follow-Up ↔ Pipeline ↔ commission) so I don't have to rediscover them every time.
 
-Deletion correctness, cache invalidation, and week labeling only.
+### C. Add a user preference (`mem://~user`)
+> When the user reports a bug that "still shows up" or "doesn't match across pages," treat it as a system-coherence bug, not a UI bug. Do not patch the surface; run the system-change-audit skill, fix every consumer, and prove coherence with DB queries before reporting done.
 
-FILES IN SCOPE
+### D. Add a constraint memory
+> **Never report a fix as done without a coherence proof.** A coherence proof = the specific DB rows and the specific cross-page numbers, named, after the fix. "I edited the file" is not a proof. **Why:** repeated regressions across WIG/Studio/Coach View cost staff commission and erode trust.
 
-  src/components/scorecard/ScorecardForm.tsx
+### E. What you can do on your side (small, high-leverage)
+1. When you report a bug, add the phrase **"audit all consumers"** or **"system fix"**. That will reliably trigger the skill above.
+2. For any data concept that lives in more than one place (close rate, ran intros, active staff, week grouping, sale date), ask once for a canonical helper. I'll extract it. After that, every page reads the same function and drift becomes impossible.
+3. Keep using your existing pattern of naming the specific record ("Natalya 5/11 0/30"). That gives me a concrete coherence target to verify against.
 
-  src/components/coach/CoachIntroCard.tsx
+## Files I will create when you switch to build mode
 
-  src/components/scorecard/UnscoredDrillDown.tsx
+- `mem://index.md` — add the Core reach-map/prove-coherence rule (preserving everything else)
+- `mem://~user` — append the system-coherence preference
+- `mem://constraints/coherence-proof-required` — the constraint memory
+- `.agents/skills/system-change-audit/SKILL.md` — the skill
+- `.agents/skills/system-change-audit/references/consumer-map.md` — known cross-page dependencies
+- then call `skills--apply_draft` to activate it
 
-  src/components/scorecard/CoachScorecardGrid.tsx
-
-  src/lib/scorecard/trends.ts (only if needed for canonical 
-
-    week logic — do not change anything else in this file)
-
-─────────────────────────────────────────────
-
-FIX 1 — MAKE DELETE BEHAVE LIKE IT NEVER HAPPENED
-
-─────────────────────────────────────────────
-
-In ScorecardForm.tsx:
-
-  Keep the hard delete of fv_scorecards row.
-
-  After delete succeeds:
-
-    Clear all local form state so the component no longer 
-
-    renders the deleted score as 0/30.
-
-    The form should return to its pre-submission empty state.
-
-  
-
-  Change the delete callback contract:
-
-    The delete event must notify parent components as a 
-
-    DELETE event, not as a submitted score event.
-
-    Parent components that receive a delete notification 
-
-    must treat the scorecard as non-existent.
-
-    No 0/30 should ever propagate upward from a delete.
-
-─────────────────────────────────────────────
-
-FIX 2 — INVALIDATE ALL AFFECTED CACHES AFTER DELETE
-
-─────────────────────────────────────────────
-
-In CoachIntroCard.tsx after a successful delete:
-
-  Invalidate ALL of these query keys:
-
-    fv_scorecards
-
-    fv_scorecard
-
-    fv_trend_scorecards
-
-    fv_trend_ran_first_intros
-
-  
-
-  Do not invalidate only fv_scorecards.
-
-  All four must be invalidated together in the same 
-
-  onSuccess or onSettled callback.
-
-  
-
-  This ensures Coach View, WIG table, WIG tiles, 
-
-  drilldowns, and unscored counts all re-read the 
-
-  database immediately after deletion.
-
-In UnscoredDrillDown.tsx:
-
-  After receiving a delete notification from a child:
-
-    Invalidate the same four query keys.
-
-    Re-fetch unscored count.
-
-─────────────────────────────────────────────
-
-FIX 3 — DELETE NATALYA'S BAD DATABASE ROW
-
-─────────────────────────────────────────────
-
-There is currently a submitted fv_scorecards row with:
-
-  evaluatee_name = Natalya
-
-  class_date = 2026-05-11
-
-  total_score = 0
-
-  submitted_at is present (non-null)
-
-  bullet scores are all zero or empty
-
-This row must be deleted from the database.
-
-Use a Supabase migration or direct delete query:
-
-  DELETE FROM fv_scorecards 
-
-  WHERE evaluatee_name = 'Natalya'
-
-  AND class_date = '2026-05-11'
-
-  AND total_score = 0;
-
-After running this:
-
-  Verify the row no longer exists.
-
-  Verify the WIG scorecard query no longer returns 
-
-  any submitted scorecard for Natalya on 2026-05-11.
-
-  Verify WIG tiles and table no longer show 0/30 
-
-  for Natalya.
-
-─────────────────────────────────────────────
-
-FIX 4 — WIG WEEKLY GROUPING AND LABELS
-
-─────────────────────────────────────────────
-
-In CoachScorecardGrid.tsx:
-
-  PROBLEM: Week grouping uses ambiguous browser Date 
-
-  behavior that places 2026-05-11 under week of 5/4.
-
-  FIX: Replace all week math with explicit local date 
-
-  parsing. Do not use new Date(dateString) directly — 
-
-  parse the date string as local date explicitly to 
-
-  avoid timezone offset shifting the date.
-
-  Parse class_date strings as local dates:
-
-    const [year, month, day] = dateString.split('-').map(Number);
-
-    const localDate = new Date(year, month - 1, day);
-
-  
-
-  Week start calculation:
-
-    Each week starts on Monday.
-
-    For any given date, find the Monday of that week:
-
-      const dayOfWeek = localDate.getDay(); 
-
-        // 0=Sun, 1=Mon, ..., 6=Sat
-
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-
-      const weekStart = new Date(localDate);
-
-      weekStart.setDate(localDate.getDate() - daysToMonday);
-
-    
-
-    Use weekStart as the grouping key formatted as YYYY-MM-DD.
-
-  Verify: 2026-05-11 is a Monday.
-
-    dayOfWeek = 1, daysToMonday = 0.
-
-    weekStart = 2026-05-11.
-
-    This scorecard belongs to week starting 5/11. Correct.
-
-  Verify: 2026-05-08 is a Friday.
-
-    dayOfWeek = 5, daysToMonday = 4.
-
-    weekStart = 2026-05-04.
-
-    This scorecard belongs to week starting 5/4. Correct.
-
-  WEEK COLUMN HEADER LABEL:
-
-    Change from: "wk 5/11" or "5/11"
-
-    Change to: "Week starting 5/11"
-
-    Format: "Week starting M/D" where M and D have no 
-
-    leading zeros.
-
-  DRILLDOWN LABEL:
-
-    Update to match: "Natalya · Week starting 5/11"
-
-    Same format as column header.
-
-  INTRO MEMBERSHIP IN WEEK:
-
-    All intros with class_date falling between 
-
-    Monday 2026-05-11 and Sunday 2026-05-17 inclusive 
-
-    must appear in the "Week starting 5/11" column.
-
-    Use the same local date parsing for all intro dates.
-
-    Do not use UTC date comparison for any of this logic.
-
-─────────────────────────────────────────────
-
-DOWNSTREAM CHANGES — verify all before marking done
-
-─────────────────────────────────────────────
-
-A. Delete button in ScorecardForm clears local state 
-
-   after deletion. No 0/30 shown after delete.
-
-B. Delete notifies parents as DELETE event, not submit.
-
-C. Four query keys invalidated after every delete:
-
-   fv_scorecards, fv_scorecard, 
-
-   fv_trend_scorecards, fv_trend_ran_first_intros.
-
-D. Natalya's 2026-05-11 0/30 row deleted from database.
-
-   WIG no longer shows any submitted score for Natalya 
-
-   on that date.
-
-E. All class_date strings parsed as local dates in 
-
-   CoachScorecardGrid. No new Date(string) ambiguity.
-
-F. Week grouping uses Monday as week start.
-
-   2026-05-11 lands in Week starting 5/11.
-
-   2026-05-08 lands in Week starting 5/4.
-
-G. Week column headers read "Week starting M/D".
-
-H. Drilldown labels read "Coach · Week starting M/D".
-
-I. All intros between 5/11 and 5/17 appear in 
-
-   Week starting 5/11 column.
-
-J. No business logic, scoring formula, role logic, 
-
-   or UI redesign changes.
-
-K. No files outside the scope list touched.
+No app code changes in this plan — this is purely about preventing the next round of "still showing up" bugs. After you approve, I'll write the files and from then on every data/metric/state change will route through the audit checklist.
