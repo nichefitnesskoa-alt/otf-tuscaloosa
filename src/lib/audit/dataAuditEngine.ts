@@ -611,7 +611,7 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
         // Find runs with result_canon != UNRESOLVED linked to ACTIVE bookings
         const { data: runs } = await supabase
           .from('intros_run')
-          .select('id, linked_intro_booked_id, result_canon, result')
+          .select('id, linked_intro_booked_id, result_canon, result, run_date, buy_date, created_at')
           .not('result_canon', 'eq', 'UNRESOLVED')
           .not('linked_intro_booked_id', 'is', null)
           .eq('ignore_from_metrics', false)
@@ -630,15 +630,48 @@ export async function runAutomatedFix(fixAction: string): Promise<{ fixed: numbe
         const toFix = runs.filter(r => r.linked_intro_booked_id && activeIds.has(r.linked_intro_booked_id));
 
         let fixed = 0;
+        const skipped: Array<{ runId: string; result_canon: string | null; reason: string }> = [];
         for (const run of toFix) {
+          const rc = (run.result_canon || '').toUpperCase();
+
+          // SKIP run-only canons that have no booking_status_canon equivalent.
+          // Writing these raw is the bug that leaked PREMIER/ELITE/etc into booking_status_canon.
+          if (SKIP_RESULT_CANONS_FOR_BOOKING_SYNC.has(rc)) {
+            skipped.push({ runId: run.id, result_canon: rc, reason: 'no booking-status equivalent' });
+            continue;
+          }
+
+          // Route through the canonical mapper — never copy result_canon raw.
+          const mapped = mapResultToBookingStatus(rc as IntroResult);
+          if (!mapped) {
+            skipped.push({ runId: run.id, result_canon: rc, reason: 'unmapped by mapResultToBookingStatus' });
+            continue;
+          }
+
+          // If the mapper returns ACTIVE for an already-ACTIVE booking, nothing to sync.
+          if (mapped === 'ACTIVE') {
+            skipped.push({ runId: run.id, result_canon: rc, reason: 'maps to ACTIVE — no transition' });
+            continue;
+          }
+
+          const updates: Record<string, unknown> = {
+            booking_status: formatBookingStatusForDb(mapped),
+            booking_status_canon: mapped,
+          };
+          // Stamp close metadata for sale closes, consistent with the canonical close path.
+          if (mapped === 'CLOSED_PURCHASED') {
+            updates.closed_at = getRunSaleDate(run);
+            updates.closed_by = 'data-audit-autofix';
+          }
+
           const { error } = await supabase
             .from('intros_booked')
-            .update({
-              booking_status: run.result,
-              booking_status_canon: run.result_canon,
-            })
+            .update(updates)
             .eq('id', run.linked_intro_booked_id!);
           if (!error) fixed++;
+        }
+        if (skipped.length > 0) {
+          console.info('[audit:fix_outcome_status_sync] Skipped rows (no raw write):', skipped);
         }
         return { fixed };
       }
