@@ -210,9 +210,11 @@ export function useGenerateAgenda() {
       }
 
       // Previous period for comparison
-      const prevEnd = subDays(new Date(startStr + 'T12:00:00'), 1);
+      const startLocal = parseLocalDate(startStr) ?? new Date();
+      const endLocal = parseLocalDate(endStr) ?? new Date();
+      const prevEnd = subDays(startLocal, 1);
       const dayCount = Math.round(
-        (new Date(endStr + 'T12:00:00').getTime() - new Date(startStr + 'T12:00:00').getTime()) / 86400000
+        (endLocal.getTime() - startLocal.getTime()) / 86400000
       );
       const prevStart = subDays(prevEnd, dayCount);
       const prevStartStr = format(prevStart, 'yyyy-MM-dd');
