@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
-import { ALL_STAFF } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 
 export interface OutreachPerson {
@@ -35,10 +35,12 @@ interface UseLeadMeasuresOpts {
 export function useLeadMeasures(opts?: UseLeadMeasuresOpts) {
   const [data, setData] = useState<SALeadMeasure[]>([]);
   const [loading, setLoading] = useState(true);
+  const { allActive: ALL_STAFF, loading: staffLoading } = useActiveStaff();
 
   useEffect(() => {
+    if (staffLoading) return;
     load();
-  }, [opts?.startDate, opts?.endDate]);
+  }, [opts?.startDate, opts?.endDate, staffLoading]);
 
   const load = async () => {
     setLoading(true);

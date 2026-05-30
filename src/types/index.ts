@@ -8,19 +8,12 @@ export interface User {
   permissions?: Record<string, boolean>;
 }
 
-// Staff Data — ACTIVE STAFF ONLY (alphabetically sorted)
-// ⚠️ DEPRECATED — these constants are a static fallback. The real source of
-// truth is the `staff` table (is_active = true), read via `useActiveStaff`.
-// Values below were synced from DB on 2026-05-30. They WILL drift again the
-// next time anyone is hired or deactivated. Migrate consumers to
-// `useActiveStaff()` and delete these exports.
-export const COACHES = ['Jackson', 'James', 'Koa', 'Natalya', 'Nathan'] as const;
-export const SALES_ASSOCIATES = ['Ellie', 'Grace F', 'Jayna', 'Kaiya', 'Koa', 'Madison', 'Zoe'] as const;
-// Deduplicate staff who appear in both COACHES and SALES_ASSOCIATES
-const _allStaffSet = [...new Set([...COACHES, ...SALES_ASSOCIATES])].sort();
-export const ALL_STAFF = _allStaffSet as readonly string[];
-
-export type StaffName = typeof ALL_STAFF[number];
+// Staff data: live from the `staff` table via `useActiveStaff()`.
+// Static COACHES / SALES_ASSOCIATES / ALL_STAFF were removed 2026-05-30 —
+// they drifted from the DB whenever anyone was hired or deactivated.
+// Use `useActiveStaff()` in components/hooks. If you need a staff-name type,
+// use `string` (DB is the source of truth, not a TS literal union).
+export type StaffName = string;
 
 // Lead Sources (alphabetized)
 export const LEAD_SOURCES = [

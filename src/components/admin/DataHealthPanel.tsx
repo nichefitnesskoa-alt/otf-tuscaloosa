@@ -56,7 +56,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { ALL_STAFF, SALES_ASSOCIATES, LEAD_SOURCES } from '@/types';
+import { LEAD_SOURCES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DateRange } from '@/lib/pay-period';
 import { useAuth } from '@/context/AuthContext';
 import { capitalizeName, getLocalDateString } from '@/lib/utils';
@@ -114,6 +115,7 @@ const OUTCOME_NORMALIZATION: Record<string, string> = {
 
 export default function DataHealthPanel({ dateRange, onFixComplete }: DataHealthPanelProps) {
   const { user } = useAuth();
+  const { allActive: ALL_STAFF, salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<DataHealthStats | null>(null);
   const [issues, setIssues] = useState<DataHealthIssue[]>([]);

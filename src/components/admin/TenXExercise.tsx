@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { ALL_STAFF } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,7 @@ interface TenXIdea {
 
 export default function TenXExercise() {
   const { user } = useAuth();
+  const { allActive: ALL_STAFF } = useActiveStaff();
   const [session, setSession] = useState<TenXSession | null>(null);
   const [ideas, setIdeas] = useState<TenXIdea[]>([]);
   const [pastSessions, setPastSessions] = useState<TenXSession[]>([]);

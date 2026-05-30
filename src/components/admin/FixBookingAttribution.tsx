@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle, Loader2, Search, Wrench } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 
 import { toast } from 'sonner';
-import { SALES_ASSOCIATES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 
 interface MisattributedBooking {
   id: string;
@@ -24,6 +24,7 @@ interface FixBookingAttributionProps {
 }
 
 export default function FixBookingAttribution({ onFixComplete }: FixBookingAttributionProps) {
+  const { salesAssociates: SALES_ASSOCIATES } = useActiveStaff();
   const [isScanning, setIsScanning] = useState(false);
   const [isApplyingFixes, setIsApplyingFixes] = useState(false);
   const [misattributed, setMisattributed] = useState<MisattributedBooking[]>([]);
