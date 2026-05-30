@@ -202,7 +202,8 @@ export async function detectDuplicate(lead: {
 
   if (runs && runs.length > 0) {
     const r = runs[0];
-    const isPurchased = ['BASIC','PREMIER','ELITE','PREMIER_OTBEAT','ON_5_CLASS_PACK'].includes(r.result_canon);
+    // Canonical sale detection + explicit 5-class-pack (a purchase but not a membership sale).
+    const isPurchased = isSaleCanon(r.result_canon) || (r.result_canon || '').toUpperCase() === 'ON_5_CLASS_PACK';
     return {
       isDuplicate: true,
       confidence: 'MEDIUM',
