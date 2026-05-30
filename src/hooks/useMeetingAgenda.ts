@@ -125,9 +125,9 @@ function isRunDateInStrRange(runDate: string | null | undefined, startStr: strin
 }
 
 /** Check if a run qualifies as a sale within start/end date strings */
-function isSaleInStrRange(run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at?: string }, startStr: string, endStr: string): boolean {
-  if (!isMembershipSale(run.result || '')) return false;
-  const saleDate = run.buy_date || run.run_date || (run.created_at || '').split('T')[0];
+function isSaleInStrRange(run: { buy_date?: string | null; run_date?: string | null; result?: string; result_canon?: string | null; created_at?: string }, startStr: string, endStr: string): boolean {
+  if (!isMembershipSale(run.result || '') && !isSaleCanon(run.result_canon)) return false;
+  const saleDate = getRunSaleDate(run);
   if (!saleDate) return false;
   return saleDate >= startStr && saleDate <= endStr;
 }
