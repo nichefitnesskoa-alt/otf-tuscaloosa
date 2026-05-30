@@ -15,6 +15,7 @@ import { BulletControl } from './BulletControl';
 import { ScoreReveal } from './ScoreReveal';
 import { COACHES } from '@/types';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface BodyProps {
   firstTimerId?: string | null;
@@ -26,12 +27,16 @@ interface BodyProps {
   onEvalTypeChange?: (t: EvalType) => void;
   existingId?: string | null;
   onSubmitted?: (scorecardId: string, level: 1 | 2 | 3) => void;
+  /** Fires after a successful hard-delete. Distinct from onSubmitted so
+   *  parents don't treat a removed scorecard as a fresh 0/30 submission. */
+  onDeleted?: (scorecardId: string) => void;
   showEvalToggle?: boolean;
 }
 
 export function ScorecardFormBody(props: BodyProps) {
   const { user } = useAuth();
-  const { firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, onEvalTypeChange, existingId, onSubmitted, showEvalToggle } = props;
+  const { firstTimerId, defaultMemberName, defaultClassDate, defaultCoachName, defaultEvaluator, evalType, onEvalTypeChange, existingId, onSubmitted, onDeleted, showEvalToggle } = props;
+  const queryClient = useQueryClient();
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [scorecardId, setScorecardId] = useState<string | null>(existingId ?? null);
@@ -379,13 +384,30 @@ export function ScorecardFormBody(props: BodyProps) {
                   <AlertDialogAction
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     onClick={async () => {
+                      const deletedId = scorecardId;
+                      if (!deletedId) return;
                       try {
-                        await supabase.from('fv_scorecard_bullets' as any).delete().eq('scorecard_id', scorecardId);
-                        await supabase.from('fv_scorecard_comments' as any).delete().eq('scorecard_id', scorecardId);
-                        const { error } = await supabase.from('fv_scorecards' as any).delete().eq('id', scorecardId);
+                        await supabase.from('fv_scorecard_bullets' as any).delete().eq('scorecard_id', deletedId);
+                        await supabase.from('fv_scorecard_comments' as any).delete().eq('scorecard_id', deletedId);
+                        const { error } = await supabase.from('fv_scorecards' as any).delete().eq('id', deletedId);
                         if (error) throw error;
+                        // Wipe local state so the form returns to "never happened" instead of
+                        // re-rendering the cleared scorecard as a 0/30 submission.
+                        setScorecardId(null);
+                        setBullets({});
+                        setInteractionsNotes('');
+                        setOtbeatNotes('');
+                        setHandbackNotes('');
+                        setLoadedSubmittedAt(null);
+                        setLoadedEvaluator(null);
+                        // Invalidate every cache that surfaces this scorecard so WIG,
+                        // Coach View, drilldowns, and unscored counts all refresh.
+                        queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+                        queryClient.invalidateQueries({ queryKey: ['fv_scorecard'] });
+                        queryClient.invalidateQueries({ queryKey: ['fv_trend_scorecards'] });
+                        queryClient.invalidateQueries({ queryKey: ['fv_trend_ran_first_intros'] });
                         toast.success('Scorecard deleted');
-                        onSubmitted?.(scorecardId, level);
+                        onDeleted?.(deletedId);
                       } catch (e: any) {
                         toast.error(e.message || 'Failed to delete');
                       }
@@ -454,7 +476,12 @@ export function ScorecardForm(props: SheetProps) {
           <SheetTitle>{evalType === 'self_eval' ? 'Score Yourself' : 'Evaluate Coach'} — First Visit Experience</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
-          <ScorecardFormBody evalType={evalType} {...rest} onSubmitted={(id, lvl) => { rest.onSubmitted?.(id, lvl); }} />
+          <ScorecardFormBody
+            evalType={evalType}
+            {...rest}
+            onSubmitted={(id, lvl) => { rest.onSubmitted?.(id, lvl); }}
+            onDeleted={(id) => { rest.onDeleted?.(id); }}
+          />
         </div>
       </SheetContent>
     </Sheet>

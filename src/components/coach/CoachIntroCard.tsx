@@ -302,6 +302,15 @@ export function CoachIntroCard({ booking, questionnaire, onUpdateBooking, userNa
                 showEvalToggle={canFormalEval(user)}
                 onSubmitted={() => {
                   queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_scorecard'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_trend_scorecards'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_trend_ran_first_intros'] });
+                }}
+                onDeleted={() => {
+                  queryClient.invalidateQueries({ queryKey: ['fv_scorecards'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_scorecard'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_trend_scorecards'] });
+                  queryClient.invalidateQueries({ queryKey: ['fv_trend_ran_first_intros'] });
                 }}
               />
             </div>

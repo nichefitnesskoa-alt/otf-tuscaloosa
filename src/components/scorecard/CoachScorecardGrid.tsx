@@ -41,7 +41,7 @@ function buildWeeks(): WeekCol[] {
       start,
       end,
       key: format(start, 'yyyy-MM-dd'),
-      label: format(start, 'M/d'),
+      label: `Week of ${format(start, 'M/d')}`,
     };
   });
 }
@@ -94,7 +94,9 @@ export function CoachScorecardGrid({
       const coach = sc.evaluatee_name;
       if (!m.has(coach)) continue; // skip inactive / non-coach evaluatees
       const d = parseLocalDate(sc.class_date);
-      const wk = weeks.find(w => d >= w.start && d <= addDays(w.end, 1));
+      // Bucket by Mon–Sun (local). Use half-open interval [start, start+7) so
+      // a Monday class lands in its own week, not the previous one.
+      const wk = weeks.find(w => d >= w.start && d < addDays(w.start, 7));
       if (!wk) continue;
       const inner = m.get(coach)!;
       const arr = inner.get(wk.key) || [];
@@ -158,7 +160,7 @@ export function CoachScorecardGrid({
             <tr className="border-b border-white/20">
               <th className="text-left py-2 pr-3 text-white/60">Coach</th>
               {weeks.map(w => (
-                <th key={w.key} className="text-center py-2 px-2 text-white/60 whitespace-nowrap">wk {w.label}</th>
+                <th key={w.key} className="text-center py-2 px-2 text-white/60 whitespace-nowrap">{w.label}</th>
               ))}
             </tr>
           </thead>
@@ -192,7 +194,7 @@ export function CoachScorecardGrid({
             <th className="text-left py-2 px-2 font-medium text-muted-foreground">Coach</th>
             {weeks.map(w => (
               <th key={w.key} className="text-center py-2 px-2 font-medium text-muted-foreground whitespace-nowrap">
-                wk {w.label}
+                {w.label}
               </th>
             ))}
           </tr>
