@@ -121,8 +121,12 @@ export default function MyDayPage() {
 
   // Fallback: fetch booking from DB when not in current week's introsBooked (e.g. follow-up items)
   const [fallbackBooking, setFallbackBooking] = useState<any>(null);
+  // Boolean-ify localOutcomeBooking so reference churn from introsBooked refreshes
+  // doesn't re-fire this effect (which would re-fetch and create a new fallbackBooking
+  // ref → re-render → loop).
+  const hasLocalOutcomeBooking = !!localOutcomeBooking;
   useEffect(() => {
-    if (!outcomeBookingId || localOutcomeBooking) {
+    if (!outcomeBookingId || hasLocalOutcomeBooking) {
       setFallbackBooking(null);
       return;
     }
@@ -134,7 +138,7 @@ export default function MyDayPage() {
         .maybeSingle();
       setFallbackBooking(data);
     })();
-  }, [outcomeBookingId, localOutcomeBooking]);
+  }, [outcomeBookingId, hasLocalOutcomeBooking]);
 
   const outcomeBooking = localOutcomeBooking || fallbackBooking;
   
