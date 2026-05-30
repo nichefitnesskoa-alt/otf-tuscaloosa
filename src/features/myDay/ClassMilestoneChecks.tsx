@@ -23,6 +23,7 @@ import {
   formatClassTimeDisplay,
 } from '@/lib/classSchedule';
 import { useNowMinute, useChicagoToday } from '@/hooks/useNowMinute';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 
 const WINDOW_MINUTES = 4 * 60; // 4 hours after class start
 const UNDO_MINUTES = 30;
