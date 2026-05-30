@@ -112,7 +112,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               subtitle={`${primary === 'self' ? 'Self' : 'Formal'} evals · tap a cell to open the scorecards behind it`}
               onCellTap={({ coach, weekStart, weekEnd, cards }) => {
                 setDrilldown({
-                  label: `${coach} · wk ${format(weekStart, 'M/d')}–${format(weekEnd, 'M/d')}`,
+                  label: `${coach} · Week of ${format(weekStart, 'M/d')}–${format(weekEnd, 'M/d')}`,
                   cards,
                 });
               }}

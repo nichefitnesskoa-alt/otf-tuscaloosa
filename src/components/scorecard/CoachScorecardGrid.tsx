@@ -160,7 +160,7 @@ export function CoachScorecardGrid({
             <tr className="border-b border-white/20">
               <th className="text-left py-2 pr-3 text-white/60">Coach</th>
               {weeks.map(w => (
-                <th key={w.key} className="text-center py-2 px-2 text-white/60 whitespace-nowrap">wk {w.label}</th>
+                <th key={w.key} className="text-center py-2 px-2 text-white/60 whitespace-nowrap">{w.label}</th>
               ))}
             </tr>
           </thead>
@@ -194,7 +194,7 @@ export function CoachScorecardGrid({
             <th className="text-left py-2 px-2 font-medium text-muted-foreground">Coach</th>
             {weeks.map(w => (
               <th key={w.key} className="text-center py-2 px-2 font-medium text-muted-foreground whitespace-nowrap">
-                wk {w.label}
+                {w.label}
               </th>
             ))}
           </tr>
