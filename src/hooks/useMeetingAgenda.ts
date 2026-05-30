@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, addDays, subWeeks, subDays, startOfDay } from 'date-fns';
-import { localDateToStartISO, localDateToEndISO } from '@/lib/dateUtils';
+import { localDateToStartISO, localDateToEndISO, parseLocalDate } from '@/lib/dateUtils';
 import {
   EXCLUDED_LEAD_SOURCES, EXCLUDED_SA_NAMES,
   isPurchased, isNoShow,
