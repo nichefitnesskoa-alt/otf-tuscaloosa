@@ -553,8 +553,15 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDeleteConfirmText(''); onClose(); }}>Cancel</Button>
             <Button variant="destructive" disabled={isSaving || deleteConfirmText !== 'DELETE'} onClick={() => withSave(async () => {
-              await supabase.from('intros_run').delete().eq('id', run.id);
-              toast.success('Run permanently deleted');
+              // Soft delete per Core delete checklist — intros_run uses result_canon='DELETED'
+              // + ignore_from_metrics (no deleted_at column on this table). Every aggregator
+              // (Commission, Per-Coach, Per-SA, WIG, Activity Log) filters these out via
+              // ignore_from_metrics or result_canon === 'DELETED'. Preserves commission history.
+              await supabase.from('intros_run').update({
+                result_canon: 'DELETED',
+                ignore_from_metrics: true,
+              } as any).eq('id', run.id);
+              toast.success('Run deleted');
               setDeleteConfirmText('');
             })}>
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />} Delete
