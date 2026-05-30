@@ -20,7 +20,7 @@ import { IntroBooked, IntroRun } from '@/context/DataContext';
 import { DateRange } from '@/lib/pay-period';
 import { isWithinInterval } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isMembershipSale, isSaleInRange } from '@/lib/sales-detection';
 import { isCloseRun } from '@/lib/intros/close-detection';
 
 interface CoachStats {
@@ -104,7 +104,7 @@ export function CoachPerformance({ introsBooked, introsRun, dateRange }: CoachPe
         existing.intros++;
         
         // FIX: Check if ANY run for this booking has a membership sale result
-        const saleRun = runs.find(r => isCloseRun(r));
+        const saleRun = runs.find(r => isSaleInRange(r, dateRange));
         if (saleRun) {
           existing.sales++;
           existing.commission += saleRun.commission_amount || 0;
