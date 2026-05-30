@@ -4,7 +4,21 @@
  * References canonical functions only — never invents its own logic.
  */
 import { supabase } from '@/integrations/supabase/client';
-import { isSaleCanon } from '@/lib/sales-detection';
+import { isSaleCanon, getRunSaleDate } from '@/lib/sales-detection';
+import { mapResultToBookingStatus, formatBookingStatusForDb, type IntroResult } from '@/lib/domain/outcomes/types';
+
+/**
+ * Run-result canon values that have NO valid booking_status_canon equivalent
+ * and must be SKIPPED by fix_booking_status_from_run (never written raw).
+ * - VIP_CLASS_INTRO: run-only marker, booking stays as-is
+ * - DELETED: handled by soft-delete path, not this auto-fix
+ * - UNRESOLVED: nothing to sync
+ */
+const SKIP_RESULT_CANONS_FOR_BOOKING_SYNC = new Set([
+  'VIP_CLASS_INTRO',
+  'DELETED',
+  'UNRESOLVED',
+]);
 
 export interface AuditCheckResult {
   checkName: string;
