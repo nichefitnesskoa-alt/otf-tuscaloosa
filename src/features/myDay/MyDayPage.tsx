@@ -233,7 +233,7 @@ export default function MyDayPage() {
     setIntelligenceDismissed(localStorage.getItem(todayKey) === 'true');
   }, [user?.name, user?.id]);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!user?.name) return;
     try {
       const today = getTodayYMD();
@@ -265,7 +265,7 @@ export default function MyDayPage() {
     } catch (err) {
       console.error('MyDay metrics fetch error:', err);
     }
-  };
+  }, [user?.name, user?.id]);
 
 
   // Build script merge context for ScriptPickerSheet
