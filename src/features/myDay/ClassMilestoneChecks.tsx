@@ -107,9 +107,11 @@ export function ClassMilestoneChecks() {
   const handleUndo = async (row: CheckRow) => {
     if (!user?.name) return;
     setBusy(row.class_time.slice(0, 5));
+    // Soft-undo: stamp unchecked_at + unchecked_by, never hard delete.
+    // Preserves audit trail and lets Realtime + load() filter via unchecked_at.
     const { error } = await supabase
       .from('class_milestone_checks')
-      .delete()
+      .update({ unchecked_at: new Date().toISOString(), unchecked_by: user.name } as any)
       .eq('id', row.id);
     setBusy(null);
     if (error) { toast.error('Could not undo'); return; }
