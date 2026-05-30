@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -45,7 +46,7 @@ export default function Recaps() {
   // Employee filter state
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
   
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   
   const dateRange = useMemo(() => getDateRangeForPreset(datePreset, customRange), [datePreset, customRange]);
   const metrics = useDashboardMetrics(introsBooked, introsRun, sales, dateRange, shiftRecaps, undefined, followUpQueue, followupTouches);

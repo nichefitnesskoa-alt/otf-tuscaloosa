@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -54,7 +55,7 @@ function shiftDate(ymd: string, days: number): string {
 
 export default function TheTable() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { meetingId: paramMeetingId } = useParams<{ meetingId?: string }>();

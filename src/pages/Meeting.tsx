@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -39,7 +40,7 @@ export default function Meeting() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const [isPresentMode, setIsPresentMode] = useState(!isAdmin || searchParams.get('mode') === 'present');
   const [currentSection, setCurrentSection] = useState(0);
 

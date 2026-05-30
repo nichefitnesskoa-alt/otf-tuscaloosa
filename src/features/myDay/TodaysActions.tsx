@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -22,7 +23,7 @@ const toneClass: Record<ActionChip['tone'], string> = {
 export function TodaysActions() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const isCoach = user?.role === 'Coach';
   const { staff } = useActiveStaff();
 

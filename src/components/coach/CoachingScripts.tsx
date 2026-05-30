@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -196,7 +197,7 @@ function ScriptViewer({ fileUrl, onClose, script }: { fileUrl: string; onClose: 
 
 export function CoachingScripts() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const [scripts, setScripts] = useState<CoachingScript[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingScript, setViewingScript] = useState<CoachingScript | null>(null);

@@ -3,6 +3,7 @@
  * Each tab renders its own column set. Rows are sortable and expandable inline.
  * Uses @tanstack/react-virtual for performance with large datasets.
  */
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useRef, useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader2, ArrowUp, ArrowDown, ArrowUpDown, ChevronDown, ChevronRight, Copy, Phone, FileText, Edit, Plus, CalendarPlus, MoreVertical, UserCheck, DollarSign, UserX, Archive, Trash2, Link, X } from 'lucide-react';
@@ -603,7 +604,7 @@ function ExpandedRowDetail({
 }) {
   const { user } = useAuth();
   const { allActive: ALL_STAFF } = useActiveStaff();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const phone = journey.bookings.find(b => b.phone)?.phone;
   const email = journey.bookings.find(b => b.email)?.email;
 

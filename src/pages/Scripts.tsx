@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useScriptTemplates, ScriptTemplate } from '@/hooks/useScriptTemplates';
@@ -14,7 +15,7 @@ import { Plus, Search, Wand2, Settings } from 'lucide-react';
 
 export default function Scripts() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
