@@ -41,7 +41,7 @@ function buildWeeks(): WeekCol[] {
       start,
       end,
       key: format(start, 'yyyy-MM-dd'),
-      label: format(start, 'M/d'),
+      label: `Week of ${format(start, 'M/d')}`,
     };
   });
 }
@@ -94,7 +94,9 @@ export function CoachScorecardGrid({
       const coach = sc.evaluatee_name;
       if (!m.has(coach)) continue; // skip inactive / non-coach evaluatees
       const d = parseLocalDate(sc.class_date);
-      const wk = weeks.find(w => d >= w.start && d <= addDays(w.end, 1));
+      // Bucket by Mon–Sun (local). Use half-open interval [start, start+7) so
+      // a Monday class lands in its own week, not the previous one.
+      const wk = weeks.find(w => d >= w.start && d < addDays(w.start, 7));
       if (!wk) continue;
       const inner = m.get(coach)!;
       const arr = inner.get(wk.key) || [];
