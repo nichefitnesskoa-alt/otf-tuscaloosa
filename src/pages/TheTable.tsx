@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, Trophy, Check, X, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { parseLocalDate } from '@/lib/dateUtils';
 import {
   useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
