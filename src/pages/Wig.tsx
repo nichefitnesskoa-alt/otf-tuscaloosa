@@ -21,8 +21,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, isWithinInterval, startOfMonth, endOfMonth, differenceInDays, startOfQuarter, endOfQuarter } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import { isMembershipSale, isSaleInRange, isRunInRange } from '@/lib/sales-detection';
-import { isCloseRun } from '@/lib/intros/close-detection';
+import { isSaleInRange, isRunInRange } from '@/lib/sales-detection';
 import { isCloseResult, labelForRun } from '@/lib/intros/resultLabels';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
@@ -532,7 +531,7 @@ export default function Wig() {
             const batch2 = allSecondIds.slice(i, i + 500);
             const { data: secondRuns } = await supabase
               .from('intros_run')
-              .select('linked_intro_booked_id, result, result_canon, buy_date')
+              .select('linked_intro_booked_id, result, result_canon, buy_date, run_date, created_at')
               .in('linked_intro_booked_id', batch2);
             (secondRuns || []).forEach((r2: any) => {
               if (isSaleInRange(r2, dateRange || null)) {
