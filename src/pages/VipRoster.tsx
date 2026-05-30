@@ -5,6 +5,7 @@ import { Loader2, Users } from 'lucide-react';
 import otfLogo from '@/assets/otf-logo.jpg';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 const OTF_ORANGE = '#FF6900';
 const sb = supabase as any;
