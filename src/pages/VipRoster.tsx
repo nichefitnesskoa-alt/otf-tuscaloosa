@@ -104,7 +104,7 @@ export default function VipRoster() {
           </h1>
           {session && (
             <p className="text-sm" style={{ color: '#555' }}>
-              {format(new Date(session.session_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')} at {formatDisplayTime(session.session_time)}
+              {format(parseLocalDate(session.session_date) ?? new Date(), 'EEEE, MMMM d, yyyy')} at {formatDisplayTime(session.session_time)}
             </p>
           )}
         </div>
