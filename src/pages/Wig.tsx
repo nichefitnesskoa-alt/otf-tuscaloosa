@@ -11,7 +11,7 @@ import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploy
 
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
