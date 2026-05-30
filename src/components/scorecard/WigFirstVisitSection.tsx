@@ -14,7 +14,9 @@ import {
 import { format } from 'date-fns';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
+import { CoachScorecardGrid } from './CoachScorecardGrid';
 import { useFvTrendData, type UnscoredIntro } from '@/hooks/useFvTrendData';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import {
   type DatePreset,
   type DateRange,
@@ -23,33 +25,21 @@ import {
 } from '@/lib/pay-period';
 import {
   cadenceDotStatus,
-  buildTrendPoints,
-  pickBucketSize,
-  applyMovingAverage,
   type EvalPrimary,
   type TrendPoint,
 } from '@/lib/scorecard/trends';
 import type { FvScorecard } from '@/hooks/useScorecards';
 import { CoachStreakBadges } from './CoachStreakBadges';
 import { UnscoredDrillDown } from './UnscoredDrillDown';
-import { colorForCoach } from '@/lib/coachColors';
 import { useAuth } from '@/context/AuthContext';
 import { canScore } from '@/lib/auth/roles';
-
-const STUDIO_KEY = '__studio__';
-const STUDIO_COLOR = 'hsl(var(--brand))'; // OTF orange — reserved for studio overall
-
-type ChartMode = 'avg' | 'closed';
 
 export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: DateRange }) {
   const [preset, setPreset] = useState<DatePreset>('this_month');
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const range = useMemo(() => getDateRangeForPreset(preset, customRange) || getCurrentPayPeriod(), [preset, customRange]);
 
-  const [smoothed, setSmoothed] = useState(false);
   const [primary, setPrimary] = useState<EvalPrimary>('self');
-  const [chartMode, setChartMode] = useState<ChartMode>('avg');
-  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [drilldown, setDrilldown] = useState<{ label: string; cards: FvScorecard[] } | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -57,48 +47,15 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
   const navigate = useNavigate();
   const { user } = useAuth();
   const userCanScore = canScore(user);
+  const { coaches: activeCoachList } = useActiveStaff();
+  const activeCoachSet = useMemo(() => new Set(activeCoachList), [activeCoachList]);
 
-  const { data, isLoading } = useFvTrendData(range, primary, smoothed);
+  const { data, isLoading } = useFvTrendData(range, primary, false);
   const hasAnyScorecards = data.scorecards.length > 0;
   const hasAnyRan = data.ranByCoach.size > 0;
   const isEmptyRange = !isLoading && !hasAnyScorecards && !hasAnyRan;
 
-  // Count submitted scorecards of the active primary type — drives empty state.
-  const primaryTypeCount = useMemo(() => {
-    const t = primary === 'self' ? 'self_eval' : 'formal_eval';
-    return data.scorecards.filter(s => s.submitted_at && s.eval_type === t).length;
-  }, [data.scorecards, primary]);
 
-  // Per-coach closed/not-closed cards & trend points (Closed chart mode).
-  const closedByCoach = useMemo(() => {
-    const map = new Map<string, FvScorecard[]>();
-    data.closedCards.forEach(c => {
-      const k = c.evaluatee_name || 'Unknown';
-      const arr = map.get(k) || [];
-      arr.push(c);
-      map.set(k, arr);
-    });
-    return map;
-  }, [data.closedCards]);
-
-  const perCoachClosedPoints = useMemo(() => {
-    const size = pickBucketSize(range);
-    const out = new Map<string, TrendPoint[]>();
-    closedByCoach.forEach((cards, coach) => {
-      let pts = buildTrendPoints(cards, range, size);
-      if (smoothed) pts = applyMovingAverage(pts, 4);
-      out.set(coach, pts);
-    });
-    return out;
-  }, [closedByCoach, range, smoothed]);
-
-  const toggleSeries = (key: string) => {
-    setHiddenSeries(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
 
   return (
@@ -123,16 +80,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Chart toggle row */}
+        {/* Eval-type toggle + unscored badge */}
         <div className="flex flex-wrap items-center gap-2">
-          <ToggleGroup
-            value={smoothed ? 'avg' : 'raw'}
-            onChange={v => setSmoothed(v === 'avg')}
-            options={[
-              { value: 'raw', label: 'Raw' },
-              { value: 'avg', label: '4-week avg' },
-            ]}
-          />
           <ToggleGroup
             value={primary}
             onChange={v => setPrimary(v as EvalPrimary)}
@@ -155,49 +104,21 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           <EmptyState onScoreFirst={() => navigate('/scorecards/me')} />
         ) : (
           <>
-            {/* Multi-coach trend chart with mode tabs */}
-            <Card className="p-3 border-border/60">
-              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                <ToggleGroup
-                  value={chartMode}
-                  onChange={v => setChartMode(v as ChartMode)}
-                  options={[
-                    { value: 'avg', label: 'Avg Score' },
-                    { value: 'closed', label: 'Avg Score · Closed' },
-                  ]}
-                />
-                <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
-              </div>
-              {primaryTypeCount === 0 ? (
-                <div className="py-8 text-center space-y-1">
-                  <ClipboardCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
-                  <p className="text-sm font-semibold">
-                    No {primary === 'self' ? 'self' : 'formal'} evals in this range yet.
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    The first scorecard starts the trend.
-                  </p>
-                </div>
-              ) : (
-                <MultiCoachTrendChart
-                  primary={primary}
-                  studioPoints={chartMode === 'avg' ? data.studioPoints : data.closedPoints}
-                  perCoachPoints={chartMode === 'avg' ? data.perCoachPoints : perCoachClosedPoints}
-                  hidden={hiddenSeries}
-                  onToggleSeries={toggleSeries}
-                  onPointTap={(seriesKey, seriesLabel, point) => {
-                    let cards = point.scorecards;
-                    if (seriesKey !== STUDIO_KEY) {
-                      cards = cards.filter(c => c.evaluatee_name === seriesKey);
-                    }
-                    setDrilldown({
-                      label: `${seriesLabel} · ${point.bucket}${chartMode === 'closed' ? ' · closed' : ''}`,
-                      cards,
-                    });
-                  }}
-                />
-              )}
-            </Card>
+            {/* Week-by-week coach scorecard grid (last 6 weeks, CST) */}
+            <CoachScorecardGrid
+              mode="avg"
+              evalType={primary}
+              title="Avg coaching score · last 6 weeks"
+              subtitle={`${primary === 'self' ? 'Self' : 'Formal'} evals · tap a cell to open the scorecards behind it`}
+              onCellTap={({ coach, weekStart, weekEnd, cards }) => {
+                setDrilldown({
+                  label: `${coach} · wk ${format(weekStart, 'M/d')}–${format(weekEnd, 'M/d')}`,
+                  cards,
+                });
+              }}
+            />
+
+
 
             {/* Closing-score tiles */}
             <ClosingTiles
@@ -221,6 +142,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               ) : (
                 <div className="space-y-1.5">
                   {[...data.ranByCoach.entries()]
+                    .filter(([coach]) => activeCoachSet.size === 0 || activeCoachSet.has(coach))
                     .sort((a, b) => b[1] - a[1])
                     .map(([coach, ran]) => {
                       const formal = data.formalByCoach.get(coach);
@@ -471,115 +393,6 @@ function TrendChart({
   );
 }
 
-function MultiCoachTrendChart({
-  primary,
-  studioPoints,
-  perCoachPoints,
-  hidden,
-  onToggleSeries,
-  onPointTap,
-}: {
-  primary: EvalPrimary;
-  studioPoints: TrendPoint[];
-  perCoachPoints: Map<string, TrendPoint[]>;
-  hidden: Set<string>;
-  onToggleSeries: (key: string) => void;
-  onPointTap: (seriesKey: string, seriesLabel: string, point: TrendPoint) => void;
-}) {
-  const valueOf = (p: TrendPoint | undefined) => {
-    if (!p) return null;
-    const v = primary === 'self' ? p.selfAvg : p.formalAvg;
-    return v !== null && v !== undefined ? +v.toFixed(2) : null;
-  };
-
-  // Coaches with at least one non-null primary value in range.
-  const activeCoaches = useMemo(() => {
-    const out: string[] = [];
-    perCoachPoints.forEach((pts, coach) => {
-      if (pts.some(p => valueOf(p) !== null)) out.push(coach);
-    });
-    return out.sort();
-  }, [perCoachPoints, primary]);
-
-  // Merge into a single dataset keyed by bucket.
-  const buckets = studioPoints.map(p => p.bucket);
-  const studioByBucket = new Map(studioPoints.map(p => [p.bucket, p]));
-  const coachByBucket = new Map<string, Map<string, TrendPoint>>();
-  activeCoaches.forEach(coach => {
-    const m = new Map<string, TrendPoint>();
-    (perCoachPoints.get(coach) || []).forEach(p => m.set(p.bucket, p));
-    coachByBucket.set(coach, m);
-  });
-
-  const data = buckets.map(bucket => {
-    const row: Record<string, any> = { bucket };
-    row[STUDIO_KEY] = valueOf(studioByBucket.get(bucket));
-    row[`${STUDIO_KEY}__pt`] = studioByBucket.get(bucket);
-    activeCoaches.forEach(coach => {
-      const pt = coachByBucket.get(coach)?.get(bucket);
-      row[coach] = valueOf(pt);
-      row[`${coach}__pt`] = pt;
-    });
-    return row;
-  });
-
-  if (data.length === 0) {
-    return <p className="text-xs text-muted-foreground italic text-center py-6">No scorecards in this range yet.</p>;
-  }
-
-  const handleClick = (seriesKey: string, seriesLabel: string) => (payload: any) => {
-    const bucket = payload?.payload?.bucket;
-    if (!bucket) return;
-    const pt = payload.payload[`${seriesKey}__pt`] as TrendPoint | undefined;
-    if (pt) onPointTap(seriesKey, seriesLabel, pt);
-  };
-
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" />
-        <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
-        <YAxis domain={[0, 30]} tick={{ fontSize: 10 }} />
-        <RTooltip
-          contentStyle={{ fontSize: 11, borderRadius: 8 }}
-          formatter={(v: any, n: any) => [v, n === STUDIO_KEY ? 'Studio' : n]}
-        />
-        <Legend
-          wrapperStyle={{ fontSize: 10, cursor: 'pointer' }}
-          onClick={(o: any) => onToggleSeries(o?.dataKey as string)}
-          formatter={(value) => (value === STUDIO_KEY ? 'Studio' : value)}
-        />
-        {activeCoaches.map(coach => (
-          <Line
-            key={coach}
-            type="monotone"
-            dataKey={coach}
-            name={coach}
-            stroke={colorForCoach(coach)}
-            strokeWidth={1.5}
-            dot={{ r: 2.5 }}
-            activeDot={{ r: 5, onClick: handleClick(coach, coach) }}
-            connectNulls
-            hide={hidden.has(coach)}
-            isAnimationActive={false}
-          />
-        ))}
-        <Line
-          type="monotone"
-          dataKey={STUDIO_KEY}
-          name={STUDIO_KEY}
-          stroke={STUDIO_COLOR}
-          strokeWidth={3}
-          dot={{ r: 3.5 }}
-          activeDot={{ r: 6, onClick: handleClick(STUDIO_KEY, 'Studio') }}
-          connectNulls
-          hide={hidden.has(STUDIO_KEY)}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
 
 function LoadingState() {
   return (

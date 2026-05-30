@@ -2,7 +2,7 @@ import { MeetingSection } from './MeetingSection';
 import { Target, ClipboardCheck, BookOpen } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { CoachScorecardGrid } from './CoachScorecardGrid';
+import { CoachScorecardGrid } from '@/components/scorecard/CoachScorecardGrid';
 
 interface PerSAMetric {
   saName: string;

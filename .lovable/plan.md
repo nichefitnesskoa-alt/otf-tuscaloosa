@@ -1,46 +1,52 @@
-## Problem
+## 1. Week-by-week coach scorecard grid in First Visit Experience
 
-Stacia Donovan's record has `result_canon = ELITE` with `buy_date = 2026-06-01` (post-dated). Today is May 30, but she's already showing as a closed sale everywhere — in pipeline, WIG, commission, close rate, recaps, etc.
+In `src/components/scorecard/WigFirstVisitSection.tsx`, replace the multi-line trend chart (`MultiCoachTrendChart` block, ~lines 158–200) with a week-by-week table — same shape as the existing `CoachScorecardGrid` used in the Meeting view.
 
-Sale-date filtering already respects `buy_date` (via `getRunSaleDate` → `isSaleInRange`), so a date-ranged report for "May" correctly excludes her. But anywhere the code asks "is this run a sale?" without a date filter (status badges, labels, pipeline tabs, Total Journey close detection, "all-time" counts, today's activity feed), she shows as sold immediately.
+Table:
+- Rows: each active coach
+- Columns: last 6 weeks (Mon–Sun, CST), labeled `wk M/d`
+- Cells: the **average** of all scorecards (of the currently-toggled type: Self or Formal) that coach received in that week, rendered as `XX.X/30` with the existing color thresholds (≥25 success / ≥12 warning / else destructive). Empty cell = `X` in destructive.
+- Tooltip on a cell lists individual scores behind the average.
+- Tap a cell → opens the existing `drilldown` modal with that week's scorecards for that coach (so the existing per-cell click-through behavior stays).
 
-## Fix — canonical post-dated guard
+Keep above the table:
+- The Raw / 4-week avg toggle is removed (no longer relevant — grid is a fixed 6-week view).
+- Keep the **Self Evals / Formal Evals** toggle (drives which scorecards average into each cell).
+- Keep the "X intros still waiting on a scorecard" badge.
+- Keep the chart-mode toggle? No — remove "Avg Score · Closed" mode (line-chart only). Grid stays one view.
 
-Add one helper in `src/lib/sales-detection.ts`:
+Everything below the chart stays as-is: `ClosingTiles`, Coach leaderboard, drill-down dialogs.
 
-```ts
-// True when a sale exists in the data but the buy_date is in the future (CST).
-export function isPostDatedSale(run, asOf = getNowCentral()): boolean
-export function isEffectiveSale(run, asOf = getNowCentral()): boolean
-  // = isSaleCanon(result_canon) && !isPostDatedSale(run)
-```
+I'll lift the grid logic into a shared component (`CoachScorecardGrid` already exists at `src/components/meeting/CoachScorecardGrid.tsx`) — extend it to accept `mode: 'best' | 'avg'` and `evalType: 'self' | 'formal' | 'all'` plus an optional `onCellTap` so both the Meeting view (best score, all) and the WIG view (average, filtered by toggle) can share one component. Move it to `src/components/scorecard/CoachScorecardGrid.tsx` and update the Meeting import.
 
-Then route every "is this a sale right now?" check through `isEffectiveSale` so post-dated rows behave as "Pending Sale" until their buy_date arrives.
+## 2. Hide inactive staff from WIG
 
-### Files to update
+Root cause: `src/types/index.ts` exports `COACHES` as a hardcoded array including `'Georgia'`. Anywhere that iterates `COACHES` (instead of `useActiveStaff().coaches`) keeps showing her after deactivation.
 
-1. **`src/lib/sales-detection.ts`** — add `isPostDatedSale` + `isEffectiveSale`. Update `isSaleInRange` to additionally require `buy_date <= range.end` (already implicit via sale-date, but make explicit).
-2. **`src/lib/intros/resultLabels.ts`** — `labelForRun` returns new `'Pending Sale'` label when post-dated; `isCloseResult` returns false for post-dated.
-3. **`src/lib/intros/close-detection.ts` / `journey.ts`** — Total Journey `isClosed` excludes post-dated runs so close rate / WIG don't count Stacia until June 1.
-4. **`src/features/pipeline/selectors.ts`** — post-dated rows stay in pipeline (not moved to "closed/sold" bucket) until buy_date.
-5. **`src/components/dashboard/*` activity & recap surfaces** — post-dated sales hidden from "today's sales" feeds; surfaced in a small "Post-Dated (queued for June 1)" badge on the row.
-6. **`src/lib/outcomes/commissionRules.ts` consumers / `PayPeriodCommission.tsx`** — commission amount is still stored on the row, but `isSaleInRange` already pins it to the pay period containing buy_date, so no change needed beyond verifying it doesn't leak into the current period.
-7. **UI badge** — wherever a sale row is rendered (pipeline row card, MyDay intro card, recap details), show an amber "Post-Dated · June 1" pill instead of the green SALE pill until the buy_date is reached.
+Audit + fix in WIG-adjacent surfaces:
+- `CoachScorecardGrid` — currently iterates `COACHES`. Switch to `useActiveStaff().coaches` so deactivated coaches drop out of the grid rows. (Fixes the new First Visit grid + Meeting grid in one shot.)
+- `src/pages/Wig.tsx` line 1002–1004 — `COACHES[0]` / `[...COACHES]` passed to a picker. Replace with active coaches from `useActiveStaff()`.
+- Coach leaderboard in `WigFirstVisitSection` already iterates `data.ranByCoach`, so it's data-driven — but I'll also filter that entries list against `useActiveStaff().coaches` so a deactivated coach with stale ran-intros in the range no longer renders.
+- Per-Coach Coached/Closes table in `Wig.tsx` — verify the rendered rows come from `coachMap` (data-driven). If it renders zero-rows for `COACHES`, switch the iteration source to active coaches.
 
-### Behavior after the fix
+Out of scope: `ScorecardForm.tsx` still uses `COACHES` for the form dropdown — leave it; the user may need to score a class historically run by a now-inactive coach. (Confirm with user if they want the dropdown filtered too.)
 
-- **Today (May 30):** Stacia shows as "Pending Sale · buys June 1" — not counted in close rate, WIG sales, today's commission, today's activity, or pipeline "sold" bucket.
-- **June 1 onward:** Automatically flips to a normal SALE everywhere (no manual action). Commission lands in the June pay period.
+## Files touched
 
-### Verification
+- `src/components/scorecard/CoachScorecardGrid.tsx` — new (moved + extended from meeting/)
+- `src/components/meeting/WigSection.tsx` — update import path
+- `src/components/meeting/CoachScorecardGrid.tsx` — delete (or re-export from new path)
+- `src/components/scorecard/WigFirstVisitSection.tsx` — swap line chart for grid, drop closed-mode toggle, drop Raw/Avg toggle
+- `src/pages/Wig.tsx` — replace `COACHES` usage at lines 1002–1004 with active coaches; filter `ranByCoach` leaderboard by active coaches
 
-- Query: Stacia's row pre/post June 1 — confirm `isEffectiveSale` flips on 6/1 CST.
-- WIG close rate for current week excludes Stacia; week of June 1 includes her.
-- Per-SA Lead Measures: her intro_owner's "sales" count drops by 1 today, returns on 6/1.
-- Pipeline Sales tab does not list her until 6/1.
-- Recap for May 30 does not include her sale; recap for June 1 does.
-- No regression on normal same-day sales (buy_date <= today).
+## Verification
 
-### Out of scope
+- WIG → First Visit Experience renders a 6-column week grid, one row per active coach, with averages by week. Toggle Self ↔ Formal recomputes. Tapping a cell opens the scorecard drilldown.
+- Georgia no longer appears anywhere on the WIG tab (grid, leaderboard, per-coach tables, pickers).
+- Meeting → WIG Session grid still renders (now from the new shared component), still uses "best score" semantics, Georgia gone there too.
 
-- No DB migration. No schema change. No edit to her record — `buy_date = 2026-06-01` is already correct.
+## Confirm before building
+
+1. **Cell value = average of all scorecards that week for the toggled eval type** — correct? Or do you want best-score (like Meeting view) or both side-by-side?
+2. Drop the "Avg Score · Closed" chart-mode toggle entirely, since the grid replaces the line chart?
+3. Leave `ScorecardForm` coach dropdown unchanged (still includes Georgia so historical entries can be filed) — OK?

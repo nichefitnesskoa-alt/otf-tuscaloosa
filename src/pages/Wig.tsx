@@ -11,7 +11,7 @@ import { MilestonesDeploySection } from '@/components/dashboard/MilestonesDeploy
 
 import { WigFirstVisitSection } from '@/components/scorecard/WigFirstVisitSection';
 import { CoachDashboard } from '@/components/scorecard/CoachDashboard';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { DatePreset, DateRange, getDateRangeForPreset } from '@/lib/pay-period';
 import { Target, Trophy, Users, UserCheck, Check, Loader2, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +32,7 @@ import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
 
 export default function Wig() {
   const { user } = useAuth();
+  const { coaches: activeCoaches } = useActiveStaff();
   const { introsBooked, introsRun, isLoading, lastUpdated, refreshData, silentRefreshData } = useData();
   const [isRefreshing, setIsRefreshing] = useState(false);
   useRealtimeMyDay(useCallback(() => { silentRefreshData().catch(() => {}); }, [silentRefreshData]));
@@ -999,9 +1000,9 @@ export default function Wig() {
                 </CardHeader>
                 <CardContent>
                   <CoachDashboard
-                    coachName={allowPicker ? (COACHES[0] || '') : (user?.name || '')}
+                    coachName={allowPicker ? (activeCoaches[0] || '') : (user?.name || '')}
                     allowPicker={allowPicker}
-                    coaches={[...COACHES]}
+                    coaches={activeCoaches}
                   />
                 </CardContent>
               </Card>
