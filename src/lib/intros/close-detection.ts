@@ -8,9 +8,10 @@ import { isCloseResult } from '@/lib/intros/resultLabels';
 export interface RunRow {
   result_canon?: string | null;
   result?: string | null;
+  buy_date?: string | null;
 }
 
-/** Pure predicate on a single intros_run row. Routes through canonical helper. */
+/** Pure predicate on a single intros_run row. Include buy_date so post-dated sales stay pending. */
 export function isCloseRun(run: RunRow): boolean {
   return isCloseResult(run);
 }

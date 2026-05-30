@@ -5,7 +5,7 @@ import { isWithinInterval, isToday, parseISO } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PerSAMetrics } from '@/components/dashboard/PerSATable';
 import { BookerMetrics } from '@/components/dashboard/BookerStatsTable';
-import { isMembershipSale, getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
+import { getRunSaleDate, isRunInRange, isSaleInRange } from '@/lib/sales-detection';
 import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isCloseRun } from '@/lib/intros/close-detection';
 import { EXCLUDED_SA_NAMES } from '@/lib/studio-metrics';
@@ -519,7 +519,7 @@ export function useDashboardMetrics(
     };
 
     // =========================================
-    // TODAY'S RACE - uses isMembershipSale from shared utilities
+    // TODAY'S RACE - sales are anchored to buy_date via isSaleInRange
     // =========================================
     const todaysRuns = activeRuns.filter(r => r.run_date && isToday(parseLocalDate(r.run_date)));
     const todaysRaceMap = new Map<string, { introsRun: number; sales: number }>();
@@ -530,7 +530,7 @@ export function useDashboardMetrics(
         const existing = todaysRaceMap.get(name) || { introsRun: 0, sales: 0 };
         if (didIntroActuallyRun(run)) {
           existing.introsRun++;
-          if (isCloseRun(run)) {
+          if (isSaleInRange(run, dateRange)) {
             existing.sales++;
           }
         }
@@ -689,7 +689,6 @@ export function useDashboardMetrics(
 
     // Follow-up conversions: sales where buy_date != run_date
     const followUpConversionsInRange = activeRuns.filter(r => {
-      if (!isMembershipSale(r.result)) return false;
       const buyDate = (r as any).buy_date;
       const runDate = r.run_date;
       if (!buyDate || !runDate) return false;

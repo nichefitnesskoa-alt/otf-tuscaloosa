@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateSlug } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { getTodayYMD } from '@/lib/dateUtils';
-import { isMembershipSale } from '@/lib/sales-detection';
+import { isEffectiveSale } from '@/lib/sales-detection';
 import WeekDayTabs, { useWeekDays, getDefaultSelectedDate } from '@/components/shared/WeekDayTabs';
 
 interface UpcomingIntrosCardProps {
@@ -218,7 +218,7 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
     const qComplete = todayItems.filter(i => i.questionnaireStatus === 'Q_COMPLETED').length;
     const todayRuns = introsRun.filter(r => r.run_date === todayStr);
     const shown = todayRuns.filter(r => r.result !== 'No-show' && r.result_canon !== 'NO_SHOW').length;
-    const closed = todayRuns.filter(r => isMembershipSale(r.result || '')).length;
+    const closed = todayRuns.filter(r => isEffectiveSale(r)).length;
     return { totalIntros, qComplete, shown, closed };
   }, [items, introsRun, todayStr]);
 

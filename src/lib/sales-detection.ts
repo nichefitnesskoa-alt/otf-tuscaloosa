@@ -93,8 +93,8 @@ export const getSaleDate = (
  * Fallback chain: buy_date > run_date > created_at (date portion).
  * Used by metrics hooks for consistent sale date resolution.
  */
-export function getRunSaleDate(run: { buy_date?: string | null; run_date?: string | null; created_at: string }): string {
-  return run.buy_date || run.run_date || run.created_at.split('T')[0];
+export function getRunSaleDate(run: { buy_date?: string | null; run_date?: string | null; created_at?: string }): string {
+  return run.buy_date || run.run_date || (run.created_at || '').split('T')[0];
 }
 
 /**
@@ -121,11 +121,11 @@ export function isRunInRange(
  * Used for CONVERSION-BASED metrics: sales count, close rate, commission.
  */
 export function isSaleInRange(
-  run: { buy_date?: string | null; run_date?: string | null; result?: string; created_at: string },
+  run: { buy_date?: string | null; run_date?: string | null; result?: string | null; result_canon?: string | null; created_at?: string },
   dateRange: DateRange | null
 ): boolean {
-  if (!isMembershipSale(run.result || '')) return false;
-  if (!dateRange) return true; // All time
+  if (!isEffectiveSale(run)) return false;
+  if (!dateRange) return true; // All time, but never future-dated sales
   const saleDate = getRunSaleDate(run);
   try {
     const date = parseLocalDate(saleDate);

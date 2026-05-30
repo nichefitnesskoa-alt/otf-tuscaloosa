@@ -165,7 +165,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
         if (bookedIds.length > 0) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('result, result_canon')
+            .select('result, result_canon, buy_date')
             .in('linked_intro_booked_id', bookedIds);
           converted = (runs || []).some((r: any) => isCloseResult(r));
         }

@@ -88,7 +88,7 @@ export function VipClassPerformanceTable() {
       if (bookingIds.length > 0) {
         const { data: r2 } = await sb
           .from('intros_run')
-          .select('linked_intro_booked_id, result, result_canon')
+          .select('linked_intro_booked_id, result, result_canon, buy_date')
           .in('linked_intro_booked_id', bookingIds);
         runRows = r2 || [];
       }
