@@ -535,7 +535,7 @@ export default function Wig() {
               .select('linked_intro_booked_id, result, result_canon, buy_date')
               .in('linked_intro_booked_id', batch2);
             (secondRuns || []).forEach((r2: any) => {
-              if (isCloseRun(r2)) {
+              if (isSaleInRange(r2, dateRange || null)) {
                 for (const [firstId, secondIds] of secondIntroBookingMap.entries()) {
                   if (secondIds.includes(r2.linked_intro_booked_id)) {
                     secondRunSaleSet.add(firstId);
@@ -554,7 +554,7 @@ export default function Wig() {
         for (const batch of closeBatches) {
           const { data: runs } = await supabase
             .from('intros_run')
-            .select('linked_intro_booked_id, coach_name, result, result_canon, buy_date')
+            .select('linked_intro_booked_id, coach_name, result, result_canon, buy_date, run_date, created_at')
             .in('linked_intro_booked_id', batch)
             .neq('result_canon', 'NO_SHOW')
             .neq('result_canon', 'UNRESOLVED');
@@ -579,7 +579,7 @@ export default function Wig() {
             }
             const ex = coachCloseMap.get(cName) || { total: 0, closed: 0 };
             ex.total++;
-            if (isCloseRun(r)) {
+            if (isSaleInRange(r, dateRange || null)) {
               ex.closed++;
               ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE' });
               if (r.linked_intro_booked_id) countedRunBookingIds.add(r.linked_intro_booked_id);
