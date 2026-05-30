@@ -1000,9 +1000,9 @@ export default function Wig() {
                 </CardHeader>
                 <CardContent>
                   <CoachDashboard
-                    coachName={allowPicker ? (COACHES[0] || '') : (user?.name || '')}
+                    coachName={allowPicker ? (activeCoaches[0] || '') : (user?.name || '')}
                     allowPicker={allowPicker}
-                    coaches={[...COACHES]}
+                    coaches={activeCoaches}
                   />
                 </CardContent>
               </Card>
