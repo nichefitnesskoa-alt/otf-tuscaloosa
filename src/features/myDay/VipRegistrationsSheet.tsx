@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Users, Copy, Check, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { COACHES } from '@/types';
+import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import {
@@ -59,6 +59,7 @@ interface Props {
 }
 
 export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId, vipGroupName, userName }: Props) {
+  const { coaches: COACHES } = useActiveStaff();
   const [loading, setLoading] = useState(false);
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [vipCoach, setVipCoach] = useState<string>('');
