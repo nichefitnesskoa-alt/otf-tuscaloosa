@@ -80,16 +80,8 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Chart toggle row */}
+        {/* Eval-type toggle + unscored badge */}
         <div className="flex flex-wrap items-center gap-2">
-          <ToggleGroup
-            value={smoothed ? 'avg' : 'raw'}
-            onChange={v => setSmoothed(v === 'avg')}
-            options={[
-              { value: 'raw', label: 'Raw' },
-              { value: 'avg', label: '4-week avg' },
-            ]}
-          />
           <ToggleGroup
             value={primary}
             onChange={v => setPrimary(v as EvalPrimary)}
@@ -112,49 +104,21 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
           <EmptyState onScoreFirst={() => navigate('/scorecards/me')} />
         ) : (
           <>
-            {/* Multi-coach trend chart with mode tabs */}
-            <Card className="p-3 border-border/60">
-              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                <ToggleGroup
-                  value={chartMode}
-                  onChange={v => setChartMode(v as ChartMode)}
-                  options={[
-                    { value: 'avg', label: 'Avg Score' },
-                    { value: 'closed', label: 'Avg Score · Closed' },
-                  ]}
-                />
-                <span className="text-[10px] text-muted-foreground">Avg score / 30</span>
-              </div>
-              {primaryTypeCount === 0 ? (
-                <div className="py-8 text-center space-y-1">
-                  <ClipboardCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
-                  <p className="text-sm font-semibold">
-                    No {primary === 'self' ? 'self' : 'formal'} evals in this range yet.
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    The first scorecard starts the trend.
-                  </p>
-                </div>
-              ) : (
-                <MultiCoachTrendChart
-                  primary={primary}
-                  studioPoints={chartMode === 'avg' ? data.studioPoints : data.closedPoints}
-                  perCoachPoints={chartMode === 'avg' ? data.perCoachPoints : perCoachClosedPoints}
-                  hidden={hiddenSeries}
-                  onToggleSeries={toggleSeries}
-                  onPointTap={(seriesKey, seriesLabel, point) => {
-                    let cards = point.scorecards;
-                    if (seriesKey !== STUDIO_KEY) {
-                      cards = cards.filter(c => c.evaluatee_name === seriesKey);
-                    }
-                    setDrilldown({
-                      label: `${seriesLabel} · ${point.bucket}${chartMode === 'closed' ? ' · closed' : ''}`,
-                      cards,
-                    });
-                  }}
-                />
-              )}
-            </Card>
+            {/* Week-by-week coach scorecard grid (last 6 weeks, CST) */}
+            <CoachScorecardGrid
+              mode="avg"
+              evalType={primary}
+              title="Avg coaching score · last 6 weeks"
+              subtitle={`${primary === 'self' ? 'Self' : 'Formal'} evals · tap a cell to open the scorecards behind it`}
+              onCellTap={({ coach, weekStart, weekEnd, cards }) => {
+                setDrilldown({
+                  label: `${coach} · wk ${format(weekStart, 'M/d')}–${format(weekEnd, 'M/d')}`,
+                  cards,
+                });
+              }}
+            />
+
+
 
             {/* Closing-score tiles */}
             <ClosingTiles
