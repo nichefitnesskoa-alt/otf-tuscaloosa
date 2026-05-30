@@ -2,6 +2,7 @@
  * Single journey row card for Pipeline.
  * Expandable with booking/run details and action menus.
  */
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { memo, useCallback, useState } from 'react';
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +63,7 @@ export const PipelineRowCard = memo(function PipelineRowCard({
   const [scriptOpen, setScriptOpen] = useState(false);
   const [updatingTypeFor, setUpdatingTypeFor] = useState<string | null>(null);
 
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
 
   const handleBookingTypeChange = useCallback(async (bookingId: string, newType: string) => {
     setUpdatingTypeFor(bookingId);

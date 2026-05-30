@@ -1,3 +1,4 @@
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,7 +57,7 @@ interface MembershipPurchasesPanelProps {
 
 export default function MembershipPurchasesPanel({ externalDateRange }: MembershipPurchasesPanelProps = {}) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = isAdminCheck(user);
   const [editPurchase, setEditPurchase] = useState<MembershipPurchase | null>(null);
   const [deletePurchase, setDeletePurchase] = useState<MembershipPurchase | null>(null);
   const [purchases, setPurchases] = useState<MembershipPurchase[]>([]);

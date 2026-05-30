@@ -9,6 +9,7 @@
  * 5. This Week's Schedule
  * 6. Tabs (Today, Week, F/U, Leads, IG DMs, Q Hub, Outcomes)
  */
+import { isAdmin as isAdminCheck } from '@/lib/auth/roles';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -68,7 +69,7 @@ export default function MyDayPage() {
   const { introsBooked, introsRun, sales, refreshData } = useData();
   const { isDark, toggle: toggleDark } = useDarkMode();
 
-  const isUserAdmin = user?.role === 'Admin';
+  const isUserAdmin = isAdminCheck(user);
 
   const [followUpsDueCount, setFollowUpsDueCount] = useState(0);
   const [todayScriptsSent, setTodayScriptsSent] = useState(0);
