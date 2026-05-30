@@ -142,6 +142,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               ) : (
                 <div className="space-y-1.5">
                   {[...data.ranByCoach.entries()]
+                    .filter(([coach]) => activeCoachSet.size === 0 || activeCoachSet.has(coach))
                     .sort((a, b) => b[1] - a[1])
                     .map(([coach, ran]) => {
                       const formal = data.formalByCoach.get(coach);
