@@ -1,53 +1,46 @@
-# Weekly Coach Scorecard Grid in WIG Section
+## Problem
 
-Add a coach-focused, week-over-week scorecard table inside the WIG section of the Team Meeting page so leadership can scan First Visit Scorecard totals at a glance.
+Stacia Donovan's record has `result_canon = ELITE` with `buy_date = 2026-06-01` (post-dated). Today is May 30, but she's already showing as a closed sale everywhere — in pipeline, WIG, commission, close rate, recaps, etc.
 
-## What you'll see
+Sale-date filtering already respects `buy_date` (via `getRunSaleDate` → `isSaleInRange`), so a date-ranged report for "May" correctly excludes her. But anywhere the code asks "is this run a sale?" without a date filter (status badges, labels, pipeline tabs, Total Journey close detection, "all-time" counts, today's activity feed), she shows as sold immediately.
 
-A new sub-section in `WigSection` titled **"Coach Lead Measure — First Visit Scorecard (Push Level 25+)"** with a table:
+## Fix — canonical post-dated guard
 
-```text
-              | wk of 5/18 | wk of 5/25 | wk of 6/1 | wk of 6/8 | wk of 6/15 | wk of 6/22 |
-Jo            |   26/30 ●  |   29/30 ●  |    —      |    —      |     —      |     —      |
-AG            |   19/30 ●  |     —      |    —      |    —      |     —      |     —      |
-Maddie        |   24/30 ●  |     —      |    —      |    —      |     —      |     —      |
-Richmond      |     X      |     —      |    —      |    —      |     —      |     —      |
-Hillary       |   24/30 ●  |     —      |    —      |    —      |     —      |     —      |
-Ryan          |   23/30 ●  |   26/30 ●  |    —      |    —      |     —      |     —      |
+Add one helper in `src/lib/sales-detection.ts`:
+
+```ts
+// True when a sale exists in the data but the buy_date is in the future (CST).
+export function isPostDatedSale(run, asOf = getNowCentral()): boolean
+export function isEffectiveSale(run, asOf = getNowCentral()): boolean
+  // = isSaleCanon(result_canon) && !isPostDatedSale(run)
 ```
 
-Rules:
+Then route every "is this a sale right now?" check through `isEffectiveSale` so post-dated rows behave as "Pending Sale" until their buy_date arrives.
 
-- Rows = canonical coach list (`COACHES`).
-- Columns = the last 6 weeks (Mon–Sun, America/Chicago), oldest → newest, ending with the current week.
-- Cell shows the coach's **highest** `fv_scorecards.total_score` for that week as `total/30`.
-  - If multiple scorecards exist that week, show best score (matches "level up" intent). Tooltip lists all.
-  - If no scorecard was submitted that week → render `X` in red (matches reference image).
-- Color dot next to score: green ≥ 25 (Push), amber 12–24, red < 12 — mirrors `scoreToLevel`.
-- Target callout above table: "Lead Measure: All Coaches will increase to a Push Level (25+) on the First Visit Scorecard."
-- Present mode: larger fonts on white-on-dark, same grid.
-- Print/normal mode: compact, horizontal scroll on mobile.
+### Files to update
 
-## Data
+1. **`src/lib/sales-detection.ts`** — add `isPostDatedSale` + `isEffectiveSale`. Update `isSaleInRange` to additionally require `buy_date <= range.end` (already implicit via sale-date, but make explicit).
+2. **`src/lib/intros/resultLabels.ts`** — `labelForRun` returns new `'Pending Sale'` label when post-dated; `isCloseResult` returns false for post-dated.
+3. **`src/lib/intros/close-detection.ts` / `journey.ts`** — Total Journey `isClosed` excludes post-dated runs so close rate / WIG don't count Stacia until June 1.
+4. **`src/features/pipeline/selectors.ts`** — post-dated rows stay in pipeline (not moved to "closed/sold" bucket) until buy_date.
+5. **`src/components/dashboard/*` activity & recap surfaces** — post-dated sales hidden from "today's sales" feeds; surfaced in a small "Post-Dated (queued for June 1)" badge on the row.
+6. **`src/lib/outcomes/commissionRules.ts` consumers / `PayPeriodCommission.tsx`** — commission amount is still stored on the row, but `isSaleInRange` already pins it to the pay period containing buy_date, so no change needed beyond verifying it doesn't leak into the current period.
+7. **UI badge** — wherever a sale row is rendered (pipeline row card, MyDay intro card, recap details), show an amber "Post-Dated · June 1" pill instead of the green SALE pill until the buy_date is reached.
 
-- Pull `fv_scorecards` for the last 6 weeks via existing `useScorecards({ from, to })` hook.
-- Group by `evaluatee_name` × ISO-week start (CST). No new tables, no migration.
-- Use `COACHES` from `src/types` as the row order (so a coach with zero scorecards still appears, all `X`).
+### Behavior after the fix
 
-## Files
+- **Today (May 30):** Stacia shows as "Pending Sale · buys June 1" — not counted in close rate, WIG sales, today's commission, today's activity, or pipeline "sold" bucket.
+- **June 1 onward:** Automatically flips to a normal SALE everywhere (no manual action). Commission lands in the June pay period.
 
-- **New** `src/components/meeting/CoachScorecardGrid.tsx` — pure presentational grid, takes scorecards + week list, renders table for both present and normal modes.
-- **Edit** `src/components/meeting/WigSection.tsx` — add `coachScorecards` prop, render `<CoachScorecardGrid>` below the existing Per-SA Lead Measures table.
-- **Edit** `src/pages/Meeting.tsx` — call `useScorecards({ from: 6-weeks-ago, to: today })`, pass into `WigSection`.
+### Verification
 
-No DB changes. No role/permission changes (meeting page already gated).
+- Query: Stacia's row pre/post June 1 — confirm `isEffectiveSale` flips on 6/1 CST.
+- WIG close rate for current week excludes Stacia; week of June 1 includes her.
+- Per-SA Lead Measures: her intro_owner's "sales" count drops by 1 today, returns on 6/1.
+- Pipeline Sales tab does not list her until 6/1.
+- Recap for May 30 does not include her sale; recap for June 1 does.
+- No regression on normal same-day sales (buy_date <= today).
 
-## Verification
+### Out of scope
 
-- Coach with 2 scorecards in same week shows the higher score, tooltip lists both.
-- Coach with zero scorecards in window → all `X` cells.
-- Week boundaries: a Sunday-night class falls in that week, Monday morning class in the next — verify with one real record in each.
-- Present mode renders without overflow on the projector resolution used for Tuesday meetings.  
-  
-  
-That's an example of coaches that Auburn uses. Those aren't our coaches. Make sure our coaches are on there
+- No DB migration. No schema change. No edit to her record — `buy_date = 2026-06-01` is already correct.
