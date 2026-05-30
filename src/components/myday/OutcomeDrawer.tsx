@@ -117,6 +117,7 @@ export function OutcomeDrawer({
   onCancel,
 }: OutcomeDrawerProps) {
   const { user } = useAuth();
+  const { coaches: COACHES } = useActiveStaff();
   const [outcome, setOutcome] = useState(currentResult || '');
   const [objection, setObjection] = useState(initialObjection);
   const [notes, setNotes] = useState(initialNotes);
