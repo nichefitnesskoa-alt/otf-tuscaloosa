@@ -84,7 +84,7 @@ async function fetchMetrics() {
   if (bookings.length > 0) {
     const ids = bookings.map(b => b.id);
     const { data: runs } = await sb.from('intros_run')
-      .select('linked_intro_booked_id, member_name, result, result_canon')
+      .select('linked_intro_booked_id, member_name, result, result_canon, buy_date')
       .in('linked_intro_booked_id', ids);
     const bookingMap = new Map(bookings.map(b => [b.id, b]));
     (runs || []).forEach((r: any) => {
