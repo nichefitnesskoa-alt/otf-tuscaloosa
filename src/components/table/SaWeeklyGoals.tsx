@@ -1,14 +1,15 @@
 /**
- * SA Weekly Goals — Own It view of the two SA WIG numbers.
+ * SA Weekly Goals — Own It view of the two SA WIG numbers for the SELECTED
+ * meeting week (driven by parent `weekStart` prop, not "now").
  *
  * Reads the SAME canonical helpers as WIG so the numbers can never disagree:
- *   - useSaLeadsBooked  (target: studio_settings sa_leads_booked_target:YYYY-MM, default 4)
- *   - useSaSales        (target: studio_settings sa_sales_target:YYYY-MM, default 1)
+ *   - useSaLeadsBooked  (target now monthly: studio_settings sa_leads_booked_target:YYYY-MM, default 16)
+ *   - useSaSales        (weekly target: studio_settings sa_sales_target:YYYY-MM, default 1)
+ *
+ * Leads tile shows weekly slice of monthly goal: count vs round(monthly/4).
+ * Sales tile remains weekly: count vs weeklyTarget.
  *
  * Vision line: studio_settings key `sa_wig_vision:YYYY-MM`, editable by Admin.
- *
- * Visible to SA / Both / Admin. Scoped to the CURRENT CST Monday-week,
- * independent of the meeting weekDate stepper.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
@@ -20,31 +21,13 @@ import { useAuth } from '@/context/AuthContext';
 import { isAdmin as isAdminCheck, isSALike } from '@/lib/auth/roles';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
 import { useSaSales } from '@/hooks/useSaSales';
-import { getNowCentral } from '@/lib/dateUtils';
 import { format } from 'date-fns';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { toast } from 'sonner';
 
-const DEFAULT_LEADS_TARGET = 4;
-const DEFAULT_SALES_TARGET = 1;
+const DEFAULT_LEADS_TARGET_MONTHLY = 16;
+const DEFAULT_SALES_TARGET_WEEKLY = 1;
 const DEFAULT_VISION = "Double last June's leads. 182 total.";
-
-// Monday of the current CST week, YYYY-MM-DD.
-function currentMondayYMD(): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Chicago',
-    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
-  });
-  const parts = fmt.formatToParts(new Date());
-  const day = parts.find(p => p.type === 'weekday')!.value;
-  const y = +parts.find(p => p.type === 'year')!.value;
-  const m = +parts.find(p => p.type === 'month')!.value;
-  const d = +parts.find(p => p.type === 'day')!.value;
-  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-  const back = dayMap[day] === 0 ? -6 : 1 - dayMap[day];
-  const dt = new Date(Date.UTC(y, m - 1, d + back));
-  return dt.toISOString().slice(0, 10);
-}
 
 function shiftYMD(ymd: string, days: number): string {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -52,20 +35,25 @@ function shiftYMD(ymd: string, days: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
-export function SaWeeklyGoals() {
+interface Props {
+  /** Monday YYYY-MM-DD for the selected meeting week (from TheTable). */
+  weekStart: string;
+}
+
+export function SaWeeklyGoals({ weekStart }: Props) {
   const { user } = useAuth();
   const isAdmin = isAdminCheck(user);
   const showForUser = isAdmin || isSALike(user);
 
-  const weekStart = useMemo(() => currentMondayYMD(), []);
   const weekEnd = useMemo(() => shiftYMD(weekStart, 6), [weekStart]);
-  const yyyymm = useMemo(() => format(getNowCentral(), 'yyyy-MM'), []);
+  // Target settings keyed to the MONTH of the selected week's Monday.
+  const yyyymm = useMemo(() => weekStart.slice(0, 7), [weekStart]);
 
   const leads = useSaLeadsBooked(weekStart, weekEnd);
   const sales = useSaSales(weekStart, weekEnd);
 
-  const [leadsTarget, setLeadsTarget] = useState(DEFAULT_LEADS_TARGET);
-  const [salesTarget, setSalesTarget] = useState(DEFAULT_SALES_TARGET);
+  const [monthlyLeadsTarget, setMonthlyLeadsTarget] = useState(DEFAULT_LEADS_TARGET_MONTHLY);
+  const [salesTarget, setSalesTarget] = useState(DEFAULT_SALES_TARGET_WEEKLY);
   const [vision, setVision] = useState(DEFAULT_VISION);
   const [editingVision, setEditingVision] = useState(false);
   const [visionInput, setVisionInput] = useState(DEFAULT_VISION);
@@ -84,8 +72,8 @@ export function SaWeeklyGoals() {
     const map = new Map(((rows as any[]) || []).map(r => [r.setting_key, r.setting_value]));
     const lt = parseInt(map.get(keys[0]) || '', 10);
     const st = parseInt(map.get(keys[1]) || '', 10);
-    setLeadsTarget(isNaN(lt) ? DEFAULT_LEADS_TARGET : lt);
-    setSalesTarget(isNaN(st) ? DEFAULT_SALES_TARGET : st);
+    setMonthlyLeadsTarget(isNaN(lt) ? DEFAULT_LEADS_TARGET_MONTHLY : lt);
+    setSalesTarget(isNaN(st) ? DEFAULT_SALES_TARGET_WEEKLY : st);
     const v = map.get(keys[2]) || DEFAULT_VISION;
     setVision(v); setVisionInput(v);
   }, [yyyymm]);
@@ -116,7 +104,9 @@ export function SaWeeklyGoals() {
 
   const myLeads = leads.rows.find(r => r.sa === user.name)?.count ?? 0;
   const mySales = sales.rows.find(r => r.sa === user.name)?.count ?? 0;
-  const leadsHit = myLeads >= leadsTarget;
+  // Weekly slice of monthly leads goal (4-week month assumption — matches WIG editor framing).
+  const weeklyLeadsSlice = Math.max(1, Math.round(monthlyLeadsTarget / 4));
+  const leadsHit = myLeads >= weeklyLeadsSlice;
   const salesHit = mySales >= salesTarget;
 
   const weekLabel = `Week of ${format(new Date(weekStart + 'T12:00:00'), 'M/d')}`;
@@ -159,7 +149,10 @@ export function SaWeeklyGoals() {
           <p className="text-[11px] text-muted-foreground">Leads booked</p>
           <p className="mt-0.5">
             <span className={`text-2xl font-bold ${leadsHit ? 'text-success' : 'text-foreground'}`}>{myLeads}</span>
-            <span className="text-sm text-muted-foreground"> of {leadsTarget}</span>
+            <span className="text-sm text-muted-foreground"> of {weeklyLeadsSlice}</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            weekly slice · monthly goal {monthlyLeadsTarget}
           </p>
         </div>
         <div className="rounded-md border bg-card p-3">
