@@ -110,16 +110,41 @@ export function TodaysActions() {
         <p className="text-xs text-text-secondary py-2">{emptyMessage}</p>
       ) : (
         <div className="space-y-1.5">
-          {chips.map(c => (
-            <button
-              key={c.id}
-              onClick={() => onChipTap(c)}
-              className={`w-full text-left px-3 min-h-[44px] py-2 rounded-md border text-[13px] font-medium flex items-center justify-between ${toneClass[c.tone]}`}
-            >
-              <span>{c.label}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ))}
+          {chips.map(c => {
+            const memberName: string | undefined = c.meta?.memberName;
+            const bookingId: string | undefined = c.meta?.bookingId;
+            return (
+              <div
+                key={c.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onChipTap(c)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChipTap(c); } }}
+                className={`w-full text-left px-3 min-h-[44px] py-2 rounded-md border text-[13px] font-medium flex items-center justify-between cursor-pointer ${toneClass[c.tone]}`}
+              >
+                <span className="min-w-0 flex-1">
+                  {memberName ? (
+                    <>
+                      {c.label.split(memberName)[0]}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (bookingId) journey.openByBooking(bookingId);
+                          else journey.open({ name: memberName });
+                        }}
+                        className="underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                      >
+                        {memberName}
+                      </button>
+                      {c.label.split(memberName).slice(1).join(memberName)}
+                    </>
+                  ) : c.label}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 ml-2" />
+              </div>
+            );
+          })}
         </div>
       )}
 
