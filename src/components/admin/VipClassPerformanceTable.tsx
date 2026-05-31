@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 import { toast } from 'sonner';
 import { PersonListDrillDown, DrillNumber, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 const sb = supabase as any;
 
@@ -46,6 +47,7 @@ export function VipClassPerformanceTable() {
   const [open, setOpen] = useState(false);
   const [relinking, setRelinking] = useState(false);
   const [drill, setDrill] = useState<{ row: VipPerfRow; metric: MetricKey } | null>(null);
+  const journey = useJourneyCard('VIP class');
 
   const handleRelink = async () => {
     setRelinking(true);
@@ -134,7 +136,7 @@ export function VipClassPerformanceTable() {
           subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
           rightLabel: b.booking_status_canon === 'SHOWED' ? 'Showed' : (b.booking_status_canon || '—'),
           rightTone: b.booking_status_canon === 'SHOWED' ? 'success' : 'muted',
-          href: `/pipeline?leadId=${b.id}`,
+          onClick: () => journey.openByBooking(b.id),
         }));
         const ranPeople: PersonRow[] = showedBookings.map(b => {
           const lastRun = (runByBooking[b.id] || [])[0];
@@ -144,7 +146,7 @@ export function VipClassPerformanceTable() {
             subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
             rightLabel: lastRun ? labelForRun(lastRun) : 'Showed',
             rightTone: lastRun && isCloseResult(lastRun) ? 'success' : 'muted',
-            href: `/pipeline?leadId=${b.id}`,
+            onClick: () => journey.openByBooking(b.id),
           };
         });
         const joinsPeople: PersonRow[] = sessionBookings
@@ -157,7 +159,7 @@ export function VipClassPerformanceTable() {
               subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
               rightLabel: saleRun ? labelForRun(saleRun) : 'SALE',
               rightTone: 'success',
-              href: `/pipeline?leadId=${b.id}`,
+              onClick: () => journey.openByBooking(b.id),
             };
           });
 
@@ -301,6 +303,7 @@ export function VipClassPerformanceTable() {
         rows={drillRows}
         emptyText="No records for this metric."
       />
+      {journey.element}
     </Collapsible>
   );
 }

@@ -29,6 +29,7 @@ import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import EditSaleDialog from './EditSaleDialog';
 import DeleteSaleDialog from './DeleteSaleDialog';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
@@ -68,6 +69,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
   const [sortColumn, setSortColumn] = useState<string>('purchase_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const hasExternalRange = externalDateRange !== undefined;
+  const journey = useJourneyCard('Purchases');
 
   useEffect(() => {
     if (hasExternalRange) {
@@ -382,7 +384,13 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                 {filteredAndSorted.map(purchase => (
                   <TableRow key={purchase.id}>
                     <TableCell className="font-medium">
-                      {purchase.member_name}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); journey.open({ name: purchase.member_name }); }}
+                        className="text-left hover:underline cursor-pointer text-primary"
+                      >
+                        {purchase.member_name}
+                      </button>
                       {purchase.source === 'outside_intro' && (
                         <Badge variant="outline" className="ml-1 text-xs">Outside</Badge>
                       )}
@@ -444,6 +452,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
            purchase={deletePurchase}
            onDeleted={fetchPurchases}
          />
+         {journey.element}
        </CardContent>
      </Card>
    );

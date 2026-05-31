@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { parseLocalDate } from '@/lib/utils';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 import { DateRange, formatDateRange } from '@/lib/pay-period';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 // Pay period anchor: January 26, 2026 (biweekly)
 const PAY_PERIOD_ANCHOR = new Date(2026, 0, 26); // January 26, 2026
@@ -85,6 +86,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
   }>({ column: 'showRate', direction: 'desc' });
 
   const payPeriods = useMemo(() => generatePayPeriods(), []);
+  const journey = useJourneyCard('Commission');
   
   // If external date range is provided, use it; otherwise use pay period selector
   const useExternalRange = externalDateRange !== undefined;
@@ -458,7 +460,13 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                               className="flex items-center justify-between p-2 bg-background rounded border text-sm"
                             >
                               <div>
-                                <p className="font-medium">{detail.memberName}</p>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); journey.open({ name: detail.memberName }); }}
+                                  className="font-medium text-left hover:underline cursor-pointer text-primary"
+                                >
+                                  {detail.memberName}
+                                </button>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                   <span>{format(parseLocalDate(detail.date), 'MMM d')}</span>
                                   <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
@@ -581,6 +589,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </Card>
   );
 }

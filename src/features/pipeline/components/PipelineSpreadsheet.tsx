@@ -26,6 +26,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
@@ -256,6 +257,8 @@ export function PipelineSpreadsheet({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>(getDefaultSort(activeTab).key);
   const [sortDir, setSortDir] = useState<SortDir>(getDefaultSort(activeTab).dir);
+  const journeyCard = useJourneyCard('Pipeline');
+  
   
 
   // Reset sort when tab changes
@@ -295,7 +298,7 @@ export function PipelineSpreadsheet({
 
   // By Source: analytics summary view
   if (activeTab === 'by_lead_source') {
-    return <BySourceTable journeys={journeys} isLoading={isLoading} onOpenDialog={onOpenDialog} isOnline={isOnline} vipInfoMap={vipInfoMap} />;
+    return <><BySourceTable journeys={journeys} isLoading={isLoading} onOpenDialog={onOpenDialog} isOnline={isOnline} vipInfoMap={vipInfoMap} />{journeyCard.element}</>;
   }
 
   if (isLoading) {
@@ -357,6 +360,7 @@ export function PipelineSpreadsheet({
                   onToggle={() => setExpandedKey(isExpanded ? null : journey.memberKey)}
                   onOpenDialog={onOpenDialog}
                   onOpenScript={() => onOpenScript?.(journey)}
+                  onOpenJourneyCard={(bookingId) => journeyCard.openByBooking(bookingId)}
                   isEven={vRow.index % 2 === 0}
                   userName={user?.name || 'Admin'}
                 />
@@ -365,7 +369,7 @@ export function PipelineSpreadsheet({
           })}
         </div>
       </div>
-
+      {journeyCard.element}
     </>
   );
 }
@@ -383,13 +387,14 @@ interface SpreadsheetRowProps {
   onToggle: () => void;
   onOpenDialog: (type: string, data?: any) => void;
   onOpenScript: () => void;
+  onOpenJourneyCard: (bookingId: string) => void;
   isEven: boolean;
   userName: string;
 }
 
 const SpreadsheetRow = memo(function SpreadsheetRow({
   journey, columns, activeTab, isExpanded, isOnline, vipInfoMap, scriptActionsMap,
-  onToggle, onOpenDialog, onOpenScript, isEven, userName,
+  onToggle, onOpenDialog, onOpenScript, onOpenJourneyCard, isEven, userName,
 }: SpreadsheetRowProps) {
   const b = getLatestBooking(journey);
   const r = getLatestRun(journey);
@@ -414,13 +419,25 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 
   const renderCell = (col: ColumnDef) => {
     switch (col.key) {
-      case 'name':
+      case 'name': {
+        const bookingId = b?.id || journey.bookings[0]?.id;
         return (
           <div className="flex items-center gap-1.5 truncate">
             {isExpanded ? <ChevronDown className="w-3 h-3 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 flex-shrink-0" />}
-            <span className="font-medium truncate">{journey.memberName}</span>
+            {bookingId ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenJourneyCard(bookingId); }}
+                className="font-medium truncate text-left hover:underline cursor-pointer text-primary"
+              >
+                {journey.memberName}
+              </button>
+            ) : (
+              <span className="font-medium truncate">{journey.memberName}</span>
+            )}
           </div>
         );
+      }
       case 'created_at': return <span className="text-xs text-muted-foreground">{b?.created_at ? formatDistanceToNow(parseISO(b.created_at), { addSuffix: true }) : '—'}</span>;
       case 'class_date': return <span className="text-xs">{b?.class_date || '—'}</span>;
       case 'class_time': return <span className="text-xs">{b?.intro_time || '—'}</span>;
@@ -872,6 +889,7 @@ function BySourceTable({
   const [sortKey, setSortKey] = useState<string>('total_booked');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
+  const journeyCard = useJourneyCard('By source');
 
   const sourceStats = useMemo(() => {
     const map = new Map<string, { source: string; journeys: ClientJourney[]; totalBooked: number; showed: number; sold: number }>();
@@ -955,7 +973,13 @@ function BySourceTable({
                 const r = getLatestRun(j);
                 return (
                   <div key={j.memberKey} className="text-xs flex items-center gap-3 p-1.5 bg-background rounded border">
-                    <span className="font-medium w-[150px] truncate">{j.memberName}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); const bid = b?.id || j.bookings[0]?.id; if (bid) journeyCard.openByBooking(bid); else journeyCard.open({ name: j.memberName }); }}
+                      className="font-medium w-[150px] truncate text-left hover:underline cursor-pointer text-primary"
+                    >
+                      {j.memberName}
+                    </button>
                     <span className="text-muted-foreground w-[100px]">{b?.class_date || '—'}</span>
                     {r ? <OutcomeBadge result={r.result} run={r} /> : <span className="text-muted-foreground">No run</span>}
                     {(r?.commission_amount || 0) > 0 && <span className="text-success">${r?.commission_amount}</span>}
@@ -970,6 +994,7 @@ function BySourceTable({
       {sourceStats.length === 0 && (
         <div className="text-center text-sm text-muted-foreground py-8">No data</div>
       )}
+      {journeyCard.element}
     </div>
   );
 }
