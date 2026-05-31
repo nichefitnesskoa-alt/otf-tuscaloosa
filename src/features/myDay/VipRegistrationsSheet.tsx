@@ -328,6 +328,28 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           </p>
         </div>
 
+        <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">
+              Which SA found and set up this VIP class?
+            </Label>
+            {saSetupSaved && <span className="text-[10px] text-success">Saved</span>}
+          </div>
+          <Select value={vipSaSetup} onValueChange={saveVipSaSetup} disabled={savingSaSetup}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Select SA who set this up…" />
+            </SelectTrigger>
+            <SelectContent>
+              {SAS.map(s => (
+                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            This SA gets credit for every intro booked from this VIP class toward their weekly leads booked.
+          </p>
+        </div>
+
         <div className="mt-4 rounded-lg border bg-card p-4 space-y-3">
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading…</div>
