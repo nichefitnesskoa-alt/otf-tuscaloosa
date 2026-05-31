@@ -14,12 +14,18 @@ export type BookingStatus =
   | 'CLOSED_DIDNT_BUY'
   | 'CANCELLED'
   | 'DELETED_SOFT'
-  | 'PLANNING_RESCHEDULE';
+  | 'PLANNING_RESCHEDULE'
+  | 'ON_5_CLASS_PACK'
+  | 'FOLLOW_UP_NEEDED'
+  | 'PLANNING_2ND_INTRO'
+  | 'PLANNING_TO_BUY';
 
 export type IntroResult =
   | 'PREMIER'
+  | 'PREMIER_OTBEAT'
   | 'ELITE'
   | 'BASIC'
+  | 'SALE'
   | 'NO_SHOW'
   | 'DIDNT_BUY'
   | 'NOT_INTERESTED'
@@ -30,6 +36,7 @@ export type IntroResult =
   | 'ON_5_CLASS_PACK'
   | 'PLANNING_RESCHEDULE'
   | 'VIP_CLASS_INTRO'
+  | 'DELETED'
   | 'UNRESOLVED';
 
 // ── Normalizers ──
@@ -130,8 +137,10 @@ export function isMembershipSaleResult(result: IntroResult): boolean {
 export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
   switch (result) {
     case 'PREMIER':
+    case 'PREMIER_OTBEAT':
     case 'ELITE':
     case 'BASIC':
+    case 'SALE':
       return 'CLOSED_PURCHASED';
     case 'NO_SHOW':
       return 'ACTIVE'; // keeps them available for rebooking
@@ -142,17 +151,21 @@ export function mapResultToBookingStatus(result: IntroResult): BookingStatus {
     case 'SECOND_INTRO_SCHEDULED':
       return 'SECOND_INTRO_SCHEDULED';
     case 'FOLLOW_UP_NEEDED':
-      return 'ACTIVE';
+      return 'FOLLOW_UP_NEEDED';
     case 'PLANNING_2ND_INTRO':
-      return 'ACTIVE';
+      return 'PLANNING_2ND_INTRO';
     case 'PLANNING_TO_BUY':
-      return 'ACTIVE';
+      return 'PLANNING_TO_BUY';
     case 'ON_5_CLASS_PACK':
-      return 'ACTIVE';
+      // NOT a sale — free trial pack gifted by a current member.
+      // Must never map to CLOSED_PURCHASED.
+      return 'ON_5_CLASS_PACK';
     case 'PLANNING_RESCHEDULE':
       return 'PLANNING_RESCHEDULE';
     case 'VIP_CLASS_INTRO':
       return 'NOT_INTERESTED';
+    case 'DELETED':
+      return 'DELETED_SOFT';
     case 'UNRESOLVED':
     default:
       return 'ACTIVE';
@@ -172,6 +185,10 @@ const BOOKING_STATUS_DISPLAY: Record<BookingStatus, string> = {
   CANCELLED: 'Cancelled',
   DELETED_SOFT: 'Deleted (soft)',
   PLANNING_RESCHEDULE: 'Planning to Reschedule',
+  ON_5_CLASS_PACK: 'On 5 Class Pack',
+  FOLLOW_UP_NEEDED: 'Follow-up needed',
+  PLANNING_2ND_INTRO: 'Planning to Book 2nd Intro',
+  PLANNING_TO_BUY: 'Planning to buy',
 };
 
 export function formatBookingStatusForDb(status: BookingStatus): string {
@@ -184,6 +201,12 @@ export function formatIntroResultForDb(result: IntroResult, membershipType?: str
     case 'ELITE':
     case 'BASIC':
       return membershipType || result;
+    case 'PREMIER_OTBEAT':
+      return membershipType || 'Premier + OTbeat';
+    case 'SALE':
+      return membershipType || 'Sale';
+    case 'DELETED':
+      return 'Deleted';
     case 'NO_SHOW':
       return 'No-show';
     case 'DIDNT_BUY':
