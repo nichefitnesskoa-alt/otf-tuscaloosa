@@ -460,7 +460,13 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
                               className="flex items-center justify-between p-2 bg-background rounded border text-sm"
                             >
                               <div>
-                                <p className="font-medium">{detail.memberName}</p>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); journey.open({ name: detail.memberName }); }}
+                                  className="font-medium text-left hover:underline cursor-pointer text-primary"
+                                >
+                                  {detail.memberName}
+                                </button>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                   <span>{format(parseLocalDate(detail.date), 'MMM d')}</span>
                                   <Badge variant={detail.type === 'intro' ? 'default' : 'secondary'} className="text-[10px] px-1 py-0">
