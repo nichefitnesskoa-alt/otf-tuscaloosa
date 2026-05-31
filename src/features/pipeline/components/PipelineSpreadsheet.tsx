@@ -994,6 +994,7 @@ function BySourceTable({
       {sourceStats.length === 0 && (
         <div className="text-center text-sm text-muted-foreground py-8">No data</div>
       )}
+      {journeyCard.element}
     </div>
   );
 }
