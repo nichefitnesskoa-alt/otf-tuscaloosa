@@ -204,27 +204,6 @@ export function WigSaLeaderboard({ dateRange }: Props) {
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
-    const filterBySa = (saName: string | null) => (v: { created_by?: string | null; booked_by?: string | null }) =>
-      saName == null ? true : (v.created_by || v.booked_by) === saName;
-
-    if (drill.bucket === 'milestones') {
-      return data.milestones
-        .filter(m => isEligibleThreshold(m.milestone_type) && filterBySa(drill.sa)(m))
-        .map(m => ({
-          id: `mile-${m.id}`,
-          name: m.member_name || 'Unknown member',
-          subtitle: `${m.milestone_type} class · ${format(new Date(m.created_at), 'MMM d')} · ${m.created_by || 'Unknown'}`,
-        }));
-    }
-    if (drill.bucket === 'referrals') {
-      return data.referrals
-        .filter(filterBySa(drill.sa))
-        .map(r => ({
-          id: `ref-${r.id}`,
-          name: r.member_name || 'Unknown member',
-          subtitle: `${r.class_date ? format(parseLocalDate(r.class_date), 'MMM d') : ''} · ${r.booked_by || 'Unknown'}`,
-        }));
-    }
     if (drill.bucket === 'sales') {
       const saRows = drill.sa ? sales.rows.filter(r => r.sa === drill.sa) : sales.rows;
       return saRows.flatMap(r => r.runs.map(({ run, member, closeYMD }) => ({
@@ -256,15 +235,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, data, leads.rows, sales.rows]);
+  }, [drill, leads.rows, sales.rows]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${
-        drill.bucket === 'milestones' ? 'Milestones marked'
-        : drill.bucket === 'referrals' ? 'POS referral asks'
-        : drill.bucket === 'sales' ? 'Sales'
-        : 'Leads booked'
-      }`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : 'Leads booked'}`
     : '';
 
   return (
