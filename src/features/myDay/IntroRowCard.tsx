@@ -17,6 +17,7 @@ import type { UpcomingIntroItem } from './myDayTypes';
 import { OutcomeDrawer } from '@/components/myday/OutcomeDrawer';
 import { StatusBanner } from '@/components/shared/StatusBanner';
 import IntroCard from '@/components/shared/IntroCard';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { LeadSourceTag } from '@/components/dashboard/IntroTypeBadge';
 import { TheirStory } from '@/components/shared/TheirStory';
 import { SABriefFields } from '@/components/shared/SABriefFields';
@@ -141,6 +142,7 @@ export default function IntroRowCard({
   const [vipRegOpen, setVipRegOpen] = useState(false);
   const qBar = getQBar(localQStatus);
   const hasActiveField = useRef(false);
+  const journey = useJourneyCard('My Day');
 
   // ── Focus mode: compute minutesUntilClass off shared 1-min ticker ──
   const nowDate = useNowMinute();
@@ -375,7 +377,15 @@ export default function IntroRowCard({
       )}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-        <span className="font-semibold text-sm truncate">{item.memberName}</span>
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); journey.openByBooking(item.bookingId); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); journey.openByBooking(item.bookingId); } }}
+          className="font-semibold text-sm truncate hover:underline cursor-pointer"
+        >
+          {item.memberName}
+        </span>
         <span className="pointer-events-none flex items-center gap-1 flex-wrap">
           {item.isVipClassIntro ? (
             <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">VIP Class Intro</Badge>
@@ -722,6 +732,7 @@ export default function IntroRowCard({
         editedBy={userName}
         onSaved={onRefresh}
       />
+      {journey.element}
     </div>
   );
 }
