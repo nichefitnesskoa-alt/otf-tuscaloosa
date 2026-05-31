@@ -471,12 +471,15 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
           onCancel={cancelEdit}
           onCommit={commitEdit}
           input={
-            <Select value={draft} onValueChange={setDraft}>
-              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <Select value={draft} onValueChange={setDraft}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <FriendRuleNotice leadSource={draft} bookedByName={booking.booked_by} />
+            </div>
           }
         />
         <EditableField
