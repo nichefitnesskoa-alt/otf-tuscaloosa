@@ -1083,7 +1083,19 @@ export function VipPipelineTable() {
                         className="h-3.5 w-3.5"
                       />
                     </td>
-                    <td className="p-2 font-medium">{row.memberName}</td>
+                    <td className="p-2 font-medium">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (row.bookingId) journey.openByBooking(row.bookingId);
+                          else journey.open({ name: row.memberName, phone: displayPhone(row), email: displayEmail(row) });
+                        }}
+                        className="text-left hover:underline cursor-pointer"
+                      >
+                        {row.memberName}
+                      </button>
+                    </td>
                     {selectedGroup === 'All' && (
                       <td className="p-2">
                         <Badge variant="secondary" className="text-[10px] px-1.5 h-4 bg-accent text-accent-foreground">
