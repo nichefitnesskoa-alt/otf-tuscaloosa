@@ -23,6 +23,7 @@ import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
 import { MentionInput } from '@/components/shared/MentionInput';
 import { MentionText } from '@/components/shared/MentionText';
 import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
+import { SaWeeklyGoals } from '@/components/table/SaWeeklyGoals';
 import { ExportTeamMeetingButton } from '@/components/table/ExportTeamMeetingButton';
 import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useRecentLaneCompleteness } from '@/lib/table/laneCompletion';
