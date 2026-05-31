@@ -185,6 +185,10 @@ const BOOKING_STATUS_DISPLAY: Record<BookingStatus, string> = {
   CANCELLED: 'Cancelled',
   DELETED_SOFT: 'Deleted (soft)',
   PLANNING_RESCHEDULE: 'Planning to Reschedule',
+  ON_5_CLASS_PACK: 'On 5 Class Pack',
+  FOLLOW_UP_NEEDED: 'Follow-up needed',
+  PLANNING_2ND_INTRO: 'Planning to Book 2nd Intro',
+  PLANNING_TO_BUY: 'Planning to buy',
 };
 
 export function formatBookingStatusForDb(status: BookingStatus): string {
