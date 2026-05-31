@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { format, startOfWeek } from 'date-fns';
 import { ArrowDownUp } from 'lucide-react';
 import { useAllReferralAsks } from './useReferralAsks';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface Props {
   open: boolean;
@@ -15,6 +16,7 @@ export function ReferralAskHistorySheet({ open, onOpenChange }: Props) {
   const { asks, loading } = useAllReferralAsks();
   const [search, setSearch] = useState('');
   const [sortDesc, setSortDesc] = useState(true);
+  const journey = useJourneyCard('Referral · History');
 
   const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
 
@@ -77,7 +79,13 @@ export function ReferralAskHistorySheet({ open, onOpenChange }: Props) {
             {filtered.map(a => (
               <div key={a.id} className="p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{a.member_name}</span>
+                  <button
+                    type="button"
+                    onClick={() => journey.open({ name: a.member_name })}
+                    className="font-medium hover:underline cursor-pointer text-left"
+                  >
+                    {a.member_name}
+                  </button>
                   <span className="text-[10px] text-muted-foreground">
                     {format(new Date(a.asked_at), 'MMM d · h:mma')}
                   </span>
@@ -91,6 +99,7 @@ export function ReferralAskHistorySheet({ open, onOpenChange }: Props) {
           </div>
         )}
       </SheetContent>
+      {journey.element}
     </Sheet>
   );
 }
