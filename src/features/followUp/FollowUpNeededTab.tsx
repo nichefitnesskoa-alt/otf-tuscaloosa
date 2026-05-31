@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import IntroCard from '@/components/shared/IntroCard';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
@@ -32,6 +33,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
   const [markingNotInterested, setMarkingNotInterested] = useState<string | null>(null);
   const [dismissTarget, setDismissTarget] = useState<FollowUpItem | null>(null);
   const { user } = useAuth();
+  const journey = useJourneyCard('Follow-Up · Needed');
 
   const handleMarkNotInterested = async (item: FollowUpItem) => {
     setMarkingNotInterested(item.bookingId);
@@ -94,6 +96,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
         return (
           <IntroCard
             key={item.bookingId}
+            onNameClick={() => journey.openByBooking(item.bookingId)}
             memberName={item.memberName}
             classDate={item.classDate}
             introTime={item.introTime}
@@ -197,6 +200,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
         {coolingItems.map(item => (
           <IntroCard
             key={item.bookingId}
+            onNameClick={() => journey.openByBooking(item.bookingId)}
             memberName={item.memberName}
             classDate={item.classDate}
             introTime={item.introTime}
@@ -225,6 +229,7 @@ export default function FollowUpNeededTab({ items, coolingItems, coolingCount, i
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </div>
   );
 }
