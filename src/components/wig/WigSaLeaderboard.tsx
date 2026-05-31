@@ -114,25 +114,31 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     return { leads: leads.total, sales: sales.total };
   }, [leads.total, sales.total]);
 
-  // Period-aware target math. weeksInPeriod = ceil((end-start+1)/7), min 1.
-  // Pro-rata-to-today = perSaTarget * elapsedWeeks (capped at weeksInPeriod).
+  // Period-aware target math.
+  // - Leads target is MONTHLY per SA. Period goal = round(monthly × days/monthDays).
+  // - Sales target is WEEKLY per SA. Period goal = weekly × ceil(days/7).
+  // Pro-rata-to-today scales linearly across elapsed days in the selected range.
   const { weeksInPeriod, leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata, isSingleWeek } = useMemo(() => {
     if (!dateRange) {
-      return { weeksInPeriod: 1, leadsPeriodGoal: leadsTarget, salesPeriodGoal: salesTarget,
-               leadsProRata: leadsTarget, salesProRata: salesTarget, isSingleWeek: true };
+      return { weeksInPeriod: 1, leadsPeriodGoal: Math.round(leadsTarget / 4), salesPeriodGoal: salesTarget,
+               leadsProRata: Math.round(leadsTarget / 4), salesProRata: salesTarget, isSingleWeek: true };
     }
     const msDay = 86400000;
     const days = Math.max(1, Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / msDay) + 1);
     const weeks = Math.max(1, Math.ceil(days / 7));
+    // Days in the calendar month of the range start (CST-safe via UTC math on Y/M).
+    const startY = dateRange.start.getFullYear();
+    const startM = dateRange.start.getMonth();
+    const monthDays = new Date(startY, startM + 1, 0).getDate();
     const today = getNowCentral();
     const cappedToday = today < dateRange.start ? dateRange.start : today > dateRange.end ? dateRange.end : today;
     const elapsedDays = Math.max(1, Math.round((cappedToday.getTime() - dateRange.start.getTime()) / msDay) + 1);
     const elapsedWeeks = Math.min(weeks, elapsedDays / 7);
     return {
       weeksInPeriod: weeks,
-      leadsPeriodGoal: leadsTarget * weeks,
+      leadsPeriodGoal: Math.max(1, Math.round(leadsTarget * days / monthDays)),
       salesPeriodGoal: salesTarget * weeks,
-      leadsProRata: leadsTarget * elapsedWeeks,
+      leadsProRata: leadsTarget * elapsedDays / monthDays,
       salesProRata: salesTarget * elapsedWeeks,
       isSingleWeek: weeks === 1,
     };
