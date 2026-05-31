@@ -589,6 +589,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </Card>
   );
 }
