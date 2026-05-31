@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
