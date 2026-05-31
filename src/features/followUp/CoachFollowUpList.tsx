@@ -13,6 +13,7 @@ import { stripCountryCode, formatPhoneDisplay } from '@/lib/parsing/phone';
 import { PhoneLink } from '@/components/shared/PhoneLink';
 import { toast } from 'sonner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -163,6 +164,7 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
   userName: string;
 }) {
   const [notInterestedOpen, setNotInterestedOpen] = useState(false);
+  const journey = useJourneyCard('Coach Follow-Up');
 
   const daysSinceIntro = differenceInDays(new Date(), new Date(item.classDate + 'T12:00:00'));
   const daysSinceCreated = differenceInDays(new Date(), new Date(item.createdAt));
@@ -219,7 +221,13 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
       <div className="rounded-lg border bg-card p-3 space-y-1.5">
         {/* Line 1: Name + Missed Guest badge */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-sm font-semibold">{item.memberName}</span>
+          <button
+            type="button"
+            onClick={() => item.bookingId ? journey.openByBooking(item.bookingId) : journey.open({ name: item.memberName, phone: item.phone })}
+            className="text-sm font-semibold hover:underline cursor-pointer text-left"
+          >
+            {item.memberName}
+          </button>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-foreground text-background">
             Missed Guest
           </span>
@@ -316,6 +324,7 @@ function CoachFollowUpCard({ item, todayStr, onRefresh, userName }: {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </>
   );
 }

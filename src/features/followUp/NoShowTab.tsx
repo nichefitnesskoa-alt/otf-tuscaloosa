@@ -9,6 +9,7 @@ import { Send, CalendarPlus, CheckCheck, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import IntroCard from '@/components/shared/IntroCard';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { useAuth } from '@/context/AuthContext';
@@ -31,6 +32,7 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [dismissTarget, setDismissTarget] = useState<FollowUpItem | null>(null);
   const { user } = useAuth();
+  const journey = useJourneyCard('Follow-Up · No-Show');
 
   const handleLogSent = async (item: FollowUpItem) => {
     await supabase.from('script_actions').insert({
@@ -65,6 +67,7 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
       {visible.map(item => (
         <IntroCard
           key={item.bookingId}
+          onNameClick={() => journey.openByBooking(item.bookingId)}
           memberName={item.memberName}
           classDate={item.classDate}
           introTime={item.introTime}
@@ -135,6 +138,7 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
         {coolingItems.map(item => (
           <IntroCard
             key={item.bookingId}
+            onNameClick={() => journey.openByBooking(item.bookingId)}
             memberName={item.memberName}
             classDate={item.classDate}
             introTime={item.introTime}
@@ -163,6 +167,7 @@ export default function NoShowTab({ items, coolingItems, coolingCount, isLoading
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </div>
   );
 }

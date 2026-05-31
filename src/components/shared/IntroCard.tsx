@@ -374,8 +374,19 @@ export default function IntroCard({
       {/* ── HEADER BAR ── */}
       <div className="px-3 py-2" style={{ background: 'var(--intro-header-bg)' }}>
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Name — always static */}
-          <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>{memberName}</h3>
+          {/* Name — opens Person Journey card when onNameClick is provided */}
+          {onNameClick ? (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onNameClick(); }}
+              className="text-base font-bold leading-tight shrink-0 hover:underline cursor-pointer rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors text-left"
+              style={{ color: 'var(--intro-header-text)' }}
+            >
+              {memberName}
+            </button>
+          ) : (
+            <h3 className="text-base font-bold leading-tight shrink-0" style={{ color: 'var(--intro-header-text)' }}>{memberName}</h3>
+          )}
           {badges}
           {referredBy && (
             <span className="text-[10px] px-1.5 py-0 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shrink-0 font-medium">

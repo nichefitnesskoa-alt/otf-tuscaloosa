@@ -14,6 +14,7 @@ import { stripCountryCode } from '@/lib/parsing/phone';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import IntroCard from '@/components/shared/IntroCard';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactedBanner } from '@/components/shared/ContactedBanner';
 import { useAuth } from '@/context/AuthContext';
 import type { FollowUpItem } from './useFollowUpData';
@@ -86,6 +87,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [dismissTarget, setDismissTarget] = useState<FollowUpItem | null>(null);
   const { user } = useAuth();
+  const journey = useJourneyCard('Follow-Up · Reschedule');
 
   const handleCopyPhone = (item: FollowUpItem) => {
     const clean = stripCountryCode(item.phone);
@@ -125,6 +127,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
       {visible.map(item => (
         <IntroCard
           key={item.bookingId}
+          onNameClick={() => journey.openByBooking(item.bookingId)}
           memberName={item.memberName}
           classDate={item.classDate}
           introTime={item.introTime}
@@ -183,6 +186,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
         {coolingItems.map(item => (
           <IntroCard
             key={item.bookingId}
+            onNameClick={() => journey.openByBooking(item.bookingId)}
             memberName={item.memberName}
             classDate={item.classDate}
             introTime={item.introTime}
@@ -211,6 +215,7 @@ export default function PlansToRescheduleTab({ items, coolingItems, coolingCount
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </div>
   );
 }
