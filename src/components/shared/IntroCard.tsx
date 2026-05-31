@@ -261,6 +261,7 @@ export default function IntroCard({
   bookingId, editable = false, editedBy = '', onFieldSaved,
   badges, outcomeBadge, timingInfo, actionButtons, secondaryActions,
   lastContactSummary, topBanner, outcomeBanner, children, className, id, style,
+  onNameClick,
 }: IntroCardProps) {
   const canEdit = editable && bookingId && editedBy;
   const refresh = () => onFieldSaved?.();
