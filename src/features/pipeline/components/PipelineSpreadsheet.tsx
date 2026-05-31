@@ -419,13 +419,25 @@ const SpreadsheetRow = memo(function SpreadsheetRow({
 
   const renderCell = (col: ColumnDef) => {
     switch (col.key) {
-      case 'name':
+      case 'name': {
+        const bookingId = b?.id || journey.bookings[0]?.id;
         return (
           <div className="flex items-center gap-1.5 truncate">
             {isExpanded ? <ChevronDown className="w-3 h-3 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 flex-shrink-0" />}
-            <span className="font-medium truncate">{journey.memberName}</span>
+            {bookingId ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenJourneyCard(bookingId); }}
+                className="font-medium truncate text-left hover:underline cursor-pointer text-primary"
+              >
+                {journey.memberName}
+              </button>
+            ) : (
+              <span className="font-medium truncate">{journey.memberName}</span>
+            )}
           </div>
         );
+      }
       case 'created_at': return <span className="text-xs text-muted-foreground">{b?.created_at ? formatDistanceToNow(parseISO(b.created_at), { addSuffix: true }) : '—'}</span>;
       case 'class_date': return <span className="text-xs">{b?.class_date || '—'}</span>;
       case 'class_time': return <span className="text-xs">{b?.intro_time || '—'}</span>;
