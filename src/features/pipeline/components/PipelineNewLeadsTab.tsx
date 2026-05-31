@@ -248,6 +248,7 @@ function LeadCard({ lead, onAction, onBook, onScript, onOpenJourney }: {
 
 export function PipelineNewLeadsTab() {
   const { user } = useAuth();
+  const journey = useJourneyCard();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState('new');
