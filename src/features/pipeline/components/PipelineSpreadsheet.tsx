@@ -973,7 +973,13 @@ function BySourceTable({
                 const r = getLatestRun(j);
                 return (
                   <div key={j.memberKey} className="text-xs flex items-center gap-3 p-1.5 bg-background rounded border">
-                    <span className="font-medium w-[150px] truncate">{j.memberName}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); const bid = b?.id || j.bookings[0]?.id; if (bid) journeyCard.openByBooking(bid); else journeyCard.open({ name: j.memberName }); }}
+                      className="font-medium w-[150px] truncate text-left hover:underline cursor-pointer text-primary"
+                    >
+                      {j.memberName}
+                    </button>
                     <span className="text-muted-foreground w-[100px]">{b?.class_date || '—'}</span>
                     {r ? <OutcomeBadge result={r.result} run={r} /> : <span className="text-muted-foreground">No run</span>}
                     {(r?.commission_amount || 0) > 0 && <span className="text-success">${r?.commission_amount}</span>}
