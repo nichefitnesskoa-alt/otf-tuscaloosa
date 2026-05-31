@@ -14,6 +14,7 @@ import { Search, Trash2, Loader2 } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import DeleteSaleDialog from '@/components/admin/DeleteSaleDialog';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface SaleRow {
   id: string;
