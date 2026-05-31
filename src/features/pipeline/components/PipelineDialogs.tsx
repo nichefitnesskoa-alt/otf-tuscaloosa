@@ -772,6 +772,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
                     <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
+                  <FriendRuleNotice leadSource={newBooking.lead_source} bookedByName={newBooking.sa_working_shift} />
                 </div>
                 {newBooking.lead_source.toLowerCase().includes('vip class') && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required={newBooking.lead_source === 'VIP Class'} showWarning={newBooking.lead_source === 'VIP Class'} />
