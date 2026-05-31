@@ -149,6 +149,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
                   <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+                <FriendRuleNotice leadSource={editBooking.lead_source} bookedByName={editBooking.booked_by || editBooking.sa_working_shift} />
               </div>
               <div><Label className="text-xs">Coach</Label>
                 <Select value={editBooking.coach_name || ''} onValueChange={v => setEditBooking({ ...editBooking, coach_name: v === '__TBD__' ? 'TBD' : v })}>
