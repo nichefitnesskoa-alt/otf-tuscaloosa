@@ -244,6 +244,7 @@ export default function IntroRunEntry({ intro, index, onUpdate, onRemove, curren
               ))}
             </SelectContent>
           </Select>
+          <FriendRuleNotice leadSource={intro.leadSource} />
         </div>
       )}
 
