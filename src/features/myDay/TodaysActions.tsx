@@ -27,6 +27,7 @@ export function TodaysActions() {
   const isAdmin = isAdminCheck(user);
   const isCoach = user?.role === 'Coach';
   const { staff } = useActiveStaff();
+  const journey = useJourneyCard();
 
   const [adminPerson, setAdminPerson] = useState<string>(user?.name || '');
   const adminPersonRecord = staff.find(s => s.name === adminPerson);
