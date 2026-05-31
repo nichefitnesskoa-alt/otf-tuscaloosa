@@ -34,6 +34,7 @@ interface Props {
 }
 
 export function PipelineSalesTab({ onAfterDelete }: Props) {
+  const journey = useJourneyCard();
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
