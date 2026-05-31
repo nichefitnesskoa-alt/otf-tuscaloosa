@@ -22,6 +22,7 @@ export interface PersonRow {
   rightLabel?: string;
   rightTone?: 'success' | 'warning' | 'destructive' | 'primary' | 'muted';
   href?: string; // when set, row becomes navigable
+  onClick?: () => void; // when set, row becomes a tappable button (overrides href)
 }
 
 interface Props {
