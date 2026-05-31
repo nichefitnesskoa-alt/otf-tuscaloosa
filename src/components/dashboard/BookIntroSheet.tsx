@@ -61,7 +61,7 @@ interface SearchResult {
 
 export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, prefillLastName, prefillPhone, prefillLeadSource, prefillVipSessionId, prefillCoach }: BookIntroSheetProps) {
   const { user } = useAuth();
-  const { coaches: COACHES } = useActiveStaff();
+  const { coaches: COACHES, allActive: ALL_STAFF } = useActiveStaff();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -512,8 +512,19 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
           )}
           {REFERRAL_SOURCES.has(leadSource) && (
             <div className="space-y-1.5">
-              <Label htmlFor="book-referred-by">Who referred them?</Label>
-              <NameAutocomplete id="book-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
+              <Label htmlFor="book-referred-by">
+                {leadSource === 'My Personal Friend I Invited' ? 'Which staff member invited them?' : 'Who referred them?'}
+              </Label>
+              {leadSource === 'My Personal Friend I Invited' ? (
+                <Select value={referredBy} onValueChange={setReferredBy}>
+                  <SelectTrigger id="book-referred-by"><SelectValue placeholder="Select staff member..." /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_STAFF.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <NameAutocomplete id="book-referred-by" value={referredBy} onChange={v => setReferredBy(autoCapitalizeName(v))} placeholder="Referring member's name" />
+              )}
             </div>
           )}
 
