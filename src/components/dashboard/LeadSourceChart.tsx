@@ -4,6 +4,7 @@ import { TrendingUp, Users, UserCheck, Target, ArrowDown, ArrowUpDown } from 'lu
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PersonListDrillDown, PersonRow } from './PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { LeadSourcePerson } from '@/hooks/useDashboardMetrics';
 
 export interface LeadSourceData {
@@ -101,6 +102,7 @@ function SourceRow({ label, data, highlight, onBoxClick }: SourceRowProps) {
 }
 
 export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
+  const journey = useJourneyCard('Studio · Lead Source');
   const [sortKey, setSortKey] = useState<SortKey>('booked');
   const [sortDesc, setSortDesc] = useState(true);
   const [drillOpen, setDrillOpen] = useState(false);
@@ -126,7 +128,9 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
     id: `${p.name}-${p.date}-${i}`,
     name: p.name,
     subtitle: `${p.date}${p.detail ? ' · ' + p.detail : ''}`,
-  })), [drillPeople]);
+    // Name-only resolve — lead-source rows are aggregations.
+    onClick: () => journey.open({ name: p.name }),
+  })), [drillPeople, journey]);
 
   const sorted = [...data].filter(d => d.booked > 0).sort((a, b) => {
     let aVal: number, bVal: number;
@@ -230,6 +234,7 @@ export function LeadSourceChart({ data, className }: LeadSourceChartProps) {
         rows={drillRows}
         emptyText="No people in this bucket."
       />
+      {journey.element}
     </>
   );
 }
