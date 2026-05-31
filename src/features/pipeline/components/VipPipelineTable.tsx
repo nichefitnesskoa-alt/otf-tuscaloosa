@@ -107,6 +107,7 @@ function displayEmail(row: VipRow) {
 
 export function VipPipelineTable() {
   const { user } = useAuth();
+  const journey = useJourneyCard();
   const [rows, setRows] = useState<VipRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
