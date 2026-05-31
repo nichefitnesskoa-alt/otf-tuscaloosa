@@ -269,8 +269,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
 
   return (
     <>
-      {/* Header tile row — 4 tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* Header tile row — 2 tiles (leads + sales) */}
+      <div className="grid grid-cols-2 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <button
