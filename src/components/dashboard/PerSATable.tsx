@@ -10,6 +10,7 @@ import { didIntroActuallyRun } from '@/lib/canon/introRules';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { walkJourneyChain } from '@/lib/intros/journey';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import type { DateRange } from '@/lib/pay-period';
@@ -32,6 +33,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function PerSATable({ data, dateRange }: PerSATableProps) {
   const { introsBooked, introsRun } = useData();
+  const journey = useJourneyCard('Studio · Per-SA');
   const [sortColumn, setSortColumn] = useState<SortColumn>('sales');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [drill, setDrill] = useState<{ sa: string; metric: 'ran' | 'sales' } | null>(null);
@@ -103,6 +105,7 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
         subtitle: `${b.class_date ? format(parseLocalDate(b.class_date), 'MMM d') : '—'}${b.lead_source ? ' · ' + b.lead_source : ''}${journeySale && !directSale ? ' · via 2nd intro' : ''}`,
         rightLabel: label,
         rightTone: sale ? 'success' : label === 'No Show' ? 'muted' : label === 'Follow-Up' ? 'warning' : 'primary',
+        onClick: () => journey.openByBooking(b.id),
       });
     });
     return rows.sort((a, b) => (a.subtitle || '').localeCompare(b.subtitle || ''));
@@ -178,6 +181,7 @@ export function PerSATable({ data, dateRange }: PerSATableProps) {
         rows={drillRows}
         emptyText="No intros in this bucket."
       />
+      {journey.element}
     </>
   );
 }

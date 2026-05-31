@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Timer, MessageCircle, Users } from 'lucide-react';
 import { SALeadMeasure } from '@/hooks/useLeadMeasures';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface Props {
   data: SALeadMeasure[];
@@ -26,16 +27,22 @@ function speedColor(minutes: number | null): 'success' | 'warning' | 'destructiv
 }
 
 export function OutreachTable({ data, loading }: Props) {
+  const journey = useJourneyCard('Studio · Outreach');
   const [drill, setDrill] = useState<{ sa: string; metric: 'fu' | 'dm' | 'leads' } | null>(null);
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
     const sa = data.find(s => s.saName === drill.sa);
     if (!sa) return [];
-    if (drill.metric === 'fu') return sa.followUpPeople || [];
-    if (drill.metric === 'dm') return sa.dmPeople || [];
-    return sa.leadsReachedPeople || [];
-  }, [drill, data]);
+    const base = drill.metric === 'fu' ? (sa.followUpPeople || [])
+      : drill.metric === 'dm' ? (sa.dmPeople || [])
+      : (sa.leadsReachedPeople || []);
+    // Name-only resolve — these rows are aggregations, no bookingId attached.
+    return base.map(r => ({
+      ...r,
+      onClick: () => journey.open({ name: r.name }),
+    }));
+  }, [drill, data, journey]);
 
   if (loading) return <div className="text-xs text-muted-foreground py-4 text-center">Loading outreach data…</div>;
   if (data.length === 0) return <div className="text-xs text-muted-foreground py-4 text-center">No data for this period</div>;
@@ -100,6 +107,7 @@ export function OutreachTable({ data, loading }: Props) {
       rows={drillRows}
       emptyText="No outreach in this bucket."
     />
+    {journey.element}
     </>
   );
 }

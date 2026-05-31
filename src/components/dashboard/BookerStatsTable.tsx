@@ -5,6 +5,7 @@ import { CalendarPlus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/context/DataContext';
 import { PersonListDrillDown, DrillNumber, PersonRow } from './PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
@@ -28,6 +29,7 @@ type SortDirection = 'asc' | 'desc';
 
 export function BookerStatsTable({ data, dateRange }: BookerStatsTableProps) {
   const { introsBooked } = useData();
+  const journey = useJourneyCard('Studio · Booker');
   const [sortColumn, setSortColumn] = useState<SortColumn>('introsBooked');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [drill, setDrill] = useState<{ sa: string; metric: 'booked' | 'showed' } | null>(null);
@@ -66,6 +68,7 @@ export function BookerStatsTable({ data, dateRange }: BookerStatsTableProps) {
         subtitle: `${b.class_date ? format(parseLocalDate(b.class_date), 'MMM d') : '—'}${b.lead_source ? ' · ' + b.lead_source : ''}`,
         rightLabel: (b.booking_status_canon || 'BOOKED').replace('_', ' '),
         rightTone: (b.booking_status_canon === 'SHOWED' ? 'success' : b.booking_status_canon === 'NO_SHOW' ? 'destructive' : 'muted') as PersonRow['rightTone'],
+        onClick: () => journey.openByBooking(b.id),
       }))
       .sort((a, b) => (a.subtitle || '').localeCompare(b.subtitle || ''));
   }, [drill, introsBooked, dateRange]);
@@ -140,6 +143,7 @@ export function BookerStatsTable({ data, dateRange }: BookerStatsTableProps) {
         rows={drillRows}
         emptyText="No bookings in this bucket."
       />
+      {journey.element}
     </>
   );
 }
