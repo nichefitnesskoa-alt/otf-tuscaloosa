@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { format, differenceInHours, differenceInDays, addDays, parseISO } from 'date-fns';
 import { ChevronDown, Phone, Copy, Check, MessageSquare, CalendarPlus, CheckCircle2, X } from 'lucide-react';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
