@@ -55,7 +55,9 @@ export function getSaleCreditSa(
 ): string | null {
   if (!r.linked_intro_booked_id) return null;
   const b = bookingsById.get(r.linked_intro_booked_id);
-  return b?.intro_owner?.trim() || null;
+  const name = b?.intro_owner?.trim() || null;
+  if (!name || PHANTOM_BOOKED_BY.has(name)) return null;
+  return name;
 }
 
 /** YYYY-MM-DD of the sale's close date in America/Chicago.
