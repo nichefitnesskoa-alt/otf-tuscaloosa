@@ -8,6 +8,7 @@ import { Loader2, Users, Pencil, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
+import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
@@ -40,6 +41,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
+  const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
   // Per-period targets stored in studio_settings under
   // `sa_leads_booked_target:YYYY-MM` and `sa_sales_target:YYYY-MM`.
