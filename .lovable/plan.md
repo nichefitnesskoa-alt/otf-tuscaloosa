@@ -1,153 +1,59 @@
-## Diagnosis (reach-map)
+Three fixes, scoped to presentation + one shared setting.
 
-**Canonical sale helpers exist — will reuse, not redefine:**
+## 1. Edit milestones directly from the drilldown
 
-- `SALE_CANONS` + `isSaleCanon` (src/lib/sales-detection.ts:20-32) — set is exactly `{SALE, PREMIER, PREMIER_OTBEAT, ELITE, BASIC}`. `ON_5_CLASS_PACK` is correctly excluded.
-- `getRunSaleDate` (src/lib/sales-detection.ts:96) — fallback chain `buy_date > run_date > created_at`. This is what the new helper will use to bucket sales by close-week.
-- `isPostDatedSale` / `isEffectiveSale` — future-dated buys excluded from current-week counts.
+Today the drilldown rows in `MilestonesDeploySection` are read-only — the only way to edit is the name-search field. Make every row tappable to open the existing `editOpen` dialog (`openEdit(item)` already exists).
 
-**Attribution source confirmed:** `intros_run` does NOT carry `intro_owner`. It must be read from the joined `intros_booked` row (column `intro_owner`). The hook will fetch runs and join their linked bookings, mirroring how `useSaLeadsBooked` joins `vip_sessions`.
+Changes:
 
-**"Own It" location confirmed:** `src/pages/TheTable.tsx` (`/the-table`, bottom-nav label "Own It"). It is the weekly accountability/commitments page. There is currently no per-SA goals panel on it. We will add an **SA Weekly Goals** card at the top of TheTable, visible when the viewing user is an SA (role includes SA or Both, or Admin viewing their own).
+- `src/components/dashboard/PersonListDrillDown.tsx` — add optional `onClick?: () => void` to `PersonRow`. When set, render the row as a button-styled element with hover/active affordance (same treatment as `href` rows).
+- `src/components/dashboard/MilestonesDeploySection.tsx` — in the `drillRows` builder, attach `onClick: () => { setDrill(null); openEdit(m); }` to each row. Skip onClick for the `inPipeline` bucket (keep its `href` navigation as-is).
 
-**Old SA "lead measure" — CONFIRM THIS VALUE:** The only pre-existing per-SA-tab lead measure is the **studio-level "Total leads for [month]" input + the "Leads this period" tile** at the top of the WIG SA tab (`Wig.tsx:884-910`, fed by `monthly_lead_totals` and rendered by `renderMetricCard(leadCard, true)`). This is a manual OTF-report number, studio-wide (not per-SA). Per the prompt's own fallback: "If the old measure was only the manual monthly lead total tile, confirm that and archive accordingly." **My read: yes, this is what's being replaced for the SA WIG view.** Archive plan: move the input + tile behind a collapsed "Archived: manual monthly lead total (OTF report)" disclosure on the SA tab — UI hidden by default, expand to view/edit. **Zero data deleted; `monthly_lead_totals` table and all rows untouched.** If the user wants it removed from the SA tab entirely (and only kept on a Studio page), confirm.
+Result: tap any face in Celebrated / Packs / Showed up / Converted → edit dialog opens pre-filled. Search bar still works for finding members not in the current filter.
 
-**Reach-map of touched concepts:**
+## 2. Own It "your two numbers" follows the meeting week stepper
 
+Root cause: `SaWeeklyGoals` always computes `currentMondayYMD()` from "now", ignoring `weekDate` from the parent `TheTable` page. Stepping Prev/Next week doesn't change its numbers.
 
-| Concept                   | Reads                                                                                     | Writes                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| SA leads booked           | `useSaLeadsBooked` → WIG SA leaderboard (built), Own It (new)                             | `intros_booked.created_at`, `vip_sessions.sa_setup_name`        |
-| SA sales                  | `useSaSales` (new) → WIG SA leaderboard (new column + tile), Own It (new)                 | `intros_run.result_canon/buy_date`, `intros_booked.intro_owner` |
-| Per-SA target             | `studio_settings:sa_sales_target:YYYY-MM` (new), `sa_leads_booked_target:YYYY-MM` (built) | WIG editors                                                     |
-| Monthly studio lead total | `monthly_lead_totals` → SA tab tile (archive), nowhere else                               | manual input                                                    |
+Changes:
 
+- `src/components/table/SaWeeklyGoals.tsx` — accept a `weekStart: string` (YYYY-MM-DD Monday) prop. Drop the internal `currentMondayYMD()` derivation. Use the prop for `weekStart`/`weekEnd` passed to `useSaLeadsBooked` / `useSaSales`, and for the "Week of M/D" label. Keep the same parsing helpers.
+- `src/pages/TheTable.tsx` — pass `weekStart={weekDate}` (the existing state already used by the Prev/Today/Next buttons) when rendering `<SaWeeklyGoals />`.
 
----
+Result: stepping the week changes "Your two numbers this week" and the "Week of …" label. May 11 ≠ May 18 ≠ May 25.
 
-## Plan
+## 3. SA leads target is monthly, not weekly
 
-### Part 1 — `src/lib/sa/salesBooked.ts` + `src/hooks/useSaSales.ts`
+Today the studio_setting `sa_leads_booked_target:YYYY-MM` is stored as a per-week number (default 4) and the leaderboard scales it by `weeks × activeSAs`. Switch it to mean "per SA per month."
 
-Mirror `leadsBooked.ts` shape exactly.
+Changes:
 
-```ts
-// salesBooked.ts
-import { isSaleCanon, getRunSaleDate, isEffectiveSale } from '@/lib/sales-detection';
+- `src/components/wig/WigSaLeaderboard.tsx`:
+  - Rename intent: `leadsTarget` now = monthly per-SA leads goal. Default = `DEFAULT_SA_LEADS_TARGET = 16` (was 4 weekly ≈ 16 monthly). Sales target stays weekly (unchanged — user asked only about leads).
+  - In the period-goal memo: compute `monthDays` = days in the month of `dateRange.start` (CST). `leadsPeriodGoal = round(leadsTarget × days / monthDays)`. `leadsProRata = leadsTarget × elapsedDays / monthDays`. Sales path unchanged.
+  - Editor label: change "Leads/SA/week" → "Leads/SA/month".
+  - Tile copy on the team rollup: "monthly goal" instead of "weekly goal" for the leads tile only.
+- `src/components/table/SaWeeklyGoals.tsx`:
+  - Read the same monthly target. For the displayed week, show `{thisWeekCount} of {Math.round(monthlyTarget / 4)}` for leads (weekly slice of monthly goal). Sales stays `{count} of {weeklyTarget}`.
+  - Subtitle still reads "Your two numbers this week · Week of M/D".
 
-export interface SaSaleRunInput {
-  id: string;
-  result_canon: string | null;
-  result?: string | null;
-  buy_date: string | null;
-  run_date: string | null;
-  created_at: string;
-  linked_intro_booked_id: string | null;
-  deleted_at?: string | null;
-  ignore_from_metrics?: boolean | null;
-}
-export interface BookingOwnerLite { id: string; intro_owner: string | null; }
+Backfill: existing rows in `studio_settings` for `sa_leads_booked_target:YYYY-MM` were authored as weekly numbers. **One-time migration:** multiply existing values by 4 so the meaning lines up with the new monthly interpretation. (e.g. an existing 4 becomes 16.) Sales settings untouched.
 
-export function isSaCountableSale(r: SaSaleRunInput): boolean {
-  if (r.deleted_at || r.ignore_from_metrics) return false;
-  if (!isSaleCanon(r.result_canon)) return false;
-  return isEffectiveSale(r); // excludes post-dated future buys
-}
-export function getSaleCreditSa(r, bookingsById): string | null {
-  if (!r.linked_intro_booked_id) return null;
-  return bookingsById.get(r.linked_intro_booked_id)?.intro_owner?.trim() || null;
-}
-export function aggregateSalesBySa(runs, bookings) { /* uses getRunSaleDate, bucketed by CST */ }
-```
+## Coherence proof I will produce before closing
 
-```ts
-// useSaSales.ts — same React Query / DATA_CHANGED_EVENT pattern as useSaLeadsBooked
-// Fetch intros_run by created_at range AND buy_date range (union), then filter
-// by getRunSaleDate ∈ [rangeStart, rangeEnd] CST. Join intros_booked by id IN
-// (linked_intro_booked_id list) to read intro_owner.
-// Invalidate scopes: ['intros_run','intros_booked','sa-sales']
-```
+- DB: read current `sa_leads_booked_target:2026-05` and `:2026-06` rows, run the ×4 update, re-read.
+- WIG SA leaderboard for May 1–May 31: pick one SA (e.g. Kaiya). Confirm `leadsPeriodGoal = 16` and the row reads `"<count> of 16"`.
+- Own It for Week of May 25 (the screenshot week): confirm Kaiya's leads = same number as her May-25-to-May-31 slice in WIG drilldown, and target shows `4` (= 16/4) on the leads tile. Sales tile unchanged at `of 1`.
+- Own It stepper: confirm May 11 vs May 18 vs May 25 produce three different `leads booked` numbers (or three identical zeroes only if she truly booked nothing those weeks — verified by DB).
+- Milestones drilldown: open Celebrated, tap a row, confirm edit dialog opens with the right member pre-filled and saving updates the count + closes the dialog.
 
-### Part 2 — WIG SA table (`WigSaLeaderboard.tsx`)
+## One thing to confirm
 
-- Add 3rd header tile **"Sales"** (period total, drillable) — keeps Leads tile + Milestones tile + adds Sales tile = 4 tiles in 4-col grid, or 2x2 on narrow.
-- Add target-editor row for `sa_sales_target` (same UX as the existing leads-target editor; key `sa_sales_target:YYYY-MM`, default 1, persisted per period).
-- Table columns in order: **SA | Leads (vs 4/wk) | Sales (vs 1/wk) | Milestones | Refs**. Sales cell shows count with `/1wk` suffix and same green/amber pacing as Leads.
-- **Leads drilldown — VIP-creator breakdown:** group bookings by `lead_source`. VIP-class lines split into two rows when applicable: "VIP Class (set up by [SA])" using `vip_sessions.sa_setup_name` already returned by the helper, vs "VIP Class (set up by others)" for rows where the credited SA is *not* the sa_setup_name (shouldn't happen because VIP credit = sa_setup_name, but the label clarifies intent for the SA). Rows show member name + week label.
-- **Sales drilldown:** per-SA member list with sale tier + close date.
+For the **Own It leads tile** while the leads target is monthly, do you want it to show:
 
-### Part 3 — Archive old measure
+- **(A)** the weekly slice — `8 of 4` (count for the selected week, target = monthly/4). Matches the current "your two numbers this week" framing.
+- **(B)** month-to-date — `12 of 16` (cumulative through the selected week's end, target = full month). Reads as monthly progress.
 
-- Wrap the monthly lead input Card + `leadCard` tile in a `<Collapsible>` titled **"Archived: manual monthly lead total (OTF report)"**, collapsed by default. Underneath, helper text: "Replaced by per-SA Leads Booked. Historical totals preserved."
-- `monthly_lead_totals` table and existing rows: **untouched**. No migration. Still readable and editable via the disclosure.
-
-### Part 4 — Own It SA Weekly Goals
-
-Add a new component `src/components/table/SaWeeklyGoals.tsx`, rendered near the top of `TheTable.tsx` for users whose role includes SA / Both / Admin.
-
-```
-[June vision: Double last June's leads. 182 total.]
-
-This week
-  Leads Booked    3 of 4
-  Sales           0 of 1
-```
-
-- Reads `useSaLeadsBooked(weekStart, weekEnd)` and `useSaSales(weekStart, weekEnd)` for **current CST Monday-week**, filtered to `rows.find(r => r.sa === user.name)`.
-- Targets read from `studio_settings` keys above (same defaults).
-- Copy: warm, short, no em dashes. e.g. "Two numbers this week. Four leads booked. One sale."
-- Same canonical helpers as WIG → guaranteed identical numbers.
-
-### Notes
-
-- `notifyDataChanged` is already fired by VIP setup edits (`vip_sessions`, `sa-leads-booked`). Sales hook will also listen on `intros_run` writes (already broadcast across the app).
-- No changes to Milestones, POS Refs, Coach WIG, or any role logic.
-- `useActiveStaff` used for team-rollup target math.
-
----
-
-## Coherence Proof (will produce)
-
-1. Pick one SA. SQL hand-count their sales for week of 2026-05-25 → 2026-05-31:
-  ```sql
-   SELECT b.intro_owner, COUNT(*) FROM intros_run r
-   JOIN intros_booked b ON b.id = r.linked_intro_booked_id
-   WHERE r.deleted_at IS NULL AND r.result_canon IN ('SALE','PREMIER','PREMIER_OTBEAT','ELITE','BASIC')
-     AND COALESCE(r.buy_date, r.run_date, r.created_at::date)
-         BETWEEN '2026-05-25' AND '2026-05-31'
-   GROUP BY b.intro_owner;
-  ```
-   Confirm `useSaSales` returns identical map.
-2. ON_5_CLASS_PACK row → 0 contribution. Confirm.
-3. A run with `run_date` last week + `buy_date` this week → lands this week. Confirm.
-4. Open same SA in WIG and Own It → identical Leads/Sales numbers, side-by-side.
-5. VIP breakdown sums = SA's VIP-sourced leads; lead-source rows sum = SA's total leads. Confirm.
-6. `SELECT COUNT(*) FROM monthly_lead_totals` before vs after = unchanged. Confirm archived not deleted.
-
----
-
-## CONFIRM THIS VALUE before I start
-
-1. **Old measure = monthly_lead_totals tile on SA tab.** OK to wrap in a collapsed "Archived" disclosure on the SA tab (data preserved)? Or remove from SA tab entirely (still editable from somewhere else)?
-2. **Own It placement:** new `SaWeeklyGoals` card at the top of `/the-table`, visible to users whose role includes SA / Both / Admin, scoped to the current CST week (not the meeting's `weekDate` stepper). OK?
-3. **Vision line copy:** literally "Double last June's leads. 182 total." — June-only static, or stored in `studio_settings` for future months?  
+I'll default to **A** unless you say otherwise — it preserves the per-week stepper meaning. Say "B" if you'd rather see month-to-date there.  
   
-  
-1. Archive: yes, wrap the old PER-SA role. BUT the monthly lead
-     total itself is the studio-level WIG target, not deprecated.
-     Keep that number VISIBLE on the SA tab as studio context,
-     relabeled "Studio goal: [N] leads this month," shown ABOVE the
-     per-SA table. What's archived is its former role as the per-SA
-     measure (now replaced by the Leads Booked column). Do not
-     collapse the studio number out of sight. monthly_lead_totals
-     untouched. Hierarchy: studio target on top, per-SA Leads +
-     Sales table below.
-  2. Own It placement: yes. SaWeeklyGoals card at top of /the-table,
-     SA/Both/Admin, scoped to current CST week, NOT the meeting
-     weekDate stepper. Approved.
-  3. Vision line: store in studio_settings, NOT hardcoded. Key name
-     your call (CONFIRM THIS VALUE), default "Double last June's
-     leads. 182 total.", editable by Admin without a code change.
-  Everything else in the plan approved. Build it, then full
-  coherence proof including the run-week-vs-close-week test and the
-  WIG-equals-Own-It side-by-side.
+Let's go with 
