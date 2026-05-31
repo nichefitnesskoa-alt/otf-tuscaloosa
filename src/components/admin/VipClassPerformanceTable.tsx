@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { backfillVipSessionLinks } from '@/lib/vip/backfillVipSessionLinks';
 import { toast } from 'sonner';
 import { PersonListDrillDown, DrillNumber, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 const sb = supabase as any;
 
