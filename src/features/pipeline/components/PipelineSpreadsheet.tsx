@@ -360,6 +360,7 @@ export function PipelineSpreadsheet({
                   onToggle={() => setExpandedKey(isExpanded ? null : journey.memberKey)}
                   onOpenDialog={onOpenDialog}
                   onOpenScript={() => onOpenScript?.(journey)}
+                  onOpenJourneyCard={(bookingId) => journeyCard.openByBooking(bookingId)}
                   isEven={vRow.index % 2 === 0}
                   userName={user?.name || 'Admin'}
                 />
@@ -368,7 +369,7 @@ export function PipelineSpreadsheet({
           })}
         </div>
       </div>
-
+      {journeyCard.element}
     </>
   );
 }
