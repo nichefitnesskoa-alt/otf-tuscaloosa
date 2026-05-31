@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Check, Link2, Trash2, Loader2 } from 'lucide-react';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { format } from 'date-fns';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 
