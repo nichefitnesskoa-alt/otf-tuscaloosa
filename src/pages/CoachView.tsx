@@ -452,7 +452,13 @@ function ClassTimeIntroSelector({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-sm">{intro.member_name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.id); }}
+                    className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                  >
+                    {intro.member_name}
+                  </button>
                   <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
                     1st Intro
                   </Badge>
