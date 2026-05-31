@@ -1497,6 +1497,7 @@ export function VipPipelineTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    {journey.element}
     </div>
   );
 }
