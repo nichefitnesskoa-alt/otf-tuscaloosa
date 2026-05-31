@@ -376,6 +376,7 @@ export default function IntroBookingEntry({
               ))}
             </SelectContent>
           </Select>
+          <FriendRuleNotice leadSource={booking.leadSource} bookedByName={user?.name || currentUserName} />
         </div>
 
         {/* Referred By - shown when lead source is Member Referral */}
