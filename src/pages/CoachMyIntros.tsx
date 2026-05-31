@@ -956,6 +956,7 @@ export default function CoachMyIntros() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </div>
   );
 }
