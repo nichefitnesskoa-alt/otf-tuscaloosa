@@ -389,7 +389,7 @@ export function PipelineNewLeadsTab() {
     return (
       <div className="space-y-2.5">
         {list.map(lead => (
-          <LeadCard key={lead.id} lead={lead} onAction={handleAction} onBook={setBookLead} onScript={setScriptLead} />
+          <LeadCard key={lead.id} lead={lead} onAction={handleAction} onBook={setBookLead} onScript={setScriptLead} onOpenJourney={(l) => journey.open({ name: `${l.first_name} ${l.last_name}`.trim(), phone: l.phone, email: l.email })} />
         ))}
       </div>
     );
