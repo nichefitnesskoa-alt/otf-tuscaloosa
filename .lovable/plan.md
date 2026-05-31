@@ -1,127 +1,153 @@
-## Diagnosis (real DB)
+## Diagnosis (reach-map)
 
-**1. Lead source values in DB (counts, non-deleted intros_booked):**
+**Canonical sale helpers exist — will reuse, not redefine:**
 
+- `SALE_CANONS` + `isSaleCanon` (src/lib/sales-detection.ts:20-32) — set is exactly `{SALE, PREMIER, PREMIER_OTBEAT, ELITE, BASIC}`. `ON_5_CLASS_PACK` is correctly excluded.
+- `getRunSaleDate` (src/lib/sales-detection.ts:96) — fallback chain `buy_date > run_date > created_at`. This is what the new helper will use to bucket sales by close-week.
+- `isPostDatedSale` / `isEffectiveSale` — future-dated buys excluded from current-week counts.
 
-| Source                                    | Count | In/Out      |
-| ----------------------------------------- | ----- | ----------- |
-| Online Intro Offer (self-booked)          | 197   | OUT         |
-| VIP Class                                 | 149   | IN          |
-| Instagram DMs                             | 68    | IN          |
-| Member Referral                           | 54    | IN          |
-| Instagram DMs (Friend)                    | 51    | IN          |
-| Lead Management                           | 32    | OUT         |
-| My Personal Friend I Invited              | 25    | IN          |
-| Lead Management (Friend)                  | 12    | IN          |
-| VIP Class (Friend)                        | 6     | IN          |
-| Business Partnership Referral             | 6     | IN          |
-| Online Intro Offer (self-booked) (Friend) | 2     | **CONFIRM** |
-| Member Referral (5 class pack)            | 1     | IN          |
-| My Personal Friend I Invited (Friend)     | 1     | IN          |
-| Business Partnership Referral (Friend)    | 1     | IN          |
+**Attribution source confirmed:** `intros_run` does NOT carry `intro_owner`. It must be read from the joined `intros_booked` row (column `intro_owner`). The hook will fetch runs and join their linked bookings, mirroring how `useSaLeadsBooked` joins `vip_sessions`.
+
+**"Own It" location confirmed:** `src/pages/TheTable.tsx` (`/the-table`, bottom-nav label "Own It"). It is the weekly accountability/commitments page. There is currently no per-SA goals panel on it. We will add an **SA Weekly Goals** card at the top of TheTable, visible when the viewing user is an SA (role includes SA or Both, or Admin viewing their own).
+
+**Old SA "lead measure" — CONFIRM THIS VALUE:** The only pre-existing per-SA-tab lead measure is the **studio-level "Total leads for [month]" input + the "Leads this period" tile** at the top of the WIG SA tab (`Wig.tsx:884-910`, fed by `monthly_lead_totals` and rendered by `renderMetricCard(leadCard, true)`). This is a manual OTF-report number, studio-wide (not per-SA). Per the prompt's own fallback: "If the old measure was only the manual monthly lead total tile, confirm that and archive accordingly." **My read: yes, this is what's being replaced for the SA WIG view.** Archive plan: move the input + tile behind a collapsed "Archived: manual monthly lead total (OTF report)" disclosure on the SA tab — UI hidden by default, expand to view/edit. **Zero data deleted; `monthly_lead_totals` table and all rows untouched.** If the user wants it removed from the SA tab entirely (and only kept on a Studio page), confirm.
+
+**Reach-map of touched concepts:**
 
 
-**Question A:** does `Online Intro Offer (self-booked) (Friend)` count as self-generated (someone the SA brought in *as a friend* of a self-booker)? My read of your rule says OUT (it's still a self-booked variant); confirm.
+| Concept                   | Reads                                                                                     | Writes                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| SA leads booked           | `useSaLeadsBooked` → WIG SA leaderboard (built), Own It (new)                             | `intros_booked.created_at`, `vip_sessions.sa_setup_name`        |
+| SA sales                  | `useSaSales` (new) → WIG SA leaderboard (new column + tile), Own It (new)                 | `intros_run.result_canon/buy_date`, `intros_booked.intro_owner` |
+| Per-SA target             | `studio_settings:sa_sales_target:YYYY-MM` (new), `sa_leads_booked_target:YYYY-MM` (built) | WIG editors                                                     |
+| Monthly studio lead total | `monthly_lead_totals` → SA tab tile (archive), nowhere else                               | manual input                                                    |
 
-**2. Date field for "when the lead was booked":** intros_booked has `created_at` (row insertion) and `class_date` (when the class is). Per your wording "the week its booking/created date falls in", I'll use `**created_at**` (CST week bucket). **Confirm.**
-
-**3. VIP link:** `intros_booked.vip_session_id` → `vip_sessions.id` (FK exists). Confirmed.
-
-**4. vip_sessions SA-setup field:** does NOT exist today. `coach_name` is the only attribution column. Confirmed — we add it.
 
 ---
 
 ## Plan
 
-### DB migration
+### Part 1 — `src/lib/sa/salesBooked.ts` + `src/hooks/useSaSales.ts`
 
-- Add `vip_sessions.sa_setup_name TEXT NULL`. No backfill, no constraint.
+Mirror `leadsBooked.ts` shape exactly.
 
-### Canonical helper (single source of truth)
+```ts
+// salesBooked.ts
+import { isSaleCanon, getRunSaleDate, isEffectiveSale } from '@/lib/sales-detection';
 
-Create `src/lib/sa/leadsBooked.ts`:
+export interface SaSaleRunInput {
+  id: string;
+  result_canon: string | null;
+  result?: string | null;
+  buy_date: string | null;
+  run_date: string | null;
+  created_at: string;
+  linked_intro_booked_id: string | null;
+  deleted_at?: string | null;
+  ignore_from_metrics?: boolean | null;
+}
+export interface BookingOwnerLite { id: string; intro_owner: string | null; }
 
-- `EXCLUDED_LEAD_SOURCES = ['Lead Management', 'Online Intro Offer (self-booked)', 'Online Intro Offer (self-booked) (Friend)']` (pending Question A)
-- `isSelfGeneratedLeadBooked(booking)` — returns true if `lead_source` is not excluded and not soft-deleted and not `ignore_from_metrics`.
-- `getLeadBookedCreditSa(booking, vipSession?)` — returns `vipSession?.sa_setup_name` when `lead_source === 'VIP Class'` or `'VIP Class (Friend)'` and a session is linked; otherwise `booking.booked_by`. Returns null when no creditable SA (e.g. VIP with unset sa_setup_name → uncredited, not double-credited).
-- `aggregateLeadsBookedBySa(bookings, vipSessions, weekStartYMD, weekEndYMD)` — buckets by `created_at` in **America/Chicago**, Monday-start weeks, returns `Map<saName, count>`.
-- Uses existing CST helpers from `src/lib/dateUtils.ts` and `src/lib/pay-period.ts`. No new date logic.
+export function isSaCountableSale(r: SaSaleRunInput): boolean {
+  if (r.deleted_at || r.ignore_from_metrics) return false;
+  if (!isSaleCanon(r.result_canon)) return false;
+  return isEffectiveSale(r); // excludes post-dated future buys
+}
+export function getSaleCreditSa(r, bookingsById): string | null {
+  if (!r.linked_intro_booked_id) return null;
+  return bookingsById.get(r.linked_intro_booked_id)?.intro_owner?.trim() || null;
+}
+export function aggregateSalesBySa(runs, bookings) { /* uses getRunSaleDate, bucketed by CST */ }
+```
 
-### Hook
+```ts
+// useSaSales.ts — same React Query / DATA_CHANGED_EVENT pattern as useSaLeadsBooked
+// Fetch intros_run by created_at range AND buy_date range (union), then filter
+// by getRunSaleDate ∈ [rangeStart, rangeEnd] CST. Join intros_booked by id IN
+// (linked_intro_booked_id list) to read intro_owner.
+// Invalidate scopes: ['intros_run','intros_booked','sa-sales']
+```
 
-Create `src/hooks/useSaLeadsBooked.ts`:
+### Part 2 — WIG SA table (`WigSaLeaderboard.tsx`)
 
-- Fetches `intros_booked` (id, lead_source, booked_by, vip_session_id, created_at, ignore_from_metrics, deleted_at) joined with `vip_sessions(sa_setup_name)` for the date range.
-- Returns `{ rows: { sa, count, members[] }[], total, loading }` using the canonical helper.
-- React Query key: `['sa-leads-booked', rangeStart, rangeEnd]`. Invalidated on `vip_sessions` and `intros_booked` writes via existing `notifyDataChanged`.
+- Add 3rd header tile **"Sales"** (period total, drillable) — keeps Leads tile + Milestones tile + adds Sales tile = 4 tiles in 4-col grid, or 2x2 on narrow.
+- Add target-editor row for `sa_sales_target` (same UX as the existing leads-target editor; key `sa_sales_target:YYYY-MM`, default 1, persisted per period).
+- Table columns in order: **SA | Leads (vs 4/wk) | Sales (vs 1/wk) | Milestones | Refs**. Sales cell shows count with `/1wk` suffix and same green/amber pacing as Leads.
+- **Leads drilldown — VIP-creator breakdown:** group bookings by `lead_source`. VIP-class lines split into two rows when applicable: "VIP Class (set up by [SA])" using `vip_sessions.sa_setup_name` already returned by the helper, vs "VIP Class (set up by others)" for rows where the credited SA is *not* the sa_setup_name (shouldn't happen because VIP credit = sa_setup_name, but the label clarifies intent for the SA). Rows show member name + week label.
+- **Sales drilldown:** per-SA member list with sale tier + close date.
 
-### Target persistence
+### Part 3 — Archive old measure
 
-- Reuse the per-period `studio_settings` pattern from `wig_lead_target` (already shipped this session).
-- Key: `sa_leads_booked_target:${YYYY-MM}` (per-SA weekly target). Default 4.
-- Stored once per period, editable inline from WIG SA section, identical UX to existing lead target editor.
+- Wrap the monthly lead input Card + `leadCard` tile in a `<Collapsible>` titled **"Archived: manual monthly lead total (OTF report)"**, collapsed by default. Underneath, helper text: "Replaced by per-SA Leads Booked. Historical totals preserved."
+- `monthly_lead_totals` table and existing rows: **untouched**. No migration. Still readable and editable via the disclosure.
 
-### WIG SA leaderboard UI
+### Part 4 — Own It SA Weekly Goals
 
-Edit `src/components/wig/WigSaLeaderboard.tsx`:
+Add a new component `src/components/table/SaWeeklyGoals.tsx`, rendered near the top of `TheTable.tsx` for users whose role includes SA / Both / Admin.
 
-- Add 3rd header tile: "Leads Booked" (total for period) — drillable to per-SA list.
-- Add "Leads" column to the SA table, between SA name and Milestones. Drill = members booked, grouped by week, showing source.
-- Show target chip: "of 4/wk" (or whatever the persisted value is). Color logic: on-pace green / behind amber, matching existing pacing convention.
-- No change to Milestones / POS Referral Asks columns.
+```
+[June vision: Double last June's leads. 182 total.]
 
-### My Day VIP drawer
+This week
+  Leads Booked    3 of 4
+  Sales           0 of 1
+```
 
-Edit `src/features/myDay/VipRegistrationsSheet.tsx`:
+- Reads `useSaLeadsBooked(weekStart, weekEnd)` and `useSaSales(weekStart, weekEnd)` for **current CST Monday-week**, filtered to `rows.find(r => r.sa === user.name)`.
+- Targets read from `studio_settings` keys above (same defaults).
+- Copy: warm, short, no em dashes. e.g. "Two numbers this week. Four leads booked. One sale."
+- Same canonical helpers as WIG → guaranteed identical numbers.
 
-- Add a Select beneath the existing "Who coached this VIP class?" labeled **"Which SA found and set up this VIP class?"**
-- Options from `useActiveStaff()` filtered to SA + Both + Admin (same filter pattern as other SA pickers).
-- Auto-save on change to `vip_sessions.sa_setup_name`. Show inline "Saved" 2s.
-- Helper text: "This SA gets credit for every intro booked from this VIP class toward their weekly leads booked."
-- Fire `notifyDataChanged(['vip_sessions', 'sa-leads-booked'])`.
+### Notes
 
-### Reach-map (consumers of leads-booked)
-
-- WIG SA leaderboard tile + column (new)
-- WIG SA drill modal (new)
-- (Future) Own It / per-SA detail page can import the same helper — not changed in this build.
+- `notifyDataChanged` is already fired by VIP setup edits (`vip_sessions`, `sa-leads-booked`). Sales hook will also listen on `intros_run` writes (already broadcast across the app).
+- No changes to Milestones, POS Refs, Coach WIG, or any role logic.
+- `useActiveStaff` used for team-rollup target math.
 
 ---
 
-## Verification (coherence proof targets)
+## Coherence Proof (will produce)
 
-1. Report excluded set after Question A is answered.
-2. Pick one SA with current bookings, hand-count their self-generated leads booked for current CST week, confirm helper returns same number.
-3. Set a VIP session's `sa_setup_name` to that SA, book a test VIP-class intro under a *different* booker, confirm SA's count rises by exactly 1 and the booker's does not.
-4. Confirm a `Lead Management` and an `Online Intro Offer (self-booked)` booking do NOT increment any SA's count.
-5. Report SA's number at each step. All agree: yes/no.
+1. Pick one SA. SQL hand-count their sales for week of 2026-05-25 → 2026-05-31:
+  ```sql
+   SELECT b.intro_owner, COUNT(*) FROM intros_run r
+   JOIN intros_booked b ON b.id = r.linked_intro_booked_id
+   WHERE r.deleted_at IS NULL AND r.result_canon IN ('SALE','PREMIER','PREMIER_OTBEAT','ELITE','BASIC')
+     AND COALESCE(r.buy_date, r.run_date, r.created_at::date)
+         BETWEEN '2026-05-25' AND '2026-05-31'
+   GROUP BY b.intro_owner;
+  ```
+   Confirm `useSaSales` returns identical map.
+2. ON_5_CLASS_PACK row → 0 contribution. Confirm.
+3. A run with `run_date` last week + `buy_date` this week → lands this week. Confirm.
+4. Open same SA in WIG and Own It → identical Leads/Sales numbers, side-by-side.
+5. VIP breakdown sums = SA's VIP-sourced leads; lead-source rows sum = SA's total leads. Confirm.
+6. `SELECT COUNT(*) FROM monthly_lead_totals` before vs after = unchanged. Confirm archived not deleted.
 
 ---
 
-## Confirms needed before I start
+## CONFIRM THIS VALUE before I start
 
-- **A.** Does `Online Intro Offer (self-booked) (Friend)` (2 rows) count? My read: OUT. Confirm.
-- **B.** Date field = `intros_booked.created_at`? Confirm (alternative would be a manual booking date, which doesn't exist as a column).
-- **C.** Helper name `isSelfGeneratedLeadBooked` / file `src/lib/sa/leadsBooked.ts` — OK?
-- **D.** Target storage key `sa_leads_booked_target:${YYYY-MM}`, default 4 — OK?  
+1. **Old measure = monthly_lead_totals tile on SA tab.** OK to wrap in a collapsed "Archived" disclosure on the SA tab (data preserved)? Or remove from SA tab entirely (still editable from somewhere else)?
+2. **Own It placement:** new `SaWeeklyGoals` card at the top of `/the-table`, visible to users whose role includes SA / Both / Admin, scoped to the current CST week (not the meeting's `weekDate` stepper). OK?
+3. **Vision line copy:** literally "Double last June's leads. 182 total." — June-only static, or stored in `studio_settings` for future months?  
   
-A. Online Intro Offer (self-booked) (Friend) counts IN.
-     The "(Friend)" suffix means an SA did the work to bring that
-     friend in, even off a self-booked source. ANY source with
-     "(Friend)" is a self-generated lead.
-     The EXCLUDED set is exactly two sources, both bare/no-effort:
-       - Lead Management
-       - Online Intro Offer (self-booked)
-     Everything else counts IN, including every "(Friend)" variant.
-     So EXCLUDED_LEAD_SOURCES = ['Lead Management',
-     'Online Intro Offer (self-booked)'] — remove the (Friend)
-     variant from the excluded list.
-  B. created_at — confirmed.
-  C. Helper name and file — approved.
-  D. Target key and default 4 — approved. 4 is per-SA per-week.
-     Any team rollup tile must show 4 × active SA count from
-     useActiveStaff, never a hardcoded team number.
-  Build it. Then run the full coherence proof, including the VIP
-  double-credit check, and confirm that Online Intro Offer
-  (self-booked) (Friend) now counts while plain Online Intro Offer
-  (self-booked) and Lead Management do not.
+  
+1. Archive: yes, wrap the old PER-SA role. BUT the monthly lead
+     total itself is the studio-level WIG target, not deprecated.
+     Keep that number VISIBLE on the SA tab as studio context,
+     relabeled "Studio goal: [N] leads this month," shown ABOVE the
+     per-SA table. What's archived is its former role as the per-SA
+     measure (now replaced by the Leads Booked column). Do not
+     collapse the studio number out of sight. monthly_lead_totals
+     untouched. Hierarchy: studio target on top, per-SA Leads +
+     Sales table below.
+  2. Own It placement: yes. SaWeeklyGoals card at top of /the-table,
+     SA/Both/Admin, scoped to current CST week, NOT the meeting
+     weekDate stepper. Approved.
+  3. Vision line: store in studio_settings, NOT hardcoded. Key name
+     your call (CONFIRM THIS VALUE), default "Double last June's
+     leads. 182 total.", editable by Admin without a code change.
+  Everything else in the plan approved. Build it, then full
+  coherence proof including the run-week-vs-close-week test and the
+  WIG-equals-Own-It side-by-side.

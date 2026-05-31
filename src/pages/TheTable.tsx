@@ -23,6 +23,7 @@ import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
 import { MentionInput } from '@/components/shared/MentionInput';
 import { MentionText } from '@/components/shared/MentionText';
 import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
+import { SaWeeklyGoals } from '@/components/table/SaWeeklyGoals';
 import { ExportTeamMeetingButton } from '@/components/table/ExportTeamMeetingButton';
 import { LANE_SUGGESTIONS } from '@/lib/table/laneSuggestions';
 import { useRecentLaneCompleteness } from '@/lib/table/laneCompletion';
@@ -386,6 +387,7 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
+      <SaWeeklyGoals />
       <OwnItMentionsCard variant="banner" />
       {carryBlock}
       <div className="mb-3 flex justify-between items-center">
