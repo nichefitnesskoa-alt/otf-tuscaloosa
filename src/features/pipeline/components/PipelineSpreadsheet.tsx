@@ -298,7 +298,7 @@ export function PipelineSpreadsheet({
 
   // By Source: analytics summary view
   if (activeTab === 'by_lead_source') {
-    return <BySourceTable journeys={journeys} isLoading={isLoading} onOpenDialog={onOpenDialog} isOnline={isOnline} vipInfoMap={vipInfoMap} />;
+    return <><BySourceTable journeys={journeys} isLoading={isLoading} onOpenDialog={onOpenDialog} isOnline={isOnline} vipInfoMap={vipInfoMap} />{journey.element}</>;
   }
 
   if (isLoading) {
