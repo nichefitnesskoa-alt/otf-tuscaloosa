@@ -499,6 +499,7 @@ function ClassTimeIntroSelector({
           </div>
         );
       })}
+      {journey.element}
     </div>
   );
 }
