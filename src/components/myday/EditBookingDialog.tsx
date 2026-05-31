@@ -193,6 +193,7 @@ export function EditBookingDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <FriendRuleNotice leadSource={source} bookedByName={booker} />
             </div>
 
             {(source === 'VIP Class' || showVipPicker) && (
