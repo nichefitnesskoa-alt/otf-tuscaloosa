@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NameAutocomplete } from '@/components/shared/NameAutocomplete';
