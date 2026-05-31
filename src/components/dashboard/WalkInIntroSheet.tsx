@@ -15,6 +15,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
 interface WalkInIntroSheetProps {
   open: boolean;
