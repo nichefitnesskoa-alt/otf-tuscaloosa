@@ -21,6 +21,7 @@
  *   (buy_date > run_date > created_at).
  */
 import { isSaleCanon, getRunSaleDate, isEffectiveSale } from '@/lib/sales-detection';
+import { PHANTOM_BOOKED_BY } from '@/lib/sa/leadsBooked';
 
 export interface SaSaleRunInput {
   id: string;
