@@ -8,12 +8,10 @@ import { Loader2, Users, Pencil, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
-import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
-import { isEligibleThreshold } from '@/lib/sa/saStreaks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { notifyDataChanged } from '@/lib/data/invalidation';
@@ -24,7 +22,7 @@ interface Props {
   dateRange: DateRange | undefined;
 }
 
-type DrillBucket = 'milestones' | 'referrals' | 'leads' | 'sales';
+type DrillBucket = 'leads' | 'sales';
 
 const DEFAULT_SA_LEADS_TARGET = 4; // per SA per week
 const DEFAULT_SA_SALES_TARGET = 1; // per SA per week
@@ -37,7 +35,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const { salesAssociates: activeSas } = useActiveStaff();
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-  const data = useSaLeaderboard(rangeStart, rangeEnd);
+  
   const leads = useSaLeadsBooked(rangeStart, rangeEnd);
   const sales = useSaSales(rangeStart, rangeEnd);
 
@@ -113,41 +111,66 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   };
 
   const totals = useMemo(() => {
-    const milestones = data.rows.reduce((s, r) => s + r.milestones, 0);
-    const referrals = data.rows.reduce((s, r) => s + r.referralAsks, 0);
-    return { milestones, referrals, leads: leads.total, sales: sales.total };
-  }, [data.rows, leads.total, sales.total]);
+    return { leads: leads.total, sales: sales.total };
+  }, [leads.total, sales.total]);
 
-  // Team rollup targets = per-SA × active SA count.
+  // Period-aware target math. weeksInPeriod = ceil((end-start+1)/7), min 1.
+  // Pro-rata-to-today = perSaTarget * elapsedWeeks (capped at weeksInPeriod).
+  const { weeksInPeriod, leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata, isSingleWeek } = useMemo(() => {
+    if (!dateRange) {
+      return { weeksInPeriod: 1, leadsPeriodGoal: leadsTarget, salesPeriodGoal: salesTarget,
+               leadsProRata: leadsTarget, salesProRata: salesTarget, isSingleWeek: true };
+    }
+    const msDay = 86400000;
+    const days = Math.max(1, Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / msDay) + 1);
+    const weeks = Math.max(1, Math.ceil(days / 7));
+    const today = getNowCentral();
+    const cappedToday = today < dateRange.start ? dateRange.start : today > dateRange.end ? dateRange.end : today;
+    const elapsedDays = Math.max(1, Math.round((cappedToday.getTime() - dateRange.start.getTime()) / msDay) + 1);
+    const elapsedWeeks = Math.min(weeks, elapsedDays / 7);
+    return {
+      weeksInPeriod: weeks,
+      leadsPeriodGoal: leadsTarget * weeks,
+      salesPeriodGoal: salesTarget * weeks,
+      leadsProRata: leadsTarget * elapsedWeeks,
+      salesProRata: salesTarget * elapsedWeeks,
+      isSingleWeek: weeks === 1,
+    };
+  }, [dateRange, leadsTarget, salesTarget]);
+
+  // Team rollup targets = per-SA × active SA count × weeks.
   const activeCount = activeSas?.length || 0;
-  const teamLeadsTarget = leadsTarget * activeCount;
-  const teamSalesTarget = salesTarget * activeCount;
+  const teamLeadsTarget = leadsPeriodGoal * activeCount;
+  const teamSalesTarget = salesPeriodGoal * activeCount;
 
-  // Merge all data sources into SA rows.
+  // Active SA set — used to suppress phantom/inactive names from the leaderboard.
+  const activeSet = useMemo(() => new Set(activeSas || []), [activeSas]);
+
+  // Merge leads + sales into per-SA rows. Only include names that are currently
+  // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
     const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
     const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
     const allNames = new Set<string>([
-      ...data.rows.map(r => r.name),
+      ...activeSet,
       ...leads.rows.map(r => r.sa),
       ...sales.rows.map(r => r.sa),
     ]);
-    return Array.from(allNames).map(name => {
-      const base = data.rows.find(r => r.name === name);
-      return {
+    return Array.from(allNames)
+      // Only show people who are currently active SAs. Inactive/legacy/phantom
+      // names that somehow slipped through never appear on the leaderboard.
+      .filter(name => activeSet.has(name))
+      .map(name => ({
         name,
-        milestones: base?.milestones ?? 0,
-        referralAsks: base?.referralAsks ?? 0,
         leadsBooked: leadsMap.get(name) ?? 0,
         sales: salesMap.get(name) ?? 0,
-      };
-    }).sort((a, b) =>
-      b.sales - a.sales ||
-      b.leadsBooked - a.leadsBooked ||
-      b.milestones - a.milestones ||
-      b.referralAsks - a.referralAsks,
-    );
-  }, [data.rows, leads.rows, sales.rows]);
+      }))
+      .sort((a, b) =>
+        b.sales - a.sales ||
+        b.leadsBooked - a.leadsBooked ||
+        a.name.localeCompare(b.name),
+      );
+  }, [leads.rows, sales.rows, activeSet]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
@@ -179,27 +202,6 @@ export function WigSaLeaderboard({ dateRange }: Props) {
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
-    const filterBySa = (saName: string | null) => (v: { created_by?: string | null; booked_by?: string | null }) =>
-      saName == null ? true : (v.created_by || v.booked_by) === saName;
-
-    if (drill.bucket === 'milestones') {
-      return data.milestones
-        .filter(m => isEligibleThreshold(m.milestone_type) && filterBySa(drill.sa)(m))
-        .map(m => ({
-          id: `mile-${m.id}`,
-          name: m.member_name || 'Unknown member',
-          subtitle: `${m.milestone_type} class · ${format(new Date(m.created_at), 'MMM d')} · ${m.created_by || 'Unknown'}`,
-        }));
-    }
-    if (drill.bucket === 'referrals') {
-      return data.referrals
-        .filter(filterBySa(drill.sa))
-        .map(r => ({
-          id: `ref-${r.id}`,
-          name: r.member_name || 'Unknown member',
-          subtitle: `${r.class_date ? format(parseLocalDate(r.class_date), 'MMM d') : ''} · ${r.booked_by || 'Unknown'}`,
-        }));
-    }
     if (drill.bucket === 'sales') {
       const saRows = drill.sa ? sales.rows.filter(r => r.sa === drill.sa) : sales.rows;
       return saRows.flatMap(r => r.runs.map(({ run, member, closeYMD }) => ({
@@ -231,21 +233,16 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, data, leads.rows, sales.rows]);
+  }, [drill, leads.rows, sales.rows]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${
-        drill.bucket === 'milestones' ? 'Milestones marked'
-        : drill.bucket === 'referrals' ? 'POS referral asks'
-        : drill.bucket === 'sales' ? 'Sales'
-        : 'Leads booked'
-      }`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : 'Leads booked'}`
     : '';
 
   return (
     <>
-      {/* Header tile row — 4 tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* Header tile row — 2 tiles (leads + sales) */}
+      <div className="grid grid-cols-2 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <button
@@ -256,7 +253,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             >
               <p className="text-2xl font-bold text-primary">{totals.leads}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Leads booked</p>
-              <p className="text-[10px] text-muted-foreground">team target {teamLeadsTarget}/wk</p>
+              <p className="text-[10px] text-muted-foreground">team goal {teamLeadsTarget}{isSingleWeek ? '/wk' : ` (${rangeLabel})`}</p>
             </button>
           </CardContent>
         </Card>
@@ -270,37 +267,12 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             >
               <p className="text-2xl font-bold text-primary">{totals.sales}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Sales</p>
-              <p className="text-[10px] text-muted-foreground">team target {teamSalesTarget}/wk</p>
-            </button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'milestones' })}
-              disabled={totals.milestones === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.milestones}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Milestones marked</p>
-            </button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'referrals' })}
-              disabled={totals.referrals === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.referrals}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">POS referral asks</p>
+              <p className="text-[10px] text-muted-foreground">team goal {teamSalesTarget}{isSingleWeek ? '/wk' : ` (${rangeLabel})`}</p>
             </button>
           </CardContent>
         </Card>
       </div>
+
 
       {/* Per-SA target editors */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -354,7 +326,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          {(data.loading || leads.loading || sales.loading) ? (
+          {(leads.loading || sales.loading) ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
               <span className="text-xs text-muted-foreground">Loading…</span>
@@ -367,14 +339,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">SA</TableHead>
-                    <TableHead className="text-xs text-center">Leads</TableHead>
-                    <TableHead className="text-xs text-center">Sales</TableHead>
-                    <TableHead className="text-xs text-center">Milestones</TableHead>
-                    <TableHead className="text-xs text-center">Refs</TableHead>
+                    <TableHead className="text-xs text-center">
+                      Leads booked
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        goal {leadsPeriodGoal}{isSingleWeek ? '' : ` (${leadsTarget}/wk × ${weeksInPeriod}wk)`}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs text-center">
+                      Sales
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        goal {salesPeriodGoal}{isSingleWeek ? '' : ` (${salesTarget}/wk × ${weeksInPeriod}wk)`}
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRows.map(row => (
+                  {sortedRows.map(row => {
+                    const leadsOnPace = row.leadsBooked >= leadsProRata;
+                    const salesOnPace = row.sales >= salesProRata;
+                    const leadsHit = row.leadsBooked >= leadsPeriodGoal;
+                    const salesHit = row.sales >= salesPeriodGoal;
+                    return (
                     <TableRow
                       key={row.name}
                       className="cursor-pointer hover:bg-muted/40"
@@ -388,10 +373,12 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
                           className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                         >
-                          <span className={row.leadsBooked >= leadsTarget ? 'text-success font-semibold' : 'text-warning'}>
-                            {row.leadsBooked}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground"> /{leadsTarget}wk</span>
+                          <div className={leadsHit ? 'text-success font-semibold' : leadsOnPace ? 'text-foreground font-medium' : 'text-warning'}>
+                            {row.leadsBooked} <span className="text-muted-foreground font-normal">of {leadsPeriodGoal}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {leadsHit ? 'goal hit ✓' : leadsOnPace ? 'on pace ✓' : 'behind pace'}
+                          </div>
                         </button>
                       </TableCell>
                       <TableCell className="text-sm text-center p-0">
@@ -401,40 +388,23 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
                           className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                         >
-                          <span className={row.sales >= salesTarget ? 'text-success font-semibold' : 'text-warning'}>
-                            {row.sales}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground"> /{salesTarget}wk</span>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.milestones === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'milestones' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          {row.milestones}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.referralAsks === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'referrals' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          {row.referralAsks}
+                          <div className={salesHit ? 'text-success font-semibold' : salesOnPace ? 'text-foreground font-medium' : 'text-warning'}>
+                            {row.sales} <span className="text-muted-foreground font-normal">of {salesPeriodGoal}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {salesHit ? 'goal hit ✓' : salesOnPace ? 'on pace ✓' : 'behind pace'}
+                          </div>
                         </button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
       </Card>
+
 
       <PersonListDrillDown
         open={!!drill}

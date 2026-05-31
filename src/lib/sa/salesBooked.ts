@@ -21,6 +21,7 @@
  *   (buy_date > run_date > created_at).
  */
 import { isSaleCanon, getRunSaleDate, isEffectiveSale } from '@/lib/sales-detection';
+import { PHANTOM_BOOKED_BY } from '@/lib/sa/leadsBooked';
 
 export interface SaSaleRunInput {
   id: string;
@@ -54,7 +55,9 @@ export function getSaleCreditSa(
 ): string | null {
   if (!r.linked_intro_booked_id) return null;
   const b = bookingsById.get(r.linked_intro_booked_id);
-  return b?.intro_owner?.trim() || null;
+  const name = b?.intro_owner?.trim() || null;
+  if (!name || PHANTOM_BOOKED_BY.has(name)) return null;
+  return name;
 }
 
 /** YYYY-MM-DD of the sale's close date in America/Chicago.

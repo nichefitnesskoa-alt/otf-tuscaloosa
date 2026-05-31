@@ -30,6 +30,18 @@ const VIP_LEAD_SOURCES = new Set<string>([
   'VIP Class (Friend)',
 ]);
 
+/** Phantom booked_by values that are NOT real people — never credit them on the
+ *  leaderboard. If these appear, the booking is treated as unattributed and
+ *  hidden until a real SA is assigned. Safety net for legacy/import artifacts. */
+export const PHANTOM_BOOKED_BY = new Set<string>([
+  'System (Auto-Import)',
+  'Self (VIP Form)',
+  'Self-booked',
+  'Self booked',
+  'Unknown',
+  'TBD',
+]);
+
 export interface LeadBookedBookingInput {
   id: string;
   lead_source: string | null;
@@ -61,9 +73,13 @@ export function getLeadBookedCreditSa(
 ): string | null {
   if (b.lead_source && VIP_LEAD_SOURCES.has(b.lead_source) && b.vip_session_id) {
     const sess = vipSessionsById.get(b.vip_session_id);
-    return sess?.sa_setup_name?.trim() || null;
+    const name = sess?.sa_setup_name?.trim() || null;
+    if (!name || PHANTOM_BOOKED_BY.has(name)) return null;
+    return name;
   }
-  return b.booked_by?.trim() || null;
+  const raw = b.booked_by?.trim() || null;
+  if (!raw || PHANTOM_BOOKED_BY.has(raw)) return null;
+  return raw;
 }
 
 /** YYYY-MM-DD of the booking's created_at in America/Chicago. */
