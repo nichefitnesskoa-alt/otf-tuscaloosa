@@ -46,6 +46,7 @@ import { PipelineDialogs } from './components/PipelineDialogs';
 import { PipelineSalesTab } from './components/PipelineSalesTab';
 
 import { PipelineScriptPicker } from '@/components/dashboard/PipelineScriptPicker';
+import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import type { ClientJourney, PipelineBooking, PipelineRun } from './pipelineTypes';
 
 export default function PipelinePage() {
