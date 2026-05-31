@@ -86,6 +86,7 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
   }>({ column: 'showRate', direction: 'desc' });
 
   const payPeriods = useMemo(() => generatePayPeriods(), []);
+  const journey = useJourneyCard('Commission');
   
   // If external date range is provided, use it; otherwise use pay period selector
   const useExternalRange = externalDateRange !== undefined;
