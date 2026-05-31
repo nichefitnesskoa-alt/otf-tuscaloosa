@@ -323,7 +323,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
 
 export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps) {
   const { introsBooked, introsRun } = useData();
-  const journey = useJourneyCard('Studio · Conversion Funnel');
+  const journeyCard = useJourneyCard('Studio · Conversion Funnel');
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillTitle, setDrillTitle] = useState('');
   const [drillPeople, setDrillPeople] = useState<DrillPerson[]>([]);
@@ -398,9 +398,9 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
         onOpenChange={setDrillOpen}
         title={drillTitle}
         people={drillPeople}
-        onPersonClick={(p) => journey.open({ name: p.name })}
+        onPersonClick={(p) => journeyCard.open({ name: p.name })}
       />
-      {journey.element}
+      {journeyCard.element}
     </>
   );
 }
