@@ -295,7 +295,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             >
               <p className="text-2xl font-bold text-primary">{totals.sales}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Sales</p>
-              <p className="text-[10px] text-muted-foreground">team target {teamSalesTarget}/wk</p>
+              <p className="text-[10px] text-muted-foreground">team goal {teamSalesTarget}{isSingleWeek ? '/wk' : ` (${rangeLabel})`}</p>
             </button>
           </CardContent>
         </Card>
