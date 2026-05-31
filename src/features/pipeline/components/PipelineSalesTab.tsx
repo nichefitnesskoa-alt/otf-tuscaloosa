@@ -233,6 +233,7 @@ export function PipelineSalesTab({ onAfterDelete }: Props) {
           onAfterDelete();
         }}
       />
+      {journey.element}
     </div>
   );
 }
