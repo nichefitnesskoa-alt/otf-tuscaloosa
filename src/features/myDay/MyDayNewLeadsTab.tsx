@@ -398,6 +398,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
           </div>
         )}
       </div>
+      {journey.element}
     </div>
   );
 }
