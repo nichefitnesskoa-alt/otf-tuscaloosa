@@ -15,6 +15,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { useObjectionPlaybooks } from '@/hooks/useObjectionPlaybooks';
 import { EirmaPlaybook } from '@/components/dashboard/EirmaPlaybook';
 import { ClassTimeSelect, DatePickerField, formatPhoneAsYouType } from '@/components/shared/FormHelpers';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
 // Lead Sources (alphabetized)
 const LEAD_SOURCES = [
