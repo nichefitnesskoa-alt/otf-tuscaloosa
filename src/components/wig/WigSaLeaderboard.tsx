@@ -8,6 +8,7 @@ import { Loader2, Users, Pencil, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
+import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
@@ -40,6 +41,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
+  const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
   // Per-period targets stored in studio_settings under
   // `sa_leads_booked_target:YYYY-MM` and `sa_sales_target:YYYY-MM`.
@@ -216,6 +218,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         subtitle: `${run.result_canon || 'SALE'} · closed ${format(parseLocalDate(closeYMD) || new Date(closeYMD), 'MMM d')} · ${r.sa}`,
         rightLabel: run.result_canon || undefined,
         rightTone: 'success' as const,
+        onClick: run.linked_intro_booked_id
+          ? () => setJourneyBookingId(run.linked_intro_booked_id!)
+          : undefined,
       })));
     }
     // leads — group visually by sorting by lead_source so they cluster.
@@ -234,6 +239,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           subtitle: `${sourceLabel} · ${format(new Date(b.created_at), 'MMM d')} · ${r.sa}`,
           rightLabel: src,
           rightTone: (VIP_SOURCES.has(src) ? 'primary' : 'muted') as 'primary' | 'muted',
+          onClick: () => setJourneyBookingId(b.id),
           _src: sourceLabel,
         };
       }),
@@ -423,6 +429,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         rows={drillRows}
         emptyText="No records for this metric."
       />
+      {journeyBookingId && (
+        <PersonJourneyCard
+          open={!!journeyBookingId}
+          onOpenChange={o => { if (!o) setJourneyBookingId(null); }}
+          identifier={{ bookingId: journeyBookingId }}
+          scopeBadge="WIG drilldown"
+        />
+      )}
     </>
   );
 }

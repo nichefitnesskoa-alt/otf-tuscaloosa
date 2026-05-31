@@ -64,9 +64,11 @@ export default function PipelinePage() {
 
   // Script picker state (lifted from PipelineSpreadsheet)
   const [scriptJourney, setScriptJourney] = useState<ClientJourney | null>(null);
+  const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
   const openDialog = (type: string, data?: { booking?: PipelineBooking; run?: PipelineRun; journey?: ClientJourney }) => {
     if (type === 'refresh') { pipeline.refreshAll(); return; }
+    if (type === 'journey') { setJourneyBookingId(data?.booking?.id || null); return; }
     setDialogState({ type, ...data });
   };
 
@@ -212,6 +214,15 @@ export default function PipelinePage() {
           journey={scriptJourney as any}
           open={!!scriptJourney}
           onOpenChange={(open) => { if (!open) setScriptJourney(null); }}
+        />
+      )}
+
+      {journeyBookingId && (
+        <PersonJourneyCard
+          open={!!journeyBookingId}
+          onOpenChange={(o) => { if (!o) setJourneyBookingId(null); }}
+          identifier={{ bookingId: journeyBookingId }}
+          scopeBadge="Pipeline"
         />
       )}
     </div>
