@@ -142,6 +142,14 @@ export function CoachAttributionDrillDown({
           </p>
         </div>
       </DialogContent>
+      {journeyBookingId && (
+        <PersonJourneyCard
+          open={!!journeyBookingId}
+          onOpenChange={(o) => { if (!o) setJourneyBookingId(null); }}
+          identifier={{ bookingId: journeyBookingId }}
+          scopeBadge="WIG · Coach drilldown"
+        />
+      )}
     </Dialog>
   );
 }
