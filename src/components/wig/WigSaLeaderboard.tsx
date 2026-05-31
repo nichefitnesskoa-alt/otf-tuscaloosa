@@ -218,6 +218,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         subtitle: `${run.result_canon || 'SALE'} · closed ${format(parseLocalDate(closeYMD) || new Date(closeYMD), 'MMM d')} · ${r.sa}`,
         rightLabel: run.result_canon || undefined,
         rightTone: 'success' as const,
+        onClick: run.linked_intro_booked_id
+          ? () => setJourneyBookingId(run.linked_intro_booked_id!)
+          : undefined,
       })));
     }
     // leads — group visually by sorting by lead_source so they cluster.
@@ -236,6 +239,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           subtitle: `${sourceLabel} · ${format(new Date(b.created_at), 'MMM d')} · ${r.sa}`,
           rightLabel: src,
           rightTone: (VIP_SOURCES.has(src) ? 'primary' : 'muted') as 'primary' | 'muted',
+          onClick: () => setJourneyBookingId(b.id),
           _src: sourceLabel,
         };
       }),
@@ -425,6 +429,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         rows={drillRows}
         emptyText="No records for this metric."
       />
+      {journeyBookingId && (
+        <PersonJourneyCard
+          open={!!journeyBookingId}
+          onOpenChange={o => { if (!o) setJourneyBookingId(null); }}
+          identifier={{ bookingId: journeyBookingId }}
+          scopeBadge="WIG drilldown"
+        />
+      )}
     </>
   );
 }

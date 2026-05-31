@@ -228,6 +228,9 @@ export const PipelineRowCard = memo(function PipelineRowCard({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onOpenDialog('journey', { booking: b })}>
+                              <UserCheck className="w-3 h-3 mr-2" /> Open Journey
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => onOpenDialog('edit_booking', { booking: b })}>
                               <Edit className="w-3 h-3 mr-2" /> Edit Booking
                             </DropdownMenuItem>
