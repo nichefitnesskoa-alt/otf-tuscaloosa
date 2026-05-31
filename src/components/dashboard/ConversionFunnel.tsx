@@ -9,6 +9,7 @@ import { isCloseRun } from '@/lib/intros/close-detection';
 import { isWithinInterval, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { FunnelDrillSheet, DrillPerson } from './FunnelDrillSheet';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { resolvePromotedOrphanBookingIds } from '@/lib/intros/orphanedFirstIntros';
 
 interface ConversionFunnelProps {
@@ -322,6 +323,7 @@ function FunnelRow({ label, data, highlight, journey, bookedLabel, showedLabel, 
 
 export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps) {
   const { introsBooked, introsRun } = useData();
+  const journey = useJourneyCard('Studio · Conversion Funnel');
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillTitle, setDrillTitle] = useState('');
   const [drillPeople, setDrillPeople] = useState<DrillPerson[]>([]);
@@ -396,7 +398,9 @@ export function ConversionFunnel({ dateRange, className }: ConversionFunnelProps
         onOpenChange={setDrillOpen}
         title={drillTitle}
         people={drillPeople}
+        onPersonClick={(p) => journey.open({ name: p.name })}
       />
+      {journey.element}
     </>
   );
 }
