@@ -3830,6 +3830,7 @@ export type Database = {
           reserved_contact_email: string | null
           reserved_contact_name: string | null
           reserved_contact_phone: string | null
+          sa_setup_name: string | null
           session_date: string
           session_label: string | null
           session_time: string
@@ -3861,6 +3862,7 @@ export type Database = {
           reserved_contact_email?: string | null
           reserved_contact_name?: string | null
           reserved_contact_phone?: string | null
+          sa_setup_name?: string | null
           session_date: string
           session_label?: string | null
           session_time: string
@@ -3892,6 +3894,7 @@ export type Database = {
           reserved_contact_email?: string | null
           reserved_contact_name?: string | null
           reserved_contact_phone?: string | null
+          sa_setup_name?: string | null
           session_date?: string
           session_label?: string | null
           session_time?: string

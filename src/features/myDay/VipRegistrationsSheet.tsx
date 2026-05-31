@@ -15,6 +15,7 @@ import { Users, Copy, Check, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 import { BookIntroSheet } from '@/components/dashboard/BookIntroSheet';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
 import {
@@ -59,13 +60,16 @@ interface Props {
 }
 
 export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId, vipGroupName, userName }: Props) {
-  const { coaches: COACHES } = useActiveStaff();
+  const { coaches: COACHES, salesAssociates: SAS } = useActiveStaff();
   const [loading, setLoading] = useState(false);
   const [regs, setRegs] = useState<RegRow[]>([]);
   const [vipCoach, setVipCoach] = useState<string>('');
+  const [vipSaSetup, setVipSaSetup] = useState<string>('');
   const [vipSessionDate, setVipSessionDate] = useState<string | null>(null);
   const [vipSessionTime, setVipSessionTime] = useState<string | null>(null);
   const [savingCoach, setSavingCoach] = useState(false);
+  const [savingSaSetup, setSavingSaSetup] = useState(false);
+  const [saSetupSaved, setSaSetupSaved] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [bookIntroOpen, setBookIntroOpen] = useState(false);
   const [bookIntroPrefill, setBookIntroPrefill] = useState<{ firstName: string; lastName: string; phone: string } | null>(null);
@@ -88,7 +92,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           .order('created_at', { ascending: true }),
         supabase
           .from('vip_sessions' as any)
-          .select('coach_name, session_date, session_time')
+          .select('coach_name, sa_setup_name, session_date, session_time')
           .eq('id', vipSessionId)
           .maybeSingle(),
       ]);
@@ -100,6 +104,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
         setRegs((data as any as RegRow[]) || []);
       }
       setVipCoach((sessionRow as any)?.coach_name || '');
+      setVipSaSetup((sessionRow as any)?.sa_setup_name || '');
       setVipSessionDate((sessionRow as any)?.session_date || null);
       setVipSessionTime((sessionRow as any)?.session_time || null);
       setLoading(false);
@@ -122,6 +127,26 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
       toast.error('Failed to save coach');
     } finally {
       setSavingCoach(false);
+    }
+  };
+
+  const saveVipSaSetup = async (sa: string) => {
+    setVipSaSetup(sa);
+    setSavingSaSetup(true);
+    try {
+      const { error } = await supabase
+        .from('vip_sessions' as any)
+        .update({ sa_setup_name: sa || null })
+        .eq('id', vipSessionId);
+      if (error) throw error;
+      setSaSetupSaved(true);
+      setTimeout(() => setSaSetupSaved(false), 2000);
+      notifyDataChanged(['vip_sessions', 'sa-leads-booked'], 'vip-sa-setup-edit');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to save SA setup');
+    } finally {
+      setSavingSaSetup(false);
     }
   };
 
@@ -300,6 +325,28 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
           </Select>
           <p className="text-[10px] text-muted-foreground">
             Sale credits go to this coach for any VIP-class attendee who buys — even if a different coach runs their follow-up intro.
+          </p>
+        </div>
+
+        <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold">
+              Which SA found and set up this VIP class?
+            </Label>
+            {saSetupSaved && <span className="text-[10px] text-success">Saved</span>}
+          </div>
+          <Select value={vipSaSetup} onValueChange={saveVipSaSetup} disabled={savingSaSetup}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Select SA who set this up…" />
+            </SelectTrigger>
+            <SelectContent>
+              {SAS.map(s => (
+                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            This SA gets credit for every intro booked from this VIP class toward their weekly leads booked.
           </p>
         </div>
 
