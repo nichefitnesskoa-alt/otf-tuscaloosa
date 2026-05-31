@@ -201,6 +201,12 @@ export function formatIntroResultForDb(result: IntroResult, membershipType?: str
     case 'ELITE':
     case 'BASIC':
       return membershipType || result;
+    case 'PREMIER_OTBEAT':
+      return membershipType || 'Premier + OTbeat';
+    case 'SALE':
+      return membershipType || 'Sale';
+    case 'DELETED':
+      return 'Deleted';
     case 'NO_SHOW':
       return 'No-show';
     case 'DIDNT_BUY':
