@@ -26,6 +26,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { formatPhoneDisplay, stripCountryCode } from '@/lib/parsing/phone';
 import type { ClientJourney, PipelineBooking, PipelineRun, JourneyTab, VipInfo, PipelineScriptAction } from '../pipelineTypes';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface PipelineSpreadsheetProps {
   journeys: ClientJourney[];
