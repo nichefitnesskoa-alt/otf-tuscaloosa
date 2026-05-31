@@ -387,6 +387,7 @@ export default function TheTable() {
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
       {header}
+      <SaWeeklyGoals />
       <OwnItMentionsCard variant="banner" />
       {carryBlock}
       <div className="mb-3 flex justify-between items-center">
