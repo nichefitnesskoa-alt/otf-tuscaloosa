@@ -24,7 +24,7 @@ interface Props {
   dateRange: DateRange | undefined;
 }
 
-type DrillBucket = 'milestones' | 'referrals' | 'leads' | 'sales';
+type DrillBucket = 'leads' | 'sales';
 
 const DEFAULT_SA_LEADS_TARGET = 4; // per SA per week
 const DEFAULT_SA_SALES_TARGET = 1; // per SA per week
