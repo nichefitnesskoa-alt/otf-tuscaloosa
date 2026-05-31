@@ -886,7 +886,7 @@ export default function Wig() {
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground whitespace-nowrap">
-                  Total leads for {selectedMonthLabel} (from OTF report)
+                  Studio total leads for {selectedMonthLabel} (from OTF report)
                 </label>
                 <Input
                   type="number"
