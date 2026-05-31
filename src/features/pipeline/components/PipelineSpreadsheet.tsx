@@ -387,6 +387,7 @@ interface SpreadsheetRowProps {
   onToggle: () => void;
   onOpenDialog: (type: string, data?: any) => void;
   onOpenScript: () => void;
+  onOpenJourneyCard: (bookingId: string) => void;
   isEven: boolean;
   userName: string;
 }
