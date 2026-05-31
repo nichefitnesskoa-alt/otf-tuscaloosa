@@ -384,7 +384,13 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                 {filteredAndSorted.map(purchase => (
                   <TableRow key={purchase.id}>
                     <TableCell className="font-medium">
-                      {purchase.member_name}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); journey.open({ name: purchase.member_name }); }}
+                        className="text-left hover:underline cursor-pointer text-primary"
+                      >
+                        {purchase.member_name}
+                      </button>
                       {purchase.source === 'outside_intro' && (
                         <Badge variant="outline" className="ml-1 text-xs">Outside</Badge>
                       )}
