@@ -19,6 +19,7 @@ import {
   type BookingStatus,
 } from './types';
 import { triggerAuditRefresh } from '@/hooks/useDataAudit';
+import { computeExpectedIntroOwner } from '@/lib/intros/introOwnerRule';
 
 export interface OutcomeUpdateParams {
   bookingId: string;
@@ -131,35 +132,31 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .eq('id', params.bookingId)
         .maybeSingle();
 
-      // Resolve intro owner:
-      // 1. 2nd intros inherit owner from original booking
-      // 2. Personal Friend → booked_by gets credit
-      // 3. Otherwise the SA running the intro
-      let resolvedOwner = params.editedBy;
+      // Resolve intro owner via canonical rule (single source of truth).
+      // See src/lib/intros/introOwnerRule.ts. PersonJourneyCard reads
+      // the same rule to surface mismatches.
       const { data: thisBooking } = await supabase
         .from('intros_booked')
         .select('originating_booking_id, intro_owner')
         .eq('id', params.bookingId)
         .maybeSingle();
 
+      let originatingOwner: string | null = null;
       if (thisBooking?.originating_booking_id) {
-        // 2nd intro: inherit from original booking
         const { data: origBooking } = await supabase
           .from('intros_booked')
           .select('intro_owner')
           .eq('id', thisBooking.originating_booking_id)
           .maybeSingle();
-        if (origBooking?.intro_owner) {
-          resolvedOwner = origBooking.intro_owner;
-        } else if (thisBooking.intro_owner) {
-          resolvedOwner = thisBooking.intro_owner;
-        }
-      } else {
-        const isPersonalFriend = (bookingData?.lead_source || '').toLowerCase().includes('personal friend');
-        if (isPersonalFriend && bookingData?.booked_by) {
-          resolvedOwner = bookingData.booked_by;
-        }
+        originatingOwner = origBooking?.intro_owner || thisBooking.intro_owner || null;
       }
+
+      const { expected: resolvedOwner } = computeExpectedIntroOwner({
+        leadSource: bookingData?.lead_source,
+        bookedBy: bookingData?.booked_by,
+        runningSa: params.editedBy,
+        originatingOwner,
+      });
 
       const runDate = bookingData?.class_start_at
         ? bookingData.class_start_at.split('T')[0]
