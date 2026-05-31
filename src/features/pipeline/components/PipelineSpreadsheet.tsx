@@ -394,7 +394,7 @@ interface SpreadsheetRowProps {
 
 const SpreadsheetRow = memo(function SpreadsheetRow({
   journey, columns, activeTab, isExpanded, isOnline, vipInfoMap, scriptActionsMap,
-  onToggle, onOpenDialog, onOpenScript, isEven, userName,
+  onToggle, onOpenDialog, onOpenScript, onOpenJourneyCard, isEven, userName,
 }: SpreadsheetRowProps) {
   const b = getLatestBooking(journey);
   const r = getLatestRun(journey);
