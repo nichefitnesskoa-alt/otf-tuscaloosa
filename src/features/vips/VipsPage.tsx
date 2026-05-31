@@ -1,6 +1,7 @@
 import { Star } from 'lucide-react';
 import { VipSchedulerTab } from '@/features/pipeline/components/VipSchedulerTab';
 import { VipPerformanceDashboard } from './VipPerformanceDashboard';
+import { VipNeedsSetupSection } from './VipNeedsSetupSection';
 
 export default function VipsPage() {
   return (
@@ -14,9 +15,12 @@ export default function VipsPage() {
         </p>
       </div>
 
+      <VipNeedsSetupSection />
+
       <VipPerformanceDashboard />
 
       <VipSchedulerTab />
     </div>
   );
 }
+
