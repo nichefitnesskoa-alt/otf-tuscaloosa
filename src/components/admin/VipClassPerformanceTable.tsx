@@ -47,6 +47,7 @@ export function VipClassPerformanceTable() {
   const [open, setOpen] = useState(false);
   const [relinking, setRelinking] = useState(false);
   const [drill, setDrill] = useState<{ row: VipPerfRow; metric: MetricKey } | null>(null);
+  const journey = useJourneyCard('VIP class');
 
   const handleRelink = async () => {
     setRelinking(true);
