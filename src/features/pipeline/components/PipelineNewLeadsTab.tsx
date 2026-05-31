@@ -41,11 +41,12 @@ function getSpeedInfo(createdAt: string) {
   return { color: 'hsl(var(--status-success))', text: `✓ New Lead — ${minutesSince}m ago` };
 }
 
-function LeadCard({ lead, onAction, onBook, onScript }: {
+function LeadCard({ lead, onAction, onBook, onScript, onOpenJourney }: {
   lead: Lead;
   onAction: (id: string, action: LeadAction) => void;
   onBook: (lead: Lead) => void;
   onScript: (lead: Lead) => void;
+  onOpenJourney: (lead: Lead) => void;
 }) {
   const [findResult, setFindResult] = useState<DuplicateResult | null>(null);
   const [finding, setFinding] = useState(false);
