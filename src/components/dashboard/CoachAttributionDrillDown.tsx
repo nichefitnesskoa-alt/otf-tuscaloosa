@@ -82,7 +82,11 @@ export function CoachAttributionDrillDown({
             list.map(i => (
               <div
                 key={`${i.bookingId}-${i.via || 'd'}`}
-                className="rounded-md border border-border p-2 bg-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setJourneyBookingId(i.bookingId)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setJourneyBookingId(i.bookingId); } }}
+                className="rounded-md border border-border p-2 bg-card cursor-pointer hover:bg-accent hover:border-primary/40 transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -93,7 +97,7 @@ export function CoachAttributionDrillDown({
                       {i.via === '2nd_intro' && <> · <span className="text-primary font-semibold">via 2nd intro</span></>}
                     </p>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex flex-col items-end gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
                       {i.resultLabel}
                     </span>
