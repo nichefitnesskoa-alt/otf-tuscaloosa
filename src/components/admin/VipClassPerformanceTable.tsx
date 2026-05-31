@@ -303,6 +303,7 @@ export function VipClassPerformanceTable() {
         rows={drillRows}
         emptyText="No records for this metric."
       />
+      {journey.element}
     </Collapsible>
   );
 }
