@@ -145,31 +145,34 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const teamLeadsTarget = leadsPeriodGoal * activeCount;
   const teamSalesTarget = salesPeriodGoal * activeCount;
 
-  // Merge all data sources into SA rows.
+  // Active SA set — used to suppress phantom/inactive names from the leaderboard.
+  const activeSet = useMemo(() => new Set(activeSas || []), [activeSas]);
+
+  // Merge leads + sales into per-SA rows. Only include names that are currently
+  // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
     const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
     const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
     const allNames = new Set<string>([
-      ...data.rows.map(r => r.name),
+      ...activeSet,
       ...leads.rows.map(r => r.sa),
       ...sales.rows.map(r => r.sa),
     ]);
-    return Array.from(allNames).map(name => {
-      const base = data.rows.find(r => r.name === name);
-      return {
+    return Array.from(allNames)
+      // Only show people who are currently active SAs. Inactive/legacy/phantom
+      // names that somehow slipped through never appear on the leaderboard.
+      .filter(name => activeSet.has(name))
+      .map(name => ({
         name,
-        milestones: base?.milestones ?? 0,
-        referralAsks: base?.referralAsks ?? 0,
         leadsBooked: leadsMap.get(name) ?? 0,
         sales: salesMap.get(name) ?? 0,
-      };
-    }).sort((a, b) =>
-      b.sales - a.sales ||
-      b.leadsBooked - a.leadsBooked ||
-      b.milestones - a.milestones ||
-      b.referralAsks - a.referralAsks,
-    );
-  }, [data.rows, leads.rows, sales.rows]);
+      }))
+      .sort((a, b) =>
+        b.sales - a.sales ||
+        b.leadsBooked - a.leadsBooked ||
+        a.name.localeCompare(b.name),
+      );
+  }, [leads.rows, sales.rows, activeSet]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
