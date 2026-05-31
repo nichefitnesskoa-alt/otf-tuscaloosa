@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
 
 export interface AttribIntro {
   bookingId: string;
@@ -50,6 +52,7 @@ export function CoachAttributionDrillDown({
   if (!coach) return null;
   const list = metric === 'coached' ? attribution?.coached || [] : attribution?.closes || [];
   const excluded = attribution?.excluded || [];
+  const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
   const directCloses = (attribution?.closes || []).filter(x => x.via !== '2nd_intro').length;
   const journeyCloses = (attribution?.closes || []).filter(x => x.via === '2nd_intro').length;
@@ -79,7 +82,11 @@ export function CoachAttributionDrillDown({
             list.map(i => (
               <div
                 key={`${i.bookingId}-${i.via || 'd'}`}
-                className="rounded-md border border-border p-2 bg-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => setJourneyBookingId(i.bookingId)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setJourneyBookingId(i.bookingId); } }}
+                className="rounded-md border border-border p-2 bg-card cursor-pointer hover:bg-accent hover:border-primary/40 transition-colors"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -90,7 +97,7 @@ export function CoachAttributionDrillDown({
                       {i.via === '2nd_intro' && <> · <span className="text-primary font-semibold">via 2nd intro</span></>}
                     </p>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex flex-col items-end gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap ${RESULT_TONE[i.resultLabel] || RESULT_TONE['—']}`}>
                       {i.resultLabel}
                     </span>
@@ -135,6 +142,14 @@ export function CoachAttributionDrillDown({
           </p>
         </div>
       </DialogContent>
+      {journeyBookingId && (
+        <PersonJourneyCard
+          open={!!journeyBookingId}
+          onOpenChange={(o) => { if (!o) setJourneyBookingId(null); }}
+          identifier={{ bookingId: journeyBookingId }}
+          scopeBadge="WIG · Coach drilldown"
+        />
+      )}
     </Dialog>
   );
 }
