@@ -257,7 +257,7 @@ export function PipelineSpreadsheet({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<string>(getDefaultSort(activeTab).key);
   const [sortDir, setSortDir] = useState<SortDir>(getDefaultSort(activeTab).dir);
-  const journey = useJourneyCard('Pipeline');
+  const journeyCard = useJourneyCard('Pipeline');
   
   
 
