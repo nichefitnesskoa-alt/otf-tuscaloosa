@@ -17,6 +17,7 @@ import ClientActionDialog from './ClientActionDialog';
 import QuestionnaireLink from './QuestionnaireLink';
 import QuestionnaireResponseViewer from './QuestionnaireResponseViewer';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { useAuth } from '@/context/AuthContext';
 import { LEAD_SOURCES } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
