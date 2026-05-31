@@ -10,6 +10,7 @@ import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { useSaLeaderboard } from '@/hooks/useSaLeaderboard';
 import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
+import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
 import { isEligibleThreshold } from '@/lib/sa/saStreaks';
@@ -23,9 +24,12 @@ interface Props {
   dateRange: DateRange | undefined;
 }
 
-type DrillBucket = 'milestones' | 'referrals' | 'leads';
+type DrillBucket = 'milestones' | 'referrals' | 'leads' | 'sales';
 
 const DEFAULT_SA_LEADS_TARGET = 4; // per SA per week
+const DEFAULT_SA_SALES_TARGET = 1; // per SA per week
+
+const VIP_SOURCES = new Set(['VIP Class', 'VIP Class (Friend)']);
 
 export function WigSaLeaderboard({ dateRange }: Props) {
   const navigate = useNavigate();
@@ -35,80 +39,98 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
   const data = useSaLeaderboard(rangeStart, rangeEnd);
   const leads = useSaLeadsBooked(rangeStart, rangeEnd);
+  const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
 
-  // Per-period SA leads-booked target (per SA per week). Stored in
-  // studio_settings under key `sa_leads_booked_target:YYYY-MM`.
-  const targetMonthKey = useMemo(() => {
-    const ym = dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM');
-    return `sa_leads_booked_target:${ym}`;
-  }, [dateRange]);
+  // Per-period targets stored in studio_settings under
+  // `sa_leads_booked_target:YYYY-MM` and `sa_sales_target:YYYY-MM`.
+  const yyyymm = useMemo(() => (
+    dateRange ? format(dateRange.start, 'yyyy-MM') : format(getNowCentral(), 'yyyy-MM')
+  ), [dateRange]);
+  const leadsTargetKey = `sa_leads_booked_target:${yyyymm}`;
+  const salesTargetKey = `sa_sales_target:${yyyymm}`;
 
   const [leadsTarget, setLeadsTarget] = useState<number>(DEFAULT_SA_LEADS_TARGET);
-  const [editingTarget, setEditingTarget] = useState(false);
-  const [targetInput, setTargetInput] = useState<string>(String(DEFAULT_SA_LEADS_TARGET));
-  const [targetSaved, setTargetSaved] = useState(false);
+  const [salesTarget, setSalesTarget] = useState<number>(DEFAULT_SA_SALES_TARGET);
+  const [editingLeads, setEditingLeads] = useState(false);
+  const [editingSales, setEditingSales] = useState(false);
+  const [leadsInput, setLeadsInput] = useState<string>(String(DEFAULT_SA_LEADS_TARGET));
+  const [salesInput, setSalesInput] = useState<string>(String(DEFAULT_SA_SALES_TARGET));
+  const [leadsSaved, setLeadsSaved] = useState(false);
+  const [salesSaved, setSalesSaved] = useState(false);
 
-  const loadTarget = useCallback(async () => {
-    const { data: row } = await supabase
+  const loadTargets = useCallback(async () => {
+    const { data: rows } = await supabase
       .from('studio_settings')
-      .select('setting_value')
-      .eq('setting_key', targetMonthKey)
-      .maybeSingle();
-    let val: number | null = null;
-    if (row) {
-      const n = parseInt((row as any).setting_value, 10);
-      if (!isNaN(n)) val = n;
-    }
-    const final = val ?? DEFAULT_SA_LEADS_TARGET;
-    setLeadsTarget(final);
-    setTargetInput(String(final));
-  }, [targetMonthKey]);
+      .select('setting_key, setting_value')
+      .in('setting_key', [leadsTargetKey, salesTargetKey]);
+    const map = new Map(((rows as any[]) || []).map(r => [r.setting_key, r.setting_value]));
+    const lt = parseInt(map.get(leadsTargetKey) || '', 10);
+    const st = parseInt(map.get(salesTargetKey) || '', 10);
+    const finalLt = isNaN(lt) ? DEFAULT_SA_LEADS_TARGET : lt;
+    const finalSt = isNaN(st) ? DEFAULT_SA_SALES_TARGET : st;
+    setLeadsTarget(finalLt); setLeadsInput(String(finalLt));
+    setSalesTarget(finalSt); setSalesInput(String(finalSt));
+  }, [leadsTargetKey, salesTargetKey]);
 
-  useEffect(() => { loadTarget(); }, [loadTarget]);
+  useEffect(() => { loadTargets(); }, [loadTargets]);
 
-  const handleSaveTarget = async () => {
-    const val = parseInt(targetInput, 10);
-    if (isNaN(val) || val < 0) return;
+  const saveTarget = async (key: string, value: number, scope: string) => {
     const { error } = await supabase
       .from('studio_settings')
       .upsert(
         {
-          setting_key: targetMonthKey,
-          setting_value: String(val),
+          setting_key: key,
+          setting_value: String(value),
           updated_by: user?.name || 'unknown',
           updated_at: new Date().toISOString(),
         } as any,
         { onConflict: 'setting_key' },
       );
-    if (!error) {
-      setLeadsTarget(val);
-      setEditingTarget(false);
-      setTargetSaved(true);
-      setTimeout(() => setTargetSaved(false), 2000);
-      notifyDataChanged(['sa_leads_booked_target'], 'sa-leads-target-edit');
-      loadTarget();
-    } else {
-      toast.error('Failed to save target');
+    if (error) { toast.error('Failed to save target'); return false; }
+    notifyDataChanged([scope], `${scope}-edit`);
+    return true;
+  };
+
+  const handleSaveLeads = async () => {
+    const v = parseInt(leadsInput, 10);
+    if (isNaN(v) || v < 0) return;
+    if (await saveTarget(leadsTargetKey, v, 'sa_leads_booked_target')) {
+      setLeadsTarget(v); setEditingLeads(false); setLeadsSaved(true);
+      setTimeout(() => setLeadsSaved(false), 2000);
+      loadTargets();
+    }
+  };
+  const handleSaveSales = async () => {
+    const v = parseInt(salesInput, 10);
+    if (isNaN(v) || v < 0) return;
+    if (await saveTarget(salesTargetKey, v, 'sa_sales_target')) {
+      setSalesTarget(v); setEditingSales(false); setSalesSaved(true);
+      setTimeout(() => setSalesSaved(false), 2000);
+      loadTargets();
     }
   };
 
   const totals = useMemo(() => {
     const milestones = data.rows.reduce((s, r) => s + r.milestones, 0);
     const referrals = data.rows.reduce((s, r) => s + r.referralAsks, 0);
-    return { milestones, referrals, leads: leads.total };
-  }, [data.rows, leads.total]);
+    return { milestones, referrals, leads: leads.total, sales: sales.total };
+  }, [data.rows, leads.total, sales.total]);
 
-  // Team rollup target = per-SA target × active SA count. Never hardcoded.
-  const teamLeadsTarget = leadsTarget * (activeSas?.length || 0);
+  // Team rollup targets = per-SA × active SA count.
+  const activeCount = activeSas?.length || 0;
+  const teamLeadsTarget = leadsTarget * activeCount;
+  const teamSalesTarget = salesTarget * activeCount;
 
-  // Merge leads data into SA rows. Show every SA who appears in either source.
+  // Merge all data sources into SA rows.
   const sortedRows = useMemo(() => {
     const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
+    const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
     const allNames = new Set<string>([
       ...data.rows.map(r => r.name),
       ...leads.rows.map(r => r.sa),
+      ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames).map(name => {
       const base = data.rows.find(r => r.name === name);
@@ -117,17 +139,43 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         milestones: base?.milestones ?? 0,
         referralAsks: base?.referralAsks ?? 0,
         leadsBooked: leadsMap.get(name) ?? 0,
+        sales: salesMap.get(name) ?? 0,
       };
     }).sort((a, b) =>
+      b.sales - a.sales ||
       b.leadsBooked - a.leadsBooked ||
       b.milestones - a.milestones ||
       b.referralAsks - a.referralAsks,
     );
-  }, [data.rows, leads.rows]);
+  }, [data.rows, leads.rows, sales.rows]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
     : 'All time';
+
+  // VIP-creator + lead-source breakdown for a given SA (or studio-wide if null).
+  const leadsBreakdownSubtitle = useMemo(() => {
+    if (!drill || drill.bucket !== 'leads') return undefined;
+    const saRows = drill.sa ? leads.rows.filter(r => r.sa === drill.sa) : leads.rows;
+    const counts = new Map<string, number>();
+    for (const r of saRows) {
+      for (const b of r.bookings) {
+        const src = b.lead_source || 'Unknown';
+        // VIP-class bookings: label with which SA set the VIP up.
+        // The credit SA == sa_setup_name by helper definition, so for a
+        // single-SA drilldown all VIP rows are "set up by drill.sa".
+        const label = VIP_SOURCES.has(src)
+          ? `${src} (set up by ${r.sa})`
+          : src;
+        counts.set(label, (counts.get(label) || 0) + 1);
+      }
+    }
+    if (counts.size === 0) return undefined;
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(' · ');
+  }, [drill, leads.rows]);
 
   const drillRows: PersonRow[] = useMemo(() => {
     if (!drill) return [];
@@ -152,31 +200,52 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           subtitle: `${r.class_date ? format(parseLocalDate(r.class_date), 'MMM d') : ''} · ${r.booked_by || 'Unknown'}`,
         }));
     }
-    // leads
+    if (drill.bucket === 'sales') {
+      const saRows = drill.sa ? sales.rows.filter(r => r.sa === drill.sa) : sales.rows;
+      return saRows.flatMap(r => r.runs.map(({ run, member, closeYMD }) => ({
+        id: `sale-${run.id}`,
+        name: member || 'Unknown member',
+        subtitle: `${run.result_canon || 'SALE'} · closed ${format(parseLocalDate(closeYMD) || new Date(closeYMD), 'MMM d')} · ${r.sa}`,
+        rightLabel: run.result_canon || undefined,
+        rightTone: 'success' as const,
+      })));
+    }
+    // leads — group visually by sorting by lead_source so they cluster.
     const saRows = drill.sa
       ? leads.rows.filter(r => r.sa === drill.sa)
       : leads.rows;
-    return saRows.flatMap(r =>
-      r.bookings.map(b => ({
-        id: `lead-${b.id}`,
-        name: b.member_name || 'Unknown member',
-        subtitle: `${b.lead_source || 'Unknown source'} · ${format(new Date(b.created_at), 'MMM d')} · ${r.sa}`,
-      })),
+    const flat = saRows.flatMap(r =>
+      r.bookings.map(b => {
+        const src = b.lead_source || 'Unknown';
+        const sourceLabel = VIP_SOURCES.has(src)
+          ? `${src} (set up by ${r.sa})`
+          : src;
+        return {
+          id: `lead-${b.id}`,
+          name: b.member_name || 'Unknown member',
+          subtitle: `${sourceLabel} · ${format(new Date(b.created_at), 'MMM d')} · ${r.sa}`,
+          rightLabel: src,
+          rightTone: (VIP_SOURCES.has(src) ? 'primary' : 'muted') as 'primary' | 'muted',
+          _src: sourceLabel,
+        };
+      }),
     );
-  }, [drill, data, leads.rows]);
+    return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
+  }, [drill, data, leads.rows, sales.rows]);
 
   const drillTitle = drill
     ? `${drill.sa ?? 'Studio'} · ${
         drill.bucket === 'milestones' ? 'Milestones marked'
         : drill.bucket === 'referrals' ? 'POS referral asks'
+        : drill.bucket === 'sales' ? 'Sales'
         : 'Leads booked'
       }`
     : '';
 
   return (
     <>
-      {/* Header tile row */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Header tile row — 4 tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Card>
           <CardContent className="p-3 text-center">
             <button
@@ -188,6 +257,20 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               <p className="text-2xl font-bold text-primary">{totals.leads}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Leads booked</p>
               <p className="text-[10px] text-muted-foreground">team target {teamLeadsTarget}/wk</p>
+            </button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3 text-center">
+            <button
+              type="button"
+              onClick={() => setDrill({ sa: null, bucket: 'sales' })}
+              disabled={totals.sales === 0}
+              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
+            >
+              <p className="text-2xl font-bold text-primary">{totals.sales}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Sales</p>
+              <p className="text-[10px] text-muted-foreground">team target {teamSalesTarget}/wk</p>
             </button>
           </CardContent>
         </Card>
@@ -219,30 +302,44 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         </Card>
       </div>
 
-      {/* Per-SA leads target editor */}
-      <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
-        <div className="text-xs">
-          <span className="font-medium">Per-SA leads-booked target: </span>
-          <span className="text-primary font-semibold">{leadsTarget}</span>
-          <span className="text-muted-foreground"> / SA / week</span>
-        </div>
-        {editingTarget ? (
-          <div className="flex items-center gap-1">
-            <Input
-              type="number"
-              value={targetInput}
-              onChange={e => setTargetInput(e.target.value)}
-              className="h-7 w-16 text-xs"
-              min={0}
-            />
-            <Button size="sm" className="h-7 px-2" onClick={handleSaveTarget}>Save</Button>
-            <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingTarget(false); setTargetInput(String(leadsTarget)); }}>Cancel</Button>
+      {/* Per-SA target editors */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
+          <div className="text-xs">
+            <span className="font-medium">Per-SA leads target: </span>
+            <span className="text-primary font-semibold">{leadsTarget}</span>
+            <span className="text-muted-foreground"> / SA / week</span>
           </div>
-        ) : (
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingTarget(true)}>
-            {targetSaved ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
-          </Button>
-        )}
+          {editingLeads ? (
+            <div className="flex items-center gap-1">
+              <Input type="number" value={leadsInput} onChange={e => setLeadsInput(e.target.value)} className="h-7 w-16 text-xs" min={0} />
+              <Button size="sm" className="h-7 px-2" onClick={handleSaveLeads}>Save</Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingLeads(false); setLeadsInput(String(leadsTarget)); }}>Cancel</Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingLeads(true)}>
+              {leadsSaved ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2">
+          <div className="text-xs">
+            <span className="font-medium">Per-SA sales target: </span>
+            <span className="text-primary font-semibold">{salesTarget}</span>
+            <span className="text-muted-foreground"> / SA / week</span>
+          </div>
+          {editingSales ? (
+            <div className="flex items-center gap-1">
+              <Input type="number" value={salesInput} onChange={e => setSalesInput(e.target.value)} className="h-7 w-16 text-xs" min={0} />
+              <Button size="sm" className="h-7 px-2" onClick={handleSaveSales}>Save</Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { setEditingSales(false); setSalesInput(String(salesTarget)); }}>Cancel</Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingSales(true)}>
+              {salesSaved ? <><Check className="w-3 h-3 mr-1" />Saved</> : <><Pencil className="w-3 h-3 mr-1" />Edit target</>}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* SA leaderboard */}
@@ -257,7 +354,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          {(data.loading || leads.loading) ? (
+          {(data.loading || leads.loading || sales.loading) ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
               <span className="text-xs text-muted-foreground">Loading…</span>
@@ -271,6 +368,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow>
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">Leads</TableHead>
+                    <TableHead className="text-xs text-center">Sales</TableHead>
                     <TableHead className="text-xs text-center">Milestones</TableHead>
                     <TableHead className="text-xs text-center">Refs</TableHead>
                   </TableRow>
@@ -290,10 +388,23 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
                           className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                         >
-                          <span className={row.leadsBooked >= leadsTarget ? 'text-success font-semibold' : ''}>
+                          <span className={row.leadsBooked >= leadsTarget ? 'text-success font-semibold' : 'text-warning'}>
                             {row.leadsBooked}
                           </span>
                           <span className="text-[10px] text-muted-foreground"> /{leadsTarget}wk</span>
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-sm text-center p-0">
+                        <button
+                          type="button"
+                          disabled={row.sales === 0}
+                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
+                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                        >
+                          <span className={row.sales >= salesTarget ? 'text-success font-semibold' : 'text-warning'}>
+                            {row.sales}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground"> /{salesTarget}wk</span>
                         </button>
                       </TableCell>
                       <TableCell className="text-sm text-center p-0">
@@ -330,7 +441,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         onOpenChange={o => { if (!o) setDrill(null); }}
         title={drillTitle}
         scopeBadge="WIG · SA"
-        subtitle={rangeLabel}
+        subtitle={drill?.bucket === 'leads' && leadsBreakdownSubtitle
+          ? `${rangeLabel} · ${leadsBreakdownSubtitle}`
+          : rangeLabel}
         rows={drillRows}
         emptyText="No records for this metric."
       />
