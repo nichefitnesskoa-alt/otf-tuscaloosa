@@ -24,6 +24,7 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 // Speed-to-lead helpers
 function getSpeedInfo(createdAt: string) {
@@ -176,6 +177,7 @@ interface LeadCardProps {
 function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
   const [findResult, setFindResult] = useState<DuplicateResult | null>(null);
   const [finding, setFinding] = useState(false);
+  const journey = useJourneyCard('My Day · New Leads');
 
   const stage = lead.stage;
   const isNew = stage === 'new';
@@ -232,7 +234,13 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="font-bold text-[15px] leading-tight">{lead.first_name} {lead.last_name}</p>
+              <button
+                type="button"
+                onClick={() => journey.open({ name: `${lead.first_name} ${lead.last_name}`.trim(), phone: lead.phone || null, email: lead.email || null })}
+                className="font-bold text-[15px] leading-tight hover:underline cursor-pointer text-left"
+              >
+                {lead.first_name} {lead.last_name}
+              </button>
               {hasLowFlag && (
                 <span title={lead.duplicate_notes || 'Possible name match — verify before contacting'}>
                   <Info className="w-3.5 h-3.5 text-muted-foreground" />
