@@ -113,15 +113,37 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   };
 
   const totals = useMemo(() => {
-    const milestones = data.rows.reduce((s, r) => s + r.milestones, 0);
-    const referrals = data.rows.reduce((s, r) => s + r.referralAsks, 0);
-    return { milestones, referrals, leads: leads.total, sales: sales.total };
-  }, [data.rows, leads.total, sales.total]);
+    return { leads: leads.total, sales: sales.total };
+  }, [leads.total, sales.total]);
 
-  // Team rollup targets = per-SA × active SA count.
+  // Period-aware target math. weeksInPeriod = ceil((end-start+1)/7), min 1.
+  // Pro-rata-to-today = perSaTarget * elapsedWeeks (capped at weeksInPeriod).
+  const { weeksInPeriod, leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata, isSingleWeek } = useMemo(() => {
+    if (!dateRange) {
+      return { weeksInPeriod: 1, leadsPeriodGoal: leadsTarget, salesPeriodGoal: salesTarget,
+               leadsProRata: leadsTarget, salesProRata: salesTarget, isSingleWeek: true };
+    }
+    const msDay = 86400000;
+    const days = Math.max(1, Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / msDay) + 1);
+    const weeks = Math.max(1, Math.ceil(days / 7));
+    const today = getNowCentral();
+    const cappedToday = today < dateRange.start ? dateRange.start : today > dateRange.end ? dateRange.end : today;
+    const elapsedDays = Math.max(1, Math.round((cappedToday.getTime() - dateRange.start.getTime()) / msDay) + 1);
+    const elapsedWeeks = Math.min(weeks, elapsedDays / 7);
+    return {
+      weeksInPeriod: weeks,
+      leadsPeriodGoal: leadsTarget * weeks,
+      salesPeriodGoal: salesTarget * weeks,
+      leadsProRata: leadsTarget * elapsedWeeks,
+      salesProRata: salesTarget * elapsedWeeks,
+      isSingleWeek: weeks === 1,
+    };
+  }, [dateRange, leadsTarget, salesTarget]);
+
+  // Team rollup targets = per-SA × active SA count × weeks.
   const activeCount = activeSas?.length || 0;
-  const teamLeadsTarget = leadsTarget * activeCount;
-  const teamSalesTarget = salesTarget * activeCount;
+  const teamLeadsTarget = leadsPeriodGoal * activeCount;
+  const teamSalesTarget = salesPeriodGoal * activeCount;
 
   // Merge all data sources into SA rows.
   const sortedRows = useMemo(() => {
