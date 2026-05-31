@@ -57,6 +57,10 @@ export interface IntroCardProps {
   id?: string;
   style?: React.CSSProperties;
   onCopyPhone?: () => void;
+  /** When provided, the member name becomes a distinct tap target that
+   *  opens the canonical PersonJourneyCard. Action buttons elsewhere on
+   *  the card keep their own behavior. */
+  onNameClick?: () => void;
 }
 
 /* ── tiny inline text editor ── */
