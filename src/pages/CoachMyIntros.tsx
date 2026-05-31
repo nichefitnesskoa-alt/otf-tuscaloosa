@@ -195,6 +195,7 @@ const FILTERS: { key: FilterType; label: string }[] = [
 export default function CoachMyIntros() {
   const { user } = useAuth();
   const coachName = user?.name || '';
+  const journey = useJourneyCard();
 
   const [loading, setLoading] = useState(true);
   const [intros, setIntros] = useState<MergedIntro[]>([]);
