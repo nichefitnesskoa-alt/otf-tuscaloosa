@@ -791,7 +791,7 @@ export default function Wig() {
     );
   }
 
-  const leadCard = { label: 'Leads this period', current: totalLeads, target: leadTarget, isPercent: false };
+  const leadCard = { label: `Studio goal: leads ${selectedMonthLabel}`, current: totalLeads, target: leadTarget, isPercent: false };
   const closeRateCard = { label: 'Close rate', current: closeRate, target: 40, isPercent: true };
   const renderMetricCard = (card: typeof leadCard, isLeadCard: boolean) => {
     const progressValue = Math.min((card.current / card.target) * 100, 100);
