@@ -45,6 +45,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
