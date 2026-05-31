@@ -240,6 +240,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+                <FriendRuleNotice leadSource={editRun.lead_source} />
               </div>
               <div><Label className="text-xs">Coach</Label>
                 <Select value={editRun.coach_name || ''} onValueChange={v => setEditRun({ ...editRun, coach_name: v })}>
