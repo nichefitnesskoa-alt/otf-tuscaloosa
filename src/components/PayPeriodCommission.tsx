@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { parseLocalDate } from '@/lib/utils';
 import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
 import { DateRange, formatDateRange } from '@/lib/pay-period';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 // Pay period anchor: January 26, 2026 (biweekly)
 const PAY_PERIOD_ANCHOR = new Date(2026, 0, 26); // January 26, 2026
