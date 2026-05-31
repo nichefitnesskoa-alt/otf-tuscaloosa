@@ -367,14 +367,27 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">SA</TableHead>
-                    <TableHead className="text-xs text-center">Leads</TableHead>
-                    <TableHead className="text-xs text-center">Sales</TableHead>
-                    <TableHead className="text-xs text-center">Milestones</TableHead>
-                    <TableHead className="text-xs text-center">Refs</TableHead>
+                    <TableHead className="text-xs text-center">
+                      Leads booked
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        goal {leadsPeriodGoal}{isSingleWeek ? '' : ` (${leadsTarget}/wk × ${weeksInPeriod}wk)`}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs text-center">
+                      Sales
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        goal {salesPeriodGoal}{isSingleWeek ? '' : ` (${salesTarget}/wk × ${weeksInPeriod}wk)`}
+                      </div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedRows.map(row => (
+                  {sortedRows.map(row => {
+                    const leadsOnPace = row.leadsBooked >= leadsProRata;
+                    const salesOnPace = row.sales >= salesProRata;
+                    const leadsHit = row.leadsBooked >= leadsPeriodGoal;
+                    const salesHit = row.sales >= salesPeriodGoal;
+                    return (
                     <TableRow
                       key={row.name}
                       className="cursor-pointer hover:bg-muted/40"
@@ -388,10 +401,12 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'leads' }); }}
                           className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                         >
-                          <span className={row.leadsBooked >= leadsTarget ? 'text-success font-semibold' : 'text-warning'}>
-                            {row.leadsBooked}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground"> /{leadsTarget}wk</span>
+                          <div className={leadsHit ? 'text-success font-semibold' : leadsOnPace ? 'text-foreground font-medium' : 'text-warning'}>
+                            {row.leadsBooked} <span className="text-muted-foreground font-normal">of {leadsPeriodGoal}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {leadsHit ? 'goal hit ✓' : leadsOnPace ? 'on pace ✓' : 'behind pace'}
+                          </div>
                         </button>
                       </TableCell>
                       <TableCell className="text-sm text-center p-0">
@@ -401,40 +416,23 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                           onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sales' }); }}
                           className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
                         >
-                          <span className={row.sales >= salesTarget ? 'text-success font-semibold' : 'text-warning'}>
-                            {row.sales}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground"> /{salesTarget}wk</span>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.milestones === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'milestones' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          {row.milestones}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-center p-0">
-                        <button
-                          type="button"
-                          disabled={row.referralAsks === 0}
-                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'referrals' }); }}
-                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
-                        >
-                          {row.referralAsks}
+                          <div className={salesHit ? 'text-success font-semibold' : salesOnPace ? 'text-foreground font-medium' : 'text-warning'}>
+                            {row.sales} <span className="text-muted-foreground font-normal">of {salesPeriodGoal}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {salesHit ? 'goal hit ✓' : salesOnPace ? 'on pace ✓' : 'behind pace'}
+                          </div>
                         </button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
       </Card>
+
 
       <PersonListDrillDown
         open={!!drill}
