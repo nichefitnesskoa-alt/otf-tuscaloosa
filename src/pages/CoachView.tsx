@@ -372,6 +372,7 @@ function ClassTimeIntroSelector({
   autoExpand?: boolean;
   originatingStatuses?: Record<string, string>;
 }) {
+  const journey = useJourneyCard();
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
     if (!autoExpand) return null;
