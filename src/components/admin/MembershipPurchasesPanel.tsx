@@ -69,6 +69,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
   const [sortColumn, setSortColumn] = useState<string>('purchase_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const hasExternalRange = externalDateRange !== undefined;
+  const journey = useJourneyCard('Purchases');
 
   useEffect(() => {
     if (hasExternalRange) {
