@@ -163,6 +163,7 @@ export function TodaysActions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {journey.element}
     </Card>
   );
 }
