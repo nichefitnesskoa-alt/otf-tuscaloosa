@@ -15,6 +15,7 @@ import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { Users } from 'lucide-react';
 import { generateUniqueSlug } from '@/lib/utils';
 import { ClassTimeSelect, formatPhoneAsYouType, autoCapitalizeName } from '@/components/shared/FormHelpers';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 
 interface WalkInIntroSheetProps {
   open: boolean;
@@ -266,6 +267,7 @@ export function WalkInIntroSheet({ open, onOpenChange, onSaved }: WalkInIntroShe
               <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
               <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <FriendRuleNotice leadSource={leadSource} bookedByName={user?.name} />
           </div>
 
           {/* ── Who Referred Them? ── */}

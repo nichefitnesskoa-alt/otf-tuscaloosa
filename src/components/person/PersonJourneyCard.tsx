@@ -38,6 +38,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { supabase } from '@/integrations/supabase/client';
 import { LEAD_SOURCES } from '@/types';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { parseLocalDate, cn } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { notifyDataChanged } from '@/lib/data/invalidation';
@@ -471,12 +472,15 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
           onCancel={cancelEdit}
           onCommit={commitEdit}
           input={
-            <Select value={draft} onValueChange={setDraft}>
-              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <Select value={draft} onValueChange={setDraft}>
+                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEAD_SOURCES.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <FriendRuleNotice leadSource={draft} bookedByName={booking.booked_by} />
+            </div>
           }
         />
         <EditableField

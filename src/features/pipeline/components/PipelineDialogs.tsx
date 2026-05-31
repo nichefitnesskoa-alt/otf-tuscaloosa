@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LEAD_SOURCES, MEMBERSHIP_TYPES } from '@/types';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { VipSessionPicker } from '@/components/shared/VipSessionPicker';
+import { FriendRuleNotice } from '@/components/shared/FriendRuleNotice';
 import { getLocalDateString } from '../helpers';
 import { capitalizeName } from '@/lib/utils';
 import { updateOutcomeFromPipeline, updateBookingFieldsFromPipeline, syncIntroOwnerToBooking, assertNoOutcomeOwnedFields } from '../pipelineActions';
@@ -148,6 +149,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
                   <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+                <FriendRuleNotice leadSource={editBooking.lead_source} bookedByName={editBooking.booked_by || editBooking.sa_working_shift} />
               </div>
               <div><Label className="text-xs">Coach</Label>
                 <Select value={editBooking.coach_name || ''} onValueChange={v => setEditBooking({ ...editBooking, coach_name: v === '__TBD__' ? 'TBD' : v })}>
@@ -238,6 +240,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+                <FriendRuleNotice leadSource={editRun.lead_source} />
               </div>
               <div><Label className="text-xs">Coach</Label>
                 <Select value={editRun.coach_name || ''} onValueChange={v => setEditRun({ ...editRun, coach_name: v })}>
@@ -769,6 +772,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                     <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
                     <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
+                  <FriendRuleNotice leadSource={newBooking.lead_source} bookedByName={newBooking.sa_working_shift} />
                 </div>
                 {newBooking.lead_source.toLowerCase().includes('vip class') && (
                   <VipSessionPicker value={newBookingVipSessionId} onValueChange={setNewBookingVipSessionId} required={newBooking.lead_source === 'VIP Class'} showWarning={newBooking.lead_source === 'VIP Class'} />
@@ -903,6 +907,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+                <FriendRuleNotice leadSource={newRun.lead_source} />
               </div>
               <div><Label className="text-xs">Result/Outcome *</Label>
                 <Select value={newRun.result} onValueChange={v => setNewRun({ ...newRun, result: v })}>
@@ -1035,6 +1040,7 @@ export function PipelineDialogs({ dialogState, onClose, onRefresh, journeys, isO
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
               </Select>
+              <FriendRuleNotice leadSource={newRun.lead_source} />
             </div>
             <div><Label className="text-xs">Result/Outcome *</Label>
               <Select value={newRun.result} onValueChange={v => setNewRun({ ...newRun, result: v })}>
