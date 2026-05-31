@@ -22,6 +22,7 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 type Lead = Tables<'leads'> & {
   duplicate_notes?: string | null;
