@@ -29,6 +29,7 @@ import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import EditSaleDialog from './EditSaleDialog';
 import DeleteSaleDialog from './DeleteSaleDialog';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'pay_period', label: 'Current Pay Period' },
