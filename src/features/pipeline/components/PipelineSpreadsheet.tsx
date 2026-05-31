@@ -889,6 +889,7 @@ function BySourceTable({
   const [sortKey, setSortKey] = useState<string>('total_booked');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
+  const journeyCard = useJourneyCard('By source');
 
   const sourceStats = useMemo(() => {
     const map = new Map<string, { source: string; journeys: ClientJourney[]; totalBooked: number; showed: number; sold: number }>();
