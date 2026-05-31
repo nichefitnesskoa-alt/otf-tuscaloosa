@@ -41,28 +41,24 @@ export function useSaSales(rangeStart: string, rangeEnd: string): UseSaSalesResu
 
     const saleCanonArr = Array.from(SALE_CANONS);
 
-    // Pad ±1 day on the SQL window then strict-filter by close-day in CST via helper.
-    // We fetch by buy_date OR run_date OR created_at being inside the padded window,
-    // which means we just pull a generous superset and let the helper bucket.
-    // Simpler: filter on result_canon IN sale-set, fetch all sale rows in a reasonable
-    // window (1 year), then bucket strictly in the aggregator. To keep payload small
-    // we use an OR over the three date fields against a padded window.
+    // Pad ±2 days on the SQL window then strict-filter by close-day (CST) in the helper.
+    // OR across buy_date / run_date / created_at so we catch all candidate close dates.
     const padStart = shiftYMD(rangeStart, -2);
     const padEnd = shiftYMD(rangeEnd, 2);
     const startIso = `${padStart}T00:00:00-06:00`;
     const endIso = `${padEnd}T23:59:59-05:00`;
 
+    const orFilter = [
+      `and(buy_date.gte.${padStart},buy_date.lte.${padEnd})`,
+      `and(buy_date.is.null,run_date.gte.${padStart},run_date.lte.${padEnd})`,
+      `and(buy_date.is.null,run_date.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`,
+    ].join(',');
+
     const { data: runs } = await supabase
       .from('intros_run')
       .select('id, result_canon, result, buy_date, run_date, created_at, linked_intro_booked_id, ignore_from_metrics')
       .in('result_canon', saleCanonArr)
-      .or([
-        `buy_date.gte.${padStart},buy_date.lte.${padEnd}`,
-        // fallback: if no buy_date, run_date in window
-        `and(buy_date.is.null,run_date.gte.${padStart},run_date.lte.${padEnd})`,
-        // fallback: if neither, created_at in window
-        `and(buy_date.is.null,run_date.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`,
-      ].join(','));
+      .or(orFilter);
 
     const runList = (runs as SaSaleRunInput[] | null) || [];
     const bookingIds = Array.from(
