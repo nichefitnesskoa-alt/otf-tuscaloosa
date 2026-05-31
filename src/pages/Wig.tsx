@@ -29,6 +29,7 @@ import { CoachAttributionDrillDown, type CoachAttribution, type AttribIntro } fr
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { getNowCentral, getCurrentMonthYear } from '@/lib/dateUtils';
 import { useRealtimeMyDay } from '@/hooks/useRealtimeMyDay';
+import { notifyDataChanged } from '@/lib/data/invalidation';
 
 export default function Wig() {
   const { user } = useAuth();
