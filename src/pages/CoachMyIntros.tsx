@@ -717,7 +717,13 @@ export default function CoachMyIntros() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-sm">{intro.memberName}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.bookingId); }}
+                        className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                      >
+                        {intro.memberName}
+                      </button>
                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.visitBadge.color)}>
                         {intro.visitBadge.label}
                       </span>
