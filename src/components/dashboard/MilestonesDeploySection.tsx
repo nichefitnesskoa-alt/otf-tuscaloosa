@@ -368,12 +368,17 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
       id: m.id, name: m.member_name,
       subtitle: `${m.milestone_type || ''}${m.friend_name ? ' · friend: ' + m.friend_name : ''}`,
       rightLabel: right?.label, rightTone: right?.tone,
+      onClick: () => { setDrill(null); openEdit(m); },
     });
     if (drill === 'celebrated') return milestones.map(m => fmtRow(m, m.actually_celebrated ? { label: 'Celebrated', tone: 'success' } : { label: 'Not yet', tone: 'warning' }));
     if (drill === 'packs') return milestones.filter(m => m.five_class_pack_gifted).map(m => fmtRow(m, { label: 'Pack', tone: 'primary' }));
     if (drill === 'showedUp') return milestones.filter(m => friendTracking.get(m.id)?.friendShowedUp).map(m => fmtRow(m, { label: 'Showed', tone: 'success' }));
     if (drill === 'converted') return milestones.filter(m => friendTracking.get(m.id)?.convertedToMember).map(m => fmtRow(m, { label: 'Converted', tone: 'success' }));
-    if (drill === 'inPipeline') return milestones.filter(m => m.converted_to_lead_id).map(m => ({ ...fmtRow(m, { label: 'In pipeline', tone: 'primary' as const }), href: `/pipeline?leadId=${m.converted_to_lead_id}` }));
+    if (drill === 'inPipeline') return milestones.filter(m => m.converted_to_lead_id).map(m => {
+      const base = fmtRow(m, { label: 'In pipeline', tone: 'primary' as const });
+      // inPipeline keeps href navigation to the lead; no edit onClick.
+      return { ...base, onClick: undefined, href: `/pipeline?leadId=${m.converted_to_lead_id}` };
+    });
     return [];
   })();
   const drillTitles: Record<NonNullable<typeof drill>, string> = {
