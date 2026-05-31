@@ -60,10 +60,11 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
           <p className="text-xs text-muted-foreground py-6 text-center">{emptyText || 'No records.'}</p>
         ) : (
           rows.map(r => {
+            const interactive = !!(r.onClick || r.href);
             const inner = (
               <div className={cn(
                 'rounded-md border border-border p-2 bg-card',
-                r.href && 'cursor-pointer hover:border-primary/60 active:scale-[0.99] transition-all'
+                interactive && 'cursor-pointer hover:border-primary/60 active:scale-[0.99] transition-all'
               )}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -81,6 +82,18 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                 </div>
               </div>
             );
+            if (r.onClick) {
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={r.onClick}
+                  className="block w-full text-left"
+                >
+                  {inner}
+                </button>
+              );
+            }
             return r.href ? (
               <a key={r.id} href={r.href} className="block no-underline text-current">{inner}</a>
             ) : (
