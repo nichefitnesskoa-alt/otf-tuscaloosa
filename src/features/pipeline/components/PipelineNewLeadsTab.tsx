@@ -96,7 +96,13 @@ function LeadCard({ lead, onAction, onBook, onScript, onOpenJourney }: {
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="font-bold text-[15px]">{lead.first_name} {lead.last_name}</p>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenJourney(lead); }}
+                className="font-bold text-[15px] text-left hover:underline cursor-pointer"
+              >
+                {lead.first_name} {lead.last_name}
+              </button>
               {hasLowFlag && <span title={lead.duplicate_notes || 'Possible name match'}><Info className="w-3.5 h-3.5 text-muted-foreground" /></span>}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
