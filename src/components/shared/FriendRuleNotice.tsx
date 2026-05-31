@@ -31,7 +31,7 @@ export function FriendRuleNotice({ leadSource, bookedByName, className }: Friend
       <div className="leading-snug">
         <div className="text-foreground">
           Heads up: with this lead source, the intro owner (commission) goes to whoever booked
-          this person, not the coach who runs the intro.
+          this person, not the SA who runs the intro.
         </div>
         {bookedByName ? (
           <div className="mt-1">
