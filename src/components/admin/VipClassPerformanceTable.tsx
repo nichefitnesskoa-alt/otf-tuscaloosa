@@ -136,7 +136,7 @@ export function VipClassPerformanceTable() {
           subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
           rightLabel: b.booking_status_canon === 'SHOWED' ? 'Showed' : (b.booking_status_canon || '—'),
           rightTone: b.booking_status_canon === 'SHOWED' ? 'success' : 'muted',
-          href: `/pipeline?leadId=${b.id}`,
+          onClick: () => journey.openByBooking(b.id),
         }));
         const ranPeople: PersonRow[] = showedBookings.map(b => {
           const lastRun = (runByBooking[b.id] || [])[0];
@@ -146,7 +146,7 @@ export function VipClassPerformanceTable() {
             subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
             rightLabel: lastRun ? labelForRun(lastRun) : 'Showed',
             rightTone: lastRun && isCloseResult(lastRun) ? 'success' : 'muted',
-            href: `/pipeline?leadId=${b.id}`,
+            onClick: () => journey.openByBooking(b.id),
           };
         });
         const joinsPeople: PersonRow[] = sessionBookings
@@ -159,7 +159,7 @@ export function VipClassPerformanceTable() {
               subtitle: b.class_date ? `Class ${format(new Date(b.class_date + 'T00:00:00'), 'MMM d')}` : undefined,
               rightLabel: saleRun ? labelForRun(saleRun) : 'SALE',
               rightTone: 'success',
-              href: `/pipeline?leadId=${b.id}`,
+              onClick: () => journey.openByBooking(b.id),
             };
           });
 
