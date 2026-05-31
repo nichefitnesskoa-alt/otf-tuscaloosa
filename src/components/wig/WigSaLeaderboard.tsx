@@ -326,7 +326,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          {(data.loading || leads.loading || sales.loading) ? (
+          {(leads.loading || sales.loading) ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mr-2" />
               <span className="text-xs text-muted-foreground">Loading…</span>
