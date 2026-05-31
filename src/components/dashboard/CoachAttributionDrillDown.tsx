@@ -52,6 +52,7 @@ export function CoachAttributionDrillDown({
   if (!coach) return null;
   const list = metric === 'coached' ? attribution?.coached || [] : attribution?.closes || [];
   const excluded = attribution?.excluded || [];
+  const [journeyBookingId, setJourneyBookingId] = useState<string | null>(null);
 
   const directCloses = (attribution?.closes || []).filter(x => x.via !== '2nd_intro').length;
   const journeyCloses = (attribution?.closes || []).filter(x => x.via === '2nd_intro').length;
