@@ -502,6 +502,7 @@ export function BookIntroSheet({ open, onOpenChange, onSaved, prefillFirstName, 
               <SelectTrigger><SelectValue placeholder="Select source..." /></SelectTrigger>
               <SelectContent>{LEAD_SOURCES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
             </Select>
+            <FriendRuleNotice leadSource={leadSource} bookedByName={user?.name} />
           </div>
 
           {/* VIP Session picker when VIP Class or VIP Class (Friend) is selected */}
