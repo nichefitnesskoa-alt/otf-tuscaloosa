@@ -35,7 +35,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const { salesAssociates: activeSas } = useActiveStaff();
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-  const data = useSaLeaderboard(rangeStart, rangeEnd);
+  
   const leads = useSaLeadsBooked(rangeStart, rangeEnd);
   const sales = useSaSales(rangeStart, rangeEnd);
 
