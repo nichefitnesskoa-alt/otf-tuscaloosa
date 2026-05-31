@@ -176,7 +176,13 @@ export function PipelineSalesTab({ onAfterDelete }: Props) {
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm truncate">{r.member_name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); journey.open({ name: r.member_name }); }}
+                    className="font-semibold text-sm truncate text-left hover:underline cursor-pointer"
+                  >
+                    {r.member_name}
+                  </button>
                   <Badge variant="outline" className="text-[10px] bg-success/15 text-success border-success/40">
                     {r.membership_type}
                   </Badge>
