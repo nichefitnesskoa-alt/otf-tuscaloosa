@@ -299,33 +299,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             </button>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'milestones' })}
-              disabled={totals.milestones === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.milestones}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Milestones marked</p>
-            </button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <button
-              type="button"
-              onClick={() => setDrill({ sa: null, bucket: 'referrals' })}
-              disabled={totals.referrals === 0}
-              className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
-            >
-              <p className="text-2xl font-bold text-primary">{totals.referrals}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">POS referral asks</p>
-            </button>
-          </CardContent>
-        </Card>
       </div>
+
 
       {/* Per-SA target editors */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
