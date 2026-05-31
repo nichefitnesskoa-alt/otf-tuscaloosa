@@ -73,9 +73,13 @@ export function getLeadBookedCreditSa(
 ): string | null {
   if (b.lead_source && VIP_LEAD_SOURCES.has(b.lead_source) && b.vip_session_id) {
     const sess = vipSessionsById.get(b.vip_session_id);
-    return sess?.sa_setup_name?.trim() || null;
+    const name = sess?.sa_setup_name?.trim() || null;
+    if (!name || PHANTOM_BOOKED_BY.has(name)) return null;
+    return name;
   }
-  return b.booked_by?.trim() || null;
+  const raw = b.booked_by?.trim() || null;
+  if (!raw || PHANTOM_BOOKED_BY.has(raw)) return null;
+  return raw;
 }
 
 /** YYYY-MM-DD of the booking's created_at in America/Chicago. */
