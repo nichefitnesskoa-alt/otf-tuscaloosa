@@ -459,6 +459,7 @@ export function PipelineNewLeadsTab() {
           onDone={() => { setLostLeadId(null); fetchLeads(); }}
         />
       )}
+      {journey.element}
     </div>
   );
 }
