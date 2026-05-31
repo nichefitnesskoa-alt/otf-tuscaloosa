@@ -452,6 +452,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
            purchase={deletePurchase}
            onDeleted={fetchPurchases}
          />
+         {journey.element}
        </CardContent>
      </Card>
    );
