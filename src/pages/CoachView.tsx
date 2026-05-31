@@ -420,7 +420,13 @@ function ClassTimeIntroSelector({
               style={{ minHeight: '44px' }}
             >
               <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-sm">{intro.member_name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.id); }}
+                  className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                >
+                  {intro.member_name}
+                </button>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">2nd Intro</Badge>
                 <span className="text-xs text-muted-foreground">
                   {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
