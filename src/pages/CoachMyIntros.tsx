@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { format, differenceInHours, differenceInDays, addDays, parseISO } from 'date-fns';
 import { ChevronDown, Phone, Copy, Check, MessageSquare, CalendarPlus, CheckCircle2, X } from 'lucide-react';
 import { ScriptSendDrawer } from '@/components/scripts/ScriptSendDrawer';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { ContactNextEditor } from '@/components/shared/ContactNextEditor';
 import { toast } from 'sonner';
 import { NON_RAN_BOOKING_STATUSES } from '@/lib/canon/introRules';
@@ -194,6 +195,7 @@ const FILTERS: { key: FilterType; label: string }[] = [
 export default function CoachMyIntros() {
   const { user } = useAuth();
   const coachName = user?.name || '';
+  const journey = useJourneyCard();
 
   const [loading, setLoading] = useState(true);
   const [intros, setIntros] = useState<MergedIntro[]>([]);
@@ -715,7 +717,13 @@ export default function CoachMyIntros() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-semibold text-sm">{intro.memberName}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.bookingId); }}
+                        className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                      >
+                        {intro.memberName}
+                      </button>
                       <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', intro.visitBadge.color)}>
                         {intro.visitBadge.label}
                       </span>
@@ -948,6 +956,7 @@ export default function CoachMyIntros() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {journey.element}
     </div>
   );
 }

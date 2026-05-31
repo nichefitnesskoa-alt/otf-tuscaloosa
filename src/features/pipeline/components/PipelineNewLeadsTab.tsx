@@ -22,6 +22,7 @@ import { BookIntroDialog } from '@/components/leads/BookIntroDialog';
 import { MarkLostDialog } from '@/components/leads/MarkLostDialog';
 import { ScriptPickerSheet } from '@/components/scripts/ScriptPickerSheet';
 import { runDeduplicationForLead, detectDuplicate, type DuplicateResult } from '@/lib/leads/detectDuplicate';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 type Lead = Tables<'leads'> & {
   duplicate_notes?: string | null;
@@ -40,11 +41,12 @@ function getSpeedInfo(createdAt: string) {
   return { color: 'hsl(var(--status-success))', text: `✓ New Lead — ${minutesSince}m ago` };
 }
 
-function LeadCard({ lead, onAction, onBook, onScript }: {
+function LeadCard({ lead, onAction, onBook, onScript, onOpenJourney }: {
   lead: Lead;
   onAction: (id: string, action: LeadAction) => void;
   onBook: (lead: Lead) => void;
   onScript: (lead: Lead) => void;
+  onOpenJourney: (lead: Lead) => void;
 }) {
   const [findResult, setFindResult] = useState<DuplicateResult | null>(null);
   const [finding, setFinding] = useState(false);
@@ -94,7 +96,13 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <p className="font-bold text-[15px]">{lead.first_name} {lead.last_name}</p>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenJourney(lead); }}
+                className="font-bold text-[15px] text-left hover:underline cursor-pointer"
+              >
+                {lead.first_name} {lead.last_name}
+              </button>
               {hasLowFlag && <span title={lead.duplicate_notes || 'Possible name match'}><Info className="w-3.5 h-3.5 text-muted-foreground" /></span>}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -240,6 +248,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: {
 
 export function PipelineNewLeadsTab() {
   const { user } = useAuth();
+  const journey = useJourneyCard();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState('new');
@@ -380,7 +389,7 @@ export function PipelineNewLeadsTab() {
     return (
       <div className="space-y-2.5">
         {list.map(lead => (
-          <LeadCard key={lead.id} lead={lead} onAction={handleAction} onBook={setBookLead} onScript={setScriptLead} />
+          <LeadCard key={lead.id} lead={lead} onAction={handleAction} onBook={setBookLead} onScript={setScriptLead} onOpenJourney={(l) => journey.open({ name: `${l.first_name} ${l.last_name}`.trim(), phone: l.phone, email: l.email })} />
         ))}
       </div>
     );
@@ -450,6 +459,7 @@ export function PipelineNewLeadsTab() {
           onDone={() => { setLostLeadId(null); fetchLeads(); }}
         />
       )}
+      {journey.element}
     </div>
   );
 }

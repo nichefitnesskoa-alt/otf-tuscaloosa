@@ -45,6 +45,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ClassTimeSelect } from '@/components/shared/FormHelpers';
 import { ConvertVipToIntroDialog } from '@/components/vip/ConvertVipToIntroDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,7 @@ function displayEmail(row: VipRow) {
 
 export function VipPipelineTable() {
   const { user } = useAuth();
+  const journey = useJourneyCard();
   const [rows, setRows] = useState<VipRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
@@ -1081,7 +1083,19 @@ export function VipPipelineTable() {
                         className="h-3.5 w-3.5"
                       />
                     </td>
-                    <td className="p-2 font-medium">{row.memberName}</td>
+                    <td className="p-2 font-medium">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (row.bookingId) journey.openByBooking(row.bookingId);
+                          else journey.open({ name: row.memberName, phone: displayPhone(row), email: displayEmail(row) });
+                        }}
+                        className="text-left hover:underline cursor-pointer"
+                      >
+                        {row.memberName}
+                      </button>
+                    </td>
                     {selectedGroup === 'All' && (
                       <td className="p-2">
                         <Badge variant="secondary" className="text-[10px] px-1.5 h-4 bg-accent text-accent-foreground">
@@ -1483,6 +1497,7 @@ export function VipPipelineTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    {journey.element}
     </div>
   );
 }

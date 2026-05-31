@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { format, startOfWeek, endOfWeek, addWeeks, isToday, isBefore, parseISO } from 'date-fns';
 import { CoachIntroCard } from '@/components/coach/CoachIntroCard';
 import { TheSystemSection } from '@/components/coach/TheSystemSection';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 import { OwnItMentionsCard } from '@/components/shared/OwnItMentionsCard';
 import { CoachingScripts } from '@/components/coach/CoachingScripts';
 import { CollapsibleSection } from '@/components/dashboard/CollapsibleSection';
@@ -371,6 +372,7 @@ function ClassTimeIntroSelector({
   autoExpand?: boolean;
   originatingStatuses?: Record<string, string>;
 }) {
+  const journey = useJourneyCard();
   // Auto-expand: find next upcoming intro (only when autoExpand is true / today)
   const [expandedId, setExpandedId] = useState<string | null>(() => {
     if (!autoExpand) return null;
@@ -418,7 +420,13 @@ function ClassTimeIntroSelector({
               style={{ minHeight: '44px' }}
             >
               <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-sm">{intro.member_name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.id); }}
+                  className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                >
+                  {intro.member_name}
+                </button>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">2nd Intro</Badge>
                 <span className="text-xs text-muted-foreground">
                   {intro.intro_time ? formatTime(intro.intro_time.substring(0, 5)) : 'TBD'} · Coach: {intro.coach_name}
@@ -444,7 +452,13 @@ function ClassTimeIntroSelector({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-sm">{intro.member_name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); journey.openByBooking(intro.id); }}
+                    className="font-semibold text-sm text-left hover:underline cursor-pointer"
+                  >
+                    {intro.member_name}
+                  </button>
                   <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
                     1st Intro
                   </Badge>
@@ -485,6 +499,7 @@ function ClassTimeIntroSelector({
           </div>
         );
       })}
+      {journey.element}
     </div>
   );
 }

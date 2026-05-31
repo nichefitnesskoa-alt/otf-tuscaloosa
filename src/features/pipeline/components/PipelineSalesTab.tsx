@@ -14,6 +14,7 @@ import { Search, Trash2, Loader2 } from 'lucide-react';
 import { isMembershipSale } from '@/lib/sales-detection';
 import { parseLocalDate } from '@/lib/utils';
 import DeleteSaleDialog from '@/components/admin/DeleteSaleDialog';
+import { useJourneyCard } from '@/components/person/useJourneyCard';
 
 interface SaleRow {
   id: string;
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function PipelineSalesTab({ onAfterDelete }: Props) {
+  const journey = useJourneyCard();
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -174,7 +176,13 @@ export function PipelineSalesTab({ onAfterDelete }: Props) {
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm truncate">{r.member_name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); journey.open({ name: r.member_name }); }}
+                    className="font-semibold text-sm truncate text-left hover:underline cursor-pointer"
+                  >
+                    {r.member_name}
+                  </button>
                   <Badge variant="outline" className="text-[10px] bg-success/15 text-success border-success/40">
                     {r.membership_type}
                   </Badge>
@@ -225,6 +233,7 @@ export function PipelineSalesTab({ onAfterDelete }: Props) {
           onAfterDelete();
         }}
       />
+      {journey.element}
     </div>
   );
 }
