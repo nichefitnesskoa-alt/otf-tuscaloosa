@@ -95,6 +95,7 @@ export function MyDayIntroCard({
   // rebookings of no-shows as 2nd intros (the no-show isn't a real prior visit).
   const isSecondIntro = isSecondIntroProp ?? false;
   const qBar = getQBar(questionnaireStatus);
+  const journey = useJourneyCard('My Day');
 
   const guardOnline = (fn: () => void) => () => {
     if (!isOnline) {
@@ -133,7 +134,13 @@ export function MyDayIntroCard({
         {/* Row 1: Name + Time + Coach + Badges */}
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-sm leading-tight">{booking.member_name}</span>
+            <button
+              type="button"
+              onClick={() => journey.openByBooking(booking.id)}
+              className="font-semibold text-sm leading-tight hover:underline cursor-pointer text-left"
+            >
+              {booking.member_name}
+            </button>
             {booking.is_vip && (
               <Badge className="text-[10px] px-1.5 py-0 h-4 bg-purple-600 text-white border-transparent">VIP</Badge>
             )}
@@ -291,6 +298,7 @@ export function MyDayIntroCard({
           )}
         </div>
       </div>
+      {journey.element}
     </div>
   );
 }
