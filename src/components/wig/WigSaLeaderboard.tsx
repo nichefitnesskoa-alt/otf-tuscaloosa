@@ -218,6 +218,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
         subtitle: `${run.result_canon || 'SALE'} · closed ${format(parseLocalDate(closeYMD) || new Date(closeYMD), 'MMM d')} · ${r.sa}`,
         rightLabel: run.result_canon || undefined,
         rightTone: 'success' as const,
+        outcomeEdit: run.linked_intro_booked_id
+          ? { bookingId: run.linked_intro_booked_id }
+          : undefined,
         onClick: run.linked_intro_booked_id
           ? () => setJourneyBookingId(run.linked_intro_booked_id!)
           : undefined,
