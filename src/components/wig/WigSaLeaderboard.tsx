@@ -26,7 +26,7 @@ interface Props {
 type DrillBucket = 'leads' | 'sales';
 
 const DEFAULT_SA_LEADS_TARGET = 16; // per SA per MONTH
-const DEFAULT_SA_SALES_TARGET = 1;  // per SA per week
+const DEFAULT_SA_SALES_TARGET = 4;  // per SA per MONTH
 
 const VIP_SOURCES = new Set(['VIP Class', 'VIP Class (Friend)']);
 
@@ -117,13 +117,17 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   }, [leads.total, sales.total]);
 
   // Period-aware target math.
-  // - Leads target is MONTHLY per SA. Period goal = round(monthly × days/monthDays).
-  // - Sales target is WEEKLY per SA. Period goal = weekly × ceil(days/7).
-  // Pro-rata-to-today scales linearly across elapsed days in the selected range.
-  const { weeksInPeriod, leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata, isSingleWeek } = useMemo(() => {
+  // - Both leads and sales targets are MONTHLY per SA.
+  //   Period goal = round(monthly × days/monthDays). Pro-rata-to-today
+  //   scales linearly across elapsed days in the selected range.
+  const { leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata } = useMemo(() => {
     if (!dateRange) {
-      return { weeksInPeriod: 1, leadsPeriodGoal: Math.round(leadsTarget / 4), salesPeriodGoal: salesTarget,
-               leadsProRata: Math.round(leadsTarget / 4), salesProRata: salesTarget, isSingleWeek: true };
+      return { weeksInPeriod: 1,
+               leadsPeriodGoal: Math.round(leadsTarget / 4),
+               salesPeriodGoal: Math.round(salesTarget / 4),
+               leadsProRata: Math.round(leadsTarget / 4),
+               salesProRata: Math.round(salesTarget / 4),
+               isSingleWeek: true, isFullMonth: false };
     }
     const msDay = 86400000;
     const days = Math.max(1, Math.round((dateRange.end.getTime() - dateRange.start.getTime()) / msDay) + 1);
@@ -135,14 +139,14 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     const today = getNowCentral();
     const cappedToday = today < dateRange.start ? dateRange.start : today > dateRange.end ? dateRange.end : today;
     const elapsedDays = Math.max(1, Math.round((cappedToday.getTime() - dateRange.start.getTime()) / msDay) + 1);
-    const elapsedWeeks = Math.min(weeks, elapsedDays / 7);
     return {
       weeksInPeriod: weeks,
       leadsPeriodGoal: Math.max(1, Math.round(leadsTarget * days / monthDays)),
-      salesPeriodGoal: salesTarget * weeks,
+      salesPeriodGoal: Math.max(1, Math.round(salesTarget * days / monthDays)),
       leadsProRata: leadsTarget * elapsedDays / monthDays,
-      salesProRata: salesTarget * elapsedWeeks,
+      salesProRata: salesTarget * elapsedDays / monthDays,
       isSingleWeek: weeks === 1,
+      isFullMonth: days === monthDays,
     };
   }, [dateRange, leadsTarget, salesTarget]);
 
@@ -282,7 +286,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
             >
               <p className="text-2xl font-bold text-primary">{totals.sales}</p>
               <p className="text-[10px] text-muted-foreground mt-1">Sales</p>
-              <p className="text-[10px] text-muted-foreground">team goal {teamSalesTarget}{isSingleWeek ? '/wk' : ` (${rangeLabel})`}</p>
+              <p className="text-[10px] text-muted-foreground">team goal {teamSalesTarget} ({rangeLabel})</p>
             </button>
           </CardContent>
         </Card>
@@ -313,7 +317,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <div className="text-xs">
             <span className="font-medium">Per-SA sales target: </span>
             <span className="text-primary font-semibold">{salesTarget}</span>
-            <span className="text-muted-foreground"> / SA / week</span>
+            <span className="text-muted-foreground"> / SA / month</span>
           </div>
           {editingSales ? (
             <div className="flex items-center gap-1">
@@ -363,7 +367,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-xs text-center">
                       Sales
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        goal {salesPeriodGoal}{isSingleWeek ? '' : ` (${salesTarget}/wk × ${weeksInPeriod}wk)`}
+                        goal {salesPeriodGoal} ({salesTarget}/mo prorated)
                       </div>
                     </TableHead>
                   </TableRow>
