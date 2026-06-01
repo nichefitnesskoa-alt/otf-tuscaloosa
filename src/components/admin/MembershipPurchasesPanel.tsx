@@ -164,7 +164,9 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
 
       // Process intro runs
       (runs || []).forEach(run => {
-        if (!isMembershipSale(run.result)) return;
+        // isEffectiveSale = is a sale AND not post-dated (buy_date > today CST).
+        // Future-dated buys (e.g., 6/1 viewed before 6/1) must never count here.
+        if (!isEffectiveSale(run)) return;
         
         const purchaseDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
         if (purchaseDate < startDate || purchaseDate > endDate) return;
@@ -189,6 +191,8 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
       (outsideSales || []).forEach(sale => {
         const purchaseDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
         if (purchaseDate < startDate || purchaseDate > endDate) return;
+        // Same post-dated guard for outside sales: don't count until close date arrives.
+        if (purchaseDate > todayYMD) return;
 
         allPurchases.push({
           id: sale.id,
