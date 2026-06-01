@@ -317,7 +317,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <div className="text-xs">
             <span className="font-medium">Per-SA sales target: </span>
             <span className="text-primary font-semibold">{salesTarget}</span>
-            <span className="text-muted-foreground"> / SA / week</span>
+            <span className="text-muted-foreground"> / SA / month</span>
           </div>
           {editingSales ? (
             <div className="flex items-center gap-1">
