@@ -12,7 +12,8 @@ import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseLocalDate } from '@/lib/utils';
-import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
+import { getSaleDate, isDateInRange, isEffectiveSale } from '@/lib/sales-detection';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { DateRange, formatDateRange } from '@/lib/pay-period';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 
@@ -173,15 +174,22 @@ export default function PayPeriodCommission({ dateRange: externalDateRange }: Pa
           
         if (allRunsError) throw allRunsError;
 
-        // Filter runs by date range using proper date logic (buy_date || run_date)
+        const todayYMD = getTodayYMD();
+
+        // Filter runs by date range using proper date logic (buy_date || run_date).
+        // Also exclude post-dated sales (buy_date > today CST) via isEffectiveSale —
+        // they must never appear in commission until the buy date arrives.
         const filteredRuns = (runs || []).filter(run => {
+          if (!isEffectiveSale(run)) return false;
           const saleDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
           return isDateInRange(saleDate, startDate, endDate);
         });
 
-        // Filter sales by date range using proper date logic (date_closed || created_at)
+        // Filter sales by date range using proper date logic (date_closed || created_at).
+        // Same post-dated guard: skip if effective close date is in the future.
         const filteredSales = (sales || []).filter(sale => {
           const saleDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
+          if (saleDate > todayYMD) return false;
           return isDateInRange(saleDate, startDate, endDate);
         });
         

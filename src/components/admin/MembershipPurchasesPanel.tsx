@@ -23,8 +23,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RefreshCw, Loader2, Users, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getDateRangeForPreset, DateRange, DatePreset } from '@/lib/pay-period';
-import { isMembershipSale, getSaleDate } from '@/lib/sales-detection';
+import { getDateRangeForPreset, DateRange, DatePreset, formatDate } from '@/lib/pay-period';
+import { isEffectiveSale, getSaleDate } from '@/lib/sales-detection';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { capitalizeName, parseLocalDate } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import EditSaleDialog from './EditSaleDialog';
@@ -85,8 +86,11 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
     
     setIsLoading(true);
     try {
-      const startDate = dateRange.start.toISOString().split('T')[0];
-      const endDate = dateRange.end.toISOString().split('T')[0];
+      // Use local YYYY-MM-DD (CST) — NEVER toISOString, which shifts end-of-day
+      // 5/31 → "2026-06-01" and leaks 6/1 sales into May pay periods.
+      const startDate = formatDate(dateRange.start);
+      const endDate = formatDate(dateRange.end);
+      const todayYMD = getTodayYMD();
 
       // Fetch intro runs with membership sales
       const { data: runs } = await supabase
@@ -160,7 +164,9 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
 
       // Process intro runs
       (runs || []).forEach(run => {
-        if (!isMembershipSale(run.result)) return;
+        // isEffectiveSale = is a sale AND not post-dated (buy_date > today CST).
+        // Future-dated buys (e.g., 6/1 viewed before 6/1) must never count here.
+        if (!isEffectiveSale(run)) return;
         
         const purchaseDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
         if (purchaseDate < startDate || purchaseDate > endDate) return;
@@ -185,6 +191,8 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
       (outsideSales || []).forEach(sale => {
         const purchaseDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
         if (purchaseDate < startDate || purchaseDate > endDate) return;
+        // Same post-dated guard for outside sales: don't count until close date arrives.
+        if (purchaseDate > todayYMD) return;
 
         allPurchases.push({
           id: sale.id,
