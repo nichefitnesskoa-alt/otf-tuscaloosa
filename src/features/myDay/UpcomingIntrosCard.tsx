@@ -133,6 +133,21 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const todayUnconfirmed = useMemo(() => todayItems.filter(i => !i.confirmedAt).length, [todayItems]);
   const showTodayBanner = isCurrentWeek && todayItems.length > 0 && todayUnconfirmed > 0;
 
+  // "Pick an outcome" overdue alert — today's intros whose class started >60 min ago
+  // and still have no outcome chosen. Re-renders every minute via useNowMinute.
+  const nowMinuteForAlert = useNowMinute();
+  const needsOutcomeOverdue = useMemo(() => {
+    return todayItems.filter(i => {
+      if (i.isVipSession) return false;
+      if (i.latestRunResult && i.latestRunResult !== 'UNRESOLVED') return false;
+      if (!i.introTime) return false;
+      try {
+        const classStart = new Date(`${i.classDate}T${i.introTime}:00`);
+        return (nowMinuteForAlert.getTime() - classStart.getTime()) / 60000 > 60;
+      } catch { return false; }
+    });
+  }, [todayItems, nowMinuteForAlert]);
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
 
