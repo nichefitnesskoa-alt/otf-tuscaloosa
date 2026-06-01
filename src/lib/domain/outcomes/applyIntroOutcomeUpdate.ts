@@ -400,7 +400,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         amc_incremented: didIncrementAmc,
         commission: resolvedCommission,
         lead_source: params.leadSource || existingRun?.lead_source || null,
-        buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
+        buy_date: isNowSale ? (existingRun?.buy_date || existingRun?.run_date || getTodayYMD()) : null,
         friend_referral_asked: params.friendReferralAsked || false,
       },
     });
