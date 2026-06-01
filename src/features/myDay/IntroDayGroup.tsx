@@ -30,9 +30,6 @@ export default function IntroDayGroup({
   group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {}, focusedBookingId = null,
   expandedBookingId = null, onExpandCard,
 }: IntroDayGroupProps) {
-  // VIP groups are not counted as intros
-  const trueIntros = group.items.filter(i => !i.isVipSession);
-  const vipGroupCount = group.items.length - trueIntros.length;
 
   // Group items by class time
   const timeGroups = useMemo(() => {
