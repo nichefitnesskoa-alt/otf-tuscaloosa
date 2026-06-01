@@ -423,12 +423,12 @@ export default function MyDayPage() {
 
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
-      <div className="px-4 pt-3">
+      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <ClassMilestoneChecks />
       </div>
 
       {/* ═══ ASK FOR A REFERRAL ═══ */}
-      <div className="px-4 pt-3">
+      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <ReferralAskActions />
       </div>
 
