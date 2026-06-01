@@ -378,19 +378,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           />
         )}
 
-        {/* Q status summary for selected day */}
-        {isWeekFullView && qSummary && qSummary.total > 0 && (
-          <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 min-h-[44px]">
-            <span className="font-semibold">{selectedDayLabel}:</span>
-            <span>{qSummary.total} intro{qSummary.total !== 1 ? 's' : ''}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-success">{qSummary.qSent} questionnaires sent</span>
-            <span className="text-muted-foreground">·</span>
-            <span className={qSummary.stillNeeded > 0 ? 'text-destructive font-medium' : 'text-success font-medium'}>
-              {qSummary.stillNeeded} still needed
-            </span>
-          </div>
-        )}
 
         {/* Summary line — Today counts (non-weekFull) */}
         {isTodayView && !isWeekFullView && items.length > 0 && (
