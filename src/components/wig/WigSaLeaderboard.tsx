@@ -171,7 +171,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     return Array.from(allNames)
       // Only show people who are currently active SAs. Inactive/legacy/phantom
       // names that somehow slipped through never appear on the leaderboard.
-      .filter(name => activeSet.has(name))
+      // Koa (Admin) is excluded from the SA leaderboard.
+      .filter(name => activeSet.has(name) && name !== 'Koa')
       .map(name => ({
         name,
         leadsBooked: leadsMap.get(name) ?? 0,
