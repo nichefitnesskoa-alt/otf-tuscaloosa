@@ -62,7 +62,7 @@ interface MilestonesDeploySectionProps {
 export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionProps = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [celSearch, setCelSearch] = useState('');
+  
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
   const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
