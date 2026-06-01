@@ -4,13 +4,11 @@
  * Past class times are collapsed by default; current/upcoming are expanded.
  */
 import { useMemo } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DayGroup } from './myDayTypes';
 import IntroRowCard from './IntroRowCard';
-import BulkActionsBar from './BulkActionsBar';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 
 interface IntroDayGroupProps {
@@ -30,9 +28,8 @@ interface IntroDayGroupProps {
 
 export default function IntroDayGroup({
   group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {}, focusedBookingId = null,
-  expandedBookingId = null, onExpandCard, shoutoutMap = {},
+  expandedBookingId = null, onExpandCard,
 }: IntroDayGroupProps) {
-  const qPercent = Math.round(group.qSentRatio * 100);
   // VIP groups are not counted as intros
   const trueIntros = group.items.filter(i => !i.isVipSession);
   const vipGroupCount = group.items.length - trueIntros.length;
