@@ -97,20 +97,20 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     }
 
     // ── STEP 1: FIND / CREATE / UPDATE intros_run ──
-    type RunSnapshot = { id: string; result: string; buy_date: string | null; lead_source: string | null; amc_incremented_at: string | null };
+    type RunSnapshot = { id: string; result: string; buy_date: string | null; run_date: string | null; lead_source: string | null; amc_incremented_at: string | null };
     let existingRun: RunSnapshot | null = null;
 
     if (params.runId) {
       const { data } = await supabase
         .from('intros_run')
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .eq('id', params.runId)
         .maybeSingle();
       existingRun = data;
     } else if (params.bookingId) {
       const { data } = await supabase
         .from('intros_run')
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .eq('linked_intro_booked_id', params.bookingId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -182,13 +182,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           intro_owner: resolvedOwner,
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
-          buy_date: isNowSale ? getTodayYMD() : null,
+          buy_date: isNowSale ? runDate : null,
           created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
           last_edited_by: params.editedBy,
           edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
         })
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .single();
 
       if (createErr) {
@@ -208,7 +208,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     // Update existing run
     if (existingRun) {
       const buyDate = isNowSale
-        ? (existingRun.buy_date || getTodayYMD())
+        ? (existingRun.buy_date || existingRun.run_date || getTodayYMD())
         : existingRun.buy_date;
 
       const runUpdate: Record<string, unknown> = {
@@ -400,7 +400,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         amc_incremented: didIncrementAmc,
         commission: resolvedCommission,
         lead_source: params.leadSource || existingRun?.lead_source || null,
-        buy_date: isNowSale ? (existingRun?.buy_date || getTodayYMD()) : null,
+        buy_date: isNowSale ? (existingRun?.buy_date || existingRun?.run_date || getTodayYMD()) : null,
         friend_referral_asked: params.friendReferralAsked || false,
       },
     });
