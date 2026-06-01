@@ -208,7 +208,7 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     // Update existing run
     if (existingRun) {
       const buyDate = isNowSale
-        ? (existingRun.buy_date || getTodayYMD())
+        ? (existingRun.buy_date || existingRun.run_date || getTodayYMD())
         : existingRun.buy_date;
 
       const runUpdate: Record<string, unknown> = {
