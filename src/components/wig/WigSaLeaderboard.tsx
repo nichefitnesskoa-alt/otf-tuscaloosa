@@ -120,7 +120,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // - Both leads and sales targets are MONTHLY per SA.
   //   Period goal = round(monthly × days/monthDays). Pro-rata-to-today
   //   scales linearly across elapsed days in the selected range.
-  const { weeksInPeriod, leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata, isSingleWeek, isFullMonth } = useMemo(() => {
+  const { leadsPeriodGoal, salesPeriodGoal, leadsProRata, salesProRata } = useMemo(() => {
     if (!dateRange) {
       return { weeksInPeriod: 1,
                leadsPeriodGoal: Math.round(leadsTarget / 4),
