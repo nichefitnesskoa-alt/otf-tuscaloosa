@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { CalendarDays, Clock, Users, Moon, Sun, UserPlus, FileText } from 'lucide-react';
-import { TodayActivityLog } from '@/components/dashboard/TodayActivityLog';
+
 
 // Existing components
 import { OnboardingOverlay } from '@/components/dashboard/OnboardingOverlay';
@@ -60,7 +60,7 @@ import { useDarkMode } from '@/hooks/useDarkMode';
 import { NewLeadsAlert } from './NewLeadsAlert';
 import { MyDayScriptsTab } from './MyDayScriptsTab';
 import { VipClaimBanner } from './VipClaimBanner';
-import { TodaysActions } from './TodaysActions';
+
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
 
@@ -348,10 +348,6 @@ export default function MyDayPage() {
       <OwnItMentionsCard />
       <VipClaimBanner />
 
-      {/* ═══ TODAY'S ACTIONS (role-based chips) ═══ */}
-      <div className="px-4 pt-3">
-        <TodaysActions />
-      </div>
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
       <div className="px-4 pt-3">
@@ -403,8 +399,8 @@ export default function MyDayPage() {
         {/* Tab content */}
         <div className="px-4 pb-24 pt-3 space-y-3">
           <TabsContent value="intros" className="mt-0 space-y-3">
+            <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
             <NewLeadsAlert />
-            <TodayActivityLog refreshKey={todayBookingsCount + completedTodayCount} />
           </TabsContent>
 
           <TabsContent value="scripts" className="mt-0 space-y-3">
@@ -425,10 +421,6 @@ export default function MyDayPage() {
         </div>
       </Tabs>
 
-      {/* ═══ UPCOMING INTROS ═══ */}
-      <div className="px-4 pt-3">
-        <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
-      </div>
 
       {/* ═══ CLASS MILESTONE CHECKS ═══ */}
       <div className="px-4 pt-3">
