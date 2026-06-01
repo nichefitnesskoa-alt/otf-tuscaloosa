@@ -128,6 +128,11 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const tomorrowUnconfirmed = useMemo(() => tomorrowItems.filter(i => !i.confirmedAt).length, [tomorrowItems]);
   const showTomorrowBanner = isCurrentWeek && tomorrowItems.length > 0 && tomorrowUnconfirmed > 0;
 
+  // Today confirmation banner — same loud prompt for today's intros
+  const todayItems = useMemo(() => items.filter(i => i.classDate === todayStr), [items, todayStr]);
+  const todayUnconfirmed = useMemo(() => todayItems.filter(i => !i.confirmedAt).length, [todayItems]);
+  const showTodayBanner = isCurrentWeek && todayItems.length > 0 && todayUnconfirmed > 0;
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
 
@@ -331,6 +336,30 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {/* Today confirmation prompt — loud, action-oriented */}
+        {showTodayBanner && (
+          <div className="border-2 border-primary bg-primary/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary leading-tight">
+                  Text & confirm today's intros
+                </p>
+                <p className="text-xs text-foreground/80 mt-0.5">
+                  {todayUnconfirmed} of {todayItems.length} not confirmed yet — send a confirmation now
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setSelectedDate(todayStr)}
+            >
+              Go to today →
+            </Button>
+          </div>
+        )}
+
         {/* Tomorrow confirmation prompt — loud, action-oriented */}
         {showTomorrowBanner && (
           <div className="border-2 border-primary bg-primary/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
