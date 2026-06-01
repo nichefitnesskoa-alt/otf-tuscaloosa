@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Check, Plus, PartyPopper, AlertTriangle, Pencil, ExternalLink, Search } from 'lucide-react';
+import { Check, Plus, PartyPopper, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -62,7 +62,7 @@ interface MilestonesDeploySectionProps {
 export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionProps = {}) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [celSearch, setCelSearch] = useState('');
+  
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
   const [summary, setSummary] = useState<WeekSummary>({ celebrations: 0, actuallyCelebrated: 0, packs: 0, friends: 0, deployed: 0, converted: 0, friendsShowedUp: 0, convertedToMember: 0 });
   const [friendTracking, setFriendTracking] = useState<Map<string, FriendTrackingInfo>>(new Map());
@@ -432,16 +432,7 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
           <span className="text-sm font-semibold">Celebrations</span>
         </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={celSearch}
-                onChange={e => setCelSearch(e.target.value)}
-                placeholder="Search member or friend name…"
-                className="h-[44px] pl-9 text-sm"
-              />
-            </div>
+          <div className="flex items-center justify-end">
             <Dialog open={celOpen} onOpenChange={(o) => { setCelOpen(o); if (!o) setCelPipelineMsg(null); }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1 h-[44px] text-xs px-3">
@@ -495,100 +486,10 @@ export function MilestonesDeploySection({ dateRange }: MilestonesDeploySectionPr
             </Dialog>
           </div>
 
-          {(() => {
-            const searchTerm = celSearch.toLowerCase().trim();
-            if (!searchTerm) {
-              return (
-                <p className="text-[11px] text-muted-foreground text-center py-2">
-                  Tap a tile above to drill into members. Search by name to edit.
-                </p>
-              );
-            }
-            const filtered = milestones.filter(m =>
-              m.member_name.toLowerCase().includes(searchTerm) ||
-              (m.friend_name || '').toLowerCase().includes(searchTerm)
-            );
+          <p className="text-[11px] text-muted-foreground text-center py-2">
+            Tap a tile above to drill into members.
+          </p>
 
-            return loading ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Loading…</p>
-            ) : filtered.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No matches found.</p>
-            ) : (
-              <Card className="divide-y divide-border">
-                {filtered.map(m => (
-                  <div key={m.id} className="p-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">{m.member_name}</span>
-                        <Badge className="bg-primary/20 text-primary border-primary/30 hover:bg-primary/20 text-[9px] h-4">{m.milestone_type}</Badge>
-                        {m.five_class_pack_gifted && (
-                          <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Pack gifted</Badge>
-                        )}
-                        {m.actually_celebrated ? (
-                          <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Celebrated</Badge>
-                        ) : (
-                          <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not yet celebrated</Badge>
-                        )}
-                        {m.converted_to_lead_id ? (
-                          <Badge
-                            className="bg-blue-500/20 text-blue-400 border-blue-500/30 hover:bg-blue-500/30 text-[9px] h-4 cursor-pointer gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigateToLead(m.converted_to_lead_id!); }}
-                          >
-                            In pipeline <ExternalLink className="w-2.5 h-2.5" />
-                          </Badge>
-                        ) : m.friend_name ? (
-                          <Badge className="bg-warning/20 text-warning border-warning/40 hover:bg-warning/20 text-[9px] h-4">Not in pipeline</Badge>
-                        ) : null}
-                        {m.five_class_pack_gifted && m.friend_name && (() => {
-                          const info = friendTracking.get(m.id);
-                          const showedUp = info?.friendShowedUp || false;
-                          const converted = info?.convertedToMember || false;
-                          return (
-                            <>
-                              {showedUp ? (
-                                <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Friend Showed Up</Badge>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-[10px] px-3 border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    await supabase.from('milestones').update({ friend_showed_up: true } as any).eq('id', m.id);
-                                    toast.success('Marked as showed up');
-                                    loadData();
-                                  }}
-                                >
-                                  <Check className="w-3 h-3 mr-1" /> They Came In
-                                </Button>
-                              )}
-                              {converted ? (
-                                <Badge className="bg-success/20 text-success border-success/40 hover:bg-success/20 text-[9px] h-4">Converted to Member</Badge>
-                              ) : showedUp ? (
-                                <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted text-[9px] h-4">Not yet converted</Badge>
-                              ) : null}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      {m.friend_name && !m.converted_to_lead_id && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5 italic">Friend: {m.friend_name}</p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {m.created_by} · {format(new Date(m.created_at), 'EEE h:mm a')}
-                        {m.last_edited_by && (
-                          <span className="ml-1">· edited by {m.last_edited_by}</span>
-                        )}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(m)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
-              </Card>
-            );
-          })()}
       </div>
 
       {/* Edit Dialog */}
