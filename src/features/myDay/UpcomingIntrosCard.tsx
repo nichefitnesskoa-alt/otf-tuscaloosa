@@ -118,6 +118,16 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const activeDayGroups = useMemo(() => groupByDay(activeDayItems), [activeDayItems]);
   const completedDayGroups = useMemo(() => groupByDay(completedDayItems), [completedDayItems]);
 
+  // Tomorrow confirmation banner — loud prompt to text & confirm tomorrow's intros
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return format(d, 'yyyy-MM-dd');
+  }, []);
+  const tomorrowItems = useMemo(() => items.filter(i => i.classDate === tomorrowStr), [items, tomorrowStr]);
+  const tomorrowUnconfirmed = useMemo(() => tomorrowItems.filter(i => !i.confirmedAt).length, [tomorrowItems]);
+  const showTomorrowBanner = isCurrentWeek && tomorrowItems.length > 0 && tomorrowUnconfirmed > 0;
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
   // Q summary for selected day
