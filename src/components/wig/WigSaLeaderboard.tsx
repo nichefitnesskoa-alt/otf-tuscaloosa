@@ -150,8 +150,9 @@ export function WigSaLeaderboard({ dateRange }: Props) {
     };
   }, [dateRange, leadsTarget, salesTarget]);
 
-  // Team rollup targets = per-SA × active SA count × weeks.
-  const activeCount = activeSas?.length || 0;
+  // Team rollup targets = per-SA × active SA count (excluding Koa, who is
+  // Admin and not part of the SA leaderboard or team goal denominator).
+  const activeCount = (activeSas || []).filter(n => n !== 'Koa').length;
   const teamLeadsTarget = leadsPeriodGoal * activeCount;
   const teamSalesTarget = salesPeriodGoal * activeCount;
 
