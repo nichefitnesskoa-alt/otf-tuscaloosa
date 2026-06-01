@@ -12,7 +12,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { getCurrentPayPeriod, formatDate, getLastPayPeriod } from '@/lib/pay-period';
-import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
+import { getSaleDate, isDateInRange, isEffectiveSale } from '@/lib/sales-detection';
+import { getTodayYMD } from '@/lib/dateUtils';
 
 interface SaleRow {
   id: string;
