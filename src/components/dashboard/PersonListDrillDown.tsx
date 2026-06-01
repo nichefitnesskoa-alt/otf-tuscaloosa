@@ -65,6 +65,55 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
         ) : (
           rows.map(r => {
             const interactive = !!(r.onClick || r.href);
+            const hasOutcomeEdit = !!r.outcomeEdit;
+
+            const rightSlot = hasOutcomeEdit ? (
+              <OutcomeEditButton
+                bookingId={r.outcomeEdit!.bookingId}
+                label={r.rightLabel || '—'}
+                tone={r.rightTone || 'muted'}
+              />
+            ) : r.rightLabel ? (
+              <span className={cn(
+                'text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0',
+                TONE_CLASS[r.rightTone || 'muted'],
+              )}>
+                {r.rightLabel}
+              </span>
+            ) : null;
+
+            // When the outcome edit lives on this row, the name and the
+            // outcome are DISTINCT tap targets (no nested buttons). Name
+            // opens the Journey card; outcome opens the OutcomeDrawer.
+            if (hasOutcomeEdit) {
+              const NameEl: any = r.onClick ? 'button' : r.href ? 'a' : 'div';
+              const nameProps: any = r.onClick
+                ? { type: 'button', onClick: r.onClick }
+                : r.href
+                ? { href: r.href }
+                : {};
+              return (
+                <div
+                  key={r.id}
+                  className="rounded-md border border-border p-2 bg-card"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <NameEl
+                      {...nameProps}
+                      className={cn(
+                        'min-w-0 flex-1 text-left',
+                        interactive && 'cursor-pointer hover:underline underline-offset-2 decoration-primary',
+                      )}
+                    >
+                      <p className="text-sm font-semibold truncate">{r.name}</p>
+                      {r.subtitle && <p className="text-[10px] text-muted-foreground font-normal">{r.subtitle}</p>}
+                    </NameEl>
+                    {rightSlot}
+                  </div>
+                </div>
+              );
+            }
+
             const inner = (
               <div className={cn(
                 'rounded-md border border-border p-2 bg-card',
@@ -75,14 +124,7 @@ function Body({ rows, emptyText, footer, subtitle, scopeBadge }: {
                     <p className="text-sm font-semibold truncate">{r.name}</p>
                     {r.subtitle && <p className="text-[10px] text-muted-foreground">{r.subtitle}</p>}
                   </div>
-                  {r.rightLabel && (
-                    <span className={cn(
-                      'text-[10px] px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0',
-                      TONE_CLASS[r.rightTone || 'muted'],
-                    )}>
-                      {r.rightLabel}
-                    </span>
-                  )}
+                  {rightSlot}
                 </div>
               </div>
             );
