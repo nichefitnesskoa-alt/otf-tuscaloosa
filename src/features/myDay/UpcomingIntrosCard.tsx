@@ -539,6 +539,38 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
             ))}
           </div>
         )}
+
+        {/* "Pick an outcome" loud alert — fires 1 hour after class start */}
+        {needsOutcomeOverdue.length > 0 && (
+          <div className="border-2 border-destructive bg-destructive/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-destructive leading-tight">
+                  Pick an outcome — class is over
+                </p>
+                <p className="text-xs text-foreground/80 mt-0.5">
+                  {needsOutcomeOverdue.length} {needsOutcomeOverdue.length === 1 ? 'intro' : 'intros'} finished over an hour ago and still need an outcome.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="shrink-0"
+              onClick={() => {
+                const first = needsOutcomeOverdue[0];
+                setSelectedDate(todayStr);
+                setExpandedBookingId(first.bookingId);
+                setTimeout(() => {
+                  document.getElementById(`intro-card-${first.bookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              }}
+            >
+              Jump to first →
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
