@@ -133,6 +133,21 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const todayUnconfirmed = useMemo(() => todayItems.filter(i => !i.confirmedAt).length, [todayItems]);
   const showTodayBanner = isCurrentWeek && todayItems.length > 0 && todayUnconfirmed > 0;
 
+  // "Pick an outcome" overdue alert — today's intros whose class started >60 min ago
+  // and still have no outcome chosen. Re-renders every minute via useNowMinute.
+  const nowMinuteForAlert = useNowMinute();
+  const needsOutcomeOverdue = useMemo(() => {
+    return todayItems.filter(i => {
+      if (i.isVipSession) return false;
+      if (i.latestRunResult && i.latestRunResult !== 'UNRESOLVED') return false;
+      if (!i.introTime) return false;
+      try {
+        const classStart = new Date(`${i.classDate}T${i.introTime}:00`);
+        return (nowMinuteForAlert.getTime() - classStart.getTime()) / 60000 > 60;
+      } catch { return false; }
+    });
+  }, [todayItems, nowMinuteForAlert]);
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
 
@@ -343,10 +358,10 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
               <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-sm font-bold text-primary leading-tight">
-                  Text & confirm today's intros
+                  Send confirmation texts for today's intros
                 </p>
                 <p className="text-xs text-foreground/80 mt-0.5">
-                  {todayUnconfirmed} of {todayItems.length} not confirmed yet — send a confirmation now
+                  {todayUnconfirmed} of {todayItems.length} haven't gotten a confirmation text yet (includes 2nd intros)
                 </p>
               </div>
             </div>
@@ -367,10 +382,10 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
               <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-sm font-bold text-primary leading-tight">
-                  Text & confirm tomorrow's intros
+                  Send confirmation texts for tomorrow's intros
                 </p>
                 <p className="text-xs text-foreground/80 mt-0.5">
-                  {tomorrowUnconfirmed} of {tomorrowItems.length} not confirmed yet — send a confirmation now
+                  {tomorrowUnconfirmed} of {tomorrowItems.length} haven't gotten a confirmation text yet (includes 2nd intros)
                 </p>
               </div>
             </div>
@@ -522,6 +537,38 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
                 />
               </div>
             ))}
+          </div>
+        )}
+
+        {/* "Pick an outcome" loud alert — fires 1 hour after class start */}
+        {needsOutcomeOverdue.length > 0 && (
+          <div className="border-2 border-destructive bg-destructive/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-destructive leading-tight">
+                  Pick an outcome — class is over
+                </p>
+                <p className="text-xs text-foreground/80 mt-0.5">
+                  {needsOutcomeOverdue.length} {needsOutcomeOverdue.length === 1 ? 'intro' : 'intros'} finished over an hour ago and still need an outcome.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="shrink-0"
+              onClick={() => {
+                const first = needsOutcomeOverdue[0];
+                setSelectedDate(todayStr);
+                setExpandedBookingId(first.bookingId);
+                setTimeout(() => {
+                  document.getElementById(`intro-card-${first.bookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              }}
+            >
+              Jump to first →
+            </Button>
           </div>
         )}
       </CardContent>

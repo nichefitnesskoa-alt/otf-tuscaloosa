@@ -35,25 +35,25 @@ function getQBar(status: UpcomingIntroItem['questionnaireStatus']) {
     case 'Q_COMPLETED':
       return { bg: 'bg-success', label: 'Q✓', title: 'Complete', bannerLabel: '✓ Questionnaire Complete' };
     case 'Q_SENT':
-      return { bg: 'bg-warning', label: 'Q?', title: 'Not answered', bannerLabel: '⚠ Questionnaire Not Answered' };
+      return { bg: 'bg-warning', label: 'Q?', title: 'Sent, not answered', bannerLabel: '⚠ Questionnaire Sent — Not Answered' };
     case 'NO_Q':
     default:
-      return { bg: 'bg-danger', label: 'Q!', title: 'Not sent', bannerLabel: '! Questionnaire Not Sent' };
+      return { bg: 'bg-danger', label: 'Q!', title: 'Questionnaire not sent', bannerLabel: '! Questionnaire Not Sent' };
   }
 }
 
 function getQBadgeStatic(status: UpcomingIntroItem['questionnaireStatus'], noQNeeded = false) {
   if (noQNeeded) {
-    return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">No Q Needed</Badge>;
+    return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground border-transparent">No Questionnaire Needed</Badge>;
   }
   switch (status) {
     case 'Q_COMPLETED':
       return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Questionnaire Complete</Badge>;
     case 'Q_SENT':
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Questionnaire Sent</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-warning text-white border-transparent">Questionnaire Sent, Not Answered</Badge>;
     case 'NO_Q':
     default:
-      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-white border-transparent">No Questionnaire</Badge>;
+      return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-danger text-white border-transparent">Questionnaire Not Sent</Badge>;
   }
 }
 
@@ -76,7 +76,37 @@ function TappableQBadge({ status, onTap, noQNeeded = false }: { status: Upcoming
       onClick={handleClick}
       className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
     >
-      {copied ? 'Link copied!' : 'No Questionnaire'}
+      {copied ? 'Q link copied!' : 'Questionnaire Not Sent — tap to copy link'}
+    </button>
+  );
+}
+
+/**
+ * Confirmation-text pill — separate from the questionnaire status.
+ * Red + tappable when not yet sent; green static once confirmedAt is stamped.
+ * Applies to BOTH 1st and 2nd intros (2nd intros also get a confirmation text).
+ */
+function ConfirmationPill({ confirmedAt, onTap }: { confirmedAt: string | null; onTap: () => void }) {
+  const [tapped, setTapped] = useState(false);
+
+  if (confirmedAt) {
+    return <Badge className="text-[9px] px-1.5 py-0 h-4 bg-success text-white border-transparent">Confirmation Text Sent</Badge>;
+  }
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTap();
+    setTapped(true);
+    setTimeout(() => setTapped(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center rounded-full px-1.5 py-0 h-4 text-[9px] font-semibold bg-danger text-white border-transparent cursor-pointer hover:bg-danger/80 transition-colors min-h-[28px]"
+    >
+      {tapped ? 'Marked sent ✓' : 'Confirmation Text Not Sent — tap when sent'}
     </button>
   );
 }
@@ -398,9 +428,14 @@ export default function IntroRowCard({
             <LeadSourceTag source={item.leadSource} className="text-[9px] h-4" />
           )}
         </span>
-        <span>
-          <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
+        <span onClick={(e) => e.stopPropagation()}>
+          <ConfirmationPill confirmedAt={item.confirmedAt} onTap={() => onConfirm(item.bookingId)} />
         </span>
+        {!item.isSecondIntro && (
+          <span>
+            <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={!!item.isVipClassIntro} />
+          </span>
+        )}
         {item.vipClassName && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">
             VIP: {item.vipClassName}
