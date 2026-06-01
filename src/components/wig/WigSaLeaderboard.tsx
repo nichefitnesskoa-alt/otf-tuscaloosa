@@ -367,7 +367,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                     <TableHead className="text-xs text-center">
                       Sales
                       <div className="text-[9px] font-normal text-muted-foreground">
-                        goal {salesPeriodGoal}{isSingleWeek ? '' : ` (${salesTarget}/wk × ${weeksInPeriod}wk)`}
+                        goal {salesPeriodGoal} ({salesTarget}/mo prorated)
                       </div>
                     </TableHead>
                   </TableRow>
