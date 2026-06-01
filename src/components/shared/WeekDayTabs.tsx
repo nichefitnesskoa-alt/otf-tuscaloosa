@@ -121,7 +121,7 @@ export default function WeekDayTabs({
       </div>
 
       {/* Day tab pills */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="grid grid-cols-7 gap-1.5 pb-1">
         {days.map(day => {
           const count = dayCounts[day.date] || 0;
           const isSelected = selectedDate === day.date;
@@ -131,7 +131,7 @@ export default function WeekDayTabs({
               key={day.date}
               onClick={() => onSelectDate(day.date)}
               className={cn(
-                'flex flex-col items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border min-h-[44px] min-w-[52px] cursor-pointer relative',
+                'flex flex-col items-center justify-center w-full px-2 py-1.5 rounded-lg text-xs font-medium transition-colors border min-h-[44px] cursor-pointer relative',
                 isSelected
                   ? 'bg-[#E8540A] text-white border-[#E8540A] font-bold'
                   : day.isToday
