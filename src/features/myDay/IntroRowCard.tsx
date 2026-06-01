@@ -428,9 +428,14 @@ export default function IntroRowCard({
             <LeadSourceTag source={item.leadSource} className="text-[9px] h-4" />
           )}
         </span>
-        <span>
-          <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={item.isSecondIntro || !!item.isVipClassIntro} />
+        <span onClick={(e) => e.stopPropagation()}>
+          <ConfirmationPill confirmedAt={item.confirmedAt} onTap={() => onConfirm(item.bookingId)} />
         </span>
+        {!item.isSecondIntro && (
+          <span>
+            <TappableQBadge status={localQStatus} onTap={() => onSendQ(item.bookingId)} noQNeeded={!!item.isVipClassIntro} />
+          </span>
+        )}
         {item.vipClassName && (
           <Badge className="text-[9px] px-1.5 py-0 h-4 bg-brand-dim text-brand border-brand">
             VIP: {item.vipClassName}
