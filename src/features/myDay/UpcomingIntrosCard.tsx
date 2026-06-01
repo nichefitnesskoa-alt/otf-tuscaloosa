@@ -118,6 +118,16 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
   const activeDayGroups = useMemo(() => groupByDay(activeDayItems), [activeDayItems]);
   const completedDayGroups = useMemo(() => groupByDay(completedDayItems), [completedDayItems]);
 
+  // Tomorrow confirmation banner — loud prompt to text & confirm tomorrow's intros
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return format(d, 'yyyy-MM-dd');
+  }, []);
+  const tomorrowItems = useMemo(() => items.filter(i => i.classDate === tomorrowStr), [items, tomorrowStr]);
+  const tomorrowUnconfirmed = useMemo(() => tomorrowItems.filter(i => !i.confirmedAt).length, [tomorrowItems]);
+  const showTomorrowBanner = isCurrentWeek && tomorrowItems.length > 0 && tomorrowUnconfirmed > 0;
+
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
   // Q summary for selected day
@@ -332,6 +342,31 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {/* Tomorrow confirmation prompt — loud, action-oriented */}
+        {showTomorrowBanner && (
+          <div className="border-2 border-primary bg-primary/15 rounded-md px-4 py-3 flex items-center justify-between gap-3 min-h-[44px]">
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-primary leading-tight">
+                  Text & confirm tomorrow's intros
+                </p>
+                <p className="text-xs text-foreground/80 mt-0.5">
+                  {tomorrowUnconfirmed} of {tomorrowItems.length} not confirmed yet — send a confirmation now
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => setSelectedDate(tomorrowStr)}
+            >
+              Go to tomorrow →
+            </Button>
+          </div>
+        )}
+
+
         {/* Week Day Tabs — weekFull view */}
         {isWeekFullView && (
           <WeekDayTabs
