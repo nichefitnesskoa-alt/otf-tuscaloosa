@@ -130,17 +130,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
-  // Q summary for selected day
-  const qSummary = useMemo(() => {
-    if (!isWeekFullView) return null;
-    const dayItems = selectedDayItems;
-    const total = dayItems.length;
-    if (total === 0) return null;
-    const firstIntros = dayItems.filter(i => !i.isSecondIntro);
-    const qSent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
-    const stillNeeded = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
-    return { total, qSent, stillNeeded };
-  }, [selectedDayItems, isWeekFullView]);
 
   // Day label for summary line
   const selectedDayLabel = useMemo(() => {
@@ -378,19 +367,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
           />
         )}
 
-        {/* Q status summary for selected day */}
-        {isWeekFullView && qSummary && qSummary.total > 0 && (
-          <div className="flex items-center gap-2 flex-wrap text-xs bg-muted/40 rounded-lg px-3 py-2 min-h-[44px]">
-            <span className="font-semibold">{selectedDayLabel}:</span>
-            <span>{qSummary.total} intro{qSummary.total !== 1 ? 's' : ''}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-success">{qSummary.qSent} questionnaires sent</span>
-            <span className="text-muted-foreground">·</span>
-            <span className={qSummary.stillNeeded > 0 ? 'text-destructive font-medium' : 'text-success font-medium'}>
-              {qSummary.stillNeeded} still needed
-            </span>
-          </div>
-        )}
 
         {/* Summary line — Today counts (non-weekFull) */}
         {isTodayView && !isWeekFullView && items.length > 0 && (

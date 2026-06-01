@@ -4,13 +4,11 @@
  * Past class times are collapsed by default; current/upcoming are expanded.
  */
 import { useMemo } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DayGroup } from './myDayTypes';
 import IntroRowCard from './IntroRowCard';
-import BulkActionsBar from './BulkActionsBar';
 import { formatDisplayTime } from '@/lib/time/timeUtils';
 
 interface IntroDayGroupProps {
@@ -30,12 +28,8 @@ interface IntroDayGroupProps {
 
 export default function IntroDayGroup({
   group, isOnline, userName, onSendQ, onConfirm, onRefresh, needsOutcome = false, confirmResults = {}, focusedBookingId = null,
-  expandedBookingId = null, onExpandCard, shoutoutMap = {},
+  expandedBookingId = null, onExpandCard,
 }: IntroDayGroupProps) {
-  const qPercent = Math.round(group.qSentRatio * 100);
-  // VIP groups are not counted as intros
-  const trueIntros = group.items.filter(i => !i.isVipSession);
-  const vipGroupCount = group.items.length - trueIntros.length;
 
   // Group items by class time
   const timeGroups = useMemo(() => {
@@ -55,25 +49,6 @@ export default function IntroDayGroup({
 
   return (
     <div className="space-y-2 border-t-2 border-primary/30 pt-3 first:border-t-0 first:pt-0">
-      <div className="flex items-center justify-between gap-2 bg-muted/40 rounded-lg px-3 py-1.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold">{group.label}</h3>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-            {trueIntros.length} intro{trueIntros.length !== 1 ? 's' : ''}
-          </Badge>
-          {vipGroupCount > 0 && (
-            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-orange-600 text-white border-transparent">
-              +{vipGroupCount} VIP group{vipGroupCount !== 1 ? 's' : ''}
-            </Badge>
-          )}
-          {!needsOutcome && trueIntros.length > 0 && (
-            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${qPercent === 100 ? 'text-emerald-700 border-emerald-300' : qPercent >= 50 ? 'text-amber-700 border-amber-300' : 'text-destructive border-destructive/30'}`}>
-              Q: {qPercent}%
-            </Badge>
-          )}
-        </div>
-      </div>
-      <BulkActionsBar items={group.items} userName={userName} isOnline={isOnline} onDone={onRefresh} />
       <div className="space-y-2">
         {timeGroups.map(([time, items]) => {
           const timeLabel = time === 'unscheduled' ? 'Time TBD' : formatDisplayTime(time);
