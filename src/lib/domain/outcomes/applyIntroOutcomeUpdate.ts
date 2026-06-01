@@ -97,20 +97,20 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     }
 
     // ── STEP 1: FIND / CREATE / UPDATE intros_run ──
-    type RunSnapshot = { id: string; result: string; buy_date: string | null; lead_source: string | null; amc_incremented_at: string | null };
+    type RunSnapshot = { id: string; result: string; buy_date: string | null; run_date: string | null; lead_source: string | null; amc_incremented_at: string | null };
     let existingRun: RunSnapshot | null = null;
 
     if (params.runId) {
       const { data } = await supabase
         .from('intros_run')
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .eq('id', params.runId)
         .maybeSingle();
       existingRun = data;
     } else if (params.bookingId) {
       const { data } = await supabase
         .from('intros_run')
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .eq('linked_intro_booked_id', params.bookingId)
         .order('created_at', { ascending: false })
         .limit(1)
