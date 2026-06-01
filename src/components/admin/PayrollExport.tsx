@@ -74,22 +74,28 @@ export default function PayrollExport() {
 
       if (salesError) throw salesError;
 
-      // Filter by date range using proper date logic (date_closed || created_at)
+      const todayYMD = getTodayYMD();
+
+      // Filter by date range using proper date logic (date_closed || created_at).
+      // Post-dated guard: skip if effective close date is in the future.
       const filteredSalesData = (salesData || []).filter(sale => {
         const saleDate = getSaleDate(null, null, sale.date_closed, sale.created_at);
+        if (saleDate > todayYMD) return false;
         return isDateInRange(saleDate, startDate, endDate);
       });
 
       // Fetch intro-based sales from intros_run - get all with commission, filter in JS
       const { data: introRunData, error: introError } = await supabase
         .from('intros_run')
-        .select('id, run_id, member_name, buy_date, run_date, result, commission_amount, intro_owner, created_at')
+        .select('id, run_id, member_name, buy_date, run_date, result, result_canon, commission_amount, intro_owner, created_at')
         .gt('commission_amount', 0);
 
       if (introError) throw introError;
 
-      // Filter by date range using proper date logic (buy_date || run_date)
+      // Filter by date range using proper date logic (buy_date || run_date).
+      // isEffectiveSale excludes post-dated sales (buy_date > today CST).
       const filteredIntroRunData = (introRunData || []).filter(run => {
+        if (!isEffectiveSale(run)) return false;
         const saleDate = getSaleDate(run.buy_date, run.run_date, null, run.created_at);
         return isDateInRange(saleDate, startDate, endDate);
       });
