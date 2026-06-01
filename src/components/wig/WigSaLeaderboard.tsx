@@ -26,7 +26,7 @@ interface Props {
 type DrillBucket = 'leads' | 'sales';
 
 const DEFAULT_SA_LEADS_TARGET = 16; // per SA per MONTH
-const DEFAULT_SA_SALES_TARGET = 1;  // per SA per week
+const DEFAULT_SA_SALES_TARGET = 4;  // per SA per MONTH
 
 const VIP_SOURCES = new Set(['VIP Class', 'VIP Class (Friend)']);
 
