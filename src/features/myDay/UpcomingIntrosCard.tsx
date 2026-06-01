@@ -130,17 +130,6 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
 
   const selectedDayGroups = useMemo(() => groupByDay(selectedDayItems), [selectedDayItems]);
 
-  // Q summary for selected day
-  const qSummary = useMemo(() => {
-    if (!isWeekFullView) return null;
-    const dayItems = selectedDayItems;
-    const total = dayItems.length;
-    if (total === 0) return null;
-    const firstIntros = dayItems.filter(i => !i.isSecondIntro);
-    const qSent = firstIntros.filter(i => i.questionnaireStatus === 'Q_SENT' || i.questionnaireStatus === 'Q_COMPLETED').length;
-    const stillNeeded = firstIntros.filter(i => i.questionnaireStatus === 'NO_Q').length;
-    return { total, qSent, stillNeeded };
-  }, [selectedDayItems, isWeekFullView]);
 
   // Day label for summary line
   const selectedDayLabel = useMemo(() => {
