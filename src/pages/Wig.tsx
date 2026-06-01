@@ -931,6 +931,9 @@ export default function Wig() {
                 Coach Stats
               </CardTitle>
               <p className="text-[11px] text-muted-foreground">Tap a number to see who.</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Close rate is total journey. A coach is credited for a sale anywhere in a member's intro chain, even when the 2nd intro that closed it is not counted in intros ran. That is why a coach can show more closes than intros ran.
+              </p>
             </CardHeader>
             <CardContent className="p-0">
               {measuresLoading ? (
