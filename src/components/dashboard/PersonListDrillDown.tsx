@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
 
 export interface PersonRow {
   id: string;
@@ -21,6 +22,9 @@ export interface PersonRow {
   subtitle?: string;
   rightLabel?: string;
   rightTone?: 'success' | 'warning' | 'destructive' | 'primary' | 'muted';
+  /** When set, the right-side becomes an inline outcome editor (distinct
+   *  tap target — the row's name still opens the Journey card via onClick). */
+  outcomeEdit?: { bookingId: string };
   href?: string; // when set, row becomes navigable
   onClick?: () => void; // when set, row becomes a tappable button (overrides href)
 }
