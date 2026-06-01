@@ -167,7 +167,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
   if (loading) {
     return (
       <Card className="border border-border bg-muted/10">
-        <CardContent className="p-3 space-y-2">
+        <CardContent className="p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
           <div className="flex items-center gap-2">
             <Inbox className="w-4 h-4 text-muted-foreground shrink-0" />
             <p className="text-sm font-bold">New Leads</p>
@@ -182,7 +182,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
   if (leads.length === 0) {
     return (
       <Card className="border border-border bg-muted/10">
-        <CardContent className="p-3">
+        <CardContent className="p-3 opacity-100 rounded-none border-none text-justify">
           <div className="flex items-center gap-2">
             <Inbox className="w-4 h-4 text-muted-foreground shrink-0" />
             <div>
@@ -198,7 +198,7 @@ export function NewLeadsAlert({ onOpenScript }: NewLeadsAlertProps) {
   return (
     <>
       <Card className="border-2 border-amber-500/40 bg-amber-500/5">
-        <CardContent className="p-3 space-y-2">
+        <CardContent className="p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
             <div>

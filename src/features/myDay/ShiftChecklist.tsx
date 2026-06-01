@@ -385,7 +385,7 @@ export function ShiftChecklist() {
         <button
           type="button"
           onClick={toggleCard}
-          className="w-full flex items-center justify-between gap-3 text-left cursor-pointer min-h-[44px]"
+          className="w-full gap-3 cursor-pointer min-h-[44px] items-center justify-between flex flex-col text-center"
           aria-expanded={cardOpen}
         >
           <p className="text-[13px] font-bold text-brand-foreground uppercase tracking-wider">

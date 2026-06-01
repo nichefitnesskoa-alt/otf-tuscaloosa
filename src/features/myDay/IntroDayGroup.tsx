@@ -87,8 +87,7 @@ export default function IntroDayGroup({
           return (
             <Collapsible key={time} defaultOpen={hasVipGroup}>
               <CollapsibleTrigger className={cn(
-                "w-full flex items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors",
-                "bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30"
+                "w-full items-center justify-between px-3 py-2 rounded-lg text-left font-semibold transition-colors bg-primary/20 border border-primary/50 text-primary hover:bg-primary/30 flex flex-row"
               )}>
                 <span className="text-sm flex items-center gap-1 flex-wrap min-w-0">
                   <span className="shrink-0">{timeLabel} — {blockLabel}</span>
