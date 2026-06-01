@@ -579,14 +579,18 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
         </div>
       </div>
 
-      {/* Latest run summary */}
-      {latestRun && (
-        <div className="text-[11px] text-muted-foreground">
-          Latest run: <span className="text-foreground">{latestRun.result || '—'}</span>
-          {hasSale && latestRun.buy_date && <> · bought {latestRun.buy_date}</>}
-          {(latestRun.commission_amount || 0) > 0 && <> · ${latestRun.commission_amount}</>}
-        </div>
-      )}
+      {/* Latest run summary — outcome is editable inline via canonical path */}
+      <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+        <span>Latest run:</span>
+        <OutcomeEditButton
+          bookingId={booking.id}
+          label={latestRun?.result || 'Set outcome'}
+          tone={hasSale ? 'success' : latestRun?.result ? 'muted' : 'warning'}
+          onChanged={onChanged}
+        />
+        {hasSale && latestRun?.buy_date && <span>· bought {latestRun.buy_date}</span>}
+        {(latestRun?.commission_amount || 0) > 0 && <span>· ${latestRun?.commission_amount}</span>}
+      </div>
 
       {/* Scorecard pill */}
       <div className="flex items-center justify-between gap-2">
