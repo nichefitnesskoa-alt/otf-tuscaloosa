@@ -343,10 +343,10 @@ export default function UpcomingIntrosCard({ userName, fixedTimeRange }: Upcomin
               <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-sm font-bold text-primary leading-tight">
-                  Text & confirm today's intros
+                  Send confirmation texts for today's intros
                 </p>
                 <p className="text-xs text-foreground/80 mt-0.5">
-                  {todayUnconfirmed} of {todayItems.length} not confirmed yet — send a confirmation now
+                  {todayUnconfirmed} of {todayItems.length} haven't gotten a confirmation text yet (includes 2nd intros)
                 </p>
               </div>
             </div>
