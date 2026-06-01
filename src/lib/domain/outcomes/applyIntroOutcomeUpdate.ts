@@ -182,13 +182,13 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
           intro_owner: resolvedOwner,
           commission_amount: resolvedCommission,
           primary_objection: params.objection || null,
-          buy_date: isNowSale ? getTodayYMD() : null,
+          buy_date: isNowSale ? runDate : null,
           created_at: new Date().toISOString(),
           last_edited_at: new Date().toISOString(),
           last_edited_by: params.editedBy,
           edit_reason: params.editReason || `Run auto-created via ${params.sourceComponent}`,
         })
-        .select('id, result, buy_date, lead_source, amc_incremented_at')
+        .select('id, result, buy_date, run_date, lead_source, amc_incremented_at')
         .single();
 
       if (createErr) {
