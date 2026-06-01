@@ -46,6 +46,7 @@ import { computeExpectedIntroOwner, classifyIntroOwnerStatus, type IntroOwnerMis
 import { resolvePerson, type PersonIdentifier, type PersonResolution } from '@/lib/person/resolvePerson';
 import { updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '@/features/pipeline/pipelineActions';
 import { isCloseRun } from '@/lib/intros/close-detection';
+import { OutcomeEditButton } from '@/components/shared/OutcomeEditButton';
 
 interface BookingRow {
   id: string;
