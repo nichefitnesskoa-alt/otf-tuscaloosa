@@ -12,7 +12,8 @@ import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseLocalDate } from '@/lib/utils';
-import { getSaleDate, isDateInRange } from '@/lib/sales-detection';
+import { getSaleDate, isDateInRange, isEffectiveSale } from '@/lib/sales-detection';
+import { getTodayYMD } from '@/lib/dateUtils';
 import { DateRange, formatDateRange } from '@/lib/pay-period';
 import { useJourneyCard } from '@/components/person/useJourneyCard';
 
