@@ -229,7 +229,7 @@ function LeadCard({ lead, onAction, onBook, onScript }: LeadCardProps) {
   return (
     <div className="rounded-lg overflow-hidden bg-card" style={{ border: `2px solid ${borderColor}` }}>
       <StatusBanner bgColor={bannerBg} text={bannerText} />
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
         {/* Name + source + phone */}
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">

@@ -109,7 +109,7 @@ export function UnresolvedIntros({ intros, onRefresh }: UnresolvedIntrosProps) {
           <p className="text-sm text-muted-foreground italic">No past-due intros in last 7 days</p>
         ) : (
           filteredIntros.map(b => (
-            <div key={b.id} className="rounded-lg border bg-card p-3 space-y-2">
+            <div key={b.id} className="rounded-lg border bg-card p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="font-semibold text-sm">{b.member_name}</span>

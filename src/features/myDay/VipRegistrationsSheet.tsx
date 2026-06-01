@@ -406,7 +406,7 @@ export default function VipRegistrationsSheet({ open, onOpenChange, vipSessionId
               };
               const showMembershipPicker = r.outcome === 'purchased' && (pendingMembership[r.id] !== undefined || !r.membership_type);
               return (
-                <div key={r.id} className="p-3 space-y-2">
+                <div key={r.id} className="p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex-1 min-w-[140px]">
                       <div className="text-sm font-medium truncate flex items-center gap-1.5">

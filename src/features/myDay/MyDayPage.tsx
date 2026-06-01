@@ -350,12 +350,12 @@ export default function MyDayPage() {
 
 
       {/* ═══ SHIFT TASK CHECKLIST ═══ */}
-      <div className="px-4 pt-3">
+      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <ShiftChecklist />
       </div>
 
       {/* ═══ ACTIVITY TRACKER ═══ */}
-      <div className="px-4 pt-3">
+      <div className="px-[5px] py-[10px] my-0 pb-0 pr-[5px] pt-0">
         <MyDayShiftSummary compact />
       </div>
 
@@ -397,7 +397,7 @@ export default function MyDayPage() {
         </div>
 
         {/* Tab content */}
-        <div className="px-4 pb-24 pt-3 space-y-3">
+        <div className="px-4 pt-3 space-y-3 rounded-none pb-[10px]">
           <TabsContent value="intros" className="mt-0 space-y-3">
             <UpcomingIntrosCard userName={user?.name || ''} fixedTimeRange="weekFull" />
             <NewLeadsAlert />

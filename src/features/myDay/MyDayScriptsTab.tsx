@@ -143,7 +143,7 @@ export function MyDayScriptsTab() {
             const truncated = preview.length > 80 ? preview.slice(0, 80) + '...' : preview;
 
             return (
-              <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
+              <div key={t.id} className="border border-border rounded-lg p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">{t.name}</span>
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{t.category}</Badge>

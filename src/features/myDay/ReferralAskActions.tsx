@@ -119,7 +119,7 @@ export function ReferralAskActions({ dateRange }: Props) {
                 const phoneDisplay = normalizePhoneDisplay(r.phone);
 
                 return (
-                  <div key={r.bookingId} className="p-3 space-y-2">
+                  <div key={r.bookingId} className="p-3 space-y-2 opacity-100 rounded-none border-none text-justify">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span
                         className={`inline-block w-2 h-2 rounded-full ${
