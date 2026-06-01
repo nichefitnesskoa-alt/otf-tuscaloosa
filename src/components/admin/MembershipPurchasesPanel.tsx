@@ -86,8 +86,11 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
     
     setIsLoading(true);
     try {
-      const startDate = dateRange.start.toISOString().split('T')[0];
-      const endDate = dateRange.end.toISOString().split('T')[0];
+      // Use local YYYY-MM-DD (CST) — NEVER toISOString, which shifts end-of-day
+      // 5/31 → "2026-06-01" and leaks 6/1 sales into May pay periods.
+      const startDate = formatDate(dateRange.start);
+      const endDate = formatDate(dateRange.end);
+      const todayYMD = getTodayYMD();
 
       // Fetch intro runs with membership sales
       const { data: runs } = await supabase
