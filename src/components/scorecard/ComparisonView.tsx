@@ -49,7 +49,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
               </Badge>
               <p className="text-sm font-medium mt-2">{sc.evaluatee_name}</p>
               <p className="text-xs text-muted-foreground">
-                Evaluated by {sc.evaluator_name} · {format(new Date(sc.class_date), 'MMM d')}
+                Evaluated by {sc.evaluator_name} · {formatScorecardDate(sc.class_date)}
               </p>
             </div>
             <div className="text-right">
