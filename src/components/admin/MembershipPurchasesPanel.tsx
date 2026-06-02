@@ -157,6 +157,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
             bookedBy: b.sa_working_shift || b.booked_by || null,
             leadSource: b.lead_source || null,
             coach: vipCoach || b.coach_name || null,
+            classDate: b.class_date || null,
           }];
         })
       );
