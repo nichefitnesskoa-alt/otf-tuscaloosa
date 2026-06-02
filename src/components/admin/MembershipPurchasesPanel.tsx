@@ -179,6 +179,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
           id: run.id,
           member_name: capitalizeName(run.member_name) || run.member_name,
           purchase_date: purchaseDate,
+          class_date: bookingInfo?.classDate || null,
           membership_type: run.result,
           commission_amount: run.commission_amount || 0,
           intro_owner: capitalizeName(run.intro_owner || run.ran_by || run.sa_name),
