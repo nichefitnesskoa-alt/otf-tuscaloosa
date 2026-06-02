@@ -44,6 +44,7 @@ interface MembershipPurchase {
   id: string;
   member_name: string;
   purchase_date: string;
+  class_date: string | null;
   membership_type: string;
   commission_amount: number;
   intro_owner: string | null;
