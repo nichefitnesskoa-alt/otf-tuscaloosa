@@ -75,10 +75,10 @@ export function StudioScoreboard({
           </TooltipProvider>
         </div>
 
-        
-
-
-        <p className="text-[10px] opacity-40 text-center mt-3">Excludes VIP events</p>
+        <p className="text-[11px] text-muted-foreground text-center mt-3 px-2">
+          Close rate is total journey. A sale counts on its first intro's chain, even when the 2nd intro that closed it is not in Intros Run.
+        </p>
+        <p className="text-[10px] opacity-40 text-center mt-2">Excludes VIP events</p>
       </CardContent>
     </Card>
   );
