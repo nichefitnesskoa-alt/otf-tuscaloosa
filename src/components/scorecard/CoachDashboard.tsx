@@ -170,7 +170,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
               >
                 <div>
                   <p className="text-sm font-medium">
-                    {s.first_timer_name || s.practice_name || 'First-Timer'} · {format(new Date(s.class_date), 'MMM d')}
+                    {s.first_timer_name || s.practice_name || 'First-Timer'} · {formatScorecardDate(s.class_date)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     by {s.evaluator_name} · <Badge variant="outline" className="text-[10px]">{s.eval_type === 'self_eval' ? 'Self' : 'Formal'}</Badge>
