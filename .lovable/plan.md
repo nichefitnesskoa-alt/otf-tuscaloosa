@@ -1,28 +1,49 @@
-## Three small changes on the Studio tab
+# Intro Owner Change Doesn't Propagate to Runs
 
-### 1. Remove the red "Metrics disagree" section
-The drift alert card at the top of the Studio tab is noisy and not actionable for staff. Remove it from `src/pages/Wig.tsx` (the `<SourceMembershipPanel />` / drift card render). Leave the underlying `computeSourceMembership` helper in place in case we want it back later as an admin-only debug view, but stop rendering it.
+## Root cause
 
-### 2. Add total-journey disclaimer to Studio Scoreboard
-The Studio Scoreboard (Intros Run / Sales / Close Rate tiles) uses the same total-journey logic as Coach Stats: sales count if any booking in the chain closes, even when the closing 2nd intro is not in "Intros Run". Add a small `text-[11px] text-muted-foreground` line under the "Studio Scoreboard" header, parallel to the existing "Excludes VIP events" footer:
+When the journey card edits intro owner, `syncIntroOwnerToBooking` (in `src/features/pipeline/pipelineActions.ts`) only updates `intros_booked.intro_owner`. It does NOT update `intros_run.intro_owner` on the linked run rows.
 
-> "Close rate is total journey. A sale counts on its first intro's chain, even when the 2nd intro that closed it is not in Intros Run."
+Per-SA Performance in `src/hooks/useDashboardMetrics.ts` (lines 226-228, 264-274) builds the SA list and aggregates **from `intros_run.intro_owner`**. So after the edit:
 
-No metric or logic change.
+- Koa is still in the table because his run still says `intro_owner = 'Koa'`.
+- Danielle Mars is still in the table for the same reason, but her drilldown reads `intros_booked.intro_owner` → 0 bookings → "No intros found".
+- Grace F doesn't appear because no run row says `intro_owner = 'Grace F'`.
 
-### 3. Fix Close% display when Coached = 0 but Closes ≥ 1
-In `src/components/dashboard/PerCoachTable.tsx`, the row math is:
-```
-closeRate = coached > 0 ? (closes / coached) * 100 : 0
-```
-So Nathan (0 coached, 1 close via 2nd-intro journey credit) shows `0%` in red, which reads as a failure even though he closed.
+Same drift hits any other consumer that reads `intros_run.intro_owner` directly (`useLeadMeasures`, etc.).
 
-Change: when `coached === 0 && closes > 0`, display `100%` in the success color (same green as a normal 100%). This matches the total-journey framing already shown in the disclaimer — every chain he was credited on closed.
+## Reach map
 
-Underlying `closeRate` numeric stays as-is for sorting (or we set it to 100 in that branch so sort behaves intuitively — recommended). No change to Coached, Closes, or Totals row math.
+- Writes: `syncIntroOwnerToBooking` (one place) — currently writes booking only.
+- Reads of `intros_run.intro_owner`: `useDashboardMetrics` (Per-SA, scoreboard tallies at 528 / 556-560), `useLeadMeasures`.
+- Reads of `intros_booked.intro_owner`: PersonJourneyCard, PerSATable drill, useSaSales, salesBooked, Pipeline, ManageOwners, EditSale, MyDay/Coach surfaces.
+- React Query keys touched: anything keyed on `intros_run` / `intros_booked` / `dashboard-metrics` / `sa-leads-booked` / `sa-sales`.
 
-### Coherence proof to produce after build
-- Drift card no longer renders on Studio tab.
-- Studio Scoreboard shows the new disclaimer; tile numbers unchanged (Intros Run 2, Sales 2, Close Rate 100%).
-- Per-Coach table: Nathan row shows Coached 0, Closes 1, Close% 100% (green). Natalya still shows 1/0/0% (red). Koa still 1/1/100%. Totals row unchanged at 2/2/100%.
-- All agree across Studio Scoreboard, Per-Coach table, and Coach Stats drilldown.
+The booking is the source of truth (it's what every owner-editor writes to). Runs carry a denormalized copy. The fix is to keep the run copy in lockstep with the booking on every owner edit, plus invalidate every cache key that reads either table.
+
+## Changes
+
+1. **`src/features/pipeline/pipelineActions.ts` → `syncIntroOwnerToBooking`**
+   - After the booking UPDATE succeeds, UPDATE `intros_run` SET `intro_owner = <new>` WHERE `linked_intro_booked_id = bookingId`.
+   - Also walk the chain: find any booking whose `originating_booking_id = bookingId` (2nd intros that originated from this one) and update their runs too. This keeps total-journey sales attributed to the right SA.
+   - Add a second `outcome_events` row for the run sync (best-effort, non-blocking).
+   - Return false if either booking or run update errors; surface error to the caller.
+
+2. **`src/components/person/PersonJourneyCard.tsx` → `commitEdit`**
+   - Expand `notifyDataChanged` call so the `intro_owner` branch also invalidates `intros_run`, `dashboard-metrics`, `lead-measures`, `sa-sales` (whatever keys those hooks use — verified via `src/lib/data/invalidation.ts`). No UI change.
+
+3. No change to `useDashboardMetrics` aggregation logic — once runs carry the new owner, the SA list and counts recompute correctly.
+
+## Coherence proof (to produce after build)
+
+Before fix snapshot from user's screenshot: Per-SA shows Koa 1/0 and (separately) Danielle Mars drill is empty.
+
+After fix, verify via `read_query`:
+
+- Pick Danielle's original booking id; confirm `intros_booked.intro_owner = 'Grace F'` AND every `intros_run` row with `linked_intro_booked_id = <that id>` has `intro_owner = 'Grace F'`.
+- Per-SA Performance for the same date range:
+  - Koa: no longer listed (or his row count drops by 1).
+  - Grace F: row appears with the ran/sale counts that used to be Koa's / Danielle's.
+  - Danielle Mars: drilldown opens and shows the booking now (since she'd no longer appear in the table unless she owns other runs).
+- Cross-page: Pipeline row, CoachView card, and WIG Per-SA all show Grace F as owner for the same booking.
+- All agree: yes.
