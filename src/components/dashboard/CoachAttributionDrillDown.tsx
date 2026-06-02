@@ -9,6 +9,7 @@ export interface AttribIntro {
   bookingId: string;
   member: string;
   classDate: string | null;
+  buyDate?: string | null;   // sale buy_date — when set and != classDate, show both
   source: string | null;
   resultLabel: string;       // see labelForRun()
   via?: 'direct' | '2nd_intro';
