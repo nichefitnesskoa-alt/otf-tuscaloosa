@@ -753,7 +753,9 @@ export default function Wig() {
           name,
           coached: wk.coached,
           closes: cl.closed,
-          closeRate: wk.coached > 0 ? (cl.closed / wk.coached) * 100 : 0,
+          // Total-journey credit: if a coach has closes but no coached 1st intros
+          // in range (sale credited via a 2nd intro), show 100% rather than 0%.
+          closeRate: wk.coached > 0 ? (cl.closed / wk.coached) * 100 : (cl.closed > 0 ? 100 : 0),
           closeTotal: cl.total,
         };
       }).filter(c => !isMissingCoach(c.name) && (c.coached > 0 || c.closeTotal > 0)).sort((a, b) => b.coached - a.coached);
