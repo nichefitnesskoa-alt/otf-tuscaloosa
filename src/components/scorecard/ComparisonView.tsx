@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { BULLETS, COLUMNS, LEVEL_COPY } from '@/lib/scorecard/levels';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 
 const SCORE_LABEL = ['Missed', 'Partial', 'Hit'];
 const SCORE_COLOR = ['hsl(0 84% 60%)', 'hsl(40 91% 49%)', 'hsl(142 71% 45%)'];
