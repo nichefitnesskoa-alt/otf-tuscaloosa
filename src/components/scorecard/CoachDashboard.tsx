@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { parseLocalDate, formatScorecardDate } from '@/lib/dateUtils';
 import { ComparisonView } from './ComparisonView';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
 import {
