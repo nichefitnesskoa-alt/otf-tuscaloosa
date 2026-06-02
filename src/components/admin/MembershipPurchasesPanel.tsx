@@ -129,7 +129,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
       // Fetch bookings for booked_by, lead_source, and coach info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by, lead_source, coach_name, vip_session_id');
+        .select('id, sa_working_shift, booked_by, lead_source, coach_name, vip_session_id, class_date');
 
       // Fetch VIP-class coach attribution: VIP-sourced bookings should credit the
       // coach who ran the VIP class, not the coach of the next intro.
