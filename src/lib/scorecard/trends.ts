@@ -7,7 +7,7 @@
  */
 import { differenceInDays, format, getISOWeek, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import type { FvScorecard } from '@/hooks/useScorecards';
-import { getNowCentral } from '@/lib/dateUtils';
+import { getNowCentral, parseLocalDate } from '@/lib/dateUtils';
 
 export type EvalPrimary = 'formal' | 'self';
 export type CadenceType = 'self' | 'formal';
