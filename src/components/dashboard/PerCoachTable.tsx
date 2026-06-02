@@ -158,7 +158,9 @@ export function PerCoachTable({ dateRange }: PerCoachTableProps) {
       coachName: name,
       introsCoached: d.coached,
       closes: d.closes,
-      closeRate: d.coached > 0 ? (d.closes / d.coached) * 100 : 0,
+      // Total-journey credit: if a coach has closes without any coached 1st intros
+      // in range (e.g. only credited via a 2nd-intro sale), show 100% rather than 0%.
+      closeRate: d.coached > 0 ? (d.closes / d.coached) * 100 : (d.closes > 0 ? 100 : 0),
     }));
     return { rows, attribution: attribMap };
   }, [introsRun, introsBooked, dateRange, vipCoachByVipSession]);
