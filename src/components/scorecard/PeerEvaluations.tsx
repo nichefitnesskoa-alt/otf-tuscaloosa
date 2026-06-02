@@ -83,7 +83,7 @@ export function PeerEvaluations({ coachName }: { coachName: string }) {
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{s.practice_name || 'First-timer'}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {format(new Date(s.class_date + 'T12:00:00'), 'MMM d')}
+                        {formatScorecardDate(s.class_date)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
