@@ -611,12 +611,12 @@ export default function Wig() {
             ex.total++;
             if (isSaleInRange(r, dateRange || null)) {
               ex.closed++;
-              ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE' });
+              ensureAttrib(cName).closes.push({ ...introBase, via: 'direct', resultLabel: 'SALE', buyDate: r.buy_date || r.run_date || null });
               if (r.linked_intro_booked_id) countedRunBookingIds.add(r.linked_intro_booked_id);
             } else if (r.linked_intro_booked_id && secondRunSaleSet.has(r.linked_intro_booked_id)) {
               // Total Journey: 2nd intro resulted in sale → credit this coach
               ex.closed++;
-              ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE' });
+              ensureAttrib(cName).closes.push({ ...introBase, via: '2nd_intro', resultLabel: 'SALE', buyDate: r.buy_date || r.run_date || null });
               // Mark BOTH the 1st-intro booking AND every downstream 2nd-intro
               // booking as counted, so the buy_date backfill pass below does
               // not double-credit the same Total Journey sale.
