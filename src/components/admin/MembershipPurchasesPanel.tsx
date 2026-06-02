@@ -201,6 +201,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
           id: sale.id,
           member_name: capitalizeName(sale.member_name) || sale.member_name,
           purchase_date: purchaseDate,
+          class_date: null,
           membership_type: sale.membership_type,
           commission_amount: sale.commission_amount || 0,
           intro_owner: capitalizeName(sale.intro_owner),
