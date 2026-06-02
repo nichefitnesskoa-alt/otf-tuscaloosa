@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, subMonths } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
