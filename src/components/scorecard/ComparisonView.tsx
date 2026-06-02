@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { BULLETS, COLUMNS, LEVEL_COPY } from '@/lib/scorecard/levels';
 import { useAuth } from '@/context/AuthContext';
 import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 
 const SCORE_LABEL = ['Missed', 'Partial', 'Hit'];
 const SCORE_COLOR = ['hsl(0 84% 60%)', 'hsl(40 91% 49%)', 'hsl(142 71% 45%)'];
@@ -48,7 +49,7 @@ export function ComparisonView({ scorecardId, open, onOpenChange }: {
               </Badge>
               <p className="text-sm font-medium mt-2">{sc.evaluatee_name}</p>
               <p className="text-xs text-muted-foreground">
-                Evaluated by {sc.evaluator_name} · {format(new Date(sc.class_date), 'MMM d')}
+                Evaluated by {sc.evaluator_name} · {formatScorecardDate(sc.class_date)}
               </p>
             </div>
             <div className="text-right">

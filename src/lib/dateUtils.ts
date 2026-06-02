@@ -91,3 +91,16 @@ export function parseLocalDate(s: string | null | undefined): Date | null {
 export function getCurrentMonthYear(): string {
   return format(getNowCentral(), 'yyyy-MM');
 }
+
+/**
+ * Canonical formatter for scorecard / class date strings (YYYY-MM-DD).
+ * Uses parseLocalDate so JS never interprets the bare string as UTC midnight
+ * (which would shift to the previous day in Central Time).
+ *
+ * Always use this for any fv_scorecards.class_date or similar YMD column
+ * displayed in the UI. Returns '' for null/invalid input.
+ */
+export function formatScorecardDate(s: string | null | undefined, fmt: string = 'MMM d'): string {
+  const d = parseLocalDate(s);
+  return d ? format(d, fmt) : '';
+}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, subMonths } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -82,7 +83,7 @@ export function PeerEvaluations({ coachName }: { coachName: string }) {
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{s.practice_name || 'First-timer'}</p>
                       <p className="text-[11px] text-muted-foreground">
-                        {format(new Date(s.class_date + 'T12:00:00'), 'MMM d')}
+                        {formatScorecardDate(s.class_date)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

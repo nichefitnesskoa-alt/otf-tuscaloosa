@@ -12,6 +12,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, Legend, CartesianGrid,
 } from 'recharts';
 import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
 import { CoachScorecardGrid } from './CoachScorecardGrid';
@@ -237,7 +238,7 @@ export function WigFirstVisitSection({ dateRange: _ignored }: { dateRange?: Date
               >
                 <div className="min-w-0">
                   <p className="text-xs font-semibold truncate">{c.evaluatee_name} <span className="text-muted-foreground">·</span> {c.first_timer_name || c.practice_name || 'First-timer'}</p>
-                  <p className="text-[10px] text-muted-foreground">{format(new Date(c.class_date), 'MMM d')} · {c.eval_type === 'self_eval' ? 'Self' : 'Formal'} · by {c.evaluator_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatScorecardDate(c.class_date)} · {c.eval_type === 'self_eval' ? 'Self' : 'Formal'} · by {c.evaluator_name}</p>
                 </div>
                 <span className={`text-sm font-black tabular-nums ${c.level === 3 ? 'text-primary' : c.level === 2 ? 'text-success' : 'text-muted-foreground'}`}>{c.total_score}/30</span>
               </button>

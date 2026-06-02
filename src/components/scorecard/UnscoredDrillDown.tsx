@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClipboardCheck } from 'lucide-react';
 import { ScorecardForm } from './ScorecardForm';
@@ -58,7 +58,7 @@ export function UnscoredDrillDown({ open, onOpenChange, coach, intros }: Props) 
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">{it.memberName}</p>
                   <p className="text-[11px] text-muted-foreground">
-                    {it.classDate ? format(new Date(it.classDate + 'T12:00:00'), 'MMM d') : '—'}
+                    {it.classDate ? formatScorecardDate(it.classDate) : '—'}
                     {it.introTime ? ` · ${it.introTime.slice(0, 5)}` : ''}
                   </p>
                 </div>

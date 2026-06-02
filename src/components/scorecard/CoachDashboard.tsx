@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { parseLocalDate, formatScorecardDate } from '@/lib/dateUtils';
 import { ComparisonView } from './ComparisonView';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip } from 'recharts';
 import {
@@ -49,7 +50,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
   const trendData = useMemo(() => {
     const byWeek: Record<string, { total: number; count: number; sortKey: string }> = {};
     trend.filter(s => !!s.submitted_at).forEach(s => {
-      const d = new Date(s.class_date);
+      const d = parseLocalDate(s.class_date)!;
       const wk = format(d, 'MMM d');
       const sortKey = format(d, 'yyyy-MM-dd');
       if (!byWeek[wk]) byWeek[wk] = { total: 0, count: 0, sortKey };
@@ -169,7 +170,7 @@ export function CoachDashboard({ coachName, allowPicker, coaches }: { coachName:
               >
                 <div>
                   <p className="text-sm font-medium">
-                    {s.first_timer_name || s.practice_name || 'First-Timer'} · {format(new Date(s.class_date), 'MMM d')}
+                    {s.first_timer_name || s.practice_name || 'First-Timer'} · {formatScorecardDate(s.class_date)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     by {s.evaluator_name} · <Badge variant="outline" className="text-[10px]">{s.eval_type === 'self_eval' ? 'Self' : 'Formal'}</Badge>
