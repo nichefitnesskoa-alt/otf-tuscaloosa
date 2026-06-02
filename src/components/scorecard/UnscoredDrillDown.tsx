@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ClipboardCheck } from 'lucide-react';
 import { ScorecardForm } from './ScorecardForm';
