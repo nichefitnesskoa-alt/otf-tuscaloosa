@@ -78,7 +78,8 @@ export function buildTrendPoints(
   const map = new Map<string, TrendPoint>();
   for (const c of cards) {
     if (!c.submitted_at) continue;
-    const d = new Date(c.class_date + 'T12:00:00');
+    const d = parseLocalDate(c.class_date);
+    if (!d) continue;
     if (d < range.start || d > range.end) continue;
     const { key, label, start } = bucketKey(d, size);
     let pt = map.get(key);
