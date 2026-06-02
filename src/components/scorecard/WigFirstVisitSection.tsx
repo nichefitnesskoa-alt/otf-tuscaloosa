@@ -12,6 +12,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, Legend, CartesianGrid,
 } from 'recharts';
 import { format } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { ComparisonView } from './ComparisonView';
 import { CoachScorecardGrid } from './CoachScorecardGrid';
