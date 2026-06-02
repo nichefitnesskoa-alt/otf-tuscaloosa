@@ -415,7 +415,12 @@ function IntroNode({ booking, allBookings, runs, scorecard, isSecondIntro, chain
         await updateBookingFieldsFromPipeline(payload);
         toast.success('Saved');
       }
-      notifyDataChanged(['intros_booked', 'sa-leads-booked', 'sa-sales'], 'journey-card-edit');
+      notifyDataChanged(
+        editField === 'intro_owner'
+          ? ['intros_booked', 'intros_run', 'dashboard-metrics', 'lead-measures', 'sa-leads-booked', 'sa-sales']
+          : ['intros_booked', 'sa-leads-booked', 'sa-sales'],
+        'journey-card-edit',
+      );
       cancelEdit();
       onChanged();
     } catch (err: any) {

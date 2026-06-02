@@ -170,6 +170,31 @@ export async function syncIntroOwnerToBooking(
       .eq('id', bookingId);
     if (error) throw error;
 
+    // Keep run-level intro_owner in lockstep with the booking.
+    // useDashboardMetrics (Per-SA Performance) and useLeadMeasures read
+    // intros_run.intro_owner directly. Without this update the prior owner
+    // stays in the Studio table and the new owner never appears.
+    // Walk forward to any 2nd intros that originated from this booking so
+    // total-journey sales attribute to the corrected intro_owner too.
+    const linkedBookingIds = new Set<string>([bookingId]);
+    try {
+      const { data: secondIntros } = await supabase
+        .from('intros_booked')
+        .select('id')
+        .eq('originating_booking_id', bookingId);
+      for (const row of secondIntros || []) {
+        if (row?.id) linkedBookingIds.add(row.id);
+      }
+    } catch {
+      // non-critical: failure here shouldn't block the primary sync
+    }
+
+    const { error: runErr } = await supabase
+      .from('intros_run')
+      .update({ intro_owner: introOwner })
+      .in('linked_intro_booked_id', Array.from(linkedBookingIds));
+    if (runErr) throw runErr;
+
     // Best-effort audit log into outcome_events
     try {
       await supabase.from('outcome_events').insert({
@@ -183,6 +208,7 @@ export async function syncIntroOwnerToBooking(
           action_type: 'owner_sync',
           previous_owner: previousOwner,
           new_owner: introOwner,
+          linked_booking_ids: Array.from(linkedBookingIds),
         },
       });
     } catch {
