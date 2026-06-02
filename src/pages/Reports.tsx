@@ -69,7 +69,7 @@ export default function Reports() {
         <div className="space-y-1">
           {submitted.map(s => (
             <button key={s.id} onClick={() => setOpenId(s.id)} className="w-full flex justify-between p-2 border-b hover:bg-muted text-left">
-              <span className="text-sm">{format(new Date(s.class_date), 'MMM d')} · {s.evaluatee_name} · {s.practice_name || 'first-timer'}</span>
+              <span className="text-sm">{formatScorecardDate(s.class_date)} · {s.evaluatee_name} · {s.practice_name || 'first-timer'}</span>
               <Badge>{`L${s.level} (${s.total_score}/15)`}</Badge>
             </button>
           ))}
