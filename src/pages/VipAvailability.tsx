@@ -24,7 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   format,
   startOfMonth,
