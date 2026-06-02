@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ComparisonView } from '@/components/scorecard/ComparisonView';
 import { format, startOfMonth } from 'date-fns';
+import { formatScorecardDate } from '@/lib/dateUtils';
 
 export default function Reports() {
   const [from, setFrom] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
