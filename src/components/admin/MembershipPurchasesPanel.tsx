@@ -44,6 +44,7 @@ interface MembershipPurchase {
   id: string;
   member_name: string;
   purchase_date: string;
+  class_date: string | null;
   membership_type: string;
   commission_amount: number;
   intro_owner: string | null;
@@ -128,7 +129,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
       // Fetch bookings for booked_by, lead_source, and coach info
       const { data: bookings } = await supabase
         .from('intros_booked')
-        .select('id, sa_working_shift, booked_by, lead_source, coach_name, vip_session_id');
+        .select('id, sa_working_shift, booked_by, lead_source, coach_name, vip_session_id, class_date');
 
       // Fetch VIP-class coach attribution: VIP-sourced bookings should credit the
       // coach who ran the VIP class, not the coach of the next intro.
@@ -156,6 +157,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
             bookedBy: b.sa_working_shift || b.booked_by || null,
             leadSource: b.lead_source || null,
             coach: vipCoach || b.coach_name || null,
+            classDate: b.class_date || null,
           }];
         })
       );
@@ -177,6 +179,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
           id: run.id,
           member_name: capitalizeName(run.member_name) || run.member_name,
           purchase_date: purchaseDate,
+          class_date: bookingInfo?.classDate || null,
           membership_type: run.result,
           commission_amount: run.commission_amount || 0,
           intro_owner: capitalizeName(run.intro_owner || run.ran_by || run.sa_name),
@@ -198,6 +201,7 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
           id: sale.id,
           member_name: capitalizeName(sale.member_name) || sale.member_name,
           purchase_date: purchaseDate,
+          class_date: null,
           membership_type: sale.membership_type,
           commission_amount: sale.commission_amount || 0,
           intro_owner: capitalizeName(sale.intro_owner),
@@ -404,7 +408,12 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                       )}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {parseLocalDate(purchase.purchase_date).toLocaleDateString()}
+                      <div>{parseLocalDate(purchase.purchase_date).toLocaleDateString()}</div>
+                      {purchase.class_date && purchase.class_date !== purchase.purchase_date && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          Class {parseLocalDate(purchase.class_date).toLocaleDateString()}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getMembershipBadgeVariant(purchase.membership_type)}>

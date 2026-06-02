@@ -9,6 +9,7 @@ export interface AttribIntro {
   bookingId: string;
   member: string;
   classDate: string | null;
+  buyDate?: string | null;   // sale buy_date — when set and != classDate, show both
   source: string | null;
   resultLabel: string;       // see labelForRun()
   via?: 'direct' | '2nd_intro';
@@ -92,7 +93,21 @@ export function CoachAttributionDrillDown({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold truncate">{i.member}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {i.classDate ? format(parseLocalDate(i.classDate), 'MMM d') : '—'}
+                      {(() => {
+                        const cd = i.classDate;
+                        const bd = i.buyDate;
+                        const sameOrNoBuy = !bd || !cd || bd === cd;
+                        if (sameOrNoBuy) {
+                          return cd ? format(parseLocalDate(cd), 'MMM d') : '—';
+                        }
+                        return (
+                          <>
+                            <span>Class {format(parseLocalDate(cd), 'MMM d')}</span>
+                            {' · '}
+                            <span className="text-foreground font-medium">Bought {format(parseLocalDate(bd), 'MMM d')}</span>
+                          </>
+                        );
+                      })()}
                       {i.source && <> · {i.source}</>}
                       {i.via === '2nd_intro' && <> · <span className="text-primary font-semibold">via 2nd intro</span></>}
                     </p>
