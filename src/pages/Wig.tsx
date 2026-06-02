@@ -723,6 +723,7 @@ export default function Wig() {
             bookingId: root.id,
             member: root.member_name || linked.member_name || 'Unknown',
             classDate: root.class_date || null,
+            buyDate: r.buy_date || null,
             source: root.lead_source || null,
             resultLabel: 'SALE',
             via: isViaSecond ? '2nd_intro' : 'direct',
