@@ -24,7 +24,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, ChevronLeft, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -639,6 +639,16 @@ export default function VipAvailability() {
       </div>
 
       <div className="max-w-5xl mx-auto p-4 space-y-4">
+        {/* Pick First, Then Share callout */}
+        <div className="rounded-lg border-l-4 border-brand bg-card p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-brand flex-shrink-0 mt-0.5" />
+            <p className="text-sm font-semibold text-foreground leading-relaxed">
+              Pick your time first. Once you choose a timeslot that works for your group, we'll build you a private link to share with the members of your group. That link will provide us with the information we need to book them into the class and set up their heart rate monitors.
+            </p>
+          </div>
+        </div>
+
         {/* Navigation — week on mobile, month on desktop */}
         {useWeekView ? (
           <div className="flex items-center gap-2">
