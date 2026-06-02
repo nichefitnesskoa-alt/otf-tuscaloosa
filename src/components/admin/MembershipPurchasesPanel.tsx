@@ -408,7 +408,12 @@ export default function MembershipPurchasesPanel({ externalDateRange }: Membersh
                       )}
                     </TableCell>
                     <TableCell className="text-xs">
-                      {parseLocalDate(purchase.purchase_date).toLocaleDateString()}
+                      <div>{parseLocalDate(purchase.purchase_date).toLocaleDateString()}</div>
+                      {purchase.class_date && purchase.class_date !== purchase.purchase_date && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          Class {parseLocalDate(purchase.class_date).toLocaleDateString()}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getMembershipBadgeVariant(purchase.membership_type)}>
