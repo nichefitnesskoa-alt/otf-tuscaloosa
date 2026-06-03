@@ -47,6 +47,15 @@ export interface OutcomeUpdateParams {
   followUpCategory?: string;
   /** Whether the SA asked the friend referral question on sale */
   friendReferralAsked?: boolean;
+  /**
+   * NO_SHOW-only follow-up disposition. When true, the booking is
+   * dismissed from the follow-up queue (no further texts/reminders)
+   * while remaining a NO_SHOW everywhere counts are taken — outcome
+   * canon, intros-ran, close rate, sales logic all unchanged. Reversible:
+   * when undefined/false on a NO_SHOW write, followup_dismissed_at is
+   * cleared so the no-show returns to the queue.
+   */
+  dismissFollowUp?: boolean;
 }
 
 export interface OutcomeUpdateResult {
@@ -243,6 +252,18 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .maybeSingle();
       oldBookingStatus = bk?.booking_status || null;
 
+      // Resolve no-show follow-up disposition (reversible).
+      // When dismissFollowUp is true on a NO_SHOW write → suppress queue.
+      // When NO_SHOW write WITHOUT dismissFollowUp → clear suppression
+      // so the no-show returns to the queue. For non-NO_SHOW outcomes the
+      // field is left untouched (other outcomes have their own queue logic).
+      let dismissedAtPatch: { followup_dismissed_at: string | null } | {} = {};
+      if (isNowNoShow) {
+        dismissedAtPatch = {
+          followup_dismissed_at: params.dismissFollowUp ? new Date().toISOString() : null,
+        };
+      }
+
       await supabase.from('intros_booked').update({
         booking_status: mappedStatus,
         booking_status_canon: canonicalStatus,
@@ -251,7 +272,8 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_at: new Date().toISOString(),
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Status synced: ${params.newResult}`,
-      }).eq('id', params.bookingId);
+        ...dismissedAtPatch,
+      } as any).eq('id', params.bookingId);
     }
 
     // ── STEP 3: AMC (idempotent) — skip for COMP bookings ──
@@ -277,13 +299,20 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     let didGenerateFollowups = false;
 
     if (!isCompBooking) {
+      // NO_SHOW + dismissFollowUp → suppress queue entirely (no texts).
+      // followup_dismissed_at was already set above; also nuke any queue rows.
+      if (isNowNoShow && params.dismissFollowUp) {
+        await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
+      }
+
       // Sale or Not Interested → clear all pending follow-ups
       if (isNowSale && (wasDidntBuy || wasNoShow)) {
         await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
       }
 
       // Transition TO didn't-buy or no-show → generate follow-ups
-      if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
+      // (Skip when dismissFollowUp was set on a no-show — handled above.)
+      if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow && !(isNowNoShow && params.dismissFollowUp)) {
         const autoPersonType = isNowNoShow ? 'no_show' : 'didnt_buy';
         const personType = params.followUpCategory || autoPersonType;
         const entries = generateFollowUpEntries(
