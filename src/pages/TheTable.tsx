@@ -13,10 +13,10 @@ import { Flag, Plus, ChevronLeft, ChevronRight, ChevronDown, Settings, History, 
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDate } from '@/lib/dateUtils';
 import {
-  useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useResponses, useActionItems,
+  useCurrentMeeting, useActiveOwners, useArchitect, useOwnerEntries, useActionItems,
   useOpenCarryForward, useCurrentWeekWins, useTableClose, useLaneHealth, useTableRealtime,
   nextMondayCT,
-  type OwnerEntry, type TableOwner, type TableResponse, type TableActionItem,
+  type OwnerEntry, type TableOwner,
 } from '@/hooks/useTheTable';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import { ManageOwnersDialog } from '@/components/table/ManageOwnersDialog';
@@ -69,7 +69,7 @@ export default function TheTable() {
   const { data: owners = [] } = useActiveOwners();
   const { data: architect } = useArchitect();
   const { data: entries = [] } = useOwnerEntries(meeting?.id);
-  const { data: responses = [] } = useResponses(meeting?.id);
+  
   const { data: actions = [] } = useActionItems(meeting?.id);
   const { data: carryForward = [] } = useOpenCarryForward(meeting?.id);
   const { data: wins = [] } = useCurrentWeekWins(meeting?.meeting_date);
@@ -80,7 +80,7 @@ export default function TheTable() {
   const [manageOpen, setManageOpen] = useState(false);
   const [winOpen, setWinOpen] = useState(false);
   const [winText, setWinText] = useState('');
-  const [actionDialog, setActionDialog] = useState<{ responseId: string; defaultDesc: string } | null>(null);
+  
 
   // Self owner records (one row per lane). Architect doesn't appear here, so Koa never has any.
   const myOwners = owners.filter(o => o.display_name === user?.name);
@@ -297,52 +297,6 @@ export default function TheTable() {
     </>
   );
 
-  // ---------- Live meeting view (stacked, everyone visible) ----------
-  const submittedOwners = owners.filter(o => entries.some(e => e.owner_id === o.id && e.submitted_at));
-
-  const liveView = submittedOwners.length === 0 ? (
-    <Card className="p-8 text-center text-muted-foreground">No Owners have locked in updates yet.</Card>
-  ) : (
-    <>
-      <Card className="p-4 mb-4 bg-muted/40">
-        <div className="text-sm font-semibold mb-3">How to respond</div>
-        <div className="space-y-2 text-sm">
-          <div className="flex gap-2">
-            <Badge className="bg-success shrink-0">Add</Badge>
-            <div><span className="font-semibold">Add to the idea.</span> Stack your thinking on top of theirs — new angle, missing context, or a way to make it stronger.</div>
-          </div>
-          <div className="flex gap-2">
-            <Badge className="bg-danger shrink-0">Flag</Badge>
-            <div><span className="font-semibold">Name a risk.</span> Say what could go wrong, what's missing, or what concerns you. Surface it now so we can fix it.</div>
-          </div>
-          <div className="flex gap-2">
-            <Badge className="bg-brand shrink-0">Own It</Badge>
-            <div><span className="font-semibold">Commit to do something.</span> Volunteer a specific action you'll take. Ends up as an Action Item with your name on it.</div>
-          </div>
-        </div>
-      </Card>
-
-      {submittedOwners.map(o => {
-        const entry = entries.find(e => e.owner_id === o.id);
-        if (!entry) return null;
-        const ownerResponses = responses.filter(r => r.owner_entry_id === entry.id);
-        return (
-          <OwnerLiveCard
-            key={o.id}
-            owner={o}
-            entry={entry}
-            ownerResponses={ownerResponses}
-            actions={actions}
-            isAdmin={isAdmin}
-            currentUserName={user?.name ?? null}
-            allOwners={owners}
-            meetingId={meeting.id}
-            onOpenAction={(rid, desc) => setActionDialog({ responseId: rid, defaultDesc: desc })}
-          />
-        );
-      })}
-    </>
-  );
 
   // ---------- Complete view ----------
   const completeView = (
@@ -397,12 +351,6 @@ export default function TheTable() {
 
       {/* Same layout for past / current / future — answers always visible on the page. */}
       {preMeetingView}
-      {submittedOwners.length > 0 && (
-        <div className="mt-6">
-          <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Live discussion</div>
-          {liveView}
-        </div>
-      )}
       {(actions.length > 0 || isAdmin) && (
         <div className="mt-6">
           <div className="text-xs uppercase font-semibold text-muted-foreground mb-2">Action items & close</div>
@@ -436,15 +384,6 @@ export default function TheTable() {
         </DialogContent>
       </Dialog>
 
-      {/* Action item from Own It */}
-      {actionDialog && (
-        <ActionItemDialog
-          meetingId={meeting.id}
-          responseId={actionDialog.responseId}
-          defaultDesc={actionDialog.defaultDesc}
-          onClose={() => { setActionDialog(null); refresh('table-actions'); }}
-        />
-      )}
     </div>
   );
 }
@@ -686,15 +625,6 @@ function PeerEntry({ entry }: { entry: OwnerEntry }) {
   );
 }
 
-function EntryFieldMention({ label, value, viewerName }: { label: string; value: string | null; viewerName: string | null }) {
-  if (!value) return <div className="text-muted-foreground italic text-xs">{label}: —</div>;
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
-      <div className="text-sm"><MentionText text={value} viewerName={viewerName} /></div>
-    </div>
-  );
-}
 
 function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
   meetingId: string; ownerId: string; entry?: OwnerEntry; onChange: () => void;
@@ -806,41 +736,6 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
   );
 }
 
-function ActionItemDialog({ meetingId, responseId, defaultDesc, onClose }: {
-  meetingId: string; responseId: string; defaultDesc: string; onClose: () => void;
-}) {
-  const { staff } = useActiveStaff();
-  const [staffId, setStaffId] = useState('');
-  const [desc, setDesc] = useState(defaultDesc);
-  const [due, setDue] = useState(() => format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd'));
-
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Turn into action item</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-          <Select value={staffId} onValueChange={setStaffId}>
-            <SelectTrigger><SelectValue placeholder="Assign to…" /></SelectTrigger>
-            <SelectContent>{staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-          </Select>
-          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-          <Button className="w-full bg-brand hover:bg-brand-hover" onClick={async () => {
-            const owner = staff.find(s => s.id === staffId);
-            if (!owner) return;
-            await supabase.from('table_action_items').insert({
-              meeting_id: meetingId, source_response_id: responseId,
-              owner_staff_id: owner.id, owner_name: owner.name,
-              description: desc, due_date: due, status: 'open', created_by: 'admin',
-            });
-            toast.success('Action item created');
-            onClose();
-          }}>Create</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
   meetingId: string; closeRow: any; wins: any[]; onChange: () => void;
@@ -931,112 +826,3 @@ function CollapsibleUpdateCard({ laneName, locked, children }: {
   );
 }
 
-// One stacked card per submitted owner during live discussion. Anyone can
-// post an Add / Flag / Own It to any owner's feed — no carousel.
-function OwnerLiveCard({
-  owner, entry, ownerResponses, actions, isAdmin, currentUserName, allOwners, meetingId, onOpenAction,
-}: {
-  owner: TableOwner;
-  entry: OwnerEntry;
-  ownerResponses: TableResponse[];
-  actions: TableActionItem[];
-  isAdmin: boolean;
-  currentUserName: string | null;
-  allOwners: TableOwner[];
-  meetingId: string;
-  onOpenAction: (responseId: string, defaultDesc: string) => void;
-}) {
-  const [mode, setMode] = useState<'add' | 'flag' | 'own_it' | null>(null);
-  const [text, setText] = useState('');
-
-  const submit = async () => {
-    if (!mode || !text.trim() || !currentUserName) return;
-    const me = allOwners.find(o => o.display_name === currentUserName);
-    const { error } = await supabase.from('table_responses').insert({
-      meeting_id: meetingId,
-      owner_entry_id: entry.id,
-      responder_staff_id: me?.staff_id ?? null,
-      responder_name: currentUserName,
-      mode,
-      content: text.trim(),
-      created_by: currentUserName,
-    });
-    if (error) { toast.error(error.message); return; }
-    setText(''); setMode(null);
-  };
-
-  return (
-    <Card className="p-4 mb-4">
-      <div className="mb-3">
-        <div className="text-xl font-bold">{owner.display_name}</div>
-        <div className="text-sm text-muted-foreground">{owner.lane_name || 'Ownership role unassigned'}</div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4">
-        <EntryFieldMention label="Last week" value={entry.last_week_update} viewerName={currentUserName} />
-        <EntryFieldMention label="This week" value={entry.this_week_focus} viewerName={currentUserName} />
-        <EntryFieldMention label="Ideas" value={entry.ideas} viewerName={currentUserName} />
-        <EntryFieldMention label="Ask of the room" value={entry.ask} viewerName={currentUserName} />
-      </div>
-
-      <div className="flex gap-2 mb-3 flex-wrap">
-        <Button size="sm" className="bg-success hover:bg-success" onClick={() => setMode('add')}>Add</Button>
-        <Button size="sm" className="bg-danger hover:bg-danger" onClick={() => setMode('flag')}>Flag</Button>
-        <Button size="sm" className="bg-brand hover:bg-brand-hover" onClick={() => setMode('own_it')}>Own It</Button>
-      </div>
-      {mode && (
-        <div className="mb-3 flex gap-2 items-start">
-          <div className="flex-1">
-            <MentionInput
-              variant="input"
-              autoFocus
-              value={text}
-              onChange={setText}
-              placeholder={`Add a ${mode === 'own_it' ? 'commitment' : mode}… (type @ to tag)`}
-              onKeyDown={(e: any) => e.key === 'Enter' && submit()}
-            />
-            <div className="text-[11px] text-muted-foreground mt-1">
-              {mode === 'add' && 'Add — stack on the idea, add a missing angle.'}
-              {mode === 'flag' && 'Flag — name a risk or what could go wrong.'}
-              {mode === 'own_it' && "Own It — commit to a specific action you'll take."}
-            </div>
-          </div>
-          <Button onClick={submit}>Post</Button>
-          <Button variant="ghost" onClick={() => { setMode(null); setText(''); }}>Cancel</Button>
-        </div>
-      )}
-      <div className="space-y-2">
-        {ownerResponses.map(r => {
-          const linkedAction = actions.find(a => a.source_response_id === r.id);
-          const modeLabel = r.mode === 'add' ? 'Add' : r.mode === 'flag' ? 'Flag' : 'Own It';
-          return (
-            <div key={r.id} className="border rounded-md p-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Badge className={cn(
-                  r.mode === 'add' && 'bg-success',
-                  r.mode === 'flag' && 'bg-danger',
-                  r.mode === 'own_it' && 'bg-brand',
-                )}>{modeLabel}</Badge>
-                <span className="font-medium">{r.responder_name}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{format(new Date(r.created_at), 'p')}</span>
-              </div>
-              <div className="text-sm mt-1"><MentionText text={r.content} viewerName={currentUserName} /></div>
-              {r.mode === 'own_it' && !linkedAction && isAdmin && (
-                <Button size="sm" variant="outline" className="mt-2" onClick={() => onOpenAction(r.id, r.content)}>
-                  <Plus className="w-3 h-3 mr-1" /> Turn this into an action item
-                </Button>
-              )}
-              {linkedAction && (
-                <div className="mt-2 text-xs bg-muted p-2 rounded">
-                  Action: {linkedAction.owner_name} · due {format(new Date(linkedAction.due_date + 'T12:00:00'), 'MMM d')} · {linkedAction.status}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {ownerResponses.length === 0 && (
-          <div className="text-sm text-muted-foreground text-center py-3">No responses yet. Add, Flag, or Own It.</div>
-        )}
-      </div>
-    </Card>
-  );
-}
