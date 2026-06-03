@@ -252,6 +252,18 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         .maybeSingle();
       oldBookingStatus = bk?.booking_status || null;
 
+      // Resolve no-show follow-up disposition (reversible).
+      // When dismissFollowUp is true on a NO_SHOW write → suppress queue.
+      // When NO_SHOW write WITHOUT dismissFollowUp → clear suppression
+      // so the no-show returns to the queue. For non-NO_SHOW outcomes the
+      // field is left untouched (other outcomes have their own queue logic).
+      let dismissedAtPatch: { followup_dismissed_at: string | null } | {} = {};
+      if (isNowNoShow) {
+        dismissedAtPatch = {
+          followup_dismissed_at: params.dismissFollowUp ? new Date().toISOString() : null,
+        };
+      }
+
       await supabase.from('intros_booked').update({
         booking_status: mappedStatus,
         booking_status_canon: canonicalStatus,
@@ -260,7 +272,8 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
         last_edited_at: new Date().toISOString(),
         last_edited_by: params.editedBy,
         edit_reason: params.editReason || `Status synced: ${params.newResult}`,
-      }).eq('id', params.bookingId);
+        ...dismissedAtPatch,
+      } as any).eq('id', params.bookingId);
     }
 
     // ── STEP 3: AMC (idempotent) — skip for COMP bookings ──
