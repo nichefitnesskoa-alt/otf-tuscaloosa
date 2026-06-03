@@ -15,7 +15,7 @@ const cases: Array<[string | null, string, string, boolean]> = [
   ['FOLLOW_UP', '', 'Follow-Up', false],
   ['PLANNING_TO_BUY', '', 'Planning to Buy', false],
   ['ON_5_CLASS_PACK', '5 class pack', '5 Class Pack', false],
-  ['NOT_INTERESTED', '', 'Not Interested', false],
+  ['NOT_INTERESTED', '', 'Showed Up - Not Interested', false],
   ['NO_SHOW', '', 'No Show', false],
   ['VIP_CLASS_INTRO', '', 'VIP Intro', false],
   ['UNRESOLVED', '', 'Unresolved', false],
