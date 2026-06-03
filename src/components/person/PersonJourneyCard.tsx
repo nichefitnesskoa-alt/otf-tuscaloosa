@@ -114,6 +114,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [scorecards, setScorecards] = useState<ScorecardLite[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
