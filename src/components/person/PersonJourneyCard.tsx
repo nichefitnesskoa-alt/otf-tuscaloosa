@@ -188,6 +188,13 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
     return flat;
   }, [bookings]);
 
+  const visibleOrderedBookings = useMemo(() => {
+    return orderedBookings.filter(({ booking }) => {
+      if (showDeleted) return true;
+      return !isBookingExcludedFromMetrics(booking);
+    });
+  }, [orderedBookings, showDeleted]);
+
   const runsByBooking = useMemo(() => {
     const m = new Map<string, RunRow[]>();
     for (const r of runs) {
