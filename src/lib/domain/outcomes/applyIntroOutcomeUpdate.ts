@@ -299,13 +299,20 @@ export async function applyIntroOutcomeUpdate(params: OutcomeUpdateParams): Prom
     let didGenerateFollowups = false;
 
     if (!isCompBooking) {
+      // NO_SHOW + dismissFollowUp → suppress queue entirely (no texts).
+      // followup_dismissed_at was already set above; also nuke any queue rows.
+      if (isNowNoShow && params.dismissFollowUp) {
+        await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
+      }
+
       // Sale or Not Interested → clear all pending follow-ups
       if (isNowSale && (wasDidntBuy || wasNoShow)) {
         await supabase.from('follow_up_queue').delete().eq('booking_id', params.bookingId);
       }
 
       // Transition TO didn't-buy or no-show → generate follow-ups
-      if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow) {
+      // (Skip when dismissFollowUp was set on a no-show — handled above.)
+      if ((isNowDidntBuy || isNowNoShow) && !wasDidntBuy && !wasNoShow && !(isNowNoShow && params.dismissFollowUp)) {
         const autoPersonType = isNowNoShow ? 'no_show' : 'didnt_buy';
         const personType = params.followUpCategory || autoPersonType;
         const entries = generateFollowUpEntries(
