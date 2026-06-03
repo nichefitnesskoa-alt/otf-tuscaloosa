@@ -644,7 +644,7 @@ export default function VipAvailability() {
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-brand flex-shrink-0 mt-0.5" />
             <p className="text-sm font-semibold text-foreground leading-relaxed">
-              Pick your time first. Once you choose a timeslot that works for your group, we'll build you a private link to share with the members of your group. That link will provide us with the information we need to book them into the class and set up their heart rate monitors.
+              Pick your time first. Once you choose a timeslot that works for your group, it will automatically generate a link to share with the members of your group. That link will provide us with the information we need to book them into the class and set up their heart rate monitors.
             </p>
           </div>
         </div>
