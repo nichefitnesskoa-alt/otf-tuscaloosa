@@ -389,7 +389,7 @@ export default function IntroRowCard({
     if (r === 'Booked 2nd intro') return '2nd Intro Planned';
     if (r === 'Planning to Book 2nd Intro') return '2nd Intro Planned';
     if (r === 'Follow-up needed') return 'Follow-Up';
-    if (r === 'Not interested') return 'Not Interested';
+    if (r === 'Not interested') return 'Showed Up - Not Interested';
     if (r === 'Planning to Reschedule') return 'Reschedule';
     return r;
   })() : null;
