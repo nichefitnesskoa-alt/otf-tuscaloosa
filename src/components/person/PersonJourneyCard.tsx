@@ -311,12 +311,17 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       )}
-      {!loading && orderedBookings.length === 0 && (
+      {!loading && totalCount === 0 && (
         <p className="text-xs text-muted-foreground py-6 text-center">
           No intros found for this person.
         </p>
       )}
-      {!loading && orderedBookings.map(({ booking, isSecondIntro, chainIdx }) => (
+      {!loading && totalCount > 0 && visibleCount === 0 && (
+        <p className="text-xs text-muted-foreground py-6 text-center">
+          All {totalCount} intro{totalCount === 1 ? '' : 's'} for this person are hidden (soft-deleted or excluded).
+        </p>
+      )}
+      {!loading && visibleOrderedBookings.map(({ booking, isSecondIntro, chainIdx }) => (
         <IntroNode
           key={booking.id}
           booking={booking}
@@ -329,6 +334,18 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           onChanged={reload}
         />
       ))}
+      {!loading && deletedCount > 0 && isAdmin && (
+        <div className="flex justify-center pt-1 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-[10px] text-muted-foreground hover:text-foreground h-7"
+            onClick={() => setShowDeleted(v => !v)}
+          >
+            {showDeleted ? 'Hide deleted' : `Show deleted (${deletedCount})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 
