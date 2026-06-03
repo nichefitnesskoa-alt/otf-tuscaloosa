@@ -47,6 +47,15 @@ export interface OutcomeUpdateParams {
   followUpCategory?: string;
   /** Whether the SA asked the friend referral question on sale */
   friendReferralAsked?: boolean;
+  /**
+   * NO_SHOW-only follow-up disposition. When true, the booking is
+   * dismissed from the follow-up queue (no further texts/reminders)
+   * while remaining a NO_SHOW everywhere counts are taken — outcome
+   * canon, intros-ran, close rate, sales logic all unchanged. Reversible:
+   * when undefined/false on a NO_SHOW write, followup_dismissed_at is
+   * cleared so the no-show returns to the queue.
+   */
+  dismissFollowUp?: boolean;
 }
 
 export interface OutcomeUpdateResult {
