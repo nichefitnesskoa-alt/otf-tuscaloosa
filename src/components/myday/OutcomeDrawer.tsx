@@ -124,6 +124,9 @@ export function OutcomeDrawer({
   const [coachName, setCoachName] = useState(initialCoach);
   const [saving, setSaving] = useState(false);
   const [followUpCategory, setFollowUpCategory] = useState('');
+  // No-show-only: "Not interested — no follow-up" disposition.
+  // Stays NO_SHOW everywhere counted; just suppresses the follow-up queue/texts.
+  const [dismissNoShowFollowUp, setDismissNoShowFollowUp] = useState(false);
 
   // Friend referral post-sale state
   const [showFriendPrompt, setShowFriendPrompt] = useState(false);
