@@ -218,28 +218,13 @@ export default function TheTable() {
     <>
       {/* Studio Leader — Architect (separate from Owner grid) */}
       {architect && (
-        <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader — Architect</div>
-              <div className="text-lg font-bold">{architect.display_name}</div>
-            </div>
-          </div>
-          <label className="text-xs font-semibold block mb-1 mt-2">Open note</label>
-          {isArchitectViewer ? (
-            <Textarea
-              defaultValue={meeting.koa_open_note ?? ''}
-              placeholder="How are you opening this meeting?"
-              onBlur={async (e) => {
-                await supabase.from('table_meetings').update({ koa_open_note: e.target.value }).eq('id', meeting.id);
-                qc.invalidateQueries({ queryKey: ['table-meeting'] });
-              }}
-              className="min-h-[80px]"
-            />
-          ) : (
-            <p className="text-sm whitespace-pre-wrap">{meeting.koa_open_note || <span className="italic text-muted-foreground">Not yet shared.</span>}</p>
-          )}
-        </Card>
+        <ArchitectOpenNote
+          meetingId={meeting.id}
+          architectName={architect.display_name}
+          initialNote={meeting.koa_open_note ?? ''}
+          canEdit={isArchitectViewer}
+          onSaved={() => qc.invalidateQueries({ queryKey: ['table-meeting'] })}
+        />
       )}
 
       {/* Self-serve lanes manager — any staff member can claim/change/add their lanes */}
@@ -303,40 +288,25 @@ export default function TheTable() {
     <>
       <Card className="p-4 mb-4">
         <div className="font-semibold mb-2">Action items ({actions.length})</div>
-        {actions.length === 0 && <div className="text-sm text-muted-foreground">No action items.</div>}
+        {actions.length === 0 && <div className="text-sm text-muted-foreground mb-2">No action items yet.</div>}
         <div className="space-y-1">
-          {actions.map(a => {
-            const dueDate = parseLocalDate(a.due_date);
-            const overdue = a.status !== 'done' && dueDate ? dueDate < new Date() : false;
-            return (
-              <div key={a.id} className="flex items-center justify-between gap-2 text-sm border-b last:border-0 py-2">
-                <div className="flex-1">
-                  <div className="font-medium">{a.owner_name}</div>
-                  <div className="text-muted-foreground">{a.description}</div>
-                </div>
-                <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
-                  {dueDate ? format(dueDate, 'MMM d') : ''}
-                </div>
-                <Select value={a.status} onValueChange={async (v) => {
-                  await supabase.from('table_action_items').update({ status: v }).eq('id', a.id);
-                  refresh('table-actions');
-                }}>
-                  <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In progress</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            );
-          })}
+          {actions.map(a => (
+            <ActionItemRow
+              key={a.id}
+              item={a}
+              onChanged={() => refresh('table-actions')}
+            />
+          ))}
         </div>
+        <AddActionItemForm
+          meetingId={meeting.id}
+          createdBy={user?.name ?? 'system'}
+          onAdded={() => refresh('table-actions')}
+        />
       </Card>
-
-      {isAdmin && <KoaCloseSection meetingId={meeting.id} closeRow={closeRow} wins={wins} onChange={() => refresh('table-close')} />}
     </>
   );
+
 
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
@@ -737,90 +707,211 @@ function OwnerEntryForm({ meetingId, ownerId, entry, onChange }: {
 }
 
 
-function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
-  meetingId: string; closeRow: any; wins: any[]; onChange: () => void;
+function ArchitectOpenNote({ meetingId, architectName, initialNote, canEdit, onSaved }: {
+  meetingId: string; architectName: string; initialNote: string; canEdit: boolean; onSaved: () => void;
 }) {
-  const [note, setNote] = useState(closeRow?.koa_close_note ?? '');
-  const [word, setWord] = useState(closeRow?.energy_word ?? '');
+  const [note, setNote] = useState(initialNote);
   const [preview, setPreview] = useState(false);
-  const selected: string[] = closeRow?.wins_selected ?? [];
 
-  useEffect(() => {
-    setNote(closeRow?.koa_close_note ?? '');
-    setWord(closeRow?.energy_word ?? '');
-  }, [closeRow]);
+  useEffect(() => { setNote(initialNote); }, [initialNote]);
 
-  const upsert = async (patch: any) => {
-    if (closeRow) {
-      await supabase.from('table_closes').update(patch).eq('id', closeRow.id);
-    } else {
-      await supabase.from('table_closes').insert({ meeting_id: meetingId, ...patch, created_by: 'admin' });
-    }
-    onChange();
-  };
-
-  const toggleWin = (id: string) => {
-    const next = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
-    upsert({ wins_selected: next });
-    supabase.from('table_wins').update({ included_in_close: !selected.includes(id) }).eq('id', id);
+  const save = async (val: string) => {
+    await supabase.from('table_meetings').update({ koa_open_note: val }).eq('id', meetingId);
+    onSaved();
   };
 
   return (
     <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader Close</div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (preview) { setPreview(false); }
-            else { upsert({ koa_close_note: note }); setPreview(true); }
-          }}
-          className="h-7 text-xs"
-        >
-          {preview ? <><Pencil className="w-3 h-3 mr-1" /> Edit</> : 'Preview'}
-        </Button>
-      </div>
-      <div className="font-semibold mb-3">Architect's wrap</div>
-      {preview ? (
-        <div className="min-h-[80px] mb-3 p-3 rounded-md border bg-background/40 whitespace-pre-wrap text-sm">
-          {note?.trim()
-            ? <MentionText text={note} />
-            : <span className="text-muted-foreground italic">Nothing written yet.</span>}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader — Architect</div>
+          <div className="text-lg font-bold">{architectName}</div>
         </div>
-      ) : (
+        {canEdit && (
+          <Button
+            type="button" variant="outline" size="sm"
+            onClick={() => {
+              if (preview) { setPreview(false); }
+              else { save(note); setPreview(true); }
+            }}
+            className="h-7 text-xs"
+          >
+            {preview ? <><Pencil className="w-3 h-3 mr-1" /> Edit</> : 'Preview'}
+          </Button>
+        )}
+      </div>
+      <label className="text-xs font-semibold block mb-1 mt-2">Open note</label>
+      {canEdit && !preview ? (
         <MentionInput
           value={note}
           onChange={setNote}
-          onBlur={() => upsert({ koa_close_note: note })}
-          placeholder="How are you closing this meeting?"
+          onBlur={() => save(note)}
+          placeholder="How are you opening this meeting?"
           variant="textarea"
-          className="min-h-[80px] mb-3 border-2"
+          className="min-h-[80px] border-2"
         />
+      ) : (
+        <div className="min-h-[80px] p-3 rounded-md border bg-background/40 whitespace-pre-wrap text-sm">
+          {note?.trim()
+            ? <MentionText text={note} />
+            : <span className="italic text-muted-foreground">Not yet shared.</span>}
+        </div>
       )}
-      <Input
-        value={word} onChange={(e) => setWord(e.target.value)}
-        onBlur={() => upsert({ energy_word: word })}
-        placeholder="Energy word" maxLength={40} className="mb-3"
-      />
-      <div className="font-semibold text-sm mb-2 mt-4">Wins this week ({wins.length})</div>
-      <div className="space-y-1 max-h-[300px] overflow-y-auto">
-        {wins.map(w => {
-          const on = selected.includes(w.id);
-          return (
-            <button key={w.id} onClick={() => toggleWin(w.id)}
-              className={cn('w-full text-left border rounded-md p-2 text-sm transition-colors', on && 'border-warning bg-warning-dim dark:bg-warning/30')}>
-              <div className="font-medium">{w.owner_name}</div>
-              <div className="text-muted-foreground">{w.content}</div>
-            </button>
-          );
-        })}
-        {wins.length === 0 && <div className="text-sm text-muted-foreground italic">No wins logged this week.</div>}
-      </div>
     </Card>
   );
 }
+
+function ActionItemRow({ item, onChanged }: { item: any; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [desc, setDesc] = useState(item.description ?? '');
+  const [due, setDue] = useState<string>(item.due_date ?? '');
+
+  useEffect(() => { setDesc(item.description ?? ''); setDue(item.due_date ?? ''); }, [item.description, item.due_date]);
+
+  const dueDate = parseLocalDate(item.due_date);
+  const overdue = item.status !== 'done' && dueDate ? dueDate < new Date() : false;
+
+  const saveField = async (patch: any) => {
+    await supabase.from('table_action_items').update(patch).eq('id', item.id);
+    onChanged();
+  };
+
+  const remove = async () => {
+    if (!confirm('Delete this action item?')) return;
+    await supabase.from('table_action_items').delete().eq('id', item.id);
+    onChanged();
+  };
+
+  if (editing) {
+    return (
+      <div className="border-b last:border-0 py-2 space-y-2">
+        <div className="text-xs font-medium text-muted-foreground">{item.owner_name}</div>
+        <Textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          className="text-sm min-h-[60px]"
+        />
+        <div className="flex items-center gap-2">
+          <Input
+            type="date" value={due}
+            onChange={(e) => setDue(e.target.value)}
+            className="h-8 text-xs w-[150px]"
+          />
+          <div className="flex-1" />
+          <Button
+            size="sm" variant="outline" className="h-8 text-xs"
+            onClick={() => { setDesc(item.description ?? ''); setDue(item.due_date ?? ''); setEditing(false); }}
+          >Cancel</Button>
+          <Button
+            size="sm" className="h-8 text-xs"
+            onClick={async () => {
+              await saveField({ description: desc, due_date: due || null });
+              setEditing(false);
+            }}
+          >Save</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm border-b last:border-0 py-2">
+      <div className="flex-1 min-w-0">
+        <div className="font-medium">{item.owner_name}</div>
+        <div className="text-muted-foreground whitespace-pre-wrap">{item.description}</div>
+      </div>
+      <div className={cn('text-xs whitespace-nowrap', overdue && 'text-danger font-semibold')}>
+        {dueDate ? format(dueDate, 'MMM d') : ''}
+      </div>
+      <Select value={item.status} onValueChange={(v) => saveField({ status: v })}>
+        <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="open">Open</SelectItem>
+          <SelectItem value="in_progress">In progress</SelectItem>
+          <SelectItem value="done">Done</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(true)} aria-label="Edit">
+        <Pencil className="w-3.5 h-3.5" />
+      </Button>
+      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-danger" onClick={remove} aria-label="Delete">
+        <X className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+}
+
+function AddActionItemForm({ meetingId, createdBy, onAdded }: {
+  meetingId: string; createdBy: string; onAdded: () => void;
+}) {
+  const { staff } = useActiveStaff();
+  const [open, setOpen] = useState(false);
+  const [ownerId, setOwnerId] = useState<string>('');
+  const [desc, setDesc] = useState('');
+  const [due, setDue] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => { setOwnerId(''); setDesc(''); setDue(''); setOpen(false); };
+
+  const submit = async () => {
+    const ownerStaff = staff.find(s => s.id === ownerId);
+    if (!ownerStaff) { toast.error('Pick an owner.'); return; }
+    if (!desc.trim()) { toast.error('Add a description.'); return; }
+    if (!due) { toast.error('Pick a due date.'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('table_action_items').insert({
+      meeting_id: meetingId,
+      owner_staff_id: ownerStaff.id,
+      owner_name: ownerStaff.name,
+      description: desc.trim(),
+      due_date: due,
+      created_by: createdBy,
+      status: 'open',
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Action item added');
+    reset();
+    onAdded();
+  };
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" className="mt-3" onClick={() => setOpen(true)}>
+        <Plus className="w-4 h-4 mr-1" /> Add action item
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-3 rounded-md border-2 border-brand/40 bg-background/40 space-y-2">
+      <div className="font-semibold text-sm">New action item</div>
+      <Select value={ownerId} onValueChange={setOwnerId}>
+        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Owner" /></SelectTrigger>
+        <SelectContent>
+          {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Textarea
+        value={desc}
+        onChange={(e) => setDesc(e.target.value)}
+        placeholder="What needs to happen?"
+        className="text-sm min-h-[60px]"
+      />
+      <div className="flex items-center gap-2">
+        <Input
+          type="date" value={due}
+          onChange={(e) => setDue(e.target.value)}
+          className="h-9 text-xs w-[160px]"
+        />
+        <div className="flex-1" />
+        <Button size="sm" variant="outline" onClick={reset} disabled={saving}>Cancel</Button>
+        <Button size="sm" onClick={submit} disabled={saving}>{saving ? 'Saving…' : 'Add'}</Button>
+      </div>
+    </div>
+  );
+}
+
 
 // Collapsible "Your update — {lane}" card. Auto-collapses once locked in;
 // chevron expands so the user can edit. Unlocked entries stay open.
