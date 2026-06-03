@@ -549,6 +549,7 @@ export function OutcomeDrawer({
         secondIntroBookingDraft,
         followUpCategory: followUpCategory || undefined,
         friendReferralAsked: false, // Will be updated after friend prompt
+        dismissFollowUp: isNoShow ? dismissNoShowFollowUp : undefined,
       });
 
       if (result.success) {
