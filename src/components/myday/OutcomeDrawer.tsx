@@ -42,7 +42,7 @@ const NON_SALE_OUTCOMES = [
   { value: 'Planning to Book 2nd Intro', label: '🟣 Planning to Book 2nd Intro' },
   { value: 'Planning to buy', label: '🛒 Planning to buy' },
   { value: 'On 5 Class Pack', label: '🎁 On 5 Class Pack' },
-  { value: 'Not interested', label: '🚫 Not interested' },
+  { value: 'Not interested', label: '🚫 Showed up - not interested' },
   { value: 'VIP Class Intro', label: '🎟️ VIP Class Intro (not expected to buy)' },
 ];
 
