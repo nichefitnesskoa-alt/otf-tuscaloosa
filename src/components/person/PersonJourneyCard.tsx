@@ -43,6 +43,7 @@ import { parseLocalDate, cn } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { computeExpectedIntroOwner, classifyIntroOwnerStatus, type IntroOwnerMismatchStatus } from '@/lib/intros/introOwnerRule';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePerson, type PersonIdentifier, type PersonResolution } from '@/lib/person/resolvePerson';
 import { updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '@/features/pipeline/pipelineActions';
 import { isCloseRun } from '@/lib/intros/close-detection';
@@ -113,6 +114,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [scorecards, setScorecards] = useState<ScorecardLite[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -186,6 +188,13 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
     return flat;
   }, [bookings]);
 
+  const visibleOrderedBookings = useMemo(() => {
+    return orderedBookings.filter(({ booking }) => {
+      if (showDeleted) return true;
+      return !isBookingExcludedFromMetrics(booking);
+    });
+  }, [orderedBookings, showDeleted]);
+
   const runsByBooking = useMemo(() => {
     const m = new Map<string, RunRow[]>();
     for (const r of runs) {
@@ -208,7 +217,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
   // Mismatch tallies for the header strip.
   const mismatchSummary = useMemo(() => {
     let unlocked = 0, locked = 0, matches = 0, unowned = 0;
-    for (const { booking } of orderedBookings) {
+    for (const { booking } of visibleOrderedBookings) {
       const originatingOwner = booking.originating_booking_id
         ? (bookings.find(b => b.id === booking.originating_booking_id)?.intro_owner || null)
         : null;
@@ -229,11 +238,15 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
       else unowned++;
     }
     return { unlocked, locked, matches, unowned };
-  }, [orderedBookings, bookings]);
+  }, [visibleOrderedBookings, bookings]);
 
   const person = resolution?.identity;
   const phoneDisplay = formatPhoneDisplay(person?.phone10 || null);
   const headerName = orderedBookings[0]?.booking.member_name || person?.name || 'Unknown person';
+  const isAdmin = user?.name === 'Koa';
+  const deletedCount = orderedBookings.filter(({ booking }) => isBookingExcludedFromMetrics(booking)).length;
+  const visibleCount = visibleOrderedBookings.length;
+  const totalCount = orderedBookings.length;
 
   const Header = (
     <div className="space-y-1.5">
@@ -258,9 +271,12 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           </span>
         )}
         <span>·</span>
-        <span>{orderedBookings.length} intro{orderedBookings.length === 1 ? '' : 's'}</span>
+        <span>
+          {visibleCount} intro{visibleCount === 1 ? '' : 's'}
+          {deletedCount > 0 && !showDeleted && <span className="text-muted-foreground/60"> ({deletedCount} hidden)</span>}
+        </span>
       </div>
-      {orderedBookings.length > 0 && (
+      {visibleOrderedBookings.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
           <span className="text-muted-foreground">Attribution:</span>
           {mismatchSummary.matches > 0 && (
@@ -295,12 +311,17 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       )}
-      {!loading && orderedBookings.length === 0 && (
+      {!loading && totalCount === 0 && (
         <p className="text-xs text-muted-foreground py-6 text-center">
           No intros found for this person.
         </p>
       )}
-      {!loading && orderedBookings.map(({ booking, isSecondIntro, chainIdx }) => (
+      {!loading && totalCount > 0 && visibleCount === 0 && (
+        <p className="text-xs text-muted-foreground py-6 text-center">
+          All {totalCount} intro{totalCount === 1 ? '' : 's'} for this person are hidden (soft-deleted or excluded).
+        </p>
+      )}
+      {!loading && visibleOrderedBookings.map(({ booking, isSecondIntro, chainIdx }) => (
         <IntroNode
           key={booking.id}
           booking={booking}
@@ -313,6 +334,18 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           onChanged={reload}
         />
       ))}
+      {!loading && deletedCount > 0 && isAdmin && (
+        <div className="flex justify-center pt-1 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-[10px] text-muted-foreground hover:text-foreground h-7"
+            onClick={() => setShowDeleted(v => !v)}
+          >
+            {showDeleted ? 'Hide deleted' : `Show deleted (${deletedCount})`}
+          </Button>
+        </div>
+      )}
     </div>
   );
 
