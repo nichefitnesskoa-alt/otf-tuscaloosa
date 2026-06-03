@@ -217,7 +217,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
   // Mismatch tallies for the header strip.
   const mismatchSummary = useMemo(() => {
     let unlocked = 0, locked = 0, matches = 0, unowned = 0;
-    for (const { booking } of orderedBookings) {
+    for (const { booking } of visibleOrderedBookings) {
       const originatingOwner = booking.originating_booking_id
         ? (bookings.find(b => b.id === booking.originating_booking_id)?.intro_owner || null)
         : null;
@@ -238,7 +238,7 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
       else unowned++;
     }
     return { unlocked, locked, matches, unowned };
-  }, [orderedBookings, bookings]);
+  }, [visibleOrderedBookings, bookings]);
 
   const person = resolution?.identity;
   const phoneDisplay = formatPhoneDisplay(person?.phone10 || null);
