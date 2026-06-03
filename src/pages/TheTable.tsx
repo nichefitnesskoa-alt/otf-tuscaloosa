@@ -218,28 +218,13 @@ export default function TheTable() {
     <>
       {/* Studio Leader — Architect (separate from Owner grid) */}
       {architect && (
-        <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader — Architect</div>
-              <div className="text-lg font-bold">{architect.display_name}</div>
-            </div>
-          </div>
-          <label className="text-xs font-semibold block mb-1 mt-2">Open note</label>
-          {isArchitectViewer ? (
-            <Textarea
-              defaultValue={meeting.koa_open_note ?? ''}
-              placeholder="How are you opening this meeting?"
-              onBlur={async (e) => {
-                await supabase.from('table_meetings').update({ koa_open_note: e.target.value }).eq('id', meeting.id);
-                qc.invalidateQueries({ queryKey: ['table-meeting'] });
-              }}
-              className="min-h-[80px]"
-            />
-          ) : (
-            <p className="text-sm whitespace-pre-wrap">{meeting.koa_open_note || <span className="italic text-muted-foreground">Not yet shared.</span>}</p>
-          )}
-        </Card>
+        <ArchitectOpenNote
+          meetingId={meeting.id}
+          architectName={architect.display_name}
+          initialNote={meeting.koa_open_note ?? ''}
+          canEdit={isArchitectViewer}
+          onSaved={() => qc.invalidateQueries({ queryKey: ['table-meeting'] })}
+        />
       )}
 
       {/* Self-serve lanes manager — any staff member can claim/change/add their lanes */}
