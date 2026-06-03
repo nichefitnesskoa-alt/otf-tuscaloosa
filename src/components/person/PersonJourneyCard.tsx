@@ -243,6 +243,10 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
   const person = resolution?.identity;
   const phoneDisplay = formatPhoneDisplay(person?.phone10 || null);
   const headerName = orderedBookings[0]?.booking.member_name || person?.name || 'Unknown person';
+  const isAdmin = user?.name === 'Koa';
+  const deletedCount = orderedBookings.filter(({ booking }) => isBookingExcludedFromMetrics(booking)).length;
+  const visibleCount = visibleOrderedBookings.length;
+  const totalCount = orderedBookings.length;
 
   const Header = (
     <div className="space-y-1.5">
@@ -267,9 +271,12 @@ export function PersonJourneyCard({ open, onOpenChange, identifier, scopeBadge }
           </span>
         )}
         <span>·</span>
-        <span>{orderedBookings.length} intro{orderedBookings.length === 1 ? '' : 's'}</span>
+        <span>
+          {visibleCount} intro{visibleCount === 1 ? '' : 's'}
+          {deletedCount > 0 && !showDeleted && <span className="text-muted-foreground/60"> ({deletedCount} hidden)</span>}
+        </span>
       </div>
-      {orderedBookings.length > 0 && (
+      {visibleOrderedBookings.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
           <span className="text-muted-foreground">Attribution:</span>
           {mismatchSummary.matches > 0 && (
