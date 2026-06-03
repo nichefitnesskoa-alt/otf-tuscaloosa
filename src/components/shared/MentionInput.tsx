@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, KeyboardEvent, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, KeyboardEvent, ChangeEvent } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -129,6 +129,15 @@ export function MentionInput({
 
   const Field: any = variant === 'input' ? Input : Textarea;
 
+  // Auto-grow textarea to fit content so the user never scrolls inside a tiny box.
+  useLayoutEffect(() => {
+    if (variant !== 'textarea') return;
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [text, variant, resetKey]);
+
   return (
     <div className="relative">
       <Field
@@ -138,10 +147,11 @@ export function MentionInput({
         onBlur={(e: any) => { setTimeout(() => setOpenAt(null), 150); onBlur?.(e); }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className={className}
+        className={cn(variant === 'textarea' && 'resize-none overflow-hidden', className)}
         disabled={disabled}
         autoFocus={autoFocus}
       />
+
       {openAt !== null && filtered.length > 0 && (
         <div className="absolute z-50 mt-1 w-full max-w-sm rounded-md border bg-popover shadow-lg">
           <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground border-b">
