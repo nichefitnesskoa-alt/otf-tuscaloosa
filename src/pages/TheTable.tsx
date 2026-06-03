@@ -288,40 +288,25 @@ export default function TheTable() {
     <>
       <Card className="p-4 mb-4">
         <div className="font-semibold mb-2">Action items ({actions.length})</div>
-        {actions.length === 0 && <div className="text-sm text-muted-foreground">No action items.</div>}
+        {actions.length === 0 && <div className="text-sm text-muted-foreground mb-2">No action items yet.</div>}
         <div className="space-y-1">
-          {actions.map(a => {
-            const dueDate = parseLocalDate(a.due_date);
-            const overdue = a.status !== 'done' && dueDate ? dueDate < new Date() : false;
-            return (
-              <div key={a.id} className="flex items-center justify-between gap-2 text-sm border-b last:border-0 py-2">
-                <div className="flex-1">
-                  <div className="font-medium">{a.owner_name}</div>
-                  <div className="text-muted-foreground">{a.description}</div>
-                </div>
-                <div className={cn('text-xs', overdue && 'text-danger font-semibold')}>
-                  {dueDate ? format(dueDate, 'MMM d') : ''}
-                </div>
-                <Select value={a.status} onValueChange={async (v) => {
-                  await supabase.from('table_action_items').update({ status: v }).eq('id', a.id);
-                  refresh('table-actions');
-                }}>
-                  <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In progress</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            );
-          })}
+          {actions.map(a => (
+            <ActionItemRow
+              key={a.id}
+              item={a}
+              onChanged={() => refresh('table-actions')}
+            />
+          ))}
         </div>
+        <AddActionItemForm
+          meetingId={meeting.id}
+          createdBy={user?.name ?? 'system'}
+          onAdded={() => refresh('table-actions')}
+        />
       </Card>
-
-      {isAdmin && <KoaCloseSection meetingId={meeting.id} closeRow={closeRow} wins={wins} onChange={() => refresh('table-close')} />}
     </>
   );
+
 
   return (
     <div className="p-4 max-w-4xl mx-auto pb-24">
