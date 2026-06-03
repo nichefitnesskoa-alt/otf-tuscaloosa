@@ -857,7 +857,8 @@ export default function VipAvailability() {
                         className={cn(
                           'relative border-r last:border-r-0 p-1 transition-colors text-left align-top',
                           isMobile ? 'min-h-[52px]' : 'min-h-[80px] min-w-[120px]',
-                          !day.isCurrentMonth && 'bg-muted/20',
+                          !day.isCurrentMonth && !isMobile && 'bg-muted/20',
+                          isMobile && !day.isCurrentMonth && 'invisible',
                           day.isToday && 'bg-brand-dim/50 dark:bg-brand/10',
                           isMobile && hasSlots && 'cursor-pointer hover:bg-muted/40',
                           (!hasSlots || !isMobile) && 'cursor-default'
@@ -870,9 +871,10 @@ export default function VipAvailability() {
                             isMobile ? 'w-6 h-6' : 'w-7 h-7',
                             day.isToday
                               ? 'bg-brand text-white rounded-full font-bold'
-                              : !day.isCurrentMonth
+                              : !day.isCurrentMonth && !isMobile
                                 ? 'text-muted-foreground/40'
-                                : 'text-foreground'
+                                : 'text-foreground',
+                            isMobile && !day.isCurrentMonth && 'invisible'
                           )}
                         >
                           {day.dateNum}
