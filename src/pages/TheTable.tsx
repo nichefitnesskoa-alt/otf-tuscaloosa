@@ -742,6 +742,7 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
 }) {
   const [note, setNote] = useState(closeRow?.koa_close_note ?? '');
   const [word, setWord] = useState(closeRow?.energy_word ?? '');
+  const [preview, setPreview] = useState(false);
   const selected: string[] = closeRow?.wins_selected ?? [];
 
   useEffect(() => {
@@ -766,13 +767,38 @@ function KoaCloseSection({ meetingId, closeRow, wins, onChange }: {
 
   return (
     <Card className="p-4 mb-4 border-2 border-brand/60 bg-brand/5">
-      <div className="text-[11px] uppercase tracking-wider text-brand font-bold mb-1">Studio Leader Close</div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[11px] uppercase tracking-wider text-brand font-bold">Studio Leader Close</div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (preview) { setPreview(false); }
+            else { upsert({ koa_close_note: note }); setPreview(true); }
+          }}
+          className="h-7 text-xs"
+        >
+          {preview ? <><Pencil className="w-3 h-3 mr-1" /> Edit</> : 'Preview'}
+        </Button>
+      </div>
       <div className="font-semibold mb-3">Architect's wrap</div>
-      <Textarea
-        value={note} onChange={(e) => setNote(e.target.value)}
-        onBlur={() => upsert({ koa_close_note: note })}
-        placeholder="How are you closing this meeting?" className="min-h-[80px] mb-3"
-      />
+      {preview ? (
+        <div className="min-h-[80px] mb-3 p-3 rounded-md border bg-background/40 whitespace-pre-wrap text-sm">
+          {note?.trim()
+            ? <MentionText text={note} />
+            : <span className="text-muted-foreground italic">Nothing written yet.</span>}
+        </div>
+      ) : (
+        <MentionInput
+          value={note}
+          onChange={setNote}
+          onBlur={() => upsert({ koa_close_note: note })}
+          placeholder="How are you closing this meeting?"
+          variant="textarea"
+          className="min-h-[80px] mb-3 border-2"
+        />
+      )}
       <Input
         value={word} onChange={(e) => setWord(e.target.value)}
         onBlur={() => upsert({ energy_word: word })}
