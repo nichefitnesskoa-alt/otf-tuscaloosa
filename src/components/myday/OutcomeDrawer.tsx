@@ -828,6 +828,28 @@ export function OutcomeDrawer({
         </div>
       )}
 
+      {/*
+        No-show only: retire from follow-up without changing the outcome.
+        Stays counted as a no-show (excluded from intros-ran / coached /
+        close-rate / sales). Only removes them from the queue + stops texts.
+        Reversible — unchecking on a future no-show save clears the flag.
+      */}
+      {isNoShow && (
+        <label className="flex items-start gap-2 p-3 rounded-md border bg-muted/30 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+            checked={dismissNoShowFollowUp}
+            onChange={(e) => setDismissNoShowFollowUp(e.target.checked)}
+          />
+          <span className="text-xs leading-snug">
+            <span className="font-semibold">Not interested — no follow-up.</span>{' '}
+            Removes from the follow-up queue and stops texts. Still counted
+            as a no-show everywhere (not a close, not a sale, not "not interested").
+          </span>
+        </label>
+      )}
+
       {/* Reschedule fields */}
       {/* 2nd Intro Reason + Booking Details */}
       {isBookedSecondIntro && (
