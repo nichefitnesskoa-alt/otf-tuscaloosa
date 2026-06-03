@@ -43,6 +43,7 @@ import { parseLocalDate, cn } from '@/lib/utils';
 import { formatPhoneDisplay } from '@/lib/parsing/phone';
 import { notifyDataChanged } from '@/lib/data/invalidation';
 import { computeExpectedIntroOwner, classifyIntroOwnerStatus, type IntroOwnerMismatchStatus } from '@/lib/intros/introOwnerRule';
+import { isBookingExcludedFromMetrics } from '@/lib/intros/excludedBookings';
 import { resolvePerson, type PersonIdentifier, type PersonResolution } from '@/lib/person/resolvePerson';
 import { updateBookingFieldsFromPipeline, syncIntroOwnerToBooking } from '@/features/pipeline/pipelineActions';
 import { isCloseRun } from '@/lib/intros/close-detection';
