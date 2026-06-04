@@ -348,6 +348,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <p className="text-[11px] text-muted-foreground">
             Tap a number to drill in. Tap an SA name to open their page.
           </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <strong>Leads</strong> = self-sourced only.{' '}
+            <strong>Booked</strong> = intros booked (inbound + sourced).
+            A sourced lead that books counts in both.
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           {(leads.loading || sales.loading) ? (
@@ -364,7 +369,13 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow>
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">
-                      Leads booked
+                      Leads
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        self-sourced
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs text-center">
+                      Booked
                       <div className="text-[9px] font-normal text-muted-foreground">
                         goal {leadsPeriodGoal} ({leadsTarget}/mo prorated)
                       </div>
@@ -390,6 +401,21 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                       onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
                     >
                       <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                      <TableCell className="text-sm text-center p-0">
+                        <button
+                          type="button"
+                          disabled={row.sourced === 0}
+                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
+                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                        >
+                          <div className="text-foreground font-medium">
+                            {row.sourced}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            sourced
+                          </div>
+                        </button>
+                      </TableCell>
                       <TableCell className="text-sm text-center p-0">
                         <button
                           type="button"
