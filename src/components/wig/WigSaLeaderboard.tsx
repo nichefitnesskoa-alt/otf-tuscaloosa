@@ -287,7 +287,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
             >
               <p className="text-2xl font-bold text-primary">{totals.leads}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Leads booked</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Booked</p>
               <p className="text-[10px] text-muted-foreground">team goal {teamLeadsTarget} ({rangeLabel})</p>
             </button>
           </CardContent>
