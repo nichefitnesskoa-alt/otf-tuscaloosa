@@ -38,7 +38,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
   
-  const leads = useSaLeadsBooked(rangeStart, rangeEnd);
+  const leads = useSaAllBooked(rangeStart, rangeEnd);
+  const sourcedLeads = useSaLeads(rangeStart, rangeEnd);
   const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
