@@ -235,7 +235,18 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           : undefined,
       })));
     }
-    // leads — group visually by sorting by lead_source so they cluster.
+    if (drill.bucket === 'sourced') {
+      const saRows = drill.sa ? sourcedLeads.rows.filter(r => r.sa === drill.sa) : sourcedLeads.rows;
+      return saRows.flatMap(r => r.people.map(p => ({
+        id: p.id,
+        name: p.name,
+        subtitle: `${p.source || 'Unknown source'} · ${format(new Date(p.created_at), 'MMM d')} · ${r.sa}${p.booked ? ' · booked ✓' : ' · not booked yet'}`,
+        rightLabel: p.booked ? 'Booked' : 'Lead',
+        rightTone: (p.booked ? 'success' : 'primary') as 'success' | 'primary',
+        onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
+      })));
+    }
+    // leads (Booked column) — group visually by sorting by lead_source so they cluster.
     const saRows = drill.sa
       ? leads.rows.filter(r => r.sa === drill.sa)
       : leads.rows;
@@ -257,10 +268,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, leads.rows, sales.rows]);
+  }, [drill, leads.rows, sourcedLeads.rows, sales.rows]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : 'Leads booked'}`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
     : '';
 
   return (
