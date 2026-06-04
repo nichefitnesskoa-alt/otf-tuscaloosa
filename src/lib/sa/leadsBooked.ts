@@ -62,9 +62,11 @@ export function isSaResponsibleBooking(b: { lead_source: string | null }): boole
  *  hidden until a real SA is assigned. Safety net for legacy/import artifacts. */
 export const PHANTOM_BOOKED_BY = new Set<string>([
   'System (Auto-Import)',
+  'System (Sheet Import)',
   'Self (VIP Form)',
   'Self-booked',
   'Self booked',
+  'AM Shift',
   'Unknown',
   'TBD',
 ]);
