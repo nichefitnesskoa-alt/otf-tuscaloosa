@@ -63,6 +63,7 @@ import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
+import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
 
 export default function MyDayPage() {
   const { user } = useAuth();
@@ -412,6 +413,7 @@ export default function MyDayPage() {
           </TabsContent>
 
           <TabsContent value="leads" className="mt-0 space-y-3">
+            <SelfSourcedLeadEntry />
             <div className="mb-1">
               <h2 className="text-sm font-semibold">New Leads</h2>
               <p className="text-xs text-muted-foreground">Email-parsed leads — speed to contact matters</p>

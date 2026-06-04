@@ -9,7 +9,8 @@ import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { PersonListDrillDown, type PersonRow } from '@/components/dashboard/PersonListDrillDown';
 import { PersonJourneyCard } from '@/components/person/PersonJourneyCard';
-import { useSaLeadsBooked } from '@/hooks/useSaLeadsBooked';
+import { useSaAllBooked } from '@/hooks/useSaAllBooked';
+import { useSaLeads } from '@/hooks/useSaLeads';
 import { useSaSales } from '@/hooks/useSaSales';
 import { useActiveStaff } from '@/hooks/useActiveStaff';
 import type { DateRange } from '@/lib/pay-period';
@@ -23,7 +24,7 @@ interface Props {
   dateRange: DateRange | undefined;
 }
 
-type DrillBucket = 'leads' | 'sales';
+type DrillBucket = 'leads' | 'sales' | 'sourced';
 
 const DEFAULT_SA_LEADS_TARGET = 16; // per SA per MONTH
 const DEFAULT_SA_SALES_TARGET = 4;  // per SA per MONTH
@@ -37,7 +38,8 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   const rangeStart = dateRange ? format(dateRange.start, 'yyyy-MM-dd') : '2020-01-01';
   const rangeEnd = dateRange ? format(dateRange.end, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
   
-  const leads = useSaLeadsBooked(rangeStart, rangeEnd);
+  const leads = useSaAllBooked(rangeStart, rangeEnd);
+  const sourcedLeads = useSaLeads(rangeStart, rangeEnd);
   const sales = useSaSales(rangeStart, rangeEnd);
 
   const [drill, setDrill] = useState<{ sa: string | null; bucket: DrillBucket } | null>(null);
@@ -162,29 +164,30 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // Merge leads + sales into per-SA rows. Only include names that are currently
   // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
-    const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
-    const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
+    const leadsMap = new Map<string, number>(leads.rows.map(r => [r.sa, r.count] as const));
+    const sourcedMap = new Map<string, number>(sourcedLeads.rows.map(r => [r.sa, r.count] as const));
+    const salesMap = new Map<string, number>(sales.rows.map(r => [r.sa, r.count] as const));
     const allNames = new Set<string>([
       ...activeSet,
       ...leads.rows.map(r => r.sa),
+      ...sourcedLeads.rows.map(r => r.sa),
       ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames)
-      // Only show people who are currently active SAs. Inactive/legacy/phantom
-      // names that somehow slipped through never appear on the leaderboard.
-      // Koa (Admin) is excluded from the SA leaderboard.
       .filter(name => activeSet.has(name) && name !== 'Koa')
       .map(name => ({
         name,
+        sourced: sourcedMap.get(name) ?? 0,
         leadsBooked: leadsMap.get(name) ?? 0,
         sales: salesMap.get(name) ?? 0,
       }))
       .sort((a, b) =>
         b.sales - a.sales ||
+        b.sourced - a.sourced ||
         b.leadsBooked - a.leadsBooked ||
         a.name.localeCompare(b.name),
       );
-  }, [leads.rows, sales.rows, activeSet]);
+  }, [leads.rows, sourcedLeads.rows, sales.rows, activeSet]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
@@ -232,7 +235,18 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           : undefined,
       })));
     }
-    // leads — group visually by sorting by lead_source so they cluster.
+    if (drill.bucket === 'sourced') {
+      const saRows = drill.sa ? sourcedLeads.rows.filter(r => r.sa === drill.sa) : sourcedLeads.rows;
+      return saRows.flatMap(r => r.people.map(p => ({
+        id: p.id,
+        name: p.name,
+        subtitle: `${p.source || 'Unknown source'} · ${format(new Date(p.created_at), 'MMM d')} · ${r.sa}${p.booked ? ' · booked ✓' : ' · not booked yet'}`,
+        rightLabel: p.booked ? 'Booked' : 'Lead',
+        rightTone: (p.booked ? 'success' : 'primary') as 'success' | 'primary',
+        onClick: p.booking_id ? () => setJourneyBookingId(p.booking_id!) : undefined,
+      })));
+    }
+    // leads (Booked column) — group visually by sorting by lead_source so they cluster.
     const saRows = drill.sa
       ? leads.rows.filter(r => r.sa === drill.sa)
       : leads.rows;
@@ -254,10 +268,10 @@ export function WigSaLeaderboard({ dateRange }: Props) {
       }),
     );
     return flat.sort((a, b) => a._src.localeCompare(b._src)).map(({ _src, ...row }) => row);
-  }, [drill, leads.rows, sales.rows]);
+  }, [drill, leads.rows, sourcedLeads.rows, sales.rows]);
 
   const drillTitle = drill
-    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : 'Leads booked'}`
+    ? `${drill.sa ?? 'Studio'} · ${drill.bucket === 'sales' ? 'Sales' : drill.bucket === 'sourced' ? 'Self-sourced leads' : 'Booked intros'}`
     : '';
 
   return (
@@ -273,7 +287,7 @@ export function WigSaLeaderboard({ dateRange }: Props) {
               className="w-full min-h-[44px] cursor-pointer hover:bg-muted/40 rounded -m-1 p-1 disabled:cursor-default disabled:hover:bg-transparent"
             >
               <p className="text-2xl font-bold text-primary">{totals.leads}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Leads booked</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Booked</p>
               <p className="text-[10px] text-muted-foreground">team goal {teamLeadsTarget} ({rangeLabel})</p>
             </button>
           </CardContent>
@@ -345,6 +359,11 @@ export function WigSaLeaderboard({ dateRange }: Props) {
           <p className="text-[11px] text-muted-foreground">
             Tap a number to drill in. Tap an SA name to open their page.
           </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <strong>Leads</strong> = self-sourced only.{' '}
+            <strong>Booked</strong> = intros booked (inbound + sourced).
+            A sourced lead that books counts in both.
+          </p>
         </CardHeader>
         <CardContent className="p-0">
           {(leads.loading || sales.loading) ? (
@@ -361,7 +380,13 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                   <TableRow>
                     <TableHead className="text-xs">SA</TableHead>
                     <TableHead className="text-xs text-center">
-                      Leads booked
+                      Leads
+                      <div className="text-[9px] font-normal text-muted-foreground">
+                        self-sourced
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs text-center">
+                      Booked
                       <div className="text-[9px] font-normal text-muted-foreground">
                         goal {leadsPeriodGoal} ({leadsTarget}/mo prorated)
                       </div>
@@ -387,6 +412,21 @@ export function WigSaLeaderboard({ dateRange }: Props) {
                       onClick={() => navigate(`/sas/${encodeURIComponent(row.name)}`)}
                     >
                       <TableCell className="text-sm font-medium whitespace-nowrap">{row.name}</TableCell>
+                      <TableCell className="text-sm text-center p-0">
+                        <button
+                          type="button"
+                          disabled={row.sourced === 0}
+                          onClick={e => { e.stopPropagation(); setDrill({ sa: row.name, bucket: 'sourced' }); }}
+                          className="w-full min-h-[44px] px-3 cursor-pointer hover:bg-muted/40 hover:underline disabled:cursor-default disabled:hover:bg-transparent disabled:hover:no-underline"
+                        >
+                          <div className="text-foreground font-medium">
+                            {row.sourced}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            sourced
+                          </div>
+                        </button>
+                      </TableCell>
                       <TableCell className="text-sm text-center p-0">
                         <button
                           type="button"
