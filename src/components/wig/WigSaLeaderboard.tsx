@@ -24,7 +24,7 @@ interface Props {
   dateRange: DateRange | undefined;
 }
 
-type DrillBucket = 'leads' | 'sales';
+type DrillBucket = 'leads' | 'sales' | 'sourced';
 
 const DEFAULT_SA_LEADS_TARGET = 16; // per SA per MONTH
 const DEFAULT_SA_SALES_TARGET = 4;  // per SA per MONTH
@@ -164,28 +164,29 @@ export function WigSaLeaderboard({ dateRange }: Props) {
   // active SAs OR appear with non-zero activity (we then filter again for active).
   const sortedRows = useMemo(() => {
     const leadsMap = new Map(leads.rows.map(r => [r.sa, r.count]));
+    const sourcedMap = new Map(sourcedLeads.rows.map(r => [r.sa, r.count]));
     const salesMap = new Map(sales.rows.map(r => [r.sa, r.count]));
     const allNames = new Set<string>([
       ...activeSet,
       ...leads.rows.map(r => r.sa),
+      ...sourcedLeads.rows.map(r => r.sa),
       ...sales.rows.map(r => r.sa),
     ]);
     return Array.from(allNames)
-      // Only show people who are currently active SAs. Inactive/legacy/phantom
-      // names that somehow slipped through never appear on the leaderboard.
-      // Koa (Admin) is excluded from the SA leaderboard.
       .filter(name => activeSet.has(name) && name !== 'Koa')
       .map(name => ({
         name,
+        sourced: sourcedMap.get(name) ?? 0,
         leadsBooked: leadsMap.get(name) ?? 0,
         sales: salesMap.get(name) ?? 0,
       }))
       .sort((a, b) =>
         b.sales - a.sales ||
+        b.sourced - a.sourced ||
         b.leadsBooked - a.leadsBooked ||
         a.name.localeCompare(b.name),
       );
-  }, [leads.rows, sales.rows, activeSet]);
+  }, [leads.rows, sourcedLeads.rows, sales.rows, activeSet]);
 
   const rangeLabel = dateRange
     ? `${format(dateRange.start, 'MMM d')} – ${format(dateRange.end, 'MMM d, yyyy')}`
