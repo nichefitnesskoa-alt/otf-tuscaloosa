@@ -63,6 +63,7 @@ import { VipClaimBanner } from './VipClaimBanner';
 
 import { ClassMilestoneChecks } from './ClassMilestoneChecks';
 import { ReferralAskActions } from './ReferralAskActions';
+import { SelfSourcedLeadEntry } from './SelfSourcedLeadEntry';
 
 export default function MyDayPage() {
   const { user } = useAuth();
