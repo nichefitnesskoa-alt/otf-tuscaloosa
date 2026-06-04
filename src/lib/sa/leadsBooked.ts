@@ -42,6 +42,21 @@ const VIP_LEAD_SOURCES = new Set<string>([
   'VIP Class (Friend)',
 ]);
 
+/** Sources where no SA did the booking work — member booked themselves online.
+ *  Excluded from the "Booked" column (SA Booked = bookings an SA was
+ *  responsible for). Lead Management is NOT here — an SA still works and
+ *  books those. */
+export const NO_SA_RESPONSIBLE_SOURCES = new Set<string>([
+  'Online Intro Offer (self-booked)',
+]);
+
+/** Canonical predicate: was an SA responsible for booking this intro?
+ *  False for self-booked Online Intro Offer (member did everything). */
+export function isSaResponsibleBooking(b: { lead_source: string | null }): boolean {
+  if (!b.lead_source) return true;
+  return !NO_SA_RESPONSIBLE_SOURCES.has(b.lead_source);
+}
+
 /** Phantom booked_by values that are NOT real people — never credit them on the
  *  leaderboard. If these appear, the booking is treated as unattributed and
  *  hidden until a real SA is assigned. Safety net for legacy/import artifacts. */
@@ -140,6 +155,7 @@ export function aggregateAllBookedBySa(
   for (const b of bookings) {
     if (b.deleted_at) continue;
     if (b.ignore_from_metrics) continue;
+    if (!isSaResponsibleBooking(b)) continue; // self-booked OIO → no SA credit
     const sa = getLeadBookedCreditSa(b, sessionMap);
     if (!sa) continue;
     const cur = out.get(sa) || { count: 0, bookings: [] };
