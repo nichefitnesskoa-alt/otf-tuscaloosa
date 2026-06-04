@@ -25,6 +25,18 @@ export const EXCLUDED_LEAD_SOURCES = new Set<string>([
   'Online Intro Offer (self-booked)',
 ]);
 
+/**
+ * Canonical predicate: does this lead_source string count as "self-sourced
+ * by an SA"? Used by BOTH the booked-SGL path (intros_booked aggregation)
+ * AND the un-booked-leads path (leads table aggregation) so the two surfaces
+ * always agree on what counts as self-sourced. A null/blank source is treated
+ * as NOT self-sourced (unknown provenance).
+ */
+export function isSelfSourcedLeadSource(source: string | null | undefined): boolean {
+  if (!source) return false;
+  return !EXCLUDED_LEAD_SOURCES.has(source);
+}
+
 const VIP_LEAD_SOURCES = new Set<string>([
   'VIP Class',
   'VIP Class (Friend)',
