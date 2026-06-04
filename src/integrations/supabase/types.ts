@@ -2008,6 +2008,7 @@ export type Database = {
           lost_reason: string | null
           phone: string
           source: string
+          sourced_by_sa: string | null
           stage: string
           updated_at: string
         }
@@ -2026,6 +2027,7 @@ export type Database = {
           lost_reason?: string | null
           phone: string
           source?: string
+          sourced_by_sa?: string | null
           stage?: string
           updated_at?: string
         }
@@ -2044,6 +2046,7 @@ export type Database = {
           lost_reason?: string | null
           phone?: string
           source?: string
+          sourced_by_sa?: string | null
           stage?: string
           updated_at?: string
         }
