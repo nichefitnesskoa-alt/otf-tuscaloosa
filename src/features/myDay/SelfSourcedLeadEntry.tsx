@@ -96,7 +96,7 @@ export function SelfSourcedLeadEntry() {
       });
 
       toast.success(alsoBook ? 'Lead saved — book the intro' : 'Lead logged');
-      notifyDataChanged({ scopes: ['leads', 'sa-leads'] });
+      notifyDataChanged(['leads', 'sa-leads']);
 
       if (alsoBook) {
         setSavedLead(lead as Tables<'leads'>);
@@ -224,7 +224,7 @@ export function SelfSourcedLeadEntry() {
           }}
           lead={savedLead}
           onDone={() => {
-            notifyDataChanged({ scopes: ['leads', 'intros_booked', 'sa-leads', 'sa-all-booked'] });
+            notifyDataChanged(['leads', 'intros_booked', 'sa-leads', 'sa-all-booked']);
             setBookOpen(false);
             reset();
             setOpen(false);
