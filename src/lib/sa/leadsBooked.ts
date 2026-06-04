@@ -124,3 +124,28 @@ export function aggregateLeadsBookedBySa(
   }
   return out;
 }
+
+/**
+ * Aggregate ALL booked intros per SA (inbound + sourced) — used by the
+ * "Booked" column on the SA Leaderboard. Differs from `aggregateLeadsBookedBySa`
+ * only in that the source predicate is NOT applied; phantom credit names and
+ * soft-deleted / ignored rows are still filtered.
+ */
+export function aggregateAllBookedBySa(
+  bookings: LeadBookedBookingInput[],
+  vipSessions: VipSessionLite[],
+): Map<string, { count: number; bookings: LeadBookedBookingInput[] }> {
+  const sessionMap = new Map(vipSessions.map(s => [s.id, s]));
+  const out = new Map<string, { count: number; bookings: LeadBookedBookingInput[] }>();
+  for (const b of bookings) {
+    if (b.deleted_at) continue;
+    if (b.ignore_from_metrics) continue;
+    const sa = getLeadBookedCreditSa(b, sessionMap);
+    if (!sa) continue;
+    const cur = out.get(sa) || { count: 0, bookings: [] };
+    cur.count += 1;
+    cur.bookings.push(b);
+    out.set(sa, cur);
+  }
+  return out;
+}
